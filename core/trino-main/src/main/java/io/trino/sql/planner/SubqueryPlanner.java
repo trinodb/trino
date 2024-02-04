@@ -24,7 +24,6 @@ import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
@@ -171,7 +170,7 @@ class SubqueryPlanner
         Map<ScopeAware<T>, List<T>> sets = new LinkedHashMap<>();
 
         for (T expression : expressions) {
-            sets.computeIfAbsent(ScopeAware.scopeAwareKey(expression, analysis, scope), key -> new ArrayList<>())
+            sets.computeIfAbsent(scopeAwareKey(expression, analysis, scope), key -> new ArrayList<>())
                     .add(expression);
         }
 
@@ -220,9 +219,7 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         valuePlan.getSubPlan().getRoot(),
                         subqueryPlan.getSubPlan().getRoot(),
-                        Assignments.of(output, new InPredicate(
-                                valuePlan.get(value).toSymbolReference(),
-                                subqueryPlan.get(subquery).toSymbolReference())),
+                        ImmutableMap.of(output, new ApplyNode.In(valuePlan.get(value), subqueryPlan.get(subquery))),
                         valuePlan.getSubPlan().getRoot().getOutputSymbols(),
                         originalExpression));
     }
@@ -257,7 +254,7 @@ class SubqueryPlanner
                 }
             }
 
-            Expression expression = new Cast(new Row(fields.build()), TypeSignatureTranslator.toSqlType(type));
+            Expression expression = new Cast(new Row(fields.build()), toSqlType(type));
 
             root = new ProjectNode(idAllocator.getNextId(), root, Assignments.of(column, expression));
         }
@@ -306,7 +303,7 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         planSubquery(subquery, subPlan.getTranslations()).getRoot(),
-                        Assignments.of(exists, new ExistsPredicate(TRUE_LITERAL)),
+                        ImmutableMap.of(exists, new ApplyNode.Exists()),
                         subPlan.getRoot().getOutputSymbols(),
                         subquery));
     }
@@ -415,13 +412,31 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         valuePlan.getSubPlan().getRoot(),
                         subqueryPlan.getSubPlan().getRoot(),
-                        Assignments.of(assignment, new QuantifiedComparisonExpression(
-                                operator,
-                                quantifier,
-                                valuePlan.get(value).toSymbolReference(),
-                                subqueryPlan.get(subquery).toSymbolReference())),
+                        ImmutableMap.of(assignment, new ApplyNode.QuantifiedComparison(mapOperator(operator), mapQuantifier(quantifier), valuePlan.get(value), subqueryPlan.get(subquery))),
                         valuePlan.getSubPlan().getRoot().getOutputSymbols(),
                         subquery));
+    }
+
+    private static ApplyNode.Quantifier mapQuantifier(Quantifier quantifier)
+    {
+        return switch (quantifier) {
+            case ALL -> ApplyNode.Quantifier.ALL;
+            case ANY -> ApplyNode.Quantifier.ANY;
+            case SOME -> ApplyNode.Quantifier.SOME;
+        };
+    }
+
+    private static ApplyNode.Operator mapOperator(ComparisonExpression.Operator operator)
+    {
+        return switch (operator) {
+            case EQUAL -> ApplyNode.Operator.EQUAL;
+            case NOT_EQUAL -> ApplyNode.Operator.NOT_EQUAL;
+            case LESS_THAN -> ApplyNode.Operator.LESS_THAN;
+            case LESS_THAN_OR_EQUAL -> ApplyNode.Operator.LESS_THAN_OR_EQUAL;
+            case GREATER_THAN -> ApplyNode.Operator.GREATER_THAN;
+            case GREATER_THAN_OR_EQUAL -> ApplyNode.Operator.GREATER_THAN_OR_EQUAL;
+            case IS_DISTINCT_FROM -> throw new IllegalArgumentException();
+        };
     }
 
     private PlanAndMappings planValue(PlanBuilder subPlan, Expression value, Type actualType, Optional<Type> coercion)
@@ -506,7 +521,7 @@ class SubqueryPlanner
     {
         return cluster.getExpressions().stream()
                 .collect(toImmutableMap(
-                        expression -> ScopeAware.scopeAwareKey(expression, analysis, scope),
+                        expression -> scopeAwareKey(expression, analysis, scope),
                         expression -> output,
                         (first, second) -> first));
     }

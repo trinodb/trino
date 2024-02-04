@@ -89,6 +89,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -909,10 +910,15 @@ public final class ValidateDependenciesChecker
                     .addAll(createInputs(node.getInput(), boundSymbols))
                     .build();
 
-            for (Expression expression : node.getSubqueryAssignments().getExpressions()) {
-                Set<Symbol> dependencies = extractUnique(expression);
-                checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
-            }
+            List<Symbol> dependencies = node.getSubqueryAssignments().values().stream()
+                    .flatMap(assignment -> switch (assignment) {
+                        case ApplyNode.In in -> Stream.of(in.value(), in.reference());
+                        case ApplyNode.QuantifiedComparison comparison -> Stream.of(comparison.value(), comparison.reference());
+                        case ApplyNode.Exists unused -> Stream.empty();
+                    })
+                    .toList();
+
+            checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
 
             return null;
         }

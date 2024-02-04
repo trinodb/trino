@@ -800,7 +800,7 @@ public final class PlanMatchPattern
         return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate, Optional.of(dynamicFilter)));
     }
 
-    public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, ExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, SetExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
     {
         PlanMatchPattern result = node(ApplyNode.class, inputPattern, subqueryPattern)
                 .with(new CorrelationMatcher(correlationSymbolAliases));
@@ -1122,6 +1122,11 @@ public final class PlanMatchPattern
     public static RvalueMatcher columnReference(String tableName, String columnName)
     {
         return new ColumnReference(tableName, columnName);
+    }
+
+    public static SetExpressionMatcher setExpression(ApplyNode.SetExpression expression)
+    {
+        return new SetExpressionMatcher(expression);
     }
 
     public static ExpressionMatcher expression(@Language("SQL") String expression)

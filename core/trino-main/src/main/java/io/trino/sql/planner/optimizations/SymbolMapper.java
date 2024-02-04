@@ -22,6 +22,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.GroupIdNode;
@@ -113,6 +114,19 @@ public class SymbolMapper
     public Symbol map(Symbol symbol)
     {
         return mappingFunction.apply(symbol);
+    }
+
+    public ApplyNode.SetExpression map(ApplyNode.SetExpression expression)
+    {
+        return switch (expression) {
+            case ApplyNode.Exists exists -> exists;
+            case ApplyNode.In in -> new ApplyNode.In(map(in.value()), map(in.reference()));
+            case ApplyNode.QuantifiedComparison comparison -> new ApplyNode.QuantifiedComparison(
+                    comparison.operator(),
+                    comparison.quantifier(),
+                    map(comparison.value()),
+                    map(comparison.reference()));
+        };
     }
 
     public List<Symbol> map(List<Symbol> symbols)

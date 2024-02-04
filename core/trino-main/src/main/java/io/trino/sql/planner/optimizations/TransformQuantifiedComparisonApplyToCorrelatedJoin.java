@@ -37,7 +37,6 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.WhenClause;
@@ -55,6 +54,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
+import static io.trino.sql.planner.plan.ApplyNode.Quantifier.ALL;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -64,7 +64,6 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQ
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static io.trino.sql.tree.QuantifiedComparisonExpression.Quantifier.ALL;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -107,15 +106,15 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                 return context.defaultRewrite(node);
             }
 
-            Expression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
-            if (!(expression instanceof QuantifiedComparisonExpression quantifiedComparison)) {
-                return context.defaultRewrite(node);
+            ApplyNode.SetExpression expression = getOnlyElement(node.getSubqueryAssignments().values());
+            if (expression instanceof ApplyNode.QuantifiedComparison comparison) {
+                return rewriteQuantifiedApplyNode(node, comparison, context);
             }
 
-            return rewriteQuantifiedApplyNode(node, quantifiedComparison, context);
+            return context.defaultRewrite(node);
         }
 
-        private PlanNode rewriteQuantifiedApplyNode(ApplyNode node, QuantifiedComparisonExpression quantifiedComparison, RewriteContext<PlanNode> context)
+        private PlanNode rewriteQuantifiedApplyNode(ApplyNode node, ApplyNode.QuantifiedComparison quantifiedComparison, RewriteContext<PlanNode> context)
         {
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
@@ -175,16 +174,16 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
 
             Expression valueComparedToSubquery = rewriteUsingBounds(quantifiedComparison, minValue, maxValue, countAllValue, countNonNullValue);
 
-            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
+            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().keySet());
 
             return projectExpressions(join, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
         }
 
-        public Expression rewriteUsingBounds(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
+        public Expression rewriteUsingBounds(ApplyNode.QuantifiedComparison quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
         {
             BooleanLiteral emptySetResult;
             Function<List<Expression>, Expression> quantifier;
-            if (quantifiedComparison.getQuantifier() == ALL) {
+            if (quantifiedComparison.quantifier() == ALL) {
                 emptySetResult = TRUE_LITERAL;
                 quantifier = expressions -> ExpressionUtils.combineConjuncts(metadata, expressions);
             }
@@ -209,39 +208,51 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     Optional.of(emptySetResult))))));
         }
 
-        private Expression getBoundComparisons(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue)
+        private Expression getBoundComparisons(ApplyNode.QuantifiedComparison quantifiedComparison, Symbol minValue, Symbol maxValue)
         {
-            if (quantifiedComparison.getOperator() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
+            if (mapOperator(quantifiedComparison) == EQUAL && quantifiedComparison.quantifier() == ALL) {
                 // A = ALL B <=> min B = max B && A = min B
                 return combineConjuncts(
                         metadata,
                         new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
-                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), maxValue.toSymbolReference()));
+                        new ComparisonExpression(EQUAL, quantifiedComparison.value().toSymbolReference(), maxValue.toSymbolReference()));
             }
 
-            if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getOperator())) {
+            if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(mapOperator(quantifiedComparison))) {
                 // A < ALL B <=> A < min B
                 // A > ALL B <=> A > max B
                 // A < ANY B <=> A < max B
                 // A > ANY B <=> A > min B
                 Symbol boundValue = shouldCompareValueWithLowerBound(quantifiedComparison) ? minValue : maxValue;
-                return new ComparisonExpression(quantifiedComparison.getOperator(), quantifiedComparison.getValue(), boundValue.toSymbolReference());
+                return new ComparisonExpression(mapOperator(quantifiedComparison), quantifiedComparison.value().toSymbolReference(), boundValue.toSymbolReference());
             }
             throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
         }
 
-        private static boolean shouldCompareValueWithLowerBound(QuantifiedComparisonExpression quantifiedComparison)
+        private static ComparisonExpression.Operator mapOperator(ApplyNode.QuantifiedComparison quantifiedComparison)
         {
-            return switch (quantifiedComparison.getQuantifier()) {
-                case ALL -> switch (quantifiedComparison.getOperator()) {
+            return switch (quantifiedComparison.operator()) {
+                case EQUAL -> EQUAL;
+                case NOT_EQUAL -> NOT_EQUAL;
+                case LESS_THAN -> LESS_THAN;
+                case LESS_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL;
+                case GREATER_THAN -> GREATER_THAN;
+                case GREATER_THAN_OR_EQUAL -> GREATER_THAN_OR_EQUAL;
+            };
+        }
+
+        private static boolean shouldCompareValueWithLowerBound(ApplyNode.QuantifiedComparison quantifiedComparison)
+        {
+            return switch (quantifiedComparison.quantifier()) {
+                case ALL -> switch (mapOperator(quantifiedComparison)) {
                     case LESS_THAN, LESS_THAN_OR_EQUAL -> true;
                     case GREATER_THAN, GREATER_THAN_OR_EQUAL -> false;
-                    default -> throw new IllegalArgumentException("Unexpected value: " + quantifiedComparison.getOperator());
+                    default -> throw new IllegalArgumentException("Unexpected value: " + mapOperator(quantifiedComparison));
                 };
-                case ANY, SOME -> switch (quantifiedComparison.getOperator()) {
+                case ANY, SOME -> switch (mapOperator(quantifiedComparison)) {
                     case LESS_THAN, LESS_THAN_OR_EQUAL -> false;
                     case GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
-                    default -> throw new IllegalArgumentException("Unexpected value: " + quantifiedComparison.getOperator());
+                    default -> throw new IllegalArgumentException("Unexpected value: " + mapOperator(quantifiedComparison));
                 };
             };
         }

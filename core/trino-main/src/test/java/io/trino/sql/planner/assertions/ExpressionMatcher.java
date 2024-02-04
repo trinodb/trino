@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
@@ -92,9 +91,6 @@ public class ExpressionMatcher
     {
         if (node instanceof ProjectNode projectNode) {
             return projectNode.getAssignments().getMap();
-        }
-        if (node instanceof ApplyNode applyNode) {
-            return applyNode.getSubqueryAssignments().getMap();
         }
         return null;
     }

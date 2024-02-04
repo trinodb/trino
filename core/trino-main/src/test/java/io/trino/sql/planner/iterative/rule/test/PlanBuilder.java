@@ -535,7 +535,7 @@ public class PlanBuilder
         }
     }
 
-    public ApplyNode apply(Assignments subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
+    public ApplyNode apply(Map<Symbol, ApplyNode.SetExpression> subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
         NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
         return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, originSubquery);

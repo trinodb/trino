@@ -16,15 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.setExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
@@ -41,7 +39,7 @@ public class TestPruneApplyCorrelation
                     Symbol subquerySymbol = p.symbol("subquery_symbol");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                            ImmutableMap.of(inResult, new ApplyNode.In(a, subquerySymbol)),
                             ImmutableList.of(inputSymbol),
                             p.values(a, inputSymbol),
                             p.values(subquerySymbol));
@@ -49,7 +47,7 @@ public class TestPruneApplyCorrelation
                 .matches(
                         apply(
                                 ImmutableList.of(),
-                                ImmutableMap.of("in_result", ExpressionMatcher.inPredicate(new SymbolReference("a"), new SymbolReference("subquery_symbol"))),
+                                ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol("a"), new Symbol("subquery_symbol")))),
                                 values("a", "input_symbol"),
                                 values("subquery_symbol")));
     }
@@ -64,7 +62,7 @@ public class TestPruneApplyCorrelation
                     Symbol subquerySymbol = p.symbol("subquery_symbol");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                            ImmutableMap.of(inResult, new ApplyNode.In(a, subquerySymbol)),
                             ImmutableList.of(inputSymbol),
                             p.values(a, inputSymbol),
                             p.filter(

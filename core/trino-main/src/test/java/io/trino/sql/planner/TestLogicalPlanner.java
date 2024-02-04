@@ -125,6 +125,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognitio
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.setExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
@@ -1094,7 +1095,7 @@ public class TestLogicalPlanner
                         filter("OUTER_FILTER",
                                 project(
                                         apply(ImmutableList.of("O", "C"),
-                                                ImmutableMap.of("OUTER_FILTER", expression("THREE IN (C)")),
+                                                ImmutableMap.of("OUTER_FILTER", setExpression(new ApplyNode.In(new Symbol("THREE"), new Symbol("C")))),
                                                 project(ImmutableMap.of("THREE", expression("BIGINT '3'")),
                                                         tableScan("orders", ImmutableMap.of(
                                                                 "O", "orderkey",
