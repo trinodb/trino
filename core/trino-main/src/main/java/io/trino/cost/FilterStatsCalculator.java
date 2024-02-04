@@ -413,13 +413,7 @@ public class FilterStatsCalculator
             Optional<Symbol> leftSymbol = left instanceof SymbolReference ? Optional.of(Symbol.from(left)) : Optional.empty();
             if (isEffectivelyLiteral(right)) {
                 Type type = getType(left);
-                Object literalValue = evaluateConstantExpression(
-                        right,
-                        type,
-                        plannerContext,
-                        session,
-                        new AllowAllAccessControl(),
-                        ImmutableMap.of());
+                Object literalValue = evaluateConstantExpression(right, plannerContext, session);
                 if (literalValue == null) {
                     // Possible when we process `x IN (..., NULL)` case.
                     return input.mapOutputRowCount(rowCountEstimate -> 0.);

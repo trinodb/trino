@@ -22,7 +22,6 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -1062,13 +1061,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            LikePattern matcher = (LikePattern) evaluateConstantExpression(
-                    patternArgument,
-                    typeAnalyzer.getType(session, types, patternArgument),
-                    plannerContext,
-                    session,
-                    new AllowAllAccessControl(),
-                    ImmutableMap.of());
+            LikePattern matcher = (LikePattern) evaluateConstantExpression(patternArgument, plannerContext, session);
 
             Slice pattern = utf8Slice(matcher.getPattern());
             Optional<Slice> escape = matcher.getEscape()
