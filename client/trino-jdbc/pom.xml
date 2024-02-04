@@ -468,6 +468,10 @@
                                         <exclude>META-INF/io/opentelemetry/**</exclude>
                                         <exclude>io/opentelemetry/semconv/**</exclude>
                                         <exclude>META-INF/native-image/**</exclude>
+                                        <exclude>META-INF/kotlin-project-structure-metadata.json</exclude>
+                                        <exclude>**/*.knm</exclude>
+                                        <exclude>**/manifest</exclude>
+                                        <exclude>**/module</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
