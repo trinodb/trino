@@ -13,12 +13,10 @@
  */
 package io.trino.cost;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
 import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -102,7 +100,7 @@ public class ValuesStatsRule
         checkState(valuesNode.getRows().isPresent(), "rows is empty");
         return valuesNode.getRows().get().stream()
                 .map(row -> {
-                    SqlRow rowValue = (SqlRow) evaluateConstantExpression(row, rowType, plannerContext, session, new AllowAllAccessControl(), ImmutableMap.of());
+                    SqlRow rowValue = (SqlRow) evaluateConstantExpression(row, plannerContext, session);
                     return readNativeValue(symbolType, rowValue.getRawFieldBlock(symbolId), rowValue.getRawIndex());
                 })
                 .collect(toList());

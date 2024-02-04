@@ -17,12 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.ArraySubscriptOperator;
-import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlRow;
@@ -33,16 +31,9 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.Analysis;
-import io.trino.sql.analyzer.CorrelationSupport;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
-import io.trino.sql.analyzer.QueryType;
-import io.trino.sql.analyzer.Scope;
-import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
@@ -54,11 +45,7 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ComparisonExpression.Operator;
-import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Extract;
-import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
@@ -70,17 +57,13 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
@@ -110,10 +93,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -125,17 +106,10 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
-import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
-import static io.trino.sql.planner.ResolvedFunctionCallRewriter.rewriteResolvedFunctions;
-import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
-import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -173,83 +147,10 @@ public class IrExpressionInterpreter
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
 
-    public static Object evaluateConstantExpression(
-            Expression expression,
-            Type expectedType,
-            PlannerContext plannerContext,
-            Session session,
-            AccessControl accessControl,
-            Map<NodeRef<Parameter>, Expression> parameters)
+    public static Object evaluateConstantExpression(Expression expression, PlannerContext plannerContext, Session session)
     {
-        // TODO: clean up -- we don't need to re-translate and desugar IR expressions
-        if (expression == null || expectedType == UNKNOWN) {
-            return null;
-        }
-
-        Analysis analysis = new Analysis(null, ImmutableMap.of(), QueryType.OTHERS);
-        Scope scope = Scope.create();
-        ExpressionAnalyzer.analyzeExpressionWithoutSubqueries(
-                session,
-                plannerContext,
-                accessControl,
-                scope,
-                analysis,
-                expression,
-                EXPRESSION_NOT_CONSTANT,
-                "Constant expression cannot contain a subquery",
-                WarningCollector.NOOP,
-                CorrelationSupport.DISALLOWED);
-
-        // Apply casts, desugar expression, and preform other rewrites
-        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext);
-        expression = coerceIfNecessary(analysis, expression, translationMap.rewrite(expression));
-
-        // The expression tree has been rewritten which breaks all the identity maps, so redo the analysis
-        // to re-analyze coercions that might be necessary
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
-        analyzer.analyze(expression, scope);
-
-        Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
-        if (!new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(actualType, expectedType)) {
-            throw semanticException(TYPE_MISMATCH, expression, "Cannot cast type %s to %s", actualType.getDisplayName(), expectedType.getDisplayName());
-        }
-
-        Map<NodeRef<Expression>, Type> coercions = ImmutableMap.<NodeRef<Expression>, Type>builder()
-                .putAll(analyzer.getExpressionCoercions())
-                .put(NodeRef.of(expression), expectedType)
-                .buildOrThrow();
-
-        // add coercions
-        Expression rewrite = Coercer.addCoercions(expression, coercions, analyzer.getTypeOnlyCoercions());
-
-        // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
-        analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
-        analyzer.analyze(rewrite, Scope.create());
-
-        // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
-        // to re-analyze coercions that might be necessary
-        analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
-        analyzer.analyze(rewrite, Scope.create());
-
-        // expressionInterpreter/optimizer only understands a subset of expression types
-        // TODO: remove this when the new expression tree is implemented
-        Expression canonicalized = canonicalizeExpression(rewrite, analyzer.getExpressionTypes(), plannerContext, session);
-
-        // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
-        // to re-analyze coercions that might be necessary
-        analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
-        analyzer.analyze(canonicalized, Scope.create());
-
-        // resolve functions
-        Expression resolved = rewriteResolvedFunctions(canonicalized, analyzer.getResolvedFunctions());
-
-        // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
-        // to re-analyze coercions that might be necessary
-        analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
-        analyzer.analyze(resolved, Scope.create());
-
-        // evaluate the expression
-        return new IrExpressionInterpreter(resolved, plannerContext, session, analyzer.getExpressionTypes()).evaluate();
+        Map<NodeRef<Expression>, Type> types = new IrTypeAnalyzer(plannerContext).getTypes(session, TypeProvider.empty(), expression);
+        return new IrExpressionInterpreter(expression, plannerContext, session, types).evaluate();
     }
 
     public Object evaluate()
@@ -301,53 +202,6 @@ public class IrExpressionInterpreter
                 // Do not suppress exceptions during expression execution.
                 throw e;
             }
-        }
-
-        @Override
-        public Object visitFieldReference(FieldReference node, Object context)
-        {
-            throw new UnsupportedOperationException("Field references not supported in interpreter");
-        }
-
-        @Override
-        protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
-        {
-            checkArgument(!isQualifiedAllFieldsReference(node), "unexpected expression: all fields labeled reference %s", node);
-            Identifier fieldIdentifier = node.getField().orElseThrow();
-
-            Type type = type(node.getBase());
-            // if there is no type for the base of Dereference, it must be QualifiedName
-            if (type == null) {
-                return node;
-            }
-
-            // Row dereference: process dereference base eagerly, and only then pick the expected field
-            Object base = processWithExceptionHandling(node.getBase(), context);
-            // if the base part is evaluated to be null, the dereference expression should also be null
-            if (base == null) {
-                return null;
-            }
-
-            if (hasUnresolvedValue(base)) {
-                return new DereferenceExpression(toExpression(base, type), fieldIdentifier);
-            }
-
-            RowType rowType = (RowType) type;
-            SqlRow row = (SqlRow) base;
-            Type returnType = type(node);
-            String fieldName = fieldIdentifier.getValue();
-            List<Field> fields = rowType.getFields();
-            int index = -1;
-            for (int i = 0; i < fields.size(); i++) {
-                Field field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
-                    checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
-                    index = i;
-                }
-            }
-
-            checkState(index >= 0, "could not find field name: %s", fieldName);
-            return readNativeValue(returnType, row.getRawFieldBlock(index), row.getRawIndex());
         }
 
         @Override
@@ -563,13 +417,7 @@ public class IrExpressionInterpreter
         {
             Object value = processWithExceptionHandling(node.getValue(), context);
 
-            Expression valueListExpression = node.getValueList();
-            if (!(valueListExpression instanceof InListExpression valueList)) {
-                if (!optimize) {
-                    throw new UnsupportedOperationException("IN predicate value list type not yet implemented: " + valueListExpression.getClass().getName());
-                }
-                return node;
-            }
+            InListExpression valueList = (InListExpression) node.getValueList();
             // `NULL IN ()` would be false, but InListExpression cannot be empty by construction
             if (value == null) {
                 return null;
@@ -668,24 +516,6 @@ public class IrExpressionInterpreter
                 return null;
             }
             return false;
-        }
-
-        @Override
-        protected Object visitExists(ExistsPredicate node, Object context)
-        {
-            if (!optimize) {
-                throw new UnsupportedOperationException("Exists subquery not yet implemented");
-            }
-            return node;
-        }
-
-        @Override
-        protected Object visitSubqueryExpression(SubqueryExpression node, Object context)
-        {
-            if (!optimize) {
-                throw new UnsupportedOperationException("Subquery not yet implemented");
-            }
-            return node;
         }
 
         @Override
@@ -1194,59 +1024,9 @@ public class IrExpressionInterpreter
         }
 
         @Override
-        protected Object visitExtract(Extract node, Object context)
-        {
-            Object value = processWithExceptionHandling(node.getExpression(), context);
-            if (value == null) {
-                return null;
-            }
-
-            if (value instanceof Expression) {
-                return new Extract(toExpression(value, type(node)), node.getField());
-            }
-
-            String name = switch (node.getField()) {
-                case YEAR -> "year";
-                case QUARTER -> "quarter";
-                case MONTH -> "month";
-                case WEEK -> "week";
-                case DAY, DAY_OF_MONTH -> "day";
-                case DAY_OF_WEEK, DOW -> "day_of_week";
-                case DAY_OF_YEAR, DOY -> "day_of_year";
-                case YEAR_OF_WEEK, YOW -> "year_of_week";
-                case HOUR -> "hour";
-                case MINUTE -> "minute";
-                case SECOND -> "second";
-                case TIMEZONE_MINUTE -> "timezone_minute";
-                case TIMEZONE_HOUR -> "timezone_hour";
-            };
-
-            return functionInvoker.invoke(
-                    plannerContext.getMetadata()
-                            .resolveBuiltinFunction(name, TypeSignatureProvider.fromTypes(type(node.getExpression()))),
-                    connectorSession,
-                    ImmutableList.of(value));
-        }
-
-        @Override
-        protected Object visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Object context)
-        {
-            if (!optimize) {
-                throw new UnsupportedOperationException("QuantifiedComparison not yet implemented");
-            }
-            return node;
-        }
-
-        @Override
         protected Object visitExpression(Expression node, Object context)
         {
             throw new TrinoException(NOT_SUPPORTED, "not yet implemented: " + node.getClass().getName());
-        }
-
-        @Override
-        protected Object visitNode(Node node, Object context)
-        {
-            throw new UnsupportedOperationException("Evaluator visitor can only handle Expression nodes");
         }
 
         private List<Type> types(Expression... expressions)

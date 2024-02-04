@@ -15,7 +15,6 @@ package io.trino.sql.planner;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
@@ -731,13 +730,7 @@ public final class ConnectorExpressionTranslator
             Expression patternArgument = node.getArguments().get(1);
             if (isEffectivelyLiteral(plannerContext, session, patternArgument)) {
                 // the pattern argument has been constant folded, so extract the underlying pattern and escape
-                LikePattern matcher = (LikePattern) evaluateConstantExpression(
-                        patternArgument,
-                        typeOf(patternArgument),
-                        plannerContext,
-                        session,
-                        new AllowAllAccessControl(),
-                        ImmutableMap.of());
+                LikePattern matcher = (LikePattern) evaluateConstantExpression(patternArgument, plannerContext, session);
 
                 arguments.add(new Constant(Slices.utf8Slice(matcher.getPattern()), createVarcharType(matcher.getPattern().length())));
                 if (matcher.getEscape().isPresent()) {
@@ -801,13 +794,7 @@ public final class ConnectorExpressionTranslator
         private ConnectorExpression constantFor(Expression node)
         {
             Type type = typeOf(node);
-            Object value = evaluateConstantExpression(
-                    node,
-                    type,
-                    plannerContext,
-                    session,
-                    new AllowAllAccessControl(),
-                    ImmutableMap.of());
+            Object value = evaluateConstantExpression(node, plannerContext, session);
 
             if (type == JONI_REGEXP) {
                 Slice pattern = ((JoniRegexp) value).pattern();

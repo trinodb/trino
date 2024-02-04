@@ -33,9 +33,9 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
                                 ImmutableList.of(
-                                        ImmutableList.of(expression("3+3"), expression("13.5e0")),
-                                        ImmutableList.of(expression("55"), expression("null")),
-                                        ImmutableList.of(expression("6"), expression("13.5e0")))))
+                                        ImmutableList.of(expression("BIGINT '3' + BIGINT '3'"), expression("13.5e0")),
+                                        ImmutableList.of(expression("BIGINT '55'"), expression("null")),
+                                        ImmutableList.of(expression("BIGINT '6'"), expression("13.5e0")))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(3)
