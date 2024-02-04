@@ -14,17 +14,13 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -58,12 +54,10 @@ public class SimplifyCountOverConstant
             .with(source().matching(project().capturedAs(CHILD)));
 
     private final PlannerContext plannerContext;
-    private final IrTypeAnalyzer typeAnalyzer;
 
-    public SimplifyCountOverConstant(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public SimplifyCountOverConstant(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
@@ -122,14 +116,7 @@ public class SimplifyCountOverConstant
         }
 
         if (isEffectivelyLiteral(plannerContext, context.getSession(), argument)) {
-            Type type = typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), argument);
-            Object value = evaluateConstantExpression(
-                    argument,
-                    type,
-                    plannerContext,
-                    context.getSession(),
-                    new AllowAllAccessControl(),
-                    ImmutableMap.of());
+            Object value = evaluateConstantExpression(argument, plannerContext, context.getSession());
             verify(!(value instanceof Expression));
             return value != null;
         }
