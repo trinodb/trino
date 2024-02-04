@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.OrderingTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -202,7 +202,7 @@ public class ExpressionRewriteRuleSet
                         call.getArguments(),
                         call.isDistinct(),
                         call.getFilter().map(Symbol::from),
-                        call.getOrderBy().map(OrderingScheme::fromOrderBy),
+                        call.getOrderBy().map(OrderingTranslator::fromOrderBy),
                         aggregation.getMask());
                 aggregations.put(entry.getKey(), newAggregation);
                 if (!aggregation.equals(newAggregation)) {
