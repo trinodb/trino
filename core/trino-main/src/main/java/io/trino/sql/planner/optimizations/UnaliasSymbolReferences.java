@@ -1014,35 +1014,28 @@ public class UnaliasSymbolReferences
             resultMapping.putAll(rewrittenSubquery.getMappings());
             mapper = symbolMapper(resultMapping);
 
-            ImmutableList.Builder<Map.Entry<Symbol, Expression>> rewrittenAssignments = ImmutableList.builder();
-            for (Map.Entry<Symbol, Expression> assignment : node.getSubqueryAssignments().entrySet()) {
+            ImmutableList.Builder<Map.Entry<Symbol, ApplyNode.SetExpression>> rewrittenAssignments = ImmutableList.builder();
+            for (Map.Entry<Symbol, ApplyNode.SetExpression> assignment : node.getSubqueryAssignments().entrySet()) {
                 rewrittenAssignments.add(new SimpleEntry<>(mapper.map(assignment.getKey()), mapper.map(assignment.getValue())));
             }
 
             // deduplicate assignments
-            Map<Symbol, Expression> deduplicateAssignments = rewrittenAssignments.build().stream()
+            Map<Symbol, ApplyNode.SetExpression> deduplicateAssignments = rewrittenAssignments.build().stream()
                     .distinct()
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            // derive new mappings for Subquery assignments outputs
-            Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments, false);
-
-            Map<Symbol, Symbol> assignmentsOutputMapping = new HashMap<>();
-            assignmentsOutputMapping.putAll(resultMapping);
-            assignmentsOutputMapping.putAll(newMapping);
-
-            mapper = symbolMapper(assignmentsOutputMapping);
+            mapper = symbolMapper(resultMapping);
 
             // build new Assignments with canonical outputs
             // duplicate entries will be removed by the Builder
-            Assignments.Builder newAssignments = Assignments.builder();
-            for (Map.Entry<Symbol, Expression> assignment : deduplicateAssignments.entrySet()) {
+            ImmutableMap.Builder<Symbol, ApplyNode.SetExpression> newAssignments = ImmutableMap.builder();
+            for (Map.Entry<Symbol, ApplyNode.SetExpression> assignment : deduplicateAssignments.entrySet()) {
                 newAssignments.put(mapper.map(assignment.getKey()), assignment.getValue());
             }
 
             return new PlanAndMappings(
-                    new ApplyNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), newAssignments.build(), rewrittenCorrelation, node.getOriginSubquery()),
-                    assignmentsOutputMapping);
+                    new ApplyNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), newAssignments.buildOrThrow(), rewrittenCorrelation, node.getOriginSubquery()),
+                    resultMapping);
         }
 
         @Override
