@@ -50,10 +50,6 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFacto
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.PropertiesSystemTableProvider;
 import io.trino.plugin.hive.SystemTableProvider;
-import io.trino.plugin.hive.TransactionalMetadata;
-import io.trino.plugin.hive.TransactionalMetadataFactory;
-import io.trino.plugin.hive.fs.DirectoryLister;
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
@@ -152,34 +148,6 @@ public class DeltaLakeModule
         binder.bind(TableChangesProcessorProvider.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, CacheKeyProvider.class).setBinding().to(DeltaLakeCacheKeyProvider.class).in(Scopes.SINGLETON);
-    }
-
-    @Singleton
-    @Provides
-    public TransactionalMetadataFactory createTransactionalMetadataFactory()
-    {
-        // fake implementation of TransactionalMetadataFactory used by HiveTransactionManager.
-        // not used in Delta lake connector.
-        return (identity, autoCommit) -> new TransactionalMetadata()
-        {
-            @Override
-            public SemiTransactionalHiveMetastore getMetastore()
-            {
-                throw new RuntimeException("SemiTransactionalHiveMetastore is not used by Delta");
-            }
-
-            @Override
-            public DirectoryLister getDirectoryLister()
-            {
-                throw new RuntimeException("DirectoryLister is not used by Delta");
-            }
-
-            @Override
-            public void commit() {}
-
-            @Override
-            public void rollback() {}
-        };
     }
 
     @Singleton
