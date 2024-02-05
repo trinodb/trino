@@ -67,8 +67,8 @@ public class AlluxioFileSystemCacheModule
     {
         configBinder(binder).bindConfig(AlluxioFileSystemCacheConfig.class);
         configBinder(binder).bindConfig(ConsistentHashingHostAddressProviderConfiguration.class);
-        binder.bind(CacheStats.class).to(AlluxioCacheStats.class).in(SINGLETON);
-        newExporter(binder).export(CacheStats.class).as(generator -> generator.generatedNameOf(AlluxioCacheStats.class));
+        binder.bind(AlluxioCacheStats.class).in(SINGLETON);
+        newExporter(binder).export(AlluxioCacheStats.class).as(generator -> generator.generatedNameOf(AlluxioCacheStats.class));
 
         binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
         newOptionalBinder(binder, CachingHostAddressProvider.class).setBinding().to(ConsistentHashingHostAddressProvider.class).in(SINGLETON);

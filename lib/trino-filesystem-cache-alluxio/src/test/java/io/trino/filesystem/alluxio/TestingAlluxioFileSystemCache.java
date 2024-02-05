@@ -117,7 +117,7 @@ public class TestingAlluxioFileSystemCache
     }
 
     private static class TestingAlluxioCacheStats
-            implements CacheStats
+            extends AlluxioCacheStats
     {
         private final Map<OperationContext, List<Integer>> operationCounts = new ConcurrentHashMap<>();
 

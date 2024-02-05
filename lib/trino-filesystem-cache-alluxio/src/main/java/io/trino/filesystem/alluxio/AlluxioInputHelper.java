@@ -37,7 +37,7 @@ public class AlluxioInputHelper
 {
     private final URIStatus status;
     private final CacheManager cacheManager;
-    private final CacheStats statistics;
+    private final AlluxioCacheStats statistics;
     private final Location location;
     private final int pageSize;
     private final long fileLength;
@@ -48,7 +48,7 @@ public class AlluxioInputHelper
     private long bufferStartPosition;
     private long bufferEndPosition;
 
-    public AlluxioInputHelper(Location location, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, CacheStats statistics)
+    public AlluxioInputHelper(Location location, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
     {
         this.status = requireNonNull(status, "status is null");
         this.fileLength = status.getLength();
