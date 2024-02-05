@@ -72,10 +72,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.LongStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.cache.CacheDriverFactory.MAX_DYNAMIC_FILTER_VALUE_COUNT;
 import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilter;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -128,31 +131,32 @@ public class TestCacheDriverFactory
         ConnectorSplit connectorSplit = new TestingSplit(false, ImmutableList.of());
         Split split = new Split(TEST_CATALOG_HANDLE, connectorSplit);
 
-        DriverFactory driverFactory = new DriverFactory(
-                operatorIdAllocator.incrementAndGet(),
-                true,
-                false,
-                ImmutableList.of(
-                        new DevNullOperator.DevNullOperatorFactory(0, planNodeIdAllocator.getNextId()),
-                        new DevNullOperator.DevNullOperatorFactory(1, planNodeIdAllocator.getNextId())),
-                OptionalInt.empty());
-        CacheDriverFactory cacheDriverFactory = new CacheDriverFactory(
-                TEST_SESSION,
-                new TestPageSourceProvider(),
-                registry,
-                TEST_TABLE_HANDLE,
-                signature,
-                ImmutableMap.of(),
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                ImmutableList.of(driverFactory, driverFactory, driverFactory),
-                new CacheStats());
-
         // expect driver for original plan because cacheSplit is empty
-        Driver driver = cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.empty());
+        CacheDriverFactory cacheDriverFactory = createCacheDriverFactory(new TestPageSourceProvider(), signature, operatorIdAllocator);
+        ScheduledSplit scheduledSplit = new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split);
+        Driver driver = cacheDriverFactory.createDriver(createDriverContext(), scheduledSplit, Optional.empty());
         assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
 
-        driverFactory = new DriverFactory(
+        // expect driver for original plan because dynamic filter filters data completely
+        cacheDriverFactory = createCacheDriverFactory(new TestPageSourceProvider(input -> TupleDomain.none()), signature, operatorIdAllocator);
+        driver = cacheDriverFactory.createDriver(createDriverContext(), scheduledSplit, Optional.of(new CacheSplitId("split")));
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
+
+        // expect driver for original plan because dynamic filter is too big
+        Domain bigDomain = Domain.multipleValues(BIGINT, LongStream.range(0, MAX_DYNAMIC_FILTER_VALUE_COUNT + 1)
+                .boxed()
+                .collect(toImmutableList()));
+        cacheDriverFactory = createCacheDriverFactory(
+                new TestPageSourceProvider(input -> TupleDomain.withColumnDomains(ImmutableMap.of(new TestingColumnHandle("column"), bigDomain))),
+                signature,
+                operatorIdAllocator);
+        driver = cacheDriverFactory.createDriver(createDriverContext(), scheduledSplit, Optional.of(new CacheSplitId("split")));
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
+    }
+
+    private CacheDriverFactory createCacheDriverFactory(TestPageSourceProvider pageSourceProvider, PlanSignatureWithPredicate signature, AtomicInteger operatorIdAllocator)
+    {
+        DriverFactory driverFactory = new DriverFactory(
                 operatorIdAllocator.incrementAndGet(),
                 true,
                 false,
@@ -160,22 +164,17 @@ public class TestCacheDriverFactory
                         new DevNullOperator.DevNullOperatorFactory(2, planNodeIdAllocator.getNextId()),
                         new DevNullOperator.DevNullOperatorFactory(3, planNodeIdAllocator.getNextId())),
                 OptionalInt.empty());
-
-        cacheDriverFactory = new CacheDriverFactory(
+        return new CacheDriverFactory(
                 TEST_SESSION,
-                new TestPageSourceProvider(input -> TupleDomain.none()),
+                pageSourceProvider,
                 registry,
                 TEST_TABLE_HANDLE,
                 signature,
-                ImmutableMap.of(),
+                ImmutableMap.of(new CacheColumnId("column"), new TestingColumnHandle("column")),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
                 ImmutableList.of(driverFactory, driverFactory, driverFactory),
                 new CacheStats());
-
-        // expect driver for original plan because dynamic filter filters data completely
-        driver = cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(new CacheSplitId("split")));
-        assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
     }
 
     @Test

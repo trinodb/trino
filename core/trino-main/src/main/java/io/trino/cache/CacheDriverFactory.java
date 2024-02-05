@@ -29,6 +29,9 @@ import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.predicate.DiscreteValues;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.PageSourceProvider;
 
@@ -47,6 +50,7 @@ import static java.util.Objects.requireNonNull;
 
 public class CacheDriverFactory
 {
+    static final int MAX_DYNAMIC_FILTER_VALUE_COUNT = 1_000_000;
     private static final Logger LOG = Logger.get(CacheDriverFactory.class);
 
     public static final float THRASHING_CACHE_THRESHOLD = 0.7f;
@@ -120,8 +124,8 @@ public class CacheDriverFactory
                 // filter out DF columns which are not mapped to signature output columns
                 .filter((column, domain) -> dynamicFilterColumnMapping.containsKey(column));
 
-        if (dynamicPredicate.isNone()) {
-            // skip caching of completely filtered out splits
+        // skip caching of completely filtered out splits or if dynamic filter becomes too big
+        if (dynamicPredicate.isNone() || getTupleDomainValueCount(dynamicPredicate) > MAX_DYNAMIC_FILTER_VALUE_COUNT) {
             return alternatives.get(ORIGINAL_PLAN_ALTERNATIVE).createDriver(driverContext);
         }
 
@@ -185,5 +189,22 @@ public class CacheDriverFactory
     public CacheMetrics getCacheMetrics()
     {
         return cacheMetrics;
+    }
+
+    private static int getTupleDomainValueCount(TupleDomain<?> tupleDomain)
+    {
+        return tupleDomain.getDomains()
+                .map(domains -> domains.values().stream()
+                        .mapToInt(CacheDriverFactory::getDomainValueCount)
+                        .sum())
+                .orElse(0);
+    }
+
+    private static int getDomainValueCount(Domain domain)
+    {
+        return domain.getValues().getValuesProcessor().transform(
+                Ranges::getRangeCount,
+                DiscreteValues::getValuesCount,
+                ignored -> 0);
     }
 }
