@@ -74,7 +74,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
                 .disableTTL()
                 .setCachePageSize(DataSize.ofBytes(PAGE_SIZE))
                 .setMaxCacheSizes(DataSize.ofBytes(CACHE_SIZE).toBytesValueString());
-        AlluxioConfiguration alluxioConfiguration = AlluxioFileSystemCacheModule.getAlluxioConfiguration(configuration);
+        AlluxioConfiguration alluxioConfiguration = AlluxioConfigurationFactory.create(configuration);
 
         trackingFileSystemFactory = new TrackingFileSystemFactory(new MemoryFileSystemFactory());
         alluxioCache = new TestingAlluxioFileSystemCache(alluxioConfiguration, new DefaultCacheKeyProvider());

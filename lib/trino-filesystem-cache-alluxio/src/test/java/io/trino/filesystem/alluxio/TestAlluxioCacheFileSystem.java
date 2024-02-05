@@ -54,7 +54,7 @@ public class TestAlluxioCacheFileSystem
                 .setCachePageSize(DataSize.valueOf("32003B"))
                 .disableTTL()
                 .setMaxCacheSizes("100MB");
-        AlluxioConfiguration alluxioConfiguration = AlluxioFileSystemCacheModule.getAlluxioConfiguration(configuration);
+        AlluxioConfiguration alluxioConfiguration = AlluxioConfigurationFactory.create(configuration);
         cache = new TestingAlluxioFileSystemCache(alluxioConfiguration, new DefaultCacheKeyProvider()) {
             @Override
             public void expire(Location location)

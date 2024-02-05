@@ -26,7 +26,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule.totalSpace;
+import static io.trino.filesystem.alluxio.AlluxioConfigurationFactory.totalSpace;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -36,7 +36,7 @@ class TestAlluxioFileSystemCacheConfig
     public void testInvalidConfiguration()
     {
         assertThatThrownBy(() ->
-                AlluxioFileSystemCacheModule.getAlluxioConfiguration(
+                AlluxioConfigurationFactory.create(
                         new AlluxioFileSystemCacheConfig()
                                 .setCacheDirectories("/cache1,/cache2")
                                 .setMaxCacheDiskUsagePercentages("0")
@@ -44,14 +44,14 @@ class TestAlluxioFileSystemCacheConfig
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Either fs.cache.max-sizes or fs.cache.max-disk-usage-percentages must be specified");
         assertThatThrownBy(() ->
-                AlluxioFileSystemCacheModule.getAlluxioConfiguration(
+                AlluxioConfigurationFactory.create(
                         new AlluxioFileSystemCacheConfig()
                                 .setCacheDirectories("/cache1,/cache2")
                                 .setMaxCacheSizes("1B")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("fs.cache.directories and fs.cache.max-sizes must have the same size");
         assertThatThrownBy(() ->
-                AlluxioFileSystemCacheModule.getAlluxioConfiguration(
+                AlluxioConfigurationFactory.create(
                         new AlluxioFileSystemCacheConfig()
                                 .setCacheDirectories("/cache1,/cache2")
                                 .setMaxCacheDiskUsagePercentages("0")))
