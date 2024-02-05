@@ -101,7 +101,7 @@ jobs:
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   artifact-checks:
-    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
+    runs-on: [self-hosted, sep-cicd, gha-fleet-small]
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
