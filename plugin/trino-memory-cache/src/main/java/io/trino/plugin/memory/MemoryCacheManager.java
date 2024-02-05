@@ -625,6 +625,8 @@ public class MemoryCacheManager
         private final long columnId;
         private final CacheSplitId splitId;
 
+        private volatile int hashCode;
+
         SplitKey(long signatureId, long columnId, CacheSplitId splitId)
         {
             this.signatureId = signatureId;
@@ -665,7 +667,10 @@ public class MemoryCacheManager
         @Override
         public int hashCode()
         {
-            return Objects.hash(signatureId, columnId, splitId);
+            if (hashCode == 0) {
+                hashCode = Objects.hash(signatureId, columnId, splitId);
+            }
+            return hashCode;
         }
 
         @Override
