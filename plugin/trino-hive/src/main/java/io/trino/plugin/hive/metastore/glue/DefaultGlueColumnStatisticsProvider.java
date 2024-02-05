@@ -32,6 +32,7 @@ import com.amazonaws.services.glue.model.UpdateColumnStatisticsForPartitionReque
 import com.amazonaws.services.glue.model.UpdateColumnStatisticsForTableRequest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnStatisticType;
@@ -53,6 +54,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -220,15 +222,20 @@ public class DefaultGlueColumnStatisticsProvider
                                             .withColumnStatisticsList(columnChunk))), this.writeExecutor))
                     .collect(toUnmodifiableList());
 
-            Map<String, HiveColumnStatistics> currentTableColumnStatistics = this.getTableColumnStatistics(table);
-            Set<String> removedStatistics = difference(currentTableColumnStatistics.keySet(), updatedTableColumnStatistics.keySet());
+            Set<String> removedStatistics = difference(ImmutableSet.copyOf(getAllColumns(table)), updatedTableColumnStatistics.keySet());
             List<CompletableFuture<Void>> deleteFutures = removedStatistics.stream()
-                    .map(column -> runAsync(() -> stats.getDeleteColumnStatisticsForTable().call(() ->
+                    .map(column -> runAsync(() -> stats.getDeleteColumnStatisticsForTable().call(() -> {
+                        try {
                             glueClient.deleteColumnStatisticsForTable(
                                     new DeleteColumnStatisticsForTableRequest()
                                             .withDatabaseName(table.getDatabaseName())
                                             .withTableName(table.getTableName())
-                                            .withColumnName(column))), this.writeExecutor))
+                                            .withColumnName(column));
+                        }
+                        catch (EntityNotFoundException ignored) {
+                        }
+                        return null;
+                    }), this.writeExecutor))
                     .collect(toUnmodifiableList());
 
             ImmutableList<CompletableFuture<Void>> updateOperationsFutures = ImmutableList.<CompletableFuture<Void>>builder()
@@ -246,10 +253,6 @@ public class DefaultGlueColumnStatisticsProvider
     @Override
     public void updatePartitionStatistics(Set<PartitionStatisticsUpdate> partitionStatisticsUpdates)
     {
-        Map<Partition, Map<String, HiveColumnStatistics>> currentStatistics = getPartitionColumnStatistics(
-                partitionStatisticsUpdates.stream()
-                        .map(PartitionStatisticsUpdate::getPartition).collect(toImmutableList()));
-
         List<CompletableFuture<Void>> updateFutures = new ArrayList<>();
         for (PartitionStatisticsUpdate update : partitionStatisticsUpdates) {
             Partition partition = update.getPartition();
@@ -271,7 +274,7 @@ public class DefaultGlueColumnStatisticsProvider
                                                     .withColumnStatisticsList(columnChunk))),
                             writeExecutor)));
 
-            Set<String> removedStatistics = difference(currentStatistics.get(partition).keySet(), updatedColumnStatistics.keySet());
+            Set<String> removedStatistics = difference(partition.getColumns().stream().map(Column::getName).collect(toImmutableSet()), updatedColumnStatistics.keySet());
             removedStatistics.forEach(column ->
                     updateFutures.add(runAsync(() -> stats.getDeleteColumnStatisticsForPartition().call(() ->
                                     glueClient.deleteColumnStatisticsForPartition(
