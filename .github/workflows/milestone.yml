@@ -2,7 +2,9 @@ name: milestone
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
+      - release-*
 
 defaults:
   run:
@@ -10,15 +12,14 @@ defaults:
 
 jobs:
   set-milestone:
-    if: github.repository_owner == 'trinodb'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Get milestone from pom.xml
         run: |
           .github/bin/retry ./mvnw -v
-          MILESTONE_NUMBER="$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | cut -d- -f1)"
+          MILESTONE_NUMBER="$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | grep -v JAVA_HOME | sed 's/-SNAPSHOT//')"
           echo "Setting PR milestone to ${MILESTONE_NUMBER}"
           echo "MILESTONE_NUMBER=${MILESTONE_NUMBER}" >> $GITHUB_ENV
       - name: Set milestone to PR
