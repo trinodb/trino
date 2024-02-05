@@ -38,11 +38,11 @@ public class AlluxioFileSystemCache
 {
     private final CacheManager cacheManager;
     private final AlluxioConfiguration config;
-    private final CacheStats statistics;
+    private final AlluxioCacheStats statistics;
     private final HashFunction hashFunction = Hashing.murmur3_128();
 
     @Inject
-    public AlluxioFileSystemCache(CacheManager cacheManager, AlluxioConfiguration config, CacheStats statistics)
+    public AlluxioFileSystemCache(CacheManager cacheManager, AlluxioConfiguration config, AlluxioCacheStats statistics)
     {
         this.cacheManager = requireNonNull(cacheManager, "cacheManager is null");
         this.config = requireNonNull(config, "config is null");

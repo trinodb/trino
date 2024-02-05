@@ -31,7 +31,7 @@ public class AlluxioInput
 {
     private final TrinoInputFile inputFile;
     private final long fileLength;
-    private final CacheStats statistics;
+    private final AlluxioCacheStats statistics;
     private final AlluxioInputHelper helper;
 
     private TrinoInput input;
@@ -42,7 +42,7 @@ public class AlluxioInput
             URIStatus status,
             CacheManager cacheManager,
             AlluxioConfiguration configuration,
-            CacheStats statistics)
+            AlluxioCacheStats statistics)
     {
         this.inputFile = requireNonNull(inputFile, "inputFile is null");
         this.fileLength = requireNonNull(status, "status is null").getLength();
