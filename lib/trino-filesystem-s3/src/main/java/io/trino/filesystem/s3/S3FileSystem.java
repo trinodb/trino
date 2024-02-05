@@ -192,7 +192,7 @@ final class S3FileSystem
         }
 
 
-        ListObjectsV2Request request = ListObjectsV2Request.builder()
+        ListObjectsV2Request.Builder builder = ListObjectsV2Request.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
                 .bucket(s3Location.bucket())
                 .prefix(key);
