@@ -41,6 +41,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -49,6 +50,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -616,13 +618,64 @@ public class MemoryCacheManager
     }
 
     @VisibleForTesting
-    record SplitKey(long signatureId, long columnId, CacheSplitId splitId)
+    static final class SplitKey
     {
         static final int INSTANCE_SIZE = instanceSize(SplitKey.class);
+        private final long signatureId;
+        private final long columnId;
+        private final CacheSplitId splitId;
+
+        SplitKey(long signatureId, long columnId, CacheSplitId splitId)
+        {
+            this.signatureId = signatureId;
+            this.columnId = columnId;
+            this.splitId = requireNonNull(splitId, "splitId is null");
+        }
+
+        public long signatureId()
+        {
+            return signatureId;
+        }
+
+        public long columnId()
+        {
+            return columnId;
+        }
 
         public long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE + splitId.getRetainedSizeInBytes();
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            SplitKey splitKey = (SplitKey) o;
+            return signatureId == splitKey.signatureId
+                    && columnId == splitKey.columnId
+                    && splitId.equals(splitKey.splitId);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(signatureId, columnId, splitId);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("signatureId", signatureId)
+                    .add("columnId", columnId)
+                    .add("splitId", splitId)
+                    .toString();
         }
     }
 
