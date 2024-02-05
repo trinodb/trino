@@ -1111,7 +1111,6 @@ public class QueryStateMachine
 
     public boolean transitionToFailed(Throwable throwable)
     {
-        cleanupQueryQuietly();
         queryStateTimer.endQuery();
 
         // NOTE: The failure cause must be set before triggering the state change, so
@@ -1119,6 +1118,8 @@ public class QueryStateMachine
         // can only be observed if the transition to FAILED is successful.
         requireNonNull(throwable, "throwable is null");
         failureCause.compareAndSet(null, toFailure(throwable));
+
+        cleanupQueryQuietly();
 
         QueryState oldState = queryState.trySet(FAILED);
         if (oldState.isDone()) {
@@ -1155,13 +1156,14 @@ public class QueryStateMachine
 
     public boolean transitionToCanceled()
     {
-        cleanupQueryQuietly();
         queryStateTimer.endQuery();
 
         // NOTE: The failure cause must be set before triggering the state change, so
         // listeners can observe the exception. This is safe because the failure cause
         // can only be observed if the transition to FAILED is successful.
         failureCause.compareAndSet(null, toFailure(new TrinoException(USER_CANCELED, "Query was canceled")));
+
+        cleanupQueryQuietly();
 
         boolean canceled = queryState.setIf(FAILED, currentState -> !currentState.isDone());
         if (canceled) {
