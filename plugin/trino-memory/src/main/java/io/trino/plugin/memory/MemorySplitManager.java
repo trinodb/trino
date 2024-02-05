@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.spi.connector.DynamicFilter.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
@@ -128,6 +129,15 @@ public final class MemorySplitManager
                 return delegate.isFinished();
             }
             return false;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("delay", delay)
+                    .add("delegate", delegate)
+                    .toString();
         }
     }
 }
