@@ -4141,7 +4141,7 @@ public abstract class BaseHiveConnectorTest
             // data before ScaledWriterScheduler is able to scale it to multiple machines.
             // Skewed table that will scale writers to multiple machines.
             String selectSql = "SELECT t1.* FROM (SELECT *, case when orderkey >= 0 then 1 else orderkey end as join_key FROM tpch.sf1.orders) t1 " +
-                               "INNER JOIN (SELECT orderkey FROM tpch.sf1.orders) t2 " +
+                               "INNER JOIN (SELECT orderkey FROM tpch.tiny.orders) t2 " +
                                "ON t1.join_key = t2.orderkey";
             @Language("SQL") String createTableSql = "CREATE TABLE scale_writers_skewed WITH (format = 'PARQUET') AS " + selectSql;
             assertUpdate(
@@ -4149,7 +4149,7 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty("task_min_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
-                            .setSystemProperty("writer_scaling_min_data_processed", "0.5MB")
+                            .setSystemProperty("writer_scaling_min_data_processed", "0.1MB")
                             .setSystemProperty("join_distribution_type", "PARTITIONED")
                             .build(),
                     createTableSql,
