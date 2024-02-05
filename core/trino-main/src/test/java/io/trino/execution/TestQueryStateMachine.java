@@ -482,7 +482,11 @@ public class TestQueryStateMachine
         cancellingThread.get(10, SECONDS);
         anotherThread.get(10, SECONDS);
 
-        // TODO queryStateMachine.getFinalQueryInfo() does not exist for cancelled queries, but may be created by anotherThread due to a race
+        ExecutionFailureInfo failureInfo = queryStateMachine.getFinalQueryInfo().orElseThrow().getFailureInfo();
+        assertThat(failureInfo).isNotNull();
+        assertThat(failureInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
+        assertThat(failureInfo.getMessage()).isEqualTo("Query was canceled");
+
         BasicQueryInfo basicQueryInfo = queryStateMachine.getBasicQueryInfo(Optional.empty());
         assertThat(basicQueryInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
     }
