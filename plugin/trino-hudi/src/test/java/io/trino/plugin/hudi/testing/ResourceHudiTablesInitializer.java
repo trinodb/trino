@@ -167,7 +167,6 @@ public class ResourceHudiTablesInitializer
         HUDI_COW_PT_TBL(multiPartitionRegularColumns(), multiPartitionColumns(), multiPartitions()),
         STOCK_TICKS_COW(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
         STOCK_TICKS_MOR(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
-
         STOCK_DATA_WITH_HASHING_MOR(stockTicksRegularColumns(), stockDataPartitionColumns(), stockDataPartitions()),
         /**/;
 

@@ -185,12 +185,10 @@ final class S3FileSystem
             throws IOException
     {
         S3Location s3Location = new S3Location(location);
-
         String key = s3Location.key();
         if (!key.isEmpty() && !key.endsWith("/")) {
             key += "/";
         }
-
 
         ListObjectsV2Request.Builder builder = ListObjectsV2Request.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)

@@ -28,7 +28,11 @@ import org.junit.jupiter.api.Test;
 import java.time.ZonedDateTime;
 
 import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.*;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_DATA_WITH_HASHING_MOR;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiSmokeTest
@@ -161,7 +165,7 @@ public class TestHudiSmokeTest
     @Test
     public void testStockDataMORwithHashingTableCount()
     {
-        assertQuery("SELECT count(1) FROM " + STOCK_DATA_WITH_HASHING_MOR , "SELECT * FROM VALUES ('99')");
+        assertQuery("SELECT count(1) FROM " + STOCK_DATA_WITH_HASHING_MOR, "SELECT * FROM VALUES ('99')");
     }
 
     @Test
@@ -376,5 +380,4 @@ public class TestHudiSmokeTest
                 .create(ConnectorIdentity.ofUser("test"))
                 .newInputFile(Location.of(path));
     }
-
 }
