@@ -20,10 +20,13 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.DatabaseFunctionKey;
 import io.trino.plugin.hive.metastore.DatabaseFunctionSignatureKey;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HivePartitionName;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.plugin.hive.metastore.HiveTableName;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -40,12 +43,14 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Maps.filterKeys;
+import static com.google.common.collect.Maps.transformValues;
 import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.PartitionFilter.partitionFilter;
 import static java.util.Objects.requireNonNull;
 
@@ -87,21 +92,35 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(Table table)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
     {
-        return recording.getTableStatistics(
-                hiveTableName(table.getDatabaseName(), table.getTableName()),
-                () -> delegate.getTableStatistics(table));
+        return filterKeys(
+                recording.getTableStatistics(
+                        new HiveTableName(databaseName, tableName),
+                        () -> {
+                            throw new RuntimeException("recording partition statistics not supported");
+                        }).getColumnStatistics(),
+                columnNames::contains);
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
+            String databaseName,
+            String tableName,
+            Map<String, OptionalLong> partitionNamesWithRowCount,
+            Set<String> columnNames)
     {
-        return recording.getPartitionStatistics(
-                partitions.stream()
-                        .map(partition -> hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), makePartitionName(table, partition)))
-                        .collect(toImmutableSet()),
-                () -> delegate.getPartitionStatistics(table, partitions));
+        Set<HivePartitionName> hivePartitionNames = partitionNamesWithRowCount.keySet().stream()
+                .map(partitionName -> hivePartitionName(new HiveTableName(databaseName, tableName), partitionName))
+                .collect(toImmutableSet());
+
+        Map<String, PartitionStatistics> partitionStatisticsMap = recording.getPartitionStatistics(
+                hivePartitionNames,
+                () -> {
+                    throw new RuntimeException("recording partition statistics not supported");
+                });
+
+        return transformValues(partitionStatisticsMap, partitionStatistics -> filterKeys(partitionStatistics.getColumnStatistics(), columnNames::contains));
     }
 
     @Override
@@ -422,5 +441,11 @@ public class RecordingHiveMetastore
         if (recording.isReplay()) {
             throw new IllegalStateException("Cannot perform Metastore updates in replay mode");
         }
+    }
+
+    @Override
+    public boolean useSparkTableStatistics()
+    {
+        return true;
     }
 }
