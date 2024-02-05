@@ -20,8 +20,8 @@ import io.trino.Session;
 import io.trino.filesystem.TrackingFileSystemFactory;
 import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.alluxio.AlluxioConfigurationFactory;
 import io.trino.filesystem.alluxio.AlluxioFileSystemCacheConfig;
-import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.alluxio.TestingAlluxioFileSystemCache;
 import io.trino.filesystem.cache.CacheFileSystemFactory;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
@@ -87,7 +87,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                     .setCacheDirectories(metastoreDirectory.getAbsolutePath() + "/cache")
                     .disableTTL()
                     .setMaxCacheSizes("100MB");
-            alluxioFileSystemCache = new TestingAlluxioFileSystemCache(AlluxioFileSystemCacheModule.getAlluxioConfiguration(alluxioFileSystemCacheConfiguration), new DeltaLakeCacheKeyProvider());
+            alluxioFileSystemCache = new TestingAlluxioFileSystemCache(AlluxioConfigurationFactory.create(alluxioFileSystemCacheConfiguration), new DeltaLakeCacheKeyProvider());
             TrinoFileSystemFactory fileSystemFactory = new CacheFileSystemFactory(trackingFileSystemFactory, alluxioFileSystemCache, alluxioFileSystemCache.getCacheKeyProvider());
 
             Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
