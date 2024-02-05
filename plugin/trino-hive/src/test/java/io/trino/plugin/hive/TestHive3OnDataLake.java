@@ -19,6 +19,8 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
@@ -46,6 +48,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
@@ -53,6 +56,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -62,6 +66,7 @@ import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.regex.Pattern.quote;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -1967,20 +1972,23 @@ public class TestHive3OnDataLake
                 });
 
         // Delete old partition and update metadata to point to location of new copy
-        Table hiveTable = metastoreClient.getTable(HIVE_TEST_SCHEMA, tableName).get();
-        Partition hivePartition = metastoreClient.getPartition(hiveTable, List.of(regionKey)).get();
-        Map<String, PartitionStatistics> partitionStatistics =
-                metastoreClient.getPartitionStatistics(hiveTable, List.of(hivePartition));
+        Table hiveTable = metastoreClient.getTable(HIVE_TEST_SCHEMA, tableName).orElseThrow();
+        Partition partition = metastoreClient.getPartition(hiveTable, List.of(regionKey)).orElseThrow();
+        Map<String, Map<String, HiveColumnStatistics>> partitionStatistics = metastoreClient.getPartitionColumnStatistics(
+                HIVE_TEST_SCHEMA,
+                tableName,
+                Map.of(partitionName, OptionalLong.empty()),
+                partition.getColumns().stream().map(Column::getName).collect(toSet()));
 
         metastoreClient.dropPartition(HIVE_TEST_SCHEMA, tableName, List.of(regionKey), true);
         metastoreClient.addPartitions(HIVE_TEST_SCHEMA, tableName, List.of(
                 new PartitionWithStatistics(
-                        Partition.builder(hivePartition)
+                        Partition.builder(partition)
                                 .withStorage(builder -> builder.setLocation(
-                                        hivePartition.getStorage().getLocation() + renamedPartitionSuffix))
+                                        partition.getStorage().getLocation() + renamedPartitionSuffix))
                                 .build(),
                         partitionName,
-                        partitionStatistics.get(partitionName))));
+                        new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), partitionStatistics.get(partitionName)))));
     }
 
     protected void assertInsertFailure(String testTable, String expectedMessageRegExp)

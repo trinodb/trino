@@ -27,10 +27,10 @@ import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastor
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITIONS_BY_NAMES;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_COLUMN_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_NAMES_BY_FILTER;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE_STATISTICS;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE_COLUMN_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_PARTITION_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_TABLE_STATISTICS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -163,7 +163,7 @@ public class TestHiveMetastoreAccessOperations
         assertMetastoreInvocations("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 2)
-                        .addCopies(GET_TABLE_STATISTICS, 2)
+                        .addCopies(GET_TABLE_COLUMN_STATISTICS, 2)
                         .build());
     }
 
@@ -175,7 +175,7 @@ public class TestHiveMetastoreAccessOperations
         assertMetastoreInvocations("SELECT child.age, parent.age FROM test_self_join_table child JOIN test_self_join_table parent ON child.parent = parent.id",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
-                        .add(GET_TABLE_STATISTICS)
+                        .addCopies(GET_TABLE_COLUMN_STATISTICS, 2)
                         .build());
     }
 
@@ -187,7 +187,7 @@ public class TestHiveMetastoreAccessOperations
         assertMetastoreInvocations("EXPLAIN SELECT * FROM test_explain",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
-                        .add(GET_TABLE_STATISTICS)
+                        .add(GET_TABLE_COLUMN_STATISTICS)
                         .build());
     }
 
@@ -211,7 +211,7 @@ public class TestHiveMetastoreAccessOperations
         assertMetastoreInvocations("SHOW STATS FOR test_show_stats",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
-                        .add(GET_TABLE_STATISTICS)
+                        .add(GET_TABLE_COLUMN_STATISTICS)
                         .build());
     }
 
@@ -223,7 +223,7 @@ public class TestHiveMetastoreAccessOperations
         assertMetastoreInvocations("SHOW STATS FOR (SELECT * FROM test_show_stats_with_filter where age >= 2)",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
-                        .add(GET_TABLE_STATISTICS)
+                        .add(GET_TABLE_COLUMN_STATISTICS)
                         .build());
     }
 
@@ -249,7 +249,7 @@ public class TestHiveMetastoreAccessOperations
                         .addCopies(GET_TABLE, 1)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .add(GET_PARTITIONS_BY_NAMES)
-                        .add(GET_PARTITION_STATISTICS)
+                        .add(GET_PARTITION_COLUMN_STATISTICS)
                         .add(UPDATE_PARTITION_STATISTICS)
                         .build());
 
@@ -260,7 +260,7 @@ public class TestHiveMetastoreAccessOperations
                         .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .add(GET_PARTITIONS_BY_NAMES)
-                        .add(GET_PARTITION_STATISTICS)
+                        .add(GET_PARTITION_COLUMN_STATISTICS)
                         .add(UPDATE_PARTITION_STATISTICS)
                         .build());
     }
