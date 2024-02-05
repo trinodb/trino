@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
@@ -189,7 +190,7 @@ public class TestQueryStateMachine
     private void assertAllTimeSpentInQueueing(QueryState expectedState, Consumer<QueryStateMachine> stateTransition)
     {
         TestingTicker ticker = new TestingTicker();
-        QueryStateMachine stateMachine = createQueryStateMachineWithTicker(ticker);
+        QueryStateMachine stateMachine = queryStateMachine().withTicker(ticker).build();
         ticker.increment(7, MILLISECONDS);
 
         stateTransition.accept(stateMachine);
@@ -331,7 +332,7 @@ public class TestQueryStateMachine
     public void testPlanningTimeDuration()
     {
         TestingTicker mockTicker = new TestingTicker();
-        QueryStateMachine stateMachine = createQueryStateMachineWithTicker(mockTicker);
+        QueryStateMachine stateMachine = queryStateMachine().withTicker(mockTicker).build();
         assertState(stateMachine, QUEUED);
 
         mockTicker.increment(25, MILLISECONDS);
@@ -514,48 +515,65 @@ public class TestQueryStateMachine
 
     private QueryStateMachine createQueryStateMachine()
     {
-        return createQueryStateMachineWithTicker(Ticker.systemTicker());
+        return queryStateMachine().build();
     }
 
-    private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker)
+    private QueryStateMachineBuilder queryStateMachine()
     {
-        Metadata metadata = createTestMetadataManager();
-        TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControl = new AccessControlManager(
-                NodeVersion.UNKNOWN,
-                transactionManager,
-                emptyEventListenerManager(),
-                new AccessControlConfig(),
-                OpenTelemetry.noop(),
-                DefaultSystemAccessControl.NAME);
-        accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
-        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
-                Optional.empty(),
-                QUERY,
-                Optional.empty(),
-                TEST_SESSION,
-                LOCATION,
-                new ResourceGroupId("test"),
-                false,
-                transactionManager,
-                accessControl,
-                executor,
-                ticker,
-                metadata,
-                WarningCollector.NOOP,
-                createPlanOptimizersStatsCollector(),
-                QUERY_TYPE,
-                true,
-                new NodeVersion("test"));
-        stateMachine.setInputs(INPUTS);
-        stateMachine.setOutput(OUTPUT);
-        stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
-        stateMachine.setUpdateType(UPDATE_TYPE);
-        for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {
-            stateMachine.addSetSessionProperties(entry.getKey(), entry.getValue());
+        return new QueryStateMachineBuilder();
+    }
+
+    private class QueryStateMachineBuilder
+    {
+        private Ticker ticker = Ticker.systemTicker();
+
+        @CanIgnoreReturnValue
+        public QueryStateMachineBuilder withTicker(Ticker ticker)
+        {
+            this.ticker = ticker;
+            return this;
         }
-        RESET_SESSION_PROPERTIES.forEach(stateMachine::addResetSessionProperties);
-        return stateMachine;
+
+        public QueryStateMachine build()
+        {
+            Metadata metadata = createTestMetadataManager();
+            TransactionManager transactionManager = createTestTransactionManager();
+            AccessControlManager accessControl = new AccessControlManager(
+                    NodeVersion.UNKNOWN,
+                    transactionManager,
+                    emptyEventListenerManager(),
+                    new AccessControlConfig(),
+                    OpenTelemetry.noop(),
+                    DefaultSystemAccessControl.NAME);
+            accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
+            QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
+                    Optional.empty(),
+                    QUERY,
+                    Optional.empty(),
+                    TEST_SESSION,
+                    LOCATION,
+                    new ResourceGroupId("test"),
+                    false,
+                    transactionManager,
+                    accessControl,
+                    executor,
+                    ticker,
+                    metadata,
+                    WarningCollector.NOOP,
+                    createPlanOptimizersStatsCollector(),
+                    QUERY_TYPE,
+                    true,
+                    new NodeVersion("test"));
+            stateMachine.setInputs(INPUTS);
+            stateMachine.setOutput(OUTPUT);
+            stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
+            stateMachine.setUpdateType(UPDATE_TYPE);
+            for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {
+                stateMachine.addSetSessionProperties(entry.getKey(), entry.getValue());
+            }
+            RESET_SESSION_PROPERTIES.forEach(stateMachine::addResetSessionProperties);
+            return stateMachine;
+        }
     }
 
     private static void assertEqualSessionsWithoutTransactionId(Session actual, Session expected)
