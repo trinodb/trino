@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.IGNITE;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteIgnite
@@ -31,7 +33,7 @@ public class SuiteIgnite
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeIgnite.class)
-                        .withGroups("configured_features", "ignite")
+                        .withGroups(CONFIGURED_FEATURES, IGNITE)
                         .build());
     }
 }

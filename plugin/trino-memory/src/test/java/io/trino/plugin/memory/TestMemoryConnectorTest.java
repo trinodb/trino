@@ -24,9 +24,8 @@ import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metrics;
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
@@ -168,12 +167,12 @@ public class TestMemoryConnectorTest
 
     private Metrics collectCustomMetrics(String sql)
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        MaterializedResultWithQueryId result = runner.executeWithQueryId(getSession(), sql);
+        QueryRunner runner = getQueryRunner();
+        MaterializedResultWithPlan result = runner.executeWithPlan(getSession(), sql);
         return runner
                 .getCoordinator()
                 .getQueryManager()
-                .getFullQueryInfo(result.getQueryId())
+                .getFullQueryInfo(result.queryId())
                 .getQueryStats()
                 .getOperatorSummaries()
                 .stream()
@@ -185,13 +184,13 @@ public class TestMemoryConnectorTest
     @Timeout(30)
     public void testPhysicalInputPositions()
     {
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey " +
                         "AND supplier.name = 'Supplier#000000001'");
-        assertThat(result.getResult().getRowCount()).isEqualTo(615);
+        assertThat(result.result().getRowCount()).isEqualTo(615);
 
-        OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.getQueryId()).stream()
+        OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.queryId()).stream()
                 .findFirst().orElseThrow(); // there should be two: one for lineitem and one for supplier
         assertThat(probeStats.getInputPositions()).isEqualTo(615);
         assertThat(probeStats.getPhysicalInputPositions()).isEqualTo(LINEITEM_COUNT);
@@ -465,10 +464,10 @@ public class TestMemoryConnectorTest
 
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(session, selectQuery);
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(session, selectQuery);
 
-        assertThat(result.getResult().getRowCount()).isEqualTo(expectedRowCount);
-        assertThat(getOperatorRowsRead(getDistributedQueryRunner(), result.getQueryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
+        assertThat(result.result().getRowCount()).isEqualTo(expectedRowCount);
+        assertThat(getOperatorRowsRead(getDistributedQueryRunner(), result.queryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
     }
 
     private Session withLargeDynamicFilters(JoinDistributionType joinDistributionType)
@@ -478,7 +477,7 @@ public class TestMemoryConnectorTest
                 .build();
     }
 
-    private static List<Integer> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
+    private static List<Integer> getOperatorRowsRead(QueryRunner runner, QueryId queryId)
     {
         return getScanOperatorStats(runner, queryId).stream()
                 .map(OperatorStats::getInputPositions)
@@ -486,7 +485,7 @@ public class TestMemoryConnectorTest
                 .collect(toImmutableList());
     }
 
-    private static List<OperatorStats> getScanOperatorStats(DistributedQueryRunner runner, QueryId queryId)
+    private static List<OperatorStats> getScanOperatorStats(QueryRunner runner, QueryId queryId)
     {
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()

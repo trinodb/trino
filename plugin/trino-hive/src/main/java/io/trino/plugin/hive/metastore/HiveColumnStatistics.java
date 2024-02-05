@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
+import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -174,17 +175,17 @@ public class HiveColumnStatistics
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("integerStatistics", integerStatistics)
-                .add("doubleStatistics", doubleStatistics)
-                .add("decimalStatistics", decimalStatistics)
-                .add("dateStatistics", dateStatistics)
-                .add("booleanStatistics", booleanStatistics)
-                .add("maxValueSizeInBytes", maxValueSizeInBytes)
-                .add("totalSizeInBytes", totalSizeInBytes)
-                .add("nullsCount", nullsCount)
-                .add("distinctValuesCount", distinctValuesCount)
-                .toString();
+        ToStringHelper toStringHelper = toStringHelper(this);
+        integerStatistics.ifPresent(stats -> toStringHelper.add("integerStatistics", stats));
+        doubleStatistics.ifPresent(stats -> toStringHelper.add("doubleStatistics", stats));
+        decimalStatistics.ifPresent(stats -> toStringHelper.add("decimalStatistics", stats));
+        dateStatistics.ifPresent(stats -> toStringHelper.add("dateStatistics", stats));
+        booleanStatistics.ifPresent(stats -> toStringHelper.add("booleanStatistics", stats));
+        maxValueSizeInBytes.ifPresent(stats -> toStringHelper.add("maxValueSizeInBytes", stats));
+        totalSizeInBytes.ifPresent(stats -> toStringHelper.add("totalSizeInBytes", stats));
+        nullsCount.ifPresent(stats -> toStringHelper.add("nullsCount", stats));
+        distinctValuesCount.ifPresent(stats -> toStringHelper.add("distinctValuesCount", stats));
+        return toStringHelper.toString();
     }
 
     public static HiveColumnStatistics createIntegerColumnStatistics(OptionalLong min, OptionalLong max, OptionalLong nullsCount, OptionalLong distinctValuesCount)

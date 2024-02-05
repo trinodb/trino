@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -39,7 +39,7 @@ public class TestIcebergReadVersionedTable
     private long incorrectSnapshotId;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return createIcebergQueryRunner();
@@ -90,10 +90,10 @@ public class TestIcebergReadVersionedTable
     public void testEndVersionInTableNameAndForClauseShouldFail()
     {
         assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table@" + v1SnapshotId + "\" FOR VERSION AS OF " + v1SnapshotId,
-                "Invalid Iceberg table name: test_iceberg_read_versioned_table@%d".formatted(v1SnapshotId));
+                "line 1:15: Table 'iceberg.tpch.\"test_iceberg_read_versioned_table@%d\"' does not exist".formatted(v1SnapshotId));
 
         assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table@" + v1SnapshotId + "\" FOR TIMESTAMP AS OF " + timestampLiteral(v1EpochMillis, 9),
-                "Invalid Iceberg table name: test_iceberg_read_versioned_table@%d".formatted(v1SnapshotId));
+                "line 1:15: Table 'iceberg.tpch.\"test_iceberg_read_versioned_table@%d\"' does not exist".formatted(v1SnapshotId));
     }
 
     @Test

@@ -27,7 +27,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -57,16 +57,16 @@ public class TestPushDistinctLimitIntoTableScan
     private ApplyAggregation testApplyAggregation;
 
     @Override
-    protected Optional<LocalQueryRunner> createLocalQueryRunner()
+    protected Optional<PlanTester> createPlanTester()
     {
         Session defaultSession = TestingSession.testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("tiny")
                 .build();
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(defaultSession);
+        PlanTester planTester = PlanTester.create(defaultSession);
 
-        queryRunner.createCatalog(
+        planTester.createCatalog(
                 TEST_CATALOG_NAME,
                 MockConnectorFactory.builder()
                         .withApplyAggregation(
@@ -79,7 +79,7 @@ public class TestPushDistinctLimitIntoTableScan
                         .build(),
                 Map.of());
 
-        return Optional.of(queryRunner);
+        return Optional.of(planTester);
     }
 
     @BeforeAll

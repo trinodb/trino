@@ -80,7 +80,7 @@ public final class InternalHiveConnectorFactory
 
     public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module)
     {
-        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public static Connector createConnector(
@@ -90,7 +90,6 @@ public final class InternalHiveConnectorFactory
             Module module,
             Optional<HiveMetastore> metastore,
             Optional<TrinoFileSystemFactory> fileSystemFactory,
-            Optional<OpenTelemetry> openTelemetry,
             Optional<DirectoryLister> directoryLister)
     {
         requireNonNull(config, "config is null");
@@ -110,11 +109,11 @@ public final class InternalHiveConnectorFactory
                     new HiveSecurityModule(),
                     fileSystemFactory
                             .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
-                            .orElseGet(() -> new FileSystemModule(catalogName, context.getNodeManager(), openTelemetry.orElse(context.getOpenTelemetry()))),
+                            .orElseGet(() -> new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry())),
                     new HiveProcedureModule(),
                     new MBeanServerModule(),
                     binder -> {
-                        binder.bind(OpenTelemetry.class).toInstance(openTelemetry.orElse(context.getOpenTelemetry()));
+                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());

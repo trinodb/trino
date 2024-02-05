@@ -16,6 +16,7 @@ package io.trino.plugin.kinesis;
 import com.amazonaws.services.kinesis.model.PutRecordsRequest;
 import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
@@ -25,6 +26,7 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.Identity;
 import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -45,7 +47,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,7 +79,7 @@ public class TestMinimalFunctionality
 
     private final EmbeddedKinesisStream embeddedKinesisStream;
     private String streamName;
-    private StandaloneQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private QueryAssertions assertions;
 
     public TestMinimalFunctionality()
@@ -138,10 +140,11 @@ public class TestMinimalFunctionality
     {
         QualifiedObjectName name = new QualifiedObjectName("kinesis", "default", streamName);
 
-        transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), new AllowAllAccessControl())
+        Metadata metadata = queryRunner.getPlannerContext().getMetadata();
+        transaction(queryRunner.getTransactionManager(), metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, session -> {
-                    Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
+                    Optional<TableHandle> handle = metadata.getTableHandle(session, name);
                     assertThat(handle.isPresent()).isTrue();
                 });
     }

@@ -15,13 +15,13 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.type.Type;
 import io.trino.testing.AbstractTestQueries;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.PlanDeterminismChecker;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -32,7 +32,9 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.CustomFunctionBundle.CUSTOM_FUNCTIONS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -45,7 +47,7 @@ public class TestQueryPlanDeterminism
     @BeforeAll
     public void setUp()
     {
-        determinismChecker = new PlanDeterminismChecker((LocalQueryRunner) getQueryRunner());
+        determinismChecker = new PlanDeterminismChecker(getQueryRunner());
     }
 
     @AfterAll
@@ -62,19 +64,17 @@ public class TestQueryPlanDeterminism
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(defaultSession)
-                .build();
-
-        // add the tpch catalog
-        // local queries run directly against the generator
-        localQueryRunner.createCatalog(
+        // PlanDeterminismChecker only works with PlanTester
+        QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog(
                 defaultSession.getCatalog().get(),
-                new TpchConnectorFactory(1),
-                ImmutableMap.of());
+                "tpch",
+                ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
-        localQueryRunner.addFunctions(CUSTOM_FUNCTIONS);
+        queryRunner.addFunctions(CUSTOM_FUNCTIONS);
 
-        return localQueryRunner;
+        return queryRunner;
     }
 
     @Override

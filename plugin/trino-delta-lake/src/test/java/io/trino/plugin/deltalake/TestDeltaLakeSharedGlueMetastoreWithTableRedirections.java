@@ -54,7 +54,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 .setSchema(schema)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
         this.dataDirectory.toFile().deleteOnExit();
@@ -70,7 +70,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                         .buildOrThrow());
 
         this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory);
-        queryRunner.installPlugin(new TestingHivePlugin(glueMetastore));
+        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), glueMetastore));
         queryRunner.createCatalog(
                 "hive_with_redirections",
                 "hive",

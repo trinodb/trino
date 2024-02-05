@@ -47,6 +47,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.asin;
 import static java.lang.Math.atan2;
+import static java.lang.Math.clamp;
 import static java.lang.Math.cos;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.sin;
@@ -575,8 +576,8 @@ public final class BingTileFunctions
     private static Point tileXYToLatitudeLongitude(int tileX, int tileY, int zoomLevel)
     {
         long mapSize = mapSize(zoomLevel);
-        double x = (clip(tileX * TILE_PIXELS, 0, mapSize) / mapSize) - 0.5;
-        double y = 0.5 - (clip(tileY * TILE_PIXELS, 0, mapSize) / mapSize);
+        double x = (clamp((long) tileX * TILE_PIXELS, 0, mapSize) / (double) mapSize) - 0.5;
+        double y = 0.5 - (clamp((long) tileY * TILE_PIXELS, 0, mapSize) / (double) mapSize);
 
         double latitude = 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
         double longitude = 360 * x;
@@ -626,7 +627,7 @@ public final class BingTileFunctions
      */
     private static int axisToCoordinates(double axis, long mapSize)
     {
-        int tileAxis = (int) clip(axis * mapSize, 0, mapSize - 1);
+        int tileAxis = (int) clamp(axis * mapSize, 0d, mapSize - 1);
         return tileAxis / TILE_PIXELS;
     }
 
@@ -671,9 +672,9 @@ public final class BingTileFunctions
 
     private static final class GreatCircleDistanceToPoint
     {
-        private double sinLatitude;
-        private double cosLatitude;
-        private double radianLongitude;
+        private final double sinLatitude;
+        private final double cosLatitude;
+        private final double radianLongitude;
 
         private GreatCircleDistanceToPoint(double latitude, double longitude)
         {
@@ -712,11 +713,6 @@ public final class BingTileFunctions
         if (!condition) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format(formatString, args));
         }
-    }
-
-    private static double clip(double n, double minValue, double maxValue)
-    {
-        return Math.min(Math.max(n, minValue), maxValue);
     }
 
     private static long mapSize(int zoomLevel)

@@ -22,6 +22,7 @@ import io.airlift.node.NodeInfo;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.tracing.Tracing;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.connector.CatalogConnector;
@@ -53,7 +54,7 @@ import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.NoOpTransactionManager;
 import io.trino.transaction.TransactionInfo;
-import io.trino.version.EmbedVersion;
+import io.trino.util.EmbedVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -71,7 +72,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.DoubleSupplier;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static io.airlift.tracing.Tracing.noopTracer;
@@ -112,7 +112,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
     private static final CatalogFactory MOCK_CATALOG_FACTORY = new CatalogFactory()
     {
         @Override
-        public void addConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory) {}
+        public void addConnectorFactory(ConnectorFactory connectorFactory) {}
 
         @Override
         public CatalogConnector createCatalog(CatalogProperties catalogProperties)
@@ -121,8 +121,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
             ConnectorServices noOpConnectorService = new ConnectorServices(
                     Tracing.noopTracer(),
                     catalogProperties.getCatalogHandle(),
-                    connector,
-                    () -> {});
+                    connector);
             return new CatalogConnector(
                     catalogProperties.getCatalogHandle(),
                     new ConnectorName("mock"),
@@ -265,7 +264,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 noopTracer(),
-                new ExchangeManagerRegistry(),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
                 ignore -> true);
     }
 

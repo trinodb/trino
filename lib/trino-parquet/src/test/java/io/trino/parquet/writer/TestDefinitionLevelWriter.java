@@ -20,7 +20,7 @@ import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,105 +42,113 @@ public class TestDefinitionLevelWriter
 {
     private static final int POSITIONS = 8096;
 
-    @Test(dataProviderClass = NullsProvider.class, dataProvider = "nullsProviders")
-    public void testWritePrimitiveDefinitionLevels(NullsProvider nullsProvider)
+    @Test
+    public void testWritePrimitiveDefinitionLevels()
     {
-        Block block = new LongArrayBlock(POSITIONS, nullsProvider.getNulls(POSITIONS), new long[POSITIONS]);
-        int maxDefinitionLevel = 3;
-        // Write definition levels for all positions
-        assertDefinitionLevels(block, ImmutableList.of(), maxDefinitionLevel);
+        for (NullsProvider nullsProvider : NullsProvider.values()) {
+            Block block = new LongArrayBlock(POSITIONS, nullsProvider.getNulls(POSITIONS), new long[POSITIONS]);
+            int maxDefinitionLevel = 3;
+            // Write definition levels for all positions
+            assertDefinitionLevels(block, ImmutableList.of(), maxDefinitionLevel);
 
-        // Write definition levels for all positions one-at-a-time
-        assertDefinitionLevels(block, nCopies(block.getPositionCount(), 1), maxDefinitionLevel);
+            // Write definition levels for all positions one-at-a-time
+            assertDefinitionLevels(block, nCopies(block.getPositionCount(), 1), maxDefinitionLevel);
 
-        // Write definition levels for all positions with different group sizes
-        assertDefinitionLevels(block, generateGroupSizes(block.getPositionCount()), maxDefinitionLevel);
+            // Write definition levels for all positions with different group sizes
+            assertDefinitionLevels(block, generateGroupSizes(block.getPositionCount()), maxDefinitionLevel);
+        }
     }
 
-    @Test(dataProviderClass = NullsProvider.class, dataProvider = "nullsProviders")
-    public void testWriteRowDefinitionLevels(NullsProvider nullsProvider)
+    @Test
+    public void testWriteRowDefinitionLevels()
     {
-        RowBlock rowBlock = createRowBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
-        List<Block> fields = getNullSuppressedRowFieldsFromBlock(rowBlock);
-        int fieldMaxDefinitionLevel = 2;
-        // Write definition levels for all positions
-        for (int field = 0; field < fields.size(); field++) {
-            assertDefinitionLevels(rowBlock, fields, ImmutableList.of(), field, fieldMaxDefinitionLevel);
-        }
+        for (NullsProvider nullsProvider : NullsProvider.values()) {
+            RowBlock rowBlock = createRowBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
+            List<Block> fields = getNullSuppressedRowFieldsFromBlock(rowBlock);
+            int fieldMaxDefinitionLevel = 2;
+            // Write definition levels for all positions
+            for (int field = 0; field < fields.size(); field++) {
+                assertDefinitionLevels(rowBlock, fields, ImmutableList.of(), field, fieldMaxDefinitionLevel);
+            }
 
-        // Write definition levels for all positions one-at-a-time
-        for (int field = 0; field < fields.size(); field++) {
+            // Write definition levels for all positions one-at-a-time
+            for (int field = 0; field < fields.size(); field++) {
+                assertDefinitionLevels(
+                        rowBlock,
+                        fields,
+                        nCopies(rowBlock.getPositionCount(), 1),
+                        field,
+                        fieldMaxDefinitionLevel);
+            }
+
+            // Write definition levels for all positions with different group sizes
+            for (int field = 0; field < fields.size(); field++) {
+                assertDefinitionLevels(
+                        rowBlock,
+                        fields,
+                        generateGroupSizes(rowBlock.getPositionCount()),
+                        field,
+                        fieldMaxDefinitionLevel);
+            }
+        }
+    }
+
+    @Test
+    public void testWriteArrayDefinitionLevels()
+    {
+        for (NullsProvider nullsProvider : NullsProvider.values()) {
+            Block arrayBlock = createArrayBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
+            ColumnarArray columnarArray = toColumnarArray(arrayBlock);
+            int maxDefinitionLevel = 3;
+            // Write definition levels for all positions
             assertDefinitionLevels(
-                    rowBlock,
-                    fields,
-                    nCopies(rowBlock.getPositionCount(), 1),
-                    field,
-                    fieldMaxDefinitionLevel);
-        }
+                    columnarArray,
+                    ImmutableList.of(),
+                    maxDefinitionLevel);
 
-        // Write definition levels for all positions with different group sizes
-        for (int field = 0; field < fields.size(); field++) {
+            // Write definition levels for all positions one-at-a-time
             assertDefinitionLevels(
-                    rowBlock,
-                    fields,
-                    generateGroupSizes(rowBlock.getPositionCount()),
-                    field,
-                    fieldMaxDefinitionLevel);
+                    columnarArray,
+                    nCopies(columnarArray.getPositionCount(), 1),
+                    maxDefinitionLevel);
+
+            // Write definition levels for all positions with different group sizes
+            assertDefinitionLevels(
+                    columnarArray,
+                    generateGroupSizes(columnarArray.getPositionCount()),
+                    maxDefinitionLevel);
         }
     }
 
-    @Test(dataProviderClass = NullsProvider.class, dataProvider = "nullsProviders")
-    public void testWriteArrayDefinitionLevels(NullsProvider nullsProvider)
+    @Test
+    public void testWriteMapDefinitionLevels()
     {
-        Block arrayBlock = createArrayBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
-        ColumnarArray columnarArray = toColumnarArray(arrayBlock);
-        int maxDefinitionLevel = 3;
-        // Write definition levels for all positions
-        assertDefinitionLevels(
-                columnarArray,
-                ImmutableList.of(),
-                maxDefinitionLevel);
+        for (NullsProvider nullsProvider : NullsProvider.values()) {
+            Block mapBlock = createMapBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
+            ColumnarMap columnarMap = toColumnarMap(mapBlock);
+            int keysMaxDefinitionLevel = 2;
+            int valuesMaxDefinitionLevel = 3;
+            // Write definition levels for all positions
+            assertDefinitionLevels(
+                    columnarMap,
+                    ImmutableList.of(),
+                    keysMaxDefinitionLevel,
+                    valuesMaxDefinitionLevel);
 
-        // Write definition levels for all positions one-at-a-time
-        assertDefinitionLevels(
-                columnarArray,
-                nCopies(columnarArray.getPositionCount(), 1),
-                maxDefinitionLevel);
+            // Write definition levels for all positions one-at-a-time
+            assertDefinitionLevels(
+                    columnarMap,
+                    nCopies(columnarMap.getPositionCount(), 1),
+                    keysMaxDefinitionLevel,
+                    valuesMaxDefinitionLevel);
 
-        // Write definition levels for all positions with different group sizes
-        assertDefinitionLevels(
-                columnarArray,
-                generateGroupSizes(columnarArray.getPositionCount()),
-                maxDefinitionLevel);
-    }
-
-    @Test(dataProviderClass = NullsProvider.class, dataProvider = "nullsProviders")
-    public void testWriteMapDefinitionLevels(NullsProvider nullsProvider)
-    {
-        Block mapBlock = createMapBlock(nullsProvider.getNulls(POSITIONS), POSITIONS);
-        ColumnarMap columnarMap = toColumnarMap(mapBlock);
-        int keysMaxDefinitionLevel = 2;
-        int valuesMaxDefinitionLevel = 3;
-        // Write definition levels for all positions
-        assertDefinitionLevels(
-                columnarMap,
-                ImmutableList.of(),
-                keysMaxDefinitionLevel,
-                valuesMaxDefinitionLevel);
-
-        // Write definition levels for all positions one-at-a-time
-        assertDefinitionLevels(
-                columnarMap,
-                nCopies(columnarMap.getPositionCount(), 1),
-                keysMaxDefinitionLevel,
-                valuesMaxDefinitionLevel);
-
-        // Write definition levels for all positions with different group sizes
-        assertDefinitionLevels(
-                columnarMap,
-                generateGroupSizes(columnarMap.getPositionCount()),
-                keysMaxDefinitionLevel,
-                valuesMaxDefinitionLevel);
+            // Write definition levels for all positions with different group sizes
+            assertDefinitionLevels(
+                    columnarMap,
+                    generateGroupSizes(columnarMap.getPositionCount()),
+                    keysMaxDefinitionLevel,
+                    valuesMaxDefinitionLevel);
+        }
     }
 
     private static void assertDefinitionLevels(Block block, List<Integer> writePositionCounts, int maxDefinitionLevel)

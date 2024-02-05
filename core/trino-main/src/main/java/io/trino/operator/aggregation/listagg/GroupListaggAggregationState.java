@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation.listagg;
 
-import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.block.ValueBlock;
@@ -28,6 +27,7 @@ import java.util.Arrays;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.VariableWidthData.POINTER_SIZE;
+import static java.lang.Math.clamp;
 import static java.lang.Math.toIntExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
@@ -90,7 +90,7 @@ public class GroupListaggAggregationState
         checkArgument(maxGroupId + 1 < MAX_ARRAY_SIZE, "Maximum array size exceeded");
         int requiredSize = toIntExact(maxGroupId + 1);
         if (requiredSize > groupHeadPositions.length) {
-            int newSize = Ints.constrainToRange(requiredSize * 2, 1024, MAX_ARRAY_SIZE);
+            int newSize = clamp(requiredSize * 2L, 1024, MAX_ARRAY_SIZE);
             int oldSize = groupHeadPositions.length;
 
             groupHeadPositions = Arrays.copyOf(groupHeadPositions, newSize);

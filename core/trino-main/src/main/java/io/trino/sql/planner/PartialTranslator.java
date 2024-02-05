@@ -34,13 +34,13 @@ public final class PartialTranslator
     private PartialTranslator() {}
 
     /**
-     * Produces {@link ConnectorExpression} translations for disjoint components in the {@param inputExpression} in a
+     * Produces {@link ConnectorExpression} translations for disjoint components in the input expression in a
      * top-down manner. i.e. if an expression node is translatable, we do not consider its children.
      */
     public static Map<NodeRef<Expression>, ConnectorExpression> extractPartialTranslations(
             Expression inputExpression,
             Session session,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider typeProvider,
             PlannerContext plannerContext)
     {

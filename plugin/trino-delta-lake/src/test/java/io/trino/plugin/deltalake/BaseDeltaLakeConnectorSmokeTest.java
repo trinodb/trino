@@ -31,11 +31,10 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseConnectorSmokeTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
@@ -51,6 +50,7 @@ import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -157,7 +157,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
                         .build());
 
-        DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner();
+        QueryRunner queryRunner = createDeltaLakeQueryRunner();
         try {
             this.transactionLogAccess = getConnectorService(queryRunner, TransactionLogAccess.class);
 
@@ -188,12 +188,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 registerTableFromResources(table.tableName(), table.resourcePath(), queryRunner);
             });
 
-            queryRunner.installPlugin(new TestingHivePlugin());
+            queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
 
             queryRunner.createCatalog(
                     "hive",
                     "hive",
                     ImmutableMap.<String, String>builder()
+                            .put("hive.metastore", "thrift")
                             .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
                             .put("hive.allow-drop-table", "true")
                             .putAll(hiveStorageConfiguration())
@@ -207,7 +208,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
     }
 
-    private DistributedQueryRunner createDeltaLakeQueryRunner()
+    private QueryRunner createDeltaLakeQueryRunner()
             throws Exception
     {
         return createDockerizedDeltaLakeQueryRunner(
@@ -255,12 +256,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-mkdir", "-p", subDir);
         hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-touchz", externalFile);
 
-        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertUpdate(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
         assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
                 .as("external file exists after creating schema")
                 .isEqualTo(0);
 
-        query("DROP SCHEMA " + schemaName);
+        assertUpdate("DROP SCHEMA " + schemaName);
         assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
                 .as("external file exists after dropping schema")
                 .isEqualTo(0);
@@ -268,12 +269,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         // Test behavior without external file
         hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-rm", "-r", subDir);
 
-        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertUpdate(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
         assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-d", schemaDir).getExitCode())
                 .as("schema directory exists after creating schema")
                 .isEqualTo(0);
 
-        query("DROP SCHEMA " + schemaName);
+        assertUpdate("DROP SCHEMA " + schemaName);
         assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
                 .as("schema directory deleted after dropping schema without external file")
                 .isEqualTo(1);
@@ -336,12 +337,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableName = "test_create_table_partition_validation_" + randomNameSuffix();
         assertQueryFails("CREATE TABLE " + tableName + " (a int, b VARCHAR, c TIMESTAMP WITH TIME ZONE) " +
                         "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['a', 'd', 'e'])",
-                "Table property 'partition_by' contained column names which do not exist: \\[d, e]");
+                "Table property 'partitioned_by' contained column names which do not exist: \\[d, e]");
 
         assertQueryFails("CREATE TABLE " + tableName + " (a, b, c) " +
                         "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['a', 'd', 'e']) " +
                         "AS VALUES (1, 'one', TIMESTAMP '2020-02-03 01:02:03.123 UTC')",
-                "Table property 'partition_by' contained column names which do not exist: \\[d, e]");
+                "Table property 'partitioned_by' contained column names which do not exist: \\[d, e]");
     }
 
     @Test
@@ -384,6 +385,37 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             }
 
             assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'one')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testOptimizeTableWithSmallFileAndLargeFiles()
+    {
+        String tableName = "test_optimize_rewrites_table_with_small_and_large_file" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (location = '" + tableLocation + "')");
+        try {
+            // Adds a small file of size < 1 kB
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
+            // Adds other "large" files of size greater than 1 kB
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, '" + repeat("two", 1000) + "')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, '" + repeat("three", 1000) + "')", 1);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(3);
+
+            for (int i = 0; i < 3; i++) {
+                computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE (file_size_threshold => '1kB')");
+                Set<String> filesAfterOptimize = getActiveFiles(tableName);
+                assertThat(filesAfterOptimize)
+                        .containsExactlyInAnyOrderElementsOf(initialFiles);
+            }
+            assertQuery(
+                    "SELECT * FROM " + tableName,
+                    "VALUES (1, 'one'), (2, '%s'), (3, '%s')".formatted(repeat("two", 1000), repeat("three", 1000)));
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -444,7 +476,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testInputDataSize()
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        QueryRunner queryRunner = getQueryRunner();
 
         String hiveTableName = "foo_hive";
         queryRunner.execute(
@@ -453,15 +485,15 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         hiveTableName,
                         getLocationForTable(bucketName, "foo")));
 
-        MaterializedResultWithQueryId deltaResult = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), "SELECT * FROM foo");
-        assertThat(deltaResult.getResult().getRowCount()).isEqualTo(2);
-        MaterializedResultWithQueryId hiveResult = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), format("SELECT * FROM %s.%s.%s", "hive", SCHEMA, hiveTableName));
-        assertThat(hiveResult.getResult().getRowCount()).isEqualTo(2);
+        MaterializedResultWithPlan deltaResult = queryRunner.executeWithPlan(broadcastJoinDistribution(true), "SELECT * FROM foo");
+        assertThat(deltaResult.result().getRowCount()).isEqualTo(2);
+        MaterializedResultWithPlan hiveResult = queryRunner.executeWithPlan(broadcastJoinDistribution(true), format("SELECT * FROM %s.%s.%s", "hive", SCHEMA, hiveTableName));
+        assertThat(hiveResult.result().getRowCount()).isEqualTo(2);
 
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        assertThat(queryManager.getFullQueryInfo(deltaResult.getQueryId()).getQueryStats().getProcessedInputDataSize()).as("delta processed input data size")
+        assertThat(queryManager.getFullQueryInfo(deltaResult.queryId()).getQueryStats().getProcessedInputDataSize()).as("delta processed input data size")
                 .isGreaterThan(DataSize.ofBytes(0))
-                .isEqualTo(queryManager.getFullQueryInfo(hiveResult.getQueryId()).getQueryStats().getProcessedInputDataSize());
+                .isEqualTo(queryManager.getFullQueryInfo(hiveResult.queryId()).getQueryStats().getProcessedInputDataSize());
         queryRunner.execute(format("DROP TABLE hive.%s.%s", SCHEMA, hiveTableName));
     }
 
@@ -616,13 +648,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(getTableFiles(controlTableName)).isNotEmpty();
 
         String tableName = "test_cleanup_for_failed_create_table_as_" + randomNameSuffix();
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 format("CREATE TABLE " + tableName + " WITH (location = '%s') AS " +
                                 "SELECT nationkey from tpch.sf1.nation " + // writer for this part finishes quickly
                                 "UNION ALL " +
                                 "SELECT 10/(max(orderkey)-max(orderkey)) from tpch.sf10.orders", // writer takes longer to complete and fails at the end
                         getLocationForTable(bucketName, tableName))))
-                .hasMessageContaining("Division by zero");
+                .failure().hasMessageContaining("Division by zero");
         assertEventually(new Duration(5, SECONDS), () -> assertThat(getTableFiles(tableName)).isEmpty());
     }
 
@@ -630,13 +662,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testCleanupForFailedPartitionedCreateTableAs()
     {
         String tableName = "test_cleanup_for_failed_partitioned_create_table_as_" + randomNameSuffix();
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 format("CREATE TABLE " + tableName + "(a, b) WITH (location = '%s', partitioned_by = ARRAY['b']) AS " +
                                 "SELECT nationkey, regionkey from tpch.sf1.nation " + // writer for this part finishes quickly
                                 "UNION ALL " +
                                 "SELECT 10/(max(orderkey)-max(orderkey)), orderkey %% 5 from tpch.sf10.orders group by orderkey %% 5", // writer takes longer to complete and fails at the end
                         getLocationForTable(bucketName, tableName))))
-                .hasMessageContaining("Division by zero");
+                .failure().hasMessageContaining("Division by zero");
         assertEventually(new Duration(5, SECONDS), () -> assertThat(getTableFiles(tableName)).isEmpty());
     }
 
@@ -657,7 +689,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(getTableFiles(tableName)).as("remaining table files").isNotEmpty();
 
         // crate with non-empty target directory should fail
-        assertThatThrownBy(() -> query(createTableStatement)).hasMessageContaining("Target location cannot contain any files");
+        assertThat(query(createTableStatement)).failure().hasMessageContaining("Target location cannot contain any files");
     }
 
     @Test
@@ -1903,9 +1935,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     private void testCountQuery(@Language("SQL") String sql, long expectedRowCount, long expectedSplitCount)
     {
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        assertThat(result.getResult().getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(expectedRowCount));
-        verifySplitCount(result.getQueryId(), expectedSplitCount);
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
+        assertThat(result.result().getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(expectedRowCount));
+        verifySplitCount(result.queryId(), expectedSplitCount);
     }
 
     private void verifySplitCount(QueryId queryId, long expectedCount)

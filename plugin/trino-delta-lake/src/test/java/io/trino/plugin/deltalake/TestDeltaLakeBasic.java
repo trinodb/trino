@@ -309,8 +309,8 @@ public class TestDeltaLakeBasic
         // Verify optimized parquet file contains the expected physical id and name
         TrinoInputFile inputFile = new LocalInputFile(tableLocation.resolve(addFileEntry.getPath()).toFile());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(
-                    new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
-                    Optional.empty());
+                new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
+                Optional.empty());
         FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
         PrimitiveType physicalType = getOnlyElement(fileMetaData.getSchema().getColumns().iterator()).getPrimitiveType();
         assertThat(physicalType.getName()).isEqualTo(physicalName);
@@ -590,23 +590,23 @@ public class TestDeltaLakeBasic
 
         assertThat(query(session, "SELECT * FROM " + tableName))
                 .matches("""
-                            VALUES
-                            NULL,
-                            TIMESTAMP '-9999-12-31 23:59:59.999999',
-                            TIMESTAMP '-0001-01-01 00:00:00',
-                            TIMESTAMP '0000-01-01 00:00:00',
-                            TIMESTAMP '1582-10-05 00:00:00',
-                            TIMESTAMP '1582-10-14 23:59:59.999999',
-                            TIMESTAMP '2020-12-31 01:02:03.123456',
-                            TIMESTAMP '9999-12-31 23:59:59.999999'
-                            """);
+                        VALUES
+                        NULL,
+                        TIMESTAMP '-9999-12-31 23:59:59.999999',
+                        TIMESTAMP '-0001-01-01 00:00:00',
+                        TIMESTAMP '0000-01-01 00:00:00',
+                        TIMESTAMP '1582-10-05 00:00:00',
+                        TIMESTAMP '1582-10-14 23:59:59.999999',
+                        TIMESTAMP '2020-12-31 01:02:03.123456',
+                        TIMESTAMP '9999-12-31 23:59:59.999999'
+                        """);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                            VALUES
-                            ('x', null, null, 0.125, null, null, null),
-                            (null, null, null, null, 8.0, null, null)
-                            """);
+                        VALUES
+                        ('x', null, null, 0.125, null, null, null),
+                        (null, null, null, null, 8.0, null, null)
+                        """);
 
         // Verify the connector can insert into tables created by Databricks
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES TIMESTAMP '2023-01-02 03:04:05.123456'", 1);
@@ -833,11 +833,11 @@ public class TestDeltaLakeBasic
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
-                            VALUES
-                            ('id', null, null, 0.0, null, 1, 8),
-                            ('part', null, 7.0, 0.125, null, null, null),
-                            (null, null, null, null, 8.0, null, null)
-                            """);
+                        VALUES
+                        ('id', null, null, 0.0, null, 1, 8),
+                        ('part', null, 7.0, 0.125, null, null, null),
+                        (null, null, null, null, 8.0, null, null)
+                        """);
 
         // Verify the connector can insert into tables created by Databricks
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES (9, TIMESTAMP '2023-01-02 03:04:05.123456')", 1);
@@ -997,22 +997,22 @@ public class TestDeltaLakeBasic
         assertQuery(
                 "SELECT * FROM stats_with_minmax_nulls",
                 """
-                   VALUES
-                   (0, 1),
-                   (1, 2),
-                   (3, 4),
-                   (3, 7),
-                   (NULL, NULL),
-                   (NULL, NULL)
-                   """);
+                        VALUES
+                        (0, 1),
+                        (1, 2),
+                        (3, 4),
+                        (3, 7),
+                        (NULL, NULL),
+                        (NULL, NULL)
+                        """);
         assertQuery(
                 "SHOW STATS FOR stats_with_minmax_nulls",
                 """
-                   VALUES
-                   ('id', null, null, 0.3333333333333333, null, 0, 3),
-                   ('id2', null, null, 0.3333333333333333, null, 1, 7),
-                   (null, null, null, null, 6.0, null, null)
-                   """);
+                        VALUES
+                        ('id', null, null, 0.3333333333333333, null, 0, 3),
+                        ('id2', null, null, 0.3333333333333333, null, 1, 7),
+                        (null, null, null, null, 6.0, null, null)
+                        """);
     }
 
     /**

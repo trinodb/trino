@@ -23,11 +23,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
@@ -65,7 +61,6 @@ import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
@@ -89,9 +84,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
 
@@ -109,22 +104,11 @@ public class HashGenerationOptimizer
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
-        requireNonNull(idAllocator, "idAllocator is null");
-        if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            PlanWithProperties result = plan.accept(new Rewriter(metadata, idAllocator, symbolAllocator, types), new HashComputationSet());
+        if (SystemSessionProperties.isOptimizeHashGenerationEnabled(context.session())) {
+            PlanWithProperties result = plan.accept(new Rewriter(metadata, context.idAllocator(), context.symbolAllocator(), context.types()), new HashComputationSet());
             return result.getNode();
         }
         return plan;
@@ -886,7 +870,7 @@ public class HashGenerationOptimizer
                     .addArgument(symbolAllocator.getTypes().get(symbol), new SymbolReference(symbol.getName()))
                     .build();
 
-            hashField = new CoalesceExpression(hashField, new LongLiteral(String.valueOf(NULL_HASH_CODE)));
+            hashField = new CoalesceExpression(hashField, new GenericLiteral("BIGINT", String.valueOf(NULL_HASH_CODE)));
 
             result = BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName("combine_hash")
@@ -956,7 +940,7 @@ public class HashGenerationOptimizer
 
         private static Expression orNullHashCode(Expression expression)
         {
-            return new CoalesceExpression(expression, new LongLiteral(String.valueOf(NULL_HASH_CODE)));
+            return new CoalesceExpression(expression, new GenericLiteral("BIGINT", String.valueOf(NULL_HASH_CODE)));
         }
 
         @Override

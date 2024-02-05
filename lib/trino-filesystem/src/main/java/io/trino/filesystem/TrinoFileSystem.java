@@ -78,10 +78,10 @@ public interface TrinoFileSystem
 
     /**
      * Deletes the specified file. The file location path cannot be empty, and must not end with
-     * a slash or whitespace. If the file is a director, an exception is raised.
+     * a slash or whitespace. If the file is a director, an exception is raised. If the file does
+     * not exist, this method is a noop.
      *
      * @throws IllegalArgumentException if location is not valid for this file system
-     * @throws IOException if the file does not exist (optional) or was not deleted
      */
     void deleteFile(Location location)
             throws IOException;
@@ -90,9 +90,9 @@ public interface TrinoFileSystem
      * Delete specified files. This operation is <b>not</b> required to be atomic, so if an error
      * occurs, all, some, or, none of the files may be deleted. This operation may be faster than simply
      * looping over the locations as some file systems support batch delete operations natively.
+     * If a file does not exist, it is ignored.
      *
      * @throws IllegalArgumentException if location is not valid for this file system
-     * @throws IOException if a file does not exist (optional) or was not deleted
      */
     default void deleteFiles(Collection<Location> locations)
             throws IOException

@@ -29,9 +29,10 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -52,15 +53,16 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestSystemRuntimeConnector
         extends AbstractTestQueryFramework
 {
     private static final Function<SchemaTableName, List<ColumnMetadata>> DEFAULT_GET_COLUMNS = table -> ImmutableList.of(new ColumnMetadata("c", VARCHAR));
     private static final AtomicLong counter = new AtomicLong();
 
-    private static Function<SchemaTableName, List<ColumnMetadata>> getColumns = DEFAULT_GET_COLUMNS;
+    private static Function<SchemaTableName, List<ColumnMetadata>> getColumns;
 
     private final ExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadsNamed(TestSystemRuntimeConnector.class.getSimpleName()));
 
@@ -73,7 +75,7 @@ public class TestSystemRuntimeConnector
                 .setSchema("default")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
+        QueryRunner queryRunner = DistributedQueryRunner
                 .builder(defaultSession)
                 .enableBackupCoordinator()
                 .build();
@@ -94,13 +96,7 @@ public class TestSystemRuntimeConnector
         return queryRunner;
     }
 
-    @BeforeMethod
-    public void cleanup()
-    {
-        getColumns = DEFAULT_GET_COLUMNS;
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
@@ -117,81 +113,88 @@ public class TestSystemRuntimeConnector
                         "('testversion', false, 'active')");
     }
 
-    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608
-    @Test(invocationCount = 10, successPercentage = 80)
+    @Test
     public void testRuntimeQueriesTimestamps()
     {
-        ZonedDateTime timeBefore = ZonedDateTime.now();
-        computeActual("SELECT 1");
-        MaterializedResult result = computeActual("" +
-                "SELECT max(created), max(started), max(last_heartbeat), max(\"end\") " +
-                "FROM system.runtime.queries");
-        ZonedDateTime timeAfter = ZonedDateTime.now();
+        // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608
+        run(10, 0.8, () -> {
+            ZonedDateTime timeBefore = ZonedDateTime.now();
+            computeActual("SELECT 1");
+            MaterializedResult result = computeActual("" +
+                    "SELECT max(created), max(started), max(last_heartbeat), max(\"end\") " +
+                    "FROM system.runtime.queries");
+            ZonedDateTime timeAfter = ZonedDateTime.now();
 
-        MaterializedRow row = Iterables.getOnlyElement(result.toTestTypes().getMaterializedRows());
-        List<Object> fields = row.getFields();
-        assertThat(fields).hasSize(4);
-        for (int i = 0; i < fields.size(); i++) {
-            Object value = fields.get(i);
-            assertThat((ZonedDateTime) value)
-                    .as("value for field " + i)
-                    .isNotNull()
-                    .isAfterOrEqualTo(timeBefore)
-                    .isBeforeOrEqualTo(timeAfter);
-        }
+            MaterializedRow row = Iterables.getOnlyElement(result.toTestTypes().getMaterializedRows());
+            List<Object> fields = row.getFields();
+            assertThat(fields).hasSize(4);
+            for (int i = 0; i < fields.size(); i++) {
+                Object value = fields.get(i);
+                assertThat((ZonedDateTime) value)
+                        .as("value for field " + i)
+                        .isNotNull()
+                        .isAfterOrEqualTo(timeBefore)
+                        .isBeforeOrEqualTo(timeAfter);
+            }
+        });
     }
 
-    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608
-    @Test(invocationCount = 10, successPercentage = 80)
+    @Test
     public void testRuntimeTasksTimestamps()
     {
-        ZonedDateTime timeBefore = ZonedDateTime.now();
-        computeActual("SELECT 1");
-        MaterializedResult result = computeActual("" +
-                "SELECT max(created), max(start), max(last_heartbeat), max(\"end\") " +
-                "FROM system.runtime.tasks");
-        ZonedDateTime timeAfter = ZonedDateTime.now();
+        // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608
+        run(10, 0.8, () -> {
+            ZonedDateTime timeBefore = ZonedDateTime.now();
+            computeActual("SELECT 1");
+            MaterializedResult result = computeActual("" +
+                    "SELECT max(created), max(start), max(last_heartbeat), max(\"end\") " +
+                    "FROM system.runtime.tasks");
+            ZonedDateTime timeAfter = ZonedDateTime.now();
 
-        MaterializedRow row = Iterables.getOnlyElement(result.toTestTypes().getMaterializedRows());
-        List<Object> fields = row.getFields();
-        assertThat(fields).hasSize(4);
-        for (int i = 0; i < fields.size(); i++) {
-            Object value = fields.get(i);
-            assertThat((ZonedDateTime) value)
-                    .as("value for field " + i)
-                    .isNotNull()
-                    .isAfterOrEqualTo(timeBefore)
-                    .isBeforeOrEqualTo(timeAfter);
-        }
+            MaterializedRow row = Iterables.getOnlyElement(result.toTestTypes().getMaterializedRows());
+            List<Object> fields = row.getFields();
+            assertThat(fields).hasSize(4);
+            for (int i = 0; i < fields.size(); i++) {
+                Object value = fields.get(i);
+                assertThat((ZonedDateTime) value)
+                        .as("value for field " + i)
+                        .isNotNull()
+                        .isAfterOrEqualTo(timeBefore)
+                        .isBeforeOrEqualTo(timeAfter);
+            }
+        });
     }
 
     // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608
-    @Test(invocationCount = 10, successPercentage = 80)
+    @Test
     public void testRuntimeTransactionsTimestamps()
     {
-        ZonedDateTime timeBefore = ZonedDateTime.now();
-        computeActual("START TRANSACTION");
-        MaterializedResult result = computeActual("" +
-                "SELECT max(create_time) " +
-                "FROM system.runtime.transactions");
-        ZonedDateTime timeAfter = ZonedDateTime.now();
+        run(10, 0.8, () -> {
+            ZonedDateTime timeBefore = ZonedDateTime.now();
+            computeActual("START TRANSACTION");
+            MaterializedResult result = computeActual("" +
+                    "SELECT max(create_time) " +
+                    "FROM system.runtime.transactions");
+            ZonedDateTime timeAfter = ZonedDateTime.now();
 
-        MaterializedRow row = Iterables.getOnlyElement(result.toTestTypes().getMaterializedRows());
-        List<Object> fields = row.getFields();
-        assertThat(fields).hasSize(1);
-        for (int i = 0; i < fields.size(); i++) {
-            Object value = fields.get(i);
-            assertThat((ZonedDateTime) value)
-                    .as("value for field " + i)
-                    .isNotNull()
-                    .isAfterOrEqualTo(timeBefore)
-                    .isBeforeOrEqualTo(timeAfter);
-        }
+            MaterializedRow row = Iterables.getOnlyElement(result.toTestTypes().getMaterializedRows());
+            List<Object> fields = row.getFields();
+            assertThat(fields).hasSize(1);
+            for (int i = 0; i < fields.size(); i++) {
+                Object value = fields.get(i);
+                assertThat((ZonedDateTime) value)
+                        .as("value for field " + i)
+                        .isNotNull()
+                        .isAfterOrEqualTo(timeBefore)
+                        .isBeforeOrEqualTo(timeAfter);
+            }
+        });
     }
 
     @Test
     public void testFinishedQueryIsCaptured()
     {
+        getColumns = DEFAULT_GET_COLUMNS;
         String testQueryId = "test_query_id_" + counter.incrementAndGet();
         getQueryRunner().execute(format("EXPLAIN SELECT 1 AS %s FROM test_table", testQueryId));
 
@@ -200,7 +203,8 @@ public class TestSystemRuntimeConnector
                 "VALUES 'FINISHED'");
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testQueryDuringAnalysisIsCaptured()
     {
         SettableFuture<List<ColumnMetadata>> metadataFuture = SettableFuture.create();
@@ -236,7 +240,8 @@ public class TestSystemRuntimeConnector
         assertEventually(new Duration(5, SECONDS), () -> assertThat(queryFuture.isDone()).isTrue());
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testQueryKillingDuringAnalysis()
     {
         SettableFuture<List<ColumnMetadata>> metadataFuture = SettableFuture.create();
@@ -284,5 +289,24 @@ public class TestSystemRuntimeConnector
     {
         getQueryRunner().execute("SELECT 1");
         getQueryRunner().execute("SELECT * FROM system.runtime.tasks");
+    }
+
+    private static void run(int repetitions, double successRate, Runnable test)
+    {
+        AssertionError lastError = null;
+        int failures = 0;
+        for (int iteration = 0; iteration < repetitions; iteration++) {
+            try {
+                test.run();
+            }
+            catch (AssertionError e) {
+                failures++;
+                lastError = e;
+            }
+        }
+
+        if (lastError != null && 1 - (failures * 1.0) / repetitions < successRate) {
+            throw lastError;
+        }
     }
 }

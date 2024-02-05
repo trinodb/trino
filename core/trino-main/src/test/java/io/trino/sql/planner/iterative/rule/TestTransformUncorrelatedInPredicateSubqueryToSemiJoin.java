@@ -13,13 +13,10 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
-import io.trino.sql.tree.ExistsPredicate;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -34,7 +31,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        Assignments.of(),
+                        ImmutableMap.of(),
                         emptyList(),
                         p.values(),
                         p.values()))
@@ -46,7 +43,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        Assignments.of(p.symbol("x"), new ExistsPredicate(new LongLiteral("1"))),
+                        ImmutableMap.of(p.symbol("x"), new ApplyNode.Exists()),
                         emptyList(),
                         p.values(),
                         p.values()))
@@ -58,11 +55,11 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        Assignments.of(
+                        ImmutableMap.of(
                                 p.symbol("x"),
-                                new InPredicate(
-                                        new SymbolReference("y"),
-                                        new SymbolReference("z"))),
+                                new ApplyNode.In(
+                                        p.symbol("y"),
+                                        p.symbol("z"))),
                         emptyList(),
                         p.values(p.symbol("y")),
                         p.values(p.symbol("z"))))

@@ -15,18 +15,14 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.metadata.MaterializedViewDefinition;
-import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
-import io.trino.spi.connector.SchemaTableName;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.transaction.TransactionId;
-import io.trino.transaction.TransactionManager;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -35,8 +31,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.File;
 import java.util.Optional;
 
-import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,11 +41,10 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestIcebergMetadataListing
         extends AbstractTestQueryFramework
 {
-    private FileHiveMetastore metastore;
-    private SchemaTableName storageTable;
+    private HiveMetastore metastore;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -58,16 +52,17 @@ public class TestIcebergMetadataListing
                         .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
 
-        metastore = createTestingFileHiveMetastore(baseDir);
-
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingIcebergPlugin(baseDir.toPath()));
         queryRunner.createCatalog("iceberg", "iceberg");
-        queryRunner.installPlugin(new TestingHivePlugin(metastore));
+        queryRunner.installPlugin(new TestingHivePlugin(baseDir.toPath()));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.security", "sql-standard"));
+
+        metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
 
         return queryRunner;
     }
@@ -80,7 +75,6 @@ public class TestIcebergMetadataListing
         assertQuerySucceeds("CREATE TABLE iceberg.test_schema.iceberg_table2 (_double DOUBLE) WITH (partitioning = ARRAY['_double'])");
         assertQuerySucceeds("CREATE MATERIALIZED VIEW iceberg.test_schema.iceberg_materialized_view AS " +
                 "SELECT * FROM iceberg.test_schema.iceberg_table1");
-        storageTable = getStorageTable("iceberg", "test_schema", "iceberg_materialized_view");
         assertQuerySucceeds("CREATE VIEW iceberg.test_schema.iceberg_view AS SELECT * FROM iceberg.test_schema.iceberg_table1");
 
         assertQuerySucceeds("CREATE TABLE hive.test_schema.hive_table (_double DOUBLE)");
@@ -102,7 +96,7 @@ public class TestIcebergMetadataListing
     @Test
     public void testTableListing()
     {
-        assertThat(metastore.getAllTables("test_schema"))
+        assertThat(metastore.getTables("test_schema"))
                 .containsExactlyInAnyOrder(
                         "iceberg_table1",
                         "iceberg_table2",
@@ -150,16 +144,5 @@ public class TestIcebergMetadataListing
     {
         assertQuerySucceeds("SELECT * FROM iceberg.test_schema.iceberg_table1");
         assertQueryFails("SELECT * FROM iceberg.test_schema.hive_table", "Not an Iceberg table: test_schema.hive_table");
-    }
-
-    private SchemaTableName getStorageTable(String catalogName, String schemaName, String objectName)
-    {
-        TransactionManager transactionManager = getQueryRunner().getTransactionManager();
-        TransactionId transactionId = transactionManager.beginTransaction(false);
-        Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
-        Optional<MaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
-                .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, objectName));
-        assertThat(materializedView).isPresent();
-        return materializedView.get().getStorageTable().get().getSchemaTableName();
     }
 }

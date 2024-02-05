@@ -18,8 +18,7 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,19 +35,6 @@ public class TestGroupedTopNRowNumberBuilder
 {
     private static final TypeOperators TYPE_OPERATORS_CACHE = new TypeOperators();
 
-    @DataProvider
-    public static Object[][] produceRowNumbers()
-    {
-        return new Object[][] {{true}, {false}};
-    }
-
-    @DataProvider
-    public static Object[][] pageRowCounts()
-    {
-        // make either page or row count > 1024 to expand the big arrays
-        return new Object[][] {{10000, 20}, {20, 10000}};
-    }
-
     @Test
     public void testEmptyInput()
     {
@@ -64,8 +50,14 @@ public class TestGroupedTopNRowNumberBuilder
         assertThat(groupedTopNBuilder.buildResult().hasNext()).isFalse();
     }
 
-    @Test(dataProvider = "produceRowNumbers")
-    public void testMultiGroupTopN(boolean produceRowNumbers)
+    @Test
+    public void testMultiGroupTopN()
+    {
+        testMultiGroupTopN(true);
+        testMultiGroupTopN(false);
+    }
+
+    private void testMultiGroupTopN(boolean produceRowNumbers)
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder(types)
@@ -131,8 +123,14 @@ public class TestGroupedTopNRowNumberBuilder
         }
     }
 
-    @Test(dataProvider = "produceRowNumbers")
-    public void testSingleGroupTopN(boolean produceRowNumbers)
+    @Test
+    public void testSingleGroupTopN()
+    {
+        testSingleGroupTopN(true);
+        testSingleGroupTopN(false);
+    }
+
+    private void testSingleGroupTopN(boolean produceRowNumbers)
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder(types)

@@ -40,12 +40,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHttpRequestSessionContextFactory
 {
-    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(
-            new PreparedStatementEncoder(new ProtocolConfig()),
-            createTestMetadataManager(),
-            ImmutableSet::of,
-            new AllowAllAccessControl());
-
     @Test
     public void testSessionContext()
     {
@@ -65,6 +59,8 @@ public class TestHttpRequestSessionContextFactory
                 .put(protocolHeaders.requestTimeZone(), "Asia/Taipei")
                 .put(protocolHeaders.requestClientInfo(), "client-info")
                 .put(protocolHeaders.requestSession(), QUERY_MAX_MEMORY + "=1GB")
+                .put(protocolHeaders.requestSession(), "catalog.some_session_property=1GB")
+                .put(protocolHeaders.requestSession(), "catalog.with.a.dot.some_session_property=1GB")
                 .put(protocolHeaders.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
                 .put(protocolHeaders.requestSession(), "some_session_property=some value with %2C comma")
                 .put(protocolHeaders.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
@@ -76,9 +72,8 @@ public class TestHttpRequestSessionContextFactory
                 .put(protocolHeaders.requestExtraCredential(), "test.token.abc=xyz")
                 .build());
 
-        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(
+        SessionContext context = sessionContextFactory(protocolHeaders).createSessionContext(
                 headers,
-                Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
                 Optional.empty());
         assertThat(context.getSource().orElse(null)).isEqualTo("testSource");
@@ -96,6 +91,9 @@ public class TestHttpRequestSessionContextFactory
         assertThat(context.getClientInfo().orElse(null)).isEqualTo("client-info");
         assertThat(context.getLanguage().orElse(null)).isEqualTo("zh-TW");
         assertThat(context.getTimeZoneId().orElse(null)).isEqualTo("Asia/Taipei");
+        assertThat(context.getCatalogSessionProperties()).isEqualTo(ImmutableMap.of(
+                "catalog", ImmutableMap.of("some_session_property", "1GB"),
+                "catalog.with.a.dot", ImmutableMap.of("some_session_property", "1GB")));
         assertThat(context.getSystemProperties()).isEqualTo(ImmutableMap.of(
                 QUERY_MAX_MEMORY, "1GB",
                 JOIN_DISTRIBUTION_TYPE, "partitioned",
@@ -118,31 +116,27 @@ public class TestHttpRequestSessionContextFactory
         MultivaluedMap<String, String> userHeaders = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(protocolHeaders.requestUser(), "testUser"));
         MultivaluedMap<String, String> emptyHeaders = new MultivaluedHashMap<>();
 
-        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(
+        SessionContext context = sessionContextFactory(protocolHeaders).createSessionContext(
                 userHeaders,
-                Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
                 Optional.empty());
         assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
-        context = SESSION_CONTEXT_FACTORY.createSessionContext(
+        context = sessionContextFactory(protocolHeaders).createSessionContext(
                 emptyHeaders,
-                Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
                 Optional.of(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test")).build()));
         assertThat(context.getIdentity()).isEqualTo(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
 
-        context = SESSION_CONTEXT_FACTORY.createSessionContext(
+        context = sessionContextFactory(protocolHeaders).createSessionContext(
                 userHeaders,
-                Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
                 Optional.of(Identity.ofUser("mappedUser")));
         assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
         assertThatThrownBy(
-                () -> SESSION_CONTEXT_FACTORY.createSessionContext(
+                () -> sessionContextFactory(protocolHeaders).createSessionContext(
                         emptyHeaders,
-                        Optional.of(protocolHeaders.getProtocolName()),
                         Optional.of("testRemote"),
                         Optional.empty()))
                 .isInstanceOf(WebApplicationException.class)
@@ -171,12 +165,22 @@ public class TestHttpRequestSessionContextFactory
                 .build());
 
         assertThatThrownBy(
-                () -> SESSION_CONTEXT_FACTORY.createSessionContext(
+                () -> sessionContextFactory(protocolHeaders).createSessionContext(
                         headers,
-                        Optional.of(protocolHeaders.getProtocolName()),
                         Optional.of("testRemote"),
                         Optional.empty()))
                 .isInstanceOf(WebApplicationException.class)
                 .hasMessageMatching("Invalid " + protocolHeaders.requestPreparedStatement() + " header: line 1:1: mismatched input 'abcdefg'. Expecting: .*");
+    }
+
+    private static HttpRequestSessionContextFactory sessionContextFactory(ProtocolHeaders headers)
+    {
+        return new HttpRequestSessionContextFactory(
+                new PreparedStatementEncoder(new ProtocolConfig()),
+                createTestMetadataManager(),
+                ImmutableSet::of,
+                new AllowAllAccessControl(),
+                new ProtocolConfig()
+                        .setAlternateHeaderName(headers.getProtocolName()));
     }
 }

@@ -21,6 +21,11 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CLI;
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.JDBC;
+import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.TestGroups.TRINO_JDBC;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteClients
@@ -32,11 +37,11 @@ public class SuiteClients
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
                         .withGroups(
-                                "configured-features",
-                                "cli",
-                                "jdbc",
-                                "trino_jdbc")
-                        .withExcludedGroups("profile_specific_tests")
+                                CONFIGURED_FEATURES,
+                                CLI,
+                                JDBC,
+                                TRINO_JDBC)
+                        .withExcludedGroups(PROFILE_SPECIFIC_TESTS)
                         .build());
     }
 }

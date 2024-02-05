@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.buffer.CompressionCodec;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
@@ -53,6 +54,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class SystemSessionProperties
         implements SystemSessionPropertiesProvider
@@ -106,7 +108,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
-    public static final String EXCHANGE_COMPRESSION = "exchange_compression";
+    public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
@@ -207,6 +209,8 @@ public final class SystemSessionProperties
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
+    public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
+    public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -502,10 +506,11 @@ public final class SystemSessionProperties
                         "Enable a stats-based rule adding exchanges below GroupId",
                         optimizerConfig.isEnableForcedExchangeBelowGroupId(),
                         true),
-                booleanProperty(
-                        EXCHANGE_COMPRESSION,
-                        "Enable compression in exchanges",
-                        featuresConfig.isExchangeCompressionEnabled(),
+                enumProperty(
+                        EXCHANGE_COMPRESSION_CODEC,
+                        "Compression codec used for data in exchanges, supports NONE, LZ4, ZSTD",
+                        CompressionCodec.class,
+                        featuresConfig.getExchangeCompressionCodec(),
                         false),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
@@ -712,6 +717,7 @@ public final class SystemSessionProperties
                         COST_ESTIMATION_WORKER_COUNT,
                         "Set the estimate count of workers while planning",
                         null,
+                        value -> validateIntegerValue(value, COST_ESTIMATION_WORKER_COUNT, 1, true),
                         true),
                 booleanProperty(
                         OMIT_DATETIME_TYPE_PRECISION,
@@ -1058,6 +1064,14 @@ public final class SystemSessionProperties
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
+                        true),
+                dataSizeProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD,
+                        "Minimum amount of data written by a writer operator on average before it tries to close the idle writers",
+                        DataSize.of(256, MEGABYTE),
+                        true),
+                durationProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION,
+                        "The duration after which the writer operator tries to close the idle writers",
+                        new Duration(5, SECONDS),
                         true));
     }
 
@@ -1316,9 +1330,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID, Boolean.class);
     }
 
-    public static boolean isExchangeCompressionEnabled(Session session)
+    public static CompressionCodec getExchangeCompressionCodec(Session session)
     {
-        return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
+        return session.getSystemProperty(EXCHANGE_COMPRESSION_CODEC, CompressionCodec.class);
     }
 
     public static boolean isEnableIntermediateAggregations(Session session)
@@ -1895,5 +1909,15 @@ public final class SystemSessionProperties
     public static int getPagePartitioningBufferPoolSize(Session session)
     {
         return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
+    }
+
+    public static DataSize getIdleWriterMinDataSizeThreshold(Session session)
+    {
+        return session.getSystemProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD, DataSize.class);
+    }
+
+    public static Duration getCloseIdleWritersTriggerDuration(Session session)
+    {
+        return session.getSystemProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION, Duration.class);
     }
 }

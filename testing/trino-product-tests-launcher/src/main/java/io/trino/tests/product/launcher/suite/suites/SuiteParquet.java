@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.PARQUET;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteParquet
@@ -31,7 +33,7 @@ public class SuiteParquet
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeParquet.class)
-                        .withGroups("configured_features", "parquet")
+                        .withGroups(CONFIGURED_FEATURES, PARQUET)
                         .build());
     }
 }

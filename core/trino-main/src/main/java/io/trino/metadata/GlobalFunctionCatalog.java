@@ -18,9 +18,12 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.operator.table.ExcludeColumns.ExcludeColumnsFunctionHandle;
-import io.trino.operator.table.Sequence.SequenceFunctionHandle;
+import io.trino.operator.table.ExcludeColumnsFunction.ExcludeColumnsFunctionHandle;
+import io.trino.operator.table.SequenceFunction.SequenceFunctionHandle;
+import io.trino.operator.table.json.JsonTable.JsonTableFunctionHandle;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
@@ -37,6 +40,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.Collection;
@@ -51,20 +55,34 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
-import static io.trino.operator.table.ExcludeColumns.getExcludeColumnsFunctionProcessorProvider;
-import static io.trino.operator.table.Sequence.getSequenceFunctionProcessorProvider;
+import static io.trino.operator.table.ExcludeColumnsFunction.getExcludeColumnsFunctionProcessorProvider;
+import static io.trino.operator.table.SequenceFunction.getSequenceFunctionProcessorProvider;
+import static io.trino.operator.table.json.JsonTable.getJsonTableFunctionProcessorProvider;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class GlobalFunctionCatalog
         implements FunctionProvider
 {
     public static final String BUILTIN_SCHEMA = "builtin";
+
+    private final Provider<Metadata> metadata;
+    private final Provider<TypeManager> typeManager;
+    private final Provider<FunctionManager> functionManager;
     private volatile FunctionMap functions = new FunctionMap();
+
+    @Inject
+    public GlobalFunctionCatalog(Provider<Metadata> metadata, Provider<TypeManager> typeManager, Provider<FunctionManager> functionManager)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+    }
 
     public final synchronized void addFunctions(FunctionBundle functionBundle)
     {
@@ -187,6 +205,9 @@ public class GlobalFunctionCatalog
         if (functionHandle instanceof SequenceFunctionHandle) {
             return getSequenceFunctionProcessorProvider();
         }
+        if (functionHandle instanceof JsonTableFunctionHandle) {
+            return getJsonTableFunctionProcessorProvider(metadata.get(), typeManager.get(), functionManager.get());
+        }
 
         return null;
     }
@@ -272,14 +293,14 @@ public class GlobalFunctionCatalog
         public FunctionMetadata get(FunctionId functionId)
         {
             FunctionMetadata functionMetadata = functionsById.get(functionId);
-            checkArgument(functionMetadata != null, "Unknown function implementation: " + functionId);
+            checkArgument(functionMetadata != null, "Unknown function implementation: %s", functionId);
             return functionMetadata;
         }
 
         public FunctionBundle getFunctionBundle(FunctionId functionId)
         {
             FunctionBundle functionBundle = functionBundlesById.get(functionId);
-            checkArgument(functionBundle != null, "Unknown function implementation: " + functionId);
+            checkArgument(functionBundle != null, "Unknown function implementation: %s", functionId);
             return functionBundle;
         }
     }

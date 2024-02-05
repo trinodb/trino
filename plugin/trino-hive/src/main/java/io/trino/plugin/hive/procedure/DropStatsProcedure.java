@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.plugin.base.util.UncheckedCloseable;
@@ -41,6 +42,7 @@ import java.util.Map;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.CLEAR_ALL;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -128,8 +130,10 @@ public class DropStatsProcedure
                 partitionStringValues.forEach(values -> metastore.updatePartitionStatistics(
                         schema,
                         table,
-                        makePartName(partitionColumns, values),
-                        stats -> PartitionStatistics.empty()));
+                        CLEAR_ALL,
+                        ImmutableMap.of(
+                                makePartName(partitionColumns, values),
+                                PartitionStatistics.empty())));
             }
             else {
                 // no partition specified, so drop stats for the entire table
@@ -139,7 +143,8 @@ public class DropStatsProcedure
                             schema,
                             table,
                             NO_ACID_TRANSACTION,
-                            stats -> PartitionStatistics.empty());
+                            CLEAR_ALL,
+                            PartitionStatistics.empty());
                 }
                 else {
                     // the table is partitioned; remove stats for every partition
@@ -147,8 +152,10 @@ public class DropStatsProcedure
                             .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionStatistics(
                                     schema,
                                     table,
-                                    partitionName,
-                                    stats -> PartitionStatistics.empty())));
+                                    CLEAR_ALL,
+                                    ImmutableMap.of(
+                                            partitionName,
+                                            PartitionStatistics.empty()))));
                 }
             }
 

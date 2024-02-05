@@ -121,7 +121,8 @@ public class CheckpointSchemaManager
             ProtocolEntry protocolEntry,
             Predicate<String> addStatsMinMaxColumnFilter,
             boolean requireWriteStatsAsJson,
-            boolean requireWriteStatsAsStruct)
+            boolean requireWriteStatsAsStruct,
+            boolean usePartitionValues)
     {
         List<DeltaLakeColumnMetadata> allColumns = extractSchema(metadataEntry, protocolEntry, typeManager);
         List<DeltaLakeColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, protocolEntry, typeManager);
@@ -158,7 +159,9 @@ public class CheckpointSchemaManager
         MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
         ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();
         addFields.add(RowType.field("path", VARCHAR));
-        addFields.add(RowType.field("partitionValues", stringMap));
+        if (usePartitionValues) {
+            addFields.add(RowType.field("partitionValues", stringMap));
+        }
         addFields.add(RowType.field("size", BIGINT));
         addFields.add(RowType.field("modificationTime", BIGINT));
         addFields.add(RowType.field("dataChange", BOOLEAN));
@@ -179,6 +182,15 @@ public class CheckpointSchemaManager
             addFields.add(RowType.field("stats_parsed", RowType.from(statsColumns.build())));
         }
         addFields.add(RowType.field("tags", stringMap));
+
+        return RowType.from(addFields.build());
+    }
+
+    public RowType getAddEntryPartitionValuesType()
+    {
+        ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();
+        MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        addFields.add(RowType.field("partitionValues", stringMap));
 
         return RowType.from(addFields.build());
     }

@@ -21,8 +21,10 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TestingGcMonitor;
+import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.buffer.BufferResult;
@@ -92,6 +94,7 @@ public class TestSqlTask
     private TaskExecutor taskExecutor;
     private ScheduledExecutorService taskNotificationExecutor;
     private ScheduledExecutorService driverYieldExecutor;
+    private ScheduledExecutorService driverTimeoutExecutor;
     private SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicInteger nextTaskId = new AtomicInteger();
@@ -104,7 +107,7 @@ public class TestSqlTask
 
         taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
-
+        driverTimeoutExecutor = newScheduledThreadPool(2, threadsNamed("driver-timeout-%s"));
         LocalExecutionPlanner planner = createTestingPlanner();
 
         sqlTaskExecutionFactory = new SqlTaskExecutionFactory(
@@ -123,6 +126,7 @@ public class TestSqlTask
         taskExecutor = null;
         taskNotificationExecutor.shutdownNow();
         driverYieldExecutor.shutdown();
+        driverTimeoutExecutor.shutdown();
         sqlTaskExecutionFactory = null;
     }
 
@@ -435,6 +439,7 @@ public class TestSqlTask
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,
+                driverTimeoutExecutor,
                 DataSize.of(1, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
 
@@ -451,7 +456,7 @@ public class TestSqlTask
                 sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
-                new ExchangeManagerRegistry(),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
                 new CounterStat());
     }
 }

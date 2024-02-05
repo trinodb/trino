@@ -13,12 +13,12 @@
  */
 package io.trino.tests.product.hive;
 
-import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
+import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Locale.ENGLISH;
@@ -28,13 +28,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHiveTransactionalTableInsert
         extends HiveProductTest
 {
-    @Test(dataProvider = "transactionalTableType", groups = HIVE_TRANSACTIONAL)
+    @Test(dataProvider = "transactionalTableType", groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testInsertIntoTransactionalTable(TransactionalTableType type)
     {
-        if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
-        }
-
         String tableName = "test_insert_into_transactional_table_" + type.name().toLowerCase(ENGLISH);
         onHive().executeQuery("" +
                 "CREATE TABLE " + tableName + "(a bigint)" +

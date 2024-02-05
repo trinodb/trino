@@ -34,7 +34,7 @@ import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -69,7 +69,7 @@ public class TestThriftProjectionPushdown
             .build();
 
     @Override
-    protected Optional<LocalQueryRunner> createLocalQueryRunner()
+    protected Optional<PlanTester> createPlanTester()
     {
         try {
             servers = startThriftServers(1, false);
@@ -95,7 +95,7 @@ public class TestThriftProjectionPushdown
                 .put("trino-thrift.lookup-requests-concurrency", "2")
                 .buildOrThrow();
 
-        LocalQueryRunner runner = LocalQueryRunner.create(SESSION);
+        PlanTester runner = PlanTester.create(SESSION);
         runner.createCatalog(TEST_CATALOG_NAME, getOnlyElement(new ThriftPlugin().getConnectorFactories()), connectorProperties);
 
         return Optional.of(runner);

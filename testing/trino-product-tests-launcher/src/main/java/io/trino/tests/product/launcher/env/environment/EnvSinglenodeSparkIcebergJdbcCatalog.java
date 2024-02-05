@@ -44,7 +44,6 @@ public class EnvSinglenodeSparkIcebergJdbcCatalog
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
     private final String imagesVersion;
-    private final String hadoopImagesVersion;
 
     @Inject
     public EnvSinglenodeSparkIcebergJdbcCatalog(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, EnvironmentConfig config, PortBinder portBinder)
@@ -53,7 +52,6 @@ public class EnvSinglenodeSparkIcebergJdbcCatalog
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = requireNonNull(config, "config is null").getImagesVersion();
-        this.hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
     }
 
     @Override

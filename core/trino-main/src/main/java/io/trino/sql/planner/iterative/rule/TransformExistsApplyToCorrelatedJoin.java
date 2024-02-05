@@ -33,8 +33,6 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.ExistsPredicate;
-import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 
 import java.util.Optional;
@@ -46,8 +44,8 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.Patterns.applyNode;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -98,8 +96,8 @@ public class TransformExistsApplyToCorrelatedJoin
             return Result.empty();
         }
 
-        Expression expression = getOnlyElement(parent.getSubqueryAssignments().getExpressions());
-        if (!(expression instanceof ExistsPredicate)) {
+        ApplyNode.SetExpression expression = getOnlyElement(parent.getSubqueryAssignments().values());
+        if (!(expression instanceof ApplyNode.Exists)) {
             return Result.empty();
         }
 
@@ -144,7 +142,7 @@ public class TransformExistsApplyToCorrelatedJoin
             return Optional.empty();
         }
 
-        Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
+        Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().keySet());
         Assignments.Builder assignments = Assignments.builder()
                 .putIdentities(applyNode.getInput().getOutputSymbols())
                 .put(exists, new CoalesceExpression(ImmutableList.of(subqueryTrue.toSymbolReference(), BooleanLiteral.FALSE_LITERAL)));
@@ -165,7 +163,7 @@ public class TransformExistsApplyToCorrelatedJoin
     {
         ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction("count", ImmutableList.of());
         Symbol count = context.getSymbolAllocator().newSymbol("count", BIGINT);
-        Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
+        Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().keySet());
 
         return new CorrelatedJoinNode(
                 applyNode.getId(),

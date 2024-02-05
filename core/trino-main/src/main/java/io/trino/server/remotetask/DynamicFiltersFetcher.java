@@ -169,6 +169,7 @@ class DynamicFiltersFetcher
                     errorTracker.requestSucceeded();
                 }
                 finally {
+                    cleanupRequest();
                     fetchDynamicFiltersIfNecessary();
                 }
             }
@@ -190,6 +191,7 @@ class DynamicFiltersFetcher
                     onFail.accept(e);
                 }
                 finally {
+                    cleanupRequest();
                     fetchDynamicFiltersIfNecessary();
                 }
             }
@@ -202,6 +204,14 @@ class DynamicFiltersFetcher
                 updateStats(requestStartNanos);
                 onFail.accept(cause);
             }
+        }
+    }
+
+    private synchronized void cleanupRequest()
+    {
+        if (future != null && future.isDone()) {
+            // remove outstanding reference to JSON response
+            future = null;
         }
     }
 

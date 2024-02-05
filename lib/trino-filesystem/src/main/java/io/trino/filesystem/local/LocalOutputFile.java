@@ -73,13 +73,6 @@ public class LocalOutputFile
     }
 
     @Override
-    public OutputStream createExclusive(AggregatedMemoryContext memoryContext)
-            throws IOException
-    {
-        return create(memoryContext);
-    }
-
-    @Override
     public Location location()
     {
         return location;

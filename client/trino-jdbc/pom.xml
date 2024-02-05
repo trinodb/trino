@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435-SNAPSHOT</version>
+        <version>439-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -193,7 +193,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hive-hadoop2</artifactId>
+            <artifactId>trino-hive</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -207,6 +207,12 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.trino</groupId>
+                    <artifactId>re2j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -237,6 +243,12 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.trino</groupId>
+                    <artifactId>re2j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -468,6 +480,10 @@
                                         <exclude>META-INF/io/opentelemetry/**</exclude>
                                         <exclude>io/opentelemetry/semconv/**</exclude>
                                         <exclude>META-INF/native-image/**</exclude>
+                                        <exclude>META-INF/kotlin-project-structure-metadata.json</exclude>
+                                        <exclude>**/*.knm</exclude>
+                                        <exclude>**/manifest</exclude>
+                                        <exclude>**/module</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

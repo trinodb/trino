@@ -24,15 +24,19 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public class TestScalarValidation
 {
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Parametric class method .* is annotated with @ScalarFunction")
+    @Test
     public void testBogusParametricMethodAnnotation()
     {
-        extractParametricScalar(BogusParametricMethodAnnotation.class);
+        assertThatThrownBy(() -> extractParametricScalar(BogusParametricMethodAnnotation.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Parametric class method .* is annotated with @ScalarFunction");
     }
 
     @ScalarFunction
@@ -42,20 +46,24 @@ public class TestScalarValidation
         public static void bad() {}
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Parametric class .* does not have any annotated methods")
+    @Test
     public void testNoParametricMethods()
     {
-        extractParametricScalar(NoParametricMethods.class);
+        assertThatThrownBy(() -> extractParametricScalar(NoParametricMethods.class))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("Parametric class .* does not have any annotated methods");
     }
 
     @SuppressWarnings("EmptyClass")
     @ScalarFunction
     public static final class NoParametricMethods {}
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* is missing @SqlType annotation")
+    @Test
     public void testMethodMissingReturnAnnotation()
     {
-        extractScalars(MethodMissingReturnAnnotation.class);
+        assertThatThrownBy(() -> extractScalars(MethodMissingReturnAnnotation.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* is missing @SqlType annotation");
     }
 
     public static final class MethodMissingReturnAnnotation
@@ -64,10 +72,12 @@ public class TestScalarValidation
         public static void bad() {}
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Method .* annotated with @SqlType is missing @ScalarFunction or @ScalarOperator")
+    @Test
     public void testMethodMissingScalarAnnotation()
     {
-        extractScalars(MethodMissingScalarAnnotation.class);
+        assertThatThrownBy(() -> extractScalars(MethodMissingScalarAnnotation.class))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("Method .* annotated with @SqlType is missing @ScalarFunction or @ScalarOperator");
     }
 
     public static final class MethodMissingScalarAnnotation
@@ -77,10 +87,12 @@ public class TestScalarValidation
         public static void bad() {}
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has wrapper return type Long but is missing @SqlNullable")
+    @Test
     public void testPrimitiveWrapperReturnWithoutNullable()
     {
-        extractScalars(PrimitiveWrapperReturnWithoutNullable.class);
+        assertThatThrownBy(() -> extractScalars(PrimitiveWrapperReturnWithoutNullable.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* has wrapper return type Long but is missing @SqlNullable");
     }
 
     public static final class PrimitiveWrapperReturnWithoutNullable
@@ -93,10 +105,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* annotated with @SqlNullable has primitive return type long")
+    @Test
     public void testPrimitiveReturnWithNullable()
     {
-        extractScalars(PrimitiveReturnWithNullable.class);
+        assertThatThrownBy(() -> extractScalars(PrimitiveReturnWithNullable.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* annotated with @SqlNullable has primitive return type long");
     }
 
     public static final class PrimitiveReturnWithNullable
@@ -110,10 +124,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "A parameter with USE_NULL_FLAG or RETURN_NULL_ON_NULL convention must not use wrapper type. Found in method .*")
+    @Test
     public void testPrimitiveWrapperParameterWithoutNullable()
     {
-        extractScalars(PrimitiveWrapperParameterWithoutNullable.class);
+        assertThatThrownBy(() -> extractScalars(PrimitiveWrapperParameterWithoutNullable.class))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("A parameter with USE_NULL_FLAG or RETURN_NULL_ON_NULL convention must not use wrapper type. Found in method .*");
     }
 
     public static final class PrimitiveWrapperParameterWithoutNullable
@@ -126,10 +142,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Method .* has parameter with primitive type double annotated with @SqlNullable")
+    @Test
     public void testPrimitiveParameterWithNullable()
     {
-        extractScalars(PrimitiveParameterWithNullable.class);
+        assertThatThrownBy(() -> extractScalars(PrimitiveParameterWithNullable.class))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("Method .* has parameter with primitive type double annotated with @SqlNullable");
     }
 
     public static final class PrimitiveParameterWithNullable
@@ -142,10 +160,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* is missing @SqlType annotation for parameter")
+    @Test
     public void testParameterWithoutType()
     {
-        extractScalars(ParameterWithoutType.class);
+        assertThatThrownBy(() -> extractScalars(ParameterWithoutType.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* is missing @SqlType annotation for parameter");
     }
 
     public static final class ParameterWithoutType
@@ -158,10 +178,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* annotated with @ScalarFunction must be public")
+    @Test
     public void testNonPublicAnnnotatedMethod()
     {
-        extractScalars(NonPublicAnnnotatedMethod.class);
+        assertThatThrownBy(() -> extractScalars(NonPublicAnnnotatedMethod.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* annotated with @ScalarFunction must be public");
     }
 
     public static final class NonPublicAnnnotatedMethod
@@ -174,10 +196,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* is annotated with @Nullable but not @SqlNullable")
+    @Test
     public void testMethodWithLegacyNullable()
     {
-        extractScalars(MethodWithLegacyNullable.class);
+        assertThatThrownBy(() -> extractScalars(MethodWithLegacyNullable.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* is annotated with @Nullable but not @SqlNullable");
     }
 
     public static final class MethodWithLegacyNullable
@@ -191,10 +215,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has @IsNull parameter that does not follow a @SqlType parameter")
+    @Test
     public void testParameterWithConnectorAndIsNull()
     {
-        extractScalars(ParameterWithConnectorAndIsNull.class);
+        assertThatThrownBy(() -> extractScalars(ParameterWithConnectorAndIsNull.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* has @IsNull parameter that does not follow a @SqlType parameter");
     }
 
     public static final class ParameterWithConnectorAndIsNull
@@ -207,10 +233,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has @IsNull parameter that does not follow a @SqlType parameter")
+    @Test
     public void testParameterWithOnlyIsNull()
     {
-        extractScalars(ParameterWithOnlyIsNull.class);
+        assertThatThrownBy(() -> extractScalars(ParameterWithOnlyIsNull.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* has @IsNull parameter that does not follow a @SqlType parameter");
     }
 
     public static final class ParameterWithOnlyIsNull
@@ -223,10 +251,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has non-boolean parameter with @IsNull")
+    @Test
     public void testParameterWithNonBooleanIsNull()
     {
-        extractScalars(ParameterWithNonBooleanIsNull.class);
+        assertThatThrownBy(() -> extractScalars(ParameterWithNonBooleanIsNull.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* has non-boolean parameter with @IsNull");
     }
 
     public static final class ParameterWithNonBooleanIsNull
@@ -239,10 +269,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "A parameter with USE_NULL_FLAG or RETURN_NULL_ON_NULL convention must not use wrapper type. Found in method .*")
+    @Test
     public void testParameterWithBoxedPrimitiveIsNull()
     {
-        extractScalars(ParameterWithBoxedPrimitiveIsNull.class);
+        assertThatThrownBy(() -> extractScalars(ParameterWithBoxedPrimitiveIsNull.class))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("A parameter with USE_NULL_FLAG or RETURN_NULL_ON_NULL convention must not use wrapper type. Found in method .*");
     }
 
     public static final class ParameterWithBoxedPrimitiveIsNull
@@ -255,10 +287,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has @IsNull parameter that has other annotations")
+    @Test
     public void testParameterWithOtherAnnotationsWithIsNull()
     {
-        extractScalars(ParameterWithOtherAnnotationsWithIsNull.class);
+        assertThatThrownBy(() -> extractScalars(ParameterWithOtherAnnotationsWithIsNull.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* has @IsNull parameter that has other annotations");
     }
 
     public static final class ParameterWithOtherAnnotationsWithIsNull
@@ -271,10 +305,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter to only contain A-Z and 0-9 \\(starting with A-Z\\), but got bad on method .*")
+    @Test
     public void testNonUpperCaseTypeParameters()
     {
-        extractScalars(TypeParameterWithNonUpperCaseAnnotation.class);
+        assertThatThrownBy(() -> extractScalars(TypeParameterWithNonUpperCaseAnnotation.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Expected type parameter to only contain A-Z and 0-9 \\(starting with A-Z\\), but got bad on method .*");
     }
 
     public static final class TypeParameterWithNonUpperCaseAnnotation
@@ -288,10 +324,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter to only contain A-Z and 0-9 \\(starting with A-Z\\), but got 1E on method .*")
+    @Test
     public void testLeadingNumericTypeParameters()
     {
-        extractScalars(TypeParameterWithLeadingNumbers.class);
+        assertThatThrownBy(() -> extractScalars(TypeParameterWithLeadingNumbers.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Expected type parameter to only contain A-Z and 0-9 \\(starting with A-Z\\), but got 1E on method .*");
     }
 
     public static final class TypeParameterWithLeadingNumbers
@@ -305,10 +343,12 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter not to take parameters, but got 'e' on method .*")
+    @Test
     public void testNonPrimitiveTypeParameters()
     {
-        extractScalars(TypeParameterWithNonPrimitiveAnnotation.class);
+        assertThatThrownBy(() -> extractScalars(TypeParameterWithNonPrimitiveAnnotation.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Expected type parameter not to take parameters, but got 'e' on method .*");
     }
 
     public static final class TypeParameterWithNonPrimitiveAnnotation
@@ -357,10 +397,12 @@ public class TestScalarValidation
         extractParametricScalar(ConstructorWithValidTypeParameters.class);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter not to take parameters, but got 'k' on method .*")
+    @Test
     public void testInvalidTypeParametersForConstructors()
     {
-        extractParametricScalar(ConstructorWithInvalidTypeParameters.class);
+        assertThatThrownBy(() -> extractParametricScalar(ConstructorWithInvalidTypeParameters.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Expected type parameter not to take parameters, but got 'k' on method .*");
     }
 
     private static void extractParametricScalar(Class<?> clazz)

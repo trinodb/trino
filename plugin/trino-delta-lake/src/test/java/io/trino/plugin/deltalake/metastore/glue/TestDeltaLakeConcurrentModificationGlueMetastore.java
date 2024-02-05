@@ -68,7 +68,7 @@ public class TestDeltaLakeConcurrentModificationGlueMetastore
                 .setSchema(SCHEMA)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("data_delta_concurrent");
         GlueMetastoreStats stats = new GlueMetastoreStats();
@@ -101,7 +101,7 @@ public class TestDeltaLakeConcurrentModificationGlueMetastore
                 stats,
                 table -> true);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog(CATALOG_NAME, "delta_lake");
         queryRunner.execute("CREATE SCHEMA " + SCHEMA);
         return queryRunner;

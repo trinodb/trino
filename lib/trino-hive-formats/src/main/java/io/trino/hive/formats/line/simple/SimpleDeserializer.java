@@ -81,7 +81,8 @@ public class SimpleDeserializer
             throws IOException
     {
         builder.declarePosition();
-        Slice line = Slices.wrappedBuffer(lineBuffer.getBuffer(), 0, lineBuffer.getLength());
+        byte[] buffer = lineBuffer.getBuffer();
+        Slice line = Slices.wrappedBuffer(buffer, 0, lineBuffer.getLength());
 
         int offset = 0;
         int length = line.length();
@@ -90,7 +91,7 @@ public class SimpleDeserializer
         int elementOffset = offset;
         int fieldIndex = 0;
         while (offset < end) {
-            byte currentByte = line.getByte(offset);
+            byte currentByte = buffer[offset];
             if (currentByte == separator) {
                 decodeElementValueInto(fieldIndex, builder, line, elementOffset, offset - elementOffset);
                 elementOffset = offset + 1;
@@ -100,7 +101,7 @@ public class SimpleDeserializer
                     break;
                 }
             }
-            else if (isEscapeByte(currentByte)) {
+            else if (escapeByte != null && currentByte == escapeByte) {
                 // ignore the char after escape_char
                 offset++;
             }
@@ -142,10 +143,5 @@ public class SimpleDeserializer
     private boolean isNullSequence(Slice slice, int offset, int length)
     {
         return nullSequence.equals(0, nullSequence.length(), slice, offset, length);
-    }
-
-    private boolean isEscapeByte(byte currentByte)
-    {
-        return escapeByte != null && currentByte == escapeByte;
     }
 }

@@ -50,8 +50,8 @@ import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURIT
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.Privilege.SELECT;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.Thread.sleep;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

@@ -67,7 +67,7 @@
 * Add support for separate metadata caching configuration for schemas, tables,
   and metadata. ({issue}`19859`)
 
-## MySQl connector
+## MySQL connector
 
 * Add support for separate metadata caching configuration for schemas, tables,
   and metadata. ({issue}`19859`)

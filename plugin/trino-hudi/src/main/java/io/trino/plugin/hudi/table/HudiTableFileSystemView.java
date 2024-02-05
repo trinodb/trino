@@ -74,16 +74,12 @@ public class HudiTableFileSystemView
     private final ReentrantReadWriteLock.ReadLock readLock = globalLock.readLock();
     // Used to concurrently load and populate partition views
     private final ConcurrentHashMap<String, Boolean> addedPartitions = new ConcurrentHashMap<>(4096);
+    private final HudiTableMetaClient metaClient;
+    private final HudiTimeline visibleCommitsAndCompactionTimeline;
 
     private boolean closed;
-
     private Map<String, List<HudiFileGroup>> partitionToFileGroupsMap;
-    private HudiTableMetaClient metaClient;
-
     private Map<HudiFileGroupId, Entry<String, CompactionOperation>> fgIdToPendingCompaction;
-
-    private HudiTimeline visibleCommitsAndCompactionTimeline;
-
     private Map<HudiFileGroupId, HudiInstant> fgIdToReplaceInstants;
 
     public HudiTableFileSystemView(HudiTableMetaClient metaClient, HudiTimeline visibleActiveTimeline)

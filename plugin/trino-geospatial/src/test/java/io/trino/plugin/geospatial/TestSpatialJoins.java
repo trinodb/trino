@@ -15,19 +15,13 @@ package io.trino.plugin.geospatial;
 
 import io.trino.Session;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.spi.security.PrincipalType;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
-import java.util.Optional;
-
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,7 +57,7 @@ public class TestSpatialJoins
             "(null, 1.2, 4, null, 'null', 4)";
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -71,22 +65,13 @@ public class TestSpatialJoins
                 .setCatalog("hive")
                 .setSchema("default")
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         queryRunner.installPlugin(new GeoPlugin());
 
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-
-        HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
-
-        metastore.createDatabase(
-                Database.builder()
-                        .setDatabaseName("default")
-                        .setOwnerName(Optional.of("public"))
-                        .setOwnerType(Optional.of(PrincipalType.ROLE))
-                        .build());
-        queryRunner.installPlugin(new TestingHivePlugin(metastore));
-
+        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
         queryRunner.createCatalog("hive", "hive");
+        queryRunner.execute("CREATE SCHEMA hive.default");
+
         return queryRunner;
     }
 

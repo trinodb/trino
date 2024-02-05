@@ -14,22 +14,20 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.sql.planner.LogicalPlanner;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.execution.warnings.WarningCollector.NOOP;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -41,21 +39,21 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestStatsCalculator
 {
-    private LocalQueryRunner queryRunner;
+    private QueryRunner queryRunner;
 
     @BeforeAll
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(testSessionBuilder()
+        queryRunner = new StandaloneQueryRunner(testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .build());
-
+        queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog(
                 queryRunner.getDefaultSession().getCatalog().get(),
-                new TpchConnectorFactory(1),
-                ImmutableMap.of());
+                "tpch",
+                ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
     }
 
     @AfterAll
@@ -77,17 +75,12 @@ public class TestStatsCalculator
 
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        assertPlan(sql, OPTIMIZED_AND_VALIDATED, pattern);
-    }
-
-    private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
-    {
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(true), stage, NOOP, createPlanOptimizersStatsCollector());
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql);
             PlanAssert.assertPlan(
                     transactionSession,
-                    queryRunner.getMetadata(),
-                    queryRunner.getFunctionManager(),
+                    queryRunner.getPlannerContext().getMetadata(),
+                    queryRunner.getPlannerContext().getFunctionManager(),
                     queryRunner.getStatsCalculator(),
                     actualPlan,
                     pattern);

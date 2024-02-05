@@ -33,7 +33,6 @@ import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.util.Failures;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -103,7 +102,7 @@ public class StageStateMachine
             Map<PlanNodeId, TableInfo> tables,
             Executor executor,
             Tracer tracer,
-            Span querySpan,
+            Span schedulerSpan,
             SplitSchedulerStats schedulerStats)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
@@ -117,7 +116,7 @@ public class StageStateMachine
         finalStageInfo = new StateMachine<>("final stage " + stageId, executor, Optional.empty());
 
         stageSpan = tracer.spanBuilder("stage")
-                .setParent(Context.current().with(querySpan))
+                .setParent(Context.current().with(schedulerSpan))
                 .setAttribute(TrinoAttributes.QUERY_ID, stageId.getQueryId().toString())
                 .setAttribute(TrinoAttributes.STAGE_ID, stageId.toString())
                 .startSpan();
@@ -194,7 +193,7 @@ public class StageStateMachine
         failureCause.compareAndSet(null, Failures.toFailure(throwable));
         boolean failed = stageState.setIf(FAILED, currentState -> !currentState.isDone());
         if (failed) {
-            log.error(throwable, "Stage %s failed", stageId);
+            log.debug(throwable, "Stage %s failed", stageId);
         }
         else {
             log.debug(throwable, "Failure after stage %s finished", stageId);
@@ -338,7 +337,7 @@ public class StageStateMachine
             internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
 
-            if (fragment.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
+            if (fragment.containsTableScanNode()) {
                 rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }

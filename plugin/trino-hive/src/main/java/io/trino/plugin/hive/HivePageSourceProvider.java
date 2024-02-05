@@ -121,7 +121,7 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionKeys(),
                 hiveColumns,
                 hiveSplit.getBucketConversion().map(BucketConversion::bucketColumnHandles).orElse(ImmutableList.of()),
-                hiveSplit.getTableToPartitionMapping(),
+                hiveSplit.getHiveColumnCoercions(),
                 hiveSplit.getPath(),
                 hiveSplit.getTableBucketNumber(),
                 hiveSplit.getEstimatedFileSize(),
@@ -382,7 +382,7 @@ public class HivePageSourceProvider
                 List<HivePartitionKey> partitionKeys,
                 List<HiveColumnHandle> columns,
                 List<HiveColumnHandle> requiredInterimColumns,
-                TableToPartitionMapping tableToPartitionMapping,
+                Map<Integer, HiveTypeName> hiveColumnCoercions,
                 String path,
                 OptionalInt bucketNumber,
                 long estimatedFileSize,
@@ -398,7 +398,7 @@ public class HivePageSourceProvider
             int regularIndex = 0;
 
             for (HiveColumnHandle column : columns) {
-                Optional<HiveType> baseTypeCoercionFrom = tableToPartitionMapping.getCoercion(column.getBaseHiveColumnIndex());
+                Optional<HiveType> baseTypeCoercionFrom = Optional.ofNullable(hiveColumnCoercions.get(column.getBaseHiveColumnIndex())).map(HiveTypeName::toHiveType);
                 if (column.getColumnType() == REGULAR) {
                     if (column.isBaseColumn()) {
                         baseColumnHiveIndices.add(column.getBaseHiveColumnIndex());
@@ -449,7 +449,8 @@ public class HivePageSourceProvider
                 }
 
                 if (projectionsForColumn.containsKey(column.getBaseHiveColumnIndex())) {
-                    columnMappings.add(interim(column, regularIndex, tableToPartitionMapping.getCoercion(column.getBaseHiveColumnIndex())));
+                    Optional<HiveType> baseTypeCoercionFrom = Optional.ofNullable(hiveColumnCoercions.get(column.getBaseHiveColumnIndex())).map(HiveTypeName::toHiveType);
+                    columnMappings.add(interim(column, regularIndex, baseTypeCoercionFrom));
                 }
                 else {
                     // If coercion does not affect bucket number calculation, coercion doesn't need to be applied here.
@@ -631,7 +632,7 @@ public class HivePageSourceProvider
     }
 
     /**
-     * Creates a mapping between the input {@param columns} and base columns based on baseHiveColumnIndex if required.
+     * Creates a mapping between the input {@code columns} and base columns based on baseHiveColumnIndex if required.
      */
     public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns)
     {
@@ -639,7 +640,7 @@ public class HivePageSourceProvider
     }
 
     /**
-     * Creates a mapping between the input {@param columns} and base columns based on baseHiveColumnIndex or baseColumnName if required.
+     * Creates a mapping between the input {@code columns} and base columns based on baseHiveColumnIndex or baseColumnName if required.
      */
     public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns, boolean useColumnNames)
     {
@@ -675,7 +676,7 @@ public class HivePageSourceProvider
 
     /**
      * Creates a set of sufficient columns for the input projected columns and prepares a mapping between the two. For example,
-     * if input {@param columns} include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".
+     * if input columns include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".
      */
     public static Optional<ReaderColumns> projectSufficientColumns(List<HiveColumnHandle> columns)
     {

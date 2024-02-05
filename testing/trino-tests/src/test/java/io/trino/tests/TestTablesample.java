@@ -15,9 +15,10 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -25,9 +26,9 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -36,15 +37,16 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestTablesample
 {
-    private LocalQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private QueryAssertions assertions;
 
     @BeforeAll
     public void setUp()
             throws Exception
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
         assertions = new QueryAssertions(queryRunner);
     }
 
@@ -70,41 +72,45 @@ public class TestTablesample
 
         // 1%
         assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (1)"))
-                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(50L, 450L));
+                .result().satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(50L, 450L));
 
         // 0.1%
         assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (1e-1)"))
-                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(3L, 45L));
+                .result().satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(3L, 45L));
 
         // 0.1% as decimal
         assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (0.1)"))
-                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(3L, 45L));
+                .result().satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(3L, 45L));
 
         // fraction as long decimal
         assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (0.000000000000000000001)"))
-                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(0L, 5L));
+                .result().satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(0L, 5L));
     }
 
     @Test
     public void testNullRatio()
     {
         // NULL
-        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (NULL)"))
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (NULL)"))
+                .failure()
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:62: Sample percentage cannot be NULL");
 
         // NULL integer
-        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS integer))"))
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS integer))"))
+                .failure()
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:62: Sample percentage cannot be NULL");
 
         // NULL double
-        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS double))"))
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS double))"))
+                .failure()
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:62: Sample percentage cannot be NULL");
 
         // NULL varchar
-        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS varchar))"))
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS varchar))"))
+                .failure()
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:62: Sample percentage should be a numeric expression");
     }
@@ -112,7 +118,8 @@ public class TestTablesample
     @Test
     public void testInvalidRatioType()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.sf1.orders TABLESAMPLE BERNOULLI (DATE '1970-01-02')"))
+        assertThat(assertions.query("SELECT count(*) FROM tpch.sf1.orders TABLESAMPLE BERNOULLI (DATE '1970-01-02')"))
+                .failure()
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:61: Sample percentage should be a numeric expression");
     }
@@ -130,18 +137,18 @@ public class TestTablesample
 
         // 1%
         assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders WHERE orderkey IN (SELECT orderkey FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (1))"))
-                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(50L, 450L));
+                .result().satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(50L, 450L));
 
         // 0.1%
         assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders WHERE orderkey IN (SELECT orderkey FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (1e-1))"))
-                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(3L, 45L));
+                .result().satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(3L, 45L));
 
         // 0.1% as decimal
         assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders WHERE orderkey IN (SELECT orderkey FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (0.1))"))
-                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(3L, 45L));
+                .result().satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(3L, 45L));
 
         // fraction as long decimal
         assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders WHERE orderkey IN (SELECT orderkey FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (0.000000000000000000001))"))
-                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(0L, 5L));
+                .result().satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(0L, 5L));
     }
 }

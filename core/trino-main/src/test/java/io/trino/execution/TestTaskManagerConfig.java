@@ -28,19 +28,18 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit;
 import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
+import static java.lang.Math.clamp;
 
 public class TestTaskManagerConfig
 {
-    private static final int DEFAULT_PROCESSOR_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32);
-    private static final int DEFAULT_MAX_WRITER_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2), 64);
+    private static final int DEFAULT_PROCESSOR_COUNT = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2, 32);
+    private static final int DEFAULT_MAX_WRITER_COUNT = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2, 64);
 
     @Test
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
-                .setThreadPerDriverSchedulerEnabled(false)
+                .setThreadPerDriverSchedulerEnabled(true)
                 .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 2)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
                 .setStatusRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
@@ -71,6 +70,7 @@ public class TestTaskManagerConfig
                 .setHttpTimeoutThreads(3)
                 .setTaskNotificationThreads(5)
                 .setTaskYieldThreads(3)
+                .setDriverTimeoutThreads(5)
                 .setLevelTimeMultiplier(new BigDecimal("2"))
                 .setStatisticsCpuTimerEnabled(true)
                 .setInterruptStuckSplitTasksEnabled(true)
@@ -85,7 +85,7 @@ public class TestTaskManagerConfig
         int processorCount = DEFAULT_PROCESSOR_COUNT == 32 ? 16 : 32;
         int maxWriterCount = DEFAULT_MAX_WRITER_COUNT == 32 ? 16 : 32;
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.thread-per-driver-scheduler-enabled", "true")
+                .put("experimental.thread-per-driver-scheduler-enabled", "false")
                 .put("task.initial-splits-per-node", "1")
                 .put("task.split-concurrency-adjustment-interval", "3s")
                 .put("task.status-refresh-max-wait", "2s")
@@ -116,6 +116,7 @@ public class TestTaskManagerConfig
                 .put("task.http-timeout-threads", "10")
                 .put("task.task-notification-threads", "13")
                 .put("task.task-yield-threads", "8")
+                .put("task.driver-timeout-threads", "10")
                 .put("task.level-time-multiplier", "2.1")
                 .put("task.statistics-cpu-timer-enabled", "false")
                 .put("task.interrupt-stuck-split-tasks-enabled", "false")
@@ -125,7 +126,7 @@ public class TestTaskManagerConfig
                 .buildOrThrow();
 
         TaskManagerConfig expected = new TaskManagerConfig()
-                .setThreadPerDriverSchedulerEnabled(true)
+                .setThreadPerDriverSchedulerEnabled(false)
                 .setInitialSplitsPerNode(1)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(3, TimeUnit.SECONDS))
                 .setStatusRefreshMaxWait(new Duration(2, TimeUnit.SECONDS))
@@ -156,6 +157,7 @@ public class TestTaskManagerConfig
                 .setHttpTimeoutThreads(10)
                 .setTaskNotificationThreads(13)
                 .setTaskYieldThreads(8)
+                .setDriverTimeoutThreads(10)
                 .setLevelTimeMultiplier(new BigDecimal("2.1"))
                 .setStatisticsCpuTimerEnabled(false)
                 .setInterruptStuckSplitTasksEnabled(false)

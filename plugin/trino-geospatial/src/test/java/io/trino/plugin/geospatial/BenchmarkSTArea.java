@@ -94,13 +94,13 @@ public class BenchmarkSTArea
             throws IOException, RunnerException
     {
         // assure the benchmarks are valid before running
-        verify();
+        new BenchmarkSTArea().verify();
 
         benchmark(BenchmarkSTArea.class).run();
     }
 
     @Test
-    public static void verify()
+    public void verify()
             throws IOException
     {
         BenchmarkData data = new BenchmarkData();

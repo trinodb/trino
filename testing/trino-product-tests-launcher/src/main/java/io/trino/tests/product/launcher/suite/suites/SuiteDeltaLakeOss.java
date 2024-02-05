@@ -16,6 +16,7 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeMinioDataLake;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeMinioDataLakeCaching;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeKerberizedHdfs;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeOss;
 import io.trino.tests.product.launcher.suite.Suite;
@@ -23,6 +24,11 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_ALLUXIO_CACHING;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_HDFS;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_MINIO;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteDeltaLakeOss
@@ -33,17 +39,21 @@ public class SuiteDeltaLakeOss
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeMinioDataLake.class)
-                        .withGroups("configured_features", "delta-lake-minio")
+                        .withGroups(CONFIGURED_FEATURES, DELTA_LAKE_MINIO)
                         .build(),
 
                 testOnEnvironment(EnvSinglenodeDeltaLakeKerberizedHdfs.class)
-                        .withGroups("configured_features", "delta-lake-hdfs")
+                        .withGroups(CONFIGURED_FEATURES, DELTA_LAKE_HDFS)
                         .build(),
 
                 testOnEnvironment(EnvSinglenodeDeltaLakeOss.class)
                         // TODO: make the list of tests run here as close to those run on SinglenodeDeltaLakeDatabricks
                         //  e.g. replace `delta-lake-oss` group with `delta-lake-databricks` + any exclusions, of needed
-                        .withGroups("configured_features", "delta-lake-oss")
+                        .withGroups(CONFIGURED_FEATURES, DELTA_LAKE_OSS)
+                        .build(),
+
+                testOnEnvironment(EnvMultinodeMinioDataLakeCaching.class)
+                        .withGroups(CONFIGURED_FEATURES, DELTA_LAKE_ALLUXIO_CACHING)
                         .build());
     }
 }

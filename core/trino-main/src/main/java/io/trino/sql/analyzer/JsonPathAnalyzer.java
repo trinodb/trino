@@ -16,7 +16,6 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.spi.TrinoException;
@@ -59,6 +58,7 @@ import io.trino.sql.jsonpath.tree.SqlValueLiteral;
 import io.trino.sql.jsonpath.tree.StartsWithPredicate;
 import io.trino.sql.jsonpath.tree.TypeMethod;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.StringLiteral;
 
 import java.util.LinkedHashMap;
@@ -91,15 +91,13 @@ public class JsonPathAnalyzer
     private static final Type TYPE_METHOD_RESULT_TYPE = createVarcharType(27);
 
     private final Metadata metadata;
-    private final Session session;
     private final ExpressionAnalyzer literalAnalyzer;
     private final Map<PathNodeRef<PathNode>, Type> types = new LinkedHashMap<>();
     private final Set<PathNodeRef<PathNode>> jsonParameters = new LinkedHashSet<>();
 
-    public JsonPathAnalyzer(Metadata metadata, Session session, ExpressionAnalyzer literalAnalyzer)
+    public JsonPathAnalyzer(Metadata metadata, ExpressionAnalyzer literalAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.session = requireNonNull(session, "session is null");
         this.literalAnalyzer = requireNonNull(literalAnalyzer, "literalAnalyzer is null");
     }
 
@@ -108,8 +106,15 @@ public class JsonPathAnalyzer
         Location pathStart = extractLocation(path)
                 .map(location -> new Location(location.getLineNumber(), location.getColumnNumber()))
                 .orElseThrow(() -> new IllegalStateException("missing NodeLocation in path"));
-        PathNode root = new PathParser(pathStart).parseJsonPath(path.getValue());
+        PathNode root = PathParser.withRelativeErrorLocation(pathStart).parseJsonPath(path.getValue());
         new Visitor(parameterTypes, path).process(root);
+        return new JsonPathAnalysis((JsonPath) root, types, jsonParameters);
+    }
+
+    public JsonPathAnalysis analyzeImplicitJsonPath(String path, NodeLocation location)
+    {
+        PathNode root = PathParser.withFixedErrorLocation(new Location(location.getLineNumber(), location.getColumnNumber())).parseJsonPath(path);
+        new Visitor(ImmutableMap.of(), new StringLiteral(path)).process(root);
         return new JsonPathAnalysis((JsonPath) root, types, jsonParameters);
     }
 

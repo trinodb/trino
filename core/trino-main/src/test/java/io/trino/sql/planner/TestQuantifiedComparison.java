@@ -27,7 +27,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestQuantifiedComparison
         extends BasePlanTest
@@ -38,9 +38,9 @@ public class TestQuantifiedComparison
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ANY (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
         assertPlan(query, anyTree(
                 join(INNER, builder -> builder
-                        .equiCriteria("Y", "X")
-                        .left(anyTree(values(ImmutableMap.of("Y", 0))))
-                        .right(anyTree(tableScan("orders", ImmutableMap.of("X", "orderkey")))))));
+                        .equiCriteria("X", "Y")
+                        .left(anyTree(tableScan("orders", ImmutableMap.of("X", "orderkey"))))
+                        .right(anyTree(values(ImmutableMap.of("Y", 0)))))));
     }
 
     @Test

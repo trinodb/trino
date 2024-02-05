@@ -269,7 +269,7 @@ public class LanguageFunctionManager
         public FunctionDependencyDeclaration getDependencies(FunctionId functionId, AccessControl accessControl)
         {
             LanguageFunctionImplementation function = implementationsById.get(functionId);
-            checkArgument(function != null, "Unknown function implementation: " + functionId);
+            checkArgument(function != null, "Unknown function implementation: %s", functionId);
             return function.getFunctionDependencies(accessControl);
         }
 
@@ -285,7 +285,7 @@ public class LanguageFunctionManager
         public FunctionMetadata getFunctionMetadata(FunctionId functionId)
         {
             LanguageFunctionImplementation function = implementationsById.get(functionId);
-            checkArgument(function != null, "Unknown function implementation: " + functionId);
+            checkArgument(function != null, "Unknown function implementation: %s", functionId);
             return function.getFunctionMetadata();
         }
 
@@ -293,7 +293,7 @@ public class LanguageFunctionManager
         {
             FunctionId functionId = resolvedFunction.getFunctionId();
             LanguageFunctionImplementation function = implementationsById.get(functionId);
-            checkArgument(function != null, "Unknown function implementation: " + functionId);
+            checkArgument(function != null, "Unknown function implementation: %s", functionId);
             implementationsByResolvedFunction.put(resolvedFunction, function);
         }
 

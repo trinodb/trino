@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.Session;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
@@ -42,7 +42,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.iterative.rule.PushProjectionThroughJoin.pushProjectionThroughJoin;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -67,7 +67,7 @@ public class JoinGraph
             Lookup lookup,
             PlanNodeIdAllocator planNodeIdAllocator,
             Session session,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types)
     {
         return plan.accept(new Builder(plannerContext, lookup, planNodeIdAllocator, session, typeAnalyzer, types), new Context());
@@ -206,10 +206,10 @@ public class JoinGraph
         private final Lookup lookup;
         private final PlanNodeIdAllocator planNodeIdAllocator;
         private final Session session;
-        private final TypeAnalyzer typeAnalyzer;
+        private final IrTypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
 
-        private Builder(PlannerContext plannerContext, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
+        private Builder(PlannerContext plannerContext, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator, Session session, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.lookup = requireNonNull(lookup, "lookup cannot be null");

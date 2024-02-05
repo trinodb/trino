@@ -862,6 +862,7 @@ public class TestDoubleOperators
             throws Throwable
     {
         MethodHandle hashCodeOperator = assertions.getQueryRunner()
+                .getPlannerContext()
                 .getTypeManager()
                 .getTypeOperators()
                 .getHashCodeOperator(DOUBLE, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
@@ -873,6 +874,7 @@ public class TestDoubleOperators
             throws Throwable
     {
         MethodHandle xxHash64Operator = assertions.getQueryRunner()
+                .getPlannerContext()
                 .getTypeManager()
                 .getTypeOperators()
                 .getXxHash64Operator(DOUBLE, simpleConvention(FAIL_ON_NULL, NEVER_NULL));

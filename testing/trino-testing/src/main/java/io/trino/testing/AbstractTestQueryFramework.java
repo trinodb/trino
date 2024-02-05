@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
@@ -51,9 +52,9 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.sql.tree.ExplainType;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testng.services.ReportBadTestAnnotations;
-import io.trino.transaction.TransactionBuilder;
 import io.trino.util.AutoCloseableCloser;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
@@ -61,8 +62,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 import java.util.Map;
@@ -73,7 +72,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -82,8 +80,8 @@ import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -104,7 +102,6 @@ public abstract class AbstractTestQueryFramework
     private H2QueryRunner h2QueryRunner;
     private io.trino.sql.query.QueryAssertions queryAssertions;
 
-    @BeforeClass
     @BeforeAll
     public void init()
             throws Exception
@@ -122,7 +119,6 @@ public abstract class AbstractTestQueryFramework
             throws Exception;
 
     @AfterAll
-    @AfterClass(alwaysRun = true)
     public final void close()
             throws Exception
     {
@@ -300,7 +296,7 @@ public abstract class AbstractTestQueryFramework
 
     protected TransactionBuilder newTransaction()
     {
-        return transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), queryRunner.getAccessControl());
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getPlannerContext().getMetadata(), queryRunner.getAccessControl());
     }
 
     protected void inTransaction(Consumer<Session> callback)
@@ -328,11 +324,13 @@ public abstract class AbstractTestQueryFramework
         return computeActual(session, sql).getOnlyValue();
     }
 
+    @CheckReturnValue
     protected AssertProvider<QueryAssert> query(@Language("SQL") String sql)
     {
         return query(getSession(), sql);
     }
 
+    @CheckReturnValue
     protected AssertProvider<QueryAssert> query(Session session, @Language("SQL") String sql)
     {
         return queryAssertions.query(session, sql);
@@ -365,7 +363,6 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, Consumer<Plan> planAssertion)
     {
-        checkArgument(queryRunner instanceof DistributedQueryRunner, "pattern assertion is only supported for DistributedQueryRunner");
         QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false, planAssertion);
     }
 
@@ -574,14 +571,14 @@ public abstract class AbstractTestQueryFramework
             Consumer<QueryStats> queryStatsAssertion,
             Consumer<MaterializedResult> resultAssertion)
     {
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        MaterializedResultWithQueryId resultWithQueryId = queryRunner.executeWithQueryId(session, query);
+        QueryRunner queryRunner = getDistributedQueryRunner();
+        MaterializedResultWithPlan result = queryRunner.executeWithPlan(session, query);
         QueryStats queryStats = queryRunner.getCoordinator()
                 .getQueryManager()
-                .getFullQueryInfo(resultWithQueryId.getQueryId())
+                .getFullQueryInfo(result.queryId())
                 .getQueryStats();
         queryStatsAssertion.accept(queryStats);
-        resultAssertion.accept(resultWithQueryId.getResult());
+        resultAssertion.accept(result.result());
     }
 
     protected void assertNoDataRead(@Language("SQL") String sql)
@@ -726,14 +723,14 @@ public abstract class AbstractTestQueryFramework
     {
         return inTransaction(getSession(), transactionSession -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            getQueryRunner().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogHandle().getCatalogName());
-            return getQueryRunner().getMetadata().getTableName(transactionSession, tableHandle);
+            getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogHandle().getCatalogName());
+            return getQueryRunner().getPlannerContext().getMetadata().getTableName(transactionSession, tableHandle);
         });
     }
 
     private <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getPlannerContext().getMetadata(), getQueryRunner().getAccessControl())
                 .singleStatement()
                 .execute(session, transactionSessionConsumer);
     }

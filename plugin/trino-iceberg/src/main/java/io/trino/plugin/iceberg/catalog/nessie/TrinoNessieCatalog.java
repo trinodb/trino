@@ -34,6 +34,7 @@ import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.BaseTable;
@@ -47,6 +48,7 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.nessie.NessieIcebergClient;
+import org.projectnessie.model.IcebergTable;
 
 import java.util.Iterator;
 import java.util.List;
@@ -255,7 +257,14 @@ public class TrinoNessieCatalog
     @Override
     public void dropCorruptedTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Cannot drop corrupted table %s from Iceberg Nessie catalog".formatted(schemaTableName));
+        IcebergTable table = nessieClient.table(toIdentifier(schemaTableName));
+        if (table == null) {
+            throw new TableNotFoundException(schemaTableName);
+        }
+        nessieClient.dropTable(toIdentifier(schemaTableName), true);
+        String tableLocation = table.getMetadataLocation().replaceFirst("/metadata/[^/]*$", "");
+        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -405,6 +414,7 @@ public class TrinoNessieCatalog
             ConnectorSession session,
             SchemaTableName schemaViewName,
             ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
             boolean replace,
             boolean ignoreExisting)
     {
@@ -427,6 +437,12 @@ public class TrinoNessieCatalog
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg Nessie catalog does not support materialized views");
     }
 
     @Override

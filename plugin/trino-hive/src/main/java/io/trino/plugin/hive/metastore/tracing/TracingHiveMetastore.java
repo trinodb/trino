@@ -30,6 +30,7 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
@@ -44,7 +45,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.function.Function;
 
 import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.FUNCTION;
@@ -135,7 +135,7 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Span span = tracer.spanBuilder("HiveMetastore.updateTableStatistics")
                 .setAttribute(SCHEMA, databaseName)
@@ -145,38 +145,27 @@ public class TracingHiveMetastore
             span.setAttribute(ACID_TRANSACTION, String.valueOf(transaction.getAcidTransactionId()));
         }
 
-        withTracing(span, () -> delegate.updateTableStatistics(databaseName, tableName, transaction, update));
+        withTracing(span, () -> delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate));
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
-    {
-        Span span = tracer.spanBuilder("HiveMetastore.updatePartitionStatistics")
-                .setAttribute(SCHEMA, table.getDatabaseName())
-                .setAttribute(TABLE, table.getTableName())
-                .setAttribute(PARTITION, partitionName)
-                .startSpan();
-        withTracing(span, () -> delegate.updatePartitionStatistics(table, partitionName, update));
-    }
-
-    @Override
-    public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
         Span span = tracer.spanBuilder("HiveMetastore.updatePartitionStatistics")
                 .setAttribute(SCHEMA, table.getDatabaseName())
                 .setAttribute(TABLE, table.getTableName())
                 .startSpan();
-        withTracing(span, () -> delegate.updatePartitionStatistics(table, updates));
+        withTracing(span, () -> delegate.updatePartitionStatistics(table, mode, partitionUpdates));
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
-        Span span = tracer.spanBuilder("HiveMetastore.getAllTables")
+        Span span = tracer.spanBuilder("HiveMetastore.getTables")
                 .setAttribute(SCHEMA, databaseName)
                 .startSpan();
         return withTracing(span, () -> {
-            List<String> tables = delegate.getAllTables(databaseName);
+            List<String> tables = delegate.getTables(databaseName);
             span.setAttribute(TABLE_RESPONSE_COUNT, tables.size());
             return tables;
         });
@@ -208,12 +197,12 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
-        Span span = tracer.spanBuilder("HiveMetastore.getRelations")
+        Span span = tracer.spanBuilder("HiveMetastore.getAllRelationTypes")
                 .startSpan();
         return withTracing(span, () -> {
-            Optional<Map<SchemaTableName, RelationType>> relationTypes = delegate.getRelationTypes();
+            Optional<Map<SchemaTableName, RelationType>> relationTypes = delegate.getAllRelationTypes();
             relationTypes.ifPresent(map -> span.setAttribute(TABLE_RESPONSE_COUNT, map.size()));
             return relationTypes;
         });
@@ -234,13 +223,13 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
-        Span span = tracer.spanBuilder("HiveMetastore.getAllViews")
+        Span span = tracer.spanBuilder("HiveMetastore.getViews")
                 .setAttribute(SCHEMA, databaseName)
                 .startSpan();
         return withTracing(span, () -> {
-            List<String> views = delegate.getAllViews(databaseName);
+            List<String> views = delegate.getViews(databaseName);
             span.setAttribute(TABLE_RESPONSE_COUNT, views.size());
             return views;
         });
@@ -702,13 +691,13 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public Collection<LanguageFunction> getFunctions(String databaseName)
+    public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
-        Span span = tracer.spanBuilder("HiveMetastore.getFunctions")
+        Span span = tracer.spanBuilder("HiveMetastore.getAllFunctions")
                 .setAttribute(SCHEMA, databaseName)
                 .startSpan();
         return withTracing(span, () -> {
-            Collection<LanguageFunction> functions = delegate.getFunctions(databaseName);
+            Collection<LanguageFunction> functions = delegate.getAllFunctions(databaseName);
             span.setAttribute(FUNCTION_RESPONSE_COUNT, functions.size());
             return functions;
         });

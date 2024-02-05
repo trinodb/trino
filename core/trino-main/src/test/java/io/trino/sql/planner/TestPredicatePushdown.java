@@ -26,7 +26,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestPredicatePushdown
         extends AbstractPredicatePushdownTest
@@ -95,7 +95,7 @@ public class TestPredicatePushdown
     @Test
     public void testNormalizeOuterJoinToInner()
     {
-        Session disableJoinReordering = Session.builder(getQueryRunner().getDefaultSession())
+        Session disableJoinReordering = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
                 .build();
 
@@ -155,7 +155,7 @@ public class TestPredicatePushdown
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", true,
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of(
-                                        "LINE_ORDER_KEY", "orderkey"))),
+                                                "LINE_ORDER_KEY", "orderkey"))),
                                 node(ExchangeNode.class,
                                         filter("ORDERS_ORDER_KEY = CAST(random(5) AS bigint)",
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
@@ -168,15 +168,14 @@ public class TestPredicatePushdown
                 "SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
                 anyTree(
                         join(INNER, builder -> builder
-                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                .equiCriteria("LINEITEM_OK", "ORDERS_OK")
                                 .left(
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
+                                        filter("cast(LINEITEM_LINENUMBER as varchar) = VARCHAR '2'",
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINEITEM_OK", "orderkey",
+                                                        "LINEITEM_LINENUMBER", "linenumber"))))
                                 .right(
                                         anyTree(
-                                                filter("cast(LINEITEM_LINENUMBER as varchar) = VARCHAR '2'",
-                                                        tableScan("lineitem", ImmutableMap.of(
-                                                                "LINEITEM_OK", "orderkey",
-                                                                "LINEITEM_LINENUMBER", "linenumber"))))))));
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))));
     }
 }

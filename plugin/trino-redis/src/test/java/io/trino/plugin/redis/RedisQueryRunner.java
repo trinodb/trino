@@ -25,6 +25,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingTrinoClient;
 import io.trino.tpch.TpchTable;
 
@@ -46,7 +47,7 @@ public final class RedisQueryRunner
     private static final Logger log = Logger.get(RedisQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createRedisQueryRunner(
+    public static QueryRunner createRedisQueryRunner(
             RedisServer redisServer,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
@@ -63,7 +64,7 @@ public final class RedisQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<SchemaTableName, RedisTableDescription> tableDescriptions = createTpchTableDescriptions(queryRunner.getCoordinator().getTypeManager(), tables, dataFormat);
+            Map<SchemaTableName, RedisTableDescription> tableDescriptions = createTpchTableDescriptions(queryRunner.getPlannerContext().getTypeManager(), tables, dataFormat);
 
             installRedisPlugin(redisServer, queryRunner, tableDescriptions, connectorProperties);
 
@@ -128,7 +129,7 @@ public final class RedisQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createRedisQueryRunner(
+        QueryRunner queryRunner = createRedisQueryRunner(
                 new RedisServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),

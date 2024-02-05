@@ -13,8 +13,7 @@
  */
 package io.trino.util;
 
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
@@ -38,14 +37,16 @@ public class TestLongLong2LongOpenCustomBigHashMap
         }
     };
 
-    @DataProvider
-    public static Object[][] nullKeyValues()
+    @Test
+    public void testBasicOps()
     {
-        return new Object[][] {{0L, 0L}, {1L, 1L}, {-1L, -1L}, {0L, -1L}};
+        testBasicOps(0L, 0L);
+        testBasicOps(1L, 1L);
+        testBasicOps(-1L, -1L);
+        testBasicOps(0L, -1L);
     }
 
-    @Test(dataProvider = "nullKeyValues")
-    public void testBasicOps(long nullKey1, long nullKey2)
+    private void testBasicOps(long nullKey1, long nullKey2)
     {
         int expected = 100_000;
         LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(expected, DEFAULT_STRATEGY, nullKey1, nullKey2);
@@ -101,8 +102,16 @@ public class TestLongLong2LongOpenCustomBigHashMap
         }
     }
 
-    @Test(dataProvider = "nullKeyValues")
-    public void testHashCollision(long nullKey1, long nullKey2)
+    @Test
+    public void testHashCollision()
+    {
+        testHashCollision(0L, 0L);
+        testHashCollision(1L, 1L);
+        testHashCollision(-1L, -1L);
+        testHashCollision(0L, -1L);
+    }
+
+    private void testHashCollision(long nullKey1, long nullKey2)
     {
         LongLong2LongOpenCustomBigHashMap.HashStrategy collisionHashStrategy = new LongLong2LongOpenCustomBigHashMap.HashStrategy()
         {
@@ -168,8 +177,16 @@ public class TestLongLong2LongOpenCustomBigHashMap
         }
     }
 
-    @Test(dataProvider = "nullKeyValues")
-    public void testRehash(long nullKey1, long nullKey2)
+    @Test
+    public void testRehash()
+    {
+        testRehash(0L, 0L);
+        testRehash(1L, 1L);
+        testRehash(-1L, -1L);
+        testRehash(0L, -1L);
+    }
+
+    private void testRehash(long nullKey1, long nullKey2)
     {
         int initialCapacity = 1;
         LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(initialCapacity, DEFAULT_STRATEGY, nullKey1, nullKey2);

@@ -14,21 +14,25 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Key;
+import com.google.inject.TypeLiteral;
 import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.security.AllowAllAccessControl;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.Identifier;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.sql.tree.Statement;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -46,13 +50,17 @@ public class TestDropCatalogTask
 {
     private static final String TEST_CATALOG = "test_catalog";
 
-    protected LocalQueryRunner queryRunner;
+    protected QueryRunner queryRunner;
+    private DropCatalogTask task;
 
     @BeforeEach
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        queryRunner.registerCatalogFactory(new TpchConnectorFactory());
+        QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION);
+        queryRunner.installPlugin(new TpchPlugin());
+        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
+        task = (DropCatalogTask) tasks.get(DropCatalog.class);
+        this.queryRunner = queryRunner;
     }
 
     @AfterEach
@@ -68,34 +76,27 @@ public class TestDropCatalogTask
     public void testDuplicatedCreateCatalog()
     {
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
-        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
-        DropCatalogTask task = getCreateCatalogTask();
         DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG), false, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP)))
-                .withMessage("Catalog '%s' does not exist", TEST_CATALOG);
+                .withMessage("Catalog '%s' not found", TEST_CATALOG);
     }
 
     @Test
     public void testDuplicatedCreateCatalogIfNotExists()
     {
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
-        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
-        DropCatalogTask task = getCreateCatalogTask();
         DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG), true, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
-    }
-
-    private DropCatalogTask getCreateCatalogTask()
-    {
-        return new DropCatalogTask(queryRunner.getCatalogManager(), new AllowAllAccessControl());
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
     }
 
     private QueryStateMachine createNewQuery()
@@ -111,7 +112,7 @@ public class TestDropCatalogTask
                 queryRunner.getTransactionManager(),
                 queryRunner.getAccessControl(),
                 directExecutor(),
-                queryRunner.getMetadata(),
+                queryRunner.getPlannerContext().getMetadata(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),

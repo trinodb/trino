@@ -13,42 +13,63 @@
  */
 package io.trino.execution;
 
-import io.trino.spi.ErrorCode;
-import jakarta.annotation.Nullable;
-
-import static java.util.Objects.requireNonNull;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @SuppressWarnings("ExceptionClassNameDoesntEndWithException")
 public class Failure
         extends RuntimeException
 {
-    private final String type;
-    private final ErrorCode errorCode;
+    private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("(.*)\\.(.*)\\(([^:]*)(?::(.*))?\\)");
 
-    Failure(String type, String message, @Nullable ErrorCode errorCode, Failure cause)
+    private final ExecutionFailureInfo failureInfo;
+
+    Failure(ExecutionFailureInfo failureInfo)
     {
-        super(message, cause);
-        this.type = requireNonNull(type, "type is null");
-        this.errorCode = errorCode;
+        super(failureInfo.getMessage(), failureInfo.getCause() == null ? null : new Failure(failureInfo.getCause()));
+        this.failureInfo = failureInfo;
+
+        for (ExecutionFailureInfo suppressed : failureInfo.getSuppressed()) {
+            addSuppressed(new Failure(suppressed));
+        }
+        setStackTrace(failureInfo.getStack().stream()
+                .map(Failure::toStackTraceElement)
+                .toArray(StackTraceElement[]::new));
     }
 
-    public String getType()
+    public ExecutionFailureInfo getFailureInfo()
     {
-        return type;
-    }
-
-    public ErrorCode getErrorCode()
-    {
-        return errorCode;
+        return failureInfo;
     }
 
     @Override
     public String toString()
     {
+        String type = getFailureInfo().getType();
         String message = getMessage();
         if (message != null) {
             return type + ": " + message;
         }
         return type;
+    }
+
+    private static StackTraceElement toStackTraceElement(String stack)
+    {
+        Matcher matcher = STACK_TRACE_PATTERN.matcher(stack);
+        if (matcher.matches()) {
+            String declaringClass = matcher.group(1);
+            String methodName = matcher.group(2);
+            String fileName = matcher.group(3);
+            int number = -1;
+            if (fileName.equals("Native Method")) {
+                fileName = null;
+                number = -2;
+            }
+            else if (matcher.group(4) != null) {
+                number = Integer.parseInt(matcher.group(4));
+            }
+            return new StackTraceElement(declaringClass, methodName, fileName, number);
+        }
+        return new StackTraceElement("Unknown", stack, null, -1);
     }
 }

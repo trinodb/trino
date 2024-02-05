@@ -65,7 +65,6 @@ import static org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestKafkaConnectorTest
@@ -428,8 +427,8 @@ public class TestKafkaConnectorTest
     public void testInsertArray()
     {
         // Override because the base test uses CREATE TABLE statement that is unsupported in Kafka connector
-        assertThatThrownBy(() -> query("INSERT INTO " + TABLE_INSERT_ARRAY + " (a) VALUES (ARRAY[null])"))
-                .hasMessage("Unsupported column type 'array(double)' for column 'a'");
+        assertThat(query("INSERT INTO " + TABLE_INSERT_ARRAY + " (a) VALUES (ARRAY[null])"))
+                .nonTrinoExceptionFailure().hasMessage("Unsupported column type 'array(double)' for column 'a'");
         abort("not supported");
     }
 

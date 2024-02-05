@@ -82,7 +82,7 @@ public interface EnvironmentListener
     {
         return new EnvironmentListener()
         {
-            private FailsafeExecutor<?> executor = Failsafe
+            private final FailsafeExecutor<?> executor = Failsafe
                     .with(Timeout.builder(ofMinutes(5)).withInterrupt().build())
                     .with(newCachedThreadPool(daemonThreadsNamed("environment-listener-%d")));
 

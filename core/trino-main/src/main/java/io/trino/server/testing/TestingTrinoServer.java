@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -40,6 +41,10 @@ import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.tracing.TracingModule;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.sdk.trace.SpanProcessor;
+import io.trino.Session;
+import io.trino.SystemSessionPropertiesProvider;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
@@ -61,12 +66,8 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionBundle;
-import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalNodeManager;
-import io.trino.metadata.LanguageFunctionManager;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
@@ -76,9 +77,12 @@ import io.trino.security.GroupProviderManager;
 import io.trino.server.GracefulShutdownHandler;
 import io.trino.server.PluginInstaller;
 import io.trino.server.PrefixObjectNameGeneratorModule;
+import io.trino.server.QuerySessionSupplier;
 import io.trino.server.Server;
 import io.trino.server.ServerMainModule;
+import io.trino.server.SessionContext;
 import io.trino.server.SessionPropertyDefaults;
+import io.trino.server.SessionSupplier;
 import io.trino.server.ShutdownAction;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
@@ -88,12 +92,12 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.eventlistener.EventListener;
-import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
-import io.trino.spi.type.TypeManager;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.analyzer.QueryExplainerFactory;
@@ -118,6 +122,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -128,8 +133,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
@@ -144,6 +152,7 @@ public class TestingTrinoServer
         logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
     }
 
+    public static final String SESSION_START_TIME_PROPERTY = "session_start_time";
     private static final String VERSION = "testversion";
 
     public static TestingTrinoServer create()
@@ -165,15 +174,11 @@ public class TestingTrinoServer
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
     private final TablePropertyManager tablePropertyManager;
-    private final Metadata metadata;
-    private final TypeManager typeManager;
+    private final PlannerContext plannerContext;
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
-    private final FunctionManager functionManager;
-    private final LanguageFunctionManager languageFunctionManager;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final StatsCalculator statsCalculator;
-    private final ProcedureRegistry procedureRegistry;
     private final TestingAccessControlManager accessControl;
     private final TestingGroupProviderManager groupProvider;
     private final ProcedureTester procedureTester;
@@ -230,6 +235,7 @@ public class TestingTrinoServer
             Optional<URI> discoveryUri,
             Module additionalModule,
             Optional<Path> baseDataDir,
+            Optional<SpanProcessor> spanProcessor,
             Optional<FactoryConfiguration> systemAccessControlConfiguration,
             Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners)
@@ -302,6 +308,22 @@ public class TestingTrinoServer
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
+                    spanProcessor.ifPresent(processor -> newSetBinder(binder, SpanProcessor.class).addBinding().toInstance(processor));
+
+                    newSetBinder(binder, SystemSessionPropertiesProvider.class)
+                            .addBinding().toInstance(() -> List.of(new PropertyMetadata<>(
+                                    SESSION_START_TIME_PROPERTY,
+                                    "Override session start time",
+                                    VARCHAR,
+                                    Instant.class,
+                                    null,
+                                    true,
+                                    millis -> Instant.parse((String) millis),
+                                    Instant::toString)));
+                    if (coordinator) {
+                        binder.bind(QuerySessionSupplier.class).in(Scopes.SINGLETON);
+                        newOptionalBinder(binder, SessionSupplier.class).setBinding().to(TestingSessionSupplier.class).in(Scopes.SINGLETON);
+                    }
                 });
 
         if (coordinator) {
@@ -347,9 +369,7 @@ public class TestingTrinoServer
         transactionManager = injector.getInstance(TransactionManager.class);
         tablePropertyManager = injector.getInstance(TablePropertyManager.class);
         globalFunctionCatalog = injector.getInstance(GlobalFunctionCatalog.class);
-        metadata = injector.getInstance(Metadata.class);
-        typeManager = injector.getInstance(TypeManager.class);
-        functionManager = injector.getInstance(FunctionManager.class);
+        plannerContext = injector.getInstance(PlannerContext.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         groupProvider = injector.getInstance(TestingGroupProviderManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
@@ -365,9 +385,7 @@ public class TestingTrinoServer
             sessionPropertyDefaults = injector.getInstance(SessionPropertyDefaults.class);
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
-            languageFunctionManager = injector.getInstance(LanguageFunctionManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
-            procedureRegistry = injector.getInstance(ProcedureRegistry.class);
             injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
         }
         else {
@@ -378,9 +396,7 @@ public class TestingTrinoServer
             sessionPropertyDefaults = null;
             nodePartitioningManager = null;
             clusterMemoryManager = null;
-            languageFunctionManager = null;
             statsCalculator = null;
-            procedureRegistry = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -428,7 +444,7 @@ public class TestingTrinoServer
 
     public void installPlugin(Plugin plugin)
     {
-        pluginInstaller.installPlugin(plugin, ignored -> plugin.getClass().getClassLoader());
+        pluginInstaller.installPlugin(plugin);
     }
 
     public DispatchManager getDispatchManager()
@@ -441,7 +457,7 @@ public class TestingTrinoServer
         return queryManager;
     }
 
-    public Plan getQueryPlan(QueryId queryId)
+    public Optional<Plan> getQueryPlan(QueryId queryId)
     {
         return queryManager.getQueryPlan(queryId);
     }
@@ -530,14 +546,9 @@ public class TestingTrinoServer
         return tablePropertyManager;
     }
 
-    public Metadata getMetadata()
+    public PlannerContext getPlannerContext()
     {
-        return metadata;
-    }
-
-    public TypeManager getTypeManager()
-    {
-        return typeManager;
+        return plannerContext;
     }
 
     public QueryExplainer getQueryExplainer()
@@ -550,17 +561,6 @@ public class TestingTrinoServer
         return sessionPropertyManager;
     }
 
-    public FunctionManager getFunctionManager()
-    {
-        return functionManager;
-    }
-
-    public LanguageFunctionManager getLanguageFunctionManager()
-    {
-        checkState(coordinator, "not a coordinator");
-        return languageFunctionManager;
-    }
-
     public void addFunctions(FunctionBundle functionBundle)
     {
         globalFunctionCatalog.addFunctions(functionBundle);
@@ -570,11 +570,6 @@ public class TestingTrinoServer
     {
         checkState(coordinator, "not a coordinator");
         return statsCalculator;
-    }
-
-    public ProcedureRegistry getProcedureRegistry()
-    {
-        return procedureRegistry;
     }
 
     public TestingAccessControlManager getAccessControl()
@@ -595,11 +590,6 @@ public class TestingTrinoServer
     public SplitManager getSplitManager()
     {
         return splitManager;
-    }
-
-    public ExchangeManager getExchangeManager()
-    {
-        return exchangeManagerRegistry.getExchangeManager();
     }
 
     public PageSourceManager getPageSourceManager()
@@ -716,6 +706,7 @@ public class TestingTrinoServer
         private Optional<URI> discoveryUri = Optional.empty();
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
+        private Optional<SpanProcessor> spanProcessor = Optional.empty();
         private Optional<FactoryConfiguration> systemAccessControlConfiguration = Optional.empty();
         private Optional<List<SystemAccessControl>> systemAccessControls = Optional.of(ImmutableList.of());
         private List<EventListener> eventListeners = ImmutableList.of();
@@ -723,6 +714,15 @@ public class TestingTrinoServer
         public Builder setCoordinator(boolean coordinator)
         {
             this.coordinator = coordinator;
+            return this;
+        }
+
+        public Builder addProperty(String name, String value)
+        {
+            this.properties = ImmutableMap.<String, String>builder()
+                    .putAll(properties)
+                    .put(name, value)
+                    .buildOrThrow();
             return this;
         }
 
@@ -753,6 +753,12 @@ public class TestingTrinoServer
         public Builder setBaseDataDir(Optional<Path> baseDataDir)
         {
             this.baseDataDir = requireNonNull(baseDataDir, "baseDataDir is null");
+            return this;
+        }
+
+        public Builder setSpanProcessor(SpanProcessor spanProcessor)
+        {
+            this.spanProcessor = Optional.of(spanProcessor);
             return this;
         }
 
@@ -788,9 +794,35 @@ public class TestingTrinoServer
                     discoveryUri,
                     additionalModule,
                     baseDataDir,
+                    spanProcessor,
                     systemAccessControlConfiguration,
                     systemAccessControls,
                     eventListeners);
+        }
+    }
+
+    private static class TestingSessionSupplier
+            implements SessionSupplier
+    {
+        private final QuerySessionSupplier querySessionSupplier;
+
+        @Inject
+        public TestingSessionSupplier(QuerySessionSupplier querySessionSupplier)
+        {
+            this.querySessionSupplier = querySessionSupplier;
+        }
+
+        @Override
+        public Session createSession(QueryId queryId, Span querySpan, SessionContext context)
+        {
+            Session session = querySessionSupplier.createSession(queryId, querySpan, context);
+            Instant sessionStart = session.getSystemProperty(SESSION_START_TIME_PROPERTY, Instant.class);
+            if (sessionStart != null) {
+                session = Session.builder(session)
+                        .setStart(sessionStart)
+                        .build();
+            }
+            return session;
         }
     }
 }

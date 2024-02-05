@@ -79,7 +79,7 @@ public final class CachingStatsProvider
                 return stats;
             }
 
-            stats = statsCalculator.calculateStats(node, this, lookup, session, types, tableStatsProvider);
+            stats = statsCalculator.calculateStats(node, new StatsCalculator.Context(this, lookup, session, types, tableStatsProvider));
             verify(cache.put(node, stats) == null, "Stats already set");
             return stats;
         }

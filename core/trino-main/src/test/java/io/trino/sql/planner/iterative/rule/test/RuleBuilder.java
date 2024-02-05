@@ -16,15 +16,12 @@ package io.trino.sql.planner.iterative.rule.test;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsCalculator;
-import io.trino.cost.StatsProvider;
-import io.trino.cost.TableStatsProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.transaction.TransactionId;
 
 import java.util.HashMap;
@@ -38,18 +35,18 @@ import static java.util.Objects.requireNonNull;
 public class RuleBuilder
 {
     private final Rule<?> rule;
-    private final LocalQueryRunner queryRunner;
+    private final PlanTester planTester;
     private Session session;
 
     private final TestingStatsCalculator statsCalculator;
 
-    RuleBuilder(Rule<?> rule, LocalQueryRunner queryRunner, Session session)
+    RuleBuilder(Rule<?> rule, PlanTester planTester, Session session)
     {
         this.rule = requireNonNull(rule, "rule is null");
-        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
+        this.planTester = requireNonNull(planTester, "planTester is null");
         this.session = requireNonNull(session, "session is null");
 
-        this.statsCalculator = new TestingStatsCalculator(queryRunner.getStatsCalculator());
+        this.statsCalculator = new TestingStatsCalculator(planTester.getStatsCalculator());
     }
 
     public RuleBuilder setSystemProperty(String key, String value)
@@ -76,22 +73,22 @@ public class RuleBuilder
         // Generate a new random queryId in case the rule cleanup code is not executed
         Session session = testSession(this.session);
         // start a transaction to allow catalog access
-        TransactionId transactionId = queryRunner.getTransactionManager().beginTransaction(READ_UNCOMMITTED, false, false);
-        Session transactionSession = session.beginTransactionId(transactionId, queryRunner.getTransactionManager(), queryRunner.getAccessControl());
-        queryRunner.getMetadata().beginQuery(transactionSession);
+        TransactionId transactionId = planTester.getTransactionManager().beginTransaction(READ_UNCOMMITTED, false, false);
+        Session transactionSession = session.beginTransactionId(transactionId, planTester.getTransactionManager(), planTester.getAccessControl());
+        planTester.getPlannerContext().getMetadata().beginQuery(transactionSession);
         try {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            transactionSession.getCatalog().ifPresent(catalog -> queryRunner.getMetadata().getCatalogHandle(transactionSession, catalog));
+            transactionSession.getCatalog().ifPresent(catalog -> planTester.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, catalog));
 
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-            PlanBuilder builder = new PlanBuilder(idAllocator, queryRunner.getPlannerContext(), transactionSession);
+            PlanBuilder builder = new PlanBuilder(idAllocator, planTester.getPlannerContext(), transactionSession);
             PlanNode plan = planProvider.apply(builder);
             TypeProvider types = builder.getTypes();
-            return new RuleAssert(rule, queryRunner, statsCalculator, transactionSession, idAllocator, plan, types);
+            return new RuleAssert(rule, planTester, statsCalculator, transactionSession, idAllocator, plan, types);
         }
         catch (Throwable t) {
-            queryRunner.getMetadata().cleanupQuery(session);
-            queryRunner.getTransactionManager().asyncAbort(transactionId);
+            planTester.getPlannerContext().getMetadata().cleanupQuery(session);
+            planTester.getTransactionManager().asyncAbort(transactionId);
             throw t;
         }
     }
@@ -108,12 +105,12 @@ public class RuleBuilder
         }
 
         @Override
-        public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+        public PlanNodeStatsEstimate calculateStats(PlanNode node, Context context)
         {
             if (stats.containsKey(node.getId())) {
                 return stats.get(node.getId());
             }
-            return delegate.calculateStats(node, sourceStats, lookup, session, types, tableStatsProvider);
+            return delegate.calculateStats(node, context);
         }
 
         public void setNodeStats(PlanNodeId nodeId, PlanNodeStatsEstimate nodeStats)

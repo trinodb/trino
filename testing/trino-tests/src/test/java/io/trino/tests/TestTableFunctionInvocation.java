@@ -39,7 +39,6 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTableFunctionInvocation
         extends AbstractTestQueryFramework
@@ -699,11 +698,11 @@ public class TestTableFunctionInvocation
                 .matches("VALUES (20), (20), (20)");
 
         // value out of range for INTEGER type: Integer.MAX_VALUE + 1
-        assertThatThrownBy(() -> query("""
+        assertThat(query("""
                 SELECT *
                 FROM TABLE(system.constant(2147483648, 3))
                 """))
-                .hasMessage("line 2:28: Cannot cast type bigint to integer");
+                .failure().hasMessage("line 2:28: Cannot cast type bigint to integer");
 
         assertThat(query("""
                 SELECT count(*), count(DISTINCT constant_column), min(constant_column)

@@ -26,7 +26,6 @@ import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
-import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -38,7 +37,6 @@ import java.math.BigInteger;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.spi.StandardErrorCode.INVALID_JSON_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
@@ -55,7 +53,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 
 public final class SqlJsonLiteralConverter
 {
@@ -165,14 +162,5 @@ public final class SqlJsonLiteralConverter
         }
 
         return Optional.empty();
-    }
-
-    public static class JsonLiteralConversionException
-            extends TrinoException
-    {
-        public JsonLiteralConversionException(JsonNode jsonNode, String message)
-        {
-            super(INVALID_JSON_LITERAL, format("cannot convert %s to Trino value (%s)", jsonNode, message));
-        }
     }
 }

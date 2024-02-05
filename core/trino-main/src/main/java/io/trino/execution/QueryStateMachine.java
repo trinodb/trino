@@ -54,7 +54,6 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionInfo;
@@ -669,7 +668,7 @@ public class QueryStateMachine
             failedInternalNetworkInputPositions += stageStats.getFailedInternalNetworkInputPositions();
 
             PlanFragment plan = stageInfo.getPlan();
-            if (plan != null && plan.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
+            if (plan != null && plan.containsTableScanNode()) {
                 rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                 failedRawInputDataSize += stageStats.getFailedRawInputDataSize().toBytes();
                 rawInputPositions += stageStats.getRawInputPositions();
@@ -1369,9 +1368,9 @@ public class QueryStateMachine
                 queryStats.getPlanningCpuTime(),
                 queryStats.getFinishingTime(),
                 queryStats.getTotalTasks(),
-                queryStats.getFailedTasks(),
                 queryStats.getRunningTasks(),
                 queryStats.getCompletedTasks(),
+                queryStats.getFailedTasks(),
                 queryStats.getTotalDrivers(),
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
@@ -1523,6 +1522,7 @@ public class QueryStateMachine
             }
             queryCompleted = true;
             inputsQueue.clear();
+            outputTaskFailureListeners.clear();
             noMoreInputs = true;
         }
 
@@ -1530,7 +1530,9 @@ public class QueryStateMachine
         {
             Map<TaskId, Throwable> failures;
             synchronized (this) {
-                outputTaskFailureListeners.add(listener);
+                if (!queryCompleted) {
+                    outputTaskFailureListeners.add(listener);
+                }
                 failures = ImmutableMap.copyOf(outputTaskFailures);
             }
             if (!failures.isEmpty()) {
@@ -1542,6 +1544,10 @@ public class QueryStateMachine
         {
             List<TaskFailureListener> listeners;
             synchronized (this) {
+                if (queryCompleted) {
+                    // ignore late task failed events after query is completed
+                    return;
+                }
                 outputTaskFailures.putIfAbsent(taskId, failure);
                 listeners = ImmutableList.copyOf(outputTaskFailureListeners);
             }

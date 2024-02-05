@@ -14,28 +14,49 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Resources;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
+import java.io.OutputStream;
+import java.net.URL;
+import java.util.UUID;
+
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 
 public class TestHiveOrcWithShortZoneId
         extends AbstractTestQueryFramework
 {
-    private String resourceLocation;
+    private Location dataFile;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        // See README.md to know how resource is generated
-        resourceLocation = getPathFromClassPathResource("with_short_zone_id/data");
-        return HiveQueryRunner.builder()
+        QueryRunner queryRunner = HiveQueryRunner.builder()
                 .addHiveProperty("hive.orc.read-legacy-short-zone-id", "true")
                 .build();
+
+        URL resourceLocation = Resources.getResource("with_short_zone_id/data/data.orc");
+
+        TrinoFileSystem fileSystem = getConnectorService(queryRunner, TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.ofUser("test"));
+
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        dataFile = tempDir.appendPath("data.orc");
+        try (OutputStream out = fileSystem.newOutputFile(dataFile).create()) {
+            Resources.copy(resourceLocation, out);
+        }
+
+        return queryRunner;
     }
 
     @Test
@@ -45,7 +66,7 @@ public class TestHiveOrcWithShortZoneId
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
                 "test_select_with_short_zone_id_",
-                "(id INT, firstName VARCHAR, lastName VARCHAR) WITH (external_location = '%s')".formatted(resourceLocation))) {
+                "(id INT, firstName VARCHAR, lastName VARCHAR) WITH (external_location = '%s')".formatted(dataFile.parentDirectory()))) {
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, 'John', 'Doe')");
         }
     }

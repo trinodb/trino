@@ -48,6 +48,7 @@ public final class TypedKeyValueHeap
     private final Type valueType;
     private final int capacity;
 
+    private final int recordValueNullOffset;
     private final int recordKeyOffset;
     private final int recordValueOffset;
 
@@ -56,8 +57,7 @@ public final class TypedKeyValueHeap
      * The fixed chunk contains an array of records. The records are laid out as follows:
      * <ul>
      *     <li>12 byte optional pointer to variable width data (only present if the key or value is variable width)</li>
-     *     <li>4 byte optional integer for variable size of the key (only present if the key is variable width)</li>
-     *     <li>1 byte null flag for the value</li>
+     *     <li>1 byte null flag for the value. 0 means the value is not-null</li>
      *     <li>N byte fixed size data for the key type</li>
      *     <li>N byte fixed size data for the value type</li>
      * </ul>
@@ -101,11 +101,12 @@ public final class TypedKeyValueHeap
         boolean variableWidth = keyVariableWidth || valueVariableWidth;
         variableWidthData = variableWidth ? new VariableWidthData() : null;
 
-        recordKeyOffset = (variableWidth ? POINTER_SIZE : 0) + 1;
+        recordValueNullOffset = (variableWidth ? POINTER_SIZE : 0);
+        recordKeyOffset = recordValueNullOffset + 1;
         recordValueOffset = recordKeyOffset + keyType.getFlatFixedSize();
         recordSize = recordValueOffset + valueType.getFlatFixedSize();
 
-        // allocate the fixed chunk with on extra slow for use in swap
+        // allocate the fixed chunk with on extra slot for use in swap
         fixedChunk = new byte[recordSize * (capacity + 1)];
     }
 
@@ -126,6 +127,7 @@ public final class TypedKeyValueHeap
         this.keyVariableWidth = typedHeap.keyVariableWidth;
         this.valueVariableWidth = typedHeap.valueVariableWidth;
 
+        this.recordValueNullOffset = typedHeap.recordValueNullOffset;
         this.recordKeyOffset = typedHeap.recordKeyOffset;
         this.recordValueOffset = typedHeap.recordValueOffset;
         this.recordSize = typedHeap.recordSize;
@@ -209,7 +211,7 @@ public final class TypedKeyValueHeap
                 throw new RuntimeException(throwable);
             }
         }
-        if (fixedChunk[recordOffset + recordKeyOffset - 1] != 0) {
+        if (fixedChunk[recordOffset + recordValueNullOffset] != 0) {
             valueBlockBuilder.appendNull();
         }
         else {
@@ -261,7 +263,7 @@ public final class TypedKeyValueHeap
                 positionCount,
                 (fixedSizeOffset, variableWidthChunk, variableWidthChunkOffset) -> {
                     int keyVariableWidth = keyType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
-                    if (fixedChunk[fixedSizeOffset + recordKeyOffset - 1] != 0) {
+                    if (fixedChunk[fixedSizeOffset + recordValueNullOffset] == 0) {
                         valueType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordValueOffset, variableWidthChunk, variableWidthChunkOffset + keyVariableWidth);
                     }
                 });
@@ -291,7 +293,7 @@ public final class TypedKeyValueHeap
             throw new RuntimeException(throwable);
         }
         if (valueBlock.isNull(valuePosition)) {
-            fixedChunk[recordOffset + recordKeyOffset - 1] = 1;
+            fixedChunk[recordOffset + recordValueNullOffset] = 1;
         }
         else {
             try {

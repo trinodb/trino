@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435-SNAPSHOT</version>
+        <version>439-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -40,12 +40,6 @@
                 <groupId>org.conscrypt</groupId>
                 <artifactId>conscrypt-openjdk-uber</artifactId>
                 <version>2.5.2</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.threeten</groupId>
-                <artifactId>threetenbp</artifactId>
-                <version>1.6.8</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -253,6 +247,16 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-apache-httpclient-4.3</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-grpc-1.6</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-cache</artifactId>
         </dependency>
@@ -285,6 +289,13 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
+            <exclusions>
+                <!-- conflicts with version from google-cloud-bigquery -->
+                <exclusion>
+                    <groupId>com.google.flatbuffers</groupId>
+                    <artifactId>flatbuffers-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -490,12 +501,6 @@
             <version>5.6.0</version>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
@@ -506,6 +511,9 @@
                 <configuration>
                     <ignoredResourcePatterns>
                         <ignoredResourcePattern>arrow-git.properties</ignoredResourcePattern>
+                        <ignoredResourcePattern>LICENSE-EDL-1.0.txt</ignoredResourcePattern>
+                        <ignoredResourcePattern>LICENSE-EPL-1.0.txt</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
@@ -545,7 +553,7 @@
         </profile>
 
         <profile>
-            <id>cloud-tests</id>
+            <id>cloud-tests-1</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
@@ -557,12 +565,6 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryAvroConnectorTest.java</include>
-                                <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
-                                <include>**/TestBigQueryMetadataCaching.java</include>
-                                <include>**/TestBigQueryAvroTypeMapping.java</include>
-                                <include>**/TestBigQueryMetadata.java</include>
-                                <include>**/TestBigQueryInstanceCleaner.java</include>
-                                <include>**/TestBigQueryWithProxyConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -595,7 +597,7 @@
 
         <!-- Separate profile for Arrow related tests since they require extra JVM args -->
         <profile>
-            <id>cloud-tests-arrow-and-fte</id>
+            <id>cloud-tests-2</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
@@ -610,8 +612,14 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryArrowConnectorSmokeTest.java</include>
+                                <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
+                                <include>**/TestBigQueryWithProxyConnectorSmokeTest.java</include>
                                 <include>**/TestBigQueryArrowTypeMapping.java</include>
+                                <include>**/TestBigQueryAvroTypeMapping.java</include>
+                                <include>**/TestBigQueryMetadataCaching.java</include>
+                                <include>**/TestBigQueryMetadata.java</include>
                                 <include>**/TestBigQuery*FailureRecoveryTest.java</include>
+                                <include>**/TestBigQueryInstanceCleaner.java</include>
                             </includes>
                         </configuration>
                     </plugin>

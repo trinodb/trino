@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.FUNCTIONS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteFunctions
@@ -31,7 +33,7 @@ public class SuiteFunctions
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withGroups("configured-features", "functions")
+                        .withGroups(CONFIGURED_FEATURES, FUNCTIONS)
                         .build());
     }
 }

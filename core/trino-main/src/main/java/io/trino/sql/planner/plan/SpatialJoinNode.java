@@ -49,7 +49,7 @@ public class SpatialJoinNode
             return joinLabel;
         }
 
-        public static Type fromJoinNodeType(JoinNode.Type joinNodeType)
+        public static Type fromJoinNodeType(JoinType joinNodeType)
         {
             return switch (joinNodeType) {
                 case INNER -> Type.INNER;

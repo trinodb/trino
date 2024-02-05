@@ -41,9 +41,10 @@ import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.testing.TestingTransactionHandle;
 import io.trino.util.FinalizerService;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -73,8 +74,11 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestLocalExchange
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
@@ -88,8 +92,9 @@ public class TestLocalExchange
 
     private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
     private NodePartitioningManager nodePartitioningManager;
+    private final PartitioningHandle customScalingPartitioningHandle = getCustomScalingPartitioningHandle();
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
@@ -333,6 +338,121 @@ public class TestLocalExchange
     }
 
     @Test
+    public void testScalingWithTwoDifferentPartitions()
+    {
+        testScalingWithTwoDifferentPartitions(customScalingPartitioningHandle);
+        testScalingWithTwoDifferentPartitions(SCALED_WRITER_HASH_DISTRIBUTION);
+    }
+
+    private void testScalingWithTwoDifferentPartitions(PartitioningHandle partitioningHandle)
+    {
+        LocalExchange localExchange = new LocalExchange(
+                nodePartitioningManager,
+                testSessionBuilder()
+                        .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
+                        .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "256MB")
+                        .build(),
+                4,
+                partitioningHandle,
+                ImmutableList.of(0),
+                TYPES,
+                Optional.empty(),
+                DataSize.ofBytes(retainedSizeOfPages(2)),
+                TYPE_OPERATORS,
+                DataSize.of(10, KILOBYTE),
+                TOTAL_MEMORY_USED);
+
+        run(localExchange, exchange -> {
+            assertThat(exchange.getBufferCount()).isEqualTo(4);
+            assertExchangeTotalBufferedBytes(exchange, 0);
+
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
+            LocalExchangeSink sink = sinkFactory.createSink();
+            assertSinkCanWrite(sink);
+            sinkFactory.close();
+
+            LocalExchangeSource sourceA = exchange.getNextSource();
+            assertSource(sourceA, 0);
+
+            LocalExchangeSource sourceB = exchange.getNextSource();
+            assertSource(sourceB, 0);
+
+            LocalExchangeSource sourceC = exchange.getNextSource();
+            assertSource(sourceC, 0);
+
+            LocalExchangeSource sourceD = exchange.getNextSource();
+            assertSource(sourceD, 0);
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(1, 2));
+            sink.addPage(createSingleValuePage(1, 2));
+
+            // Two partitions are assigned to two different writers
+            assertSource(sourceA, 2);
+            assertSource(sourceB, 0);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 2);
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+
+            // partition 0 is assigned to writer B after scaling.
+            assertSource(sourceA, 2);
+            assertSource(sourceB, 2);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 4);
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+
+            // partition 0 is assigned to writer A after scaling.
+            assertSource(sourceA, 3);
+            assertSource(sourceB, 4);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 5);
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+
+            // partition 0 is assigned to writer C after scaling.
+            assertSource(sourceA, 4);
+            assertSource(sourceB, 5);
+            assertSource(sourceC, 1);
+            assertSource(sourceD, 6);
+
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+
+            // partition 1 is assigned to writer B after scaling.
+            assertSource(sourceA, 5);
+            assertSource(sourceB, 8);
+            assertSource(sourceC, 1);
+            assertSource(sourceD, 6);
+
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+
+            // partition 1 is assigned to writer C and D after scaling.
+            assertSource(sourceA, 6);
+            assertSource(sourceB, 9);
+            assertSource(sourceC, 2);
+            assertSource(sourceD, 7);
+        });
+    }
+
+    @Test
     public void testScaledWriterRoundRobinExchangerWhenTotalMemoryUsedIsGreaterThanLimit()
     {
         AtomicLong totalMemoryUsed = new AtomicLong();
@@ -424,8 +544,14 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "scalingPartitionHandles")
-    public void testScalingForSkewedWriters(PartitioningHandle partitioningHandle)
+    @Test
+    public void testScalingForSkewedWriters()
+    {
+        testScalingForSkewedWriters(customScalingPartitioningHandle);
+        testScalingForSkewedWriters(SCALED_WRITER_HASH_DISTRIBUTION);
+    }
+
+    private void testScalingForSkewedWriters(PartitioningHandle partitioningHandle)
     {
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
@@ -514,8 +640,14 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "scalingPartitionHandles")
-    public void testNoScalingWhenDataWrittenIsLessThanMinFileSize(PartitioningHandle partitioningHandle)
+    @Test
+    public void testNoScalingWhenDataWrittenIsLessThanMinFileSize()
+    {
+        testNoScalingWhenDataWrittenIsLessThanMinFileSize(customScalingPartitioningHandle);
+        testNoScalingWhenDataWrittenIsLessThanMinFileSize(SCALED_WRITER_HASH_DISTRIBUTION);
+    }
+
+    private void testNoScalingWhenDataWrittenIsLessThanMinFileSize(PartitioningHandle partitioningHandle)
     {
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
@@ -578,8 +710,14 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "scalingPartitionHandles")
-    public void testNoScalingWhenBufferUtilizationIsLessThanLimit(PartitioningHandle partitioningHandle)
+    @Test
+    public void testNoScalingWhenBufferUtilizationIsLessThanLimit()
+    {
+        testNoScalingWhenBufferUtilizationIsLessThanLimit(customScalingPartitioningHandle);
+        testNoScalingWhenBufferUtilizationIsLessThanLimit(SCALED_WRITER_HASH_DISTRIBUTION);
+    }
+
+    private void testNoScalingWhenBufferUtilizationIsLessThanLimit(PartitioningHandle partitioningHandle)
     {
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
@@ -642,8 +780,14 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "scalingPartitionHandles")
-    public void testNoScalingWhenTotalMemoryUsedIsGreaterThanLimit(PartitioningHandle partitioningHandle)
+    @Test
+    public void testNoScalingWhenTotalMemoryUsedIsGreaterThanLimit()
+    {
+        testNoScalingWhenTotalMemoryUsedIsGreaterThanLimit(customScalingPartitioningHandle);
+        testNoScalingWhenTotalMemoryUsedIsGreaterThanLimit(SCALED_WRITER_HASH_DISTRIBUTION);
+    }
+
+    private void testNoScalingWhenTotalMemoryUsedIsGreaterThanLimit(PartitioningHandle partitioningHandle)
     {
         AtomicLong totalMemoryUsed = new AtomicLong();
         LocalExchange localExchange = new LocalExchange(
@@ -702,13 +846,13 @@ public class TestLocalExchange
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
 
-            // Scaling since total memory used is less than 10 MBs
+            // Scaling since total memory used is less than 14 MBs (20 MBs * 70%)
             assertSource(sourceA, 2);
             assertSource(sourceB, 2);
             assertSource(sourceC, 0);
             assertSource(sourceD, 4);
 
-            totalMemoryUsed.set(DataSize.of(13, MEGABYTE).toBytes());
+            totalMemoryUsed.set(DataSize.of(15, MEGABYTE).toBytes());
 
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
@@ -723,14 +867,21 @@ public class TestLocalExchange
         });
     }
 
-    @Test(dataProvider = "scalingPartitionHandles")
-    public void testNoScalingWhenMaxScaledPartitionsPerTaskIsSmall(PartitioningHandle partitioningHandle)
+    @Test
+    public void testDoNotUpdateScalingStateWhenMemoryIsAboveLimit()
     {
+        testDoNotUpdateScalingStateWhenMemoryIsAboveLimit(customScalingPartitioningHandle);
+        testDoNotUpdateScalingStateWhenMemoryIsAboveLimit(SCALED_WRITER_HASH_DISTRIBUTION);
+    }
+
+    private void testDoNotUpdateScalingStateWhenMemoryIsAboveLimit(PartitioningHandle partitioningHandle)
+    {
+        AtomicLong totalMemoryUsed = new AtomicLong();
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 testSessionBuilder()
                         .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
-                        .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "256MB")
+                        .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "20MB")
                         .build(),
                 4,
                 partitioningHandle,
@@ -740,7 +891,7 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
                 DataSize.of(10, KILOBYTE),
-                TOTAL_MEMORY_USED);
+                totalMemoryUsed::get);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(4);
@@ -775,60 +926,45 @@ public class TestLocalExchange
             assertSource(sourceC, 0);
             assertSource(sourceD, 2);
 
+            totalMemoryUsed.set(DataSize.of(5, MEGABYTE).toBytes());
+
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
 
-            // partition 0 is assigned to writer B after scaling.
+            // Scaling since total memory used is less than 14 MBs (20 MBs * 70%)
             assertSource(sourceA, 2);
             assertSource(sourceB, 2);
             assertSource(sourceC, 0);
             assertSource(sourceD, 4);
 
+            totalMemoryUsed.set(DataSize.of(15, MEGABYTE).toBytes());
+
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
 
-            // partition 0 is assigned to writer A after scaling.
-            assertSource(sourceA, 3);
+            // No scaling since total memory used is greater than 14 MBs (20 MBs * 70%)
+            assertSource(sourceA, 2);
             assertSource(sourceB, 4);
             assertSource(sourceC, 0);
-            assertSource(sourceD, 5);
-
-            sink.addPage(createSingleValuePage(0, 1000));
-            sink.addPage(createSingleValuePage(0, 1000));
-            sink.addPage(createSingleValuePage(0, 1000));
-            sink.addPage(createSingleValuePage(0, 1000));
-
-            // partition 0 is assigned to writer C after scaling.
-            assertSource(sourceA, 4);
-            assertSource(sourceB, 5);
-            assertSource(sourceC, 1);
             assertSource(sourceD, 6);
 
-            sink.addPage(createSingleValuePage(1, 10000));
-            sink.addPage(createSingleValuePage(1, 10000));
-            sink.addPage(createSingleValuePage(1, 10000));
-            sink.addPage(createSingleValuePage(1, 10000));
+            // Memory reduced due to closing of some writers
+            totalMemoryUsed.set(DataSize.of(13, MEGABYTE).toBytes());
 
-            // partition 1 is assigned to writer B after scaling.
-            assertSource(sourceA, 6);
-            assertSource(sourceB, 7);
-            assertSource(sourceC, 1);
-            assertSource(sourceD, 6);
-
-            sink.addPage(createSingleValuePage(1, 10000));
-            sink.addPage(createSingleValuePage(1, 10000));
-            sink.addPage(createSingleValuePage(1, 10000));
-            sink.addPage(createSingleValuePage(1, 10000));
-
-            // no scaling will happen since we have scaled to maximum limit which is the number of writer count.
-            assertSource(sourceA, 8);
-            assertSource(sourceB, 9);
-            assertSource(sourceC, 1);
-            assertSource(sourceD, 6);
+            sink.addPage(createSingleValuePage(0, 10));
+            sink.addPage(createSingleValuePage(0, 10));
+            sink.addPage(createSingleValuePage(0, 10));
+            sink.addPage(createSingleValuePage(0, 10));
+            // No scaling since not enough data has been processed, and we are not considering data written
+            // when memory utilization is above the limit.
+            assertSource(sourceA, 3);
+            assertSource(sourceB, 6);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 7);
         });
     }
 
@@ -1221,12 +1357,6 @@ public class TestLocalExchange
         });
     }
 
-    @DataProvider
-    public Object[][] scalingPartitionHandles()
-    {
-        return new Object[][] {{SCALED_WRITER_HASH_DISTRIBUTION}, {getCustomScalingPartitioningHandle()}};
-    }
-
     private PartitioningHandle getCustomScalingPartitioningHandle()
     {
         ConnectorPartitioningHandle connectorPartitioningHandle = new ConnectorPartitioningHandle() {};
@@ -1318,7 +1448,7 @@ public class TestLocalExchange
         Page page = source.removePage();
         assertThat(page).isNotNull();
 
-        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(createChannelsHashGenerator(TYPES, new int[]{0}, TYPE_OPERATORS), partitionCount);
+        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(createChannelsHashGenerator(TYPES, new int[] {0}, TYPE_OPERATORS), partitionCount);
         for (int position = 0; position < page.getPositionCount(); position++) {
             assertThat(partitionGenerator.getPartition(page, position)).isEqualTo(partition);
         }

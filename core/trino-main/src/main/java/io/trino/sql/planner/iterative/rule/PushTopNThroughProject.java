@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.Assignments;
@@ -71,9 +71,9 @@ public final class PushTopNThroughProject
                                     .capturedAs(PROJECT_CHILD)
                                     // do not push topN between projection and table scan so that they can be merged into a PageProcessor
                                     .with(source().matching(node -> !(node instanceof TableScanNode)))));
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushTopNThroughProject(TypeAnalyzer typeAnalyzer)
+    public PushTopNThroughProject(IrTypeAnalyzer typeAnalyzer)
     {
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }

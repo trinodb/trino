@@ -100,7 +100,11 @@ public final class Page
         if (sizeInBytes < 0) {
             sizeInBytes = 0;
             for (Block block : blocks) {
-                sizeInBytes += block.getLoadedBlock().getSizeInBytes();
+                long blockSizeInBytes = block.getLoadedBlock().getSizeInBytes();
+                if (blockSizeInBytes < 0) {
+                    throw new IllegalStateException(format("Block sizeInBytes is negative (%s)", blockSizeInBytes));
+                }
+                sizeInBytes += blockSizeInBytes;
             }
             this.sizeInBytes = sizeInBytes;
         }

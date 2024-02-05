@@ -33,6 +33,7 @@ import org.elasticsearch.action.search.SearchScrollRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RestHighLevelClientBuilder;
 import org.elasticsearch.rest.RestStatus;
 
 import java.io.Closeable;
@@ -58,7 +59,8 @@ public class BackpressureRestHighLevelClient
     public BackpressureRestHighLevelClient(RestClientBuilder restClientBuilder, ElasticsearchConfig config, TimeStat backpressureStats)
     {
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
-        delegate = new RestHighLevelClient(requireNonNull(restClientBuilder, "restClientBuilder is null"));
+        delegate = new RestHighLevelClientBuilder(requireNonNull(restClientBuilder, "restClientBuilder is null").build())
+                .build();
         backpressureRestClient = new BackpressureRestClient(delegate.getLowLevelClient(), config, backpressureStats);
         retryPolicy = RetryPolicy.<ActionResponse>builder()
                 .withMaxAttempts(-1)

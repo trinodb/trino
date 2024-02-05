@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.QueryId;
@@ -35,8 +36,8 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -63,6 +64,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_ENABLED;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.COMPLEX_JOIN_PUSHDOWN_ENABLED;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
 import static io.trino.plugin.jdbc.JoinOperator.FULL_JOIN;
@@ -124,6 +126,8 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
 {
+    private static final Logger log = Logger.get(BaseJdbcConnectorTest.class);
+
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
 
     protected abstract SqlExecutor onRemoteDatabase();
@@ -1076,12 +1080,12 @@ public abstract class BaseJdbcConnectorTest
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
 
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
-                .hasMessageContaining("by zero");
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
+                .failure().hasMessageContaining("by zero");
 
         // Expression that evaluates to 0 for some rows on RHS of modulus
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
-                .hasMessageContaining("by zero");
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
+                .failure().hasMessageContaining("by zero");
 
         // TODO add coverage for other arithmetic pushdowns https://github.com/trinodb/trino/issues/14808
     }
@@ -1179,71 +1183,44 @@ public abstract class BaseJdbcConnectorTest
                 .joinIsNotFullyPushedDown();
     }
 
-    /**
-     * Verify !SUPPORTS_JOIN_PUSHDOWN declaration is true.
-     */
-    @Test
-    public void verifySupportsJoinPushdownDeclaration()
-    {
-        if (hasBehavior(SUPPORTS_JOIN_PUSHDOWN)) {
-            // Covered by testJoinPushdown
-            return;
-        }
-
-        assertThat(query(joinPushdownEnabled(getSession()), "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
-                .joinIsNotFullyPushedDown();
-    }
-
-    /**
-     * Verify !SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN declaration is true.
-     */
-    @Test
-    public void verifySupportsJoinPushdownWithFullJoinDeclaration()
-    {
-        if (hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
-            // Covered by testJoinPushdown
-            return;
-        }
-
-        assertThat(query(joinPushdownEnabled(getSession()), "SELECT r.name, n.name FROM nation n FULL JOIN region r ON n.regionkey = r.regionkey"))
-                .joinIsNotFullyPushedDown();
-    }
-
     @Test
     public void testJoinPushdown()
     {
-        for (JoinOperator joinOperator : JoinOperator.values()) {
-            Session session = joinPushdownEnabled(getSession());
+        Session session = joinPushdownEnabled(getSession());
 
-            if (!hasBehavior(SUPPORTS_JOIN_PUSHDOWN)) {
-                assertThat(query(session, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
-                        .joinIsNotFullyPushedDown();
-                return;
-            }
+        if (!hasBehavior(SUPPORTS_JOIN_PUSHDOWN)) {
+            assertThat(query(session, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
+                    .joinIsNotFullyPushedDown();
+            return;
+        }
 
-            if (joinOperator == FULL_JOIN && !hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
-                // Covered by verifySupportsJoinPushdownWithFullJoinDeclaration
-                return;
-            }
+        try (TestTable nationLowercaseTable = new TestTable(
+                // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
+                getQueryRunner()::execute,
+                "nation_lowercase",
+                "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
+            for (JoinOperator joinOperator : JoinOperator.values()) {
+                log.info("Testing joinOperator=%s", joinOperator);
 
-            // Disable DF here for the sake of negative test cases' expected plan. With DF enabled, some operators return in DF's FilterNode and some do not.
-            Session withoutDynamicFiltering = Session.builder(session)
-                    .setSystemProperty("enable_dynamic_filtering", "false")
-                    .build();
+                if (joinOperator == FULL_JOIN && !hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
+                    assertThat(query(session, "SELECT r.name, n.name FROM nation n FULL JOIN region r ON n.regionkey = r.regionkey"))
+                            .joinIsNotFullyPushedDown();
+                    continue;
+                }
 
-            String notDistinctOperator = "IS NOT DISTINCT FROM";
-            List<String> nonEqualities = Stream.concat(
-                            Stream.of(JoinCondition.Operator.values())
-                                    .filter(operator -> operator != JoinCondition.Operator.EQUAL)
-                                    .map(JoinCondition.Operator::getValue),
-                            Stream.of(notDistinctOperator))
-                    .collect(toImmutableList());
+                // Disable DF here for the sake of negative test cases' expected plan. With DF enabled, some operators return in DF's FilterNode and some do not.
+                Session withoutDynamicFiltering = Session.builder(session)
+                        .setSystemProperty("enable_dynamic_filtering", "false")
+                        .build();
 
-            try (TestTable nationLowercaseTable = new TestTable(
-                    // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
-                    getQueryRunner()::execute,
-                    "nation_lowercase",
-                    "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
+                String notDistinctOperator = "IS NOT DISTINCT FROM";
+                List<String> nonEqualities = Stream.concat(
+                                Stream.of(JoinCondition.Operator.values())
+                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL)
+                                        .map(JoinCondition.Operator::getValue),
+                                Stream.of(notDistinctOperator))
+                        .collect(toImmutableList());
+
                 // basic case
                 assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey = r.regionkey", joinOperator))).isFullyPushedDown();
 
@@ -1273,17 +1250,18 @@ public abstract class BaseJdbcConnectorTest
                     assertJoinConditionallyPushedDown(
                             withoutDynamicFiltering,
                             format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey %s r.regionkey", joinOperator, operator),
-                            expectJoinPushdown(operator) && expectJoinPushdowOnInequalityOperator(joinOperator));
+                            expectJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
 
                     // varchar inequality predicate
                     assertJoinConditionallyPushedDown(
                             withoutDynamicFiltering,
                             format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator),
-                            expectVarcharJoinPushdown(operator) && expectJoinPushdowOnInequalityOperator(joinOperator));
+                            expectVarcharJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
                 }
 
                 // inequality along with an equality, which constitutes an equi-condition and allows filter to remain as part of the Join
                 for (String operator : nonEqualities) {
+                    log.info("Testing [joinOperator=%s] operator=%s on number", joinOperator, operator);
                     assertJoinConditionallyPushedDown(
                             session,
                             format("SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey", joinOperator, operator),
@@ -1292,6 +1270,7 @@ public abstract class BaseJdbcConnectorTest
 
                 // varchar inequality along with an equality, which constitutes an equi-condition and allows filter to remain as part of the Join
                 for (String operator : nonEqualities) {
+                    log.info("Testing [joinOperator=%s] operator=%s on varchar", joinOperator, operator);
                     assertJoinConditionallyPushedDown(
                             session,
                             format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator),
@@ -1348,6 +1327,28 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void testComplexJoinPushdown()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = joinPushdownEnabled(getSession());
+        String query = "SELECT n.name, o.orderstatus FROM nation n JOIN orders o ON n.regionkey = o.orderkey AND n.nationkey + o.custkey - 3 = 0";
+
+        // The join cannot be pushed down without "complex join pushdown"
+        assertThat(query(
+                Session.builder(session)
+                        .setCatalogSessionProperty(catalog, COMPLEX_JOIN_PUSHDOWN_ENABLED, "false")
+                        .build(),
+                query))
+                .joinIsNotFullyPushedDown();
+
+        // The join can be pushed down
+        assertJoinConditionallyPushedDown(
+                session,
+                query,
+                hasBehavior(SUPPORTS_JOIN_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN));
+    }
+
+    @Test
     public void testExplainAnalyzePhysicalReadWallTime()
     {
         assertExplainAnalyze(
@@ -1373,11 +1374,17 @@ public abstract class BaseJdbcConnectorTest
             @Language("SQL") String query,
             boolean condition)
     {
-        QueryAssert queryAssert = assertThat(query(session, query));
-        if (condition) {
-            return queryAssert.isFullyPushedDown();
+        try {
+            QueryAssert queryAssert = assertThat(query(session, query));
+            if (condition) {
+                return queryAssert.isFullyPushedDown();
+            }
+            return queryAssert.joinIsNotFullyPushedDown();
         }
-        return queryAssert.joinIsNotFullyPushedDown();
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("Query: " + query));
+            throw e;
+        }
     }
 
     protected void assertConditionallyOrderedPushedDown(
@@ -1386,36 +1393,33 @@ public abstract class BaseJdbcConnectorTest
             boolean condition,
             PlanMatchPattern otherwiseExpected)
     {
-        QueryAssert queryAssert = assertThat(query(session, query)).ordered();
-        if (condition) {
-            queryAssert.isFullyPushedDown();
+        try {
+            QueryAssert queryAssert = assertThat(query(session, query)).ordered();
+            if (condition) {
+                queryAssert.isFullyPushedDown();
+            }
+            else {
+                queryAssert.isNotFullyPushedDown(otherwiseExpected);
+            }
         }
-        else {
-            queryAssert.isNotFullyPushedDown(otherwiseExpected);
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("Query: " + query));
+            throw e;
         }
     }
 
     protected boolean expectJoinPushdown(String operator)
     {
         if ("IS NOT DISTINCT FROM".equals(operator)) {
-            // TODO (https://github.com/trinodb/trino/issues/6967) support join pushdown for IS NOT DISTINCT FROM
-            return false;
+            return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
         }
-        switch (toJoinConditionOperator(operator)) {
-            case EQUAL:
-            case NOT_EQUAL:
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-                return true;
-            case IS_DISTINCT_FROM:
-                return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
-        }
-        throw new AssertionError(); // unreachable
+        return switch (toJoinConditionOperator(operator)) {
+            case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
+            case IS_DISTINCT_FROM -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
+        };
     }
 
-    protected boolean expectJoinPushdowOnInequalityOperator(JoinOperator joinOperator)
+    protected boolean expectJoinPushdownOnInequalityOperator(JoinOperator joinOperator)
     {
         // Currently no pushdown as inequality predicate is removed from Join to maintain Cross Join and Filter as separate nodes
         return joinOperator != JOIN;
@@ -1424,22 +1428,13 @@ public abstract class BaseJdbcConnectorTest
     private boolean expectVarcharJoinPushdown(String operator)
     {
         if ("IS NOT DISTINCT FROM".equals(operator)) {
-            // TODO (https://github.com/trinodb/trino/issues/6967) support join pushdown for IS NOT DISTINCT FROM
-            return false;
+            return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
         }
-        switch (toJoinConditionOperator(operator)) {
-            case EQUAL:
-            case NOT_EQUAL:
-                return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-                return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
-            case IS_DISTINCT_FROM:
-                return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
-        }
-        throw new AssertionError(); // unreachable
+        return switch (toJoinConditionOperator(operator)) {
+            case EQUAL, NOT_EQUAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
+            case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
+            case IS_DISTINCT_FROM -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
+        };
     }
 
     private JoinCondition.Operator toJoinConditionOperator(String operator)
@@ -1897,7 +1892,7 @@ public abstract class BaseJdbcConnectorTest
                     .where(node -> node instanceof TableWriterNode)
                     .findOnlyElement()).getTarget();
 
-            assertThat(target.getMaxWriterTasks(queryRunner.getMetadata(), getSession()))
+            assertThat(target.getMaxWriterTasks(queryRunner.getPlannerContext().getMetadata(), getSession()))
                     .hasValue(parallelism);
         }
     }
@@ -1993,8 +1988,9 @@ public abstract class BaseJdbcConnectorTest
             // Check that column 'two' is not supported.
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
             assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
-                    .hasMessageContaining("Unsupported type");
+            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
+                    // TODO should be TrinoException
+                    .nonTrinoExceptionFailure().hasMessageContaining("Unsupported type");
         }
     }
 
@@ -2003,8 +1999,8 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
@@ -2013,8 +2009,8 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .hasMessageContaining("Failed to get table handle for prepared query");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .failure().hasMessageContaining("Failed to get table handle for prepared query");
     }
 
     @Test
@@ -2022,8 +2018,8 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
-                    .hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
+            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .failure().hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
     }
@@ -2032,8 +2028,8 @@ public abstract class BaseJdbcConnectorTest
     public void testNativeQueryIncorrectSyntax()
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessageContaining("Failed to get table handle for prepared query");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure().hasMessageContaining("Failed to get table handle for prepared query");
     }
 
     protected TestTable simpleTable()
@@ -2055,8 +2051,8 @@ public abstract class BaseJdbcConnectorTest
         try (TestTable left = new TestTable(getQueryRunner()::execute, "test_long_id_l", format("(%s BIGINT)", validColumnName));
                 TestTable right = new TestTable(getQueryRunner()::execute, "test_long_id_r", format("(%s BIGINT)", validColumnName))) {
             assertThat(query(joinPushdownEnabled(getSession()), """
-                SELECT l.%1$s, r.%1$s
-                FROM %2$s l JOIN %3$s r ON l.%1$s = r.%1$s""".formatted(validColumnName, left.getName(), right.getName())))
+                    SELECT l.%1$s, r.%1$s
+                    FROM %2$s l JOIN %3$s r ON l.%1$s = r.%1$s""".formatted(validColumnName, left.getName(), right.getName())))
                     .isFullyPushedDown();
         }
     }
@@ -2094,11 +2090,11 @@ public abstract class BaseJdbcConnectorTest
     private void testDynamicFilteringWithAggregationAggregateColumnUnsafe()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
-        MaterializedResultWithQueryId resultWithQueryId = getDistributedQueryRunner()
-                .executeWithQueryId(getSession(), "SELECT custkey, count(*) count FROM orders GROUP BY custkey");
+        MaterializedResultWithPlan resultWithPlan = getDistributedQueryRunner()
+                .executeWithPlan(getSession(), "SELECT custkey, count(*) count FROM orders GROUP BY custkey");
         // Detecting whether above aggregation is fully pushed down explicitly as there are cases where SUPPORTS_AGGREGATION_PUSHDOWN
         // is false as not all aggregations are pushed down but the above aggregation is.
-        boolean isAggregationPushedDown = getPhysicalInputPositions(resultWithQueryId.getQueryId()) == 1000;
+        boolean isAggregationPushedDown = getPhysicalInputPositions(resultWithPlan.queryId()) == 1000;
         assertDynamicFiltering(
                 "SELECT * FROM (SELECT custkey, count(*) count FROM orders GROUP BY custkey) a JOIN orders b " +
                         "ON a.count = b.custkey AND b.totalprice < 1000",
@@ -2140,27 +2136,27 @@ public abstract class BaseJdbcConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (orderkey) AS VALUES 30000, 60000", 2);
         @Language("SQL") String query = "SELECT * FROM orders a JOIN " + tableName + " b ON a.orderkey = b.orderkey";
 
-        MaterializedResultWithQueryId dynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(true),
                 query);
-        long filteredInputPositions = getPhysicalInputPositions(dynamicFilteringResult.getQueryId());
+        long filteredInputPositions = getPhysicalInputPositions(dynamicFilteringResult.queryId());
 
-        MaterializedResultWithQueryId dynamicFilteringWithCompactionThresholdResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringWithCompactionThresholdResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFilteringWithCompactionThreshold(1),
                 query);
-        long smallCompactionInputPositions = getPhysicalInputPositions(dynamicFilteringWithCompactionThresholdResult.getQueryId());
+        long smallCompactionInputPositions = getPhysicalInputPositions(dynamicFilteringWithCompactionThresholdResult.queryId());
         assertEqualsIgnoreOrder(
-                dynamicFilteringResult.getResult(),
-                dynamicFilteringWithCompactionThresholdResult.getResult(),
+                dynamicFilteringResult.result(),
+                dynamicFilteringWithCompactionThresholdResult.result(),
                 "For query: \n " + query);
 
-        MaterializedResultWithQueryId noDynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan noDynamicFilteringResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(false),
                 query);
-        long unfilteredInputPositions = getPhysicalInputPositions(noDynamicFilteringResult.getQueryId());
+        long unfilteredInputPositions = getPhysicalInputPositions(noDynamicFilteringResult.queryId());
         assertEqualsIgnoreOrder(
-                dynamicFilteringWithCompactionThresholdResult.getResult(),
-                noDynamicFilteringResult.getResult(),
+                dynamicFilteringWithCompactionThresholdResult.result(),
+                noDynamicFilteringResult.result(),
                 "For query: \n " + query);
 
         assertThat(unfilteredInputPositions)
@@ -2211,22 +2207,22 @@ public abstract class BaseJdbcConnectorTest
 
     private void assertDynamicFilteringUnsafe(@Language("SQL") String sql, JoinDistributionType joinDistributionType, boolean expectDynamicFiltering)
     {
-        MaterializedResultWithQueryId dynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(joinDistributionType, true),
                 sql);
 
-        MaterializedResultWithQueryId noDynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan noDynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(joinDistributionType, false),
                 sql);
 
         // ensure results are the same
         assertEqualsIgnoreOrder(
-                dynamicFilteringResultWithQueryId.getResult(),
-                noDynamicFilteringResultWithQueryId.getResult(),
+                dynamicFilteringResultWithQueryId.result(),
+                noDynamicFilteringResultWithQueryId.result(),
                 "For query: \n " + sql);
 
-        long dynamicFilteringInputPositions = getPhysicalInputPositions(dynamicFilteringResultWithQueryId.getQueryId());
-        long noDynamicFilteringInputPositions = getPhysicalInputPositions(noDynamicFilteringResultWithQueryId.getQueryId());
+        long dynamicFilteringInputPositions = getPhysicalInputPositions(dynamicFilteringResultWithQueryId.queryId());
+        long noDynamicFilteringInputPositions = getPhysicalInputPositions(noDynamicFilteringResultWithQueryId.queryId());
 
         if (expectDynamicFiltering) {
             // Physical input positions is smaller in dynamic filtering case than in no dynamic filtering case

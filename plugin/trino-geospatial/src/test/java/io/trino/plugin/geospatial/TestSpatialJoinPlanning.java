@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.trino.Session;
 import io.trino.block.BlockSerdeUtil;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
@@ -35,7 +34,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NotExpression;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -47,7 +46,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.geospatial.KdbTree.Node.newLeaf;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.plugin.geospatial.GeoFunctions.stPoint;
@@ -56,7 +54,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -68,7 +65,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.cos;
 import static java.lang.Math.toRadians;
@@ -86,19 +83,19 @@ public class TestSpatialJoinPlanning
     private String point21x21Literal;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
+        PlanTester planTester = PlanTester.create(testSessionBuilder()
                 .setCatalog("memory")
                 .setSchema("default")
                 .build());
-        queryRunner.installPlugin(new GeoPlugin());
-        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
-        queryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());
-        queryRunner.execute(format("CREATE TABLE kdb_tree AS SELECT '%s' AS v", KDB_TREE_JSON));
-        queryRunner.execute("CREATE TABLE points (lng, lat, name) AS (VALUES (2.1e0, 2.1e0, 'x'))");
-        queryRunner.execute("CREATE TABLE polygons (wkt, name) AS (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a'))");
-        return queryRunner;
+        planTester.installPlugin(new GeoPlugin());
+        planTester.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        planTester.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());
+        planTester.executeStatement(format("CREATE TABLE kdb_tree AS SELECT '%s' AS v", KDB_TREE_JSON));
+        planTester.executeStatement("CREATE TABLE points (lng, lat, name) AS (VALUES (2.1e0, 2.1e0, 'x'))");
+        planTester.executeStatement("CREATE TABLE polygons (wkt, name) AS (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a'))");
+        return planTester;
     }
 
     @BeforeAll
@@ -217,7 +214,7 @@ public class TestSpatialJoinPlanning
                 "Table not found: memory.default.non_existent_table");
 
         // empty table
-        getQueryRunner().execute("CREATE TABLE empty_table AS SELECT 'a' AS v WHERE false");
+        getPlanTester().executeStatement("CREATE TABLE empty_table AS SELECT 'a' AS v WHERE false");
 
         assertInvalidSpatialPartitioning(
                 withSpatialPartitioning("empty_table"),
@@ -227,7 +224,7 @@ public class TestSpatialJoinPlanning
                 "Expected exactly one row for table memory.default.empty_table, but got none");
 
         // invalid JSON
-        getQueryRunner().execute("CREATE TABLE invalid_kdb_tree AS SELECT 'invalid-json' AS v");
+        getPlanTester().executeStatement("CREATE TABLE invalid_kdb_tree AS SELECT 'invalid-json' AS v");
 
         assertInvalidSpatialPartitioning(
                 withSpatialPartitioning("invalid_kdb_tree"),
@@ -237,7 +234,7 @@ public class TestSpatialJoinPlanning
                 "Invalid JSON string for KDB tree: .*");
 
         // more than one row
-        getQueryRunner().execute(format("CREATE TABLE too_many_rows AS SELECT * FROM (VALUES '%s', '%s') AS t(v)", KDB_TREE_JSON, KDB_TREE_JSON));
+        getPlanTester().executeStatement(format("CREATE TABLE too_many_rows AS SELECT * FROM (VALUES '%s', '%s') AS t(v)", KDB_TREE_JSON, KDB_TREE_JSON));
 
         assertInvalidSpatialPartitioning(
                 withSpatialPartitioning("too_many_rows"),
@@ -247,7 +244,7 @@ public class TestSpatialJoinPlanning
                 "Expected exactly one row for table memory.default.too_many_rows, but found 2 rows");
 
         // more than one column
-        getQueryRunner().execute("CREATE TABLE too_many_columns AS SELECT '%s' as c1, 100 as c2");
+        getPlanTester().executeStatement("CREATE TABLE too_many_columns AS SELECT '%s' as c1, 100 as c2");
 
         assertInvalidSpatialPartitioning(
                 withSpatialPartitioning("too_many_columns"),
@@ -259,12 +256,9 @@ public class TestSpatialJoinPlanning
 
     private void assertInvalidSpatialPartitioning(Session session, String sql, String expectedMessageRegExp)
     {
-        LocalQueryRunner queryRunner = getQueryRunner();
+        PlanTester planTester = getPlanTester();
         try {
-            queryRunner.inTransaction(session, transactionSession -> {
-                queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(false), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
-                return null;
-            });
+            planTester.inTransaction(session, transactionSession -> planTester.createPlan(transactionSession, sql));
             throw new AssertionError(format("Expected query to fail: %s", sql));
         }
         catch (TrinoException ex) {
@@ -559,7 +553,7 @@ public class TestSpatialJoinPlanning
 
     private Session withSpatialPartitioning(String tableName)
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(this.getPlanTester().getDefaultSession())
                 .setSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, tableName)
                 .build();
     }
@@ -572,6 +566,6 @@ public class TestSpatialJoinPlanning
 
     private FunctionCall functionCall(String name, List<Type> types, List<Expression> arguments)
     {
-        return new FunctionCall(getQueryRunner().getMetadata().resolveBuiltinFunction(name, fromTypes(types)).toQualifiedName(), arguments);
+        return new FunctionCall(getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction(name, fromTypes(types)).toQualifiedName(), arguments);
     }
 }

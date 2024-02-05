@@ -62,6 +62,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt64Timestamp;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
@@ -762,6 +763,15 @@ public class TupleDomainParquetPredicate
             // Since we don't use LogicalNotUserDefined, this method is not called.
             // To be safe, we just keep the record by returning false.
             return false;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("columnDescriptor", columnDescriptor)
+                    .add("columnDomain", columnDomain)
+                    .toString();
         }
     }
 

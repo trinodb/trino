@@ -103,6 +103,7 @@ public class ParquetFileWriterFactory
 
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
+                .setMaxPageValueCount(HiveSessionProperties.getParquetWriterPageValueCount(session))
                 .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
                 .build();
@@ -149,7 +150,9 @@ public class ParquetFileWriterFactory
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     fileInputColumnIndexes,
-                    compressionCodec.getParquetCompressionCodec(),
+                    compressionCodec.getParquetCompressionCodec()
+                            // Ensured by the caller
+                            .orElseThrow(() -> new IllegalArgumentException("Unsupported compression codec for Parquet: " + compressionCodec)),
                     nodeVersion.toString(),
                     Optional.of(parquetTimeZone),
                     validationInputFactory));

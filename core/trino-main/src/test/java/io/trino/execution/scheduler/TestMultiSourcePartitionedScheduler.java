@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
@@ -111,7 +112,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static java.util.Objects.requireNonNull;
@@ -523,7 +524,7 @@ public class TestMultiSourcePartitionedScheduler
         Symbol symbol = new Symbol("column");
         Symbol buildSymbol = new Symbol("buildColumn");
 
-        TableScanNode tableScanOne = new TableScanNode(
+        TableScanNode tableScanOne = TableScanNode.newInstance(
                 TABLE_SCAN_1_NODE_ID,
                 firstTableHandle,
                 ImmutableList.of(symbol),
@@ -534,7 +535,7 @@ public class TestMultiSourcePartitionedScheduler
                 new PlanNodeId("filter_node_id"),
                 tableScanOne,
                 createDynamicFilterExpression(createTestMetadataManager(), DYNAMIC_FILTER_ID, VARCHAR, symbol.toSymbolReference()));
-        TableScanNode tableScanTwo = new TableScanNode(
+        TableScanNode tableScanTwo = TableScanNode.newInstance(
                 TABLE_SCAN_2_NODE_ID,
                 secondTableHandle,
                 ImmutableList.of(symbol),
@@ -624,6 +625,7 @@ public class TestMultiSourcePartitionedScheduler
                 nodeTaskMap,
                 queryExecutor,
                 noopTracer(),
+                Span.getInvalid(),
                 new SplitSchedulerStats());
         ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> outputBuffers = ImmutableMap.builder();
         outputBuffers.put(fragment.getId(), new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 1));

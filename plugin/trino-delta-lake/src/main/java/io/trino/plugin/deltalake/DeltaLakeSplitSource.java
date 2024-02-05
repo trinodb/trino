@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
@@ -30,6 +31,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +64,8 @@ public class DeltaLakeSplitSource
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final Stopwatch dynamicFilterWaitStopwatch;
+    private final Closer closer = Closer.create();
+
     private volatile TrinoException trinoException;
 
     public DeltaLakeSplitSource(
@@ -75,10 +80,12 @@ public class DeltaLakeSplitSource
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
+        closer.register(queue::finish);
         this.recordScannedFiles = recordScannedFiles;
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
         this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
+        closer.register(splits::close);
         queueSplits(splits, queue, executor)
                 .exceptionally(throwable -> {
                     // set trinoException before finishing the queue to ensure failure is observed instead of successful completion
@@ -123,8 +130,8 @@ public class DeltaLakeSplitSource
                             .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
                     List<ConnectorSplit> filteredSplits = splits.stream()
                             .map(DeltaLakeSplit.class::cast)
-                            .filter(split -> split.getStatisticsPredicate().overlaps(dynamicFilterPredicate) &&
-                                    partitionMatchesPredicate(split.getPartitionKeys(), partitionColumnDomains))
+                            .filter(split -> partitionMatchesPredicate(split.getPartitionKeys(), partitionColumnDomains) &&
+                                    split.getStatisticsPredicate().overlaps(dynamicFilterPredicate))
                             .collect(toImmutableList());
                     if (recordScannedFiles) {
                         filteredSplits.forEach(split -> scannedFilePaths.add(((DeltaLakeSplit) split).getPath()));
@@ -147,7 +154,12 @@ public class DeltaLakeSplitSource
     @Override
     public void close()
     {
-        queue.finish();
+        try {
+            closer.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override

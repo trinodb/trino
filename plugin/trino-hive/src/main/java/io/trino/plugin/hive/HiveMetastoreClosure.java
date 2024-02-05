@@ -27,6 +27,7 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.spi.TrinoException;
@@ -46,7 +47,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -132,32 +132,20 @@ public class HiveMetastoreClosure
         return delegate.getPartitionStatistics(table, partitions);
     }
 
-    public void updateTableStatistics(String databaseName,
-            String tableName,
-            AcidTransaction transaction,
-            Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
-        delegate.updateTableStatistics(databaseName, tableName, transaction, update);
+        delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate);
     }
 
-    public void updatePartitionStatistics(String databaseName,
-            String tableName,
-            String partitionName,
-            Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(String databaseName, String tableName, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
         Table table = getExistingTable(databaseName, tableName);
-        delegate.updatePartitionStatistics(table, partitionName, update);
+        delegate.updatePartitionStatistics(table, mode, partitionUpdates);
     }
 
-    public void updatePartitionStatistics(String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public List<String> getTables(String databaseName)
     {
-        Table table = getExistingTable(databaseName, tableName);
-        delegate.updatePartitionStatistics(table, updates);
-    }
-
-    public List<String> getAllTables(String databaseName)
-    {
-        return delegate.getAllTables(databaseName);
+        return delegate.getTables(databaseName);
     }
 
     public Optional<List<SchemaTableName>> getAllTables()
@@ -170,14 +158,14 @@ public class HiveMetastoreClosure
         return delegate.getRelationTypes(databaseName);
     }
 
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
-        return delegate.getRelationTypes();
+        return delegate.getAllRelationTypes();
     }
 
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getViews(databaseName);
     }
 
     public Optional<List<SchemaTableName>> getAllViews()
@@ -453,9 +441,9 @@ public class HiveMetastoreClosure
         return delegate.functionExists(name.getSchemaName(), name.getFunctionName(), signatureToken);
     }
 
-    public Collection<LanguageFunction> getFunctions(String schemaName)
+    public Collection<LanguageFunction> getAllFunctions(String schemaName)
     {
-        return delegate.getFunctions(schemaName);
+        return delegate.getAllFunctions(schemaName);
     }
 
     public Collection<LanguageFunction> getFunctions(SchemaFunctionName name)

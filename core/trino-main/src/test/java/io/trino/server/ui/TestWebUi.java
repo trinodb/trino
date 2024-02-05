@@ -100,7 +100,7 @@ import static io.jsonwebtoken.Claims.SUBJECT;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
+import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
@@ -309,12 +309,12 @@ public class TestWebUi
         assertThat(body).contains("action=\"/ui/login\"");
         assertThat(body).contains("method=\"post\"");
 
-        assertThat(body).doesNotContain("// This value will be replaced");
+        assertThat(body).doesNotContain("<!-- This value will be replaced -->");
         if (sendPassword) {
-            assertThat(body).contains("var hidePassword = false;");
+            assertThat(body).contains("<div class=\"hidden\" id=\"hide-password\">false</div>");
         }
         else {
-            assertThat(body).contains("var hidePassword = true;");
+            assertThat(body).contains("<div class=\"hidden\" id=\"hide-password\">true</div>");
         }
 
         logIn(baseUri, client, username, password, sendPassword);
@@ -423,14 +423,15 @@ public class TestWebUi
                     new PreparedStatementEncoder(new ProtocolConfig()),
                     createTestMetadataManager(),
                     ImmutableSet::of,
-                    accessControl);
+                    accessControl,
+                    new ProtocolConfig());
         }
 
         @ResourceSecurity(WEB_UI)
         @GET
         public jakarta.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
         {
-            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders);
             return jakarta.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .build();
@@ -1399,7 +1400,7 @@ public class TestWebUi
         public synchronized void filter(ContainerRequestContext request)
                 throws IOException
         {
-            Optional<Identity> identity = Optional.ofNullable((Identity) request.getProperty(AUTHENTICATED_IDENTITY));
+            Optional<Identity> identity = authenticatedIdentity(request);
             if (identity.map(Identity::getUser).filter(not("<internal>"::equals)).isPresent()) {
                 if (authenticatedIdentity == null) {
                     authenticatedIdentity = identity.get();

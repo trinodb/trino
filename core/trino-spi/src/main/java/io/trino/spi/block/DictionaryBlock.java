@@ -420,6 +420,11 @@ public final class DictionaryBlock
     public Block copyRegion(int position, int length)
     {
         checkValidRegion(positionCount, position, length);
+        if (length == 0) {
+            // explicit support for case when length == 0 which might otherwise fail
+            // on getId(position) if position == positionCount
+            return dictionary.copyRegion(0, 0);
+        }
         // Avoid repeated volatile reads to the uniqueIds field
         int uniqueIds = this.uniqueIds;
         if (length <= 1 || (uniqueIds == dictionary.getPositionCount() && isSequentialIds)) {
@@ -526,6 +531,23 @@ public final class DictionaryBlock
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    @Override
+    public boolean isLoaded()
+    {
+        return dictionary.isLoaded();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedDictionary = dictionary.getLoadedBlock();
+
+        if (loadedDictionary == dictionary) {
+            return this;
+        }
+        return createInternal(idsOffset, getPositionCount(), loadedDictionary, ids, randomDictionaryId());
     }
 
     @Override

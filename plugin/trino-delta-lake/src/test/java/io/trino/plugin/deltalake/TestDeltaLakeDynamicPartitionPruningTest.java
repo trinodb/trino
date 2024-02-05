@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseDynamicPartitionPruningTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
@@ -39,7 +38,7 @@ public class TestDeltaLakeDynamicPartitionPruningTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, EXTRA_PROPERTIES, ImmutableMap.of(
+        QueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, EXTRA_PROPERTIES, ImmutableMap.of(
                 "delta.dynamic-filtering.wait-timeout", "1h",
                 "delta.enable-non-concurrent-writes", "true"));
         for (TpchTable<?> table : REQUIRED_TABLES) {

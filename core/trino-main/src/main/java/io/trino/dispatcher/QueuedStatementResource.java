@@ -32,7 +32,6 @@ import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
 import io.trino.server.HttpRequestSessionContextFactory;
-import io.trino.server.ProtocolConfig;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
 import io.trino.server.protocol.QueryInfoUrlFactory;
@@ -85,7 +84,8 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
-import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
+import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
+import static io.trino.server.ServletSecurityUtils.clearAuthenticatedIdentity;
 import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.protocol.Slug.Context.QUEUED_QUERY;
@@ -120,7 +120,6 @@ public class QueuedStatementResource
     private final ScheduledExecutorService timeoutExecutor;
 
     private final boolean compressionEnabled;
-    private final Optional<String> alternateHeaderName;
     private final QueryManager queryManager;
 
     @Inject
@@ -131,7 +130,6 @@ public class QueuedStatementResource
             DispatchExecutor executor,
             QueryInfoUrlFactory queryInfoUrlTemplate,
             ServerConfig serverConfig,
-            ProtocolConfig protocolConfig,
             QueryManagerConfig queryManagerConfig)
     {
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
@@ -141,7 +139,6 @@ public class QueuedStatementResource
         this.timeoutExecutor = executor.getScheduledExecutor();
         this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
         this.compressionEnabled = serverConfig.isQueryResultsCompressionEnabled();
-        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
         queryManager = new QueryManager(queryManagerConfig.getClientTimeout());
     }
 
@@ -178,19 +175,19 @@ public class QueuedStatementResource
     private Query registerQuery(String statement, HttpServletRequest servletRequest, HttpHeaders httpHeaders)
     {
         Optional<String> remoteAddress = Optional.ofNullable(servletRequest.getRemoteAddr());
-        Optional<Identity> identity = Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY));
+        Optional<Identity> identity = authenticatedIdentity(servletRequest);
         if (identity.flatMap(Identity::getPrincipal).map(InternalPrincipal.class::isInstance).orElse(false)) {
             throw badRequest(FORBIDDEN, "Internal communication can not be used to start a query");
         }
 
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
 
-        SessionContext sessionContext = sessionContextFactory.createSessionContext(headers, alternateHeaderName, remoteAddress, identity);
+        SessionContext sessionContext = sessionContextFactory.createSessionContext(headers, remoteAddress, identity);
         Query query = new Query(statement, sessionContext, dispatchManager, queryInfoUrlFactory, tracer);
         queryManager.registerQuery(query);
 
         // let authentication filter know that identity lifecycle has been handed off
-        servletRequest.setAttribute(AUTHENTICATED_IDENTITY, null);
+        clearAuthenticatedIdentity(servletRequest);
 
         return query;
     }

@@ -13,10 +13,6 @@
  */
 package io.trino.sql.query;
 
-import io.trino.json.PathEvaluationException;
-import io.trino.operator.scalar.json.JsonInputConversionException;
-import io.trino.operator.scalar.json.JsonValueFunction.JsonValueResultException;
-import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -25,10 +21,14 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.nio.charset.Charset;
 
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.spi.StandardErrorCode.INVALID_PATH;
+import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
+import static io.trino.spi.StandardErrorCode.JSON_VALUE_RESULT_ERROR;
+import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -77,9 +77,10 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INPUT + "', 'strict $[100]' DEFAULT 'x' ON ERROR)"))
                 .matches("VALUES VARCHAR 'x'");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'strict $[100]' ERROR ON ERROR)"))
-                .isInstanceOf(PathEvaluationException.class)
+                .failure()
+                .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [100, 100] for array of size 3");
 
         // structural error suppressed by the path engine in lax mode. empty sequence is returned, so ON EMPTY behavior is applied
@@ -97,9 +98,10 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INPUT + "', 'lax $[100]' DEFAULT 'x' ON EMPTY)"))
                 .matches("VALUES VARCHAR 'x'");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $[100]' ERROR ON EMPTY)"))
-                .isInstanceOf(JsonValueResultException.class)
+                .failure()
+                .hasErrorCode(JSON_VALUE_RESULT_ERROR)
                 .hasMessage("cannot extract SQL scalar from JSON: JSON path found no items");
 
         // path returns multiple items. this case is handled accordingly to the ON ERROR clause
@@ -117,9 +119,10 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INPUT + "', 'lax $[0 to 2]' DEFAULT 'x' ON ERROR)"))
                 .matches("VALUES VARCHAR 'x'");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $[0 to 2]' ERROR ON ERROR)"))
-                .isInstanceOf(JsonValueResultException.class)
+                .failure()
+                .hasErrorCode(JSON_VALUE_RESULT_ERROR)
                 .hasMessage("cannot extract SQL scalar from JSON: JSON path found multiple items");
     }
 
@@ -136,8 +139,10 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
                 .matches("VALUES VARCHAR 'b'");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "' FORMAT JSON ENCODING UTF8, 'lax $[1]')"))
+                .failure()
+                .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:19: Cannot read input of type varchar(15) as JSON using formatting JSON ENCODING UTF8");
 
         // FORMAT JSON is default for binary string input
@@ -173,8 +178,10 @@ public class TestJsonValueFunction
 
         // the encoding must match the actual data
         String finalVarbinaryLiteral = varbinaryLiteral;
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_value(" + finalVarbinaryLiteral + " FORMAT JSON ENCODING UTF8, 'lax $[1]' ERROR ON ERROR)"))
+                .failure()
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
     }
 
@@ -196,9 +203,10 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INCORRECT_INPUT + "', 'lax $[1]' DEFAULT 'x' ON ERROR)"))
                 .matches("VALUES VARCHAR 'x'");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_value('" + INCORRECT_INPUT + "', 'lax $[1]' ERROR ON ERROR)"))
-                .isInstanceOf(JsonInputConversionException.class)
+                .failure()
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
     }
 
@@ -206,8 +214,10 @@ public class TestJsonValueFunction
     public void testPassingClause()
     {
         // watch out for case sensitive identifiers in JSON path
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $number + 1' PASSING 2 AS number)"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
                 .hasMessage("line 1:38: no value passed for parameter number. Try quoting \"number\" in the PASSING clause to match case");
 
         assertThat(assertions.query(
@@ -224,9 +234,10 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\")"))
                 .matches("VALUES cast(null AS varchar)");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\" ERROR ON ERROR)"))
-                .isInstanceOf(JsonInputConversionException.class)
+                .failure()
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
 
         // array index out of bounds
@@ -298,18 +309,19 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INPUT + "', 'lax $' DEFAULT 'x' ON ERROR)"))
                 .matches("VALUES VARCHAR 'x'");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $' ERROR ON ERROR)"))
-                .isInstanceOf(JsonValueResultException.class)
+                .failure()
+                .hasErrorCode(JSON_VALUE_RESULT_ERROR)
                 .hasMessage("cannot extract SQL scalar from JSON: JSON path found an item that cannot be converted to an SQL value");
     }
 
     @Test
     public void testIncorrectPath()
     {
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'certainly not a valid path')"))
-                .isInstanceOf(ParsingException.class)
+                .failure()
                 .hasMessage("line 1:39: mismatched input 'certainly' expecting {'lax', 'strict'}");
     }
 

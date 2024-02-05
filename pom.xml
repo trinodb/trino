@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>148</version>
+        <version>149</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>435-SNAPSHOT</version>
+    <version>439-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -43,6 +43,7 @@
         <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>
         <module>lib/trino-filesystem-azure</module>
+        <module>lib/trino-filesystem-cache-alluxio</module>
         <module>lib/trino-filesystem-gcs</module>
         <module>lib/trino-filesystem-manager</module>
         <module>lib/trino-filesystem-s3</module>
@@ -77,7 +78,6 @@
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
-        <module>plugin/trino-hive-hadoop2</module>
         <module>plugin/trino-http-event-listener</module>
         <module>plugin/trino-hudi</module>
         <module>plugin/trino-iceberg</module>
@@ -93,6 +93,8 @@
         <module>plugin/trino-mongodb</module>
         <module>plugin/trino-mysql</module>
         <module>plugin/trino-mysql-event-listener</module>
+        <module>plugin/trino-opa</module>
+        <module>plugin/trino-opensearch</module>
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
         <module>plugin/trino-phoenix5</module>
@@ -114,12 +116,12 @@
         <module>plugin/trino-tpch</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
-        <module>testing/trino-benchmark</module>
         <module>testing/trino-benchmark-queries</module>
         <module>testing/trino-benchto-benchmarks</module>
         <module>testing/trino-faulttolerant-tests</module>
         <module>testing/trino-plugin-reader</module>
         <module>testing/trino-product-tests</module>
+        <module>testing/trino-product-tests-groups</module>
         <module>testing/trino-product-tests-launcher</module>
         <module>testing/trino-server-dev</module>
         <module>testing/trino-test-jdbc-compatibility-old-driver</module>
@@ -139,12 +141,12 @@
     </scm>
 
     <properties>
-        <project.build.targetJdk>17</project.build.targetJdk>
+        <project.build.targetJdk>21</project.build.targetJdk>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
-        <air.java.version>17.0.5</air.java.version>
+        <air.java.version>21.0.1</air.java.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
         <air.main.basedir>${project.basedir}</air.main.basedir>
         <air.modernizer.java-version>8</air.modernizer.java-version>
@@ -174,33 +176,33 @@
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
-        <dep.airlift.version>239</dep.airlift.version>
+        <dep.airlift.version>240</dep.airlift.version>
+        <dep.alluxio.version>307</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
-        <dep.arrow.version>14.0.1</dep.arrow.version>
         <dep.avro.version>1.11.3</dep.avro.version>
-        <dep.aws-sdk.version>1.12.595</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.651</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
         <dep.docker.images.version>87</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
-        <dep.errorprone.version>2.23.0</dep.errorprone.version>
-        <dep.flyway.version>10.1.0</dep.flyway.version>
+        <dep.errorprone.version>2.24.1</dep.errorprone.version>
+        <dep.flyway.version>10.7.1</dep.flyway.version>
         <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
-        <dep.iceberg.version>1.4.2</dep.iceberg.version>
-        <dep.jna.version>5.13.0</dep.jna.version>
-        <dep.jsonwebtoken.version>0.12.3</dep.jsonwebtoken.version>
-        <dep.kafka-clients.version>3.6.0</dep.kafka-clients.version>
-        <dep.kotlin.version>1.9.20</dep.kotlin.version>
-        <dep.okio.version>3.6.0</dep.okio.version>
+        <dep.iceberg.version>1.4.3</dep.iceberg.version>
+        <dep.jna.version>5.14.0</dep.jna.version>
+        <dep.joda.version>2.12.6</dep.joda.version>
+        <dep.jsonwebtoken.version>0.12.5</dep.jsonwebtoken.version>
+        <dep.kafka-clients.version>3.6.1</dep.kafka-clients.version>
+        <dep.okio.version>3.7.0</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
-        <dep.protobuf.version>3.25.1</dep.protobuf.version>
-        <dep.swagger.version>2.2.19</dep.swagger.version>
+        <dep.protobuf.version>3.25.2</dep.protobuf.version>
+        <dep.swagger.version>2.2.20</dep.swagger.version>
         <dep.takari.version>2.1.2</dep.takari.version>
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
         <dep.tempto.version>201</dep.tempto.version>
-        <dep.wire.version>4.8.0</dep.wire.version>
+        <dep.wire.version>4.8.1</dep.wire.version>
     </properties>
 
     <dependencyManagement>
@@ -209,7 +211,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.18</version>
+                <version>1.2.20</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -217,7 +219,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.27.0</version>
+                <version>26.31.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -249,7 +251,7 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
-                <version>1.59.0</version>
+                <version>1.61.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -257,7 +259,15 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.1.101.Final</version>
+                <version>4.1.106.Final</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-bom</artifactId>
+                <version>15.0.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -265,7 +275,7 @@
             <dependency>
                 <groupId>org.eclipse.jetty</groupId>
                 <artifactId>jetty-bom</artifactId>
-                <version>11.0.18</version>
+                <version>11.0.20</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -273,7 +283,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.41.3</version>
+                <version>3.44.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -289,7 +299,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.19.3</version>
+                <version>1.19.4</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -297,7 +307,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.21.29</version>
+                <version>2.23.17</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -305,7 +315,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>3.2.0</version>
+                <version>3.3.0</version>
             </dependency>
 
             <dependency>
@@ -496,13 +506,13 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.5-10</version>
+                <version>1.5.5-11</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.4.7</version>
+                <version>6.4.11</version>
             </dependency>
 
             <dependency>
@@ -514,7 +524,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>hadoop3-2.2.18</version>
+                <version>3.0.0</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -535,6 +545,12 @@
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
                 <version>${dep.errorprone.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>failureaccess</artifactId>
+                <version>1.0.2</version>
             </dependency>
 
             <dependency>
@@ -576,25 +592,25 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>12.4.2.jre11</version>
+                <version>12.6.0.jre11</version>
             </dependency>
 
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
-                <version>8.2.0</version>
+                <version>8.3.0</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>9.37.1</version>
+                <version>9.37.3</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.6</version>
+                <version>11.9.1</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -629,6 +645,12 @@
             </dependency>
 
             <dependency>
+                <groupId>commons-cli</groupId>
+                <artifactId>commons-cli</artifactId>
+                <version>1.6.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
                 <version>1.16.0</version>
@@ -637,7 +659,7 @@
             <dependency>
                 <groupId>commons-io</groupId>
                 <artifactId>commons-io</artifactId>
-                <version>2.15.0</version>
+                <version>2.15.1</version>
             </dependency>
 
             <dependency>
@@ -827,7 +849,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.2.22</version>
+                <version>4.2.25</version>
             </dependency>
 
             <dependency>
@@ -932,7 +954,7 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.4.33</version>
+                <version>3.4.35</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -970,12 +992,6 @@
                 <artifactId>trino-base-jdbc</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-benchmark</artifactId>
-                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -1087,6 +1103,19 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-filesystem-cache-alluxio</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-filesystem-cache-alluxio</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem-gcs</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1129,6 +1158,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-hdfs</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-hive</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1143,12 +1179,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-hive-formats</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-hive-hadoop2</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1351,6 +1381,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-product-tests</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-product-tests-groups</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1631,7 +1667,7 @@
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.14.10</version>
+                <version>1.14.11</version>
             </dependency>
 
             <dependency>
@@ -1657,6 +1693,98 @@
                 <groupId>net.sf.opencsv</groupId>
                 <artifactId>opencsv</artifactId>
                 <version>2.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.alluxio</groupId>
+                <artifactId>alluxio-core-client-fs</artifactId>
+                <version>${dep.alluxio.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-stub</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.alluxio</groupId>
+                        <artifactId>alluxio-core-common</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.alluxio</groupId>
+                        <artifactId>alluxio-core-transport</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.alluxio</groupId>
+                <artifactId>alluxio-core-common</artifactId>
+                <version>${dep.alluxio.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.etcd</groupId>
+                        <artifactId>jetcd-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-netty</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-services</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-stub</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.netty</groupId>
+                        <artifactId>netty-tcnative-boringssl-static</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>jakarta.servlet</groupId>
+                        <artifactId>jakarta.servlet-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.alluxio</groupId>
+                        <artifactId>alluxio-core-common</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.curator</groupId>
+                        <artifactId>curator-client</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.curator</groupId>
+                        <artifactId>curator-framework</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.zookeeper</groupId>
+                        <artifactId>zookeeper</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1687,36 +1815,6 @@
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-runtime</artifactId>
                 <version>${dep.antlr.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.arrow</groupId>
-                <artifactId>arrow-compression</artifactId>
-                <version>${dep.arrow.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.arrow</groupId>
-                <artifactId>arrow-format</artifactId>
-                <version>${dep.arrow.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.arrow</groupId>
-                <artifactId>arrow-memory-core</artifactId>
-                <version>${dep.arrow.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.arrow</groupId>
-                <artifactId>arrow-memory-netty</artifactId>
-                <version>${dep.arrow.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.arrow</groupId>
-                <artifactId>arrow-vector</artifactId>
-                <version>${dep.arrow.version}</version>
             </dependency>
 
             <dependency>
@@ -1831,7 +1929,7 @@
             <dependency>
                 <groupId>org.apache.maven</groupId>
                 <artifactId>maven-model</artifactId>
-                <version>3.9.5</version>
+                <version>3.9.6</version>
             </dependency>
 
             <dependency>
@@ -1953,7 +2051,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.40.0</version>
+                <version>3.42.0</version>
             </dependency>
 
             <dependency>
@@ -1965,7 +2063,7 @@
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-xml</artifactId>
-                <version>4.0.2</version>
+                <version>4.0.3</version>
             </dependency>
 
             <dependency>
@@ -1996,7 +2094,7 @@
             <dependency>
                 <groupId>org.javassist</groupId>
                 <artifactId>javassist</artifactId>
-                <version>3.29.2-GA</version>
+                <version>3.30.2-GA</version>
             </dependency>
 
             <dependency>
@@ -2026,7 +2124,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.3.0</version>
+                <version>3.3.2</version>
             </dependency>
 
             <dependency>
@@ -2044,7 +2142,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.0</version>
+                <version>42.7.1</version>
             </dependency>
 
             <dependency>
@@ -2056,13 +2154,19 @@
             <dependency>
                 <groupId>org.roaringbitmap</groupId>
                 <artifactId>RoaringBitmap</artifactId>
-                <version>1.0.0</version>
+                <version>1.0.1</version>
             </dependency>
 
             <dependency>
                 <groupId>org.sonatype.aether</groupId>
                 <artifactId>aether-api</artifactId>
                 <version>1.13.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.threeten</groupId>
+                <artifactId>threetenbp</artifactId>
+                <version>1.6.8</version>
             </dependency>
 
             <dependency>
@@ -2214,6 +2318,7 @@
                         <exclusions>
                             <!-- getOnlyElement is more readable than the stream analogue -->
                             <exclusion>com/google/common/collect/Iterables.getOnlyElement:(Ljava/lang/Iterable;)Ljava/lang/Object;</exclusion>
+                            <exclusion>com/google/common/collect/Iterables.getOnlyElement:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/lang/Object;</exclusion>
                             <!-- getLast has lower complexity for array based lists than the stream analogue (O(1) vs O(log(N)) -->
                             <exclusion>com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;)Ljava/lang/Object;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/lang/Object;</exclusion>
@@ -2234,7 +2339,6 @@
                             <exclusion>com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;)Ljava/lang/Object;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.cycle:(Ljava/lang/Iterable;)Ljava/lang/Iterable;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.cycle:([Ljava/lang/Object;)Ljava/lang/Iterable;</exclusion>
-                            <exclusion>com/google/common/collect/Iterables.getOnlyElement:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/lang/Object;</exclusion>
                             <!-- com.google.common.io.BaseEncoding.base64 provides more reach interfaces than java.util.Base64 -->
                             <exclusion>com/google/common/io/BaseEncoding.base64:()Lcom/google/common/io/BaseEncoding;</exclusion>
 
@@ -2355,6 +2459,50 @@
                             <exception>
                                 <conflictingDependencies>
                                     <dependency>
+                                        <groupId>org.alluxio</groupId>
+                                        <artifactId>alluxio-core-client-fs</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.alluxio</groupId>
+                                        <artifactId>alluxio-core-common</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.alluxio</groupId>
+                                        <artifactId>alluxio-core-transport</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>git.properties</resource>
+                                </resources>
+                            </exception>
+                            <!-- TODO: Remove once Rubix is removed -->
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>com.qubole.rubix</groupId>
+                                        <artifactId>rubix-presto-shaded</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>com.github.ishugaliy</groupId>
+                                        <artifactId>allgood-consistent-hash</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>io.dropwizard.metrics</groupId>
+                                        <artifactId>metrics-core</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>io.dropwizard.metrics</groupId>
+                                        <artifactId>metrics-jvm</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>net.openhft</groupId>
+                                        <artifactId>zero-allocation-hashing</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
                                         <groupId>org.flywaydb</groupId>
                                         <artifactId>flyway-database-oracle</artifactId>
                                     </dependency>
@@ -2406,80 +2554,6 @@
                                     <resource>opencensus/proto/stats/v1/stats.proto</resource>
                                     <resource>opencensus/proto/trace/v1/trace.proto</resource>
                                     <resource>opencensus/proto/trace/v1/trace_config.proto</resource>
-                                </resources>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>io.grpc</groupId>
-                                        <artifactId>grpc-services</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>org.alluxio</groupId>
-                                        <artifactId>alluxio-shaded-client</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <resources>
-                                    <resource>grpc/binlog/v1/binarylog.proto</resource>
-                                    <resource>grpc/health/v1/health.proto</resource>
-                                    <resource>grpc/reflection/v1alpha/reflection.proto</resource>
-                                    <resource>grpc/channelz/v1/channelz.proto</resource>
-                                </resources>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>com.google.android</groupId>
-                                        <artifactId>annotations</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>org.alluxio</groupId>
-                                        <artifactId>alluxio-shaded-client</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <classes>
-                                    <class>android.annotation.SuppressLint</class>
-                                    <class>android.annotation.TargetApi</class>
-                                </classes>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>com.google.re2j</groupId>
-                                        <artifactId>re2j</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>io.trino</groupId>
-                                        <artifactId>re2j</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <packages>
-                                    <package>com.google.re2j</package>
-                                </packages>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>org.alluxio</groupId>
-                                        <artifactId>alluxio-shaded-client</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>com.google.protobuf</groupId>
-                                        <artifactId>protobuf-java</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <resources>
-                                    <resource>google/protobuf/any.proto</resource>
-                                    <resource>google/protobuf/api.proto</resource>
-                                    <resource>google/protobuf/descriptor.proto</resource>
-                                    <resource>google/protobuf/duration.proto</resource>
-                                    <resource>google/protobuf/empty.proto</resource>
-                                    <resource>google/protobuf/field_mask.proto</resource>
-                                    <resource>google/protobuf/source_context.proto</resource>
-                                    <resource>google/protobuf/struct.proto</resource>
-                                    <resource>google/protobuf/timestamp.proto</resource>
-                                    <resource>google/protobuf/type.proto</resource>
-                                    <resource>google/protobuf/wrappers.proto</resource>
                                 </resources>
                             </exception>
                         </exceptions>
@@ -2657,7 +2731,7 @@
             <plugin>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-maven-plugin</artifactId>
-                <version>12</version>
+                <version>13</version>
                 <extensions>true</extensions>
             </plugin>
 
@@ -2715,6 +2789,7 @@
                                 <arg>
                                     -Xplugin:ErrorProne \
                                     -Xep:AnnotateFormatMethod:ERROR \
+                                    -Xep:ArgumentSelectionDefectChecker:ERROR \
                                     -Xep:BadComparable:ERROR \
                                     -Xep:BadInstanceof:ERROR \
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
@@ -2732,6 +2807,9 @@
                                     <!-- needs some careful inspection -->
                                     -Xep:GuardedBy:OFF \
                                     -Xep:HidingField:ERROR \
+                                    -Xep:JavaTimeDefaultTimeZone:OFF \
+                                    <!-- covered by Modernizer -->
+                                    -Xep:JdkObsolete:OFF \
                                     <!-- This check requires list fields to be declared as ImmutableList, which is not in line with project's code style -->
                                     -Xep:Immutable:OFF \
                                     <!-- flags enums with List fields even if initialized with ImmutableList, and other false positives -->
@@ -2741,6 +2819,7 @@
                                     -Xep:InconsistentCapitalization:ERROR \
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
+                                    -Xep:InvalidInlineTag:ERROR \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
                                     -Xep:MissingOverride:ERROR \
                                     <!-- Sometimes our javadoc contains just a @see directive -->
@@ -2761,11 +2840,13 @@
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
                                     -Xep:StreamResourceLeak:ERROR \
                                     -Xep:UnicodeEscape:ERROR \
+                                    -Xep:UnnecessaryLongToIntConversion:ERROR \
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
                                     -Xep:UnnecessaryParentheses:ERROR \
-                                    <!-- Enable when https://github.com/google/error-prone/pull/3837 is fixed -->
-                                    <!-- -Xep:UnusedVariable:ERROR \ -->
+                                    -Xep:UnnecessaryStringBuilder:ERROR \
+                                    -Xep:UnusedMethod:OFF \
+                                    -Xep:UnusedVariable:ERROR \
                                     -Xep:UseEnumSwitch:ERROR \
                                     -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
                                 </arg>

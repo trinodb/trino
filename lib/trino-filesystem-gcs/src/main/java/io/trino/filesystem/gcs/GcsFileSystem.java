@@ -45,7 +45,7 @@ import static com.google.cloud.storage.Storage.BlobListOption.matchGlob;
 import static com.google.cloud.storage.Storage.BlobListOption.pageSize;
 import static com.google.common.collect.Iterables.partition;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.filesystem.gcs.GcsUtils.getBlobOrThrow;
+import static io.trino.filesystem.gcs.GcsUtils.getBlob;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
 import static java.util.Objects.requireNonNull;
 
@@ -99,8 +99,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        Blob blob = getBlobOrThrow(storage, gcsLocation);
-        blob.delete();
+        getBlob(storage, gcsLocation).ifPresent(Blob::delete);
     }
 
     @Override
@@ -112,7 +111,8 @@ public class GcsFileSystem
             for (List<Location> locationBatch : partition(locations, batchSize)) {
                 StorageBatch batch = storage.batch();
                 for (Location location : locationBatch) {
-                    batch.delete(getBlobOrThrow(storage, new GcsLocation(location)).getBlobId());
+                    getBlob(storage, new GcsLocation(location))
+                            .ifPresent(blob -> batch.delete(blob.getBlobId()));
                 }
                 batchFutures.add(executorService.submit(batch::submit));
             }

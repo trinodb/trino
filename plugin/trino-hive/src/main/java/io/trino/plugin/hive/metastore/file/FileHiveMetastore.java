@@ -51,6 +51,7 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
@@ -89,6 +90,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -96,6 +98,7 @@ import static com.google.common.hash.Hashing.sha256;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
@@ -194,7 +197,18 @@ public class FileHiveMetastore
                 database.getParameters());
 
         verifyDatabaseNameLength(database.getDatabaseName());
-        verifyDatabaseNotExists(database.getDatabaseName());
+
+        Optional<Database> existingDatabase = getDatabase(database.getDatabaseName());
+        if (existingDatabase.isPresent()) {
+            // Do not throw SchemaAlreadyExistsException if this query has already created the database.
+            // This may happen when an actually successful metastore create call is retried,
+            // because of a timeout on our side.
+            String expectedQueryId = database.getParameters().get(TRINO_QUERY_ID_NAME);
+            if (expectedQueryId != null && expectedQueryId.equals(existingDatabase.get().getParameters().get(TRINO_QUERY_ID_NAME))) {
+                return;
+            }
+            throw new SchemaAlreadyExistsException(database.getDatabaseName());
+        }
 
         Location databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
         writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
@@ -215,7 +229,7 @@ public class FileHiveMetastore
         databaseName = databaseName.toLowerCase(ENGLISH);
 
         getRequiredDatabase(databaseName);
-        if (!getAllTables(databaseName).isEmpty()) {
+        if (!getTables(databaseName).isEmpty()) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
@@ -312,6 +326,7 @@ public class FileHiveMetastore
             String prefix = catalogDirectory.toString();
             Set<String> databases = new HashSet<>();
 
+            // TODO this lists files recursively and may fail if e.g. table data being modified by other threads/processes
             FileIterator iterator = fileSystem.listFiles(catalogDirectory);
             while (iterator.hasNext()) {
                 Location location = iterator.next().location();
@@ -340,7 +355,18 @@ public class FileHiveMetastore
     {
         verifyTableNameLength(table.getTableName());
         verifyDatabaseExists(table.getDatabaseName());
-        verifyTableNotExists(table.getDatabaseName(), table.getTableName());
+
+        Optional<Table> existingTable = getTable(table.getDatabaseName(), table.getTableName());
+        if (existingTable.isPresent()) {
+            // Do not throw TableAlreadyExistsException if this query has already created the table.
+            // This may happen when an actually successful metastore create call is retried,
+            // because of a timeout on our side.
+            String expectedQueryId = table.getParameters().get(TRINO_QUERY_ID_NAME);
+            if (expectedQueryId != null && expectedQueryId.equals(existingTable.get().getParameters().get(TRINO_QUERY_ID_NAME))) {
+                return;
+            }
+            throw new TableAlreadyExistsException(new SchemaTableName(table.getDatabaseName(), table.getTableName()));
+        }
 
         Location tableMetadataDirectory = getTableMetadataDirectory(table);
 
@@ -471,10 +497,10 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         PartitionStatistics originalStatistics = getTableStatistics(databaseName, tableName);
-        PartitionStatistics updatedStatistics = update.apply(originalStatistics);
+        PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, statisticsUpdate);
 
         Location tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
@@ -489,11 +515,11 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public synchronized void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
-        updates.forEach((partitionName, update) -> {
+        partitionUpdates.forEach((partitionName, partitionUpdate) -> {
             PartitionStatistics originalStatistics = getPartitionStatisticsInternal(table, extractPartitionValues(partitionName));
-            PartitionStatistics updatedStatistics = update.apply(originalStatistics);
+            PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, partitionUpdate);
 
             List<String> partitionValues = extractPartitionValues(partitionName);
             Location partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
@@ -509,7 +535,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getAllTables(String databaseName)
+    public synchronized List<String> getTables(String databaseName)
     {
         return listAllTables(databaseName).stream()
                 .filter(hideDeltaLakeTables
@@ -528,13 +554,13 @@ public class FileHiveMetastore
     public synchronized Map<String, RelationType> getRelationTypes(String databaseName)
     {
         ImmutableMap.Builder<String, RelationType> relationTypes = ImmutableMap.builder();
-        getAllTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
-        getAllViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
+        getTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
+        getViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
         return relationTypes.buildKeepingLast();
     }
 
     @Override
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
         return Optional.empty();
     }
@@ -575,24 +601,16 @@ public class FileHiveMetastore
         Location metadataDirectory = getDatabaseMetadataDirectory(databaseName);
         try {
             String prefix = metadataDirectory.toString();
+            if (!prefix.endsWith("/")) {
+                prefix += "/";
+            }
             Set<String> tables = new HashSet<>();
 
-            FileIterator iterator = fileSystem.listFiles(metadataDirectory);
-            while (iterator.hasNext()) {
-                Location location = iterator.next().location();
-
-                String child = location.toString().substring(prefix.length());
-                if (child.startsWith("/")) {
-                    child = child.substring(1);
-                }
-
-                if (child.startsWith(".") || (child.indexOf('/') != child.lastIndexOf('/'))) {
-                    continue;
-                }
-
-                int length = child.length() - TRINO_SCHEMA_FILE_NAME_SUFFIX.length() - 1;
-                if ((length >= 1) && child.endsWith("/" + TRINO_SCHEMA_FILE_NAME_SUFFIX)) {
-                    tables.add(child.substring(0, length));
+            for (Location subdirectory : fileSystem.listDirectories(metadataDirectory)) {
+                String locationString = subdirectory.toString();
+                verify(locationString.startsWith(prefix) && locationString.endsWith("/"), "Unexpected subdirectory %s when listing %s", subdirectory, metadataDirectory);
+                if (fileSystem.newInputFile(subdirectory.appendPath(TRINO_SCHEMA_FILE_NAME_SUFFIX)).exists()) {
+                    tables.add(locationString.substring(prefix.length(), locationString.length() - 1));
                 }
             }
 
@@ -604,9 +622,9 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getAllViews(String databaseName)
+    public synchronized List<String> getViews(String databaseName)
     {
-        return getAllTables(databaseName).stream()
+        return getTables(databaseName).stream()
                 .map(tableName -> getTable(databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -1248,7 +1266,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Collection<LanguageFunction> getFunctions(String databaseName)
+    public synchronized Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
         return getFunctions(databaseName, Optional.empty());
     }

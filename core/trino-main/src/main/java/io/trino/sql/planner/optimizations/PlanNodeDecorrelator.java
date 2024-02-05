@@ -35,7 +35,6 @@ import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
-import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -392,18 +391,11 @@ public class PlanNodeDecorrelator
         }
 
         @Override
-        public Optional<DecorrelationResult> visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
-        {
-            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            return childDecorrelationResultOptional.filter(result -> result.atMostSingleRow);
-        }
-
-        @Override
         public Optional<DecorrelationResult> visitAggregation(AggregationNode node, Void context)
         {
             // Aggregation with global grouping cannot be converted to aggregation grouped on constants.
             // Theoretically, if there are no constants to group on, the aggregation could be successfully decorrelated.
-            // However, it can only happen in the when where Aggregation's source plan is not correlated.
+            // However, it can only happen when Aggregation's source plan is not correlated.
             // Then:
             // - either we should not reach here because uncorrelated subplans of correlated filters are not explored,
             // - or the aggregation contains correlation which is unresolvable. This is indicated by returning Optional.empty().

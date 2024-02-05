@@ -30,7 +30,6 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceProvider;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.TableToPartitionMapping;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.Page;
@@ -167,7 +166,7 @@ class TestOrcPredicates
                 ImmutableList.of(),
                 columns,
                 ImmutableList.of(),
-                TableToPartitionMapping.empty(),
+                ImmutableMap.of(),
                 location.toString(),
                 OptionalInt.empty(),
                 length,

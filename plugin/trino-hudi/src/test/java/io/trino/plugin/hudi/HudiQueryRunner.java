@@ -18,21 +18,18 @@ import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hudi.testing.HudiTablesInitializer;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
-import java.io.File;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class HudiQueryRunner
@@ -46,39 +43,31 @@ public final class HudiQueryRunner
 
     private HudiQueryRunner() {}
 
-    public static DistributedQueryRunner createHudiQueryRunner(
+    public static QueryRunner createHudiQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             HudiTablesInitializer dataLoader)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
+        QueryRunner queryRunner = DistributedQueryRunner
                 .builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
 
-        Path coordinatorBaseDir = queryRunner.getCoordinator().getBaseDataDir();
-        File catalogDir = coordinatorBaseDir.resolve("catalog").toFile();
-        HiveMetastore metastore = createTestingFileHiveMetastore(catalogDir);
-
-        // create testing database
-        Database database = Database.builder()
-                .setDatabaseName(SCHEMA_NAME)
-                .setOwnerName(Optional.of("public"))
-                .setOwnerType(Optional.of(PrincipalType.ROLE))
-                .build();
-        try {
-            metastore.createDatabase(database);
-        }
-        catch (SchemaAlreadyExistsException e) {
-            // do nothing if database already exists
-        }
-
-        queryRunner.installPlugin(new TestingHudiPlugin(Optional.of(metastore)));
+        queryRunner.installPlugin(new TestingHudiPlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hudi_data")));
         queryRunner.createCatalog("hudi", "hudi", connectorProperties);
 
-        String dataDir = coordinatorBaseDir.resolve("data").toString();
-        dataLoader.initializeTables(queryRunner, metastore, SCHEMA_NAME, dataDir, HDFS_ENVIRONMENT);
+        // Hudi connector does not support creating schema or any other write operations
+        ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
+                .getInstance(HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty())
+                .createDatabase(Database.builder()
+                        .setDatabaseName(SCHEMA_NAME)
+                        .setOwnerName(Optional.of("public"))
+                        .setOwnerType(Optional.of(PrincipalType.ROLE))
+                        .build());
+
+        dataLoader.initializeTables(queryRunner, Location.of("local:///"), SCHEMA_NAME);
         return queryRunner;
     }
 
@@ -96,7 +85,7 @@ public final class HudiQueryRunner
         Logging.initialize();
         Logger log = Logger.get(HudiQueryRunner.class);
 
-        DistributedQueryRunner queryRunner = createHudiQueryRunner(
+        QueryRunner queryRunner = createHudiQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 new ResourceHudiTablesInitializer());

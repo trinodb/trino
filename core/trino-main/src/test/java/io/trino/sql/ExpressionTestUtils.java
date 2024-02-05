@@ -22,6 +22,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
@@ -42,11 +43,7 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.transaction.TransactionBuilder.transaction;
-import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
-import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;
-import static org.testng.internal.EclipseInterface.ASSERT_RIGHT;
+import static io.trino.testing.TransactionBuilder.transaction;
 
 public final class ExpressionTestUtils
 {
@@ -73,7 +70,7 @@ public final class ExpressionTestUtils
         if (message != null) {
             formatted = message + " ";
         }
-        throw new AssertionError(formatted + ASSERT_LEFT + expected + ASSERT_MIDDLE + actual + ASSERT_RIGHT);
+        throw new AssertionError(formatted + " expected [" + expected + "] but found [" + actual + "]");
     }
 
     public static Expression createExpression(Session session, String expression, TransactionManager transactionManager, PlannerContext plannerContext, TypeProvider symbolTypes)
@@ -172,12 +169,12 @@ public final class ExpressionTestUtils
     public static Map<NodeRef<Expression>, Type> getTypes(Session session, PlannerContext plannerContext, TypeProvider typeProvider, Expression expression)
     {
         if (session.getTransactionId().isPresent()) {
-            return createTestingTypeAnalyzer(plannerContext).getTypes(session, typeProvider, expression);
+            return new IrTypeAnalyzer(plannerContext).getTypes(session, typeProvider, expression);
         }
         return transaction(new TestingTransactionManager(), plannerContext.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return createTestingTypeAnalyzer(plannerContext).getTypes(transactionSession, typeProvider, expression);
+                    return new IrTypeAnalyzer(plannerContext).getTypes(transactionSession, typeProvider, expression);
                 });
     }
 }

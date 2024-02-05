@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.memory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.FileEntry;
@@ -23,7 +24,6 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.memory.MemoryOutputFile.OutputBlob;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Iterator;
@@ -43,7 +43,8 @@ public class MemoryFileSystem
 {
     private final ConcurrentMap<String, MemoryBlob> blobs = new ConcurrentHashMap<>();
 
-    boolean isEmpty()
+    @VisibleForTesting
+    public boolean isEmpty()
     {
         return blobs.isEmpty();
     }
@@ -96,9 +97,7 @@ public class MemoryFileSystem
     public void deleteFile(Location location)
             throws IOException
     {
-        if (blobs.remove(toBlobKey(location)) == null) {
-            throw new FileNotFoundException(location.toString());
-        }
+        blobs.remove(toBlobKey(location));
     }
 
     @Override

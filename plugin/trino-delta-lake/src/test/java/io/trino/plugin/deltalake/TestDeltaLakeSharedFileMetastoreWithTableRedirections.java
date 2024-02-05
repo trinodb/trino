@@ -44,10 +44,10 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
                 .setSchema(schema)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("data");
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin());
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory));
         Map<String, String> deltaLakeProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", dataDirectory.toString())
@@ -58,7 +58,7 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
         queryRunner.createCatalog("delta_with_redirections", CONNECTOR_NAME, deltaLakeProperties);
         queryRunner.execute("CREATE SCHEMA " + schema);
 
-        queryRunner.installPlugin(new TestingHivePlugin());
+        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
 
         queryRunner.createCatalog(
                 "hive_with_redirections",

@@ -28,7 +28,7 @@ import java.util.OptionalDouble;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -54,7 +54,7 @@ final class MetricComparator
 
     private static List<OptionalDouble> getEstimatedValues(List<Metric> metrics, String query, QueryRunner runner)
     {
-        return transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+        return transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
                 .singleStatement()
                 .execute(runner.getDefaultSession(), (Session session) -> getEstimatedValuesInternal(metrics, query, runner, session));
     }

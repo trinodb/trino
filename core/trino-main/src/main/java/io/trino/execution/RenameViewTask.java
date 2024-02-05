@@ -83,7 +83,7 @@ public class RenameViewTask
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
-            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
+            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.getCatalogName());
         }
         if (metadata.isMaterializedView(session, target)) {
             throw semanticException(GENERIC_USER_ERROR, statement, "Target view '%s' does not exist, but a materialized view with that name exists.", target);

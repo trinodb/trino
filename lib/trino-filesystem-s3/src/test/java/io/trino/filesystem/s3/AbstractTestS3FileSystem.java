@@ -82,19 +82,13 @@ public abstract class AbstractTestS3FileSystem
     }
 
     @Override
-    protected final boolean supportsCreateExclusive()
+    protected boolean isCreateExclusive()
     {
         return false;
     }
 
     @Override
     protected final boolean supportsRenameFile()
-    {
-        return false;
-    }
-
-    @Override
-    protected final boolean deleteFileFailsIfNotExists()
     {
         return false;
     }

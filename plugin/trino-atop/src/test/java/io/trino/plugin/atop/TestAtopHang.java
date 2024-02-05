@@ -29,7 +29,7 @@ import java.nio.file.Path;
 
 import static com.google.common.io.Resources.toByteArray;
 import static io.trino.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
-import static io.trino.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
+import static io.trino.plugin.atop.AtopQueryRunner.createQueryRunner;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.file.Files.createTempDirectory;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;

@@ -27,7 +27,7 @@ import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.transaction.TransactionManager;
 
 import java.util.ArrayList;
@@ -39,8 +39,8 @@ import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 
 public class TestingFunctionResolution
@@ -64,9 +64,9 @@ public class TestingFunctionResolution
         metadata = plannerContext.getMetadata();
     }
 
-    public TestingFunctionResolution(LocalQueryRunner localQueryRunner)
+    public TestingFunctionResolution(QueryRunner queryRunner)
     {
-        this(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext());
+        this(queryRunner.getTransactionManager(), queryRunner.getPlannerContext());
     }
 
     public TestingFunctionResolution(TransactionManager transactionManager, PlannerContext plannerContext)

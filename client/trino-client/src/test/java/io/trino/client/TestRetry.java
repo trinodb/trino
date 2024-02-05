@@ -68,6 +68,35 @@ public class TestRetry
     }
 
     @Test
+    public void testRetryOnInitial()
+    {
+        java.time.Duration timeout = java.time.Duration.ofMillis(100);
+        OkHttpClient httpClient = new OkHttpClient.Builder()
+                .connectTimeout(timeout)
+                .readTimeout(timeout)
+                .writeTimeout(timeout)
+                .callTimeout(timeout)
+                .build();
+        ClientSession session = ClientSession.builder()
+                .server(URI.create("http://" + server.getHostName() + ":" + server.getPort()))
+                .timeZone(ZoneId.of("UTC"))
+                .clientRequestTimeout(Duration.valueOf("2s"))
+                .build();
+
+        server.enqueue(statusAndBody(HTTP_OK, newQueryResults("RUNNING"))
+                .setSocketPolicy(SocketPolicy.STALL_SOCKET_AT_START));
+        server.enqueue(statusAndBody(HTTP_OK, newQueryResults("FINISHED")));
+
+        try (StatementClient client = newStatementClient(httpClient, session, "SELECT 1", Optional.empty())) {
+            while (client.advance()) {
+                // consume all client data
+            }
+            assertThat(client.isFinished()).isTrue();
+        }
+        assertThat(server.getRequestCount()).isEqualTo(2);
+    }
+
+    @Test
     public void testRetryOnBrokenStream()
     {
         java.time.Duration timeout = java.time.Duration.ofMillis(100);

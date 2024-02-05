@@ -19,9 +19,9 @@ import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -42,12 +42,12 @@ import static java.util.Objects.requireNonNull;
 public class RemoveRedundantDateTrunc
         extends ExpressionRewriteRuleSet
 {
-    public RemoveRedundantDateTrunc(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public RemoveRedundantDateTrunc(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         super((expression, context) -> rewrite(expression, context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes()));
     }
 
-    private static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    private static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -81,7 +81,7 @@ public class RemoveRedundantDateTrunc
                 Expression unitExpression = node.getArguments().get(0);
                 Expression argument = node.getArguments().get(1);
                 if (getType(argument) == DATE && getType(unitExpression) instanceof VarcharType && isEffectivelyLiteral(plannerContext, session, unitExpression)) {
-                    Slice unitValue = (Slice) new ExpressionInterpreter(unitExpression, plannerContext, session, expressionTypes)
+                    Slice unitValue = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session, expressionTypes)
                             .optimize(NoOpSymbolResolver.INSTANCE);
                     if (unitValue != null && "day".equals(unitValue.toStringUtf8().toLowerCase(Locale.ENGLISH))) {
                         // date_trunc(day, a_date) is a no-op

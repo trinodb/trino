@@ -24,7 +24,7 @@ import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tests.product.TestGroups.HDP3_ONLY;
+import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
@@ -81,7 +81,7 @@ public class TestHiveCreateTable
         onTrino().executeQuery("DROP TABLE test_create_table_as_select");
     }
 
-    @Test(groups = {HDP3_ONLY, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testVerifyEnvironmentHiveTransactionalByDefault()
             throws SQLException
     {

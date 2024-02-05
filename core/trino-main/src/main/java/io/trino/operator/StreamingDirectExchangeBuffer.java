@@ -52,7 +52,7 @@ public class StreamingDirectExchangeBuffer
     @GuardedBy("this")
     private volatile long maxBufferRetainedSizeInBytes;
     @GuardedBy("this")
-    private Queue<SettableFuture<Void>> blocked = new ArrayDeque<>();
+    private final Queue<SettableFuture<Void>> blocked = new ArrayDeque<>();
     @GuardedBy("this")
     private final Set<TaskId> activeTasks = new HashSet<>();
     @GuardedBy("this")

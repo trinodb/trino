@@ -19,7 +19,7 @@ import io.trino.spi.QueryId;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
@@ -151,35 +151,6 @@ public abstract class BaseBigQueryConnectorTest
             else {
                 assertThat(query(query)).isNotFullyPushedDown(FilterNode.class);
             }
-        }
-    }
-
-    @Test
-    public void testCreateTableSupportedType()
-    {
-        testCreateTableSupportedType("boolean", "boolean");
-        testCreateTableSupportedType("tinyint", "bigint");
-        testCreateTableSupportedType("smallint", "bigint");
-        testCreateTableSupportedType("integer", "bigint");
-        testCreateTableSupportedType("bigint", "bigint");
-        testCreateTableSupportedType("double", "double");
-        testCreateTableSupportedType("decimal", "decimal(38,9)");
-        testCreateTableSupportedType("date", "date");
-        testCreateTableSupportedType("time with time zone", "time(6)");
-        testCreateTableSupportedType("timestamp(6)", "timestamp(6)");
-        testCreateTableSupportedType("timestamp(6) with time zone", "timestamp(6) with time zone");
-        testCreateTableSupportedType("varchar", "varchar");
-        testCreateTableSupportedType("varchar(65535)", "varchar");
-        testCreateTableSupportedType("varbinary", "varbinary");
-        testCreateTableSupportedType("array(bigint)", "array(bigint)");
-        testCreateTableSupportedType("row(x bigint, y double)", "row(x bigint, y double)");
-        testCreateTableSupportedType("row(x array(bigint))", "row(x array(bigint))");
-    }
-
-    private void testCreateTableSupportedType(String createType, String expectedType)
-    {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_supported_type_" + createType.replaceAll("[^a-zA-Z0-9]", ""), format("(col1 %s)", createType))) {
-            assertThat(computeScalar("SELECT data_type FROM information_schema.columns WHERE table_name = '" + table.getName() + "' AND column_name = 'col1'")).isEqualTo(expectedType);
         }
     }
 
@@ -355,12 +326,7 @@ public abstract class BaseBigQueryConnectorTest
     {
         // TODO (https://github.com/trinodb/trino/issues/6515): Big Query throws an error when trying to read "some_table$data".
         assertThatThrownBy(super::testNoDataSystemTable)
-                .hasMessageFindingMatch("\\Q" +
-                        "Expecting message:\n" +
-                        "  \"Cannot read partition information from a table that is not partitioned: \\E\\S+\\Q:tpch.nation$data\"\n" +
-                        "to match regex:\n" +
-                        "  \"line 1:1: Table '\\w+.\\w+.\"nation\\$data\"' does not exist\"\n" +
-                        "but did not.");
+                .hasMessageFindingMatch(".*Cannot read partition information from a table that is not partitioned.*");
         abort("TODO");
     }
 
@@ -637,8 +603,8 @@ public abstract class BaseBigQueryConnectorTest
     {
         // Override because the connector throws an exception instead of an empty result when the value is out of supported range
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
-        assertThatThrownBy(() -> query("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'"))
-                .hasMessageMatching(".*Could not cast literal \"-1996-09-14\" to type DATE.*");
+        assertThat(query("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'"))
+                .nonTrinoExceptionFailure().hasMessageMatching(".*Could not cast literal \"-1996-09-14\" to type DATE.*");
     }
 
     @Test
@@ -717,13 +683,13 @@ public abstract class BaseBigQueryConnectorTest
             @Language("SQL")
             String query = "SELECT * FROM test." + materializedView;
 
-            MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(sessionWithToken.apply("first_token"), query);
-            assertLabelForTable(materializedView, result.getQueryId(), "first_token");
+            MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(sessionWithToken.apply("first_token"), query);
+            assertLabelForTable(materializedView, result.queryId(), "first_token");
 
-            MaterializedResultWithQueryId result2 = getDistributedQueryRunner().executeWithQueryId(sessionWithToken.apply("second_token"), query);
-            assertLabelForTable(materializedView, result2.getQueryId(), "second_token");
+            MaterializedResultWithPlan result2 = getDistributedQueryRunner().executeWithPlan(sessionWithToken.apply("second_token"), query);
+            assertLabelForTable(materializedView, result2.queryId(), "second_token");
 
-            assertThatThrownBy(() -> getDistributedQueryRunner().executeWithQueryId(sessionWithToken.apply("InvalidToken"), query))
+            assertThatThrownBy(() -> getDistributedQueryRunner().executeWithPlan(sessionWithToken.apply("InvalidToken"), query))
                     .hasMessageContaining("BigQuery label value can contain only lowercase letters, numeric characters, underscores, and dashes");
         }
         finally {
@@ -763,8 +729,9 @@ public abstract class BaseBigQueryConnectorTest
             onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
 
             // Verify query cache is empty
-            assertThatThrownBy(() -> query(createNeverDisposition, "SELECT * FROM test." + materializedView))
-                    .hasMessageContaining("Not found");
+            assertThat(query(createNeverDisposition, "SELECT * FROM test." + materializedView))
+                    // TODO should be TrinoException, provide a better error message
+                    .nonTrinoExceptionFailure().hasMessageContaining("Not found");
             // Populate cache and verify it
             assertQuery(queryResultsCacheSession, "SELECT * FROM test." + materializedView, "VALUES 5");
             assertQuery(createNeverDisposition, "SELECT * FROM test." + materializedView, "VALUES 5");
@@ -815,8 +782,9 @@ public abstract class BaseBigQueryConnectorTest
 
             assertQuery("DESCRIBE test.\"" + wildcardTable + "\"", "VALUES ('value', 'varchar', '', '')");
 
-            assertThatThrownBy(() -> query("SELECT * FROM test.\"" + wildcardTable + "\""))
-                    .hasMessageContaining("Cannot read field of type INT64 as STRING Field: value");
+            assertThat(query("SELECT * FROM test.\"" + wildcardTable + "\""))
+                    // TODO should be TrinoException
+                    .nonTrinoExceptionFailure().hasMessageContaining("Cannot read field of type INT64 as STRING Field: value");
         }
         finally {
             onBigQuery("DROP TABLE IF EXISTS test." + firstTable);
@@ -827,14 +795,21 @@ public abstract class BaseBigQueryConnectorTest
     @Test
     public void testMissingWildcardTable()
     {
-        assertThatThrownBy(() -> query("SELECT * FROM test.\"test_missing_wildcard_table_*\""))
-                .hasMessageEndingWith("does not match any table.");
+        assertThat(query("SELECT * FROM test.\"test_missing_wildcard_table_*\""))
+                .nonTrinoExceptionFailure().hasMessageEndingWith("does not match any table.");
     }
 
     @Override
     protected OptionalInt maxSchemaNameLength()
     {
         return OptionalInt.of(1024);
+    }
+
+    @Override
+    @Test
+    public void testCreateSchemaWithLongName()
+    {
+        abort("Dropping schema with long name causes BigQuery to return code 500");
     }
 
     @Override
@@ -959,8 +934,8 @@ public abstract class BaseBigQueryConnectorTest
             onBigQuery("CREATE TABLE test." + tableName + "(one BIGINT, two BIGNUMERIC(40,2), three STRING)");
             // Check that column 'two' is not supported.
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'test' AND table_name = '" + tableName + "'", "VALUES 'one', 'three'");
-            assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM test." + tableName + "'))"))
-                    .hasMessageContaining("Unsupported type");
+            assertThat(query("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM test." + tableName + "'))"))
+                    .nonTrinoExceptionFailure().hasMessageContaining("Unsupported type");
         }
         finally {
             onBigQuery("DROP TABLE IF EXISTS test." + tableName);
@@ -972,8 +947,8 @@ public abstract class BaseBigQueryConnectorTest
     {
         String tableName = "test_create" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'CREATE TABLE test." + tableName + "(n INTEGER)'))"))
-                .hasMessage("Unsupported statement type: CREATE_TABLE");
+        assertThat(query("SELECT * FROM TABLE(bigquery.system.query(query => 'CREATE TABLE test." + tableName + "(n INTEGER)'))"))
+                .failure().hasMessage("Unsupported statement type: CREATE_TABLE");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
@@ -982,7 +957,8 @@ public abstract class BaseBigQueryConnectorTest
     {
         String tableName = "test_insert" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (1)'))"))
+        assertThat(query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (1)'))"))
+                .failure()
                 .hasMessageContaining("Failed to get schema for query")
                 .hasStackTraceContaining("%s was not found", tableName);
     }
@@ -993,8 +969,8 @@ public abstract class BaseBigQueryConnectorTest
         String tableName = "test_insert" + randomNameSuffix();
         try {
             onBigQuery("CREATE TABLE test." + tableName + "(col BIGINT)");
-            assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (3)'))"))
-                    .hasMessage("Unsupported statement type: INSERT");
+            assertThat(query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (3)'))"))
+                    .failure().hasMessage("Unsupported statement type: INSERT");
         }
         finally {
             onBigQuery("DROP TABLE IF EXISTS test." + tableName);
@@ -1004,8 +980,8 @@ public abstract class BaseBigQueryConnectorTest
     @Test
     public void testNativeQueryIncorrectSyntax()
     {
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessageContaining("Failed to get schema for query");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure().hasMessageContaining("Failed to get schema for query");
     }
 
     @Test

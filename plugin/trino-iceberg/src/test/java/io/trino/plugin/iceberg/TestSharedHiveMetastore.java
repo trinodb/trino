@@ -27,7 +27,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.file.Path;
 
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -57,7 +56,7 @@ public class TestSharedHiveMetastore
                 .setSchema(schema)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -80,7 +79,7 @@ public class TestSharedHiveMetastore
                         "hive.metastore.catalog.dir", dataDirectory.toString(),
                         "iceberg.hive-catalog-name", "hive"));
 
-        queryRunner.installPlugin(new TestingHivePlugin(createTestingFileHiveMetastore(dataDirectory.toFile())));
+        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
         queryRunner.createCatalog(HIVE_CATALOG, "hive", ImmutableMap.of("hive.allow-drop-table", "true"));
         queryRunner.createCatalog(
                 "hive_with_redirections",
@@ -105,12 +104,12 @@ public class TestSharedHiveMetastore
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
-        String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = 'file:%s/%s'\n" +
-                ")";
-
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory, schema);
+        return """
+               CREATE SCHEMA %s.%s
+               WITH (
+                  location = 'local:///%s'
+               )"""
+                .formatted(catalogName, schema, schema);
     }
 
     @Override

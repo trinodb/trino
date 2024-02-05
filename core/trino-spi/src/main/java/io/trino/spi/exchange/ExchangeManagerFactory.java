@@ -13,14 +13,11 @@
  */
 package io.trino.spi.exchange;
 
-import io.trino.spi.Experimental;
-
 import java.util.Map;
 
-@Experimental(eta = "2023-09-01")
 public interface ExchangeManagerFactory
 {
     String getName();
 
-    ExchangeManager create(Map<String, String> config);
+    ExchangeManager create(Map<String, String> config, ExchangeManagerContext context);
 }

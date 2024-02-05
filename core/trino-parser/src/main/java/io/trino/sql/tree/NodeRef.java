@@ -13,7 +13,6 @@
  */
 package io.trino.sql.tree;
 
-import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
 
@@ -58,8 +57,7 @@ public final class NodeRef<T extends Node>
     @Override
     public String toString()
     {
-        return format(
-                "@%s: %s",
+        return "@%s: %s".formatted(
                 Integer.toHexString(identityHashCode(node)),
                 node);
     }

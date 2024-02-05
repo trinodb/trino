@@ -23,29 +23,30 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.union;
 import static io.trino.plugin.hive.S3Assert.s3Path;
-import static io.trino.testing.DataProviders.cartesianProduct;
-import static io.trino.testing.DataProviders.toDataProvider;
-import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class BaseS3AndGlueMetastoreTest
         extends AbstractTestQueryFramework
 {
@@ -65,13 +66,13 @@ public abstract class BaseS3AndGlueMetastoreTest
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         s3 = AmazonS3ClientBuilder.standard().build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (metastore != null) {
@@ -84,14 +85,16 @@ public abstract class BaseS3AndGlueMetastoreTest
         }
     }
 
-    @DataProvider
-    public Object[][] locationPatternsDataProvider()
+    @Test
+    public void testBasicOperationsWithProvidedTableLocation()
     {
-        return cartesianProduct(trueFalse(), Stream.of(LocationPattern.values()).collect(toDataProvider()));
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            testBasicOperationsWithProvidedTableLocation(false, locationPattern);
+            testBasicOperationsWithProvidedTableLocation(true, locationPattern);
+        }
     }
 
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testBasicOperationsWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    protected void testBasicOperationsWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_basic_operations_" + randomNameSuffix();
         String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
@@ -121,8 +124,16 @@ public abstract class BaseS3AndGlueMetastoreTest
         validateFilesAfterDrop(actualTableLocation);
     }
 
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testBasicOperationsWithProvidedSchemaLocation(boolean partitioned, LocationPattern locationPattern)
+    @Test
+    public void testBasicOperationsWithProvidedSchemaLocation()
+    {
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            testBasicOperationsWithProvidedSchemaLocation(false, locationPattern);
+            testBasicOperationsWithProvidedSchemaLocation(true, locationPattern);
+        }
+    }
+
+    protected void testBasicOperationsWithProvidedSchemaLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String schemaName = "test_basic_operations_schema_" + randomNameSuffix();
         String schemaLocation = locationPattern.locationForSchema(bucketName, schemaName);
@@ -160,8 +171,16 @@ public abstract class BaseS3AndGlueMetastoreTest
         assertThat(getTableFiles(actualTableLocation)).isEmpty();
     }
 
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testMergeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    @Test
+    public void testMergeWithProvidedTableLocation()
+    {
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            testMergeWithProvidedTableLocation(false, locationPattern);
+            testMergeWithProvidedTableLocation(true, locationPattern);
+        }
+    }
+
+    protected void testMergeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_merge_" + randomNameSuffix();
         String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
@@ -194,8 +213,16 @@ public abstract class BaseS3AndGlueMetastoreTest
         validateFilesAfterDrop(actualTableLocation);
     }
 
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testOptimizeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    @Test
+    public void testOptimizeWithProvidedTableLocation()
+    {
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            testOptimizeWithProvidedTableLocation(false, locationPattern);
+            testOptimizeWithProvidedTableLocation(true, locationPattern);
+        }
+    }
+
+    protected void testOptimizeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_optimize_" + randomNameSuffix();
         String location = locationPattern.locationForTable(bucketName, schemaName, tableName);

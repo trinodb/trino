@@ -45,6 +45,7 @@ public class MongoClientConfig
     private String requiredReplicaSetName;
     private String implicitRowFieldPrefix = "_pos";
     private boolean projectionPushDownEnabled = true;
+    private boolean allowLocalScheduling;
 
     @NotNull
     public String getSchemaCollection()
@@ -249,6 +250,19 @@ public class MongoClientConfig
     public MongoClientConfig setProjectionPushdownEnabled(boolean projectionPushDownEnabled)
     {
         this.projectionPushDownEnabled = projectionPushDownEnabled;
+        return this;
+    }
+
+    public boolean isAllowLocalScheduling()
+    {
+        return allowLocalScheduling;
+    }
+
+    @Config("mongodb.allow-local-scheduling")
+    @ConfigDescription("Assign MongoDB splits to a specific host if worker and MongoDB share the same cluster")
+    public MongoClientConfig setAllowLocalScheduling(boolean allowLocalScheduling)
+    {
+        this.allowLocalScheduling = allowLocalScheduling;
         return this;
     }
 }

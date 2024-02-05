@@ -193,11 +193,12 @@ public class AvroPageDataReader
             case RECORD -> new RowBlockBuildingDecoder(action, typeManager);
             case ENUM -> new EnumBlockBuildingDecoder((Resolver.EnumAdjust) action);
             case WRITER_UNION -> {
-                if (isSimpleNullableUnion(action.reader)) {
-                    yield new WriterUnionBlockBuildingDecoder((Resolver.WriterUnion) action, typeManager);
+                if (action.reader.getType() == Schema.Type.UNION && !isSimpleNullableUnion(action.reader)) {
+                    yield new WriterUnionCoercedIntoRowBlockBuildingDecoder((Resolver.WriterUnion) action, typeManager);
                 }
                 else {
-                    yield new WriterUnionCoercedIntoRowBlockBuildingDecoder((Resolver.WriterUnion) action, typeManager);
+                    // reading a union with non-union or nullable union, optimistically try to create the reader, will fail at read time with any underlying issues
+                    yield new WriterUnionBlockBuildingDecoder((Resolver.WriterUnion) action, typeManager);
                 }
             }
             case READER_UNION -> {
@@ -208,9 +209,27 @@ public class AvroPageDataReader
                     yield new ReaderUnionCoercedIntoRowBlockBuildingDecoder((Resolver.ReaderUnion) action, typeManager);
                 }
             }
-            case ERROR -> throw new AvroTypeException("Resolution action returned with error " + action);
+            case ERROR -> new TypeErrorThrower((Resolver.ErrorAction) action);
             case SKIP -> throw new IllegalStateException("Skips filtered by row step");
         };
+    }
+
+    private static class TypeErrorThrower
+            extends BlockBuildingDecoder
+    {
+        private final Resolver.ErrorAction action;
+
+        public TypeErrorThrower(Resolver.ErrorAction action)
+        {
+            this.action = requireNonNull(action, "action is null");
+        }
+
+        @Override
+        protected void decodeIntoBlock(Decoder decoder, BlockBuilder builder)
+                throws IOException
+        {
+            throw new IOException(new AvroTypeException("Resolution action returned with error " + action));
+        }
     }
 
     // Different plugins may have different Avro Schema to Type mappings

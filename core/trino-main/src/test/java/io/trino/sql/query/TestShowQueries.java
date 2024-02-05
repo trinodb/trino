@@ -16,8 +16,10 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -26,7 +28,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -39,31 +40,28 @@ public class TestShowQueries
 
     public TestShowQueries()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
+        QueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("default")
                 .build());
-        queryRunner.createCatalog(
-                "mock",
-                MockConnectorFactory.builder()
-                        .withGetColumns(schemaTableName ->
-                                ImmutableList.of(
-                                        ColumnMetadata.builder()
-                                                .setName("colaa")
-                                                .setType(BIGINT)
-                                                .build(),
-                                        ColumnMetadata.builder()
-                                                .setName("cola_")
-                                                .setType(BIGINT)
-                                                .build(),
-                                        ColumnMetadata.builder()
-                                                .setName("colabc")
-                                                .setType(BIGINT)
-                                                .build()))
-                        .withListSchemaNames(session -> ImmutableList.of("mockschema"))
-                        .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
-                        .build(),
-                ImmutableMap.of());
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withGetColumns(schemaTableName -> ImmutableList.of(
+                        ColumnMetadata.builder()
+                                .setName("colaa")
+                                .setType(BIGINT)
+                                .build(),
+                        ColumnMetadata.builder()
+                                .setName("cola_")
+                                .setType(BIGINT)
+                                .build(),
+                        ColumnMetadata.builder()
+                                .setName("colabc")
+                                .setType(BIGINT)
+                                .build()))
+                .withListSchemaNames(session -> ImmutableList.of("mockschema"))
+                .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
+                .build()));
+        queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
         queryRunner.createCatalog("testing_catalog", "mock", ImmutableMap.of());
         assertions = new QueryAssertions(queryRunner);
     }
@@ -77,10 +75,10 @@ public class TestShowQueries
     @Test
     public void testShowCatalogsLikeWithEscape()
     {
-        assertThatThrownBy(() -> assertions.query("SHOW CATALOGS LIKE 't$_%' ESCAPE ''"))
-                .hasMessage("Escape string must be a single character");
-        assertThatThrownBy(() -> assertions.query("SHOW CATALOGS LIKE 't$_%' ESCAPE '$$'"))
-                .hasMessage("Escape string must be a single character");
+        assertThat(assertions.query("SHOW CATALOGS LIKE 't$_%' ESCAPE ''"))
+                .failure().hasMessage("Escape string must be a single character");
+        assertThat(assertions.query("SHOW CATALOGS LIKE 't$_%' ESCAPE '$$'"))
+                .failure().hasMessage("Escape string must be a single character");
         assertThat(assertions.query("SHOW CATALOGS LIKE '%$_%' ESCAPE '$'")).matches("VALUES('testing_catalog')");
         assertThat(assertions.query("SHOW CATALOGS LIKE '$_%' ESCAPE '$'")).matches("SELECT 'testing_catalog' WHERE FALSE");
     }
@@ -120,10 +118,10 @@ public class TestShowQueries
     @Test
     public void testShowSessionLikeWithEscape()
     {
-        assertThatThrownBy(() -> assertions.query("SHOW SESSION LIKE 't$_%' ESCAPE ''"))
-                .hasMessage("Escape string must be a single character");
-        assertThatThrownBy(() -> assertions.query("SHOW SESSION LIKE 't$_%' ESCAPE '$$'"))
-                .hasMessage("Escape string must be a single character");
+        assertThat(assertions.query("SHOW SESSION LIKE 't$_%' ESCAPE ''"))
+                .failure().hasMessage("Escape string must be a single character");
+        assertThat(assertions.query("SHOW SESSION LIKE 't$_%' ESCAPE '$$'"))
+                .failure().hasMessage("Escape string must be a single character");
         assertThat(assertions.query(
                 "SHOW SESSION LIKE '%page$_row$_c%' ESCAPE '$'"))
                 .skippingTypesCheck()
@@ -177,10 +175,10 @@ public class TestShowQueries
     @Test
     public void testShowColumnsWithLikeWithEscape()
     {
-        assertThatThrownBy(() -> assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE ''"))
-                .hasMessage("Escape string must be a single character");
-        assertThatThrownBy(() -> assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE '$$'"))
-                .hasMessage("Escape string must be a single character");
+        assertThat(assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE ''"))
+                .failure().hasMessage("Escape string must be a single character");
+        assertThat(assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE '$$'"))
+                .failure().hasMessage("Escape string must be a single character");
         assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable LIKE 'cola$_' ESCAPE '$'"))
                 .matches("VALUES (VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
     }

@@ -18,10 +18,13 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+
+import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -47,6 +50,11 @@ public class S3FileSystemConfig
     private DataSize streamingPartSize = DataSize.of(16, MEGABYTE);
     private boolean requesterPays;
     private Integer maxConnections;
+    private Duration connectionTtl;
+    private Duration connectionMaxIdleTime;
+    private Duration socketConnectTimeout;
+    private Duration socketReadTimeout;
+    private boolean tcpKeepAlive;
     private HostAndPort httpProxy;
     private boolean httpProxySecure;
 
@@ -240,6 +248,71 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setMaxConnections(Integer maxConnections)
     {
         this.maxConnections = maxConnections;
+        return this;
+    }
+
+    public Optional<Duration> getConnectionTtl()
+    {
+        return Optional.ofNullable(connectionTtl);
+    }
+
+    @Config("s3.connection-ttl")
+    @ConfigDescription("Maximum time allowed for connections to be reused before being replaced in the connection pool")
+    public S3FileSystemConfig setConnectionTtl(Duration connectionTtl)
+    {
+        this.connectionTtl = connectionTtl;
+        return this;
+    }
+
+    public Optional<Duration> getConnectionMaxIdleTime()
+    {
+        return Optional.ofNullable(connectionMaxIdleTime);
+    }
+
+    @Config("s3.connection-max-idle-time")
+    @ConfigDescription("Maximum time allowed for connections to remain idle in the connection pool before being closed")
+    public S3FileSystemConfig setConnectionMaxIdleTime(Duration connectionMaxIdleTime)
+    {
+        this.connectionMaxIdleTime = connectionMaxIdleTime;
+        return this;
+    }
+
+    public Optional<Duration> getSocketConnectTimeout()
+    {
+        return Optional.ofNullable(socketConnectTimeout);
+    }
+
+    @Config("s3.socket-connect-timeout")
+    @ConfigDescription("Maximum time allowed for socket connect to complete before timing out")
+    public S3FileSystemConfig setSocketConnectTimeout(Duration socketConnectTimeout)
+    {
+        this.socketConnectTimeout = socketConnectTimeout;
+        return this;
+    }
+
+    public Optional<Duration> getSocketReadTimeout()
+    {
+        return Optional.ofNullable(socketReadTimeout);
+    }
+
+    @Config("s3.socket-read-timeout")
+    @ConfigDescription("Maximum time allowed for socket reads before timing out")
+    public S3FileSystemConfig setSocketReadTimeout(Duration socketReadTimeout)
+    {
+        this.socketReadTimeout = socketReadTimeout;
+        return this;
+    }
+
+    public boolean getTcpKeepAlive()
+    {
+        return tcpKeepAlive;
+    }
+
+    @Config("s3.tcp-keep-alive")
+    @ConfigDescription("Enable TCP keep alive on created connections")
+    public S3FileSystemConfig setTcpKeepAlive(boolean tcpKeepAlive)
+    {
+        this.tcpKeepAlive = tcpKeepAlive;
         return this;
     }
 

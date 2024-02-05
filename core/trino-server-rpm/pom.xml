@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>435-SNAPSHOT</version>
+        <version>439-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -188,10 +188,6 @@
                                 </dependency>
                                 <dependency>
                                     <name>/usr/sbin/groupadd</name>
-                                </dependency>
-                                <dependency>
-                                    <!-- Used e.g. to generate node.properties -->
-                                    <name>/usr/bin/uuidgen</name>
                                 </dependency>
                                 <dependency>
                                     <!-- Used e.g. by service launcher -->

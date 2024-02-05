@@ -33,6 +33,7 @@ import io.trino.execution.DropCatalogTask;
 import io.trino.execution.DropColumnTask;
 import io.trino.execution.DropFunctionTask;
 import io.trino.execution.DropMaterializedViewTask;
+import io.trino.execution.DropNotNullConstraintTask;
 import io.trino.execution.DropRoleTask;
 import io.trino.execution.DropSchemaTask;
 import io.trino.execution.DropTableTask;
@@ -86,6 +87,7 @@ import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropFunction;
 import io.trino.sql.tree.DropMaterializedView;
+import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
@@ -231,6 +233,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(RevokeRoles.class, RevokeRolesTask.class))
             .add(dataDefinitionStatement(Rollback.class, RollbackTask.class))
             .add(dataDefinitionStatement(SetColumnType.class, SetColumnTypeTask.class))
+            .add(dataDefinitionStatement(DropNotNullConstraint.class, DropNotNullConstraintTask.class))
             .add(dataDefinitionStatement(SetPath.class, SetPathTask.class))
             .add(dataDefinitionStatement(SetRole.class, SetRoleTask.class))
             .add(dataDefinitionStatement(SetSchemaAuthorization.class, SetSchemaAuthorizationTask.class))
@@ -317,10 +320,10 @@ public final class StatementUtils
             this.queryType = requireNonNull(queryType, "queryType is null");
             this.taskType = requireNonNull(taskType, "taskType is null");
             if (queryType == DATA_DEFINITION) {
-                checkArgument(taskType.isPresent(), "taskType is required for " + DATA_DEFINITION);
+                checkArgument(taskType.isPresent(), "taskType is required for %s", DATA_DEFINITION);
             }
             else {
-                checkArgument(taskType.isEmpty(), "taskType is not allowed for " + queryType);
+                checkArgument(taskType.isEmpty(), "taskType is not allowed for %s", queryType);
             }
         }
 

@@ -15,8 +15,8 @@ package io.trino.cost;
 
 import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -90,11 +90,12 @@ public class StatsCalculatorAssertion
     {
         PlanNodeStatsEstimate statsEstimate = queryRunner.getStatsCalculator().calculateStats(
                 planNode,
-                this::getSourceStats,
-                noLookup(),
-                session,
-                types,
-                tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getMetadata(), session)));
+                new StatsCalculator.Context(
+                        this::getSourceStats,
+                        noLookup(),
+                        session,
+                        types,
+                        tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session))));
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
         return this;
     }
@@ -104,20 +105,21 @@ public class StatsCalculatorAssertion
         Optional<PlanNodeStatsEstimate> statsEstimate = calculatedStats(
                 rule,
                 planNode,
-                this::getSourceStats,
-                noLookup(),
-                session,
-                types,
-                tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getMetadata(), session)));
+                new StatsCalculator.Context(
+                        this::getSourceStats,
+                        noLookup(),
+                        session,
+                        types,
+                        tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session))));
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.get()));
         return this;
     }
 
     @SuppressWarnings("unchecked")
-    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, Context context)
     {
-        return rule.calculate((T) node, sourceStats, lookup, session, types, tableStatsProvider);
+        return rule.calculate((T) node, context);
     }
 
     private PlanNodeStatsEstimate getSourceStats(PlanNode sourceNode)

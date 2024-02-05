@@ -63,7 +63,7 @@ public class StrictAssignedSymbolsMatcher
 
     public static Function<PlanNode, Set<Symbol>> actualSubqueryAssignments()
     {
-        return node -> ((ApplyNode) node).getSubqueryAssignments().getSymbols();
+        return node -> ((ApplyNode) node).getSubqueryAssignments().keySet();
     }
 
     @Override

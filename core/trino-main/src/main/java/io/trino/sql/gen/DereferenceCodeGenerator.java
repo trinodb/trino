@@ -29,6 +29,7 @@ import io.trino.sql.relational.SpecialForm;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DereferenceCodeGenerator
@@ -44,7 +45,7 @@ public class DereferenceCodeGenerator
         returnType = specialForm.getType();
         checkArgument(specialForm.getArguments().size() == 2);
         base = specialForm.getArguments().get(0);
-        index = (int) ((ConstantExpression) specialForm.getArguments().get(1)).getValue();
+        index = toIntExact((long) ((ConstantExpression) specialForm.getArguments().get(1)).getValue());
     }
 
     @Override

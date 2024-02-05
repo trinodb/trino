@@ -58,7 +58,7 @@ public class TestMockConnector
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -106,8 +106,7 @@ public class TestMockConnector
                                                 Optional.of(Duration.ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
-                                                ImmutableList.of(),
-                                                ImmutableMap.of())))
+                                                ImmutableList.of())))
                                 .withData(schemaTableName -> {
                                     if (schemaTableName.equals(new SchemaTableName("default", "nation"))) {
                                         return TPCH_NATION_DATA;

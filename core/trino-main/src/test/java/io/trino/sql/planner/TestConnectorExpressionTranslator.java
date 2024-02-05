@@ -37,6 +37,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
@@ -45,7 +46,6 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
@@ -81,13 +81,14 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
+import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -96,9 +97,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestConnectorExpressionTranslator
 {
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
-    private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
+    private static final IrTypeAnalyzer TYPE_ANALYZER = new IrTypeAnalyzer(PLANNER_CONTEXT);
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
-    private static final VarcharType VARCHAR_TYPE = createVarcharType(25);
+    private static final VarcharType VARCHAR_TYPE = createUnboundedVarcharType();
     private static final ArrayType VARCHAR_ARRAY_TYPE = new ArrayType(VARCHAR_TYPE);
 
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
@@ -297,16 +298,6 @@ public class TestConnectorExpressionTranslator
                         CAST_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
 
-        // type-only
-        VarcharType longerVarchar = createVarcharType(VARCHAR_TYPE.getBoundedLength() + 1);
-        assertTranslationToConnectorExpression(
-                TEST_SESSION,
-                new Cast(new SymbolReference("varchar_symbol_1"), toSqlType(longerVarchar), false, true),
-                new Call(
-                        longerVarchar,
-                        CAST_FUNCTION_NAME,
-                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
-
         // TRY_CAST is not translated
         assertTranslationToConnectorExpression(
                 TEST_SESSION,
@@ -456,13 +447,31 @@ public class TestConnectorExpressionTranslator
     }
 
     @Test
+    void testTranslateJsonPath()
+    {
+        // JSON path type is considered implementation detail of the engine and is not exposed to connectors
+        // within ConnectorExpression. Instead, it is replaced with a varchar pattern.
+        assertTranslationRoundTrips(
+                BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
+                        .setName("json_extract_scalar")
+                        .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                        .addArgument(JSON_PATH, new Cast(new StringLiteral("$.path"), toSqlType(JSON_PATH)))
+                        .build(),
+                new Call(
+                        VARCHAR_TYPE,
+                        new FunctionName("json_extract_scalar"),
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new Constant(utf8Slice("$.path"), createVarcharType(6)))));
+    }
+
+    @Test
     public void testTranslateIn()
     {
         String value = "value_1";
         assertTranslationRoundTrips(
                 new InPredicate(
                     new SymbolReference("varchar_symbol_1"),
-                    new InListExpression(List.of(new SymbolReference("varchar_symbol_1"), new StringLiteral(value)))),
+                    new InListExpression(List.of(new SymbolReference("varchar_symbol_1"), new GenericLiteral("VARCHAR", value)))),
                 new Call(
                     BOOLEAN,
                     StandardFunctions.IN_PREDICATE_FUNCTION_NAME,
@@ -471,15 +480,7 @@ public class TestConnectorExpressionTranslator
                             new Call(VARCHAR_ARRAY_TYPE, ARRAY_CONSTRUCTOR_FUNCTION_NAME,
                                     List.of(
                                             new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                            new Constant(Slices.wrappedBuffer(value.getBytes(UTF_8)), createVarcharType(value.length())))))));
-
-        // IN (null) is not translated
-        assertTranslationToConnectorExpression(
-                TEST_SESSION,
-                new InPredicate(
-                        new SymbolReference("varchar_symbol_1"),
-                        new InListExpression(List.of(new SymbolReference("varchar_symbol_1"), new NullLiteral()))),
-                Optional.empty());
+                                            new Constant(Slices.wrappedBuffer(value.getBytes(UTF_8)), VARCHAR_TYPE))))));
     }
 
     private void assertTranslationRoundTrips(Expression expression, ConnectorExpression connectorExpression)

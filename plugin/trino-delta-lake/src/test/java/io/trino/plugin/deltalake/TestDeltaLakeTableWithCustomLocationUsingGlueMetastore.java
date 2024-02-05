@@ -26,6 +26,7 @@ import java.io.File;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -41,18 +42,18 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
             throws Exception
     {
         Session deltaLakeSession = testSessionBuilder()
-                .setCatalog(CATALOG_NAME)
+                .setCatalog(DELTA_CATALOG)
                 .setSchema(SCHEMA)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         this.metastoreDir = new File(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString());
         this.metastoreDir.deleteOnExit();
 
         queryRunner.installPlugin(new DeltaLakePlugin());
         queryRunner.createCatalog(
-                CATALOG_NAME,
+                DELTA_CATALOG,
                 CONNECTOR_NAME,
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "glue")

@@ -184,7 +184,7 @@ public class InternalFunctionBundle
     private SqlFunction getSqlFunction(FunctionId functionId)
     {
         SqlFunction function = functions.get(functionId);
-        checkArgument(function != null, "Unknown function implementation: " + functionId);
+        checkArgument(function != null, "Unknown function implementation: %s", functionId);
         return function;
     }
 

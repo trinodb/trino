@@ -30,9 +30,8 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SplitSource;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.tpch.TpchTable;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
@@ -86,7 +85,7 @@ public class TestKuduIntegrationDynamicFilter
                 .build()
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
         QualifiedObjectName tableName = new QualifiedObjectName("kudu", "tpch", "orders");
-        Optional<TableHandle> tableHandle = runner.getMetadata().getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = runner.getPlannerContext().getMetadata().getTableHandle(session, tableName);
         assertThat(tableHandle.isPresent()).isTrue();
         SplitSource splitSource = runner.getSplitManager()
                 .getSplits(session, Span.getInvalid(), tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
@@ -166,11 +165,11 @@ public class TestKuduIntegrationDynamicFilter
 
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
-        DistributedQueryRunner runner = getDistributedQueryRunner();
-        MaterializedResultWithQueryId result = runner.executeWithQueryId(session, selectQuery);
+        QueryRunner runner = getDistributedQueryRunner();
+        MaterializedResultWithPlan result = runner.executeWithPlan(session, selectQuery);
 
-        assertThat(result.getResult().getRowCount()).isEqualTo(expectedRowCount);
-        assertThat(getOperatorRowsRead(runner, result.getQueryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
+        assertThat(result.result().getRowCount()).isEqualTo(expectedRowCount);
+        assertThat(getOperatorRowsRead(runner, result.queryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
     }
 
     private Session withBroadcastJoin()
@@ -188,7 +187,7 @@ public class TestKuduIntegrationDynamicFilter
                 .build();
     }
 
-    private static List<Integer> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
+    private static List<Integer> getOperatorRowsRead(QueryRunner runner, QueryId queryId)
     {
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()

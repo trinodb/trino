@@ -24,7 +24,6 @@ import java.nio.file.Path;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.query.QueryExecutor.param;
-import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
@@ -60,7 +59,7 @@ public class TestAvroSchemaStrictness
     @Inject
     private HdfsClient hdfsClient;
 
-    @Test(groups = AVRO)
+    @Test
     public void testInvalidUnionDefaults()
             throws IOException
     {

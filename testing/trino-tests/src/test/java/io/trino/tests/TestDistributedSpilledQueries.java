@@ -19,6 +19,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.nio.file.Paths;
 
@@ -30,13 +31,13 @@ public class TestDistributedSpilledQueries
         extends AbstractTestQueries
 {
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return createSpillingQueryRunner();
     }
 
-    public static DistributedQueryRunner createSpillingQueryRunner()
+    public static QueryRunner createSpillingQueryRunner()
             throws Exception
     {
         Session defaultSession = testSessionBuilder()
@@ -54,7 +55,7 @@ public class TestDistributedSpilledQueries
                 .put("memory-revoking-target", "0.0")
                 .buildOrThrow();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
                 .setNodeCount(2)
                 .setExtraProperties(extraProperties)
                 .build();

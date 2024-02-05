@@ -48,7 +48,7 @@ import static io.trino.spi.session.ResourceEstimates.CPU_TIME;
 import static io.trino.spi.session.ResourceEstimates.EXECUTION_TIME;
 import static io.trino.spi.session.ResourceEstimates.PEAK_MEMORY;
 import static io.trino.testing.TestingStatementClientFactory.DEFAULT_STATEMENT_FACTORY;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestingTrinoClient<T>
@@ -196,18 +196,18 @@ public abstract class AbstractTestingTrinoClient<T>
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
         return inTransaction(session, transactionSession ->
-                trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema)));
+                trinoServer.getPlannerContext().getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema)));
     }
 
     public boolean tableExists(Session session, String table)
     {
         return inTransaction(session, transactionSession ->
-                MetadataUtil.tableExists(trinoServer.getMetadata(), transactionSession, table));
+                MetadataUtil.tableExists(trinoServer.getPlannerContext().getMetadata(), transactionSession, table));
     }
 
     private <V> V inTransaction(Session session, Function<Session, V> callback)
     {
-        return transaction(trinoServer.getTransactionManager(), trinoServer.getMetadata(), trinoServer.getAccessControl())
+        return transaction(trinoServer.getTransactionManager(), trinoServer.getPlannerContext().getMetadata(), trinoServer.getAccessControl())
                 .readOnly()
                 .singleStatement()
                 .execute(session, callback);
@@ -227,7 +227,7 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         return columns.stream()
                 .map(Column::getType)
-                .map(trinoServer.getTypeManager()::fromSqlType)
+                .map(trinoServer.getPlannerContext().getTypeManager()::fromSqlType)
                 .collect(toImmutableList());
     }
 

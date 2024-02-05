@@ -64,15 +64,16 @@ public class FjsMatcher
             for (int i = start; i <= end; i++) {
                 Pattern element = pattern.get(i);
 
-                if (element instanceof Pattern.Literal literal) {
-                    checkArgument(i == 0 || !(pattern.get(i - 1) instanceof Pattern.Literal), "Multiple consecutive literals found");
-                    byte[] bytes = literal.value().getBytes(StandardCharsets.UTF_8);
-                    patterns.add(bytes);
-                    bmsShifts.add(computeBmsShifts(bytes));
-                    kmpShifts.add(computeKmpShifts(bytes));
-                }
-                else if (element instanceof Pattern.Any) {
-                    throw new IllegalArgumentException("'any' pattern not supported");
+                switch (element) {
+                    case Pattern.Literal literal -> {
+                        checkArgument(i == 0 || !(pattern.get(i - 1) instanceof Pattern.Literal), "Multiple consecutive literals found");
+                        byte[] bytes = literal.value().getBytes(StandardCharsets.UTF_8);
+                        patterns.add(bytes);
+                        bmsShifts.add(computeBmsShifts(bytes));
+                        kmpShifts.add(computeKmpShifts(bytes));
+                    }
+                    case Pattern.Any any -> throw new IllegalArgumentException("'any' pattern not supported");
+                    case null, default -> {}
                 }
             }
         }
@@ -146,7 +147,7 @@ public class FjsMatcher
                 j = kmpShifts[j];
 
                 // Continue to match the whole pattern using KMP
-                while (j > 0) {
+                while (j >= 0) {
                     int size = findLongestMatch(input, i, pattern, j, Math.min(inputLimit - i, pattern.length - j));
                     i += size;
                     j += size;

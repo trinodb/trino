@@ -183,16 +183,7 @@ public class TrinoRestCatalog
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
     {
         SessionContext sessionContext = convert(session);
-        List<Namespace> namespaces;
-
-        if (namespace.isPresent() && namespaceExists(session, namespace.get())) {
-            namespaces = ImmutableList.of(Namespace.of(namespace.get()));
-        }
-        else {
-            namespaces = listNamespaces(session).stream()
-                    .map(Namespace::of)
-                    .collect(toImmutableList());
-        }
+        List<Namespace> namespaces = listNamespaces(session, namespace);
 
         ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
         for (Namespace restNamespace : namespaces) {
@@ -438,7 +429,13 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
+            boolean replace,
+            boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg REST catalog");
     }
@@ -459,6 +456,12 @@ public class TrinoRestCatalog
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
     }
 
     @Override
@@ -542,5 +545,16 @@ public class TrinoRestCatalog
     private static TableIdentifier toIdentifier(SchemaTableName schemaTableName)
     {
         return TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+    }
+
+    private List<Namespace> listNamespaces(ConnectorSession session, Optional<String> namespace)
+    {
+        if (namespace.isEmpty()) {
+            return listNamespaces(session).stream()
+                    .map(Namespace::of)
+                    .collect(toImmutableList());
+        }
+
+        return ImmutableList.of(Namespace.of(namespace.get()));
     }
 }

@@ -222,7 +222,7 @@ public interface Metadata
     /**
      * Creates a table using the specified table metadata.
      *
-     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@param saveMode} is set to FAIL.
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@code saveMode} is set to FAIL.
      */
     void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode);
 
@@ -285,6 +285,11 @@ public interface Metadata
      * Set the specified type to the field.
      */
     void setFieldType(Session session, TableHandle tableHandle, List<String> fieldPath, Type type);
+
+    /**
+     * Drop a not null constraint on the specified column.
+     */
+    void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column);
 
     /**
      * Set the authorization (owner) of specified table's user/role
@@ -402,7 +407,8 @@ public interface Metadata
             InsertTableHandle insertTableHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<TableHandle> sourceTableHandles);
+            List<TableHandle> sourceTableHandles,
+            List<String> sourceTableFunctions);
 
     /**
      * Push update into connector
@@ -710,7 +716,13 @@ public interface Metadata
     /**
      * Creates the specified materialized view with the specified view definition.
      */
-    void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
+    void createMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting);
 
     /**
      * Drops the specified materialized view.
@@ -739,6 +751,8 @@ public interface Metadata
      * Returns the materialized view definition for the specified view name.
      */
     Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
+
+    Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName objectName, MaterializedViewDefinition materializedViewDefinition);
 
     /**
      * Method to get difference between the states of table at two different points in time/or as of given token-ids.

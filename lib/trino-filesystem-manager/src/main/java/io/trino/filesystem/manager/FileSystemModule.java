@@ -15,14 +15,22 @@ package io.trino.filesystem.manager;
 
 import com.google.inject.Binder;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
+import io.trino.filesystem.cache.CacheFileSystemFactory;
+import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.filesystem.cache.DefaultCacheKeyProvider;
+import io.trino.filesystem.cache.NoneCachingHostAddressProvider;
+import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.s3.S3FileSystemFactory;
@@ -35,6 +43,7 @@ import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemModule
@@ -91,6 +100,17 @@ public class FileSystemModule
             install(new GcsFileSystemModule());
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
         }
+
+        newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(NoneCachingHostAddressProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
+        newMapBinder(binder, FileSystemConfig.CacheType.class, TrinoFileSystemCache.class);
+
+        newOptionalBinder(binder, TrinoFileSystemCache.class);
+
+        install(conditionalModule(
+                FileSystemConfig.class,
+                cache -> cache.getCacheType() == FileSystemConfig.CacheType.ALLUXIO,
+                new AlluxioFileSystemCacheModule()));
     }
 
     @Provides
@@ -99,12 +119,17 @@ public class FileSystemModule
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
             LifeCycleManager lifeCycleManager,
             Map<String, TrinoFileSystemFactory> factories,
+            Optional<TrinoFileSystemCache> fileSystemCache,
+            Optional<CacheKeyProvider> keyProvider,
             Tracer tracer)
     {
         Optional<TrinoFileSystemFactory> hdfsFactory = hdfsFileSystemLoader.map(HdfsFileSystemLoader::create);
         hdfsFactory.ifPresent(lifeCycleManager::addInstance);
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(hdfsFactory, factories);
+        if (fileSystemCache.isPresent()) {
+            delegate = new CacheFileSystemFactory(delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
+        }
         return new TracingFileSystemFactory(tracer, delegate);
     }
 }

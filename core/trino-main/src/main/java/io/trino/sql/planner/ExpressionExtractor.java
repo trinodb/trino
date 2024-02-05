@@ -18,7 +18,6 @@ import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
-import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -137,13 +136,6 @@ public final class ExpressionExtractor
         {
             node.getRows().ifPresent(list -> list.forEach(consumer));
             return super.visitValues(node, context);
-        }
-
-        @Override
-        public Void visitApply(ApplyNode node, Void context)
-        {
-            node.getSubqueryAssignments().getExpressions().forEach(consumer);
-            return super.visitApply(node, context);
         }
     }
 }

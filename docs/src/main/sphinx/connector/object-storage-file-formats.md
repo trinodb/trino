@@ -72,10 +72,13 @@ with Parquet files performed by supported object storage connectors:
     off by setting this property to `0`.
   - `5`
 * - `parquet.writer.page-size`
-  - Maximum page size for the Parquet writer.
+  - Maximum size of pages written by Parquet writer.
   - `1 MB`
+* - `parquet.writer.page-value-count`
+  - Maximum values count of pages written by Parquet writer.
+  - `80000`
 * - `parquet.writer.block-size`
-  - Maximum row group size for the Parquet writer.
+  - Maximum size of row groups written by Parquet writer.
   - `128 MB`
 * - `parquet.writer.batch-size`
   - Maximum number of rows processed by the parquet writer in a batch.
@@ -91,6 +94,11 @@ with Parquet files performed by supported object storage connectors:
     catalog session property is `parquet_use_column_index`. Only supported by
     the Delta Lake and Hive connectors.
   - `true`
+* - `parquet.ignore-statistics`
+  - Ignore statistics from Parquet to allow querying files with corrupted or
+    incorrect statistics. The equivalent catalog session property is
+    `parquet_ignore_statistics`.
+  - `false`
 * - `parquet.max-read-block-row-count`
   - Sets the maximum number of rows read in a batch. The equivalent catalog
     session property is named `parquet_max_read_block_row_count` and supported

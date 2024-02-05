@@ -367,13 +367,14 @@ public final class Environment
     public static class Builder
     {
         private final String name;
+        private final Map<String, DockerContainer> containers = new HashMap<>();
+        private final PrintStream printStream;
+        private final Multimap<String, String> configuredFeatures = HashMultimap.create();
+
         private DockerContainer.OutputMode outputMode;
         private int startupRetries = 1;
-        private Map<String, DockerContainer> containers = new HashMap<>();
         private Optional<Path> logsBaseDir = Optional.empty();
-        private PrintStream printStream;
         private boolean attached;
-        private Multimap<String, String> configuredFeatures = HashMultimap.create();
 
         public Builder(String name, PrintStream printStream)
         {

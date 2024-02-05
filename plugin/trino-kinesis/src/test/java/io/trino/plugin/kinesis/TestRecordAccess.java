@@ -17,6 +17,7 @@ import com.amazonaws.services.kinesis.model.PutRecordsRequest;
 import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.kinesis.util.MockKinesisClient;
@@ -26,6 +27,7 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -43,7 +45,7 @@ import java.util.UUID;
 import java.util.zip.GZIPOutputStream;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,7 +74,7 @@ public class TestRecordAccess
     private String jsonStreamName;
     private String jsonGzipCompressStreamName;
     private String jsonAutomaticCompressStreamName;
-    private StandaloneQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private MockKinesisClient mockClient;
 
     @BeforeAll
@@ -154,10 +156,11 @@ public class TestRecordAccess
     {
         QualifiedObjectName name = new QualifiedObjectName("kinesis", "default", dummyStreamName);
 
-        transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), new AllowAllAccessControl())
+        Metadata metadata = queryRunner.getPlannerContext().getMetadata();
+        transaction(queryRunner.getTransactionManager(), metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, session -> {
-                    Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
+                    Optional<TableHandle> handle = metadata.getTableHandle(session, name);
                     assertThat(handle.isPresent()).isTrue();
                 });
         log.info("Completed first test (access table handle)");

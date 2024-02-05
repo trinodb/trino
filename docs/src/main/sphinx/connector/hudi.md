@@ -82,6 +82,15 @@ Additionally, following configuration properties can be set depending on the use
   - Maximum number of metastore data objects per transaction in the Hive
     metastore cache.
   - `2000`
+* - `hudi.query-partition-filter-required`
+  - Set to `true` to force a query to use a partition column in the filter condition.
+    The equivalent catalog session property is `query_partition_filter_required`.
+    Enabling this property causes query failures if the partition column used
+    in the filter condition doesn't effectively reduce the number of data files read.
+    Example: Complex filter expressions such as `id = 1 OR part_key = '100'`
+    or `CAST(part_key AS INTEGER) % 2 = 0` are not recognized as partition filters,
+    and queries using such expressions fail if the property is set to `true`.
+  - `false`
 
 :::
 

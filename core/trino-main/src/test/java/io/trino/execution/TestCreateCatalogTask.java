@@ -14,10 +14,12 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Key;
+import com.google.inject.TypeLiteral;
 import io.trino.client.NodeVersion;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.security.AllowAllAccessControl;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -26,8 +28,10 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Property;
+import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,15 +55,18 @@ public class TestCreateCatalogTask
     private static final String TEST_CATALOG = "test_catalog";
     private static final ImmutableList<Property> TPCH_PROPERTIES = ImmutableList.of(new Property(new Identifier("tpch.partitioning-enabled"), new StringLiteral("false")));
 
-    protected LocalQueryRunner queryRunner;
+    protected QueryRunner queryRunner;
     private QueryStateMachine queryStateMachine;
+    private CreateCatalogTask task;
 
     @BeforeEach
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        queryRunner.registerCatalogFactory(new TpchConnectorFactory());
-        queryRunner.registerCatalogFactory(new FailConnectorFactory());
+        QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION);
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.installPlugin(new MockConnectorPlugin(new FailConnectorFactory()));
+        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
+        task = (CreateCatalogTask) tasks.get(CreateCatalog.class);
         queryStateMachine = QueryStateMachine.begin(
                 Optional.empty(),
                 "test",
@@ -71,12 +78,14 @@ public class TestCreateCatalogTask
                 queryRunner.getTransactionManager(),
                 queryRunner.getAccessControl(),
                 directExecutor(),
-                queryRunner.getMetadata(),
+                queryRunner.getPlannerContext().getMetadata(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));
+
+        this.queryRunner = queryRunner;
     }
 
     @AfterEach
@@ -91,10 +100,9 @@ public class TestCreateCatalogTask
     @Test
     public void testDuplicatedCreateCatalog()
     {
-        CreateCatalogTask task = getCreateCatalogTask();
         CreateCatalog statement = new CreateCatalog(new Identifier(TEST_CATALOG), false, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
                 .withMessage("Catalog '%s' already exists", TEST_CATALOG);
@@ -103,18 +111,16 @@ public class TestCreateCatalogTask
     @Test
     public void testDuplicatedCreateCatalogIfNotExists()
     {
-        CreateCatalogTask task = getCreateCatalogTask();
         CreateCatalog statement = new CreateCatalog(new Identifier(TEST_CATALOG), true, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
     }
 
     @Test
     public void failCreateCatalog()
     {
-        CreateCatalogTask task = getCreateCatalogTask();
         assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(
                         new CreateCatalog(
@@ -128,11 +134,6 @@ public class TestCreateCatalogTask
                         emptyList(),
                         WarningCollector.NOOP)))
                 .withMessageContaining("TEST create catalog fail: " + TEST_CATALOG);
-    }
-
-    private CreateCatalogTask getCreateCatalogTask()
-    {
-        return new CreateCatalogTask(queryRunner.getPlannerContext(), new AllowAllAccessControl(), queryRunner.getCatalogManager());
     }
 
     private static class FailConnectorFactory

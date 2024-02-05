@@ -18,9 +18,14 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -37,6 +42,12 @@ public class GcsFileSystemConfig
     private boolean useGcsAccessToken;
     private String jsonKey;
     private String jsonKeyFilePath;
+    private int maxRetries = 20;
+    private double backoffScaleFactor = 3.0;
+    private Duration maxRetryTime = new Duration(25, TimeUnit.SECONDS);
+    private Duration minBackoffDelay = new Duration(10, TimeUnit.MILLISECONDS);
+    // Note: there is no benefit to setting this much higher as the rpc quota is 1x per second: https://cloud.google.com/storage/docs/retry-strategy#java
+    private Duration maxBackoffDelay = new Duration(2000, TimeUnit.MILLISECONDS);
 
     @NotNull
     public DataSize getReadBlockSize()
@@ -148,14 +159,92 @@ public class GcsFileSystemConfig
         return this;
     }
 
+    @Min(0)
+    public int getMaxRetries()
+    {
+        return maxRetries;
+    }
+
+    @Config("gcs.client.max-retries")
+    @ConfigDescription("Maximum number of RPC attempts")
+    public GcsFileSystemConfig setMaxRetries(int maxRetries)
+    {
+        this.maxRetries = maxRetries;
+        return this;
+    }
+
+    @Min(1)
+    public double getBackoffScaleFactor()
+    {
+        return backoffScaleFactor;
+    }
+
+    @Config("gcs.client.backoff-scale-factor")
+    @ConfigDescription("Scale factor for RPC retry delay")
+    public GcsFileSystemConfig setBackoffScaleFactor(double backoffScaleFactor)
+    {
+        this.backoffScaleFactor = backoffScaleFactor;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMaxRetryTime()
+    {
+        return maxRetryTime;
+    }
+
+    @Config("gcs.client.max-retry-time")
+    @ConfigDescription("Total time limit for an RPC to be retried")
+    public GcsFileSystemConfig setMaxRetryTime(Duration maxRetryTime)
+    {
+        this.maxRetryTime = maxRetryTime;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getMinBackoffDelay()
+    {
+        return minBackoffDelay;
+    }
+
+    @Config("gcs.client.min-backoff-delay")
+    @ConfigDescription("Minimum delay between RPC retries")
+    public GcsFileSystemConfig setMinBackoffDelay(Duration minBackoffDelay)
+    {
+        this.minBackoffDelay = minBackoffDelay;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getMaxBackoffDelay()
+    {
+        return maxBackoffDelay;
+    }
+
+    @Config("gcs.client.max-backoff-delay")
+    @ConfigDescription("Maximum delay between RPC retries.")
+    public GcsFileSystemConfig setMaxBackoffDelay(Duration maxBackoffDelay)
+    {
+        this.maxBackoffDelay = maxBackoffDelay;
+        return this;
+    }
+
+    @AssertTrue(message = "gcs.client.min-backoff-delay must be less than or equal to gcs.client.max-backoff-delay")
+    public boolean isRetryDelayValid()
+    {
+        return minBackoffDelay.compareTo(maxBackoffDelay) <= 0;
+    }
+
     public void validate()
     {
-        // This cannot be normal validation, as it would make it impossible to write TestHiveGcsConfig.testExplicitPropertyMappings
+        // This cannot be normal validation, as it would make it impossible to write TestGcsFileSystemConfig.testExplicitPropertyMappings
 
         if (useGcsAccessToken) {
-            checkState(jsonKey == null, "Cannot specify 'hive.gcs.json-key' when 'hive.gcs.use-access-token' is set");
-            checkState(jsonKeyFilePath == null, "Cannot specify 'hive.gcs.json-key-file-path' when 'hive.gcs.use-access-token' is set");
+            checkState(jsonKey == null, "Cannot specify 'gcs.json-key' when 'gcs.use-access-token' is set");
+            checkState(jsonKeyFilePath == null, "Cannot specify 'gcs.json-key-file-path' when 'gcs.use-access-token' is set");
         }
-        checkState(jsonKey == null || jsonKeyFilePath == null, "'hive.gcs.json-key' and 'hive.gcs.json-key-file-path' cannot be both set");
+        checkState(jsonKey == null || jsonKeyFilePath == null, "'gcs.json-key' and 'gcs.json-key-file-path' cannot be both set");
     }
 }

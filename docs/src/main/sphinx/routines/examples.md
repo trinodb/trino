@@ -369,3 +369,581 @@ BEGIN
   RETURN r;
 END
 ```
+
+## Optional parameter example
+
+Routines can invoke other routines and other functions. The full signature of a
+routine is composed of routine name and parameters, and determines the exact
+routine to use. You can declare multiple routines with the same name, but with
+different number of arguments or different argument types. One example use case
+is to implement an optional parameter.
+
+The following routine truncates a string to the specified length including three
+dots at the end of the output:
+
+```sql
+FUNCTION dots(input varchar, length integer)
+RETURNS varchar
+BEGIN
+  IF length(input) > length THEN
+    RETURN substring(input, 1, length-3) || '...';
+  END IF;
+  RETURN input;
+END;
+```
+
+Following are example invocations and output:
+
+```sql
+SELECT dots('A long string that will be shortened',15);
+-- A long strin...
+SELECT	dots('A short string',15);
+-- A short string
+```
+
+If you want to provide a routine with the same name, but without the parameter
+for length, you can create another routine that invokes the preceding routine:
+
+```sql
+FUNCTION dots(input varchar)
+RETURNS varchar
+RETURN dots(input, 15);
+```
+
+You can now use both routines. When the length parameter is omitted the default
+value from the second declaration is used.
+
+```sql
+SELECT dots('A long string that will be shortened',15);
+-- A long strin...
+SELECT dots('A long string that will be shortened');
+-- A long strin...
+SELECT dots('A long string that will be shortened',20);
+-- A long string tha...
+```
+
+## Date string parsing example
+
+This example routine parses a date string of type `VARCHAR` into `TIMESTAMP WITH
+TIME ZONE`. Date strings are commonly represented by ISO 8601 standard, such as
+`2023-12-01`, `2023-12-01T23`. Date strings are also often represented in the
+`YYYYmmdd` and `YYYYmmddHH` format, such as `20230101` and `2023010123`. Hive
+tables can use this format to represent day and hourly partitions, for example
+`/day=20230101`, `/hour=2023010123`.
+
+This routine parses date strings in a best-effort fashion and can be used as a
+replacement for date string manipulation functions such as `date`, `date_parse`,
+`from_iso8601_date`,  and `from_iso8601_timestamp`.
+
+Note that the routine defaults the time value to `00:00:00.000` and the time
+zone to the session time zone.
+
+
+```sql
+FUNCTION from_date_string(date_string VARCHAR)
+RETURNS TIMESTAMP WITH TIME ZONE
+BEGIN
+  IF date_string like '%-%' THEN -- ISO 8601
+    RETURN from_iso8601_timestamp(date_string);
+  ELSEIF length(date_string) = 8 THEN -- YYYYmmdd
+      RETURN date_parse(date_string, '%Y%m%d');
+  ELSEIF length(date_string) = 10 THEN -- YYYYmmddHH
+      RETURN date_parse(date_string, '%Y%m%d%H');
+  END IF;
+  RETURN NULL;
+END
+```
+
+Following are a couple of example invocations with result and explanation:
+
+```sql
+SELECT from_date_string('2023-01-01'); -- 2023-01-01 00:00:00.000 UTC (using the ISO 8601 format)
+SELECT from_date_string('2023-01-01T23'); -- 2023-01-01 23:00:00.000 UTC (using the ISO 8601 format)
+SELECT from_date_string('2023-01-01T23:23:23'); -- 2023-01-01 23:23:23.000 UTC (using the ISO 8601 format)
+SELECT from_date_string('20230101'); -- 2023-01-01 00:00:00.000 UTC (using the YYYYmmdd format)
+SELECT from_date_string('2023010123'); -- 2023-01-01 23:00:00.000 UTC (using the YYYYmmddHH format)
+SELECT from_date_string(NULL); -- NULL (handles NULL string)
+SELECT from_date_string('abc'); -- NULL (not matched to any format)
+```
+
+## Human readable days
+
+Trino includes a built-in function called {func}`human_readable_seconds` that
+formats a number of seconds into a string:
+
+```sql
+SELECT human_readable_seconds(134823);
+-- 1 day, 13 hours, 27 minutes, 3 seconds
+```
+
+The example routine `hrd` formats a number of days into a human readable text
+that provides the approximate number of years and months:
+
+```sql
+FUNCTION hrd(d integer)
+RETURNS VARCHAR
+BEGIN
+    DECLARE answer varchar default 'About ';
+    DECLARE years real;
+    DECLARE months real;
+    SET years = truncate(d/365);
+    IF years > 0 then
+        SET answer = answer || format('%1.0f', years) || ' year';
+    END IF;
+    IF years > 1 THEN
+        SET answer = answer || 's';
+    END IF;
+    SET d = d - cast( years AS integer) * 365 ;
+    SET months = truncate(d / 30);
+    IF months > 0 and years > 0 THEN
+        SET answer = answer || ' and ';
+    END IF;
+    IF months > 0 THEN
+        set answer = answer || format('%1.0f', months) || ' month';
+    END IF;
+    IF months > 1 THEN
+        SET answer = answer || 's';
+    END IF;
+    IF years < 1 and months < 1 THEN
+        SET answer = 'Less than 1 month';
+    END IF;
+    RETURN answer;
+END;
+```
+
+The following examples show the output for a range of values under one month, under
+one year, and various larger values:
+
+```sql
+SELECT hrd(10); -- Less than 1 month
+SELECT hrd(95); -- About 3 months
+SELECT hrd(400); -- About 1 year and 1 month
+SELECT hrd(369); -- About 1 year
+SELECT hrd(800); -- About 2 years and 2 months
+SELECT hrd(1100); -- About 3 years
+SELECT hrd(5000); -- About 13 years and 8 months
+```
+
+Improvements of the routine could include the following modifications:
+
+* Take into account that one month equals 30.4375 days.
+* Take into account that one year equals 365.25 days.
+* Add weeks to the output.
+* Expand the cover decades, centuries, and millenia.
+
+## Truncating long strings
+
+This example routine `strtrunc` truncates strings longer than 60 characters,
+leaving the first 30 and the last 25 characters, and cutting out extra
+characters in the middle.
+
+```sql
+FUNCTION strtrunc(input VARCHAR)
+RETURNS VARCHAR
+RETURN
+    CASE WHEN length(input) > 60
+    THEN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25)
+    ELSE input
+    END;
+```
+
+The preceding declaration is very compact and consists of only one complex
+statement with a [`CASE` expression](case-expression) and multiple function
+calls. It can therefore define the complete logic in the `RETURN` clause.
+
+The following statement shows the same capability within the routine itself.
+Note the duplicate `RETURN` inside and outside the `CASE` statement and the
+required `END CASE;`. The second `RETURN` statement is required, because a
+routine must end with a `RETURN` statement. As a result the `ELSE` clause can be
+omitted.
+
+```sql
+FUNCTION strtrunc(input VARCHAR)
+RETURNS VARCHAR
+BEGIN
+    CASE WHEN length(input) > 60
+    THEN
+        RETURN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25);
+    ELSE
+        RETURN input;
+    END CASE;
+    RETURN input;
+END;
+```
+
+The next example changes over from a `CASE` to an `IF` statement, and avoids the
+duplicate `RETURN`:
+
+```sql
+FUNCTION strtrunc(input VARCHAR)
+RETURNS VARCHAR
+BEGIN
+    IF length(input) > 60 THEN
+        RETURN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25);
+    END IF;
+    RETURN input;
+END;
+```
+
+All the preceding examples create the same output. Following is an example query
+which generates long strings to truncate:
+
+```sql
+WITH
+data AS (
+    SELECT substring('strtrunc truncates strings longer than 60 characters, leaving the prefix and suffix visible', 1, s.num) AS value
+    FROM table(sequence(start=>40, stop=>80, step=>5)) AS s(num)
+)
+SELECT
+    data.value
+  , strtrunc(data.value) AS truncated
+FROM data
+ORDER BY data.value;
+```
+
+The preceding query produces the following output with all variants of the
+routine:
+
+```
+                                      value                                       |                           truncated
+----------------------------------------------------------------------------------+---------------------------------------------------------------
+ strtrunc truncates strings longer than 6                                         | strtrunc truncates strings longer than 6
+ strtrunc truncates strings longer than 60 cha                                    | strtrunc truncates strings longer than 60 cha
+ strtrunc truncates strings longer than 60 characte                               | strtrunc truncates strings longer than 60 characte
+ strtrunc truncates strings longer than 60 characters, l                          | strtrunc truncates strings longer than 60 characters, l
+ strtrunc truncates strings longer than 60 characters, leavin                     | strtrunc truncates strings longer than 60 characters, leavin
+ strtrunc truncates strings longer than 60 characters, leaving the                | strtrunc truncates strings lon ... 60 characters, leaving the
+ strtrunc truncates strings longer than 60 characters, leaving the pref           | strtrunc truncates strings lon ... aracters, leaving the pref
+ strtrunc truncates strings longer than 60 characters, leaving the prefix an      | strtrunc truncates strings lon ... ers, leaving the prefix an
+ strtrunc truncates strings longer than 60 characters, leaving the prefix and suf | strtrunc truncates strings lon ... leaving the prefix and suf
+```
+
+A possible improvement is to introduce parameters for the total length.
+
+## Formatting bytes
+
+Trino includes a built-in `format_number()` function. However it is using units
+that don't work well with bytes. The following `format_data_size` routine can
+format large values of bytes into a human readable string.
+
+```sql
+FUNCTION format_data_size(input BIGINT)
+RETURNS VARCHAR
+  BEGIN
+    DECLARE value DOUBLE DEFAULT CAST(input AS DOUBLE);
+    DECLARE result BIGINT;
+    DECLARE base INT DEFAULT 1024;
+    DECLARE unit VARCHAR DEFAULT 'B';
+    DECLARE format VARCHAR;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'kB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'MB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'GB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'TB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'PB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'EB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'ZB';
+    END IF;
+    IF abs(value) >= base THEN
+      SET value = value / base;
+      SET unit = 'YB';
+    END IF;
+    IF abs(value) < 10 THEN
+      SET format = '%.2f';
+    ELSEIF abs(value) < 100 THEN
+      SET format = '%.1f';
+    ELSE
+      SET format = '%.0f';
+    END IF;
+    RETURN format(format, value) || unit;
+  END;
+```
+
+Below is a query to show how it formats a wide range of values.
+
+```sql
+WITH
+data AS (
+    SELECT CAST(pow(10, s.p) AS BIGINT) AS num
+    FROM table(sequence(start=>1, stop=>18)) AS s(p)
+    UNION ALL
+    SELECT -CAST(pow(10, s.p) AS BIGINT) AS num
+    FROM table(sequence(start=>1, stop=>18)) AS s(p)
+)
+SELECT
+    data.num
+  , format_data_size(data.num) AS formatted
+FROM data
+ORDER BY data.num;
+```
+
+The preceding query produces the following output:
+
+```
+         num          | formatted
+----------------------+-----------
+ -1000000000000000000 | -888PB
+  -100000000000000000 | -88.8PB
+   -10000000000000000 | -8.88PB
+    -1000000000000000 | -909TB
+     -100000000000000 | -90.9TB
+      -10000000000000 | -9.09TB
+       -1000000000000 | -931GB
+        -100000000000 | -93.1GB
+         -10000000000 | -9.31GB
+          -1000000000 | -954MB
+           -100000000 | -95.4MB
+            -10000000 | -9.54MB
+             -1000000 | -977kB
+              -100000 | -97.7kB
+               -10000 | -9.77kB
+                -1000 | -1000B
+                 -100 | -100B
+                  -10 | -10.0B
+                    0 | 0.00B
+                   10 | 10.0B
+                  100 | 100B
+                 1000 | 1000B
+                10000 | 9.77kB
+               100000 | 97.7kB
+              1000000 | 977kB
+             10000000 | 9.54MB
+            100000000 | 95.4MB
+           1000000000 | 954MB
+          10000000000 | 9.31GB
+         100000000000 | 93.1GB
+        1000000000000 | 931GB
+       10000000000000 | 9.09TB
+      100000000000000 | 90.9TB
+     1000000000000000 | 909TB
+    10000000000000000 | 8.88PB
+   100000000000000000 | 88.8PB
+  1000000000000000000 | 888PB
+```
+
+
+## Charts
+
+Trino already has a built-in `bar()` [color function](/functions/color), but
+it's using ANSI escape codes to output colors, and thus is only usable for
+displaying results in a terminal. The following example shows a similar routine,
+that only uses ASCII characters.
+
+```sql
+FUNCTION ascii_bar(value DOUBLE)
+RETURNS VARCHAR
+BEGIN
+  DECLARE max_width DOUBLE DEFAULT 40.0;
+  RETURN array_join(
+    repeat('█',
+        greatest(0, CAST(floor(max_width * value) AS integer) - 1)), '')
+        || ARRAY[' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'][cast((value % (cast(1 as double) / max_width)) * max_width * 8 + 1 as int)];
+END;
+```
+
+It can be used to visualize a value.
+
+```sql
+WITH
+data AS (
+    SELECT
+        cast(s.num as double) / 100.0 AS x,
+        sin(cast(s.num as double) / 100.0) AS y
+    FROM table(sequence(start=>0, stop=>314, step=>10)) AS s(num)
+)
+SELECT
+    data.x,
+    round(data.y, 4) AS y,
+    ascii_bar(data.y) AS chart
+FROM data
+ORDER BY data.x;
+```
+
+The preceding query produces the following output:
+
+```text
+  x  |   y    |                  chart
+-----+--------+-----------------------------------------
+ 0.0 |    0.0 |
+ 0.1 | 0.0998 | ███
+ 0.2 | 0.1987 | ███████
+ 0.3 | 0.2955 | ██████████▉
+ 0.4 | 0.3894 | ██████████████▋
+ 0.5 | 0.4794 | ██████████████████▏
+ 0.6 | 0.5646 | █████████████████████▋
+ 0.7 | 0.6442 | ████████████████████████▊
+ 0.8 | 0.7174 | ███████████████████████████▊
+ 0.9 | 0.7833 | ██████████████████████████████▍
+ 1.0 | 0.8415 | ████████████████████████████████▋
+ 1.1 | 0.8912 | ██████████████████████████████████▋
+ 1.2 |  0.932 | ████████████████████████████████████▎
+ 1.3 | 0.9636 | █████████████████████████████████████▌
+ 1.4 | 0.9854 | ██████████████████████████████████████▍
+ 1.5 | 0.9975 | ██████████████████████████████████████▉
+ 1.6 | 0.9996 | ███████████████████████████████████████
+ 1.7 | 0.9917 | ██████████████████████████████████████▋
+ 1.8 | 0.9738 | ██████████████████████████████████████
+ 1.9 | 0.9463 | ████████████████████████████████████▉
+ 2.0 | 0.9093 | ███████████████████████████████████▍
+ 2.1 | 0.8632 | █████████████████████████████████▌
+ 2.2 | 0.8085 | ███████████████████████████████▍
+ 2.3 | 0.7457 | ████████████████████████████▉
+ 2.4 | 0.6755 | ██████████████████████████
+ 2.5 | 0.5985 | ███████████████████████
+ 2.6 | 0.5155 | ███████████████████▋
+ 2.7 | 0.4274 | ████████████████▏
+ 2.8 |  0.335 | ████████████▍
+ 2.9 | 0.2392 | ████████▋
+ 3.0 | 0.1411 | ████▋
+ 3.1 | 0.0416 | ▋
+```
+
+It's also possible to draw more compacted charts. Following is a routine drawing
+vertical bars:
+
+```sql
+FUNCTION vertical_bar(value DOUBLE)
+RETURNS VARCHAR
+RETURN ARRAY[' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'][cast(value * 8 + 1 as int)];
+```
+
+It can be used to draw a distribution of values, in a single column.
+
+```sql
+WITH
+measurements(sensor_id, recorded_at, value) AS (
+    VALUES
+        ('A', date '2023-01-01', 5.0)
+      , ('A', date '2023-01-03', 7.0)
+      , ('A', date '2023-01-04', 15.0)
+      , ('A', date '2023-01-05', 14.0)
+      , ('A', date '2023-01-08', 10.0)
+      , ('A', date '2023-01-09', 1.0)
+      , ('A', date '2023-01-10', 7.0)
+      , ('A', date '2023-01-11', 8.0)
+      , ('B', date '2023-01-03', 2.0)
+      , ('B', date '2023-01-04', 3.0)
+      , ('B', date '2023-01-05', 2.5)
+      , ('B', date '2023-01-07', 2.75)
+      , ('B', date '2023-01-09', 4.0)
+      , ('B', date '2023-01-10', 1.5)
+      , ('B', date '2023-01-11', 1.0)
+),
+days AS (
+    SELECT date_add('day', s.num, date '2023-01-01') AS day
+    -- table function arguments need to be constant but range could be calculated
+    -- using: SELECT date_diff('day', max(recorded_at), min(recorded_at)) FROM measurements
+    FROM table(sequence(start=>0, stop=>10)) AS s(num)
+),
+sensors(id) AS (VALUES ('A'), ('B')),
+normalized AS (
+    SELECT
+        sensors.id AS sensor_id,
+        days.day,
+        value,
+        value / max(value) OVER (PARTITION BY sensor_id) AS normalized
+    FROM days
+    CROSS JOIN sensors
+    LEFT JOIN measurements m ON day = recorded_at AND m.sensor_id = sensors.id
+)
+SELECT
+    sensor_id,
+    min(day) AS start,
+    max(day) AS stop,
+    count(value) AS num_values,
+    min(value) AS min_value,
+    max(value) AS max_value,
+    avg(value) AS avg_value,
+    array_join(array_agg(coalesce(vertical_bar(normalized), ' ') ORDER BY day), '') AS distribution
+FROM normalized
+WHERE sensor_id IS NOT NULL
+GROUP BY sensor_id
+ORDER BY sensor_id;
+```
+
+The preceding query produces the following output:
+
+```text
+ sensor_id |   start    |    stop    | num_values | min_value | max_value | avg_value | distribution
+-----------+------------+------------+------------+-----------+-----------+-----------+--------------
+ A         | 2023-01-01 | 2023-01-11 |          8 |      1.00 |     15.00 |      8.38 | ▃ ▄█▇  ▅▁▄▄
+ B         | 2023-01-01 | 2023-01-11 |          7 |      1.00 |      4.00 |      2.39 |   ▄▆▅ ▆ █▃▂
+```
+
+## Top-N
+
+Trino already has a built-in [aggregate function](/functions/aggregate) called
+`approx_most_frequent()`, that can calculate most frequently occurring values.
+It returns a map with values as keys and number of occurrences as values. Maps
+are not ordered, so when displayed, the entries can change places on subsequent
+runs of the same query, and readers must still compare all frequencies to find
+the one most frequent value. The following is a routine returns ordered results
+as a string.
+
+```sql
+FUNCTION format_topn(input map<varchar, bigint>)
+RETURNS VARCHAR
+NOT DETERMINISTIC
+BEGIN
+  DECLARE freq_separator VARCHAR DEFAULT '=';
+  DECLARE entry_separator VARCHAR DEFAULT ', ';
+  RETURN array_join(transform(
+    reverse(array_sort(transform(
+      transform(
+        map_entries(input),
+          r -> cast(r AS row(key varchar, value bigint))
+      ),
+      r -> cast(row(r.value, r.key) AS row(value bigint, key varchar)))
+    )),
+    r -> r.key || freq_separator || cast(r.value as varchar)),
+    entry_separator);
+END;
+```
+
+Following is an example query to count generated strings:
+
+```sql
+WITH
+data AS (
+    SELECT lpad('', 3, chr(65+(s.num / 3))) AS value
+    FROM table(sequence(start=>1, stop=>10)) AS s(num)
+),
+aggregated AS (
+    SELECT
+        array_agg(data.value ORDER BY data.value) AS all_values,
+        approx_most_frequent(3, data.value, 1000) AS top3
+    FROM data
+)
+SELECT
+    a.all_values,
+    a.top3,
+    format_topn(a.top3) AS top3_formatted
+FROM aggregated a;
+```
+
+The preceding query produces the following result:
+
+```text
+                     all_values                     |         top3          |    top3_formatted
+----------------------------------------------------+-----------------------+---------------------
+ [AAA, AAA, BBB, BBB, BBB, CCC, CCC, CCC, DDD, DDD] | {AAA=2, CCC=3, BBB=3} | CCC=3, BBB=3, AAA=2
+```

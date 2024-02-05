@@ -18,11 +18,10 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.operator.table.Sequence.SequenceFunctionSplit.DEFAULT_SPLIT_SIZE;
+import static io.trino.operator.table.SequenceFunction.SequenceFunctionSplit.DEFAULT_SPLIT_SIZE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSequenceFunction
         extends AbstractTestQueryFramework
@@ -81,50 +80,50 @@ public class TestSequenceFunction
     @Test
     public void testInvalidArgument()
     {
-        assertThatThrownBy(() -> query("""
+        assertThat(query("""
                 SELECT *
                 FROM TABLE(sequence(
                                     start => -5,
                                     stop => 10,
                                     step => -2))
                 """))
-                .hasMessage("Step must be positive for sequence [-5, 10]");
+                .failure().hasMessage("Step must be positive for sequence [-5, 10]");
 
-        assertThatThrownBy(() -> query("""
+        assertThat(query("""
                 SELECT *
                 FROM TABLE(sequence(
                                     start => 10,
                                     stop => -5,
                                     step => 2))
                 """))
-                .hasMessage("Step must be negative for sequence [10, -5]");
+                .failure().hasMessage("Step must be negative for sequence [10, -5]");
 
-        assertThatThrownBy(() -> query("""
+        assertThat(query("""
                 SELECT *
                 FROM TABLE(sequence(
                                     start => null,
                                     stop => -5,
                                     step => 2))
                 """))
-                .hasMessage("Start is null");
+                .failure().hasMessage("Start is null");
 
-        assertThatThrownBy(() -> query("""
+        assertThat(query("""
                 SELECT *
                 FROM TABLE(sequence(
                                     start => 10,
                                     stop => null,
                                     step => 2))
                 """))
-                .hasMessage("Stop is null");
+                .failure().hasMessage("Stop is null");
 
-        assertThatThrownBy(() -> query("""
+        assertThat(query("""
                 SELECT *
                 FROM TABLE(sequence(
                                     start => 10,
                                     stop => -5,
                                     step => null))
                 """))
-                .hasMessage("Step is null");
+                .failure().hasMessage("Step is null");
     }
 
     @Test

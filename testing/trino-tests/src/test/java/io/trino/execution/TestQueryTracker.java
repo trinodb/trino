@@ -26,6 +26,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -34,10 +35,12 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // Tests need to finish before strict timeouts. Any background work
 // may make them flaky
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // CountDownLatches are shared mutable state
 public class TestQueryTracker
         extends AbstractTestQueryFramework
 {
@@ -60,7 +63,7 @@ public class TestQueryTracker
                 .setSystemProperty(QUERY_MAX_PLANNING_TIME, "2s")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
+        QueryRunner queryRunner = DistributedQueryRunner
                 .builder(defaultSession)
                 .build();
         queryRunner.installPlugin(new Plugin()

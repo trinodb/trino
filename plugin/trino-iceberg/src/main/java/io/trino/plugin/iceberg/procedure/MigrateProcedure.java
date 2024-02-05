@@ -53,9 +53,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.procedure.Procedure;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
@@ -232,7 +229,7 @@ public class MigrateProcedure
             ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
             if (hiveTable.getPartitionColumns().isEmpty()) {
                 log.debug("Building data files from %s", location);
-                dataFilesBuilder.addAll(buildDataFiles(session, recursive, storageFormat, location, partitionSpec, new PartitionData(new Object[]{}), schema));
+                dataFilesBuilder.addAll(buildDataFiles(session, recursive, storageFormat, location, partitionSpec, new PartitionData(new Object[0]), schema));
             }
             else {
                 Map<String, Optional<Partition>> partitions = listAllPartitions(metastore, hiveTable);
@@ -310,17 +307,15 @@ public class MigrateProcedure
             Types.NestedField field = Types.NestedField.of(index, false, column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
         }
+
         org.apache.iceberg.types.Type icebergSchema = Types.StructType.of(icebergColumns);
-        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
+        // Assign column id start from 1
+        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, new AtomicInteger(1)::getAndIncrement);
         return new Schema(icebergSchema.asStructType().fields());
     }
 
     private static org.apache.iceberg.types.Type toIcebergType(Type type, AtomicInteger nextFieldId)
     {
-        if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
-            // TODO https://github.com/trinodb/trino/issues/17583 Add support for these complex types
-            throw new TrinoException(NOT_SUPPORTED, "Migrating %s type is not supported".formatted(type));
-        }
         if (type.equals(TINYINT) || type.equals(SMALLINT)) {
             return Types.IntegerType.get();
         }

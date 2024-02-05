@@ -40,7 +40,7 @@ runs:
         if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
         shell: bash
         run: ./.github/bin/free-disk-space.sh
-      - uses: actions/setup-java@v3
+      - uses: actions/setup-java@v4
         if: ${{ inputs.java-version != '' }}
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images

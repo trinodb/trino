@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.client.ClientCapabilities;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.informationschema.InformationSchemaColumnHandle;
 import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.connector.informationschema.InformationSchemaTableHandle;
@@ -36,7 +37,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.OptimizerConfig;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.AfterAll;
@@ -64,15 +66,15 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestInformationSchemaMetadata
 {
     private static final int MAX_PREFIXES_COUNT = new OptimizerConfig().getMaxPrefetchedInformationSchemaPrefixes();
-    private LocalQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private TransactionManager transactionManager;
     private Metadata metadata;
 
     @BeforeAll
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema"))
                 .withListTables((connectorSession, schemaName) ->
                         ImmutableList.of("test_view", "another_table"))
@@ -89,10 +91,10 @@ public class TestInformationSchemaMetadata
                     SchemaTableName viewName = new SchemaTableName("test_schema", "test_view");
                     return ImmutableMap.of(viewName, definition);
                 })
-                .build();
-        queryRunner.createCatalog("test_catalog", mockConnectorFactory, ImmutableMap.of());
+                .build()));
+        queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());
         transactionManager = queryRunner.getTransactionManager();
-        metadata = queryRunner.getMetadata();
+        metadata = queryRunner.getPlannerContext().getMetadata();
     }
 
     @AfterAll

@@ -21,6 +21,7 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.SuiteGroups.SUITE1_EXCLUSIONS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class Suite1
@@ -31,20 +32,7 @@ public class Suite1
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withExcludedGroups(
-                                "azure",
-                                "cli",
-                                "jdbc",
-                                "trino_jdbc",
-                                "jdbc_kerberos_constrained_delegation",
-                                "functions",
-                                "hive_compression",
-                                "large_query",
-                                "profile_specific_tests",
-                                "storage_formats",
-                                "storage_formats_detailed",
-                                "tpch",
-                                "tpcds")
+                        .withExcludedGroups(SUITE1_EXCLUSIONS.toArray(new String[0]))
                         .build());
     }
 }

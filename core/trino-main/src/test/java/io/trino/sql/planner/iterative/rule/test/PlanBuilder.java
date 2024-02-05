@@ -71,6 +71,7 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -142,7 +143,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.util.MoreLists.nElements;
@@ -163,6 +164,11 @@ public class PlanBuilder
         this.idAllocator = idAllocator;
         this.session = session;
         functionResolver = plannerContext.getFunctionResolver();
+    }
+
+    public Session getSession()
+    {
+        return session;
     }
 
     public OutputNode output(List<String> columnNames, List<Symbol> outputs, PlanNode source)
@@ -411,7 +417,7 @@ public class PlanBuilder
     public class AggregationBuilder
     {
         private PlanNode source;
-        private Map<Symbol, Aggregation> assignments = new HashMap<>();
+        private final Map<Symbol, Aggregation> assignments = new HashMap<>();
         private AggregationNode.GroupingSetDescriptor groupingSets;
         private List<Symbol> preGroupedSymbols = new ArrayList<>();
         private Step step = Step.SINGLE;
@@ -520,7 +526,7 @@ public class PlanBuilder
         }
     }
 
-    public ApplyNode apply(Assignments subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
+    public ApplyNode apply(Map<Symbol, ApplyNode.SetExpression> subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
         NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
         return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, originSubquery);
@@ -533,10 +539,10 @@ public class PlanBuilder
 
     public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        return correlatedJoin(correlation, input, CorrelatedJoinNode.Type.INNER, TRUE_LITERAL, subquery);
+        return correlatedJoin(correlation, input, JoinType.INNER, TRUE_LITERAL, subquery);
     }
 
-    public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, CorrelatedJoinNode.Type type, Expression filter, PlanNode subquery)
+    public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, JoinType type, Expression filter, PlanNode subquery)
     {
         NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
         return new CorrelatedJoinNode(idAllocator.getNextId(), input, subquery, correlation, type, filter, originSubquery);
@@ -893,8 +899,8 @@ public class PlanBuilder
         private ExchangeNode.Scope scope = ExchangeNode.Scope.REMOTE;
         private PartitioningScheme partitioningScheme;
         private OrderingScheme orderingScheme;
-        private List<PlanNode> sources = new ArrayList<>();
-        private List<List<Symbol>> inputs = new ArrayList<>();
+        private final List<PlanNode> sources = new ArrayList<>();
+        private final List<List<Symbol>> inputs = new ArrayList<>();
 
         public ExchangeBuilder type(ExchangeNode.Type type)
         {
@@ -994,17 +1000,17 @@ public class PlanBuilder
         }
     }
 
-    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
+    public JoinNode join(JoinType joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
     {
         return join(joinType, left, right, Optional.empty(), criteria);
     }
 
-    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, Expression filter, JoinNode.EquiJoinClause... criteria)
+    public JoinNode join(JoinType joinType, PlanNode left, PlanNode right, Expression filter, JoinNode.EquiJoinClause... criteria)
     {
         return join(joinType, left, right, Optional.of(filter), criteria);
     }
 
-    private JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, Optional<Expression> filter, JoinNode.EquiJoinClause... criteria)
+    private JoinNode join(JoinType joinType, PlanNode left, PlanNode right, Optional<Expression> filter, JoinNode.EquiJoinClause... criteria)
     {
         return join(
                 joinType,
@@ -1019,13 +1025,13 @@ public class PlanBuilder
                 ImmutableMap.of());
     }
 
-    public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> leftOutputSymbols, List<Symbol> rightOutputSymbols, Optional<Expression> filter)
+    public JoinNode join(JoinType type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> leftOutputSymbols, List<Symbol> rightOutputSymbols, Optional<Expression> filter)
     {
         return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty(), Optional.empty());
     }
 
     public JoinNode join(
-            JoinNode.Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
@@ -1039,7 +1045,7 @@ public class PlanBuilder
     }
 
     public JoinNode join(
-            JoinNode.Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
@@ -1054,7 +1060,7 @@ public class PlanBuilder
     }
 
     public JoinNode join(
-            JoinNode.Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
@@ -1324,7 +1330,7 @@ public class PlanBuilder
         return unnest(replicateSymbols, mappings, Optional.empty(), INNER, Optional.empty(), source);
     }
 
-    public UnnestNode unnest(List<Symbol> replicateSymbols, List<UnnestNode.Mapping> mappings, Optional<Symbol> ordinalitySymbol, JoinNode.Type type, Optional<Expression> filter, PlanNode source)
+    public UnnestNode unnest(List<Symbol> replicateSymbols, List<UnnestNode.Mapping> mappings, Optional<Symbol> ordinalitySymbol, JoinType type, Optional<Expression> filter, PlanNode source)
     {
         return new UnnestNode(
                 idAllocator.getNextId(),

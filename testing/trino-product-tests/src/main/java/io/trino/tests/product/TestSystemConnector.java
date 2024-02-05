@@ -19,7 +19,6 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.JDBC;
-import static io.trino.tests.product.TestGroups.SYSTEM_CONNECTOR;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
@@ -30,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestSystemConnector
         extends ProductTest
 {
-    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
+    @Test(groups = JDBC)
     public void selectRuntimeNodes()
     {
         String sql = "SELECT node_id, http_uri, node_version, state FROM system.runtime.nodes";
@@ -39,7 +38,7 @@ public class TestSystemConnector
                 .hasAnyRows();
     }
 
-    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
+    @Test(groups = JDBC)
     public void testRuleStats()
     {
         assertThat(onTrino().executeQuery("SELECT rule_name, invocations, matches, failures FROM system.runtime.optimizer_rule_stats"))
@@ -47,7 +46,7 @@ public class TestSystemConnector
                 .hasAnyRows();
     }
 
-    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
+    @Test(groups = JDBC)
     public void selectRuntimeQueries()
     {
         String sql = "SELECT" +
@@ -73,7 +72,7 @@ public class TestSystemConnector
                 .hasAnyRows();
     }
 
-    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
+    @Test(groups = JDBC)
     public void selectRuntimeTasks()
     {
         String sql = "SELECT" +
@@ -110,7 +109,7 @@ public class TestSystemConnector
                 .hasAnyRows();
     }
 
-    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
+    @Test(groups = JDBC)
     public void selectMetadataCatalogs()
     {
         String sql = "select catalog_name, connector_id, connector_name from system.metadata.catalogs";

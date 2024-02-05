@@ -670,7 +670,7 @@ The built-in SQL data types use different Java types as carrier types.
 * - `BIGINT`
   - `long`
 * - `REAL`
-  - `double`
+  - `long`
 * - `DOUBLE`
   - `double`
 * - `DECIMAL`
@@ -732,6 +732,10 @@ the carrier type:
 - `getSlice(int field)`
 - `getObject(int field)`
 
+Values for the `real` type are encoded into `long` using the IEEE 754
+floating-point "single format" bit layout, with NaN preservation. This can be
+accomplished using the `java.lang.Float.floatToRawIntBits` static method.
+
 Values for the `timestamp(p) with time zone` and `time(p) with time zone`
 types of regular precision can be converted into `long` using static methods
 from the `io.trino.spi.type.DateTimeEncoding` class, like `pack()` or
@@ -772,13 +776,12 @@ private SqlMap encodeMap(Map<String, ?> map)
     MapType mapType = typeManager.getType(TypeSignature.mapType(
                             VARCHAR.getTypeSignature(),
                             VARCHAR.getTypeSignature()));
-    BlockBuilder values = mapType.createBlockBuilder(null, map != null ? map.size() : 0);
+    MapBlockBuilder values = mapType.createBlockBuilder(null, map != null ? map.size() : 0);
     if (map == null) {
         values.appendNull();
         return values.build().getObject(0, Block.class);
     }
-    BlockBuilder builder = values.beginBlockEntry();
-    builder.buildEntry((keyBuilder, valueBuilder) -> map.foreach((key, value) -> {
+    values.buildEntry((keyBuilder, valueBuilder) -> map.foreach((key, value) -> {
         VARCHAR.writeString(keyBuilder, key);
         if (value == null) {
             valueBuilder.appendNull();

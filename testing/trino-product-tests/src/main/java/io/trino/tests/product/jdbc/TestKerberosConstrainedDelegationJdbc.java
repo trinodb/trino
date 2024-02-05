@@ -28,8 +28,6 @@ import org.testng.annotations.Test;
 import javax.security.auth.Subject;
 
 import java.security.Principal;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -148,18 +146,12 @@ public class TestKerberosConstrainedDelegationJdbc
     {
         Subject authenticatedSubject = this.kerberosAuthentication.authenticate();
         Principal clientPrincipal = getOnlyElement(authenticatedSubject.getPrincipals());
-
-        try {
-            return Subject.doAs(authenticatedSubject,
-                    (PrivilegedExceptionAction<GSSCredential>) () ->
-                            gssManager.createCredential(
-                                    gssManager.createName(clientPrincipal.getName(), NT_USER_NAME),
-                                    DEFAULT_LIFETIME,
-                                    new Oid(KERBEROS_OID),
-                                    INITIATE_ONLY));
-        }
-        catch (PrivilegedActionException e) {
-            throw new RuntimeException(e.getCause());
-        }
+        return Subject.callAs(authenticatedSubject,
+                () ->
+                        gssManager.createCredential(
+                                gssManager.createName(clientPrincipal.getName(), NT_USER_NAME),
+                                DEFAULT_LIFETIME,
+                                new Oid(KERBEROS_OID),
+                                INITIATE_ONLY));
     }
 }

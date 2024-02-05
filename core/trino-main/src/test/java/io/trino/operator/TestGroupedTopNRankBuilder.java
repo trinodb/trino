@@ -19,8 +19,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,12 +38,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGroupedTopNRankBuilder
 {
-    @DataProvider
-    public static Object[][] produceRanking()
-    {
-        return new Object[][] {{true}, {false}};
-    }
-
     @Test
     public void testEmptyInput()
     {
@@ -74,8 +67,14 @@ public class TestGroupedTopNRankBuilder
         assertThat(groupedTopNBuilder.buildResult().hasNext()).isFalse();
     }
 
-    @Test(dataProvider = "produceRanking")
-    public void testSingleGroupTopN(boolean produceRanking)
+    @Test
+    public void testSingleGroupTopN()
+    {
+        testSingleGroupTopN(true);
+        testSingleGroupTopN(false);
+    }
+
+    private void testSingleGroupTopN(boolean produceRanking)
     {
         TypeOperators typeOperators = new TypeOperators();
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
@@ -133,8 +132,14 @@ public class TestGroupedTopNRankBuilder
         assertPageEquals(outputTypes, getOnlyElement(output), expected);
     }
 
-    @Test(dataProvider = "produceRanking")
-    public void testMultiGroupTopN(boolean produceRanking)
+    @Test
+    public void testMultiGroupTopN()
+    {
+        testMultiGroupTopN(true);
+        testMultiGroupTopN(false);
+    }
+
+    private void testMultiGroupTopN(boolean produceRanking)
     {
         TypeOperators typeOperators = new TypeOperators();
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);

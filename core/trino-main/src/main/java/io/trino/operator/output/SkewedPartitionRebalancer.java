@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.stream.IntStream;
@@ -86,12 +85,10 @@ public class SkewedPartitionRebalancer
     private final int taskBucketCount;
     private final long minPartitionDataProcessedRebalanceThreshold;
     private final long minDataProcessedRebalanceThreshold;
-    private final int maxPartitionsToRebalance;
 
     private final AtomicLongArray partitionRowCount;
     private final AtomicLong dataProcessed;
     private final AtomicLong dataProcessedAtLastRebalance;
-    private final AtomicInteger numOfRebalancedPartitions;
 
     @GuardedBy("this")
     private final long[] partitionDataSize;
@@ -158,12 +155,6 @@ public class SkewedPartitionRebalancer
         return (int) ceil((double) getQueryMaxMemoryPerNode(session).toBytes() / getMaxMemoryPerPartitionWriter(session).toBytes());
     }
 
-    public static int getScaleWritersMaxSkewedPartitions(Session session)
-    {
-        // Set the value of maxSkewedPartitions to scale to 60% of maximum number of writers possible per node.
-        return (int) (getMaxWritersBasedOnMemory(session) * 0.60);
-    }
-
     public static int getTaskCount(PartitioningScheme partitioningScheme)
     {
         // Todo: Handle skewness if there are more nodes/tasks than the buckets coming from connector
@@ -179,20 +170,17 @@ public class SkewedPartitionRebalancer
             int taskCount,
             int taskBucketCount,
             long minPartitionDataProcessedRebalanceThreshold,
-            long maxDataProcessedRebalanceThreshold,
-            int maxPartitionsToRebalance)
+            long maxDataProcessedRebalanceThreshold)
     {
         this.partitionCount = partitionCount;
         this.taskCount = taskCount;
         this.taskBucketCount = taskBucketCount;
         this.minPartitionDataProcessedRebalanceThreshold = minPartitionDataProcessedRebalanceThreshold;
         this.minDataProcessedRebalanceThreshold = max(minPartitionDataProcessedRebalanceThreshold, maxDataProcessedRebalanceThreshold);
-        this.maxPartitionsToRebalance = maxPartitionsToRebalance;
 
         this.partitionRowCount = new AtomicLongArray(partitionCount);
         this.dataProcessed = new AtomicLong();
         this.dataProcessedAtLastRebalance = new AtomicLong();
-        this.numOfRebalancedPartitions = new AtomicInteger();
 
         this.partitionDataSize = new long[partitionCount];
         this.partitionDataSizeAtLastRebalance = new long[partitionCount];
@@ -254,9 +242,7 @@ public class SkewedPartitionRebalancer
     private boolean shouldRebalance(long dataProcessed)
     {
         // Rebalance only when total bytes processed since last rebalance is greater than rebalance threshold.
-        // Check if the number of rebalanced partitions is less than maxPartitionsToRebalance.
-        return (dataProcessed - dataProcessedAtLastRebalance.get()) >= minDataProcessedRebalanceThreshold
-                && numOfRebalancedPartitions.get() < maxPartitionsToRebalance;
+        return (dataProcessed - dataProcessedAtLastRebalance.get()) >= minDataProcessedRebalanceThreshold;
     }
 
     private synchronized void rebalancePartitions(long dataProcessed)
@@ -317,7 +303,15 @@ public class SkewedPartitionRebalancer
         }
 
         for (int partition = 0; partition < partitionCount; partition++) {
-            partitionDataSize[partition] = (partitionRowCount.get(partition) * dataProcessed) / totalPartitionRowCount;
+            // Since we estimate the partitionDataSize based on partitionRowCount and total data processed. It is possible
+            // that the estimated partitionDataSize is slightly less than it was estimated at the last rebalance cycle.
+            // That's because for a given partition, row count hasn't increased, however overall data processed
+            // has increased. Therefore, we need to make sure that the estimated partitionDataSize should be
+            // at least partitionDataSizeAtLastRebalance. Otherwise, it will affect the ordering of minTaskBuckets
+            // priority queue.
+            partitionDataSize[partition] = max(
+                    (partitionRowCount.get(partition) * dataProcessed) / totalPartitionRowCount,
+                    partitionDataSize[partition]);
         }
     }
 
@@ -412,12 +406,6 @@ public class SkewedPartitionRebalancer
             return false;
         }
 
-        // If the number of rebalanced partitions is less than maxPartitionsToRebalance then assign
-        // the partition to the task.
-        if (numOfRebalancedPartitions.get() >= maxPartitionsToRebalance) {
-            return false;
-        }
-
         assignments.add(toTaskBucket);
 
         int newTaskCount = assignments.size();
@@ -438,8 +426,6 @@ public class SkewedPartitionRebalancer
             minTasks.addOrUpdate(taskBucket, Long.MAX_VALUE - estimatedTaskBucketDataSizeSinceLastRebalance[taskBucket.id]);
         }
 
-        // Increment the number of rebalanced partitions.
-        numOfRebalancedPartitions.incrementAndGet();
         log.debug("Rebalanced partition %s to task %s with taskCount %s", partitionId, toTaskBucket.taskId, assignments.size());
         return true;
     }

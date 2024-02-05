@@ -353,14 +353,14 @@ iceberg.catalog.type=rest
 iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
 ```
 
-The REST catalog does not support {doc}`views</sql/create-view>` or
-{doc}`materialized views</sql/create-materialized-view>`.
+The REST catalog does not support [view management](sql-view-management) or
+[materialized view management](sql-materialized-view-management).
 
 (iceberg-jdbc-catalog)=
 
 ### JDBC catalog
 
-The Iceberg REST catalog is supported for the Iceberg connector.  At a minimum,
+The Iceberg JDBC catalog is supported for the Iceberg connector.  At a minimum,
 `iceberg.jdbc-catalog.driver-class`, `iceberg.jdbc-catalog.connection-url`
 and `iceberg.jdbc-catalog.catalog-name` must be configured. When using any
 database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
@@ -370,6 +370,10 @@ directory.
 The JDBC catalog may have compatibility issues if Iceberg introduces breaking
 changes in the future. Consider the {ref}`REST catalog
 <iceberg-rest-catalog>` as an alternative solution.
+
+The JDBC catalog requires the metadata tables to already exist. 
+Refer to [Iceberg repository](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/jdbc/JdbcUtil.java)
+for creating those tables.
 :::
 
 At a minimum, `iceberg.jdbc-catalog.driver-class`,
@@ -390,8 +394,8 @@ iceberg.jdbc-catalog.connection-password=test
 iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
 ```
 
-The JDBC catalog does not support {doc}`views</sql/create-view>` or
-{doc}`materialized views</sql/create-materialized-view>`.
+The JDBC catalog does not support [view management](sql-view-management) or
+[materialized view management](sql-materialized-view-management).
 
 (iceberg-nessie-catalog)=
 
@@ -438,6 +442,9 @@ iceberg.catalog.type=nessie
 iceberg.nessie-catalog.uri=https://localhost:19120/api/v1
 iceberg.nessie-catalog.default-warehouse-dir=/tmp
 ```
+
+The Nessie catalog does not support [view management](sql-view-management) or
+[materialized view management](sql-materialized-view-management).
 
 (partition-projection)=
 

@@ -20,6 +20,7 @@ import io.trino.filesystem.TrinoInputStream;
 
 import java.io.IOException;
 
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 class MemoryInputStream
@@ -78,6 +79,7 @@ class MemoryInputStream
             throws IOException
     {
         ensureOpen();
+        checkFromIndexSize(destinationIndex, length, destination.length);
         return input.read(destination, destinationIndex, length);
     }
 

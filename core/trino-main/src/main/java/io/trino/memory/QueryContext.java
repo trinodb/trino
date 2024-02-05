@@ -63,6 +63,7 @@ public class QueryContext
     private final GcMonitor gcMonitor;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
+    private final ScheduledExecutorService timeoutExecutor;
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
@@ -86,6 +87,7 @@ public class QueryContext
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
+            ScheduledExecutorService timeoutExecutor,
             DataSize maxSpill,
             SpillSpaceTracker spillSpaceTracker)
     {
@@ -97,6 +99,7 @@ public class QueryContext
                 gcMonitor,
                 notificationExecutor,
                 yieldExecutor,
+                timeoutExecutor,
                 maxSpill,
                 spillSpaceTracker);
     }
@@ -109,6 +112,7 @@ public class QueryContext
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
+            ScheduledExecutorService timeoutExecutor,
             DataSize maxSpill,
             SpillSpaceTracker spillSpaceTracker)
     {
@@ -118,6 +122,7 @@ public class QueryContext
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
+        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.maxSpill = maxSpill.toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
         this.guaranteedMemory = guaranteedMemory;
@@ -220,12 +225,12 @@ public class QueryContext
         spillSpaceTracker.free(bytes);
     }
 
-    public synchronized MemoryPool getMemoryPool()
+    public MemoryPool getMemoryPool()
     {
         return memoryPool;
     }
 
-    public synchronized long getUserMemoryReservation()
+    public long getUserMemoryReservation()
     {
         return memoryPool.getQueryMemoryReservation(queryId);
     }
@@ -257,6 +262,7 @@ public class QueryContext
                 gcMonitor,
                 notificationExecutor,
                 yieldExecutor,
+                timeoutExecutor,
                 session,
                 taskMemoryContext,
                 notifyStatusChanged,

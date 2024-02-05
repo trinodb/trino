@@ -91,7 +91,7 @@ public final class KuduQueryRunnerFactory
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner runner = null;
+        QueryRunner runner = null;
         try {
             String kuduSchema = kuduSchemaEmulationPrefix.isPresent() ? "tpch" : "default";
             Session session = createSession(kuduSchema, kuduSessionProperties);
@@ -159,7 +159,7 @@ public final class KuduQueryRunnerFactory
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) createKuduQueryRunnerTpch(
+        QueryRunner queryRunner = createKuduQueryRunnerTpch(
                 new TestingKuduServer(),
                 Optional.empty(),
                 ImmutableMap.of(),

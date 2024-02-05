@@ -94,6 +94,7 @@ public class TestDruidConnectorTest
                     SUPPORTS_CREATE_SCHEMA,
                     SUPPORTS_CREATE_TABLE,
                     SUPPORTS_DELETE,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_INSERT,
                     SUPPORTS_RENAME_COLUMN,
                     SUPPORTS_RENAME_TABLE,
@@ -336,8 +337,8 @@ public class TestDruidConnectorTest
     {
         // override because Druid fails to prepare statement, while other connectors succeed in preparing statement and then fail because of no metadata available
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
-                .hasMessageContaining("Failed to get table handle for prepared query");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .failure().hasMessageContaining("Failed to get table handle for prepared query");
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 

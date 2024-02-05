@@ -13,19 +13,15 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 import io.trino.sql.parser.SqlParser;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HiveToTrinoTranslator.translateHiveViewToTrino;
@@ -104,33 +100,11 @@ public class TestHiveQlTranslation
     /**
      * Prepare all combinations of {@code n} of the given columns.
      */
-    private static Iterator<Object[]> getNColumns(int n, Map<String, String> columns)
+    private static List<String> getNColumns(int n, Collection<String> columns)
     {
-        Stream<String> hiveNames =
-                Sets.cartesianProduct(nCopies(n, columns.keySet())).stream()
-                        .map(names -> join(", ", names));
-
-        Stream<String> trinoNames =
-                Lists.cartesianProduct(nCopies(n, List.copyOf(columns.values()))).stream()
-                        .map(names -> join(", ", names));
-
-        return Streams.zip(hiveNames, trinoNames, (h, p) -> new Object[] {h, p}).iterator();
-    }
-
-    @DataProvider(name = "simple_hive_translation_columns")
-    public Iterator<Object[]> getSimpleColumns()
-    {
-        return Iterators.concat(
-                getNColumns(1, simpleColumnNames),
-                getNColumns(3, simpleColumnNames));
-    }
-
-    @DataProvider(name = "extended_hive_translation_columns")
-    public Iterator<Object[]> getExtendedColumns()
-    {
-        return Iterators.concat(
-                getNColumns(1, extendedColumnNames),
-                getNColumns(2, extendedColumnNames));
+        return Lists.cartesianProduct(nCopies(n, List.copyOf(columns))).stream()
+                .map(names -> join(", ", names))
+                .toList();
     }
 
     @Test
@@ -212,20 +186,44 @@ public class TestHiveQlTranslation
                 "SELECT '''' = '''' OR false");
     }
 
-    @Test(dataProvider = "simple_hive_translation_columns")
-    public void testSimpleColumns(String hiveColumn, String trinoColumn)
+    @Test
+    public void testSimpleColumns()
     {
-        assertTranslation(
-                format("SELECT %s FROM sometable", hiveColumn),
-                format("SELECT %s FROM sometable", trinoColumn));
+        List<String> hiveColumns = ImmutableList.<String>builder()
+                .addAll(getNColumns(1, simpleColumnNames.keySet()))
+                .addAll(getNColumns(3, simpleColumnNames.keySet()))
+                .build();
+
+        List<String> trinoColumns = ImmutableList.<String>builder()
+                .addAll(getNColumns(1, simpleColumnNames.values()))
+                .addAll(getNColumns(3, simpleColumnNames.values()))
+                .build();
+
+        for (int i = 0; i < hiveColumns.size(); i++) {
+            assertTranslation(
+                    format("SELECT %s FROM sometable", hiveColumns.get(i)),
+                    format("SELECT %s FROM sometable", trinoColumns.get(i)));
+        }
     }
 
-    @Test(dataProvider = "extended_hive_translation_columns")
-    public void testExtendedColumns(String hiveColumn, String trinoColumn)
+    @Test
+    public void testExtendedColumns()
     {
-        assertTranslation(
-                format("SELECT %s FROM sometable", hiveColumn),
-                format("SELECT %s FROM sometable", trinoColumn));
+        List<String> hiveColumns = ImmutableList.<String>builder()
+                .addAll(getNColumns(1, extendedColumnNames.keySet()))
+                .addAll(getNColumns(3, extendedColumnNames.keySet()))
+                .build();
+
+        List<String> trinoColumns = ImmutableList.<String>builder()
+                .addAll(getNColumns(1, extendedColumnNames.values()))
+                .addAll(getNColumns(3, extendedColumnNames.values()))
+                .build();
+
+        for (int i = 0; i < hiveColumns.size(); i++) {
+            assertTranslation(
+                    format("SELECT %s FROM sometable", hiveColumns.get(i)),
+                    format("SELECT %s FROM sometable", trinoColumns.get(i)));
+        }
     }
 
     @Test

@@ -73,6 +73,7 @@ import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -103,7 +104,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.function.Function;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -144,7 +145,7 @@ import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class ThriftHiveMetastore
+public final class ThriftHiveMetastore
         implements ThriftMetastore
 {
     private static final Logger log = Logger.get(ThriftHiveMetastore.class);
@@ -509,13 +510,13 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Table originalTable = getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         PartitionStatistics currentStatistics = getTableStatistics(originalTable);
-        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+        PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, statisticsUpdate);
 
         Table modifiedTable = originalTable.deepCopy();
         HiveBasicStatistics basicStatistics = updatedStatistics.getBasicStatistics();
@@ -596,7 +597,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(Table table, String partitionName, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         List<Partition> partitions = getPartitionsByNames(table.getDbName(), table.getTableName(), ImmutableList.of(partitionName));
         if (partitions.isEmpty()) {
@@ -609,7 +610,7 @@ public class ThriftHiveMetastore
 
         PartitionStatistics currentStatistics = requireNonNull(
                 getPartitionStatistics(table, partitions).get(partitionName), "getPartitionStatistics() did not return statistics for partition");
-        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+        PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, statisticsUpdate);
 
         Partition modifiedPartition = originalPartition.deepCopy();
         HiveBasicStatistics basicStatistics = updatedStatistics.getBasicStatistics();
@@ -1062,13 +1063,27 @@ public class ThriftHiveMetastore
     @Override
     public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
+        AtomicInteger attemptCount = new AtomicInteger();
         try {
             retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("dropTable", stats.getDropTable().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            Table table = client.getTable(databaseName, tableName);
+                            attemptCount.incrementAndGet();
+                            Table table;
+                            try {
+                                table = client.getTable(databaseName, tableName);
+                            }
+                            catch (NoSuchObjectException e) {
+                                if (attemptCount.get() == 1) {
+                                    // Throw exception only on first attempt.
+                                    throw e;
+                                }
+                                // If table is not found on consecutive attempts it was probably dropped on first attempt and timeout occurred.
+                                // Exception in such case can be safely ignored and dropping table is finished.
+                                return null;
+                            }
                             client.dropTable(databaseName, tableName, deleteData);
                             String tableLocation = table.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {

@@ -83,7 +83,7 @@ public class TestBinaryFileSpiller
         BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
         singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig, nodeSpillConfig);
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
-        PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, nodeSpillConfig.isSpillCompressionEnabled());
+        PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, nodeSpillConfig.getSpillCompressionCodec());
         serializer = pagesSerdeFactory.createSerializer(Optional.empty());
         memoryContext = newSimpleAggregatedMemoryContext();
     }

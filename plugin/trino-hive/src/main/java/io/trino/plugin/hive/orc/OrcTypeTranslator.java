@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
+import io.trino.plugin.hive.coercions.DateCoercer.DateToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.DoubleToVarcharCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToDoubleCoercer;
@@ -25,6 +26,7 @@ import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCo
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.coercions.VarcharToDoubleCoercer;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -34,6 +36,7 @@ import java.util.Optional;
 
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BOOLEAN;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BYTE;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.DATE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.DOUBLE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.INT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
@@ -41,6 +44,7 @@ import static io.trino.orc.metadata.OrcType.OrcTypeKind.SHORT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRING;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.VARCHAR;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createIntegerNumberToDecimalCoercer;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -62,6 +66,9 @@ public final class OrcTypeTranslator
                 return Optional.of(new LongTimestampToDateCoercer(TIMESTAMP_NANOS, toDateType));
             }
             return Optional.empty();
+        }
+        if (fromOrcType == DATE && toTrinoType instanceof VarcharType varcharType) {
+            return Optional.of(new DateToVarcharCoercer(varcharType));
         }
         if (isVarcharType(fromOrcType)) {
             if (toTrinoType instanceof TimestampType timestampType) {
@@ -96,6 +103,20 @@ public final class OrcTypeTranslator
             }
             if (fromOrcType == LONG) {
                 return Optional.of(new IntegerNumberToDoubleCoercer<>(BIGINT));
+            }
+        }
+        if (toTrinoType instanceof DecimalType decimalType) {
+            if (fromOrcType == BYTE) {
+                return Optional.of(createIntegerNumberToDecimalCoercer(TINYINT, decimalType));
+            }
+            if (fromOrcType == SHORT) {
+                return Optional.of(createIntegerNumberToDecimalCoercer(SMALLINT, decimalType));
+            }
+            if (fromOrcType == INT) {
+                return Optional.of(createIntegerNumberToDecimalCoercer(INTEGER, decimalType));
+            }
+            if (fromOrcType == LONG) {
+                return Optional.of(createIntegerNumberToDecimalCoercer(BIGINT, decimalType));
             }
         }
         return Optional.empty();

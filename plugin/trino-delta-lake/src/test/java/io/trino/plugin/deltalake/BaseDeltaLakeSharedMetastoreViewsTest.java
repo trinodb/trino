@@ -60,15 +60,15 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
                 .setCatalog(DELTA_CATALOG_NAME)
                 .setSchema(SCHEMA)
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
+        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("shared_data");
         this.metastore = createTestMetastore(dataDirectory);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog(DELTA_CATALOG_NAME, "delta_lake");
 
-        queryRunner.installPlugin(new TestingHivePlugin(metastore));
+        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory, metastore));
 
         ImmutableMap<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                 .put("hive.allow-drop-table", "true")

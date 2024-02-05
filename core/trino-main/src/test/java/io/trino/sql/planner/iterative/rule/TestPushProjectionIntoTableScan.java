@@ -41,8 +41,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.Expression;
@@ -59,6 +59,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -67,7 +68,6 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.TypeProvider.viewOf;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -77,6 +77,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPushProjectionIntoTableScan
@@ -127,7 +128,7 @@ public class TestPushProjectionIntoTableScan
         // Create catalog with applyProjection enabled
         MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
-            TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(ruleTester.getPlannerContext());
+            IrTypeAnalyzer typeAnalyzer = new IrTypeAnalyzer(ruleTester.getPlannerContext());
 
             // Prepare project node symbols and types
             Symbol identity = new Symbol("symbol_identity");
@@ -152,15 +153,16 @@ public class TestPushProjectionIntoTableScan
                     .buildOrThrow();
 
             // Compute expected symbols after applyProjection
-            TransactionId transactionId = ruleTester.getQueryRunner().getTransactionManager().beginTransaction(false);
-            Session session = MOCK_SESSION.beginTransactionId(transactionId, ruleTester.getQueryRunner().getTransactionManager(), ruleTester.getQueryRunner().getAccessControl());
+            TransactionId transactionId = ruleTester.getPlanTester().getTransactionManager().beginTransaction(false);
+            Session session = MOCK_SESSION.beginTransactionId(transactionId, ruleTester.getPlanTester().getTransactionManager(), ruleTester.getPlanTester().getAccessControl());
             ImmutableMap<Symbol, String> connectorNames = inputProjections.entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, e -> translate(session, e.getValue(), viewOf(types), ruleTester.getPlannerContext(), typeAnalyzer).get().toString()));
             ImmutableMap<Symbol, String> newNames = ImmutableMap.of(
                     identity, "projected_variable_" + connectorNames.get(identity),
                     dereference, "projected_dereference_" + connectorNames.get(dereference),
-                    constant, "projected_constant_" + connectorNames.get(constant),
                     call, "projected_call_" + connectorNames.get(call));
+            ImmutableMap<Symbol, Expression> constants = ImmutableMap.of(
+                    constant, requireNonNull(inputProjections.get(constant)));
             Map<String, ColumnHandle> expectedColumns = newNames.entrySet().stream()
                     .collect(toImmutableMap(
                             Map.Entry::getValue,
@@ -185,10 +187,18 @@ public class TestPushProjectionIntoTableScan
                                                 .build()))));
                     })
                     .matches(project(
-                            newNames.entrySet().stream()
+                            Stream.concat(newNames.entrySet().stream(), constants.entrySet().stream())
                                     .collect(toImmutableMap(
                                             e -> e.getKey().getName(),
-                                            e -> expression(symbolReference(e.getValue())))),
+                                            e -> {
+                                                if (e.getValue() instanceof String value) {
+                                                    return expression(symbolReference(value));
+                                                }
+                                                if (e.getValue() instanceof Expression value) {
+                                                    return expression(value);
+                                                }
+                                                throw new IllegalArgumentException("Unexpected value type: " + e.getValue().getClass().getName());
+                                            })),
                             tableScan(
                                     new MockConnectorTableHandle(
                                             new SchemaTableName(TEST_SCHEMA, "projected_" + TEST_TABLE),
@@ -199,12 +209,6 @@ public class TestPushProjectionIntoTableScan
                                             .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue()::equals)),
                                     Optional.of(PlanNodeStatsEstimate.builder()
                                             .setOutputRowCount(42)
-                                            .addSymbolStatistics(new Symbol(newNames.get(constant)), SymbolStatsEstimate.builder()
-                                                    .setDistinctValuesCount(1)
-                                                    .setNullsFraction(0)
-                                                    .setLowValue(5)
-                                                    .setHighValue(5)
-                                                    .build())
                                             .addSymbolStatistics(new Symbol(newNames.get(call).toLowerCase(ENGLISH)), SymbolStatsEstimate.builder()
                                                     .setDistinctValuesCount(1)
                                                     .setNullsFraction(0)
@@ -297,11 +301,11 @@ public class TestPushProjectionIntoTableScan
             else if (projection instanceof FieldDereference) {
                 variablePrefix = "projected_dereference_";
             }
-            else if (projection instanceof Constant) {
-                variablePrefix = "projected_constant_";
-            }
             else if (projection instanceof Call) {
                 variablePrefix = "projected_call_";
+            }
+            else if (projection instanceof Constant) {
+                throw new UnsupportedOperationException("constant expression should not be pushed to the connector");
             }
             else {
                 throw new UnsupportedOperationException();
@@ -325,7 +329,7 @@ public class TestPushProjectionIntoTableScan
     private static PushProjectionIntoTableScan createRule(RuleTester tester)
     {
         PlannerContext plannerContext = tester.getPlannerContext();
-        TypeAnalyzer typeAnalyzer = tester.getTypeAnalyzer();
+        IrTypeAnalyzer typeAnalyzer = tester.getTypeAnalyzer();
         return new PushProjectionIntoTableScan(
                 plannerContext,
                 typeAnalyzer,

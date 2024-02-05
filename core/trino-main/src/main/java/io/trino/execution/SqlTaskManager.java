@@ -123,6 +123,7 @@ public class SqlTaskManager
 
     private final ScheduledExecutorService taskManagementExecutor;
     private final ScheduledExecutorService driverYieldExecutor;
+    private final ScheduledExecutorService driverTimeoutExecutor;
 
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
@@ -216,6 +217,7 @@ public class SqlTaskManager
 
         this.taskManagementExecutor = taskManagementExecutor.getExecutor();
         this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
+        this.driverTimeoutExecutor = newScheduledThreadPool(config.getDriverTimeoutThreads(), threadsNamed("task-driver-timeout-%s"));
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, tracer, config);
 
@@ -269,6 +271,7 @@ public class SqlTaskManager
                 gcMonitor,
                 taskNotificationExecutor,
                 driverYieldExecutor,
+                driverTimeoutExecutor,
                 maxQuerySpillPerNode,
                 localSpillManager.getSpillSpaceTracker());
     }

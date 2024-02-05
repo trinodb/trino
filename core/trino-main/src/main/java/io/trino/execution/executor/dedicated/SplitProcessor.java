@@ -106,7 +106,7 @@ class SplitProcessor
             }
         }
         catch (Exception e) {
-            LOG.error(e);
+            LOG.debug(e, e.getMessage());
         }
         finally {
             if (processSpan != null) {

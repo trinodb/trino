@@ -40,10 +40,10 @@ import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -94,8 +94,11 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestHashAggregationOperator
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
@@ -107,58 +110,36 @@ public class TestHashAggregationOperator
 
     private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
 
-    private ExecutorService executor;
-    private ScheduledExecutorService scheduledExecutor;
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final TypeOperators typeOperators = new TypeOperators();
     private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
-    private DummySpillerFactory spillerFactory;
 
-    @BeforeMethod
-    public void setUp()
-    {
-        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-        spillerFactory = new DummySpillerFactory();
-    }
-
-    @AfterMethod(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
-        spillerFactory = null;
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
     }
 
-    @DataProvider(name = "hashEnabled")
-    public static Object[][] hashEnabled()
+    @Test
+    public void testHashAggregation()
     {
-        return new Object[][] {{true}, {false}};
+        testHashAggregation(true, true, true, 8, Integer.MAX_VALUE);
+        testHashAggregation(true, true, false, 8, Integer.MAX_VALUE);
+        testHashAggregation(false, false, false, 0, 0);
+        testHashAggregation(false, true, true, 0, 0);
+        testHashAggregation(false, true, false, 0, 0);
+        testHashAggregation(false, true, true, 8, 0);
+        testHashAggregation(false, true, false, 8, 0);
+        testHashAggregation(false, true, true, 8, Integer.MAX_VALUE);
+        testHashAggregation(false, true, false, 8, Integer.MAX_VALUE);
     }
 
-    @DataProvider(name = "hashEnabledAndMemoryLimitForMergeValues")
-    public static Object[][] hashEnabledAndMemoryLimitForMergeValuesProvider()
+    private void testHashAggregation(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        return new Object[][] {
-                {true, true, true, 8, Integer.MAX_VALUE},
-                {true, true, false, 8, Integer.MAX_VALUE},
-                {false, false, false, 0, 0},
-                {false, true, true, 0, 0},
-                {false, true, false, 0, 0},
-                {false, true, true, 8, 0},
-                {false, true, false, 8, 0},
-                {false, true, true, 8, Integer.MAX_VALUE},
-                {false, true, false, 8, Integer.MAX_VALUE}};
-    }
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
 
-    @DataProvider
-    public Object[][] dataType()
-    {
-        return new Object[][] {{VARCHAR}, {BIGINT}};
-    }
-
-    @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregation(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
-    {
         // make operator produce multiple pages during finish phase
         int numberOfRows = 40_000;
         TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("count", fromTypes(VARCHAR));
@@ -215,9 +196,24 @@ public class TestHashAggregationOperator
                 .isTrue();
     }
 
-    @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    @Test
+    public void testHashAggregationWithGlobals()
     {
+        testHashAggregationWithGlobals(true, true, true, 8, Integer.MAX_VALUE);
+        testHashAggregationWithGlobals(true, true, false, 8, Integer.MAX_VALUE);
+        testHashAggregationWithGlobals(false, false, false, 0, 0);
+        testHashAggregationWithGlobals(false, true, true, 0, 0);
+        testHashAggregationWithGlobals(false, true, false, 0, 0);
+        testHashAggregationWithGlobals(false, true, true, 8, 0);
+        testHashAggregationWithGlobals(false, true, false, 8, 0);
+        testHashAggregationWithGlobals(false, true, true, 8, Integer.MAX_VALUE);
+        testHashAggregationWithGlobals(false, true, false, 8, Integer.MAX_VALUE);
+    }
+
+    private void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("count", fromTypes(VARCHAR));
         TestingAggregationFunction countBooleanColumn = FUNCTION_RESOLUTION.getAggregateFunction("count", fromTypes(BOOLEAN));
         TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
@@ -263,9 +259,24 @@ public class TestHashAggregationOperator
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(groupByChannels.size()), revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    @Test
+    public void testHashAggregationMemoryReservation()
     {
+        testHashAggregationMemoryReservation(true, true, true, 8, Integer.MAX_VALUE);
+        testHashAggregationMemoryReservation(true, true, false, 8, Integer.MAX_VALUE);
+        testHashAggregationMemoryReservation(false, false, false, 0, 0);
+        testHashAggregationMemoryReservation(false, true, true, 0, 0);
+        testHashAggregationMemoryReservation(false, true, false, 0, 0);
+        testHashAggregationMemoryReservation(false, true, true, 8, 0);
+        testHashAggregationMemoryReservation(false, true, false, 8, 0);
+        testHashAggregationMemoryReservation(false, true, true, 8, Integer.MAX_VALUE);
+        testHashAggregationMemoryReservation(false, true, false, 8, Integer.MAX_VALUE);
+    }
+
+    private void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         TestingAggregationFunction arrayAggColumn = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
 
         List<Integer> hashChannels = Ints.asList(1);
@@ -308,8 +319,19 @@ public class TestHashAggregationOperator
         assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getRevocableMemoryReservation().toBytes()).isEqualTo(0);
     }
 
-    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 10B.*")
-    public void testMemoryLimit(boolean hashEnabled)
+    @Test
+    public void testMemoryLimit()
+    {
+        assertThatThrownBy(() -> testMemoryLimit(true))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of 10B.*");
+
+        assertThatThrownBy(() -> testMemoryLimit(false))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of 10B.*");
+    }
+
+    private void testMemoryLimit(boolean hashEnabled)
     {
         TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
 
@@ -347,9 +369,24 @@ public class TestHashAggregationOperator
         toPages(operatorFactory, driverContext, input);
     }
 
-    @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashBuilderResize(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    @Test
+    public void testHashBuilderResize()
     {
+        testHashBuilderResize(true, true, true, 8, Integer.MAX_VALUE);
+        testHashBuilderResize(true, true, false, 8, Integer.MAX_VALUE);
+        testHashBuilderResize(false, false, false, 0, 0);
+        testHashBuilderResize(false, true, true, 0, 0);
+        testHashBuilderResize(false, true, false, 0, 0);
+        testHashBuilderResize(false, true, true, 8, 0);
+        testHashBuilderResize(false, true, false, 8, 0);
+        testHashBuilderResize(false, true, true, 8, Integer.MAX_VALUE);
+        testHashBuilderResize(false, true, false, 8, Integer.MAX_VALUE);
+    }
+
+    private void testHashBuilderResize(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
         builder.build();
@@ -388,7 +425,13 @@ public class TestHashAggregationOperator
         toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "dataType")
+    @Test
+    public void testMemoryReservationYield()
+    {
+        testMemoryReservationYield(VARCHAR);
+        testMemoryReservationYield(BIGINT);
+    }
+
     public void testMemoryReservationYield(Type type)
     {
         List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
@@ -426,8 +469,19 @@ public class TestHashAggregationOperator
         assertThat(count).isEqualTo(6_000 * 600);
     }
 
-    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 3MB.*")
-    public void testHashBuilderResizeLimit(boolean hashEnabled)
+    @Test
+    public void testHashBuilderResizeLimit()
+    {
+        assertThatThrownBy(() -> testHashBuilderResizeLimit(true))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of 3MB.*");
+
+        assertThatThrownBy(() -> testHashBuilderResizeLimit(false))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of 3MB.*");
+    }
+
+    private void testHashBuilderResizeLimit(boolean hashEnabled)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(5_000_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
@@ -464,8 +518,14 @@ public class TestHashAggregationOperator
         toPages(operatorFactory, driverContext, input);
     }
 
-    @Test(dataProvider = "hashEnabled")
-    public void testMultiSliceAggregationOutput(boolean hashEnabled)
+    @Test
+    public void testMultiSliceAggregationOutput()
+    {
+        testMultiSliceAggregationOutput(true);
+        testMultiSliceAggregationOutput(false);
+    }
+
+    private void testMultiSliceAggregationOutput(boolean hashEnabled)
     {
         // estimate the number of entries required to create 1.5 pages of results
         // See InMemoryHashAggregationBuilder.buildTypes()
@@ -499,8 +559,15 @@ public class TestHashAggregationOperator
         assertThat(toPages(operatorFactory, createDriverContext(), input).size()).isEqualTo(2);
     }
 
-    @Test(dataProvider = "hashEnabled")
-    public void testMultiplePartialFlushes(boolean hashEnabled)
+    @Test
+    public void testMultiplePartialFlushes()
+            throws Exception
+    {
+        testMultiplePartialFlushes(true);
+        testMultiplePartialFlushes(false);
+    }
+
+    private void testMultiplePartialFlushes(boolean hashEnabled)
             throws Exception
     {
         List<Integer> hashChannels = Ints.asList(0);
@@ -584,6 +651,8 @@ public class TestHashAggregationOperator
     @Test
     public void testMergeWithMemorySpill()
     {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
 
         int smallPagesSpillThresholdSize = 150000;

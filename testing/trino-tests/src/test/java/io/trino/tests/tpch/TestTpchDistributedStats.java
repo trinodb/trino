@@ -15,7 +15,7 @@ package io.trino.tests.tpch;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.ColumnNaming;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.statistics.StatisticsAssertion;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
@@ -46,7 +46,7 @@ public class TestTpchDistributedStats
     public void setup()
             throws Exception
     {
-        DistributedQueryRunner runner = TpchQueryRunnerBuilder.builder()
+        QueryRunner runner = TpchQueryRunnerBuilder.builder()
                 .amendSession(builder -> builder
                         // Stats for non-EXPLAIN queries are not collected by default
                         .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true"))

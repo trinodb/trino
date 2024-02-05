@@ -47,11 +47,18 @@ while getopts ":a:h:r:j:" o; do
 done
 shift $((OPTIND - 1))
 
+function check_environment() {
+    if ! command -v jq &> /dev/null; then
+        echo >&2 "Please install jq"
+        exit 1
+    fi
+}
+
 function temurin_jdk_link() {
   local JDK_VERSION="${1}"
   local ARCH="${2}"
 
-  versionsUrl="https://api.adoptium.net/v3/info/release_names?heap_size=normal&image_type=jdk&os=linux&page=0&page_size=20&project=jdk&release_type=ga&semver=false&sort_method=DEFAULT&sort_order=ASC&vendor=eclipse&version=%28${JDK_VERSION}%2C%5D"
+  versionsUrl="https://api.adoptium.net/v3/info/release_names?heap_size=normal&image_type=jdk&os=linux&page=0&page_size=20&project=jdk&release_type=ga&semver=false&sort_method=DEFAULT&sort_order=DESC&vendor=eclipse&version=%28${JDK_VERSION}%2C%5D"
   if ! result=$(curl -fLs "$versionsUrl" -H 'accept: application/json'); then
     echo >&2 "Failed to fetch release names for JDK version [${JDK_VERSION}, ) from Temurin API : $result"
     exit 1
@@ -78,6 +85,8 @@ function temurin_jdk_link() {
     ;;
   esac
 }
+
+check_environment
 
 if [ -n "$TRINO_VERSION" ]; then
     echo "🎣 Downloading server and client artifacts for release version ${TRINO_VERSION}"

@@ -36,6 +36,6 @@ public class HudiConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, Optional.empty(), Optional.empty());
+        return createConnector(catalogName, config, context, Optional.empty());
     }
 }

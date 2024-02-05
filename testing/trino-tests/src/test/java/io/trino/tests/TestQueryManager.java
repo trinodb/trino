@@ -21,16 +21,13 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.TestingSessionContext;
+import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -48,64 +45,48 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
+@Execution(SAME_THREAD) // run single threaded to avoid creating multiple query runners at once
 public class TestQueryManager
 {
-    private DistributedQueryRunner queryRunner;
-
-    @BeforeAll
-    public void setUp()
-            throws Exception
-    {
-        queryRunner = TpchQueryRunnerBuilder.builder().build();
-    }
-
-    @AfterAll
-    public void tearDown()
-    {
-        queryRunner.close();
-        queryRunner = null;
-    }
-
     @Test
     @Timeout(60)
     public void testFailQuery()
             throws Exception
     {
-        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-        QueryId queryId = dispatchManager.createQueryId();
-        dispatchManager.createQuery(
-                queryId,
-                Span.getInvalid(),
-                Slug.createNew(),
-                TestingSessionContext.fromSession(TEST_SESSION),
-                "SELECT * FROM lineitem")
-                .get();
+        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+            DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+            QueryId queryId = dispatchManager.createQueryId();
+            dispatchManager.createQuery(
+                            queryId,
+                            Span.getInvalid(),
+                            Slug.createNew(),
+                            SessionContext.fromSession(TEST_SESSION),
+                            "SELECT * FROM lineitem")
+                    .get();
 
-        // wait until query starts running
-        while (true) {
-            QueryState state = dispatchManager.getQueryInfo(queryId).getState();
-            if (state.isDone()) {
-                fail("unexpected query state: " + state);
+            // wait until query starts running
+            while (true) {
+                QueryState state = dispatchManager.getQueryInfo(queryId).getState();
+                if (state.isDone()) {
+                    fail("unexpected query state: " + state);
+                }
+                if (state == RUNNING) {
+                    break;
+                }
+                Thread.sleep(100);
             }
-            if (state == RUNNING) {
-                break;
-            }
-            Thread.sleep(100);
+
+            // cancel query
+            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+            queryManager.failQuery(queryId, new TrinoException(GENERIC_INTERNAL_ERROR, "mock exception"));
+            QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+            assertThat(queryInfo.getState()).isEqualTo(FAILED);
+            assertThat(queryInfo.getErrorCode()).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode());
+            assertThat(queryInfo.getFailureInfo()).isNotNull();
+            assertThat(queryInfo.getFailureInfo().getMessage()).isEqualTo("mock exception");
         }
-
-        // cancel query
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        queryManager.failQuery(queryId, new TrinoException(GENERIC_INTERNAL_ERROR, "mock exception"));
-        QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
-        assertThat(queryInfo.getState()).isEqualTo(FAILED);
-        assertThat(queryInfo.getErrorCode()).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode());
-        assertThat(queryInfo.getFailureInfo()).isNotNull();
-        assertThat(queryInfo.getFailureInfo().getMessage()).isEqualTo("mock exception");
     }
 
     @Test
@@ -113,7 +94,7 @@ public class TestQueryManager
     public void testQueryCpuLimit()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().addExtraProperty("query.max-cpu-time", "1ms").build()) {
+        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().addExtraProperty("query.max-cpu-time", "1ms").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM lineitem");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
@@ -128,7 +109,7 @@ public class TestQueryManager
     public void testQueryScanExceeded()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().addExtraProperty("query.max-scan-physical-bytes", "0B").build()) {
+        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().addExtraProperty("query.max-scan-physical-bytes", "0B").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT * FROM system.runtime.nodes");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
@@ -143,7 +124,7 @@ public class TestQueryManager
     public void testQueryScanExceededSession()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             Session session = testSessionBuilder()
                     .setCatalog("tpch")
                     .setSchema(TINY_SCHEMA_NAME)

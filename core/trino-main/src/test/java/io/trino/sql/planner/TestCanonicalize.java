@@ -70,12 +70,12 @@ public class TestCanonicalize
                                         .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
                                 values("A"))),
                 ImmutableList.of(
-                        new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                        new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
                         new IterativeOptimizer(
-                                getQueryRunner().getPlannerContext(),
+                                getPlanTester().getPlannerContext(),
                                 new RuleStatsRecorder(),
-                                getQueryRunner().getStatsCalculator(),
-                                getQueryRunner().getCostCalculator(),
+                                getPlanTester().getStatsCalculator(),
+                                getPlanTester().getCostCalculator(),
                                 ImmutableSet.of(new RemoveRedundantIdentityProjections()))));
     }
 }

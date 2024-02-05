@@ -30,7 +30,6 @@ import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusQ
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestPrometheusIntegration
         extends AbstractTestQueryFramework
@@ -129,7 +128,6 @@ public class TestPrometheusIntegration
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         int numSplits = splits.getNextBatch(NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits().size();
-        assertEquals(numSplits, config.getMaxQueryRangeDuration().getValue(TimeUnit.SECONDS) / config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS),
-                0.001);
+        assertThat((double) numSplits).isEqualTo(config.getMaxQueryRangeDuration().getValue(TimeUnit.SECONDS) / config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS));
     }
 }

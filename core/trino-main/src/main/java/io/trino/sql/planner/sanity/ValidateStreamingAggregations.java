@@ -20,8 +20,8 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.LocalProperties;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
@@ -47,7 +47,7 @@ public class ValidateStreamingAggregations
     public void validate(PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
@@ -59,12 +59,12 @@ public class ValidateStreamingAggregations
     {
         private final Session session;
         private final PlannerContext plannerContext;
-        private final TypeAnalyzer typeAnalyzer;
+        private final IrTypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
 
         private Visitor(Session session,
                 PlannerContext plannerContext,
-                TypeAnalyzer typeAnalyzer,
+                IrTypeAnalyzer typeAnalyzer,
                 TypeProvider types)
         {
             this.session = session;

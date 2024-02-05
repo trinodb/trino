@@ -15,9 +15,12 @@ package io.trino.plugin.exchange.filesystem;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
 import io.trino.spi.exchange.ExchangeManager;
+import io.trino.spi.exchange.ExchangeManagerContext;
 import io.trino.spi.exchange.ExchangeManagerFactory;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -37,7 +40,7 @@ public class FileSystemExchangeManagerFactory
     }
 
     @Override
-    public ExchangeManager create(Map<String, String> config)
+    public ExchangeManager create(Map<String, String> config, ExchangeManagerContext context)
     {
         requireNonNull(config, "config is null");
 
@@ -45,7 +48,11 @@ public class FileSystemExchangeManagerFactory
                 new MBeanModule(),
                 new MBeanServerModule(),
                 new PrefixObjectNameGeneratorModule("io.trino.plugin.exchange.filesystem", "trino.plugin.exchange.filesystem"),
-                new FileSystemExchangeModule());
+                new FileSystemExchangeModule(),
+                binder -> {
+                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
+                });
 
         Injector injector = app
                 .doNotInitializeLogging()

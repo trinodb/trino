@@ -27,7 +27,9 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("retry-policy", "TASK")
                 .put("retry-initial-delay", "50ms")
                 .put("retry-max-delay", "100ms")
+                .put("fault-tolerant-execution-min-partition-count", "4")
                 .put("fault-tolerant-execution-max-partition-count", "5")
+                .put("fault-tolerant-execution-min-partition-count-for-write", "4")
                 .put("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-min", "5MB")
                 .put("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-max", "10MB")
                 .put("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min", "10MB")
@@ -40,8 +42,7 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 // to trigger spilling
                 .put("exchange.deduplication-buffer-size", "1kB")
                 .put("fault-tolerant-execution-task-memory", "1GB")
-                // limit number of threads to detect potential thread leaks
-                .put("query.executor-pool-size", "10")
+
                 // enable exchange compression to follow production deployment recommendations
                 .put("exchange.compression-enabled", "true")
                 .put("max-tasks-waiting-for-execution-per-query", "2")

@@ -15,9 +15,10 @@ package io.trino.execution.resourcegroups.db;
 
 import io.trino.plugin.resourcegroups.db.H2ResourceGroupsDao;
 import io.trino.spi.QueryId;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.execution.QueryRunnerUtil.createQuery;
 import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
@@ -29,7 +30,9 @@ import static io.trino.execution.resourcegroups.db.H2TestUtil.adhocSession;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.createQueryRunner;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.getDao;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.getDbConfigUrl;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // run single threaded to avoid creating multiple query runners at once
 public class TestEnvironments
 {
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
@@ -41,7 +44,7 @@ public class TestEnvironments
     {
         String dbConfigUrl = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        try (DistributedQueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT)) {
+        try (QueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT)) {
             QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
             waitForQueryState(runner, firstQuery, RUNNING);
             QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
@@ -56,7 +59,7 @@ public class TestEnvironments
     {
         String dbConfigUrl = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        try (DistributedQueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT_2)) {
+        try (QueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT_2)) {
             QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
             waitForQueryState(runner, firstQuery, RUNNING);
             QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);

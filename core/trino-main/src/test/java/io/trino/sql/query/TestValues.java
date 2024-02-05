@@ -19,7 +19,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -108,13 +107,13 @@ public class TestValues
     @Test
     public void testFailingExpression()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.query("VALUES 0 / 0"))
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.query("VALUES 0 / 0"))
+                .failure().hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(() -> assertions.query("VALUES CASE 1 WHEN 0 THEN true WHEN 0 / 0 THEN false END"))
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.query("VALUES CASE 1 WHEN 0 THEN true WHEN 0 / 0 THEN false END"))
+                .failure().hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(() -> assertions.query("VALUES IF(0 / 0 > 0, true, false)"))
-                .hasErrorCode(DIVISION_BY_ZERO);
+        assertThat(assertions.query("VALUES IF(0 / 0 > 0, true, false)"))
+                .failure().hasErrorCode(DIVISION_BY_ZERO);
     }
 }

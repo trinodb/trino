@@ -46,6 +46,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -76,8 +77,10 @@ import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingTransactionHandle;
 import io.trino.transaction.TestingTransactionManager;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -103,7 +106,6 @@ import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.or;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -111,12 +113,15 @@ import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.tests.BogusType.BOGUS;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestEffectivePredicateExtractor
 {
     private static final Symbol A = new Symbol("a");
@@ -168,7 +173,7 @@ public class TestEffectivePredicateExtractor
     };
     private final PlannerContext plannerContext = plannerContextBuilder().withMetadata(metadata).build();
 
-    private final TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(plannerContext);
+    private final IrTypeAnalyzer typeAnalyzer = new IrTypeAnalyzer(plannerContext);
     private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(plannerContext), plannerContext, true);
     private final EffectivePredicateExtractor effectivePredicateExtractorWithoutTableProperties = new EffectivePredicateExtractor(new DomainTranslator(plannerContext), plannerContext, false);
 
@@ -176,7 +181,7 @@ public class TestEffectivePredicateExtractor
     private TableScanNode baseTableScan;
     private ExpressionIdentityNormalizer expressionNormalizer;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         scanAssignments = ImmutableMap.<Symbol, ColumnHandle>builder()
@@ -773,7 +778,7 @@ public class TestEffectivePredicateExtractor
 
         PlanNode node = new JoinNode(
                 newId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 left,
                 right,
                 criteria,
@@ -815,7 +820,7 @@ public class TestEffectivePredicateExtractor
         // predicates on "a" column should be propagated to output symbols via join equi conditions
         PlanNode node = new JoinNode(
                 newId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 left,
                 rightScan,
                 ImmutableList.of(new JoinNode.EquiJoinClause(A, D)),
@@ -846,7 +851,7 @@ public class TestEffectivePredicateExtractor
 
         PlanNode node = new JoinNode(
                 newId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 leftScan,
                 rightScan,
                 ImmutableList.of(new JoinNode.EquiJoinClause(A, D)),
@@ -893,7 +898,7 @@ public class TestEffectivePredicateExtractor
                         lessThan(FE, bigintLiteral(100))));
         PlanNode node = new JoinNode(
                 newId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 left,
                 right,
                 criteria,
@@ -940,7 +945,7 @@ public class TestEffectivePredicateExtractor
         FilterNode right = filter(rightScan, FALSE_LITERAL);
         PlanNode node = new JoinNode(
                 newId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 left,
                 right,
                 criteria,
@@ -991,7 +996,7 @@ public class TestEffectivePredicateExtractor
                         lessThan(FE, bigintLiteral(100))));
         PlanNode node = new JoinNode(
                 newId(),
-                JoinNode.Type.RIGHT,
+                JoinType.RIGHT,
                 left,
                 right,
                 criteria,
@@ -1037,7 +1042,7 @@ public class TestEffectivePredicateExtractor
                         lessThan(FE, bigintLiteral(100))));
         PlanNode node = new JoinNode(
                 newId(),
-                JoinNode.Type.RIGHT,
+                JoinType.RIGHT,
                 left,
                 right,
                 criteria,

@@ -21,12 +21,11 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrackingFileSystemFactory;
 import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.apache.iceberg.util.ThreadPools;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -35,7 +34,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.function.Predicate;
 
@@ -47,14 +46,12 @@ import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.DATA;
 import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.MANIFEST;
 import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.METADATA_JSON;
+import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.METASTORE;
 import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.SNAPSHOT;
 import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.STATS;
 import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.fromFilePath;
@@ -78,7 +75,7 @@ public class TestIcebergFileOperations
     private TrackingFileSystemFactory trackingFileSystemFactory;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -90,19 +87,19 @@ public class TestIcebergFileOperations
                 .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "0MB")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 // Tests that inspect MBean attributes need to run with just one node, otherwise
                 // the attributes may come from the bound class instance in non-coordinator node
                 .setNodeCount(1)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
-        HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
-
-        trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
+        Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        dataDirectory.toFile().mkdirs();
+        trackingFileSystemFactory = new TrackingFileSystemFactory(new LocalFileSystemFactory(dataDirectory));
         queryRunner.installPlugin(new TestingIcebergPlugin(
-                Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)),
+                dataDirectory,
+                Optional.empty(),
                 Optional.of(trackingFileSystemFactory),
                 binder -> {
                     newOptionalBinder(binder, Key.get(boolean.class, AsyncIcebergSplitProducer.class))
@@ -766,10 +763,10 @@ public class TestIcebergFileOperations
                         .build());
 
         // Bulk retrieval without selecting freshness
-        assertFileSystemAccesses(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
-                ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 2)
-                        .build());
+        assertFileSystemAccesses(
+                session,
+                "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
+                ImmutableMultiset.of());
 
         // Bulk retrieval for two schemas
         assertFileSystemAccesses(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent')",
@@ -784,10 +781,15 @@ public class TestIcebergFileOperations
                         .build());
 
         // Pointed lookup without selecting freshness
-        assertFileSystemAccesses(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
-                        .build());
+        assertFileSystemAccesses(
+                session,
+                "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
+                ImmutableMultiset.of());
+
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM iceberg.information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'mv1'",
+                ImmutableMultiset.of());
 
         assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
     }
@@ -816,7 +818,7 @@ public class TestIcebergFileOperations
     private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Scope scope, Multiset<FileOperation> expectedAccesses)
     {
         resetCounts();
-        getDistributedQueryRunner().executeWithQueryId(session, query);
+        getDistributedQueryRunner().executeWithPlan(session, query);
         assertMultisetsEqual(
                 getOperations().stream()
                         .filter(scope)
@@ -868,14 +870,14 @@ public class TestIcebergFileOperations
             @Override
             public boolean test(FileOperation fileOperation)
             {
-                return fileOperation.fileType() != DATA;
+                return fileOperation.fileType() != DATA && fileOperation.fileType() != METASTORE;
             }
         },
         ALL_FILES {
             @Override
             public boolean test(FileOperation fileOperation)
             {
-                return true;
+                return fileOperation.fileType() != METASTORE;
             }
         },
     }
@@ -887,6 +889,7 @@ public class TestIcebergFileOperations
         MANIFEST,
         STATS,
         DATA,
+        METASTORE,
         /**/;
 
         public static FileType fromFilePath(String path)
@@ -905,6 +908,9 @@ public class TestIcebergFileOperations
             }
             if (path.contains("/data/") && (path.endsWith(".orc") || path.endsWith(".parquet"))) {
                 return DATA;
+            }
+            if (path.endsWith(".trinoSchema") || path.contains("/.trinoPermissions/")) {
+                return METASTORE;
             }
             throw new IllegalArgumentException("File not recognized: " + path);
         }

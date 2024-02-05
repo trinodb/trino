@@ -38,10 +38,10 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -63,17 +63,21 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static io.trino.sql.tree.WindowFrame.Type.RANGE;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestWindowOperator
 {
     private static final TypeOperators TYPE_OPERATORS_CACHE = new TypeOperators();
@@ -100,40 +104,30 @@ public class TestWindowOperator
     private static final List<WindowFunctionDefinition> LEAD = ImmutableList.of(
             window(new ReflectionWindowFunctionSupplier(3, LeadFunction.class), VARCHAR, UNBOUNDED_FRAME, false, ImmutableList.of(), 1, 3, 4));
 
-    private ExecutorService executor;
-    private ScheduledExecutorService scheduledExecutor;
-    private DummySpillerFactory spillerFactory;
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
-    @BeforeMethod
-    public void setUp()
-    {
-        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-        spillerFactory = new DummySpillerFactory();
-    }
-
-    @AfterMethod(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
-        spillerFactory = null;
     }
 
-    @DataProvider
-    public static Object[][] spillEnabled()
+    @Test
+    public void testMultipleOutputPages()
     {
-        return new Object[][] {
-                {false, false, 0},
-                {true, false, 8},
-                {true, true, 8},
-                {true, false, 0},
-                {true, true, 0}};
+        testMultipleOutputPages(false, false, 0);
+        testMultipleOutputPages(true, false, 8);
+        testMultipleOutputPages(true, true, 8);
+        testMultipleOutputPages(true, false, 0);
+        testMultipleOutputPages(true, true, 0);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testMultipleOutputPages(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    private void testMultipleOutputPages(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         // make operator produce multiple pages during finish phase
         int numberOfRows = 80_000;
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
@@ -147,6 +141,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(0),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.DESC_NULLS_FIRST}),
+                spillerFactory,
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -167,8 +162,17 @@ public class TestWindowOperator
                 .isTrue();
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testRowNumber(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testRowNumber()
+    {
+        testRowNumber(false, false, 0);
+        testRowNumber(true, false, 8);
+        testRowNumber(true, true, 8);
+        testRowNumber(true, false, 0);
+        testRowNumber(true, true, 0);
+    }
+
+    private void testRowNumber(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(2L, 0.3)
@@ -186,6 +190,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(0),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -200,8 +205,17 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testRowNumberPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testRowNumberPartition()
+    {
+        testRowNumberPartition(false, false, 0);
+        testRowNumberPartition(true, false, 8);
+        testRowNumberPartition(true, true, 8);
+        testRowNumberPartition(true, false, 0);
+        testRowNumberPartition(true, true, 0);
+    }
+
+    private void testRowNumberPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
                 .row("b", -1L, -0.1, true)
@@ -219,6 +233,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(1),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -255,6 +270,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(),
                 ImmutableList.copyOf(new SortOrder[] {}),
+                new DummySpillerFactory(),
                 false);
 
         DriverContext driverContext = createDriverContext();
@@ -294,6 +310,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(),
                 ImmutableList.copyOf(new SortOrder[] {}),
+                new DummySpillerFactory(),
                 true);
 
         DriverContext driverContext = createDriverContext();
@@ -311,7 +328,16 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test(dataProvider = "spillEnabled")
+    @Test
+    public void testDistinctPartitionAndPeers()
+    {
+        testDistinctPartitionAndPeers(false, false, 0);
+        testDistinctPartitionAndPeers(true, false, 8);
+        testDistinctPartitionAndPeers(true, true, 8);
+        testDistinctPartitionAndPeers(true, false, 0);
+        testDistinctPartitionAndPeers(true, true, 0);
+    }
+
     public void testDistinctPartitionAndPeers(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(DOUBLE, DOUBLE)
@@ -344,6 +370,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(1),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -372,35 +399,49 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 10B.*")
+    @Test
     public void testMemoryLimit()
     {
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1L, 0.1)
-                .row(2L, 0.2)
-                .pageBreak()
-                .row(-1L, -0.1)
-                .row(4L, 0.4)
-                .build();
+        assertThatThrownBy(() -> {
+            List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+                    .row(1L, 0.1)
+                    .row(2L, 0.2)
+                    .pageBreak()
+                    .row(-1L, -0.1)
+                    .row(4L, 0.4)
+                    .build();
 
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(10))
-                .addPipelineContext(0, true, true, false)
-                .addDriverContext();
+            DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(10))
+                    .addPipelineContext(0, true, true, false)
+                    .addDriverContext();
 
-        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
-                ImmutableList.of(BIGINT, DOUBLE),
-                Ints.asList(1),
-                ROW_NUMBER,
-                Ints.asList(),
-                Ints.asList(0),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                false);
+            WindowOperatorFactory operatorFactory = createFactoryUnbounded(
+                    ImmutableList.of(BIGINT, DOUBLE),
+                    Ints.asList(1),
+                    ROW_NUMBER,
+                    Ints.asList(),
+                    Ints.asList(0),
+                    ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                    new DummySpillerFactory(),
+                    false);
 
-        toPages(operatorFactory, driverContext, input);
+            toPages(operatorFactory, driverContext, input);
+        })
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of 10B.*");
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testFirstValuePartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testFirstValuePartition()
+    {
+        testFirstValuePartition(false, false, 0);
+        testFirstValuePartition(true, false, 8);
+        testFirstValuePartition(true, true, 8);
+        testFirstValuePartition(true, false, 0);
+        testFirstValuePartition(true, true, 0);
+    }
+
+    private void testFirstValuePartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, true, "")
@@ -419,6 +460,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -454,6 +496,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(1),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 false);
 
         DriverContext driverContext = createDriverContext(1000);
@@ -469,8 +512,17 @@ public class TestWindowOperator
         operator.close();
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testLastValuePartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testLastValuePartition()
+    {
+        testLastValuePartition(false, false, 0);
+        testLastValuePartition(true, false, 8);
+        testLastValuePartition(true, true, 8);
+        testLastValuePartition(true, false, 0);
+        testLastValuePartition(true, true, 0);
+    }
+
+    private void testLastValuePartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, true, "")
@@ -490,6 +542,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
@@ -503,8 +556,17 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testNthValuePartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testNthValuePartition()
+    {
+        testNthValuePartition(false, false, 0);
+        testNthValuePartition(true, false, 8);
+        testNthValuePartition(true, true, 8);
+        testNthValuePartition(true, false, 0);
+        testNthValuePartition(true, true, 0);
+    }
+
+    private void testNthValuePartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, 2L, true, "")
@@ -523,6 +585,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -538,8 +601,17 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testLagPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testLagPartition()
+    {
+        testLagPartition(false, false, 0);
+        testLagPartition(true, false, 8);
+        testLagPartition(true, true, 8);
+        testLagPartition(true, false, 0);
+        testLagPartition(true, true, 0);
+    }
+
+    private void testLagPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, 1L, "D", true, "")
@@ -558,6 +630,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -573,8 +646,17 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testLeadPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testLeadPartition()
+    {
+        testLeadPartition(false, false, 0);
+        testLeadPartition(true, false, 8);
+        testLeadPartition(true, true, 8);
+        testLeadPartition(true, false, 0);
+        testLeadPartition(true, true, 0);
+    }
+
+    private void testLeadPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
                 .row("b", "A1", 1L, 1L, "D", true, "")
@@ -593,6 +675,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -608,8 +691,17 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testPartiallyPreGroupedPartitionWithEmptyInput(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testPartiallyPreGroupedPartitionWithEmptyInput()
+    {
+        testPartiallyPreGroupedPartitionWithEmptyInput(false, false, 0);
+        testPartiallyPreGroupedPartitionWithEmptyInput(true, false, 8);
+        testPartiallyPreGroupedPartitionWithEmptyInput(true, true, 8);
+        testPartiallyPreGroupedPartitionWithEmptyInput(true, false, 0);
+        testPartiallyPreGroupedPartitionWithEmptyInput(true, true, 0);
+    }
+
+    private void testPartiallyPreGroupedPartitionWithEmptyInput(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -625,6 +717,7 @@ public class TestWindowOperator
                 Ints.asList(3),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 0,
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -634,8 +727,17 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testPartiallyPreGroupedPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testPartiallyPreGroupedPartition()
+    {
+        testPartiallyPreGroupedPartition(false, false, 0);
+        testPartiallyPreGroupedPartition(true, false, 8);
+        testPartiallyPreGroupedPartition(true, true, 8);
+        testPartiallyPreGroupedPartition(true, false, 0);
+        testPartiallyPreGroupedPartition(true, true, 0);
+    }
+
+    private void testPartiallyPreGroupedPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -659,6 +761,7 @@ public class TestWindowOperator
                 Ints.asList(3),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 0,
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -674,8 +777,17 @@ public class TestWindowOperator
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testFullyPreGroupedPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testFullyPreGroupedPartition()
+    {
+        testFullyPreGroupedPartition(false, false, 0);
+        testFullyPreGroupedPartition(true, false, 8);
+        testFullyPreGroupedPartition(true, true, 8);
+        testFullyPreGroupedPartition(true, false, 0);
+        testFullyPreGroupedPartition(true, true, 0);
+    }
+
+    private void testFullyPreGroupedPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -700,6 +812,7 @@ public class TestWindowOperator
                 Ints.asList(3),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 0,
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -716,8 +829,17 @@ public class TestWindowOperator
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testFullyPreGroupedAndPartiallySortedPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testFullyPreGroupedAndPartiallySortedPartition()
+    {
+        testFullyPreGroupedAndPartiallySortedPartition(false, false, 0);
+        testFullyPreGroupedAndPartiallySortedPartition(true, false, 8);
+        testFullyPreGroupedAndPartiallySortedPartition(true, true, 8);
+        testFullyPreGroupedAndPartiallySortedPartition(true, false, 0);
+        testFullyPreGroupedAndPartiallySortedPartition(true, true, 0);
+    }
+
+    private void testFullyPreGroupedAndPartiallySortedPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -743,6 +865,7 @@ public class TestWindowOperator
                 Ints.asList(3, 2),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST, SortOrder.ASC_NULLS_LAST),
                 1,
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -760,8 +883,17 @@ public class TestWindowOperator
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testFullyPreGroupedAndFullySortedPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testFullyPreGroupedAndFullySortedPartition()
+    {
+        testFullyPreGroupedAndFullySortedPartition(false, false, 0);
+        testFullyPreGroupedAndFullySortedPartition(true, false, 8);
+        testFullyPreGroupedAndFullySortedPartition(true, true, 8);
+        testFullyPreGroupedAndFullySortedPartition(true, false, 0);
+        testFullyPreGroupedAndFullySortedPartition(true, true, 0);
+    }
+
+    private void testFullyPreGroupedAndFullySortedPartition(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
@@ -787,6 +919,7 @@ public class TestWindowOperator
                 Ints.asList(3),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 1,
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -844,6 +977,7 @@ public class TestWindowOperator
             List<Integer> partitionChannels,
             List<Integer> sortChannels,
             List<SortOrder> sortOrder,
+            SpillerFactory spillerFactory,
             boolean spillEnabled)
     {
         return createFactoryUnbounded(
@@ -855,6 +989,7 @@ public class TestWindowOperator
                 sortChannels,
                 sortOrder,
                 0,
+                spillerFactory,
                 spillEnabled);
     }
 
@@ -867,6 +1002,7 @@ public class TestWindowOperator
             List<Integer> sortChannels,
             List<SortOrder> sortOrder,
             int preSortedChannelPrefix,
+            DummySpillerFactory spillerFactory,
             boolean spillEnabled)
     {
         return new WindowOperatorFactory(

@@ -23,10 +23,10 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -53,45 +53,38 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestOrderByOperator
 {
-    private ExecutorService executor;
-    private ScheduledExecutorService scheduledExecutor;
-    private DummySpillerFactory spillerFactory;
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final TypeOperators typeOperators = new TypeOperators();
 
-    @DataProvider
-    public static Object[][] spillEnabled()
-    {
-        return new Object[][] {
-                {false, false, 0},
-                {true, false, 8},
-                {true, true, 8},
-                {true, false, 0},
-                {true, true, 0}};
-    }
-
-    @BeforeMethod
-    public void setUp()
-    {
-        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-        spillerFactory = new DummySpillerFactory();
-    }
-
-    @AfterMethod(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
-        spillerFactory = null;
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testMultipleOutputPages(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testMultipleOutputPages()
     {
+        testMultipleOutputPages(false, false, 0);
+        testMultipleOutputPages(true, false, 8);
+        testMultipleOutputPages(true, true, 8);
+        testMultipleOutputPages(true, false, 0);
+        testMultipleOutputPages(true, true, 0);
+    }
+
+    private void testMultipleOutputPages(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         // make operator produce multiple pages during finish phase
         int numberOfRows = 80_000;
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
@@ -129,8 +122,17 @@ public class TestOrderByOperator
                 .isTrue();
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testSingleFieldKey(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testSingleFieldKey()
+    {
+        testSingleFieldKey(false, false, 0);
+        testSingleFieldKey(true, false, 8);
+        testSingleFieldKey(true, true, 8);
+        testSingleFieldKey(true, false, 0);
+        testSingleFieldKey(true, true, 0);
+    }
+
+    private void testSingleFieldKey(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -150,7 +152,7 @@ public class TestOrderByOperator
                 ImmutableList.of(ASC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                Optional.of(spillerFactory),
+                Optional.of(new DummySpillerFactory()),
                 new OrderingCompiler(typeOperators));
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -164,8 +166,17 @@ public class TestOrderByOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testMultiFieldKey(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testMultiFieldKey()
+    {
+        testMultiFieldKey(false, false, 0);
+        testMultiFieldKey(true, false, 8);
+        testMultiFieldKey(true, true, 8);
+        testMultiFieldKey(true, false, 0);
+        testMultiFieldKey(true, true, 0);
+    }
+
+    private void testMultiFieldKey(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("a", 1L)
@@ -185,7 +196,7 @@ public class TestOrderByOperator
                 ImmutableList.of(ASC_NULLS_LAST, DESC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                Optional.of(spillerFactory),
+                Optional.of(new DummySpillerFactory()),
                 new OrderingCompiler(typeOperators));
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -199,8 +210,17 @@ public class TestOrderByOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testReverseOrder(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testReverseOrder()
+    {
+        testReverseOrder(false, false, 0);
+        testReverseOrder(true, false, 8);
+        testReverseOrder(true, true, 8);
+        testReverseOrder(true, false, 0);
+        testReverseOrder(true, true, 0);
+    }
+
+    private void testReverseOrder(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -220,7 +240,7 @@ public class TestOrderByOperator
                 ImmutableList.of(DESC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                Optional.of(spillerFactory),
+                Optional.of(new DummySpillerFactory()),
                 new OrderingCompiler(typeOperators));
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -259,7 +279,7 @@ public class TestOrderByOperator
                 ImmutableList.of(ASC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 false,
-                Optional.of(spillerFactory),
+                Optional.of(new DummySpillerFactory()),
                 new OrderingCompiler(typeOperators));
 
         assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))

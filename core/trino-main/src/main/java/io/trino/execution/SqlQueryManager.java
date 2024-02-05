@@ -22,6 +22,8 @@ import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.ExceededCpuLimitException;
 import io.trino.ExceededScanLimitException;
 import io.trino.Session;
@@ -55,6 +57,7 @@ import static io.trino.SystemSessionProperties.getQueryMaxCpuTime;
 import static io.trino.SystemSessionProperties.getQueryMaxScanPhysicalBytes;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -67,6 +70,7 @@ public class SqlQueryManager
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
     private final ClusterMemoryManager memoryManager;
+    private final Tracer tracer;
     private final QueryTracker<QueryExecution> queryTracker;
 
     private final Duration maxQueryCpuTime;
@@ -79,9 +83,10 @@ public class SqlQueryManager
     private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
 
     @Inject
-    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryManagerConfig queryManagerConfig)
+    public SqlQueryManager(ClusterMemoryManager memoryManager, Tracer tracer, QueryManagerConfig queryManagerConfig)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
 
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanPhysicalBytes();
@@ -209,7 +214,7 @@ public class SqlQueryManager
         return queryTracker.getQuery(queryId).getSlug();
     }
 
-    public Plan getQueryPlan(QueryId queryId)
+    public Optional<Plan> getQueryPlan(QueryId queryId)
     {
         return queryTracker.getQuery(queryId).getQueryPlan();
     }
@@ -253,7 +258,11 @@ public class SqlQueryManager
         });
 
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryExecution.getQueryId())) {
-            queryExecution.start();
+            try (var ignoredStartScope = scopedSpan(tracer.spanBuilder("query-start")
+                    .setParent(Context.current().with(queryExecution.getSession().getQuerySpan()))
+                    .startSpan())) {
+                queryExecution.start();
+            }
         }
     }
 

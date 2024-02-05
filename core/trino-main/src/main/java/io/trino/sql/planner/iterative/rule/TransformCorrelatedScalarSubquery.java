@@ -35,6 +35,7 @@ import io.trino.sql.tree.WhenClause;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -42,8 +43,8 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
@@ -101,6 +102,8 @@ public class TransformCorrelatedScalarSubquery
     @Override
     public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
+        // lateral references are only allowed for INNER or LEFT correlated join
+        checkArgument(correlatedJoinNode.getType() == INNER || correlatedJoinNode.getType() == LEFT, "unexpected correlated join type: %s", correlatedJoinNode.getType());
         PlanNode subquery = context.getLookup().resolve(correlatedJoinNode.getSubquery());
 
         if (!searchFrom(subquery, context.getLookup())
@@ -124,7 +127,10 @@ public class TransformCorrelatedScalarSubquery
                     correlatedJoinNode.getInput(),
                     rewrittenSubquery,
                     correlatedJoinNode.getCorrelation(),
-                    producesSingleRow ? INNER : correlatedJoinNode.getType(),
+                    // EnforceSingleRowNode guarantees that exactly single matching row is produced
+                    // for every input row (independently of correlated join type). Decorrelated plan
+                    // must preserve this semantics.
+                    producesSingleRow ? INNER : LEFT,
                     correlatedJoinNode.getFilter(),
                     correlatedJoinNode.getOriginSubquery()));
         }
