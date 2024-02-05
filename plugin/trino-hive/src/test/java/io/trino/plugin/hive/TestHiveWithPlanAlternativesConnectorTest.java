@@ -116,13 +116,6 @@ public class TestHiveWithPlanAlternativesConnectorTest
 
     @Override
     @Test
-    public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
-    {
-        // Not applicable with plan alternatives
-    }
-
-    @Override
-    @Test
     public void testTargetMaxFileSize()
     {
         // Not applicable with plan alternatives
