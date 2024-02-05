@@ -21,7 +21,6 @@ import org.weakref.jmx.Nested;
 
 @ThreadSafe
 public class AlluxioCacheStats
-        implements CacheStats
 {
     private final DistributionStat externalReads = new DistributionStat();
     private final DistributionStat cacheReads = new DistributionStat();
@@ -40,13 +39,11 @@ public class AlluxioCacheStats
         return cacheReads;
     }
 
-    @Override
     public void recordCacheRead(Location location, int length)
     {
         cacheReads.add(length);
     }
 
-    @Override
     public void recordExternalRead(Location location, int length)
     {
         externalReads.add(length);
