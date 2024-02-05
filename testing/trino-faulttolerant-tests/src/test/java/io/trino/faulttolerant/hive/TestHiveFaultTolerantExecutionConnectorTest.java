@@ -74,7 +74,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     @Override
     public void testTaskWritersDoesNotScaleWithLargeMinWriterSize()
     {
-        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false, DataSize.of(64, GIGABYTE))
+        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, DataSize.of(64, GIGABYTE))
                 .isEqualTo(1);
     }
 
@@ -95,13 +95,6 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     @Test
     @Override
     public void testWriterTaskCountLimitPartitionedScaleWritersEnabled()
-    {
-        // Not applicable for fault-tolerant mode.
-    }
-
-    @Test
-    @Override
-    public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
     {
         // Not applicable for fault-tolerant mode.
     }
