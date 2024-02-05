@@ -38,14 +38,14 @@ public class AlluxioInputStream
     private final TrinoInputFile inputFile;
     private final long fileLength;
     private final Location location;
-    private final CacheStats statistics;
+    private final AlluxioCacheStats statistics;
     private final AlluxioInputHelper helper;
 
     private TrinoInputStream externalStream;
     private long position;
     private boolean closed;
 
-    public AlluxioInputStream(TrinoInputFile inputFile, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, CacheStats statistics)
+    public AlluxioInputStream(TrinoInputFile inputFile, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
     {
         this.inputFile = requireNonNull(inputFile, "inputFile is null");
         this.fileLength = requireNonNull(status, "status is null").getLength();
