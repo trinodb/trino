@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
+import com.google.common.primitives.Longs;
 import com.google.common.primitives.Shorts;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.zstd.ZstdCompressor;
@@ -137,8 +138,7 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INS
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreParameterParserUtils.toLong;
-import static io.trino.plugin.hive.metastore.thrift.ThriftSparkMetastoreUtil.getSparkBasicStatistics;
+import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkBasicStatistics;
 import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -1049,5 +1049,17 @@ public final class ThriftMetastoreUtil
         catch (RuntimeException e) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Failed to decode function: " + name, e);
         }
+    }
+
+    private static OptionalLong toLong(@Nullable String parameterValue)
+    {
+        if (parameterValue == null) {
+            return OptionalLong.empty();
+        }
+        Long longValue = Longs.tryParse(parameterValue);
+        if (longValue == null || longValue < 0) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(longValue);
     }
 }

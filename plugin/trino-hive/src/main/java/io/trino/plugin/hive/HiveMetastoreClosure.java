@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
-import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -99,37 +98,23 @@ public class HiveMetastoreClosure
         return delegate.getSupportedColumnStatistics(type);
     }
 
-    public PartitionStatistics getTableStatistics(String databaseName, String tableName, Optional<Set<String>> columns)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
     {
-        Table table = getExistingTable(databaseName, tableName);
-        if (columns.isPresent()) {
-            Set<String> requestedColumnNames = columns.get();
-            List<Column> requestedColumns = table.getDataColumns().stream()
-                    .filter(column -> requestedColumnNames.contains(column.getName()))
-                    .collect(toImmutableList());
-            table = Table.builder(table).setDataColumns(requestedColumns).build();
-        }
-        return delegate.getTableStatistics(table);
+        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames, rowCount);
     }
 
-    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
+            String databaseName,
+            String tableName,
+            Map<String, OptionalLong> partitionNamesWithRowCount,
+            Set<String> columnNames)
     {
-        return getPartitionStatistics(databaseName, tableName, partitionNames, Optional.empty());
+        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesWithRowCount, columnNames);
     }
 
-    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames, Optional<Set<String>> columns)
+    public boolean useSparkTableStatistics()
     {
-        Table table = getExistingTable(databaseName, tableName);
-        List<Partition> partitions = getExistingPartitionsByNames(table, ImmutableList.copyOf(partitionNames));
-        if (columns.isPresent()) {
-            Set<String> requestedColumnNames = columns.get();
-            List<Column> requestedColumns = table.getDataColumns().stream()
-                    .filter(column -> requestedColumnNames.contains(column.getName()))
-                    .collect(toImmutableList());
-            table = Table.builder(table).setDataColumns(requestedColumns).build();
-            partitions = partitions.stream().map(partition -> Partition.builder(partition).setColumns(requestedColumns).build()).collect(toImmutableList());
-        }
-        return delegate.getPartitionStatistics(table, partitions);
+        return delegate.useSparkTableStatistics();
     }
 
     public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
@@ -267,7 +252,7 @@ public class HiveMetastoreClosure
         return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
-    private List<Partition> getExistingPartitionsByNames(Table table, List<String> partitionNames)
+    public List<Partition> getExistingPartitionsByNames(Table table, List<String> partitionNames)
     {
         Map<String, Partition> partitions = getPartitionsByNames(table, partitionNames).entrySet().stream()
                 .map(entry -> immutableEntry(entry.getKey(), entry.getValue().orElseThrow(() ->

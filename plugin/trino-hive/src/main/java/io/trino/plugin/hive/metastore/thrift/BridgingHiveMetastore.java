@@ -26,6 +26,7 @@ import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -54,6 +55,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
@@ -116,19 +118,23 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public PartitionStatistics getTableStatistics(Table table)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
     {
-        return delegate.getTableStatistics(toMetastoreApiTable(table));
+        checkArgument(!columnNames.isEmpty(), "columnNames is empty");
+        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames, rowCount);
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Map<String, OptionalLong> partitionNamesWithRowCount, Set<String> columnNames)
     {
-        return delegate.getPartitionStatistics(
-                toMetastoreApiTable(table),
-                partitions.stream()
-                        .map(ThriftMetastoreUtil::toMetastoreApiPartition)
-                        .collect(toImmutableList()));
+        checkArgument(!columnNames.isEmpty(), "columnNames is empty");
+        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesWithRowCount, columnNames);
+    }
+
+    @Override
+    public boolean useSparkTableStatistics()
+    {
+        return delegate.useSparkTableStatistics();
     }
 
     @Override
