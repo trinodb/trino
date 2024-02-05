@@ -20,6 +20,7 @@ import io.trino.spi.cache.PlanSignature;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -28,9 +29,8 @@ import static io.trino.plugin.memory.MemoryCacheManager.MAP_ENTRY_SIZE;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Maps objects to numeric id. Comparing of big objects like {@link PlanSignature} can be expensive
- * (e.g. when {@link PlanSignature#getPredicate() is large}). Therefore, it's more efficient to map
- * objects to numerical ids and use them for comparison instead.
+ * Maps objects to numeric id. Comparing of big objects like {@link PlanSignature} can be expensive.
+ * Therefore, it's more efficient to map objects to numerical ids and use them for comparison instead.
  */
 public class ObjectToIdMap<T>
 {
@@ -50,18 +50,28 @@ public class ObjectToIdMap<T>
         this.retainedSizeInBytesProvider = requireNonNull(retainedSizeInBytesProvider, "retainedSizeInBytesProvider is null");
     }
 
+    public Optional<Long> getId(T object)
+    {
+        return Optional.ofNullable(objectToId.get(object));
+    }
+
     public long allocateId(T object)
+    {
+        return allocateId(object, 1L);
+    }
+
+    public long allocateId(T object, long count)
     {
         Long id = objectToId.get(object);
         if (id == null) {
             id = nextId++;
             objectToId.put(object, id);
-            idUsageCount.put((long) id, 1L);
+            idUsageCount.put((long) id, count);
             revocableBytes += getEntrySize(object);
             return id;
         }
 
-        acquireId(id);
+        acquireId(id, count);
         return id;
     }
 

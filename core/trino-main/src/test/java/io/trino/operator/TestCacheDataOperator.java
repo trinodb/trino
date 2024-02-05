@@ -25,6 +25,7 @@ import io.trino.cache.CacheDriverFactory;
 import io.trino.cache.CacheManagerRegistry;
 import io.trino.cache.CacheMetrics;
 import io.trino.cache.CacheStats;
+import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.execution.ScheduledSplit;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
@@ -119,7 +120,7 @@ public class TestCacheDataOperator
         CacheMetrics cacheMetrics = new CacheMetrics();
         CacheStats cacheStats = new CacheStats();
 
-        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split1")), EMPTY, cacheMetrics, cacheStats));
+        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split1"), TupleDomain.all(), TupleDomain.all()), EMPTY, cacheMetrics, cacheStats));
         CacheDataOperator cacheDataOperator = (CacheDataOperator) operatorFactory.createOperator(driverContext);
 
         // sink was not aborted - there is a space in a cache. The page was passed through and split is going to be cached
@@ -135,7 +136,7 @@ public class TestCacheDataOperator
         driverContext = createTaskContext(Executors.newSingleThreadExecutor(), Executors.newScheduledThreadPool(1), TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split2")), EMPTY, cacheMetrics, cacheStats));
+        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split2"), TupleDomain.all(), TupleDomain.all()), EMPTY, cacheMetrics, cacheStats));
         cacheDataOperator = (CacheDataOperator) operatorFactory.createOperator(driverContext);
 
         cacheDataOperator.addInput(bigPage);
@@ -178,7 +179,7 @@ public class TestCacheDataOperator
                 new TestPageSourceProvider(),
                 registry,
                 TEST_TABLE_HANDLE,
-                signature,
+                new PlanSignatureWithPredicate(signature, TupleDomain.all()),
                 ImmutableMap.of(),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
@@ -218,9 +219,7 @@ public class TestCacheDataOperator
                 new SignatureKey(signature),
                 Optional.empty(),
                 ImmutableList.of(new CacheColumnId("id")),
-                ImmutableList.of(INTEGER),
-                TupleDomain.all(),
-                TupleDomain.all());
+                ImmutableList.of(INTEGER));
     }
 
     private void createAndRunDriver(int start, int end, CacheDriverFactory cacheDriverFactory)

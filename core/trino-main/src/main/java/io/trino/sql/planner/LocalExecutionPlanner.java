@@ -37,6 +37,7 @@ import io.trino.cache.CacheDataOperator.CacheDataOperatorFactory;
 import io.trino.cache.CacheDriverFactory;
 import io.trino.cache.CacheManagerRegistry;
 import io.trino.cache.CacheStats;
+import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.cache.LoadCachedDataOperator.LoadCachedDataOperatorFactory;
 import io.trino.cache.NonEvictableCache;
 import io.trino.cache.StaticDynamicFilter;
@@ -165,7 +166,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.cache.CacheColumnId;
-import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
@@ -776,7 +776,7 @@ public class LocalExecutionPlanner
                                 pageSourceProvider,
                                 cacheManagerRegistry,
                                 cacheContext.getOriginalTableHandle(),
-                                cacheContext.getBasePlanSignature(),
+                                cacheContext.getPlanSignature(),
                                 cacheContext.getDynamicFilterColumnMapping(),
                                 cacheContext.getCommonDynamicFilterSupplier(),
                                 cacheContext.getOriginalDynamicFilterSupplier(),
@@ -934,21 +934,21 @@ public class LocalExecutionPlanner
     private static class CacheContext
     {
         private final TableHandle originalTableHandle;
-        private final PlanSignature basePlanSignature;
+        private final PlanSignatureWithPredicate planSignature;
         private final Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping;
         private final Supplier<StaticDynamicFilter> commonDynamicFilterSupplier;
         private final Supplier<StaticDynamicFilter> originalDynamicFilterSupplier;
 
         public CacheContext(
                 TableHandle originalTableHandle,
-                PlanSignature basePlanSignature,
-                Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping,
+                LoadCachedDataPlanNode loadCacheData,
                 Supplier<StaticDynamicFilter> commonDynamicFilterSupplier,
                 Supplier<StaticDynamicFilter> originalDynamicFilterSupplier)
         {
+            requireNonNull(loadCacheData, "loadCacheData is null");
             this.originalTableHandle = requireNonNull(originalTableHandle, "originalTableHandle is null");
-            this.basePlanSignature = requireNonNull(basePlanSignature, "basePlanSignature is null");
-            this.dynamicFilterColumnMapping = requireNonNull(dynamicFilterColumnMapping, "dynamicFilterColumnMapping is null");
+            this.planSignature = loadCacheData.getPlanSignature();
+            this.dynamicFilterColumnMapping = loadCacheData.getDynamicFilterColumnMapping();
             this.commonDynamicFilterSupplier = requireNonNull(commonDynamicFilterSupplier, "commonDynamicFilterSupplier is null");
             this.originalDynamicFilterSupplier = requireNonNull(originalDynamicFilterSupplier, "originalDynamicFilterSupplier is null");
         }
@@ -958,9 +958,9 @@ public class LocalExecutionPlanner
             return originalTableHandle;
         }
 
-        public PlanSignature getBasePlanSignature()
+        public PlanSignatureWithPredicate getPlanSignature()
         {
-            return basePlanSignature;
+            return planSignature;
         }
 
         public Map<CacheColumnId, ColumnHandle> getDynamicFilterColumnMapping()
@@ -2256,8 +2256,7 @@ public class LocalExecutionPlanner
                         .orElse(() -> createStaticDynamicFilter(ImmutableList.of(DynamicFilter.EMPTY)));
                 context.setCacheContext(new CacheContext(
                         node.getOriginalTableScan().tableHandle(),
-                        loadCachedData.getPlanSignature(),
-                        loadCachedData.getDynamicFilterColumnMapping(),
+                        loadCachedData,
                         commonDynamicFilterSupplier,
                         originalDynamicFilterSupplier));
             }

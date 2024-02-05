@@ -15,7 +15,6 @@ package io.trino.spi.cache;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -26,6 +25,7 @@ import java.util.StringJoiner;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -55,20 +55,6 @@ public class PlanSignature
      * List of output columns types parallel to {@link PlanSignature#columns}.
      */
     private final List<Type> columnsTypes;
-    /**
-     * Predicate that is enforced on result rows represented by {@link PlanSignature}.
-     * You can use output of `PlanSignature A` to derive output of matching `PlanSignature B`
-     * as long as `B.predicate` is a strict subset of `A.predicate`. To do so, `B.predicate`
-     * must be applied on output of `PlanSignature A`.
-     */
-    private final TupleDomain<CacheColumnId> predicate;
-    /**
-     * Predicate derived from dynamic filter that was applied on top of enforced
-     * {@link PlanSignature#predicate}. Dynamic predicate is not enforced, but best effort.
-     * You can use output of `PlanSignature A` to derive output of matching `PlanSignature B`
-     * as long as `B.dynamicPredicate` is a subset of `A.dynamicPredicate`.
-     */
-    private final TupleDomain<CacheColumnId> dynamicPredicate;
 
     private volatile int hashCode;
 
@@ -77,16 +63,15 @@ public class PlanSignature
             SignatureKey key,
             Optional<List<CacheColumnId>> groupByColumns,
             List<CacheColumnId> columns,
-            List<Type> columnsTypes,
-            TupleDomain<CacheColumnId> predicate,
-            TupleDomain<CacheColumnId> dynamicPredicate)
+            List<Type> columnsTypes)
     {
         this.key = requireNonNull(key, "key is null");
         this.groupByColumns = requireNonNull(groupByColumns, "groupByColumns is null").map(List::copyOf);
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         this.columnsTypes = requireNonNull(columnsTypes, "columns types is null");
-        this.predicate = requireNonNull(predicate, "predicate is null");
-        this.dynamicPredicate = requireNonNull(dynamicPredicate, "dynamicPredicate is null");
+        if (columns.size() != columnsTypes.size()) {
+            throw new IllegalArgumentException(format("Column list has different length (%s) from type list (%s)", columns.size(), columnsTypes.size()));
+        }
     }
 
     @JsonProperty
@@ -108,32 +93,6 @@ public class PlanSignature
     }
 
     @JsonProperty
-    public TupleDomain<CacheColumnId> getPredicate()
-    {
-        return predicate;
-    }
-
-    @JsonProperty
-    public TupleDomain<CacheColumnId> getDynamicPredicate()
-    {
-        return dynamicPredicate;
-    }
-
-    public PlanSignature withDynamicPredicate(TupleDomain<CacheColumnId> dynamicPredicate)
-    {
-        if (!this.dynamicPredicate.isAll()) {
-            throw new IllegalStateException("Dynamic predicate is already set");
-        }
-        return new PlanSignature(
-                key,
-                groupByColumns,
-                columns,
-                columnsTypes,
-                predicate,
-                dynamicPredicate);
-    }
-
-    @JsonProperty
     public List<Type> getColumnsTypes()
     {
         return columnsTypes;
@@ -152,16 +111,14 @@ public class PlanSignature
         return key.equals(signature.key)
                 && groupByColumns.equals(signature.groupByColumns)
                 && columns.equals(signature.columns)
-                && columnsTypes.equals(signature.columnsTypes)
-                && predicate.equals(signature.predicate)
-                && dynamicPredicate.equals(signature.dynamicPredicate);
+                && columnsTypes.equals(signature.columnsTypes);
     }
 
     @Override
     public int hashCode()
     {
         if (hashCode == 0) {
-            hashCode = Objects.hash(key, groupByColumns, columns, predicate, dynamicPredicate, columnsTypes);
+            hashCode = Objects.hash(key, groupByColumns, columns, columnsTypes);
         }
         return hashCode;
     }
@@ -174,8 +131,6 @@ public class PlanSignature
                 .add("groupByColumns=" + groupByColumns)
                 .add("columns=" + columns)
                 .add("columnTypes=" + columnsTypes)
-                .add("predicate=" + predicate)
-                .add("dynamicPredicate=" + dynamicPredicate)
                 .toString();
     }
 
@@ -184,8 +139,6 @@ public class PlanSignature
         return INSTANCE_SIZE
                 + key.getRetainedSizeInBytes()
                 + sizeOf(groupByColumns, cols -> estimatedSizeOf(cols, CacheColumnId::getRetainedSizeInBytes))
-                + estimatedSizeOf(columns, CacheColumnId::getRetainedSizeInBytes)
-                + predicate.getRetainedSizeInBytes(CacheColumnId::getRetainedSizeInBytes)
-                + dynamicPredicate.getRetainedSizeInBytes(CacheColumnId::getRetainedSizeInBytes);
+                + estimatedSizeOf(columns, CacheColumnId::getRetainedSizeInBytes);
     }
 }

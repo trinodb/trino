@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.spi.cache.CacheColumnId;
-import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class LoadCachedDataPlanNode
         extends PlanNode
 {
-    private final PlanSignature planSignature;
+    private final PlanSignatureWithPredicate planSignature;
     /**
      * Dynamic filter disjuncts from all common subplans.
      */
@@ -43,7 +43,7 @@ public class LoadCachedDataPlanNode
     @JsonCreator
     public LoadCachedDataPlanNode(
             @JsonProperty PlanNodeId id,
-            @JsonProperty PlanSignature planSignature,
+            @JsonProperty PlanSignatureWithPredicate planSignature,
             @JsonProperty Expression dynamicFilterDisjuncts,
             @JsonProperty Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping,
             @JsonProperty List<Symbol> outputSymbols)
@@ -56,7 +56,7 @@ public class LoadCachedDataPlanNode
     }
 
     @JsonProperty
-    public PlanSignature getPlanSignature()
+    public PlanSignatureWithPredicate getPlanSignature()
     {
         return planSignature;
     }

@@ -373,7 +373,7 @@ public class SplitSourceFactory
                 return ImmutableMap.of(
                         node.getId(),
                         new CacheSplitSource(
-                                loadCachedDataNode.getPlanSignature(),
+                                loadCachedDataNode.getPlanSignature().signature(),
                                 splitManager.getConnectorSplitManager(originalTableScan),
                                 splitSource,
                                 internalNodeManager,

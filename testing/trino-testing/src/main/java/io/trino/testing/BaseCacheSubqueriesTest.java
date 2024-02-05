@@ -22,6 +22,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.cache.CacheDataOperator;
 import io.trino.cache.CacheMetadata;
+import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.cache.LoadCachedDataOperator;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -342,12 +343,12 @@ public abstract class BaseCacheSubqueriesTest
                 .orElseThrow()
                 .getId());
 
-        PlanSignature signature = new PlanSignature(
-                scanFilterProjectKey(new CacheTableId(catalogId + ":" + getCacheTableId(getSession(), "orders_part"))),
-                Optional.empty(),
-                ImmutableList.of(getCacheColumnId(getSession(), "orders_part", "orderkey")),
-                ImmutableList.of(BIGINT),
-                TupleDomain.all(),
+        PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        scanFilterProjectKey(new CacheTableId(catalogId + ":" + getCacheTableId(getSession(), "orders_part"))),
+                        Optional.empty(),
+                        ImmutableList.of(getCacheColumnId(getSession(), "orders_part", "orderkey")),
+                        ImmutableList.of(BIGINT)),
                 TupleDomain.all());
 
         PlanMatchPattern chooseAlternativeNode = chooseAlternativeNode(

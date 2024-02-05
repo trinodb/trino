@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.memory;
 
+import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheManager.SplitCache;
 import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -27,13 +29,13 @@ public class EmptySplitCache
     public static final EmptySplitCache EMPTY_SPLIT_CACHE = new EmptySplitCache();
 
     @Override
-    public Optional<ConnectorPageSource> loadPages(CacheSplitId splitId)
+    public Optional<ConnectorPageSource> loadPages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
     {
         return Optional.empty();
     }
 
     @Override
-    public Optional<ConnectorPageSink> storePages(CacheSplitId splitId)
+    public Optional<ConnectorPageSink> storePages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
     {
         return Optional.empty();
     }

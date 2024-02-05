@@ -22,6 +22,7 @@ import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.cache.MemoryAllocator;
 import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.predicate.TupleDomain;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -126,7 +127,7 @@ public class TestConcurrentCacheManager
             throws IOException
     {
         try (SplitCache cache = cacheManager.getSplitCache(signature)) {
-            assertThat(cache.loadPages(splitId)).isEmpty();
+            assertThat(cache.loadPages(splitId, TupleDomain.all(), TupleDomain.all())).isEmpty();
         }
     }
 
@@ -134,7 +135,7 @@ public class TestConcurrentCacheManager
             throws IOException
     {
         try (SplitCache cache = cacheManager.getSplitCache(signature)) {
-            assertThat(cache.loadPages(splitId)).isPresent();
+            assertThat(cache.loadPages(splitId, TupleDomain.all(), TupleDomain.all())).isPresent();
         }
     }
 
@@ -142,7 +143,7 @@ public class TestConcurrentCacheManager
             throws IOException
     {
         try (SplitCache cache = cacheManager.getSplitCache(signature)) {
-            Optional<ConnectorPageSink> sinkOptional = cache.storePages(splitId);
+            Optional<ConnectorPageSink> sinkOptional = cache.storePages(splitId, TupleDomain.all(), TupleDomain.all());
             assertThat(sinkOptional).isPresent();
             sinkOptional.get().appendPage(oneMegabytePage);
             sinkOptional.get().finish();

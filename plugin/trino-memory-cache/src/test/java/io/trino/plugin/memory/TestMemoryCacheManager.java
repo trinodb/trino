@@ -14,6 +14,7 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.client.NodeVersion;
 import io.trino.plugin.memory.MemoryCacheManager.Channel;
 import io.trino.plugin.memory.MemoryCacheManager.SplitKey;
@@ -29,6 +30,7 @@ import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.cache.SignatureKey;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,19 +99,21 @@ public class TestMemoryCacheManager
 
         // split data should not be cached yet
         SplitCache cache = cacheManager.getSplitCache(signature);
-        assertThat(cache.loadPages(SPLIT1)).isEmpty();
+        assertThat(cache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
         long idSize = ObjectToIdMap.getEntrySize(canonicalizePlanSignature(signature), PlanSignature::getRetainedSizeInBytes)
                 + ObjectToIdMap.getEntrySize(COLUMN1, CacheColumnId::getRetainedSizeInBytes);
+        long tupleDomainIdSize = ObjectToIdMap.getEntrySize(TupleDomain.<CacheColumnId>all(), tupleDomain -> tupleDomain.getRetainedSizeInBytes(CacheColumnId::getRetainedSizeInBytes));
         // account for ids memory
         assertThat(allocatedRevocableMemory).isEqualTo(idSize);
 
-        Optional<ConnectorPageSink> sinkOptional = cache.storePages(SPLIT1);
+        Optional<ConnectorPageSink> sinkOptional = cache.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all());
         assertThat(sinkOptional).isPresent();
-        assertThat(allocatedRevocableMemory).isEqualTo(idSize);
+        // extra memory is required by TupleDomain -> id mapping
+        assertThat(allocatedRevocableMemory).isEqualTo(idSize + tupleDomainIdSize);
 
         // second sink should not be present as split data is already being cached
-        assertThat(cache.storePages(SPLIT1)).isEmpty();
-        assertThat(cache.loadPages(SPLIT1)).isEmpty();
+        assertThat(cache.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
+        assertThat(cache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
 
         Block block = oneMegabytePage.getBlock(0);
         ConnectorPageSink sink = sinkOptional.get();
@@ -117,16 +121,16 @@ public class TestMemoryCacheManager
 
         // make sure memory usage is accounted for in page sink
         assertThat(sink.getMemoryUsage()).isEqualTo(block.getRetainedSizeInBytes());
-        assertThat(allocatedRevocableMemory).isEqualTo(idSize);
+        assertThat(allocatedRevocableMemory).isEqualTo(idSize + tupleDomainIdSize);
 
         // make sure memory is transferred to cacheManager after sink is finished
         sink.finish();
         long channelSize = getChannelRetainedSizeInBytes(block);
         long cacheEntrySize = MAP_ENTRY_SIZE + SplitKey.INSTANCE_SIZE + SPLIT1.getRetainedSizeInBytes() + channelSize;
-        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize);
+        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize + tupleDomainIdSize);
 
         // split data should be available now
-        Optional<ConnectorPageSource> sourceOptional = cache.loadPages(SPLIT1);
+        Optional<ConnectorPageSource> sourceOptional = cache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all());
         assertThat(sourceOptional).isPresent();
 
         // ensure cached pages are correct
@@ -138,38 +142,81 @@ public class TestMemoryCacheManager
         // make sure no data is available for other signatures
         PlanSignature anotherSignature = createPlanSignature("sig2");
         SplitCache anotherCache = cacheManager.getSplitCache(anotherSignature);
-        assertThat(anotherCache.loadPages(SPLIT1)).isEmpty();
+        assertThat(anotherCache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
         long anotherIdSize = ObjectToIdMap.getEntrySize(canonicalizePlanSignature(anotherSignature), PlanSignature::getRetainedSizeInBytes);
-        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize + anotherIdSize);
+        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize + tupleDomainIdSize + anotherIdSize);
         anotherCache.close();
         // SplitCache close should release signature memory
-        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize);
+        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize + tupleDomainIdSize);
 
         // store data for another split
-        sink = cache.storePages(SPLIT2).orElseThrow();
+        sink = cache.storePages(SPLIT2, TupleDomain.all(), TupleDomain.all()).orElseThrow();
         sink.appendPage(oneMegabytePage);
         sink.finish();
-        assertThat(allocatedRevocableMemory).isEqualTo(2 * cacheEntrySize + idSize);
+        assertThat(allocatedRevocableMemory).isEqualTo(2 * cacheEntrySize + idSize + tupleDomainIdSize);
 
         // data for both splits should be cached
-        assertThat(cache.loadPages(SPLIT1)).isPresent();
-        assertThat(cache.loadPages(SPLIT2)).isPresent();
+        assertThat(cache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isPresent();
+        assertThat(cache.loadPages(SPLIT2, TupleDomain.all(), TupleDomain.all())).isPresent();
 
         // revoke memory and make sure only the least recently used split is left
         cacheManager.revokeMemory(500_000);
-        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize);
-        assertThat(cache.loadPages(SPLIT1)).isEmpty();
-        assertThat(cache.loadPages(SPLIT2)).isPresent();
+        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize + tupleDomainIdSize);
+        assertThat(cache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
+        assertThat(cache.loadPages(SPLIT2, TupleDomain.all(), TupleDomain.all())).isPresent();
 
         // make sure no new split data is cached when memory limit is lowered
         memoryLimit = 1_500_000;
-        sink = cache.storePages(SPLIT1).orElseThrow();
+        sink = cache.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all()).orElseThrow();
         sink.appendPage(oneMegabytePage);
         sink.finish();
-        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize);
-        assertThat(cache.loadPages(SPLIT1)).isEmpty();
+        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize + tupleDomainIdSize);
+        assertThat(cache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
 
         cache.close();
+    }
+
+    @Test
+    public void testPredicate()
+            throws IOException
+    {
+        PlanSignature signature = createPlanSignature("sig", COLUMN1, COLUMN2);
+        SplitCache cache = cacheManager.getSplitCache(signature);
+
+        // append a split with predicate
+        Domain domain = Domain.singleValue(INTEGER, 42L);
+        TupleDomain<CacheColumnId> predicate = TupleDomain.withColumnDomains(ImmutableMap.of(COLUMN1, domain));
+        ConnectorPageSink sink = cache.storePages(
+                SPLIT1,
+                predicate,
+                TupleDomain.all()).orElseThrow();
+        Block col = new IntArrayBlock(1, Optional.empty(), new int[] {42});
+        sink.appendPage(new Page(col, col));
+        sink.finish();
+
+        long idSize = ObjectToIdMap.getEntrySize(canonicalizePlanSignature(signature), PlanSignature::getRetainedSizeInBytes)
+                + ObjectToIdMap.getEntrySize(COLUMN1, CacheColumnId::getRetainedSizeInBytes)
+                + ObjectToIdMap.getEntrySize(COLUMN2, CacheColumnId::getRetainedSizeInBytes)
+                + ObjectToIdMap.getEntrySize(predicate, tupleDomain -> tupleDomain.getRetainedSizeInBytes(CacheColumnId::getRetainedSizeInBytes))
+                + ObjectToIdMap.getEntrySize(TupleDomain.<CacheColumnId>all(), tupleDomain -> tupleDomain.getRetainedSizeInBytes(CacheColumnId::getRetainedSizeInBytes));
+        long cacheEntrySize = MAP_ENTRY_SIZE + SplitKey.INSTANCE_SIZE + SPLIT1.getRetainedSizeInBytes() + getChannelRetainedSizeInBytes(col);
+        assertThat(allocatedRevocableMemory).isEqualTo(idSize + cacheEntrySize * 2);
+
+        // entire tuple domain must much
+        assertThat(cache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
+        assertThat(cache.loadPages(SPLIT1, TupleDomain.withColumnDomains(ImmutableMap.of(
+                        COLUMN1, domain,
+                        COLUMN2, Domain.singleValue(INTEGER, 43L))),
+                TupleDomain.all())).isEmpty();
+        assertThat(cache.loadPages(SPLIT1, predicate, predicate)).isEmpty();
+        assertThat(cache.loadPages(SPLIT1, TupleDomain.all(), predicate)).isEmpty();
+
+        assertThat(cache.loadPages(SPLIT1, predicate, TupleDomain.all())).isPresent();
+
+        // revoking should remove tuple domain ids
+        cache.close();
+        cacheManager.revokeMemory(1_000_000);
+        assertThat(allocatedRevocableMemory).isEqualTo(0L);
     }
 
     @Test
@@ -181,9 +228,9 @@ public class TestMemoryCacheManager
         assertThat(cacheManager.getCachedPlanSignaturesCount()).isEqualTo(1);
         assertThat(cacheManager.getCachedColumnIdsCount()).isEqualTo(2);
         assertThat(cacheManager.getCachedSplitsCount()).isEqualTo(0);
-        assertThat(cacheCol12.loadPages(SPLIT1)).isEmpty();
+        assertThat(cacheCol12.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
 
-        Optional<ConnectorPageSink> sinkOptional = cacheCol12.storePages(SPLIT1);
+        Optional<ConnectorPageSink> sinkOptional = cacheCol12.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all());
         assertThat(sinkOptional).isPresent();
         ConnectorPageSink sink = sinkOptional.get();
 
@@ -198,21 +245,21 @@ public class TestMemoryCacheManager
         sink.appendPage(new Page(col1BlockStore1, col2BlockStore1));
         sink.finish();
         assertThat(cacheManager.getCachedSplitsCount()).isEqualTo(2);
-        assertPageSourceEquals(cacheCol21.loadPages(SPLIT1), col2BlockStore1, col1BlockStore1);
+        assertPageSourceEquals(cacheCol21.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all()), col2BlockStore1, col1BlockStore1);
 
         // subset of columns should also be cached
         SplitCache cacheCol2 = cacheManager.getSplitCache(createPlanSignature("sig", COLUMN2));
-        assertPageSourceEquals(cacheCol2.loadPages(SPLIT1), col2BlockStore1);
+        assertPageSourceEquals(cacheCol2.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all()), col2BlockStore1);
 
         // data for column1 and column3 should be cached together with separate store id
         SplitCache cacheCol13 = cacheManager.getSplitCache(createPlanSignature("sig", COLUMN1, COLUMN3));
         assertThat(cacheManager.getCachedPlanSignaturesCount()).isEqualTo(1);
         assertThat(cacheManager.getCachedColumnIdsCount()).isEqualTo(3);
-        assertThat(cacheCol13.loadPages(SPLIT1)).isEmpty();
+        assertThat(cacheCol13.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
 
         Block col1BlockStore2 = new IntArrayBlock(2, Optional.empty(), new int[] {20, 21});
         Block col3BlockStore2 = new IntArrayBlock(2, Optional.empty(), new int[] {30, 31});
-        sinkOptional = cacheCol13.storePages(SPLIT1);
+        sinkOptional = cacheCol13.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all());
         assertThat(sinkOptional).isPresent();
         sink = sinkOptional.get();
         sink.appendPage(new Page(col1BlockStore2, col3BlockStore2));
@@ -220,33 +267,31 @@ public class TestMemoryCacheManager
         assertThat(cacheManager.getCachedSplitsCount()).isEqualTo(4);
 
         // (col1, col2) page source should still use "store no 1" blocks
-        assertPageSourceEquals(cacheCol12.loadPages(SPLIT1), col1BlockStore1, col2BlockStore1);
+        assertPageSourceEquals(cacheCol12.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all()), col1BlockStore1, col2BlockStore1);
 
         // (col1, col3) page source should use "store no 2" blocks
-        assertPageSourceEquals(cacheCol13.loadPages(SPLIT1), col1BlockStore2, col3BlockStore2);
+        assertPageSourceEquals(cacheCol13.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all()), col1BlockStore2, col3BlockStore2);
 
         // cache should return the newest entries
         SplitCache cacheCol123 = cacheManager.getSplitCache(createPlanSignature("sig", COLUMN1, COLUMN2, COLUMN3));
         Block col1BlockStore3 = new IntArrayBlock(2, Optional.empty(), new int[] {50, 51});
         Block col2BlockStore3 = new IntArrayBlock(2, Optional.empty(), new int[] {60, 61});
         Block col3BlockStore3 = new IntArrayBlock(2, Optional.empty(), new int[] {70, 71});
-        sinkOptional = cacheCol123.storePages(SPLIT1);
+        sinkOptional = cacheCol123.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all());
         assertThat(sinkOptional).isPresent();
         sink = sinkOptional.get();
         sink.appendPage(new Page(col1BlockStore3, col2BlockStore3, col3BlockStore3));
         sink.finish();
         assertThat(cacheManager.getCachedSplitsCount()).isEqualTo(7);
-        assertPageSourceEquals(cacheCol13.loadPages(SPLIT1), col1BlockStore3, col3BlockStore3);
+        assertPageSourceEquals(cacheCol13.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all()), col1BlockStore3, col3BlockStore3);
 
         // make sure group by columns do not use non-aggregated cached column data
         SplitCache groupByCacheCol1 = cacheManager.getSplitCache(new PlanSignature(
                 new SignatureKey("sig"),
                 Optional.of(ImmutableList.of(COLUMN1)),
                 ImmutableList.of(COLUMN1),
-                ImmutableList.of(INTEGER),
-                TupleDomain.all(),
-                TupleDomain.all()));
-        assertThat(groupByCacheCol1.loadPages(SPLIT1)).isEmpty();
+                ImmutableList.of(INTEGER)));
+        assertThat(groupByCacheCol1.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
 
         // make sure all ids are removed after revoke
         cacheCol12.close();
@@ -269,24 +314,24 @@ public class TestMemoryCacheManager
         SplitCache cacheB = cacheManager.getSplitCache(createPlanSignature("sigB", COLUMN1));
 
         // cache two pages to different sinks
-        Optional<ConnectorPageSink> sinkOptional = cacheA.storePages(SPLIT1);
+        Optional<ConnectorPageSink> sinkOptional = cacheA.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all());
         assertThat(sinkOptional).isPresent();
         sinkOptional.get().appendPage(oneMegabytePage);
         sinkOptional.get().finish();
 
-        sinkOptional = cacheB.storePages(SPLIT1);
+        sinkOptional = cacheB.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all());
         assertThat(sinkOptional).isPresent();
         sinkOptional.get().appendPage(oneMegabytePage);
         sinkOptional.get().finish();
 
         // both pages should be cached
-        assertThat(cacheB.loadPages(SPLIT1)).isPresent();
-        assertThat(cacheA.loadPages(SPLIT1)).isPresent();
+        assertThat(cacheB.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isPresent();
+        assertThat(cacheA.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isPresent();
 
         // only latest used page should be cached after revoke
         cacheManager.revokeMemory(500_000);
-        assertThat(cacheA.loadPages(SPLIT1)).isPresent();
-        assertThat(cacheB.loadPages(SPLIT1)).isEmpty();
+        assertThat(cacheA.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isPresent();
+        assertThat(cacheB.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
     }
 
     @Test
@@ -305,11 +350,9 @@ public class TestMemoryCacheManager
                     new SignatureKey("sig"),
                     Optional.empty(),
                     columns,
-                    columnsTypes,
-                    TupleDomain.all(),
-                    TupleDomain.all());
+                    columnsTypes);
             try (SplitCache cache = cacheManager.getSplitCache(signature)) {
-                Optional<ConnectorPageSink> sinkOptional = cache.storePages(SPLIT1);
+                Optional<ConnectorPageSink> sinkOptional = cache.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all());
                 assertThat(sinkOptional).isPresent();
                 ConnectorPageSink sink = sinkOptional.get();
                 sink.appendPage(new Page(nCopies(
@@ -334,11 +377,9 @@ public class TestMemoryCacheManager
                 new SignatureKey("sig"),
                 Optional.empty(),
                 columns,
-                columnsTypes,
-                TupleDomain.all(),
-                TupleDomain.all());
+                columnsTypes);
         SplitCache cache = cacheManager.getSplitCache(signature);
-        Optional<ConnectorPageSink> sinkOptional = cache.storePages(SPLIT1);
+        Optional<ConnectorPageSink> sinkOptional = cache.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all());
         assertThat(sinkOptional).isPresent();
         ConnectorPageSink sink = sinkOptional.get();
         Block block = new IntArrayBlock(1, Optional.empty(), new int[] {0});
@@ -349,7 +390,7 @@ public class TestMemoryCacheManager
         assertThat(cacheManager.getCachedPlanSignaturesCount()).isEqualTo(1);
         assertThat(cacheManager.getCachedColumnIdsCount()).isEqualTo(MAX_CACHED_CHANNELS_PER_COLUMN + 2);
         assertThat(cacheManager.getCachedSplitsCount()).isEqualTo(splitCount + 1);
-        assertPageSourceEquals(cache.loadPages(SPLIT1), block, block);
+        assertPageSourceEquals(cache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all()), block, block);
     }
 
     private void assertPageSourceEquals(Optional<ConnectorPageSource> sourceOptional, Block... expectedBlocks)
@@ -372,17 +413,18 @@ public class TestMemoryCacheManager
 
         // create new SplitCache
         long idSize = ObjectToIdMap.getEntrySize(canonicalizePlanSignature(signature), PlanSignature::getRetainedSizeInBytes)
-                + ObjectToIdMap.getEntrySize(COLUMN1, CacheColumnId::getRetainedSizeInBytes);
+                + ObjectToIdMap.getEntrySize(COLUMN1, CacheColumnId::getRetainedSizeInBytes)
+                + ObjectToIdMap.getEntrySize(TupleDomain.<CacheColumnId>all(), tupleDomain -> tupleDomain.getRetainedSizeInBytes(CacheColumnId::getRetainedSizeInBytes));
         SplitCache cache = cacheManager.getSplitCache(signature);
 
         // start caching of new split
-        Optional<ConnectorPageSink> sinkOptional = cache.storePages(SPLIT1);
+        Optional<ConnectorPageSink> sinkOptional = cache.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all());
         assertThat(sinkOptional).isPresent();
         ConnectorPageSink sink = sinkOptional.get();
         sink.appendPage(oneMegabytePage);
         assertThat(allocatedRevocableMemory).isEqualTo(idSize);
         assertThat(sink.getMemoryUsage()).isEqualTo(oneMegabytePage.getBlock(0).getRetainedSizeInBytes());
-        assertThat(cache.loadPages(SPLIT1)).isEmpty();
+        assertThat(cache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
 
         // active sink should keep signature memory allocated
         cache.close();
@@ -391,7 +433,7 @@ public class TestMemoryCacheManager
         // no data should be cached after abort
         sink.abort();
         assertThat(allocatedRevocableMemory).isEqualTo(0L);
-        assertThat(cacheManager.getSplitCache(signature).loadPages(SPLIT1)).isEmpty();
+        assertThat(cacheManager.getSplitCache(signature).loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
     }
 
     @Test
@@ -405,24 +447,24 @@ public class TestMemoryCacheManager
         // cache some data for first signature
         assertThat(allocatedRevocableMemory).isEqualTo(0);
         SplitCache cache = cacheManager.getSplitCache(bigSignature);
-        ConnectorPageSink sink = cache.storePages(SPLIT1).orElseThrow();
+        ConnectorPageSink sink = cache.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all()).orElseThrow();
         sink.appendPage(smallPage);
         sink.finish();
         cache.close();
 
         // make sure page is present with new SplitCache instance
         SplitCache anotherCache = cacheManager.getSplitCache(bigSignature);
-        assertThat(anotherCache.loadPages(SPLIT1)).isPresent();
+        assertThat(anotherCache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isPresent();
 
         // cache data for another signature
         SplitCache cacheForSecondSignature = cacheManager.getSplitCache(secondBigSignature);
-        sink = cacheForSecondSignature.storePages(SPLIT1).orElseThrow();
+        sink = cacheForSecondSignature.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all()).orElseThrow();
         sink.appendPage(smallPage);
         sink.finish();
 
         // both splits should be still cached
-        assertThat(anotherCache.loadPages(SPLIT1)).isPresent();
-        assertThat(cacheForSecondSignature.loadPages(SPLIT1)).isPresent();
+        assertThat(anotherCache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isPresent();
+        assertThat(cacheForSecondSignature.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isPresent();
         anotherCache.close();
         cacheForSecondSignature.close();
 
@@ -432,8 +474,8 @@ public class TestMemoryCacheManager
         // only one split (for secondBigSignature signature) should be cached, because big signature was purged
         anotherCache = cacheManager.getSplitCache(bigSignature);
         cacheForSecondSignature = cacheManager.getSplitCache(secondBigSignature);
-        assertThat(anotherCache.loadPages(SPLIT1)).isEmpty();
-        assertThat(cacheForSecondSignature.loadPages(SPLIT1)).isPresent();
+        assertThat(anotherCache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
+        assertThat(cacheForSecondSignature.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isPresent();
         anotherCache.close();
 
         // memory limits should be enforced for large signatures
@@ -473,7 +515,7 @@ public class TestMemoryCacheManager
 
     static long getChannelRetainedSizeInBytes(Block block)
     {
-        Channel channel = new Channel(new SplitKey(0, 0, new CacheSplitId("id")), 0);
+        Channel channel = new Channel(new SplitKey(0, 0, new CacheSplitId("id"), 0, 0), 0);
         channel.setBlocks(new Block[] {block});
         channel.setLoaded();
         return channel.getRetainedSizeInBytes();
@@ -490,9 +532,7 @@ public class TestMemoryCacheManager
                 new SignatureKey(signature),
                 Optional.empty(),
                 ImmutableList.copyOf(ids),
-                Stream.of(ids).map(ignore -> (Type) INTEGER).collect(toImmutableList()),
-                TupleDomain.all(),
-                TupleDomain.all());
+                Stream.of(ids).map(ignore -> (Type) INTEGER).collect(toImmutableList()));
     }
 
     static Page createOneMegaBytePage()

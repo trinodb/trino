@@ -13,11 +13,14 @@
  */
 package io.trino.cache;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.Assignments;
@@ -47,7 +50,7 @@ public class CommonPlanAdaptation
     /**
      * Signature of common subplan.
      */
-    private final PlanSignature commonSubplanSignature;
+    private final PlanSignatureWithPredicate commonSubplanSignature;
     /**
      * Common subplan {@link FilteredTableScan}.
      */
@@ -81,7 +84,7 @@ public class CommonPlanAdaptation
 
     public CommonPlanAdaptation(
             PlanNode commonSubplan,
-            PlanSignature commonSubplanSignature,
+            PlanSignatureWithPredicate commonSubplanSignature,
             CommonPlanAdaptation childAdaptation,
             Optional<Expression> adaptationPredicate,
             Optional<Assignments> adaptationAssignments,
@@ -102,7 +105,7 @@ public class CommonPlanAdaptation
 
     public CommonPlanAdaptation(
             PlanNode commonSubplan,
-            PlanSignature commonSubplanSignature,
+            PlanSignatureWithPredicate commonSubplanSignature,
             FilteredTableScan commonSubplanFilteredTableScan,
             Expression commonDynamicFilterDisjuncts,
             Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping,
@@ -146,7 +149,7 @@ public class CommonPlanAdaptation
         return commonSubplan;
     }
 
-    public PlanSignature getCommonSubplanSignature()
+    public PlanSignatureWithPredicate getCommonSubplanSignature()
     {
         return commonSubplanSignature;
     }
@@ -174,5 +177,29 @@ public class CommonPlanAdaptation
     public List<Expression> getCanonicalAdaptationConjuncts()
     {
         return canonicalAdaptationConjuncts;
+    }
+
+    public record PlanSignatureWithPredicate(PlanSignature signature, TupleDomain<CacheColumnId> predicate)
+    {
+        @JsonCreator
+        public PlanSignatureWithPredicate(PlanSignature signature, TupleDomain<CacheColumnId> predicate)
+        {
+            this.signature = requireNonNull(signature, "signature is null");
+            this.predicate = requireNonNull(predicate, "predicate is null");
+        }
+
+        @JsonProperty
+        @Override
+        public PlanSignature signature()
+        {
+            return signature;
+        }
+
+        @JsonProperty
+        @Override
+        public TupleDomain<CacheColumnId> predicate()
+        {
+            return predicate;
+        }
     }
 }

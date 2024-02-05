@@ -22,6 +22,7 @@ import com.google.inject.Inject;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryReservationHandler;
 import io.trino.spi.NodeManager;
+import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheManager;
 import io.trino.spi.cache.CacheManagerContext;
 import io.trino.spi.cache.CacheSplitId;
@@ -29,6 +30,7 @@ import io.trino.spi.cache.MemoryAllocator;
 import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.predicate.TupleDomain;
 import org.weakref.jmx.Managed;
 
 import java.io.IOException;
@@ -174,15 +176,15 @@ public class ConcurrentCacheManager
         }
 
         @Override
-        public Optional<ConnectorPageSource> loadPages(CacheSplitId splitId)
+        public Optional<ConnectorPageSource> loadPages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
-            return getSplitCache(splitId).loadPages(splitId);
+            return getSplitCache(splitId).loadPages(splitId, predicate, unenforcedPredicate);
         }
 
         @Override
-        public Optional<ConnectorPageSink> storePages(CacheSplitId splitId)
+        public Optional<ConnectorPageSink> storePages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
-            return getSplitCache(splitId).storePages(splitId);
+            return getSplitCache(splitId).storePages(splitId, predicate, unenforcedPredicate);
         }
 
         @Override

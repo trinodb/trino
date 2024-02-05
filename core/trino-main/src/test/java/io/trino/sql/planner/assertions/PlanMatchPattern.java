@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
+import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.cache.CacheColumnId;
-import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SortOrder;
@@ -161,12 +161,12 @@ public final class PlanMatchPattern
         return node(CacheDataPlanNode.class, source);
     }
 
-    public static PlanMatchPattern loadCachedDataPlanNode(PlanSignature signature, String... outputSymbolAliases)
+    public static PlanMatchPattern loadCachedDataPlanNode(PlanSignatureWithPredicate signature, String... outputSymbolAliases)
     {
         return loadCachedDataPlanNode(signature, ImmutableMap.of(), dynamicFilters -> true, outputSymbolAliases);
     }
 
-    public static PlanMatchPattern loadCachedDataPlanNode(PlanSignature signature, Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping, Predicate<List<List<DynamicFilters.Descriptor>>> dynamicFiltersPredicate, String... outputSymbolAliases)
+    public static PlanMatchPattern loadCachedDataPlanNode(PlanSignatureWithPredicate signature, Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping, Predicate<List<List<DynamicFilters.Descriptor>>> dynamicFiltersPredicate, String... outputSymbolAliases)
     {
         PlanMatchPattern result = node(LoadCachedDataPlanNode.class);
         for (int i = 0; i < outputSymbolAliases.length; i++) {

@@ -62,7 +62,7 @@ public class TestMemoryCachePageSource
 
     private static Channel createChannel(Block... blocks)
     {
-        Channel channel = new Channel(new MemoryCacheManager.SplitKey(0, 0, new CacheSplitId("id")), 0);
+        Channel channel = new Channel(new MemoryCacheManager.SplitKey(0, 0, new CacheSplitId("id"), 0, 0), 0L);
         channel.setBlocks(blocks);
         channel.setLoaded();
         return channel;

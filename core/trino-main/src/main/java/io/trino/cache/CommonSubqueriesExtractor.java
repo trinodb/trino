@@ -27,6 +27,7 @@ import io.trino.cache.CanonicalSubplan.FilterProjectKey;
 import io.trino.cache.CanonicalSubplan.Key;
 import io.trino.cache.CanonicalSubplan.ScanFilterProjectKey;
 import io.trino.cache.CanonicalSubplan.TableScan;
+import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.cache.CacheColumnId;
@@ -82,7 +83,6 @@ import static io.trino.cache.CanonicalSubplanExtractor.canonicalExpressionToColu
 import static io.trino.cache.CanonicalSubplanExtractor.canonicalSymbolToColumnId;
 import static io.trino.cache.CanonicalSubplanExtractor.columnIdToSymbol;
 import static io.trino.cache.CanonicalSubplanExtractor.extractCanonicalSubplans;
-import static io.trino.plugin.base.cache.CacheUtils.normalizeTupleDomain;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.DynamicFilters.extractSourceSymbol;
 import static io.trino.sql.ExpressionFormatter.formatExpression;
@@ -235,7 +235,7 @@ public final class CommonSubqueriesExtractor
         Map<CacheColumnId, ColumnHandle> commonColumnHandles = extractCommonColumnHandles(subplans);
         Map<CacheColumnId, Symbol> commonColumnIds = extractCommonColumnIds(subplans);
         Expression commonDynamicFilterDisjuncts = extractCommonDynamicFilterDisjuncts(subplans);
-        PlanSignature planSignature = computePlanSignature(
+        PlanSignatureWithPredicate planSignature = computePlanSignature(
                 commonColumnIds,
                 tableId,
                 commonPredicate,
@@ -271,15 +271,15 @@ public final class CommonSubqueriesExtractor
     {
         checkArgument(subplans.stream().allMatch(subplan -> subplan.getGroupByColumns().isEmpty()), "Group by columns are not allowed");
         checkArgument(subplans.stream().allMatch(subplan -> subplan.getDynamicConjuncts().isEmpty()), "Dynamic filters are only allowed above table scan");
-        PlanSignature childPlanSignature = childAdaptations.get(0).getCommonSubplanSignature();
+        PlanSignatureWithPredicate childPlanSignature = childAdaptations.get(0).getCommonSubplanSignature();
 
         Expression commonPredicate = extractCommonPredicate(subplans);
         Set<Expression> intersectingConjuncts = extractIntersectingConjuncts(subplans);
         Map<CacheColumnId, Expression> commonProjections = extractCommonProjections(subplans, commonPredicate, intersectingConjuncts, Optional.empty(), Optional.of(childAdaptations));
         Map<CacheColumnId, Symbol> commonColumnIds = extractCommonColumnIds(subplans);
-        PlanSignature planSignature = computePlanSignature(
+        PlanSignatureWithPredicate planSignature = computePlanSignature(
                 commonColumnIds,
-                filterProjectKey(childPlanSignature.getKey()),
+                filterProjectKey(childPlanSignature.signature().getKey()),
                 childPlanSignature,
                 commonPredicate,
                 commonProjections.keySet().stream()
@@ -312,14 +312,14 @@ public final class CommonSubqueriesExtractor
         checkArgument(subplans.stream().allMatch(subplan -> subplan.getConjuncts().isEmpty()), "Conjuncts are not allowed in aggregation canonical subplan");
         checkArgument(subplans.get(0).getGroupByColumns().isPresent(), "Group by columns are not present");
         checkArgument(subplans.stream().map(CanonicalSubplan::getGroupByColumns).distinct().count() == 1, "Group by columns must be the same for all subplans");
-        PlanSignature childPlanSignature = childAdaptations.get(0).getCommonSubplanSignature();
+        PlanSignatureWithPredicate childPlanSignature = childAdaptations.get(0).getCommonSubplanSignature();
 
         Set<CacheColumnId> groupByColumns = subplans.get(0).getGroupByColumns().orElseThrow();
         Map<CacheColumnId, Expression> commonProjections = extractCommonProjections(subplans, TRUE_LITERAL, ImmutableSet.of(), Optional.of(groupByColumns), Optional.of(childAdaptations));
         Map<CacheColumnId, Symbol> commonColumnIds = extractCommonColumnIds(subplans);
-        PlanSignature planSignature = computePlanSignature(
+        PlanSignatureWithPredicate planSignature = computePlanSignature(
                 commonColumnIds,
-                aggregationKey(childPlanSignature.getKey()),
+                aggregationKey(childPlanSignature.signature().getKey()),
                 childPlanSignature,
                 TRUE_LITERAL,
                 commonProjections.keySet().stream()
@@ -429,7 +429,7 @@ public final class CommonSubqueriesExtractor
                         .collect(toImmutableList()));
     }
 
-    private PlanSignature computePlanSignature(
+    private PlanSignatureWithPredicate computePlanSignature(
             Map<CacheColumnId, Symbol> commonColumnIds,
             CacheTableId tableId,
             Expression predicate,
@@ -444,10 +444,10 @@ public final class CommonSubqueriesExtractor
                 Optional.empty());
     }
 
-    private PlanSignature computePlanSignature(
+    private PlanSignatureWithPredicate computePlanSignature(
             Map<CacheColumnId, Symbol> commonColumnIds,
             SignatureKey signatureKey,
-            PlanSignature childPlanSignature,
+            PlanSignatureWithPredicate childPlanSignature,
             Expression predicate,
             List<CacheColumnId> projections,
             Optional<Set<CacheColumnId>> groupByColumns)
@@ -455,14 +455,14 @@ public final class CommonSubqueriesExtractor
         return computePlanSignature(
                 commonColumnIds,
                 // Append child group by columns to signature key (if present)
-                combine(signatureKey, childPlanSignature.getGroupByColumns().map(columns -> "groupByColumns=" + columns).orElse("")),
-                childPlanSignature.getPredicate(),
+                combine(signatureKey, childPlanSignature.signature().getGroupByColumns().map(columns -> "groupByColumns=" + columns).orElse("")),
+                childPlanSignature.predicate(),
                 predicate,
                 projections,
                 groupByColumns);
     }
 
-    private PlanSignature computePlanSignature(
+    private PlanSignatureWithPredicate computePlanSignature(
             Map<CacheColumnId, Symbol> commonColumnIds,
             SignatureKey signatureKey,
             TupleDomain<CacheColumnId> tupleDomain,
@@ -481,12 +481,12 @@ public final class CommonSubqueriesExtractor
                 .map(cacheColumnId -> typeProvider.get(commonColumnIds.get(cacheColumnId)))
                 .collect(toImmutableList());
         if (tupleDomain.isAll() && predicate.equals(TRUE_LITERAL)) {
-            return new PlanSignature(
-                    signatureKey,
-                    orderedGroupByColumns,
-                    projections,
-                    projectionColumnsTypes,
-                    TupleDomain.all(),
+            return new PlanSignatureWithPredicate(
+                    new PlanSignature(
+                            signatureKey,
+                            orderedGroupByColumns,
+                            projections,
+                            projectionColumnsTypes),
                     TupleDomain.all());
         }
 
@@ -520,13 +520,13 @@ public final class CommonSubqueriesExtractor
                                     .collect(toImmutableList()))));
         }
 
-        return new PlanSignature(
-                signatureKey,
-                orderedGroupByColumns,
-                projections,
-                projectionColumnsTypes,
-                normalizeTupleDomain(signatureTupleDomain),
-                TupleDomain.all());
+        return new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        signatureKey,
+                        orderedGroupByColumns,
+                        projections,
+                        projectionColumnsTypes),
+                signatureTupleDomain);
     }
 
     private Map<CacheColumnId, Symbol> createSubplanColumnIdMapping(CanonicalSubplan subplan, Map<CacheColumnId, Symbol> commonColumnIds, Optional<CommonPlanAdaptation> childAdaptation)

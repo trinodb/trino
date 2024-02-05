@@ -17,6 +17,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.io.Closeable;
 import java.util.Optional;
@@ -50,16 +51,27 @@ public interface CacheManager
             extends Closeable
     {
         /**
+         * @param predicate Predicate that should be enforced on cached rows.
+         * Output of `cachedSplitA` can be used to derive output of matching `cachedSplitB`
+         * (with corresponding {@link PlanSignature}) as long as `cachedSplitB.predicate` is a strict
+         * subset of `cachedSplitA.predicate`. To do so, `cachedSplitB.predicate` must be
+         * applied on output of `cachedSplitA`.
+         * @param unenforcedPredicate Unenforced (best-effort) predicate that should be applied on cached rows.
+         * Output of `cachedSplitA` can be used to derive output of matching `cachedSplitB`
+         * (with corresponding {@link PlanSignature}) as long as `cachedSplitB.unenforcedPredicate`
+         * is a subset of `cachedSplitA.unenforcedPredicate`.
          * @return cached pages for a given split.
          */
-        Optional<ConnectorPageSource> loadPages(CacheSplitId splitId);
+        Optional<ConnectorPageSource> loadPages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate);
 
         /**
+         * @param predicate Predicate that was enforced on cached rows.
+         * @param unenforcedPredicate Best-effort predicate that was applied on cached rows.
          * @return {@link ConnectorPageSink} for caching pages for a given split.
          * Might be empty if there isn't sufficient memory or split data is
          * already cached.
          */
-        Optional<ConnectorPageSink> storePages(CacheSplitId splitId);
+        Optional<ConnectorPageSink> storePages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate);
     }
 
     interface PreferredAddressProvider

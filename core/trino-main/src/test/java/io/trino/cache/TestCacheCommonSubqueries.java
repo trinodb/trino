@@ -16,6 +16,7 @@ package io.trino.cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.cache.CacheColumnId;
@@ -109,14 +110,14 @@ public class TestCacheCommonSubqueries
     @Test
     public void testCacheCommonSubqueries()
     {
-        PlanSignature signature = new PlanSignature(
-                scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
-                Optional.empty(),
-                ImmutableList.of(REGIONKEY_COLUMN_ID, NATIONKEY_COLUMN_ID),
-                ImmutableList.of(BIGINT, BIGINT),
+        PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
+                        Optional.empty(),
+                        ImmutableList.of(REGIONKEY_COLUMN_ID, NATIONKEY_COLUMN_ID),
+                        ImmutableList.of(BIGINT, BIGINT)),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        NATIONKEY_COLUMN_ID, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 5L), greaterThan(BIGINT, 10L)), false))),
-                TupleDomain.all());
+                        NATIONKEY_COLUMN_ID, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 5L), greaterThan(BIGINT, 10L)), false))));
         assertPlan("""
                         SELECT * FROM
                         (SELECT regionkey FROM nation WHERE nationkey > 10)
@@ -163,12 +164,12 @@ public class TestCacheCommonSubqueries
     {
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_COLUMN_ID, REGIONKEY_COLUMN_ID);
         List<Type> cacheColumnTypes = ImmutableList.of(BIGINT, BIGINT);
-        PlanSignature signature = new PlanSignature(
-                scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
-                Optional.empty(),
-                cacheColumnIds,
-                cacheColumnTypes,
-                TupleDomain.all(),
+        PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
+                        Optional.empty(),
+                        cacheColumnIds,
+                        cacheColumnTypes),
                 TupleDomain.all());
         Predicate<FilterNode> isNationKeyDynamicFilter = node -> DynamicFilters.getDescriptor(node.getPredicate())
                 .map(descriptor -> descriptor.getInput().equals(new SymbolReference("nationkey")))
@@ -217,14 +218,14 @@ public class TestCacheCommonSubqueries
     {
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_COLUMN_ID, REGIONKEY_COLUMN_ID);
         List<Type> cacheColumnTypes = ImmutableList.of(BIGINT, BIGINT);
-        PlanSignature signature = new PlanSignature(
-                combine(
-                        scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
-                        "filters=((\"[nationkey:bigint]\" IN (BIGINT '0', BIGINT '1')) OR (\"[regionkey:bigint]\" IN (BIGINT '0', BIGINT '1')))"),
-                Optional.empty(),
-                cacheColumnIds,
-                cacheColumnTypes,
-                TupleDomain.all(),
+        PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        combine(
+                                scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
+                                "filters=((\"[nationkey:bigint]\" IN (BIGINT '0', BIGINT '1')) OR (\"[regionkey:bigint]\" IN (BIGINT '0', BIGINT '1')))"),
+                        Optional.empty(),
+                        cacheColumnIds,
+                        cacheColumnTypes),
                 TupleDomain.all());
         Map<CacheColumnId, ColumnHandle> dynamicFilteringMapping = ImmutableMap.of(
                 NATIONKEY_COLUMN_ID, new TpchColumnHandle("nationkey", BIGINT),
@@ -260,12 +261,12 @@ public class TestCacheCommonSubqueries
         Expression avg = getFunctionCallBuilder("avg", nationkey).build();
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(REGIONKEY_COLUMN_ID, canonicalExpressionToColumnId(max), canonicalExpressionToColumnId(sum), canonicalExpressionToColumnId(avg));
         List<Type> cacheColumnTypes = ImmutableList.of(BIGINT, BIGINT, RowType.anonymousRow(BIGINT, BIGINT), RowType.anonymousRow(DOUBLE, BIGINT));
-        PlanSignature signature = new PlanSignature(
-                aggregationKey(scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01"))),
-                Optional.of(ImmutableList.of(REGIONKEY_COLUMN_ID)),
-                cacheColumnIds,
-                cacheColumnTypes,
-                TupleDomain.all(),
+        PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        aggregationKey(scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01"))),
+                        Optional.of(ImmutableList.of(REGIONKEY_COLUMN_ID)),
+                        cacheColumnIds,
+                        cacheColumnTypes),
                 TupleDomain.all());
         assertPlan("""
                         SELECT sum(nationkey), max(nationkey) FROM nation GROUP BY regionkey

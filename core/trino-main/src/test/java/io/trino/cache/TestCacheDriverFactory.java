@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.execution.ScheduledSplit;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
@@ -27,15 +28,22 @@ import io.trino.operator.DevNullOperator;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
+import io.trino.spi.NodeManager;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.cache.CacheColumnId;
+import io.trino.spi.cache.CacheManager;
+import io.trino.spi.cache.CacheManager.SplitCache;
+import io.trino.spi.cache.CacheManagerContext;
+import io.trino.spi.cache.CacheManagerFactory;
 import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.cache.SignatureKey;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
@@ -85,6 +93,7 @@ public class TestCacheDriverFactory
 {
     private static final Session TEST_SESSION = testSessionBuilder().build();
     private final PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+    private TestSplitCache splitCache;
     private CacheManagerRegistry registry;
     private ScheduledExecutorService scheduledExecutor;
 
@@ -97,7 +106,9 @@ public class TestCacheDriverFactory
         CacheConfig cacheConfig = new CacheConfig();
         cacheConfig.setEnabled(true);
         registry = new CacheManagerRegistry(cacheConfig, new LocalMemoryManager(config, DataSize.of(1024, MEGABYTE).toBytes()), new TestingBlockEncodingSerde(), new CacheStats());
-        registry.loadCacheManager();
+        TestCacheManagerFactory cacheManagerFactory = new TestCacheManagerFactory();
+        registry.loadCacheManager(cacheManagerFactory, ImmutableMap.of());
+        splitCache = cacheManagerFactory.getCacheManager().getSplitCache();
         scheduledExecutor = Executors.newScheduledThreadPool(1);
     }
 
@@ -108,64 +119,11 @@ public class TestCacheDriverFactory
     }
 
     @Test
-    public void testUpdateCache()
-    {
-        PlanSignature signature = new PlanSignature(new SignatureKey("sig"), Optional.empty(), ImmutableList.of(), ImmutableList.of(), TupleDomain.all(), TupleDomain.all());
-        AtomicInteger operatorIdAllocator = new AtomicInteger();
-
-        DriverFactory driverFactory = new DriverFactory(
-                operatorIdAllocator.incrementAndGet(),
-                true,
-                false,
-                ImmutableList.of(
-                        new DevNullOperator.DevNullOperatorFactory(0, planNodeIdAllocator.getNextId()),
-                        new DevNullOperator.DevNullOperatorFactory(1, planNodeIdAllocator.getNextId())),
-                OptionalInt.empty());
-
-        CacheDriverFactory cacheDriverFactory = new CacheDriverFactory(
-                TEST_SESSION,
-                new TestPageSourceProvider(),
-                registry,
-                TEST_TABLE_HANDLE,
-                signature,
-                ImmutableMap.of(),
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                ImmutableList.of(driverFactory, driverFactory),
-                new CacheStats());
-
-        PlanSignature allPlanSignature = new PlanSignature(new SignatureKey("signature"), Optional.empty(), ImmutableList.of(), ImmutableList.of(), TupleDomain.all(), TupleDomain.all());
-        PlanSignature nonePlanSignature = allPlanSignature.withDynamicPredicate(TupleDomain.none());
-
-        // it is the first time when splitCache is updated in driver factory - expect that it was set in factory
-        cacheDriverFactory.updateSplitCache(allPlanSignature, false);
-        assertThat(cacheDriverFactory.getCachePlanSignature()).isEqualTo(allPlanSignature);
-
-        // dynamic filter was not changed - do not update it in factory
-        cacheDriverFactory.updateSplitCache(allPlanSignature.withDynamicPredicate(TupleDomain.all()), false);
-        assertThat(cacheDriverFactory.getCachePlanSignature()).isEqualTo(allPlanSignature);
-
-        // dynamic filter was changed - do update it in factory
-        cacheDriverFactory.updateSplitCache(nonePlanSignature, true);
-        assertThat(cacheDriverFactory.getCachePlanSignature()).isEqualTo(nonePlanSignature);
-
-        // previous non-final "all" signature was passed - do update it in factory
-        cacheDriverFactory.updateSplitCache(allPlanSignature, false);
-        assertThat(cacheDriverFactory.getCachePlanSignature()).isEqualTo(allPlanSignature);
-
-        // again final "none" signature was passed - do update it in factory
-        cacheDriverFactory.updateSplitCache(nonePlanSignature, true);
-        assertThat(cacheDriverFactory.getCachePlanSignature()).isEqualTo(nonePlanSignature);
-
-        // "all" signature was passed with complete flag - do not update it in factory
-        cacheDriverFactory.updateSplitCache(allPlanSignature, true);
-        assertThat(cacheDriverFactory.getCachePlanSignature()).isEqualTo(nonePlanSignature);
-    }
-
-    @Test
     public void testCreateDriverForOriginalPlan()
     {
-        PlanSignature signature = new PlanSignature(new SignatureKey("sig"), Optional.empty(), ImmutableList.of(), ImmutableList.of(), TupleDomain.all(), TupleDomain.all());
+        PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
+                new PlanSignature(new SignatureKey("sig"), Optional.empty(), ImmutableList.of(), ImmutableList.of()),
+                TupleDomain.all());
         AtomicInteger operatorIdAllocator = new AtomicInteger();
         ConnectorSplit connectorSplit = new TestingSplit(false, ImmutableList.of());
         Split split = new Split(TEST_CATALOG_HANDLE, connectorSplit);
@@ -187,12 +145,12 @@ public class TestCacheDriverFactory
                 ImmutableMap.of(),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                ImmutableList.of(driverFactory, driverFactory),
+                ImmutableList.of(driverFactory, driverFactory, driverFactory),
                 new CacheStats());
 
         // expect driver for original plan because cacheSplit is empty
         Driver driver = cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.empty());
-        assertThat(driver.getDriverContext().getCacheDriverContext().isEmpty()).isTrue();
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
 
         driverFactory = new DriverFactory(
                 operatorIdAllocator.incrementAndGet(),
@@ -212,18 +170,21 @@ public class TestCacheDriverFactory
                 ImmutableMap.of(),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                ImmutableList.of(driverFactory, driverFactory),
+                ImmutableList.of(driverFactory, driverFactory, driverFactory),
                 new CacheStats());
 
         // expect driver for original plan because dynamic filter filters data completely
         driver = cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(new CacheSplitId("split")));
-        assertThat(driver.getDriverContext().getCacheDriverContext().isEmpty()).isTrue();
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
     }
 
     @Test
     public void testCreateDriverWhenDynamicFilterWasChanged()
     {
-        PlanSignature signature = new PlanSignature(new SignatureKey("sig"), Optional.empty(), ImmutableList.of(), ImmutableList.of(), TupleDomain.all(), TupleDomain.all());
+        CacheColumnId columnId = new CacheColumnId("cacheColumnId");
+        PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
+                new PlanSignature(new SignatureKey("sig"), Optional.empty(), ImmutableList.of(columnId), ImmutableList.of(BIGINT)),
+                TupleDomain.all());
         AtomicInteger operatorIdAllocator = new AtomicInteger();
         ConnectorSplit connectorSplit = new TestingSplit(false, ImmutableList.of());
         Split split = new Split(TEST_CATALOG_HANDLE, connectorSplit);
@@ -240,7 +201,7 @@ public class TestCacheDriverFactory
                 OptionalInt.empty());
 
         AtomicReference<TupleDomain<ColumnHandle>> commonDynamicPredicate = new AtomicReference<>(TupleDomain.all());
-        TestDynamicFilter commonDynamicFilter = new TestDynamicFilter(commonDynamicPredicate::get, false);
+        TestDynamicFilter commonDynamicFilter = new TestDynamicFilter(commonDynamicPredicate::get, true);
         Map<ColumnHandle, CacheColumnId> dynamicFilterColumnMapping = ImmutableMap.of(columnHandle, new CacheColumnId("cacheColumnId"));
         CacheDriverFactory cacheDriverFactory = new CacheDriverFactory(
                 TEST_SESSION,
@@ -248,20 +209,22 @@ public class TestCacheDriverFactory
                 registry,
                 TEST_TABLE_HANDLE,
                 signature,
-                ImmutableMap.of(new CacheColumnId("cacheColumnId"), columnHandle),
+                ImmutableMap.of(columnId, columnHandle),
                 () -> createStaticDynamicFilter(ImmutableList.of(commonDynamicFilter)),
                 () -> createStaticDynamicFilter(ImmutableList.of(new TestDynamicFilter(() -> originalDynamicPredicate, true))),
-                ImmutableList.of(driverFactory, driverFactory),
+                ImmutableList.of(driverFactory, driverFactory, driverFactory),
                 new CacheStats());
 
-        // baseSignature's dynamic filters should be changed because new dynamic filter was supplied
-        cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(new CacheSplitId("id")));
-        assertThat(cacheDriverFactory.getCachePlanSignature().getDynamicPredicate()).isEqualTo(originalDynamicPredicate.transformKeys(dynamicFilterColumnMapping::get));
+        // baseSignature should use original dynamic filter because it contains more domains
+        splitCache.setExpectedPredicates(TupleDomain.all(), originalDynamicPredicate.transformKeys(dynamicFilterColumnMapping::get));
+        Driver driver = cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(new CacheSplitId("id")));
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
 
         // baseSignature should use common dynamic filter as it uses same domains
         commonDynamicPredicate.set(TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.create(ValueSet.of(BIGINT, 0L, 1L), false))));
+        splitCache.setExpectedPredicates(TupleDomain.all(), commonDynamicPredicate.get().transformKeys(dynamicFilterColumnMapping::get));
         cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(new CacheSplitId("id")));
-        assertThat(cacheDriverFactory.getCachePlanSignature().getDynamicPredicate()).isEqualTo(commonDynamicPredicate.get().transformKeys(dynamicFilterColumnMapping::get));
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
     }
 
     private static class TestPageSourceProvider
@@ -357,5 +320,89 @@ public class TestCacheDriverFactory
         {
             return OptionalLong.of(0L);
         }
+    }
+
+    private static class TestCacheManagerFactory
+            implements CacheManagerFactory
+    {
+        private final TestCacheManager cacheManager = new TestCacheManager();
+
+        public TestCacheManager getCacheManager()
+        {
+            return cacheManager;
+        }
+
+        @Override
+        public String getName()
+        {
+            return "TestCacheManager";
+        }
+
+        @Override
+        public TestCacheManager create(Map<String, String> config, CacheManagerContext context)
+        {
+            return cacheManager;
+        }
+    }
+
+    private static class TestCacheManager
+            implements CacheManager
+    {
+        private final TestSplitCache splitCache = new TestSplitCache();
+
+        public TestSplitCache getSplitCache()
+        {
+            return splitCache;
+        }
+
+        @Override
+        public TestSplitCache getSplitCache(PlanSignature signature)
+        {
+            return splitCache;
+        }
+
+        @Override
+        public PreferredAddressProvider getPreferredAddressProvider(PlanSignature signature, NodeManager nodeManager)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long revokeMemory(long bytesToRevoke)
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private static class TestSplitCache
+            implements SplitCache
+    {
+        private Optional<TupleDomain<CacheColumnId>> predicate = Optional.empty();
+        private Optional<TupleDomain<CacheColumnId>> unenforcedPredicate = Optional.empty();
+
+        public void setExpectedPredicates(TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
+        {
+            this.predicate = Optional.of(predicate);
+            this.unenforcedPredicate = Optional.of(unenforcedPredicate);
+        }
+
+        @Override
+        public Optional<ConnectorPageSource> loadPages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
+        {
+            this.predicate.ifPresent(expected -> assertThat(predicate).isEqualTo(expected));
+            this.unenforcedPredicate.ifPresent(expected -> assertThat(unenforcedPredicate).isEqualTo(expected));
+            return Optional.of(new EmptyPageSource());
+        }
+
+        @Override
+        public Optional<ConnectorPageSink> storePages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
+        {
+            this.predicate.ifPresent(expected -> assertThat(predicate).isEqualTo(expected));
+            this.unenforcedPredicate.ifPresent(expected -> assertThat(unenforcedPredicate).isEqualTo(expected));
+            return Optional.empty();
+        }
+
+        @Override
+        public void close() {}
     }
 }

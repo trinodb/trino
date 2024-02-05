@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
@@ -158,7 +159,9 @@ public class TestAlternativesOptimizer
                         scan,
                         new LoadCachedDataPlanNode(
                                 idAllocator.getNextId(),
-                                new PlanSignature(new SignatureKey("sig"), Optional.empty(), ImmutableList.of(), ImmutableList.of(), TupleDomain.all(), TupleDomain.all()),
+                                new PlanSignatureWithPredicate(
+                                        new PlanSignature(new SignatureKey("sig"), Optional.empty(), ImmutableList.of(), ImmutableList.of()),
+                                        TupleDomain.all()),
                                 FALSE_LITERAL,
                                 ImmutableMap.of(),
                                 ImmutableList.of())),

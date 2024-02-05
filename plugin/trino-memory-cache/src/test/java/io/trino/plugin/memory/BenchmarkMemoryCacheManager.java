@@ -100,9 +100,7 @@ public class BenchmarkMemoryCacheManager
                         new SignatureKey("key" + i),
                         Optional.empty(),
                         columnIds,
-                        columnTypes,
-                        TupleDomain.all(),
-                        TupleDomain.all()))
+                        columnTypes))
                 .toArray(PlanSignature[]::new);
         private final AtomicLong nextSignature = new AtomicLong();
 
@@ -139,7 +137,7 @@ public class BenchmarkMemoryCacheManager
                 throws IOException
         {
             try (CacheManager.SplitCache splitCache = cacheManager.getSplitCache(getSignature())) {
-                return splitCache.loadPages(splitId);
+                return splitCache.loadPages(splitId, TupleDomain.all(), TupleDomain.all());
             }
         }
 
@@ -147,7 +145,7 @@ public class BenchmarkMemoryCacheManager
                 throws IOException
         {
             try (CacheManager.SplitCache splitCache = cacheManager.getSplitCache(getSignature())) {
-                ConnectorPageSink sink = splitCache.storePages(splitId).orElseThrow();
+                ConnectorPageSink sink = splitCache.storePages(splitId, TupleDomain.all(), TupleDomain.all()).orElseThrow();
                 sink.appendPage(page);
                 sink.finish();
             }
