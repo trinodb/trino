@@ -15,8 +15,7 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -27,6 +26,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseSapHanaConnectorTest
         extends BaseJdbcConnectorTest
@@ -72,6 +72,7 @@ public abstract class BaseSapHanaConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testDateYearOfEraPredicate()
     {
@@ -333,12 +334,14 @@ public abstract class BaseSapHanaConnectorTest
                         )""");
     }
 
+    @Test
     @Override
     public void testNativeQuerySimple()
     {
         assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1 from dummy'))", "VALUES 1");
     }
 
+    @Test
     @Override
     public void testNativeQueryParameters()
     {
@@ -350,6 +353,7 @@ public abstract class BaseSapHanaConnectorTest
         assertQuery(session, "EXECUTE my_query USING 'a', '(SELECT 2 a FROM dummy) t'", "VALUES 2");
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -370,14 +374,14 @@ public abstract class BaseSapHanaConnectorTest
     @Override
     public void testAddNotNullColumn()
     {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9683");
+        abort("https://starburstdata.atlassian.net/browse/SEP-9683");
     }
 
     @Test
     @Override
     public void testInsertIntoNotNullColumn()
     {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9684");
+        abort("https://starburstdata.atlassian.net/browse/SEP-9684");
     }
 
     @Override

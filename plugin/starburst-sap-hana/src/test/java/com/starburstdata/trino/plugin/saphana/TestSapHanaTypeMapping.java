@@ -25,9 +25,10 @@ import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -96,7 +97,7 @@ public class TestSapHanaTypeMapping
                 ImmutableList.of());
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         checkIsGap(jvmZone, timeGapInJvmZone1);
@@ -272,7 +273,8 @@ public class TestSapHanaTypeMapping
     }
 
     @Deprecated // TODO mappings with precision ~ >15 are lossy because of mapping hana SMALLDECIMAL and DECIMAL to java double.
-    @Test(dataProvider = "largePrecisionDecimalProvider")
+    @ParameterizedTest
+    @MethodSource("largePrecisionDecimalProvider")
     public void testDecimalUnboundedLossyMapping(String value)
     {
         // these are expected to fail as they are within java double precision
@@ -299,7 +301,6 @@ public class TestSapHanaTypeMapping
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_decimal_unbounded"));
     }
 
-    @DataProvider
     public Object[][] largePrecisionDecimalProvider()
     {
         return new Object[][] {
@@ -570,7 +571,8 @@ public class TestSapHanaTypeMapping
         }
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
+    @ParameterizedTest
+    @MethodSource("sessionZonesDataProvider")
     public void testSapHanaTime(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -599,7 +601,8 @@ public class TestSapHanaTypeMapping
                 .execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_time"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
+    @ParameterizedTest
+    @MethodSource("sessionZonesDataProvider")
     public void testPrestoTime(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -727,7 +730,8 @@ public class TestSapHanaTypeMapping
         testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999999999'", "TIME '00:00:00'");
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
+    @ParameterizedTest
+    @MethodSource("sessionZonesDataProvider")
     public void testSeconddate(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -749,7 +753,8 @@ public class TestSapHanaTypeMapping
                 .execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_seconddate"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
+    @ParameterizedTest
+    @MethodSource("sessionZonesDataProvider")
     public void testSapHanaTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -781,7 +786,8 @@ public class TestSapHanaTypeMapping
                 .execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_timestamp"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
+    @ParameterizedTest
+    @MethodSource("sessionZonesDataProvider")
     public void testPrestoTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -857,7 +863,6 @@ public class TestSapHanaTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
     }
 
-    @DataProvider
     public Object[][] sessionZonesDataProvider()
     {
         return new Object[][] {
