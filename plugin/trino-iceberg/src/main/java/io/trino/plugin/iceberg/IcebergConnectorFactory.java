@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.inject.Module;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -24,23 +23,10 @@ import java.util.Optional;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static io.trino.plugin.iceberg.InternalIcebergConnectorFactory.createConnector;
-import static java.util.Objects.requireNonNull;
 
 public class IcebergConnectorFactory
         implements ConnectorFactory
 {
-    private final Module module;
-
-    public IcebergConnectorFactory()
-    {
-        this(EMPTY_MODULE);
-    }
-
-    public IcebergConnectorFactory(Module module)
-    {
-        this.module = requireNonNull(module, "module is null");
-    }
-
     @Override
     public String getName()
     {
@@ -51,6 +37,6 @@ public class IcebergConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty());
+        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.empty(), Optional.empty());
     }
 }
