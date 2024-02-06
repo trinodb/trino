@@ -64,6 +64,7 @@ import io.trino.spi.type.Type;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -378,7 +379,29 @@ public class SemiTransactionalHiveMetastore
         else {
             partitionNamesToQuery.build().forEach(partitionName -> resultBuilder.put(partitionName, PartitionStatistics.empty()));
         }
-        return resultBuilder.buildOrThrow();
+        return clearRowCountWhenAllPartitionsHaveNoRows(resultBuilder.buildOrThrow());
+    }
+
+    private static Map<String, PartitionStatistics> clearRowCountWhenAllPartitionsHaveNoRows(Map<String, PartitionStatistics> partitionStatistics)
+    {
+        if (partitionStatistics.isEmpty()) {
+            return partitionStatistics;
+        }
+
+        // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
+        // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
+        // used to ingest data into partitioned hive tables.
+        long tableRowCount = partitionStatistics.values().stream()
+                .mapToLong(statistics -> statistics.getBasicStatistics().getRowCount().orElse(0))
+                .sum();
+        if (tableRowCount != 0) {
+            return partitionStatistics;
+        }
+        return partitionStatistics.entrySet().stream()
+                .map(entry -> new AbstractMap.SimpleEntry<>(
+                        entry.getKey(),
+                        entry.getValue().withBasicStatistics(entry.getValue().getBasicStatistics().withEmptyRowCount())))
+                .collect(toImmutableMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
     }
 
     /**
