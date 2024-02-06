@@ -33,7 +33,6 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
-import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -69,7 +68,6 @@ public class DeltaLakeConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> analyzeProperties;
     private final Optional<ConnectorAccessControl> accessControl;
-    private final Set<EventListener> eventListeners;
     // Delta lake is not transactional but we use Trino transaction boundaries to create a per-query
     // caching Hive metastore clients. DeltaLakeTransactionManager is used to store those.
     private final DeltaLakeTransactionManager transactionManager;
@@ -91,7 +89,6 @@ public class DeltaLakeConnector
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> analyzeProperties,
             Optional<ConnectorAccessControl> accessControl,
-            Set<EventListener> eventListeners,
             DeltaLakeTransactionManager transactionManager,
             Set<ConnectorTableFunction> tableFunctions,
             FunctionProvider functionProvider)
@@ -113,7 +110,6 @@ public class DeltaLakeConnector
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.eventListeners = ImmutableSet.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
         this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
@@ -196,12 +192,6 @@ public class DeltaLakeConnector
     public ConnectorAccessControl getAccessControl()
     {
         return accessControl.orElseThrow(UnsupportedOperationException::new);
-    }
-
-    @Override
-    public Iterable<EventListener> getEventListeners()
-    {
-        return eventListeners;
     }
 
     @Override
