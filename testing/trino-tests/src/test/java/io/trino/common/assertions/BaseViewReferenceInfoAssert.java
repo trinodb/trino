@@ -28,9 +28,9 @@ public class BaseViewReferenceInfoAssert
 
     public BaseViewReferenceInfoAssert hasCatalogSchemaView(String catalogName, String schemaName, String viewName)
     {
-        assertThat(actual.getCatalogName()).isEqualTo(catalogName);
-        assertThat(actual.getSchemaName()).isEqualTo(schemaName);
-        assertThat(actual.getViewName()).isEqualTo(viewName);
+        assertThat(actual.catalogName()).isEqualTo(catalogName);
+        assertThat(actual.schemaName()).isEqualTo(schemaName);
+        assertThat(actual.viewName()).isEqualTo(viewName);
         return this;
     }
 }

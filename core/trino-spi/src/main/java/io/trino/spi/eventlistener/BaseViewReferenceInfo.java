@@ -13,42 +13,16 @@
  */
 package io.trino.spi.eventlistener;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import static java.util.Objects.requireNonNull;
-
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
  */
-public abstract class BaseViewReferenceInfo
-        implements TableReferenceInfo
+public sealed interface BaseViewReferenceInfo
+        extends TableReferenceInfo
+        permits ViewReferenceInfo, MaterializedViewReferenceInfo
 {
-    private final String catalogName;
-    private final String schemaName;
-    private final String viewName;
+    String catalogName();
 
-    protected BaseViewReferenceInfo(String catalogName, String schemaName, String viewName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.viewName = requireNonNull(viewName, "viewName is null");
-    }
+    String schemaName();
 
-    @JsonProperty
-    public String getCatalogName()
-    {
-        return catalogName;
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getViewName()
-    {
-        return viewName;
-    }
+    String viewName();
 }

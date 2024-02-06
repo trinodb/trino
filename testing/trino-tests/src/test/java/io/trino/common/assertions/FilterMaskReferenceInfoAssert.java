@@ -29,15 +29,15 @@ public class FilterMaskReferenceInfoAssert
 
     public FilterMaskReferenceInfoAssert hasExpression(String expression)
     {
-        assertThat(actual.getExpression()).isEqualToIgnoringWhitespace(expression);
+        assertThat(actual.expression()).isEqualToIgnoringWhitespace(expression);
         return this;
     }
 
     public FilterMaskReferenceInfoAssert hasTargetCatalogSchemaTable(String catalogName, String schemaName, String tableName)
     {
-        assertThat(actual.getTargetCatalogName()).isEqualTo(catalogName);
-        assertThat(actual.getTargetSchemaName()).isEqualTo(schemaName);
-        assertThat(actual.getTargetTableName()).isEqualTo(tableName);
+        assertThat(actual.targetCatalogName()).isEqualTo(catalogName);
+        assertThat(actual.targetSchemaName()).isEqualTo(schemaName);
+        assertThat(actual.targetTableName()).isEqualTo(tableName);
         return this;
     }
 
@@ -45,7 +45,7 @@ public class FilterMaskReferenceInfoAssert
     {
         TrinoAssertions.assertThat(actual).isInstanceOfSatisfying(
                 ColumnMaskReferenceInfo.class,
-                columnMaskInfo -> assertThat(columnMaskInfo.getTargetColumnName()).isEqualTo(maskedColumnName));
+                columnMaskInfo -> assertThat(columnMaskInfo.targetColumnName()).isEqualTo(maskedColumnName));
         return this;
     }
 }
