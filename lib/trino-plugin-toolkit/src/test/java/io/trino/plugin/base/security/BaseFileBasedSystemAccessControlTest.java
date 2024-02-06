@@ -860,11 +860,11 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertThat(accessControlManager.filterViewQueryOwnedBy(alice, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")))).isEqualTo(ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
         assertAccessDenied(
                 () -> accessControlManager.checkCanKillQueryOwnedBy(alice, any),
-                "Cannot view query");
+                "Cannot kill query");
 
         assertAccessDenied(
                 () -> accessControlManager.checkCanExecuteQuery(bob),
-                "Cannot view query");
+                "Cannot execute query");
         assertAccessDenied(
                 () -> accessControlManager.checkCanViewQueryOwnedBy(bob, any),
                 "Cannot view query");
@@ -877,10 +877,10 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertThat(accessControlManager.filterViewQueryOwnedBy(dave, ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("bob"), Identity.ofUser("dave"), Identity.ofUser("admin")))).isEqualTo(ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("dave")));
         assertAccessDenied(
                 () -> accessControlManager.checkCanKillQueryOwnedBy(dave, alice),
-                "Cannot view query");
+                "Cannot kill query");
         assertAccessDenied(
                 () -> accessControlManager.checkCanKillQueryOwnedBy(dave, bob),
-                "Cannot view query");
+                "Cannot kill query");
         assertAccessDenied(
                 () -> accessControlManager.checkCanViewQueryOwnedBy(dave, bob),
                 "Cannot view query");
@@ -893,7 +893,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControlManager.checkCanViewQueryOwnedBy(contractor, dave);
         assertAccessDenied(
                 () -> accessControlManager.checkCanKillQueryOwnedBy(contractor, dave),
-                "Cannot view query");
+                "Cannot kill query");
 
         accessControlManager.checkCanExecuteQuery(nonAsciiUser);
         accessControlManager.checkCanViewQueryOwnedBy(nonAsciiUser, any);
@@ -944,7 +944,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertThat(accessControlManager.filterViewQueryOwnedBy(bob, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")))).isEqualTo(ImmutableSet.of());
         assertAccessDenied(
                 () -> accessControlManager.checkCanKillQueryOwnedBy(bob, any),
-                "Cannot view query");
+                "Cannot kill query");
 
         accessControlManager.checkCanExecuteQuery(dave);
         accessControlManager.checkCanViewQueryOwnedBy(dave, alice);
@@ -952,9 +952,9 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertThat(accessControlManager.filterViewQueryOwnedBy(dave, ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("bob"), Identity.ofUser("dave"), Identity.ofUser("admin")))).isEqualTo(ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("dave")));
         assertAccessDenied(
                 () -> accessControlManager.checkCanKillQueryOwnedBy(dave, alice),
-                "Cannot view query");
+                "Cannot kill query");
         assertAccessDenied(() -> accessControlManager.checkCanKillQueryOwnedBy(dave, bob),
-                "Cannot view query");
+                "Cannot kill query");
         assertAccessDenied(
                 () -> accessControlManager.checkCanViewQueryOwnedBy(dave, bob),
                 "Cannot view query");
@@ -967,7 +967,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControlManager.checkCanViewQueryOwnedBy(contractor, dave);
         assertAccessDenied(
                 () -> accessControlManager.checkCanKillQueryOwnedBy(contractor, dave),
-                "Cannot view query");
+                "Cannot kill query");
     }
 
     @Test
