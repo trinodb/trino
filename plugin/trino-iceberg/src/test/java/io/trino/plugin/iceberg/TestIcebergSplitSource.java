@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -205,7 +206,8 @@ public class TestIcebergSplitSource
                 alwaysTrue(),
                 new TestingTypeManager(),
                 false,
-                new IcebergConfig().getMinimumAssignedSplitWeight())) {
+                new IcebergConfig().getMinimumAssignedSplitWeight(),
+                new DefaultCachingHostAddressProvider())) {
             ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
             while (!splitSource.isFinished()) {
                 splitSource.getNextBatch(100).get()
@@ -401,7 +403,8 @@ public class TestIcebergSplitSource
                 alwaysTrue(),
                 new TestingTypeManager(),
                 false,
-                new IcebergConfig().getMinimumAssignedSplitWeight())) {
+                new IcebergConfig().getMinimumAssignedSplitWeight(),
+                new DefaultCachingHostAddressProvider())) {
             ImmutableList.Builder<IcebergSplit> builder = ImmutableList.builder();
             while (!splitSource.isFinished()) {
                 splitSource.getNextBatch(100).get()

@@ -20,6 +20,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.tracing.Tracing;
+import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.plugin.hive.LocationAccessControl;
@@ -131,7 +132,8 @@ public class TestIcebergCacheIds
                 TESTING_TYPE_MANAGER,
                 new DefaultIcebergFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
                 newSingleThreadExecutor(),
-                createJsonCodec(IcebergCacheSplitId.class));
+                createJsonCodec(IcebergCacheSplitId.class),
+                new DefaultCachingHostAddressProvider());
     }
 
     @AfterAll
