@@ -17,6 +17,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class CacheMetrics
 {
+    /**
+     * Counts number of splits not cached due to excessive split data size.
+     */
     private final AtomicInteger splitNotCachedCount = new AtomicInteger();
     private final AtomicInteger splitCachedCount = new AtomicInteger();
 
