@@ -13,27 +13,20 @@
  */
 package io.trino.spi.eventlistener;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
  */
-public class ColumnMaskReferenceInfo
-        extends FilterMaskReferenceInfo
+public record ColumnMaskReferenceInfo(@Override String expression, @Override String targetCatalogName, @Override String targetSchemaName, @Override String targetTableName, String targetColumnName)
+        implements FilterMaskReferenceInfo
 {
-    private final String columnName;
-
-    @JsonCreator
-    public ColumnMaskReferenceInfo(String maskExpression, String targetCatalogName, String targetSchemaName, String targetTableName, String targetColumnName)
+    public ColumnMaskReferenceInfo
     {
-        super(maskExpression, targetCatalogName, targetSchemaName, targetTableName);
-        this.columnName = targetColumnName;
-    }
-
-    @JsonProperty
-    public String getTargetColumnName()
-    {
-        return columnName;
+        requireNonNull(expression, "expression is null");
+        requireNonNull(targetCatalogName, "targetCatalogName is null");
+        requireNonNull(targetSchemaName, "targetSchemaName is null");
+        requireNonNull(targetTableName, "targetTableName is null");
+        requireNonNull(targetColumnName, "targetColumnName is null");
     }
 }
