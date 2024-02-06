@@ -149,7 +149,7 @@ requests, just like browser cookies.
     `X-Trino-Set-Schema`.
 * - `X-Trino-Time-Zone`
   - The timezone for query processing. Defaults to the timezone of the Trino
-    clusßter, and not the timezone of the client.
+    cluster, and not the timezone of the client.
 * - `X-Trino-Language`
   - The language to use when processing the query and formatting results,
     formatted as a Java `Locale` string, e.g., `en-US` for US English. The
