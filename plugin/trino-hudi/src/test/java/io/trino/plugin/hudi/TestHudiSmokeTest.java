@@ -165,7 +165,7 @@ public class TestHudiSmokeTest
     @Test
     public void testStockDataMORwithHashingTableCount()
     {
-        assertQuery("SELECT count(1) FROM " + STOCK_DATA_WITH_HASHING_MOR, "SELECT * FROM VALUES ('99')");
+        assertQuery("SELECT count(1) FROM " + STOCK_DATA_WITH_HASHING_MOR, "SELECT * FROM VALUES ('99')"); // for non-recursive metadata dir testing
     }
 
     @Test
