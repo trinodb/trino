@@ -29,7 +29,7 @@ import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.hive.InternalHiveConnectorFactory.createConnector;
+import static io.trino.plugin.hive.HiveConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
 public class TestingHiveConnectorFactory
