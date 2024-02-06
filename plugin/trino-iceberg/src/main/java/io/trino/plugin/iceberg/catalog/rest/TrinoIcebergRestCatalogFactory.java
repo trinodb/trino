@@ -85,7 +85,7 @@ public class TrinoIcebergRestCatalogFactory
             properties.putAll(securityProperties.get());
 
             if (vendedCredentialsEnabled) {
-                properties.put("header.x-tabular-s3-access", "vended_credentials");
+                properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");
             }
 
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
