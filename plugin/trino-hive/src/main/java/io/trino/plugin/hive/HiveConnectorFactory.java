@@ -13,33 +13,20 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.inject.Module;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static io.trino.plugin.hive.InternalHiveConnectorFactory.createConnector;
-import static java.util.Objects.requireNonNull;
 
 public class HiveConnectorFactory
         implements ConnectorFactory
 {
-    private final Module module;
-
-    public HiveConnectorFactory()
-    {
-        this(EMPTY_MODULE);
-    }
-
-    public HiveConnectorFactory(Module module)
-    {
-        this.module = requireNonNull(module, "module is null");
-    }
-
     @Override
     public String getName()
     {
@@ -50,6 +37,6 @@ public class HiveConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, module);
+        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.empty(), Optional.empty());
     }
 }

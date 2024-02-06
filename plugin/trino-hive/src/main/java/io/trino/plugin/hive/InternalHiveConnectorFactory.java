@@ -78,11 +78,6 @@ public final class InternalHiveConnectorFactory
 {
     private InternalHiveConnectorFactory() {}
 
-    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module)
-    {
-        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty());
-    }
-
     public static Connector createConnector(
             String catalogName,
             Map<String, String> config,
