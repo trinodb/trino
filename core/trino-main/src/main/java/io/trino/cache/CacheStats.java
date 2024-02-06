@@ -25,8 +25,13 @@ public class CacheStats
 {
     private final CounterStat cacheHits = new CounterStat();
     private final CounterStat cacheMiss = new CounterStat();
+    private final CounterStat splitRejected = new CounterStat();
+    private final CounterStat missingSplitId = new CounterStat();
+    private final CounterStat predicateTooBig = new CounterStat();
+    private final CounterStat splitsTooBig = new CounterStat();
     private final DistributionStat cachedData = new DistributionStat();
     private final TimeStat revokeMemoryTime = new TimeStat();
+    private final TimeStat cacheLookupTime = new TimeStat();
 
     @Managed
     @Nested
@@ -44,6 +49,34 @@ public class CacheStats
 
     @Managed
     @Nested
+    public CounterStat getSplitRejected()
+    {
+        return splitRejected;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getMissingSplitId()
+    {
+        return missingSplitId;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getPredicateTooBig()
+    {
+        return predicateTooBig;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSplitsTooBig()
+    {
+        return splitsTooBig;
+    }
+
+    @Managed
+    @Nested
     public DistributionStat getCachedData()
     {
         return cachedData;
@@ -56,14 +89,41 @@ public class CacheStats
         return revokeMemoryTime;
     }
 
-    public void recordCacheMiss(int count)
+    @Managed
+    @Nested
+    public TimeStat getCacheLookupTime()
     {
-        cacheMiss.update(count);
+        return cacheLookupTime;
     }
 
-    public void recordCacheHit(int count)
+    public void recordCacheMiss()
     {
-        cacheHits.update(count);
+        cacheMiss.update(1);
+    }
+
+    public void recordCacheHit()
+    {
+        cacheHits.update(1);
+    }
+
+    public void recordSplitRejected()
+    {
+        splitRejected.update(1);
+    }
+
+    public void recordMissingSplitId()
+    {
+        missingSplitId.update(1);
+    }
+
+    public void recordPredicateTooBig()
+    {
+        predicateTooBig.update(1);
+    }
+
+    public void recordSplitsTooBig()
+    {
+        splitsTooBig.update(1);
     }
 
     public void recordCacheData(long memoryUsage)
@@ -72,7 +132,7 @@ public class CacheStats
     }
 
     @MustBeClosed
-    public BlockTimer recordTime()
+    public BlockTimer recordRevokeMemoryTime()
     {
         return revokeMemoryTime.time();
     }

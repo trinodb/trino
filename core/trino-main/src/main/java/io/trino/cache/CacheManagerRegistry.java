@@ -253,7 +253,7 @@ public class CacheManagerRegistry
             long bytesToRevoke = (long) (-memoryPool.getFreeBytes() + (memoryPool.getMaxBytes() * (1.0 - revokingTarget)));
             if (bytesToRevoke > 0) {
                 long revokedBytes;
-                try (TimeStat.BlockTimer ignore = cacheStats.recordTime()) {
+                try (TimeStat.BlockTimer ignore = cacheStats.recordRevokeMemoryTime()) {
                     revokedBytes = cacheManager.revokeMemory(bytesToRevoke);
                 }
                 if (onAllocation) {
