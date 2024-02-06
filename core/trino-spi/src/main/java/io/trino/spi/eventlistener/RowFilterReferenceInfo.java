@@ -13,17 +13,19 @@
  */
 package io.trino.spi.eventlistener;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
  */
-public class RowFilterReferenceInfo
-        extends FilterMaskReferenceInfo
+public record RowFilterReferenceInfo(@Override String expression, @Override String targetCatalogName, @Override String targetSchemaName, @Override String targetTableName)
+        implements FilterMaskReferenceInfo
 {
-    @JsonCreator
-    public RowFilterReferenceInfo(String filterExpression, String targetCatalogName, String targetSchemaName, String targetTableName)
+    public RowFilterReferenceInfo
     {
-        super(filterExpression, targetCatalogName, targetSchemaName, targetTableName);
+        requireNonNull(expression, "expression is null");
+        requireNonNull(targetCatalogName, "targetCatalogName is null");
+        requireNonNull(targetSchemaName, "targetSchemaName is null");
+        requireNonNull(targetTableName, "targetTableName is null");
     }
 }

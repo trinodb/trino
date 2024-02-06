@@ -13,17 +13,18 @@
  */
 package io.trino.spi.eventlistener;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
  */
-public class MaterializedViewReferenceInfo
-        extends BaseViewReferenceInfo
+public record MaterializedViewReferenceInfo(@Override String catalogName, @Override String schemaName, @Override String viewName)
+        implements BaseViewReferenceInfo
 {
-    @JsonCreator
-    public MaterializedViewReferenceInfo(String catalogName, String schemaName, String viewName)
+    public MaterializedViewReferenceInfo
     {
-        super(catalogName, schemaName, viewName);
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(viewName, "viewName is null");
     }
 }
