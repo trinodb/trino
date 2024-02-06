@@ -40,8 +40,6 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.fs.CachingDirectoryListerModule;
-import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
 import io.trino.plugin.hive.procedure.HiveProcedureModule;
@@ -82,7 +80,7 @@ public final class InternalHiveConnectorFactory
 
     public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module)
     {
-        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty(), Optional.empty());
+        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty());
     }
 
     public static Connector createConnector(
@@ -91,8 +89,7 @@ public final class InternalHiveConnectorFactory
             ConnectorContext context,
             Module module,
             Optional<HiveMetastore> metastore,
-            Optional<TrinoFileSystemFactory> fileSystemFactory,
-            Optional<DirectoryLister> directoryLister)
+            Optional<TrinoFileSystemFactory> fileSystemFactory)
     {
         requireNonNull(config, "config is null");
 
@@ -106,7 +103,6 @@ public final class InternalHiveConnectorFactory
                     new JsonModule(),
                     new TypeDeserializerModule(context.getTypeManager()),
                     new HiveModule(),
-                    new CachingDirectoryListerModule(directoryLister),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
                     fileSystemFactory
