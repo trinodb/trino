@@ -88,14 +88,16 @@ public class CacheDataOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.memoryContext = operatorContext.newLocalUserMemoryContext(CacheDataOperator.class.getSimpleName());
-        this.pageSink = operatorContext.getDriverContext().getCacheDriverContext()
-                .orElseThrow(() -> new IllegalArgumentException("Cache context is not present"))
+        CacheDriverContext cacheContext = operatorContext.getDriverContext().getCacheDriverContext()
+                .orElseThrow(() -> new IllegalArgumentException("Cache context is not present"));
+        this.pageSink = cacheContext
                 .pageSink()
                 .orElseThrow(() -> new IllegalArgumentException("Cache page sink is not present"));
         memoryContext.setBytes(pageSink.getMemoryUsage());
         this.maxCacheSizeInBytes = maxCacheSizeInBytes;
         this.cacheMetrics = requireNonNull(cacheMetrics, "cacheMetrics is null");
         this.cacheStats = requireNonNull(cacheStats, "cacheStats is null");
+        operatorContext.setLatestMetrics(cacheContext.metrics());
     }
 
     @Override

@@ -43,6 +43,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -120,7 +121,7 @@ public class TestCacheDataOperator
         CacheMetrics cacheMetrics = new CacheMetrics();
         CacheStats cacheStats = new CacheStats();
 
-        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split1"), TupleDomain.all(), TupleDomain.all()), EMPTY, cacheMetrics, cacheStats));
+        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split1"), TupleDomain.all(), TupleDomain.all()), EMPTY, cacheMetrics, cacheStats, Metrics.EMPTY));
         CacheDataOperator cacheDataOperator = (CacheDataOperator) operatorFactory.createOperator(driverContext);
 
         // sink was not aborted - there is a space in a cache. The page was passed through and split is going to be cached
@@ -136,7 +137,7 @@ public class TestCacheDataOperator
         driverContext = createTaskContext(Executors.newSingleThreadExecutor(), Executors.newScheduledThreadPool(1), TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split2"), TupleDomain.all(), TupleDomain.all()), EMPTY, cacheMetrics, cacheStats));
+        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split2"), TupleDomain.all(), TupleDomain.all()), EMPTY, cacheMetrics, cacheStats, Metrics.EMPTY));
         cacheDataOperator = (CacheDataOperator) operatorFactory.createOperator(driverContext);
 
         cacheDataOperator.addInput(bigPage);

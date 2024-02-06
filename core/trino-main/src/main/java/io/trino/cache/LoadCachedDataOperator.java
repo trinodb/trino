@@ -88,11 +88,13 @@ public class LoadCachedDataOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.memoryContext = operatorContext.newLocalUserMemoryContext(LoadCachedDataOperator.class.getSimpleName());
-        this.pageSource = operatorContext.getDriverContext().getCacheDriverContext()
-                .orElseThrow(() -> new IllegalArgumentException("Cache context is not present"))
+        CacheDriverContext cacheContext = operatorContext.getDriverContext().getCacheDriverContext()
+                .orElseThrow(() -> new IllegalArgumentException("Cache context is not present"));
+        this.pageSource = cacheContext
                 .pageSource()
                 .orElseThrow(() -> new IllegalArgumentException("Cache page sink is not present"));
         memoryContext.setBytes(pageSource.getMemoryUsage());
+        operatorContext.setLatestMetrics(cacheContext.metrics());
     }
 
     @Override

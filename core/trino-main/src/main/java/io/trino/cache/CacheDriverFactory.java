@@ -16,7 +16,9 @@ package io.trino.cache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.execution.ScheduledSplit;
@@ -24,12 +26,14 @@ import io.trino.metadata.TableHandle;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheManager.SplitCache;
 import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Ranges;
@@ -48,6 +52,8 @@ import static io.trino.cache.CacheCommonSubqueries.ORIGINAL_PLAN_ALTERNATIVE;
 import static io.trino.cache.CacheCommonSubqueries.STORE_PAGES_ALTERNATIVE;
 import static io.trino.plugin.base.cache.CacheUtils.normalizeTupleDomain;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class CacheDriverFactory
 {
@@ -109,7 +115,10 @@ public class CacheDriverFactory
         long lookupDurationNanos = ticker.read() - lookupStartNanos;
         cacheStats.getCacheLookupTime().addNanos(lookupDurationNanos);
 
-        driverFactory.context().ifPresent(driverContext::setCacheDriverContext);
+        driverFactory.context()
+                .map(context -> context.withMetrics(new Metrics(ImmutableMap.of(
+                        "Cache lookup time (ms)", TDigestHistogram.fromValue(new Duration(lookupDurationNanos, NANOSECONDS).convertTo(MILLISECONDS).getValue())))))
+                .ifPresent(driverContext::setCacheDriverContext);
         return driverFactory.factory().createDriver(driverContext);
     }
 
@@ -152,7 +161,7 @@ public class CacheDriverFactory
             cacheStats.recordCacheHit();
             return new DriverFactoryWithCacheContext(
                     alternatives.get(LOAD_PAGES_ALTERNATIVE),
-                    Optional.of(new CacheDriverContext(pageSource, Optional.empty(), dynamicFilter, cacheMetrics, cacheStats)));
+                    Optional.of(new CacheDriverContext(pageSource, Optional.empty(), dynamicFilter, cacheMetrics, cacheStats, Metrics.EMPTY)));
         }
         else {
             cacheStats.recordCacheMiss();
@@ -167,7 +176,7 @@ public class CacheDriverFactory
             if (pageSink.isPresent()) {
                 return new DriverFactoryWithCacheContext(
                         alternatives.get(STORE_PAGES_ALTERNATIVE),
-                        Optional.of(new CacheDriverContext(Optional.empty(), pageSink, dynamicFilter, cacheMetrics, cacheStats)));
+                        Optional.of(new CacheDriverContext(Optional.empty(), pageSink, dynamicFilter, cacheMetrics, cacheStats, Metrics.EMPTY)));
             }
             else {
                 cacheStats.recordSplitRejected();

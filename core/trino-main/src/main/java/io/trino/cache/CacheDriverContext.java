@@ -17,6 +17,7 @@ import io.trino.operator.OperatorContext;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.metrics.Metrics;
 
 import java.util.Optional;
 
@@ -27,20 +28,28 @@ public record CacheDriverContext(
         Optional<ConnectorPageSink> pageSink,
         DynamicFilter dynamicFilter,
         CacheMetrics cacheMetrics,
-        CacheStats cacheStats)
+        CacheStats cacheStats,
+        Metrics metrics)
 {
     public CacheDriverContext(
             Optional<ConnectorPageSource> pageSource,
             Optional<ConnectorPageSink> pageSink,
             DynamicFilter dynamicFilter,
             CacheMetrics cacheMetrics,
-            CacheStats cacheStats)
+            CacheStats cacheStats,
+            Metrics metrics)
     {
         this.pageSource = requireNonNull(pageSource, "pageSource is null");
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.cacheMetrics = requireNonNull(cacheMetrics, "cacheMetrics is null");
         this.cacheStats = requireNonNull(cacheStats, "cacheStats is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
+    }
+
+    public CacheDriverContext withMetrics(Metrics metrics)
+    {
+        return new CacheDriverContext(pageSource, pageSink, dynamicFilter, cacheMetrics, cacheStats, metrics);
     }
 
     public static DynamicFilter getDynamicFilter(OperatorContext context, DynamicFilter originalDynamicFilter)
