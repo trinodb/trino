@@ -31,6 +31,7 @@ import java.util.Optional;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
 public class TestingDeltaLakePlugin
@@ -69,7 +70,7 @@ public class TestingDeltaLakePlugin
             public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
             {
                 localFileSystemRootPath.toFile().mkdirs();
-                return InternalDeltaLakeConnectorFactory.createConnector(
+                return createConnector(
                         catalogName,
                         config,
                         context,
