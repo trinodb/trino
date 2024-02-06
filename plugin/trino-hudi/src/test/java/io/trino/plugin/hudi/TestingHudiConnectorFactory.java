@@ -27,7 +27,7 @@ import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.hudi.InternalHudiConnectorFactory.createConnector;
+import static io.trino.plugin.hudi.HudiConnectorFactory.createConnector;
 
 public class TestingHudiConnectorFactory
         implements ConnectorFactory

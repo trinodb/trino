@@ -31,7 +31,7 @@ import java.util.Optional;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.iceberg.InternalIcebergConnectorFactory.createConnector;
+import static io.trino.plugin.iceberg.IcebergConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
 public class TestingIcebergConnectorFactory
