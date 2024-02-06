@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.inject.Module;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -24,24 +23,11 @@ import java.util.Optional;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static io.trino.plugin.deltalake.InternalDeltaLakeConnectorFactory.createConnector;
-import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeConnectorFactory
         implements ConnectorFactory
 {
     public static final String CONNECTOR_NAME = "delta_lake";
-
-    private final Module module;
-
-    public DeltaLakeConnectorFactory()
-    {
-        this(EMPTY_MODULE);
-    }
-
-    public DeltaLakeConnectorFactory(Module module)
-    {
-        this.module = requireNonNull(module, "module is null");
-    }
 
     @Override
     public String getName()
@@ -53,6 +39,6 @@ public class DeltaLakeConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, Optional.empty(), Optional.empty(), module);
+        return createConnector(catalogName, config, context, Optional.empty(), Optional.empty(), EMPTY_MODULE);
     }
 }
