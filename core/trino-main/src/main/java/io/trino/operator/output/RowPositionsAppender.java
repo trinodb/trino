@@ -162,17 +162,12 @@ public class RowPositionsAppender
             }
             result = fromNotNullSuppressedFieldBlocks(positionCount, hasNullRow ? Optional.of(rowIsNull) : Optional.empty(), fieldBlocks);
         }
+        else if (hasNullRow) {
+            Block nullRowBlock = type.createBlockBuilder(null, 0).appendNull().build();
+            result = RunLengthEncodedBlock.create(nullRowBlock, positionCount);
+        }
         else {
-            for (UnnestingPositionsAppender fieldAppender : fieldAppenders) {
-                fieldAppender.reset();
-            }
-            if (hasNullRow) {
-                Block nullRowBlock = type.createBlockBuilder(null, 0).appendNull().build();
-                result = RunLengthEncodedBlock.create(nullRowBlock, positionCount);
-            }
-            else {
-                result = type.createBlockBuilder(null, 0).build();
-            }
+            result = type.createBlockBuilder(null, 0).build();
         }
 
         reset();
