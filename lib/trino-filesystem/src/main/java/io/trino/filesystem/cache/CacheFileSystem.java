@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoOutputFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
@@ -129,5 +130,15 @@ public final class CacheFileSystem
             throws IOException
     {
         return delegate.createTemporaryDirectory(targetPath, temporaryPrefix, relativePrefix);
+    }
+
+    @Override
+    public void deleteFiles(Collection<Location> locations)
+            throws IOException
+    {
+        delegate.deleteFiles(locations);
+        for (var location : locations) {
+            cache.expire(location);
+        }
     }
 }

@@ -26,6 +26,7 @@ import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
@@ -136,6 +137,7 @@ public class IcebergSplitSource
     private final boolean recordScannedFiles;
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
     private long outputRowsLowerBound;
+    private final CachingHostAddressProvider cachingHostAddressProvider;
 
     public IcebergSplitSource(
             IcebergFileSystemFactory fileSystemFactory,
@@ -149,7 +151,8 @@ public class IcebergSplitSource
             Constraint constraint,
             TypeManager typeManager,
             boolean recordScannedFiles,
-            double minimumAssignedSplitWeight)
+            double minimumAssignedSplitWeight,
+            CachingHostAddressProvider cachingHostAddressProvider)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.session = requireNonNull(session, "session is null");
@@ -177,6 +180,7 @@ public class IcebergSplitSource
                 tableHandle.getUnenforcedPredicate());
         this.limit = tableHandle.getLimit();
         this.fileModifiedTimeDomain = getFileModifiedTimePathDomain(tableHandle.getEnforcedPredicate());
+        this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
     }
 
     @Override
@@ -517,7 +521,8 @@ public class IcebergSplitSource
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(clamp((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight, 1.0)),
-                fileIoProperties);
+                fileIoProperties,
+                cachingHostAddressProvider.getHosts(task.file().path().toString(), ImmutableList.of()));
     }
 
     private static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
