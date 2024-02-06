@@ -60,12 +60,6 @@ class OperationTimer
         intervalCpuStart = cpuStart;
     }
 
-    void resetInterval()
-    {
-        intervalCpuStart = trackOperationCpuTime ? currentThreadCpuTime() : 0;
-        intervalWallStart = System.nanoTime();
-    }
-
     void recordOperationComplete(OperationTiming operationTiming)
     {
         requireNonNull(operationTiming, "operationTiming is null");
