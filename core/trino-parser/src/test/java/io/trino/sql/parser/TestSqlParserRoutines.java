@@ -42,6 +42,7 @@ import io.trino.sql.tree.ReturnStatement;
 import io.trino.sql.tree.ReturnsClause;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
+import io.trino.sql.tree.SessionSpecification;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.VariableDeclaration;
 import io.trino.sql.tree.WhileStatement;
@@ -95,6 +96,22 @@ class TestSqlParserRoutines
                                 ImmutableList.of(),
                                 new ReturnStatement(location(), literal(42))),
                         selectList(new FunctionCall(QualifiedName.of("answer"), ImmutableList.of()))));
+    }
+
+    @Test
+    void testInlineSession()
+    {
+        assertThat(statement("""
+                WITH
+                    SESSION session_key = 'property',
+                    SESSION catalog.catalog_session_key = 'catalog_property'
+                SELECT foo()
+                """))
+                .ignoringLocation()
+                .isEqualTo(query(ImmutableList.of(
+                        new SessionSpecification(QualifiedName.of("session_key"), literal("property")),
+                        new SessionSpecification(QualifiedName.of("catalog", "catalog_session_key"), literal("catalog_property"))),
+                    selectList(new FunctionCall(QualifiedName.of("foo"), ImmutableList.of()))));
     }
 
     @Test
@@ -333,6 +350,28 @@ class TestSqlParserRoutines
     {
         return new Query(
                 ImmutableList.of(function),
+                ImmutableList.of(),
+                Optional.empty(),
+                new QuerySpecification(
+                        select,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    private static Query query(List<SessionSpecification> sessionSpecifications, Select select)
+    {
+        return new Query(
+                ImmutableList.of(),
+                sessionSpecifications,
                 Optional.empty(),
                 new QuerySpecification(
                         select,

@@ -70,6 +70,11 @@ public class ParserAssert
         return createAssertion(new SqlParser()::createFunctionSpecification, sql);
     }
 
+    public static AssertProvider<ParserAssert> sessionSpecification(String sql)
+    {
+        return createAssertion(new SqlParser()::createSessionSpecification, sql);
+    }
+
     private static Expression createExpression(String expression)
     {
         return new SqlParser().createExpression(expression);
