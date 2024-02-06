@@ -16,7 +16,6 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -46,7 +45,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
@@ -105,7 +103,6 @@ public final class HiveQueryRunner
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
         private Optional<Function<QueryRunner, HiveMetastore>> metastore = Optional.empty();
-        private Module module = EMPTY_MODULE;
         private boolean tpcdsCatalogEnabled;
         private boolean tpchBucketedCatalogEnabled;
         private boolean createTpchSchemas = true;
@@ -163,13 +160,6 @@ public final class HiveQueryRunner
         public SELF setMetastore(Function<QueryRunner, HiveMetastore> metastore)
         {
             this.metastore = Optional.of(metastore);
-            return self();
-        }
-
-        @CanIgnoreReturnValue
-        public SELF setModule(Module module)
-        {
-            this.module = requireNonNull(module, "module is null");
             return self();
         }
 
@@ -248,8 +238,8 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
                 }
 
-                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore, module));
-                queryRunner.installPlugin(new MockPlanAlternativePlugin(new TestingHivePlugin(dataDir, metastore, module)));
+                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore));
+                queryRunner.installPlugin(new MockPlanAlternativePlugin(new TestingHivePlugin(dataDir, metastore)));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
