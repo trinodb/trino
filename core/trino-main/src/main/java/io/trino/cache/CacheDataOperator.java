@@ -82,7 +82,7 @@ public class CacheDataOperator
     @Nullable
     private Page page;
     private long cachedDataSize;
-    private boolean isCachingAborted;
+    private boolean finishing;
 
     private CacheDataOperator(OperatorContext operatorContext, long maxCacheSizeInBytes, CacheMetrics cacheMetrics, CacheStats cacheStats)
     {
@@ -107,7 +107,7 @@ public class CacheDataOperator
     @Override
     public boolean needsInput()
     {
-        return pageSink != null && page == null;
+        return !finishing && page == null;
     }
 
     @Override
@@ -116,7 +116,8 @@ public class CacheDataOperator
         checkState(needsInput());
         this.page = page;
 
-        if (isCachingAborted) {
+        if (pageSink == null) {
+            // caching was aborted
             return;
         }
 
@@ -126,8 +127,8 @@ public class CacheDataOperator
 
         // If there is no space for a page in a cache, stop caching this split and abort pageSink
         if (pageSink.getMemoryUsage() > maxCacheSizeInBytes) {
-            pageSink.abort();
-            isCachingAborted = true;
+            abort();
+            cacheMetrics.incrementSplitsNotCached();
         }
     }
 
@@ -142,24 +143,21 @@ public class CacheDataOperator
     @Override
     public void finish()
     {
+        finishing = true;
         if (pageSink != null) {
-            if (isCachingAborted) {
-                cacheMetrics.incrementSplitsNotCached();
-            }
-            else {
-                checkState(pageSink.finish().isDone(), "finish future must be done");
-                cacheMetrics.incrementSplitsCached();
-                cacheStats.recordCacheData(cachedDataSize);
-            }
+            checkState(pageSink.finish().isDone(), "finish future must be done");
             pageSink = null;
             memoryContext.close();
+
+            cacheMetrics.incrementSplitsCached();
+            cacheStats.recordCacheData(cachedDataSize);
         }
     }
 
     @Override
     public boolean isFinished()
     {
-        return pageSink == null && page == null;
+        return finishing && page == null;
     }
 
     @Override
@@ -167,11 +165,15 @@ public class CacheDataOperator
             throws Exception
     {
         if (pageSink != null) {
-            if (!isCachingAborted) {
-                pageSink.abort();
-            }
-            pageSink = null;
-            memoryContext.close();
+            abort();
         }
+    }
+
+    private void abort()
+    {
+        requireNonNull(pageSink, "pageSink is null");
+        pageSink.abort();
+        pageSink = null;
+        memoryContext.close();
     }
 }
