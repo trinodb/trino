@@ -89,7 +89,6 @@ import org.apache.thrift.transport.TTransportException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -398,21 +397,6 @@ public final class ThriftHiveMetastore
                         }));
         Map<String, OptionalLong> partitionRowCounts = partitionBasicStatistics.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getRowCount()));
-
-        long tableRowCount = partitionRowCounts.values().stream()
-                .mapToLong(count -> count.orElse(0))
-                .sum();
-        if (!partitionRowCounts.isEmpty() && tableRowCount == 0) {
-            // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
-            // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
-            // used to ingest data into partitioned hive tables.
-            // https://github.com/trinodb/trino/issues/18798 Hive Metastore assumes any new partition statistics to at least have all parameters that the partition used to have
-            partitionBasicStatistics = partitionBasicStatistics.entrySet().stream()
-                    .map(entry -> new SimpleEntry<>(
-                            entry.getKey(),
-                            entry.getValue().withEmptyRowCount()))
-                    .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue));
-        }
 
         Map<String, Map<String, HiveColumnStatistics>> partitionColumnStatistics = getPartitionColumnStatistics(
                 table.getDbName(),
