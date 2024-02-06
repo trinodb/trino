@@ -13,48 +13,19 @@
  */
 package io.trino.spi.eventlistener;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
  */
-public abstract class FilterMaskReferenceInfo
-        implements TableReferenceInfo
+public sealed interface FilterMaskReferenceInfo
+        extends TableReferenceInfo
+        permits RowFilterReferenceInfo, ColumnMaskReferenceInfo
+
 {
-    private final String expression;
-    private final String targetCatalogName;
-    private final String targetSchemaName;
-    private final String targetTableName;
+    String expression();
 
-    protected FilterMaskReferenceInfo(String expression, String targetCatalogName, String targetSchemaName, String targetTableName)
-    {
-        this.expression = expression;
-        this.targetCatalogName = targetCatalogName;
-        this.targetSchemaName = targetSchemaName;
-        this.targetTableName = targetTableName;
-    }
+    String targetCatalogName();
 
-    @JsonProperty
-    public String getExpression()
-    {
-        return expression;
-    }
+    String targetSchemaName();
 
-    @JsonProperty
-    public String getTargetCatalogName()
-    {
-        return targetCatalogName;
-    }
-
-    @JsonProperty
-    public String getTargetSchemaName()
-    {
-        return targetSchemaName;
-    }
-
-    @JsonProperty
-    public String getTargetTableName()
-    {
-        return targetTableName;
-    }
+    String targetTableName();
 }
