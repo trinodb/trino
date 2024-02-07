@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.errorprone.annotations.Immutable;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 
 import java.math.BigDecimal;
@@ -35,6 +36,7 @@ public record ColumnStatistics(
         Optional<DateStatistics> dateStatistics,
         Optional<BooleanStatistics> booleanStatistics,
         OptionalLong maxValueSizeInBytes,
+        OptionalDouble averageColumnLength,
         OptionalLong totalSizeInBytes,
         OptionalLong nullsCount,
         OptionalLong distinctValuesCount)
@@ -47,7 +49,9 @@ public record ColumnStatistics(
         requireNonNull(dateStatistics, "dateStatistics is null");
         requireNonNull(booleanStatistics, "booleanStatistics is null");
         requireNonNull(maxValueSizeInBytes, "maxValueSizeInBytes is null");
+        requireNonNull(averageColumnLength, "averageColumnLength is null");
         requireNonNull(totalSizeInBytes, "totalSizeInBytes is null");
+        checkArgument(averageColumnLength.isEmpty() || totalSizeInBytes.isEmpty(), "both averageColumnLength and totalSizeInBytes are present");
         requireNonNull(nullsCount, "nullsCount is null");
         requireNonNull(distinctValuesCount, "distinctValuesCount is null");
 
@@ -69,13 +73,18 @@ public record ColumnStatistics(
                 hiveColumnStatistics.getDateStatistics().map(stat -> new DateStatistics(stat.getMin(), stat.getMax())),
                 hiveColumnStatistics.getBooleanStatistics().map(stat -> new BooleanStatistics(stat.getTrueCount(), stat.getFalseCount())),
                 hiveColumnStatistics.getMaxValueSizeInBytes(),
-                hiveColumnStatistics.getTotalSizeInBytes(),
+                hiveColumnStatistics.getAverageColumnLength(),
+                OptionalLong.empty(),
                 hiveColumnStatistics.getNullsCount(),
                 hiveColumnStatistics.getDistinctValuesWithNullCount());
     }
 
-    public HiveColumnStatistics toHiveColumnStatistics()
+    public HiveColumnStatistics toHiveColumnStatistics(HiveBasicStatistics basicStatistics)
     {
+        OptionalDouble averageColumnLength = this.averageColumnLength;
+        if (totalSizeInBytes.isPresent() && basicStatistics.getRowCount().orElse(0) > 0) {
+            averageColumnLength = OptionalDouble.of(totalSizeInBytes.getAsLong() / (double) basicStatistics.getRowCount().getAsLong());
+        }
         return new HiveColumnStatistics(
                 integerStatistics.map(stat -> new io.trino.plugin.hive.metastore.IntegerStatistics(stat.min(), stat.max())),
                 doubleStatistics.map(stat -> new io.trino.plugin.hive.metastore.DoubleStatistics(stat.min(), stat.max())),
@@ -83,7 +92,7 @@ public record ColumnStatistics(
                 dateStatistics.map(stat -> new io.trino.plugin.hive.metastore.DateStatistics(stat.min(), stat.max())),
                 booleanStatistics.map(stat -> new io.trino.plugin.hive.metastore.BooleanStatistics(stat.trueCount(), stat.falseCount())),
                 maxValueSizeInBytes,
-                totalSizeInBytes,
+                averageColumnLength,
                 nullsCount,
                 distinctValuesCount);
     }

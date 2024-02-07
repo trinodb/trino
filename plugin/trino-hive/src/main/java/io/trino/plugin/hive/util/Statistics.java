@@ -98,7 +98,7 @@ public final class Statistics
                 result.setMaxValueSizeInBytes(0);
                 return;
             case TOTAL_SIZE_IN_BYTES:
-                result.setTotalSizeInBytes(0);
+                result.setAverageColumnLength(0);
                 return;
             case NUMBER_OF_DISTINCT_VALUES:
                 result.setDistinctValuesWithNullCount(0);
@@ -201,7 +201,9 @@ public final class Statistics
 
         // TOTAL_VALUES_SIZE_IN_BYTES
         if (computedStatistics.containsKey(TOTAL_SIZE_IN_BYTES)) {
-            result.setTotalSizeInBytes(getIntegerValue(BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES)));
+            OptionalLong totalSizeInBytes = getIntegerValue(BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES));
+            OptionalLong numNonNullValues = getIntegerValue(BIGINT, computedStatistics.get(NUMBER_OF_NON_NULL_VALUES));
+            result.setAverageColumnLength(getAverageColumnLength(totalSizeInBytes, numNonNullValues));
         }
 
         // NUMBER OF NULLS
@@ -293,5 +295,18 @@ public final class Statistics
             return Optional.empty();
         }
         return Optional.of(Decimals.readBigDecimal((DecimalType) type, block, 0));
+    }
+
+    private static OptionalDouble getAverageColumnLength(OptionalLong totalSizeInBytes, OptionalLong numNonNullValues)
+    {
+        if (totalSizeInBytes.isEmpty() || numNonNullValues.isEmpty()) {
+            return OptionalDouble.empty();
+        }
+
+        long nonNullsCount = numNonNullValues.getAsLong();
+        if (nonNullsCount <= 0) {
+            return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(((double) totalSizeInBytes.getAsLong()) / nonNullsCount);
     }
 }
