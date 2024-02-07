@@ -180,7 +180,7 @@ public class VacuumProcedure
             accessControl.checkCanDeleteFromTable(null, tableName);
 
             TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), handle.getReadVersion());
-            ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
+            ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(tableSnapshot, session);
             if (protocolEntry.getMinWriterVersion() > MAX_WRITER_VERSION) {
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %d writer version".formatted(protocolEntry.getMinWriterVersion()));
             }

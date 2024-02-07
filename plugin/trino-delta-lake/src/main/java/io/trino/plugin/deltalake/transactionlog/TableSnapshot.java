@@ -62,7 +62,8 @@ public class TableSnapshot
     private final boolean checkpointRowStatisticsWritingEnabled;
     private final int domainCompactionThreshold;
 
-    private Optional<MetadataEntry> cachedMetadata = Optional.empty();
+    private Optional<MetadataEntry> cachedMetadata;
+    private Optional<ProtocolEntry> cachedProtocol;
 
     private TableSnapshot(
             SchemaTableName table,
@@ -71,7 +72,9 @@ public class TableSnapshot
             String tableLocation,
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled,
-            int domainCompactionThreshold)
+            int domainCompactionThreshold,
+            Optional<MetadataEntry> cachedMetadata,
+            Optional<ProtocolEntry> cachedProtocol)
     {
         this.table = requireNonNull(table, "table is null");
         this.lastCheckpoint = requireNonNull(lastCheckpoint, "lastCheckpoint is null");
@@ -80,6 +83,8 @@ public class TableSnapshot
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
         this.domainCompactionThreshold = domainCompactionThreshold;
+        this.cachedMetadata = cachedMetadata;
+        this.cachedProtocol = cachedProtocol;
     }
 
     public static TableSnapshot load(
@@ -102,7 +107,9 @@ public class TableSnapshot
                 tableLocation,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                transactionLogTail.getMetadataEntry(),
+                transactionLogTail.getProtocolEntry());
     }
 
     public Optional<TableSnapshot> getUpdatedSnapshot(TrinoFileSystem fileSystem, Optional<Long> toVersion)
@@ -136,7 +143,9 @@ public class TableSnapshot
                 tableLocation,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold));
+                domainCompactionThreshold,
+                transactionLogTail.getMetadataEntry().or(() -> cachedMetadata),
+                transactionLogTail.getProtocolEntry().or(() -> cachedProtocol)));
     }
 
     public long getVersion()
@@ -154,6 +163,11 @@ public class TableSnapshot
         return cachedMetadata;
     }
 
+    public Optional<ProtocolEntry> getCachedProtocol()
+    {
+        return cachedProtocol;
+    }
+
     public String getTableLocation()
     {
         return tableLocation;
@@ -162,6 +176,11 @@ public class TableSnapshot
     public void setCachedMetadata(Optional<MetadataEntry> cachedMetadata)
     {
         this.cachedMetadata = cachedMetadata;
+    }
+
+    public void setCachedProtocol(Optional<ProtocolEntry> cachedProtocol)
+    {
+        this.cachedProtocol = cachedProtocol;
     }
 
     public List<DeltaLakeTransactionLogEntry> getJsonTransactionLogEntries()

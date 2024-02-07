@@ -140,7 +140,7 @@ public class TestTableSnapshot
                 trackingFileSystemFactory,
                 new ParquetReaderConfig());
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(tableSnapshot, SESSION);
         tableSnapshot.setCachedMetadata(Optional.of(metadataEntry));
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
                 SESSION,
