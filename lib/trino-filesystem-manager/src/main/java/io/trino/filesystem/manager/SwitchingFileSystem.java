@@ -152,6 +152,13 @@ final class SwitchingFileSystem
 
     private TrinoFileSystemFactory determineFactory(Location location)
     {
+        if (isS3ExpressBucket(location)) {
+            return location.scheme()
+                    .map(scheme -> factories.get(Constants.S3_EXPRESS_FACTORY_KEY))
+                    .orElseThrow(() -> new IllegalStateException("No factory for S3 Express location: " + location
+                            + ". Please ensure that `fs.s3-express.enabled` is set"));
+        }
+
         return location.scheme()
                 .map(factories::get)
                 .or(() -> hdfsFactory)
@@ -162,5 +169,10 @@ final class SwitchingFileSystem
     {
         return session.map(factory::create).orElseGet(() ->
                 factory.create(identity.orElseThrow()));
+    }
+
+    private boolean isS3ExpressBucket(Location location)
+    {
+        return location.host().orElse("").endsWith("--x-s3");
     }
 }

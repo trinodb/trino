@@ -34,6 +34,7 @@ public class TestFileSystemConfig
                 .setNativeAzureEnabled(false)
                 .setNativeS3Enabled(false)
                 .setNativeGcsEnabled(false)
+                .setNativeS3ExpressEnabled(true)
                 .setCacheType(NONE));
     }
 
@@ -45,6 +46,7 @@ public class TestFileSystemConfig
                 .put("fs.native-azure.enabled", "true")
                 .put("fs.native-s3.enabled", "true")
                 .put("fs.native-gcs.enabled", "true")
+                .put("fs.s3-express.enabled", "false")
                 .put("fs.cache", "alluxio")
                 .buildOrThrow();
 
@@ -53,6 +55,7 @@ public class TestFileSystemConfig
                 .setNativeAzureEnabled(true)
                 .setNativeS3Enabled(true)
                 .setNativeGcsEnabled(true)
+                .setNativeS3ExpressEnabled(false)
                 .setCacheType(ALLUXIO);
 
         assertFullMapping(properties, expected);

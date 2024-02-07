@@ -25,6 +25,13 @@ public class FileSystemConfig
     private boolean nativeGcsEnabled;
     private CacheType cacheType = NONE;
 
+    // This enables us to communicate with S3Express buckets.
+    // Enabling `nativeS3Enabled` by default may lead to differences in behavior.
+    // This flag indicates the `FileSystemModule` to load `S3FileSystemModule` as well for
+    // accessing S3Express while `FileSystemModule` still passes `s3Enabled` to `HdfsFileSystemLoader` on the basis of `nativeS3Enabled`.
+    // This gives the benefit of the both -- we can have the calls routed to old FileSystem until `nativeS3Enabled` is true in OSS.
+    private boolean nativeS3ExpressEnabled = true;
+
     public boolean isHadoopEnabled()
     {
         return hadoopEnabled;
@@ -70,6 +77,18 @@ public class FileSystemConfig
     public FileSystemConfig setNativeGcsEnabled(boolean nativeGcsEnabled)
     {
         this.nativeGcsEnabled = nativeGcsEnabled;
+        return this;
+    }
+
+    public boolean isNativeS3ExpressEnabled()
+    {
+        return nativeS3ExpressEnabled;
+    }
+
+    @Config("fs.s3-express.enabled")
+    public FileSystemConfig setNativeS3ExpressEnabled(boolean nativeS3ExpressEnabled)
+    {
+        this.nativeS3ExpressEnabled = nativeS3ExpressEnabled;
         return this;
     }
 
