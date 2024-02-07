@@ -13,10 +13,10 @@ ALTER TABLE test_table EXECUTE optimize
 ```
 
 The following statement merges files in a table that are
-under 10 megabytes in size:
+under 128 megabytes in size:
 
 ```sql
-ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
+ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '128MB')
 ```
 
 You can use a `WHERE` clause with the columns used to partition the table
