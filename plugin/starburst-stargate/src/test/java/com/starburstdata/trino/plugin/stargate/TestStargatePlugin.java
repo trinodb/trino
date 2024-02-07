@@ -104,6 +104,7 @@ public class TestStargatePlugin
                 .collect(toOptional())
                 .orElseThrow();
 
-        factory.create("test", properties, new TestingConnectorContext());
+        factory.create("test", properties, new TestingConnectorContext())
+                .shutdown();
     }
 }

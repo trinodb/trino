@@ -32,6 +32,7 @@ public class TestSalesforcePlugin
                         .put("salesforce.security-token", "token")
                         .put("salesforce.enable-sandbox", "true")
                         .buildOrThrow(),
-                new TestingConnectorContext());
+                new TestingConnectorContext())
+                .shutdown();
     }
 }

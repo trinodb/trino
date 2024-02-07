@@ -24,6 +24,7 @@ public class TestSynapsePlugin
     {
         Plugin plugin = new StarburstSynapsePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:sqlserver:test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:sqlserver:test"), new TestingConnectorContext())
+                .shutdown();
     }
 }

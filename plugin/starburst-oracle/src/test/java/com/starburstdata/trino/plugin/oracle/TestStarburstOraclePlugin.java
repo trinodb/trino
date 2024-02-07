@@ -29,7 +29,8 @@ public class TestStarburstOraclePlugin
                 "connection-url", "jdbc:oracle:thin:@test",
                 "connection-user", "test",
                 "connection-password", "password"
-        ), new TestingConnectorContext());
+        ), new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test

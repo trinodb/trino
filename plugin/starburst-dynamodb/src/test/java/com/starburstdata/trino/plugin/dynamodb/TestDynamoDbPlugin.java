@@ -37,6 +37,7 @@ public class TestDynamoDbPlugin
                         .put("dynamodb.aws-region", "us-east-2")
                         .put("dynamodb.schema-directory", tempDirectory.getAbsolutePath())
                         .buildOrThrow(),
-                new TestingConnectorContext());
+                new TestingConnectorContext())
+                .shutdown();
     }
 }

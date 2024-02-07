@@ -24,6 +24,7 @@ public class TestSapHanaPlugin
     {
         Plugin plugin = new TestingSapHanaPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:sap:test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:sap:test"), new TestingConnectorContext())
+                .shutdown();
     }
 }

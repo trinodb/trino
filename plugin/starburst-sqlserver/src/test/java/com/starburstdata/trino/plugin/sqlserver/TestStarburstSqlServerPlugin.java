@@ -28,7 +28,8 @@ public class TestStarburstSqlServerPlugin
     {
         Plugin plugin = new StarburstSqlServerPlugin(NOOP_LICENSE_MANAGER);
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:sqlserver:test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:sqlserver:test"), new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test
