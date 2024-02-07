@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
@@ -67,7 +68,9 @@ public class TestRedshiftConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_JOIN_PUSHDOWN,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY -> true;
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                     SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                     SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
@@ -78,6 +81,7 @@ public class TestRedshiftConnectorTest
                     SUPPORTS_DROP_SCHEMA_CASCADE,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                    SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                     SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                     SUPPORTS_ROW_TYPE,
                     SUPPORTS_SET_COLUMN_TYPE -> false;
@@ -624,6 +628,180 @@ public class TestRedshiftConnectorTest
     }
 
     @Test
+    public void testOrPredicatePushdown()
+    {
+        assertThat(query("SELECT * FROM nation WHERE nationkey != 3 OR regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE nationkey != 3 OR regionkey != 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE name = 'ALGERIA' OR regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE name IS NULL OR regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE name = NULL OR regionkey = 4")).isFullyPushedDown();
+    }
+
+    @Test
+    @Override
+    public void testArithmeticPredicatePushdown()
+    {
+        super.testArithmeticPredicatePushdown();
+
+        // Redshift executes each operand individually - for an expression `nationkey > 0 AND (nationkey - regionkey) % nationkey`
+        // `(nationkey - regionkey) % nationkey` fails even if `nationkey > 0` ensures that nationkey won't be zero.
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'SELECT 1 FROM %s.nation WHERE nationkey > 0 AND (nationkey - regionkey) %% nationkey = 2'))".formatted(TEST_SCHEMA)))
+                .hasMessageContaining("by zero");
+    }
+
+    @Test
+    public void testLikePredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
+                .isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_like_predicate_pushdown",
+                // TODO Move to a bounded varchar of length 1. https://starburstdata.atlassian.net/browse/SEP-11316
+                "(id integer, a_varchar varchar)",
+                List.of(
+                        "1, 'A'",
+                        "2, 'a'",
+                        "3, 'B'",
+                        "4, 'ą'",
+                        "5, 'Ą'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A%'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą%'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testLikeWithEscapePredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%' ESCAPE '\\'"))
+                .isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_like_with_escape_predicate_pushdown",
+                // TODO Move to a bounded varchar of length 4. https://starburstdata.atlassian.net/browse/SEP-11316
+                "(id integer, a_varchar varchar)",
+                List.of(
+                        "1, 'A%b'",
+                        "2, 'Asth'",
+                        "3, 'ą%b'",
+                        "4, 'ąsth'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A\\%%' ESCAPE '\\'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą\\%%' ESCAPE '\\'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testIsNullPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL")).isFullyPushedDown();
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL OR regionkey = 4")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_is_null_predicate_pushdown",
+                "(a_int integer, a_varchar varchar(1))",
+                List.of(
+                        "1, 'A'",
+                        "2, 'B'",
+                        "1, NULL",
+                        "2, NULL"))) {
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE a_varchar IS NULL OR a_int = 1")).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testIsNotNullPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NOT NULL OR regionkey = 4")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_is_not_null_predicate_pushdown",
+                "(a_int integer, a_varchar varchar(1))",
+                List.of(
+                        "1, 'A'",
+                        "2, 'B'",
+                        "1, NULL",
+                        "2, NULL"))) {
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE a_varchar IS NOT NULL OR a_int = 1")).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testNullIfPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'ALGERIA') IS NULL"))
+                .matches("VALUES BIGINT '0'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE NULLIF(nationkey, 0) IS NULL"))
+                .matches("VALUES CAST('ALGERIA' AS varchar(25))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'Algeria') IS NULL"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        // NULLIF returns the first argument because arguments aren't the same
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'Name not found') = name"))
+                .matches("SELECT nationkey FROM nation")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testNotExpressionPushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE NOT(name LIKE '%A%' ESCAPE '\\')")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_is_not_predicate_pushdown",
+                "(a_int integer, a_varchar varchar(2))",
+                List.of(
+                        "1, 'Aa'",
+                        "2, 'Bb'",
+                        "1, NULL",
+                        "2, NULL"))) {
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE NOT(a_varchar LIKE 'A%') OR a_int = 2")).isFullyPushedDown();
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE NOT(a_varchar LIKE 'A%' OR a_int = 2)")).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testInPredicatePushdown()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_in_predicate_pushdown",
+                "(id varchar(1), id2 varchar(1))",
+                List.of(
+                        "'a', 'b'",
+                        "'b', 'c'",
+                        "'c', 'c'",
+                        "'d', 'd'",
+                        "'a', 'f'"))) {
+            // IN values cannot be represented as a domain
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', id2)"))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'b') OR id2 IN ('c', 'd')"))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'B') OR id2 IN ('c', 'D')"))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'B', NULL) OR id2 IN ('C', 'd')"))
+                    // NULL constant value is currently not pushed down
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
     @Override
     public void testInsertRowConcurrently()
     {
@@ -685,14 +863,6 @@ public class TestRedshiftConnectorTest
     protected SqlExecutor onRemoteDatabase()
     {
         return RedshiftQueryRunner::executeInRedshift;
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithLike()
-    {
-        assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: This connector does not support modifying table rows");
     }
 
     private static class TestView

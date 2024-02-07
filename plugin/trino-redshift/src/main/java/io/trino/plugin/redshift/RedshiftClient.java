@@ -55,8 +55,11 @@ import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.expression.ComparisonOperator;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.expression.RewriteComparison;
+import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -67,6 +70,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
@@ -232,6 +236,7 @@ public class RedshiftClient
             .toFormatter();
     private static final OffsetDateTime REDSHIFT_MIN_SUPPORTED_TIMESTAMP_TZ = OffsetDateTime.of(-4712, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
 
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final RedshiftTableStatisticsReader statisticsReader;
@@ -249,8 +254,18 @@ public class RedshiftClient
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         this.legacyTypeMapping = redshiftConfig.isLegacyTypeMapping();
-        ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
+                // TODO allow all comparison operators for numeric types
+                .add(new RewriteComparison(ImmutableSet.of(ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL)))
+                .add(new RewriteIn())
+                // TODO Add support for arithmetical function
+                .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
+                .map("$like(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
+                .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -349,6 +364,12 @@ public class RedshiftClient
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    @Override
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
     @Override
@@ -489,7 +510,13 @@ public class RedshiftClient
         checkArgument(handle.getUpdateAssignments().isEmpty(), "Unable to delete when update assignments are set: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
-            PreparedQuery preparedQuery = queryBuilder.prepareDeleteQuery(this, session, connection, handle.getRequiredNamedRelation(), handle.getConstraint(), Optional.empty());
+            PreparedQuery preparedQuery = queryBuilder.prepareDeleteQuery(
+                    this,
+                    session,
+                    connection,
+                    handle.getRequiredNamedRelation(),
+                    handle.getConstraint(),
+                    getAdditionalPredicate(handle.getConstraintExpressions(), Optional.empty()));
             try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
                 int affectedRowsCount = preparedStatement.executeUpdate();
                 // connection.getAutoCommit() == true is not enough to make DELETE effective and explicit commit is required
