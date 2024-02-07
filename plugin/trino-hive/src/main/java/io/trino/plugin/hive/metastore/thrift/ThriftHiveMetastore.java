@@ -333,7 +333,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
         try {
             return retry()
@@ -341,7 +341,7 @@ public final class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getTableColumnStatistics", stats.getGetTableColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return groupStatisticsByColumn(client.getTableColumnStatistics(databaseName, tableName, ImmutableList.copyOf(columnNames)), rowCount);
+                            return groupStatisticsByColumn(client.getTableColumnStatistics(databaseName, tableName, ImmutableList.copyOf(columnNames)));
                         }
                     }));
         }
@@ -357,13 +357,13 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Map<String, OptionalLong> partitionNamesWithRowCount, Set<String> columnNames)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
     {
-        return getPartitionColumnStatistics(databaseName, tableName, partitionNamesWithRowCount.keySet(), ImmutableList.copyOf(columnNames)).entrySet().stream()
+        return getPartitionColumnStatistics(databaseName, tableName, partitionNames, ImmutableList.copyOf(columnNames)).entrySet().stream()
                 .filter(entry -> !entry.getValue().isEmpty())
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
-                        entry -> groupStatisticsByColumn(entry.getValue(), partitionNamesWithRowCount.getOrDefault(entry.getKey(), OptionalLong.empty()))));
+                        entry -> groupStatisticsByColumn(entry.getValue())));
     }
 
     @Override
@@ -419,11 +419,11 @@ public final class ThriftHiveMetastore
         }
     }
 
-    private static Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics, OptionalLong rowCount)
+    private static Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics)
     {
         Map<String, HiveColumnStatistics> statisticsByColumn = new HashMap<>();
         for (ColumnStatisticsObj stats : statistics) {
-            HiveColumnStatistics newColumnStatistics = ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(stats, rowCount);
+            HiveColumnStatistics newColumnStatistics = ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(stats);
             if (statisticsByColumn.containsKey(stats.getColName())) {
                 HiveColumnStatistics existingColumnStatistics = statisticsByColumn.get(stats.getColName());
                 if (!newColumnStatistics.equals(existingColumnStatistics)) {
@@ -447,15 +447,13 @@ public final class ThriftHiveMetastore
         PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, statisticsUpdate);
 
         Table modifiedTable = originalTable.deepCopy();
-        HiveBasicStatistics basicStatistics = updatedStatistics.getBasicStatistics();
-        modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), basicStatistics));
+        modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), updatedStatistics.getBasicStatistics()));
         if (transaction.isAcidTransactionRunning()) {
             modifiedTable.setWriteId(transaction.getWriteId());
         }
         alterTable(databaseName, tableName, modifiedTable);
 
         io.trino.plugin.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable);
-        OptionalLong rowCount = basicStatistics.getRowCount();
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
                 .flatMap(entry -> {
                     Optional<Column> column = table.getColumn(entry.getKey());
@@ -466,7 +464,7 @@ public final class ThriftHiveMetastore
                     }
 
                     HiveType type = column.orElseThrow(() -> new IllegalStateException("Column not found: " + entry.getKey())).getType();
-                    return Stream.of(createMetastoreColumnStatistics(entry.getKey(), type, entry.getValue(), rowCount));
+                    return Stream.of(createMetastoreColumnStatistics(entry.getKey(), type, entry.getValue()));
                 })
                 .collect(toImmutableList());
         if (!metastoreColumnStatistics.isEmpty()) {
@@ -489,7 +487,7 @@ public final class ThriftHiveMetastore
         }
 
         HiveBasicStatistics basicStatistics = getHiveBasicStatistics(table.getParameters());
-        Map<String, HiveColumnStatistics> columnStatistics = getTableColumnStatistics(table.getDbName(), table.getTableName(), columns.keySet(), basicStatistics.getRowCount());
+        Map<String, HiveColumnStatistics> columnStatistics = getTableColumnStatistics(table.getDbName(), table.getTableName(), columns.keySet());
         return new PartitionStatistics(basicStatistics, columnStatistics);
     }
 
@@ -557,7 +555,7 @@ public final class ThriftHiveMetastore
         Map<String, HiveColumnStatistics> currentColumnStats = getPartitionColumnStatistics(
                 table.getDbName(),
                 table.getTableName(),
-                ImmutableMap.of(partitionName, currentBasicStats.getRowCount()),
+                ImmutableSet.of(partitionName),
                 table.getSd().getCols().stream()
                         .map(FieldSchema::getName)
                         .collect(toImmutableSet()))
@@ -571,7 +569,7 @@ public final class ThriftHiveMetastore
 
         Map<String, HiveType> columns = modifiedPartition.getSd().getCols().stream()
                 .collect(toImmutableMap(FieldSchema::getName, schema -> HiveType.valueOf(schema.getType())));
-        setPartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.getColumnStatistics(), basicStatistics.getRowCount());
+        setPartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.getColumnStatistics());
 
         Set<String> removedStatistics = difference(currentColumnStats.keySet(), updatedStatistics.getColumnStatistics().keySet());
         removedStatistics.forEach(column -> deletePartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, column));
@@ -582,12 +580,11 @@ public final class ThriftHiveMetastore
             String tableName,
             String partitionName,
             Map<String, HiveType> columns,
-            Map<String, HiveColumnStatistics> columnStatistics,
-            OptionalLong rowCount)
+            Map<String, HiveColumnStatistics> columnStatistics)
     {
         List<ColumnStatisticsObj> metastoreColumnStatistics = columnStatistics.entrySet().stream()
                 .filter(entry -> columns.containsKey(entry.getKey()))
-                .map(entry -> createMetastoreColumnStatistics(entry.getKey(), columns.get(entry.getKey()), entry.getValue(), rowCount))
+                .map(entry -> createMetastoreColumnStatistics(entry.getKey(), columns.get(entry.getKey()), entry.getValue()))
                 .collect(toImmutableList());
         if (!metastoreColumnStatistics.isEmpty()) {
             setPartitionColumnStatistics(databaseName, tableName, partitionName, metastoreColumnStatistics);
@@ -1315,7 +1312,7 @@ public final class ThriftHiveMetastore
         }
         Map<String, HiveType> columnTypes = partitionWithStatistics.getPartition().getColumns().stream()
                 .collect(toImmutableMap(Column::getName, Column::getType));
-        setPartitionColumnStatistics(databaseName, tableName, partitionName, columnTypes, columnStatistics, statistics.getBasicStatistics().getRowCount());
+        setPartitionColumnStatistics(databaseName, tableName, partitionName, columnTypes, columnStatistics);
     }
 
     /*

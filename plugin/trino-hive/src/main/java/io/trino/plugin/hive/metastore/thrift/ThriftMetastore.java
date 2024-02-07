@@ -94,9 +94,9 @@ public sealed interface ThriftMetastore
 
     Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type);
 
-    Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount);
+    Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
 
-    Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Map<String, OptionalLong> partitionNamesWithRowCount, Set<String> columnNames);
+    Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames);
 
     boolean useSparkTableStatistics();
 

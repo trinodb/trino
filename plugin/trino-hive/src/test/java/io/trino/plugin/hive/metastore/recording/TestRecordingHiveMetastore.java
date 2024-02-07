@@ -179,13 +179,11 @@ public class TestRecordingHiveMetastore
         assertThat(hiveMetastore.getDatabase("database")).isEqualTo(Optional.of(DATABASE));
         assertThat(hiveMetastore.getAllDatabases()).isEqualTo(ImmutableList.of("database"));
         assertThat(hiveMetastore.getTable("database", "table")).isEqualTo(Optional.of(TABLE));
-        assertThat(hiveMetastore.getTableColumnStatistics("database", "table", ImmutableSet.of("column"), OptionalLong.empty())).isEqualTo(PARTITION_STATISTICS);
+        assertThat(hiveMetastore.getTableColumnStatistics("database", "table", ImmutableSet.of("column"))).isEqualTo(PARTITION_STATISTICS);
         assertThat(hiveMetastore.getPartitionColumnStatistics(
                 "database",
                 "table",
-                ImmutableMap.of(
-                        "column=value", OptionalLong.empty(),
-                        "column=other_value", OptionalLong.empty()),
+                ImmutableSet.of("column=value", "column=other_value"),
                 ImmutableSet.of("column")))
                 .isEqualTo(ImmutableMap.of(
                         "column=value", PARTITION_STATISTICS,
@@ -207,11 +205,11 @@ public class TestRecordingHiveMetastore
     private void validatePartitionSubset(HiveMetastore hiveMetastore)
     {
         assertThat(hiveMetastore.getPartitionColumnStatistics("database", "table",
-                ImmutableMap.of("column=value", OptionalLong.empty()),
+                ImmutableSet.of("column=value"),
                 ImmutableSet.of("column")))
                 .isEqualTo(ImmutableMap.of("column=value", PARTITION_STATISTICS));
         assertThat(hiveMetastore.getPartitionColumnStatistics("database", "table",
-                ImmutableMap.of("column=other_value", OptionalLong.empty()),
+                ImmutableSet.of("column=other_value"),
                 ImmutableSet.of("column")))
                 .isEqualTo(ImmutableMap.of("column=value", PARTITION_STATISTICS));
         assertThat(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("column=value"))).isEqualTo(ImmutableMap.of("column=value", Optional.of(PARTITION)));
@@ -248,7 +246,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+        public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
         {
             if (databaseName.equals("database") && tableName.equals("table")) {
                 return COLUMN_STATISTICS;
@@ -261,15 +259,15 @@ public class TestRecordingHiveMetastore
         public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
                 String databaseName,
                 String tableName,
-                Map<String, OptionalLong> partitionNamesWithRowCount,
+                Set<String> partitionNames,
                 Set<String> columnNames)
         {
             ImmutableMap.Builder<String, Map<String, HiveColumnStatistics>> result = ImmutableMap.builder();
             if (databaseName.equals("database") && tableName.equals("table")) {
-                if (partitionNamesWithRowCount.keySet().stream().anyMatch(partition -> partition.equals("column=value"))) {
+                if (partitionNames.stream().anyMatch(partition -> partition.equals("column=value"))) {
                     result.put("column=value", COLUMN_STATISTICS);
                 }
-                if (partitionNamesWithRowCount.keySet().stream().anyMatch(partition -> partition.equals("column=other_value"))) {
+                if (partitionNames.stream().anyMatch(partition -> partition.equals("column=other_value"))) {
                     result.put("column=other_value", COLUMN_STATISTICS);
                 }
             }

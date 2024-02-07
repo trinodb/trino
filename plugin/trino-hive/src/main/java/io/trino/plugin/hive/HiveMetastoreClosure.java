@@ -98,18 +98,18 @@ public class HiveMetastoreClosure
         return delegate.getSupportedColumnStatistics(type);
     }
 
-    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
-        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames, rowCount);
+        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames);
     }
 
     public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
             String databaseName,
             String tableName,
-            Map<String, OptionalLong> partitionNamesWithRowCount,
+            Set<String> partitionNames,
             Set<String> columnNames)
     {
-        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesWithRowCount, columnNames);
+        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames);
     }
 
     public boolean useSparkTableStatistics()

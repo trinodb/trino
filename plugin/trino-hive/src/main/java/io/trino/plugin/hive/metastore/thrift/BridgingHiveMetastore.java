@@ -118,17 +118,17 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
         checkArgument(!columnNames.isEmpty(), "columnNames is empty");
-        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames, rowCount);
+        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames);
     }
 
     @Override
-    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Map<String, OptionalLong> partitionNamesWithRowCount, Set<String> columnNames)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
     {
         checkArgument(!columnNames.isEmpty(), "columnNames is empty");
-        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesWithRowCount, columnNames);
+        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames);
     }
 
     @Override

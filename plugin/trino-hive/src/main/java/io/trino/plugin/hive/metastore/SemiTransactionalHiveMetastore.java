@@ -350,7 +350,7 @@ public class SemiTransactionalHiveMetastore
             if (columnNames.isEmpty()) {
                 return new PartitionStatistics(basicStatistics, ImmutableMap.of());
             }
-            return new PartitionStatistics(basicStatistics, delegate.getTableColumnStatistics(databaseName, tableName, columnNames, basicStatistics.getRowCount()));
+            return new PartitionStatistics(basicStatistics, delegate.getTableColumnStatistics(databaseName, tableName, columnNames));
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -431,12 +431,7 @@ public class SemiTransactionalHiveMetastore
                 basicStats.forEach((partitionName, basicStatistics) -> resultBuilder.put(partitionName, new PartitionStatistics(basicStatistics, ImmutableMap.of())));
             }
             else {
-                Map<String, Map<String, HiveColumnStatistics>> columnStats = delegate.getPartitionColumnStatistics(
-                        databaseName,
-                        tableName,
-                        basicStats.entrySet().stream().collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().getRowCount())),
-                        columns);
-
+                Map<String, Map<String, HiveColumnStatistics>> columnStats = delegate.getPartitionColumnStatistics(databaseName, tableName, basicStats.keySet(), columns);
                 basicStats.entrySet().forEach(entry -> resultBuilder.put(entry.getKey(), new PartitionStatistics(entry.getValue(), columnStats.getOrDefault(entry.getKey(), ImmutableMap.of()))));
             }
         }
@@ -1119,11 +1114,7 @@ public class SemiTransactionalHiveMetastore
             Map<String, Partition> partitionsByNames = getExistingPartitions(databaseName, tableName, partitionNames);
             Map<String, HiveBasicStatistics> basicStats = partitionsByNames.entrySet().stream()
                     .collect(toImmutableMap(Entry::getKey, entry -> getHiveBasicStatistics(entry.getValue().getParameters())));
-            Map<String, Map<String, HiveColumnStatistics>> columnStats = delegate.getPartitionColumnStatistics(
-                    databaseName,
-                    tableName,
-                    basicStats.entrySet().stream().collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().getRowCount())),
-                    columnNames);
+            Map<String, Map<String, HiveColumnStatistics>> columnStats = delegate.getPartitionColumnStatistics(databaseName, tableName, basicStats.keySet(), columnNames);
 
             for (int i = 0; i < partitionInfoBatch.size(); i++) {
                 PartitionUpdateInfo partitionInfo = partitionInfoBatch.get(i);
@@ -2041,7 +2032,7 @@ public class SemiTransactionalHiveMetastore
                 Map<String, HiveColumnStatistics> columnStatistics = delegate.getPartitionColumnStatistics(
                                 partition.getDatabaseName(),
                                 partition.getTableName(),
-                                ImmutableMap.of(partitionName, basicStatistics.getRowCount()),
+                                ImmutableSet.of(partitionName),
                                 partition.getColumns().stream().map(Column::getName).collect(toImmutableSet()))
                         .get(partitionName);
                 if (columnStatistics == null) {
