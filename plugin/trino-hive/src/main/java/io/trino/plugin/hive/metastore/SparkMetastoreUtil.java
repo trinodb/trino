@@ -97,7 +97,7 @@ public final class SparkMetastoreUtil
         OptionalLong maxLength = toLong(parameters.get(field + "maxLen"));
         OptionalDouble avgLength = toDouble(parameters.get(field + "avgLen"));
         OptionalLong nullsCount = toLong(parameters.get(field + "nullCount"));
-        OptionalLong distinctValuesCount = toLong(parameters.get(field + "distinctCount"));
+        OptionalLong distinctValuesWithNullCount = toLong(parameters.get(field + "distinctCount"));
 
         return switch (((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory()) {
             case BOOLEAN -> createBooleanColumnStatistics(
@@ -108,27 +108,27 @@ public final class SparkMetastoreUtil
                     toLong(parameters.get(field + COLUMN_MIN)),
                     toLong(parameters.get(field + COLUMN_MAX)),
                     nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+                    distinctValuesWithNullCount);
             case TIMESTAMP -> createIntegerColumnStatistics(
                     OptionalLong.empty(),
                     OptionalLong.empty(),
                     nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+                    distinctValuesWithNullCount);
             case FLOAT, DOUBLE -> createDoubleColumnStatistics(
                     toDouble(parameters.get(field + COLUMN_MIN)),
                     toDouble(parameters.get(field + COLUMN_MAX)),
                     nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+                    distinctValuesWithNullCount);
             case STRING, VARCHAR, CHAR -> createStringColumnStatistics(
                     maxLength,
                     getTotalSizeInBytes(avgLength, OptionalLong.of(rowCount), nullsCount),
                     nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+                    distinctValuesWithNullCount);
             case DATE -> createDateColumnStatistics(
                     toDate(parameters.get(field + COLUMN_MIN)),
                     toDate(parameters.get(field + COLUMN_MAX)),
                     nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+                    distinctValuesWithNullCount);
             case BINARY -> createBinaryColumnStatistics(
                     maxLength,
                     getTotalSizeInBytes(avgLength, OptionalLong.of(rowCount), nullsCount),
@@ -137,32 +137,9 @@ public final class SparkMetastoreUtil
                     toDecimal(parameters.get(field + COLUMN_MIN)),
                     toDecimal(parameters.get(field + COLUMN_MAX)),
                     nullsCount,
-                    fromMetastoreDistinctValuesCount(distinctValuesCount, nullsCount, rowCount));
+                    distinctValuesWithNullCount);
             case TIMESTAMPLOCALTZ, INTERVAL_YEAR_MONTH, INTERVAL_DAY_TIME, VOID, UNKNOWN -> HiveColumnStatistics.empty();
         };
-    }
-
-    /**
-     * Hive calculates NDV considering null as a distinct value, but Spark doesn't
-     */
-    private static OptionalLong fromMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount, long rowCount)
-    {
-        if (distinctValuesCount.isPresent() && nullsCount.isPresent()) {
-            return OptionalLong.of(fromMetastoreDistinctValuesCount(distinctValuesCount.getAsLong(), nullsCount.getAsLong(), rowCount));
-        }
-        return OptionalLong.empty();
-    }
-
-    private static long fromMetastoreDistinctValuesCount(long distinctValuesCount, long nullsCount, long rowCount)
-    {
-        long nonNullsCount = rowCount - nullsCount;
-        // normalize distinctValuesCount in case there is a non-null element
-        if (nonNullsCount > 0 && distinctValuesCount == 0) {
-            distinctValuesCount = 1;
-        }
-
-        // the metastore may store an estimate, so the value stored may be higher than the total number of rows
-        return Math.min(distinctValuesCount, nonNullsCount);
     }
 
     private static OptionalLong toLong(@Nullable String parameterValue)
