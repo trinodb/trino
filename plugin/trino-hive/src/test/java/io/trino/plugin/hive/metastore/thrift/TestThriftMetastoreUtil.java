@@ -84,7 +84,7 @@ public class TestThriftMetastoreUtil
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setIntegerStatistics(new IntegerStatistics(OptionalLong.of(0), OptionalLong.of(100)))
                 .setNullsCount(1)
-                .setDistinctValuesCount(19)
+                .setDistinctValuesWithNullCount(20)
                 .build());
     }
 
@@ -114,7 +114,7 @@ public class TestThriftMetastoreUtil
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDoubleStatistics(new DoubleStatistics(OptionalDouble.of(0), OptionalDouble.of(100)))
                 .setNullsCount(1)
-                .setDistinctValuesCount(19)
+                .setDistinctValuesWithNullCount(20)
                 .build());
     }
 
@@ -146,7 +146,7 @@ public class TestThriftMetastoreUtil
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDecimalStatistics(new DecimalStatistics(Optional.of(low), Optional.of(high)))
                 .setNullsCount(1)
-                .setDistinctValuesCount(19)
+                .setDistinctValuesWithNullCount(20)
                 .build());
     }
 
@@ -217,7 +217,7 @@ public class TestThriftMetastoreUtil
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDateStatistics(new DateStatistics(Optional.of(LocalDate.ofEpochDay(1000)), Optional.of(LocalDate.ofEpochDay(2000))))
                 .setNullsCount(1)
-                .setDistinctValuesCount(19)
+                .setDistinctValuesWithNullCount(20)
                 .build());
     }
 
@@ -248,7 +248,7 @@ public class TestThriftMetastoreUtil
                 .setMaxValueSizeInBytes(100)
                 .setTotalSizeInBytes(23)
                 .setNullsCount(1)
-                .setDistinctValuesCount(1)
+                .setDistinctValuesWithNullCount(20)
                 .build());
     }
 
@@ -299,7 +299,7 @@ public class TestThriftMetastoreUtil
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(10));
 
         assertThat(actual.getNullsCount()).isEqualTo(OptionalLong.of(10));
-        assertThat(actual.getDistinctValuesCount()).isEqualTo(OptionalLong.of(0));
+        assertThat(actual.getDistinctValuesWithNullCount()).isEqualTo(OptionalLong.of(1));
 
         doubleColumnStatsData = new DoubleColumnStatsData();
         doubleColumnStatsData.setNumNulls(10);
@@ -308,7 +308,7 @@ public class TestThriftMetastoreUtil
         actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(11));
 
         assertThat(actual.getNullsCount()).isEqualTo(OptionalLong.of(10));
-        assertThat(actual.getDistinctValuesCount()).isEqualTo(OptionalLong.of(1));
+        assertThat(actual.getDistinctValuesWithNullCount()).isEqualTo(OptionalLong.of(1));
     }
 
     @Test

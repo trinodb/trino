@@ -559,7 +559,7 @@ public class TestCachingHiveMetastore
                         OptionalLong.empty(),
                         OptionalLong.empty(),
                         OptionalLong.of(newStats.getLongStats().getNumNulls()),
-                        OptionalLong.of(newStats.getLongStats().getNumDVs() - 1))));
+                        OptionalLong.of(newStats.getLongStats().getNumDVs()))));
         assertThat(mockClient.getAccessCount()).isEqualTo(6);
     }
 

@@ -71,7 +71,7 @@ public record ColumnStatistics(
                 hiveColumnStatistics.getMaxValueSizeInBytes(),
                 hiveColumnStatistics.getTotalSizeInBytes(),
                 hiveColumnStatistics.getNullsCount(),
-                hiveColumnStatistics.getDistinctValuesCount());
+                hiveColumnStatistics.getDistinctValuesWithNullCount());
     }
 
     public HiveColumnStatistics toHiveColumnStatistics()

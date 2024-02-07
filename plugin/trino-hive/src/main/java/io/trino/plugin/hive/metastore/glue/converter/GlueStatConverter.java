@@ -56,11 +56,9 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalC
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreDistinctValuesCount;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreNullsCount;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getAverageColumnLength;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getTotalSizeInBytes;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreDistinctValuesCount;
 import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 
 public class GlueStatConverter
@@ -129,44 +127,44 @@ public class GlueStatConverter
                 Optional<LocalDate> min = dateToLocalDate(data.getMinimumValue());
                 Optional<LocalDate> max = dateToLocalDate(data.getMaximumValue());
                 OptionalLong nullsCount = fromMetastoreNullsCount(data.getNumberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.getNumberOfDistinctValues());
-                return createDateColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValues, nullsCount, rowCount));
+                OptionalLong distinctValuesWithNullCount = OptionalLong.of(data.getNumberOfDistinctValues());
+                return createDateColumnStatistics(min, max, nullsCount, distinctValuesWithNullCount);
             }
             case DECIMAL: {
                 DecimalColumnStatisticsData data = catalogColumnStatisticsData.getDecimalColumnStatisticsData();
                 Optional<BigDecimal> min = glueDecimalToBigDecimal(data.getMinimumValue());
                 Optional<BigDecimal> max = glueDecimalToBigDecimal(data.getMaximumValue());
-                OptionalLong distinctValues = OptionalLong.of(data.getNumberOfDistinctValues());
+                OptionalLong distinctValuesWithNullCount = OptionalLong.of(data.getNumberOfDistinctValues());
                 OptionalLong nullsCount = fromMetastoreNullsCount(data.getNumberOfNulls());
-                return createDecimalColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValues, nullsCount, rowCount));
+                return createDecimalColumnStatistics(min, max, nullsCount, distinctValuesWithNullCount);
             }
             case DOUBLE: {
                 DoubleColumnStatisticsData data = catalogColumnStatisticsData.getDoubleColumnStatisticsData();
                 OptionalDouble min = OptionalDouble.of(data.getMinimumValue());
                 OptionalDouble max = OptionalDouble.of(data.getMaximumValue());
                 OptionalLong nulls = fromMetastoreNullsCount(data.getNumberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.getNumberOfDistinctValues());
-                return createDoubleColumnStatistics(min, max, nulls, fromMetastoreDistinctValuesCount(distinctValues, nulls, rowCount));
+                OptionalLong distinctValuesWithNullCount = OptionalLong.of(data.getNumberOfDistinctValues());
+                return createDoubleColumnStatistics(min, max, nulls, distinctValuesWithNullCount);
             }
             case LONG: {
                 LongColumnStatisticsData data = catalogColumnStatisticsData.getLongColumnStatisticsData();
                 OptionalLong min = OptionalLong.of(data.getMinimumValue());
                 OptionalLong max = OptionalLong.of(data.getMaximumValue());
                 OptionalLong nullsCount = fromMetastoreNullsCount(data.getNumberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.getNumberOfDistinctValues());
-                return createIntegerColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValues, nullsCount, rowCount));
+                OptionalLong distinctValuesWithNullCount = OptionalLong.of(data.getNumberOfDistinctValues());
+                return createIntegerColumnStatistics(min, max, nullsCount, distinctValuesWithNullCount);
             }
             case STRING: {
                 StringColumnStatisticsData data = catalogColumnStatisticsData.getStringColumnStatisticsData();
                 OptionalLong max = OptionalLong.of(data.getMaximumLength());
                 OptionalDouble avg = OptionalDouble.of(data.getAverageLength());
                 OptionalLong nullsCount = fromMetastoreNullsCount(data.getNumberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.getNumberOfDistinctValues());
+                OptionalLong distinctValuesWithNullCount = OptionalLong.of(data.getNumberOfDistinctValues());
                 return createStringColumnStatistics(
                         max,
                         getTotalSizeInBytes(avg, rowCount, nullsCount),
                         nullsCount,
-                        fromMetastoreDistinctValuesCount(distinctValues, nullsCount, rowCount));
+                        distinctValuesWithNullCount);
             }
         }
 
@@ -208,7 +206,7 @@ public class GlueStatConverter
                     dateStatistics.getMax().ifPresent(value -> data.setMaximumValue(localDateToDate(value)));
                 });
                 statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumberOfDistinctValues);
+                statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumberOfDistinctValues);
                 catalogColumnStatisticsData.setType(ColumnStatisticsType.DATE.toString());
                 catalogColumnStatisticsData.setDateColumnStatisticsData(data);
                 break;
@@ -220,7 +218,7 @@ public class GlueStatConverter
                     decimalStatistics.getMax().ifPresent(value -> data.setMaximumValue(bigDecimalToGlueDecimal(value)));
                 });
                 statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumberOfDistinctValues);
+                statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumberOfDistinctValues);
                 catalogColumnStatisticsData.setType(ColumnStatisticsType.DECIMAL.toString());
                 catalogColumnStatisticsData.setDecimalColumnStatisticsData(data);
                 break;
@@ -233,7 +231,7 @@ public class GlueStatConverter
                     doubleStatistics.getMax().ifPresent(data::setMaximumValue);
                 });
                 statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumberOfDistinctValues);
+                statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumberOfDistinctValues);
                 catalogColumnStatisticsData.setType(ColumnStatisticsType.DOUBLE.toString());
                 catalogColumnStatisticsData.setDoubleColumnStatisticsData(data);
                 break;
@@ -249,7 +247,7 @@ public class GlueStatConverter
                     stats.getMax().ifPresent(data::setMaximumValue);
                 });
                 statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumberOfDistinctValues);
+                statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumberOfDistinctValues);
                 catalogColumnStatisticsData.setType(ColumnStatisticsType.LONG.toString());
                 catalogColumnStatisticsData.setLongColumnStatisticsData(data);
                 break;
@@ -259,7 +257,7 @@ public class GlueStatConverter
             case STRING: {
                 StringColumnStatisticsData data = new StringColumnStatisticsData();
                 statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumberOfDistinctValues);
+                statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumberOfDistinctValues);
                 data.setMaximumLength(statistics.getMaxValueSizeInBytes().orElse(0));
                 data.setAverageLength(getAverageColumnLength(statistics.getTotalSizeInBytes(), rowCount, statistics.getNullsCount()).orElse(0));
                 catalogColumnStatisticsData.setType(ColumnStatisticsType.STRING.toString());

@@ -44,7 +44,7 @@ public class HiveColumnStatistics
     private final OptionalLong maxValueSizeInBytes;
     private final OptionalLong totalSizeInBytes;
     private final OptionalLong nullsCount;
-    private final OptionalLong distinctValuesCount;
+    private final OptionalLong distinctValuesWithNullCount;
 
     public static HiveColumnStatistics empty()
     {
@@ -61,7 +61,7 @@ public class HiveColumnStatistics
             @JsonProperty("maxValueSizeInBytes") OptionalLong maxValueSizeInBytes,
             @JsonProperty("totalSizeInBytes") OptionalLong totalSizeInBytes,
             @JsonProperty("nullsCount") OptionalLong nullsCount,
-            @JsonProperty("distinctValuesCount") OptionalLong distinctValuesCount)
+            @JsonProperty("distinctValuesWithNullCount") OptionalLong distinctValuesWithNullCount)
     {
         this.integerStatistics = requireNonNull(integerStatistics, "integerStatistics is null");
         this.doubleStatistics = requireNonNull(doubleStatistics, "doubleStatistics is null");
@@ -71,7 +71,7 @@ public class HiveColumnStatistics
         this.maxValueSizeInBytes = requireNonNull(maxValueSizeInBytes, "maxValueSizeInBytes is null");
         this.totalSizeInBytes = requireNonNull(totalSizeInBytes, "totalSizeInBytes is null");
         this.nullsCount = requireNonNull(nullsCount, "nullsCount is null");
-        this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
+        this.distinctValuesWithNullCount = requireNonNull(distinctValuesWithNullCount, "distinctValuesWithNullCount is null");
 
         List<String> presentStatistics = new ArrayList<>();
         integerStatistics.ifPresent(s -> presentStatistics.add("integerStatistics"));
@@ -131,9 +131,9 @@ public class HiveColumnStatistics
     }
 
     @JsonProperty
-    public OptionalLong getDistinctValuesCount()
+    public OptionalLong getDistinctValuesWithNullCount()
     {
-        return distinctValuesCount;
+        return distinctValuesWithNullCount;
     }
 
     @Override
@@ -154,7 +154,7 @@ public class HiveColumnStatistics
                 Objects.equals(maxValueSizeInBytes, that.maxValueSizeInBytes) &&
                 Objects.equals(totalSizeInBytes, that.totalSizeInBytes) &&
                 Objects.equals(nullsCount, that.nullsCount) &&
-                Objects.equals(distinctValuesCount, that.distinctValuesCount);
+                Objects.equals(distinctValuesWithNullCount, that.distinctValuesWithNullCount);
     }
 
     @Override
@@ -169,7 +169,7 @@ public class HiveColumnStatistics
                 maxValueSizeInBytes,
                 totalSizeInBytes,
                 nullsCount,
-                distinctValuesCount);
+                distinctValuesWithNullCount);
     }
 
     @Override
@@ -184,43 +184,43 @@ public class HiveColumnStatistics
         maxValueSizeInBytes.ifPresent(stats -> toStringHelper.add("maxValueSizeInBytes", stats));
         totalSizeInBytes.ifPresent(stats -> toStringHelper.add("totalSizeInBytes", stats));
         nullsCount.ifPresent(stats -> toStringHelper.add("nullsCount", stats));
-        distinctValuesCount.ifPresent(stats -> toStringHelper.add("distinctValuesCount", stats));
+        distinctValuesWithNullCount.ifPresent(stats -> toStringHelper.add("distinctValuesWithNullCount", stats));
         return toStringHelper.toString();
     }
 
-    public static HiveColumnStatistics createIntegerColumnStatistics(OptionalLong min, OptionalLong max, OptionalLong nullsCount, OptionalLong distinctValuesCount)
+    public static HiveColumnStatistics createIntegerColumnStatistics(OptionalLong min, OptionalLong max, OptionalLong nullsCount, OptionalLong distinctValuesWithNullCount)
     {
         return builder()
                 .setIntegerStatistics(new IntegerStatistics(min, max))
                 .setNullsCount(nullsCount)
-                .setDistinctValuesCount(distinctValuesCount)
+                .setDistinctValuesWithNullCount(distinctValuesWithNullCount)
                 .build();
     }
 
-    public static HiveColumnStatistics createDoubleColumnStatistics(OptionalDouble min, OptionalDouble max, OptionalLong nullsCount, OptionalLong distinctValuesCount)
+    public static HiveColumnStatistics createDoubleColumnStatistics(OptionalDouble min, OptionalDouble max, OptionalLong nullsCount, OptionalLong distinctValuesWithNullCount)
     {
         return builder()
                 .setDoubleStatistics(new DoubleStatistics(min, max))
                 .setNullsCount(nullsCount)
-                .setDistinctValuesCount(distinctValuesCount)
+                .setDistinctValuesWithNullCount(distinctValuesWithNullCount)
                 .build();
     }
 
-    public static HiveColumnStatistics createDecimalColumnStatistics(Optional<BigDecimal> min, Optional<BigDecimal> max, OptionalLong nullsCount, OptionalLong distinctValuesCount)
+    public static HiveColumnStatistics createDecimalColumnStatistics(Optional<BigDecimal> min, Optional<BigDecimal> max, OptionalLong nullsCount, OptionalLong distinctValuesWithNullCount)
     {
         return builder()
                 .setDecimalStatistics(new DecimalStatistics(min, max))
                 .setNullsCount(nullsCount)
-                .setDistinctValuesCount(distinctValuesCount)
+                .setDistinctValuesWithNullCount(distinctValuesWithNullCount)
                 .build();
     }
 
-    public static HiveColumnStatistics createDateColumnStatistics(Optional<LocalDate> min, Optional<LocalDate> max, OptionalLong nullsCount, OptionalLong distinctValuesCount)
+    public static HiveColumnStatistics createDateColumnStatistics(Optional<LocalDate> min, Optional<LocalDate> max, OptionalLong nullsCount, OptionalLong distinctValuesWithNullCount)
     {
         return builder()
                 .setDateStatistics(new DateStatistics(min, max))
                 .setNullsCount(nullsCount)
-                .setDistinctValuesCount(distinctValuesCount)
+                .setDistinctValuesWithNullCount(distinctValuesWithNullCount)
                 .build();
     }
 
@@ -236,13 +236,13 @@ public class HiveColumnStatistics
             OptionalLong maxValueSizeInBytes,
             OptionalLong totalSizeInBytes,
             OptionalLong nullsCount,
-            OptionalLong distinctValuesCount)
+            OptionalLong distinctValuesWithNullCount)
     {
         return builder()
                 .setMaxValueSizeInBytes(maxValueSizeInBytes)
                 .setTotalSizeInBytes(totalSizeInBytes)
                 .setNullsCount(nullsCount)
-                .setDistinctValuesCount(distinctValuesCount)
+                .setDistinctValuesWithNullCount(distinctValuesWithNullCount)
                 .build();
     }
 
@@ -270,7 +270,7 @@ public class HiveColumnStatistics
         private OptionalLong maxValueSizeInBytes = OptionalLong.empty();
         private OptionalLong totalSizeInBytes = OptionalLong.empty();
         private OptionalLong nullsCount = OptionalLong.empty();
-        private OptionalLong distinctValuesCount = OptionalLong.empty();
+        private OptionalLong distinctValuesWithNullCount = OptionalLong.empty();
 
         private Builder() {}
 
@@ -340,15 +340,15 @@ public class HiveColumnStatistics
             return this;
         }
 
-        public Builder setDistinctValuesCount(OptionalLong distinctValuesCount)
+        public Builder setDistinctValuesWithNullCount(OptionalLong distinctValuesWithNullCount)
         {
-            this.distinctValuesCount = distinctValuesCount;
+            this.distinctValuesWithNullCount = distinctValuesWithNullCount;
             return this;
         }
 
-        public Builder setDistinctValuesCount(long distinctValuesCount)
+        public Builder setDistinctValuesWithNullCount(long distinctValuesWithNullCount)
         {
-            this.distinctValuesCount = OptionalLong.of(distinctValuesCount);
+            this.distinctValuesWithNullCount = OptionalLong.of(distinctValuesWithNullCount);
             return this;
         }
 
@@ -363,7 +363,7 @@ public class HiveColumnStatistics
                     maxValueSizeInBytes,
                     totalSizeInBytes,
                     nullsCount,
-                    distinctValuesCount);
+                    distinctValuesWithNullCount);
         }
     }
 }
