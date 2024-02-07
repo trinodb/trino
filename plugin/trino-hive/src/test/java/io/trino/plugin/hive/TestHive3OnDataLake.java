@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveHadoop;
@@ -48,7 +49,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
@@ -1977,7 +1977,7 @@ public class TestHive3OnDataLake
         Map<String, Map<String, HiveColumnStatistics>> partitionStatistics = metastoreClient.getPartitionColumnStatistics(
                 HIVE_TEST_SCHEMA,
                 tableName,
-                Map.of(partitionName, OptionalLong.empty()),
+                ImmutableSet.of(partitionName),
                 partition.getColumns().stream().map(Column::getName).collect(toSet()));
 
         metastoreClient.dropPartition(HIVE_TEST_SCHEMA, tableName, List.of(regionKey), true);

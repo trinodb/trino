@@ -84,6 +84,7 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
@@ -91,7 +92,6 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
 import static io.trino.plugin.hive.metastore.PartitionFilter.partitionFilter;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -260,12 +260,9 @@ public final class CachingHiveMetastore
             // do not refresh empty value
             return currentValueHolder;
         }
-        OptionalLong rowCount = getTable(tableName.getDatabaseName(), tableName.getTableName())
-                .map(table -> getHiveBasicStatistics(table.getParameters()).getRowCount())
-                .orElseThrow();
 
         // only refresh currently loaded columns
-        Map<String, HiveColumnStatistics> columnStatistics = delegate.getTableColumnStatistics(tableName.getDatabaseName(), tableName.getTableName(), currentValue.keySet(), rowCount);
+        Map<String, HiveColumnStatistics> columnStatistics = delegate.getTableColumnStatistics(tableName.getDatabaseName(), tableName.getTableName(), currentValue.keySet());
 
         // return new value holder to have only fresh data in case of concurrent loads
         return new AtomicReference<>(columnStatistics);
@@ -456,17 +453,17 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
         checkArgument(!columnNames.isEmpty(), "columnNames is empty");
         Map<String, HiveColumnStatistics> columnStatistics = getIncrementally(
                 tableColumnStatisticsCache,
                 hiveTableName(databaseName, tableName),
                 currentStatistics -> currentStatistics.keySet().containsAll(columnNames),
-                () -> delegate.getTableColumnStatistics(databaseName, tableName, columnNames, rowCount),
+                () -> delegate.getTableColumnStatistics(databaseName, tableName, columnNames),
                 currentStatistics -> {
                     SetView<String> missingColumns = difference(columnNames, currentStatistics.keySet());
-                    return delegate.getTableColumnStatistics(databaseName, tableName, missingColumns, rowCount);
+                    return delegate.getTableColumnStatistics(databaseName, tableName, missingColumns);
                 },
                 (currentStats, newStats) -> mergeColumnStatistics(currentStats, newStats, columnNames));
         // HiveColumnStatistics.empty() are removed to make output consistent with non-cached metastore which simplifies testing
@@ -474,15 +471,15 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Map<String, OptionalLong> partitionNamesWithRowCount, Set<String> columnNames)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
     {
         checkArgument(!columnNames.isEmpty(), "columnNames is empty");
         HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
-        List<HivePartitionName> partitionNames = partitionNamesWithRowCount.keySet().stream().map(partitionName -> hivePartitionName(hiveTableName, partitionName)).toList();
+        List<HivePartitionName> hivePartitionNames = partitionNames.stream().map(partitionName -> hivePartitionName(hiveTableName, partitionName)).toList();
         Map<HivePartitionName, Map<String, HiveColumnStatistics>> statistics = getAll(
                 partitionStatisticsCache,
-                partitionNames,
-                missingPartitions -> loadPartitionsColumnStatistics(databaseName, tableName, columnNames, missingPartitions, partitionNamesWithRowCount),
+                hivePartitionNames,
+                missingPartitions -> loadPartitionsColumnStatistics(databaseName, tableName, columnNames, missingPartitions),
                 currentStats -> currentStats.keySet().containsAll(columnNames),
                 (currentStats, newStats) -> mergeColumnStatistics(currentStats, newStats, columnNames));
         // HiveColumnStatistics.empty() are removed to make output consistent with non-cached metastore which simplifies testing
@@ -526,17 +523,15 @@ public final class CachingHiveMetastore
             String databaseName,
             String tableName,
             Set<String> columnNames,
-            Collection<HivePartitionName> partitionNamesToLoad,
-            Map<String, OptionalLong> rowCounts)
+            Collection<HivePartitionName> partitionNamesToLoad)
     {
         if (partitionNamesToLoad.isEmpty()) {
             return ImmutableMap.of();
         }
-        Map<String, OptionalLong> partitionsToLoadWithRowCount = partitionNamesToLoad.stream()
-                .collect(toImmutableMap(
-                        partitionName -> partitionName.getPartitionName().orElseThrow(),
-                        partitionName -> rowCounts.get(partitionName.getPartitionName().orElseThrow())));
-        Map<String, Map<String, HiveColumnStatistics>> columnStatistics = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionsToLoadWithRowCount, columnNames);
+        Set<String> partitionsToLoad = partitionNamesToLoad.stream()
+                .map(partitionName -> partitionName.getPartitionName().orElseThrow())
+                .collect(toImmutableSet());
+        Map<String, Map<String, HiveColumnStatistics>> columnStatistics = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionsToLoad, columnNames);
 
         ImmutableMap.Builder<HivePartitionName, Map<String, HiveColumnStatistics>> result = ImmutableMap.builder();
         for (HivePartitionName partitionName : partitionNamesToLoad) {

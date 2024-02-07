@@ -111,25 +111,25 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
         Span span = tracer.spanBuilder("HiveMetastore.getTableColumnStatistics")
                 .setAttribute(SCHEMA, databaseName)
                 .setAttribute(TABLE, tableName)
                 .startSpan();
-        return withTracing(span, () -> delegate.getTableColumnStatistics(databaseName, tableName, columnNames, rowCount));
+        return withTracing(span, () -> delegate.getTableColumnStatistics(databaseName, tableName, columnNames));
     }
 
     @Override
-    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Map<String, OptionalLong> partitionNamesWithRowCount, Set<String> columnNames)
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
     {
         Span span = tracer.spanBuilder("HiveMetastore.getPartitionColumnStatistics")
                 .setAttribute(SCHEMA, databaseName)
                 .setAttribute(TABLE, tableName)
-                .setAttribute(PARTITION_REQUEST_COUNT, (long) partitionNamesWithRowCount.size())
+                .setAttribute(PARTITION_REQUEST_COUNT, (long) partitionNames.size())
                 .startSpan();
         return withTracing(span, () -> {
-            var partitionColumnStatistics = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesWithRowCount, columnNames);
+            var partitionColumnStatistics = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames);
             span.setAttribute(PARTITION_RESPONSE_COUNT, partitionColumnStatistics.size());
             return partitionColumnStatistics;
         });

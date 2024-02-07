@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -48,7 +47,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -61,7 +59,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_NOT_FOUND;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueStatConverter.fromGlueColumnStatistics;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueStatConverter.toGlueColumnStatistics;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -98,7 +95,7 @@ public class DefaultGlueColumnStatisticsProvider
     }
 
     @Override
-    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
         try {
             List<List<String>> columnChunks = Lists.partition(ImmutableList.copyOf(columnNames), GLUE_COLUMN_READ_STAT_PAGE_SIZE);
@@ -117,7 +114,7 @@ public class DefaultGlueColumnStatisticsProvider
                 for (ColumnStatistics columnStatistics : tableColumnsStats.getColumnStatisticsList()) {
                     columnStatsMapBuilder.put(
                             columnStatistics.getColumnName(),
-                            fromGlueColumnStatistics(columnStatistics.getStatisticsData(), rowCount));
+                            fromGlueColumnStatistics(columnStatistics.getStatisticsData()));
                 }
             }
             return columnStatsMapBuilder.buildOrThrow();
@@ -131,11 +128,11 @@ public class DefaultGlueColumnStatisticsProvider
     public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
             String databaseName,
             String tableName,
-            Map<String, OptionalLong> partitionNamesWithRowCount,
+            Set<String> partitionNames,
             Set<String> columnNames)
     {
         Map<String, List<CompletableFuture<GetColumnStatisticsForPartitionResult>>> resultsForPartition = new HashMap<>();
-        for (String partitionName : partitionNamesWithRowCount.keySet()) {
+        for (String partitionName : partitionNames) {
             ImmutableList.Builder<CompletableFuture<GetColumnStatisticsForPartitionResult>> futures = ImmutableList.builder();
             for (List<String> columnBatch : Lists.partition(ImmutableList.copyOf(columnNames), GLUE_COLUMN_READ_STAT_PAGE_SIZE)) {
                 GetColumnStatisticsForPartitionRequest request = new GetColumnStatisticsForPartitionRequest()
@@ -152,13 +149,12 @@ public class DefaultGlueColumnStatisticsProvider
             ImmutableMap.Builder<String, Map<String, HiveColumnStatistics>> partitionStatistics = ImmutableMap.builder();
             resultsForPartition.forEach((partitionName, futures) -> {
                 ImmutableMap.Builder<String, HiveColumnStatistics> columnStatsMapBuilder = ImmutableMap.builder();
-                OptionalLong rowCount = partitionNamesWithRowCount.get(partitionName);
                 for (CompletableFuture<GetColumnStatisticsForPartitionResult> getColumnStatisticsResultFuture : futures) {
                     GetColumnStatisticsForPartitionResult getColumnStatisticsResult = getFutureValue(getColumnStatisticsResultFuture);
                     getColumnStatisticsResult.getColumnStatisticsList().forEach(columnStatistics ->
                             columnStatsMapBuilder.put(
                                     columnStatistics.getColumnName(),
-                                    fromGlueColumnStatistics(columnStatistics.getStatisticsData(), rowCount)));
+                                    fromGlueColumnStatistics(columnStatistics.getStatisticsData())));
                 }
 
                 partitionStatistics.put(partitionName, columnStatsMapBuilder.buildOrThrow());
@@ -204,8 +200,7 @@ public class DefaultGlueColumnStatisticsProvider
     public void updateTableColumnStatistics(Table table, Map<String, HiveColumnStatistics> updatedTableColumnStatistics)
     {
         try {
-            HiveBasicStatistics tableStats = getHiveBasicStatistics(table.getParameters());
-            List<ColumnStatistics> columnStats = toGlueColumnStatistics(table, updatedTableColumnStatistics, tableStats.getRowCount()).stream()
+            List<ColumnStatistics> columnStats = toGlueColumnStatistics(table, updatedTableColumnStatistics).stream()
                     .filter(this::isGlueWritable)
                     .collect(toUnmodifiableList());
 
@@ -255,8 +250,7 @@ public class DefaultGlueColumnStatisticsProvider
             Partition partition = update.getPartition();
             Map<String, HiveColumnStatistics> updatedColumnStatistics = update.getColumnStatistics();
 
-            HiveBasicStatistics partitionStats = getHiveBasicStatistics(partition.getParameters());
-            List<ColumnStatistics> columnStats = toGlueColumnStatistics(partition, updatedColumnStatistics, partitionStats.getRowCount()).stream()
+            List<ColumnStatistics> columnStats = toGlueColumnStatistics(partition, updatedColumnStatistics).stream()
                     .filter(this::isGlueWritable)
                     .collect(toUnmodifiableList());
 
