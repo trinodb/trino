@@ -44,7 +44,6 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
@@ -109,8 +108,7 @@ public class TestIcebergGlueCatalogAccessOperations
         queryRunner.installPlugin(new TestingIcebergPlugin(
                 tmp.toPath(),
                 Optional.empty(),
-                Optional.of(trackingFileSystemFactory),
-                EMPTY_MODULE));
+                Optional.of(trackingFileSystemFactory)));
         queryRunner.createCatalog("iceberg", "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "glue",
