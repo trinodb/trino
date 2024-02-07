@@ -250,11 +250,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>re2j</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-array</artifactId>
         </dependency>
 
@@ -301,6 +296,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-re2j</artifactId>
         </dependency>
 
         <dependency>
