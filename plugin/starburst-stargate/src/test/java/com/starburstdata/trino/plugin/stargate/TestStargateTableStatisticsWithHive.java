@@ -19,7 +19,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -37,6 +36,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestStargateTableStatisticsWithHive
@@ -279,7 +279,6 @@ public class TestStargateTableStatisticsWithHive
     }
 
     @Test
-    @Disabled // TODO: Investigate why the assertion isn't deterministic
     public void testUnevenPartitionedTable()
     {
         String tableName = "test_stats_uneven_partitioned_table";
@@ -491,7 +490,7 @@ public class TestStargateTableStatisticsWithHive
                 "SHOW STATS FOR (SELECT count(nationkey) AS x FROM nation_partitioned WHERE regionkey > 0 GROUP BY regionkey)",
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, 5.0, null, null)"); // 4 is the actual row count
+                        "   (null, null, null, null, 4.0, null, null)");
 
         assertQuery(
                 "SHOW STATS FOR (SELECT count(nationkey) AS x FROM nation WHERE regionkey > 0 GROUP BY regionkey)",
@@ -559,6 +558,17 @@ public class TestStargateTableStatisticsWithHive
                             "('fl', 1e0, 0e0, null)," +
                             "(null, null, null, 5e0)");
         }
+    }
+
+    @Test
+    @Override
+    public void testStatsWithDistinctLimitPushdown()
+    {
+        // TODO: remove this override when statistics are pushed for partial distinct TopN queries
+        assertThatThrownBy(super::testStatsWithDistinctLimitPushdown)
+                .hasMessageContaining("Expecting actual:\n  " +
+                        "(regionkey, null, null, null), " +
+                        "(null, null, null, null)");
     }
 
     private void assertLocalAndRemoteStatistics(String showStatsQuery, String expectedValues)

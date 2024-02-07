@@ -22,6 +22,7 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.ptf.Query;
@@ -58,6 +59,8 @@ public class StargateModule
                 StargateConfig::isSslEnabled,
                 new SslModule(),
                 new NoSslModule()));
+
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(StargateMetadataFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> {
             config.setDomainCompactionThreshold(STARGATE_DEFAULT_DOMAIN_COMPACTION_THRESHOLD);

@@ -185,8 +185,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     {
         // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
-            // TODO [SEP-12237] Investigate why the message is different from SEP's ."*This connector does not support modifying table rows"
-            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "Failed fetching statistics for table: .*");
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", ".*This connector does not support modifying table rows");
         }
     }
 
@@ -257,7 +256,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     public void verifySupportsUpdateDeclaration()
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
-            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", "Failed fetching statistics for table: .*");
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", ".*This connector does not support modifying table rows");
         }
     }
 }
