@@ -49,7 +49,6 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
@@ -809,24 +808,6 @@ public final class ConnectorExpressionTranslator
                 return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
             }
             return new Constant(value, type);
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitLikePredicate(LikePredicate node, Void context)
-        {
-            Optional<ConnectorExpression> value = process(node.getValue());
-            Optional<ConnectorExpression> pattern = process(node.getPattern());
-            if (value.isPresent() && pattern.isPresent()) {
-                if (node.getEscape().isEmpty()) {
-                    return Optional.of(new Call(typeOf(node), StandardFunctions.LIKE_FUNCTION_NAME, List.of(value.get(), pattern.get())));
-                }
-
-                Optional<ConnectorExpression> escape = process(node.getEscape().get());
-                if (escape.isPresent()) {
-                    return Optional.of(new Call(typeOf(node), StandardFunctions.LIKE_FUNCTION_NAME, List.of(value.get(), pattern.get(), escape.get())));
-                }
-            }
-            return Optional.empty();
         }
 
         @Override
