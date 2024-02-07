@@ -20,8 +20,9 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.airlift.units.Duration;
-import io.trino.filesystem.TrackingFileSystemFactory;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -44,6 +45,7 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
+import io.trino.testing.TestingTelemetry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -67,8 +69,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
-import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
+import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractColumnMetadata;
@@ -81,7 +82,6 @@ import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -112,7 +112,8 @@ public class TestTransactionLogAccess
             new RemoveFileEntry("age=42/part-00000-6aed618a-2beb-4edd-8466-653e67a9b380.c000.snappy.parquet", 1579190155406L, false),
             new RemoveFileEntry("age=42/part-00000-b82d8859-84a0-4f05-872c-206b07dd54f0.c000.snappy.parquet", 1579190163932L, false));
 
-    private final TrackingFileSystemFactory trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
+    private final TestingTelemetry testingTelemetry = TestingTelemetry.create("transaction-log-access");
+    private final TracingFileSystemFactory tracingFileSystemFactory = new TracingFileSystemFactory(testingTelemetry.getTracer(), new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
 
     private TransactionLogAccess transactionLogAccess;
     private TableSnapshot tableSnapshot;
@@ -142,7 +143,7 @@ public class TestTransactionLogAccess
                 new CheckpointSchemaManager(typeManager),
                 deltaLakeConfig,
                 fileFormatDataSourceStats,
-                trackingFileSystemFactory,
+                tracingFileSystemFactory,
                 new ParquetReaderConfig());
 
         DeltaLakeTableHandle tableHandle = new DeltaLakeTableHandle(
@@ -612,11 +613,11 @@ public class TestTransactionLogAccess
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
+                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .build());
 
         copyTransactionLogEntry(12, 14, resourceDir, transactionLogDir);
@@ -631,10 +632,10 @@ public class TestTransactionLogAccess
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 2)
-                        .add(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
+                        .addCopies(new FileOperation("00000000000000000012.json", "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation("00000000000000000013.json", "InputFile.newStream"), 2)
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
                         .build());
     }
 
@@ -792,11 +793,11 @@ public class TestTransactionLogAccess
                     setupTransactionLogAccess(tableName, tableDir, cacheDisabledConfig);
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
                         .build());
 
         // With the transaction log cache disabled, when loading the snapshot again, all the needed files will be opened again
@@ -805,11 +806,11 @@ public class TestTransactionLogAccess
                     transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir);
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
                         .build());
     }
 
@@ -834,13 +835,13 @@ public class TestTransactionLogAccess
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM))
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
 
         // The internal data cache should still contain the data files for the table
@@ -874,13 +875,13 @@ public class TestTransactionLogAccess
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM))
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
 
         // Flush all cache and then load snapshot and get active files
@@ -893,13 +894,13 @@ public class TestTransactionLogAccess
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM))
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
     }
 
@@ -924,13 +925,13 @@ public class TestTransactionLogAccess
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM))
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
 
         // With no caching for the transaction log entries, when loading the snapshot again,
@@ -942,8 +943,8 @@ public class TestTransactionLogAccess
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM))
+                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
     }
 
@@ -960,36 +961,27 @@ public class TestTransactionLogAccess
         }
     }
 
-    private void assertFileSystemAccesses(ThrowingRunnable callback, Multiset<FileOperation> expectedAccesses)
+    private void assertFileSystemAccesses(TestingTelemetry.CheckedRunnable<?> callback, Multiset<FileOperation> expectedAccesses)
             throws Exception
     {
-        trackingFileSystemFactory.reset();
-        callback.run();
-        assertMultisetsEqual(getOperations(), expectedAccesses);
+        List<SpanData> spanData = testingTelemetry.captureSpans(callback::run);
+        assertMultisetsEqual(getOperations(spanData), expectedAccesses);
     }
 
-    private Multiset<FileOperation> getOperations()
+    private Multiset<FileOperation> getOperations(List<SpanData> spans)
     {
-        return trackingFileSystemFactory.getOperationCounts()
-                .entrySet().stream()
-                .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(
-                        entry.getKey().location().toString().replaceFirst(".*/_delta_log/", ""),
-                        entry.getKey().operationType())).stream())
+        return spans.stream()
+                .filter(span -> span.getName().startsWith("InputFile."))
+                .map(span -> new FileOperation(span.getAttributes().get(FILE_LOCATION).replaceFirst(".*/_delta_log/", ""), span.getName()))
                 .collect(toCollection(HashMultiset::create));
     }
 
-    private record FileOperation(String path, TrackingFileSystemFactory.OperationType operationType)
+    private record FileOperation(String path, String operationType)
     {
         FileOperation
         {
             requireNonNull(path, "path is null");
             requireNonNull(operationType, "operationType is null");
         }
-    }
-
-    private interface ThrowingRunnable
-    {
-        void run()
-                throws Exception;
     }
 }
