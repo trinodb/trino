@@ -15,7 +15,6 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
@@ -433,7 +432,7 @@ public class TestPrometheusSplit
      */
     private static List<String> mockPrometheusResponseToChunkedQueries(io.airlift.units.Duration queryChunkDuration, List<String> splitTimes)
     {
-        return Lists.reverse(splitTimes).stream()
+        return splitTimes.reversed().stream()
                 .map(endTime -> mockPrometheusResponseToQuery(queryChunkDuration, endTime))
                 .flatMap(Collection::stream)
                 .sorted()

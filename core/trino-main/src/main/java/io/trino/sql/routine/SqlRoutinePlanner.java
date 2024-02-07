@@ -16,7 +16,6 @@ package io.trino.sql.routine;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -210,7 +209,7 @@ public final class SqlRoutinePlanner
                         .map(elseClause -> block(statements(elseClause.getStatements(), context)))
                         .orElseGet(() -> new IrBlock(ImmutableList.of(), ImmutableList.of()));
 
-                for (CaseStatementWhenClause whenClause : Lists.reverse(node.getWhenClauses())) {
+                for (CaseStatementWhenClause whenClause : node.getWhenClauses().reversed()) {
                     RowExpression conditionValue = toRowExpression(context, whenClause.getExpression());
 
                     RowExpression testValue = field(valueVariable.field(), valueVariable.type());
@@ -232,7 +231,7 @@ public final class SqlRoutinePlanner
                     .map(elseClause -> block(statements(elseClause.getStatements(), context)))
                     .orElseGet(() -> new IrBlock(ImmutableList.of(), ImmutableList.of()));
 
-            for (CaseStatementWhenClause whenClause : Lists.reverse(node.getWhenClauses())) {
+            for (CaseStatementWhenClause whenClause : node.getWhenClauses().reversed()) {
                 RowExpression condition = toRowExpression(context, whenClause.getExpression());
                 IrStatement ifTrue = block(statements(whenClause.getStatements(), context));
                 statement = new IrIf(condition, ifTrue, Optional.of(statement));

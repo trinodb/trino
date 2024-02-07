@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -1308,7 +1307,7 @@ public class OrcTester
 
     private static <T> List<T> reverse(List<T> iterable)
     {
-        return Lists.reverse(ImmutableList.copyOf(iterable));
+        return ImmutableList.copyOf(iterable).reverse();
     }
 
     private static <T> List<T> insertNullEvery(int n, List<T> iterable)

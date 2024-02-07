@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation.minmaxn;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.trino.operator.aggregation.AbstractTestAggregationFunction;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -107,6 +106,6 @@ public class TestArrayMaxNAggregation
         for (int i = heap.size() - 1; i >= 0; i--) {
             expected.add(ImmutableList.of(heap.remove()));
         }
-        testAggregation(Lists.reverse(expected.build()), createLongArraysBlock(values), createLongRepeatBlock(n, values.length));
+        testAggregation(expected.build().reverse(), createLongArraysBlock(values), createLongRepeatBlock(n, values.length));
     }
 }
