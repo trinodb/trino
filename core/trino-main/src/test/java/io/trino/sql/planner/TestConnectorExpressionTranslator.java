@@ -415,7 +415,7 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateRegularExpression()
     {
-        // Regular expression types (JoniRegexpType, Re2JRegexpType) are considered implementation detail of the engine
+        // Regular expression JoniRegexpType type is considered implementation detail of the engine
         // and are not exposed to connectors within ConnectorExpression. Instead, they are replaced with a varchar pattern.
 
         TransactionManager transactionManager = new TestingTransactionManager();

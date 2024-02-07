@@ -36,7 +36,6 @@ import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.parser.SqlParser;
 import io.trino.type.CharParametricType;
 import io.trino.type.DecimalParametricType;
-import io.trino.type.Re2JRegexpType;
 import io.trino.type.VarcharParametricType;
 
 import java.util.ArrayList;
@@ -143,7 +142,6 @@ public final class TypeRegistry
         addType(SET_DIGEST);
         addType(P4_HYPER_LOG_LOG);
         addType(JONI_REGEXP);
-        addType(new Re2JRegexpType(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()));
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
         addType(JSON_2016);

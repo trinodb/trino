@@ -158,8 +158,6 @@ import io.trino.operator.scalar.MapValues;
 import io.trino.operator.scalar.MathFunctions;
 import io.trino.operator.scalar.MultimapFromEntriesFunction;
 import io.trino.operator.scalar.QuantileDigestFunctions;
-import io.trino.operator.scalar.Re2JRegexpFunctions;
-import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.RepeatFunction;
 import io.trino.operator.scalar.SequenceFunction;
 import io.trino.operator.scalar.SessionFunctions;
@@ -305,8 +303,6 @@ import static io.trino.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static io.trino.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
 import static io.trino.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
 import static io.trino.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
-import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
-import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
 import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
@@ -560,8 +556,6 @@ public final class SystemFunctionBundle
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(CONCAT_WS)
                 .function(DECIMAL_TO_DECIMAL_CAST)
-                .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
-                .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .aggregates(DecimalAverageAggregation.class)
                 .aggregates(DecimalSumAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)
@@ -686,7 +680,7 @@ public final class SystemFunctionBundle
                 .scalar(TimeToTimeWithTimeZoneCast.class);
 
         // time with timezone operators and functions
-        builder
+        return builder
                 .scalar(TimeWithTimeZoneOperators.TimePlusIntervalDayToSecond.class)
                 .scalar(TimeWithTimeZoneOperators.IntervalDayToSecondPlusTime.class)
                 .scalar(TimeWithTimeZoneOperators.TimeMinusIntervalDayToSecond.class)
@@ -706,19 +700,9 @@ public final class SystemFunctionBundle
                 .scalar(io.trino.operator.scalar.timetz.DateTrunc.class)
                 .scalar(io.trino.operator.scalar.timetz.AtTimeZone.class)
                 .scalar(io.trino.operator.scalar.timetz.AtTimeZoneWithOffset.class)
-                .scalar(CurrentTime.class);
-
-        switch (featuresConfig.getRegexLibrary()) {
-            case JONI:
-                builder.scalars(JoniRegexpFunctions.class);
-                builder.scalar(JoniRegexpReplaceLambdaFunction.class);
-                break;
-            case RE2J:
-                builder.scalars(Re2JRegexpFunctions.class);
-                builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
-                break;
-        }
-
-        return builder.build();
+                .scalar(CurrentTime.class)
+                .scalars(JoniRegexpFunctions.class)
+                .scalar(JoniRegexpReplaceLambdaFunction.class)
+                .build();
     }
 }

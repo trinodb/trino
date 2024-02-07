@@ -54,7 +54,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
-import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCoercion
@@ -417,7 +416,6 @@ public final class TypeCoercion
                     yield Optional.of(createCharType(Math.min(CharType.MAX_LENGTH, varcharType.getBoundedLength())));
                 }
                 case JoniRegexpType.NAME -> Optional.of(JONI_REGEXP);
-                case Re2JRegexpType.NAME -> Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
                 case JsonPathType.NAME -> Optional.of(JSON_PATH);
                 case CodePointsType.NAME -> Optional.of(CODE_POINTS);
                 default -> Optional.empty();
@@ -429,7 +427,6 @@ public final class TypeCoercion
                     // WITH CHAR to VARCHAR coercion one would need to pad literals with spaces: char_column_len_5 = 'abc  ', so we would not run unmodified TPC-DS queries.
                         Optional.empty();
                 case JoniRegexpType.NAME -> Optional.of(JONI_REGEXP);
-                case Re2JRegexpType.NAME -> Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
                 case JsonPathType.NAME -> Optional.of(JSON_PATH);
                 case CodePointsType.NAME -> Optional.of(CODE_POINTS);
                 default -> Optional.empty();

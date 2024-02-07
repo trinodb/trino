@@ -28,7 +28,6 @@ Node scheduler <properties-node-scheduler>
 Optimizer <properties-optimizer>
 Logging <properties-logging>
 Web UI <properties-web-interface>
-Regular expression function <properties-regexp-function>
 HTTP client <properties-http-client>
 ```
 

@@ -1390,12 +1390,6 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-re2j</artifactId>
-                <version>1.7</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
                 <artifactId>trino-record-decoder</artifactId>
                 <version>${project.version}</version>
             </dependency>

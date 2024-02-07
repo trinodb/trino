@@ -64,8 +64,6 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.type.JoniRegexp;
 import io.trino.type.JsonPathType;
 import io.trino.type.LikePattern;
-import io.trino.type.Re2JRegexp;
-import io.trino.type.Re2JRegexpType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -334,7 +332,7 @@ public final class ConnectorExpressionTranslator
                     return Optional.empty();
                 }
                 Expression expression = translated.get();
-                if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType || formalType instanceof JsonPathType)
+                if ((formalType == JONI_REGEXP || formalType instanceof JsonPathType)
                         && argumentType instanceof VarcharType) {
                     // These types are not used in connector expressions, so require special handling when translating back to expressions.
                     expression = new Cast(expression, toSqlType(formalType));
@@ -798,10 +796,6 @@ public final class ConnectorExpressionTranslator
 
             if (type == JONI_REGEXP) {
                 Slice pattern = ((JoniRegexp) value).pattern();
-                return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
-            }
-            if (type instanceof Re2JRegexpType) {
-                Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
                 return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
             }
             if (type instanceof JsonPathType) {

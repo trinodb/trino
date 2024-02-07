@@ -14,14 +14,15 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Resources;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
-import io.trino.sql.analyzer.RegexLibrary;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
@@ -30,37 +31,37 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.IOException;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
+import static io.trino.operator.scalar.JoniRegexpFunctions.regexpReplace;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.util.Objects.requireNonNull;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public abstract class AbstractTestRegexpFunctions
+public class TestRegexpFunctions
 {
-    private final RegexLibrary regexLibrary;
     private QueryAssertions assertions;
-
-    protected AbstractTestRegexpFunctions(RegexLibrary regexLibrary)
-    {
-        this.regexLibrary = requireNonNull(regexLibrary, "regexLibrary is null");
-    }
 
     @BeforeAll
     public void init()
     {
-        assertions = new QueryAssertions(new StandaloneQueryRunner(TEST_SESSION, builder -> builder.addProperty("regex-library", regexLibrary.name())));
+        assertions = new QueryAssertions(new StandaloneQueryRunner(TEST_SESSION));
 
         assertions.addFunctions(InternalFunctionBundle.builder()
-                .scalars(AbstractTestRegexpFunctions.class)
+                .scalars(TestRegexpFunctions.class)
                 .build());
     }
 
@@ -928,5 +929,40 @@ public abstract class AbstractTestRegexpFunctions
 
         assertThat(assertions.function("regexp_position", "'natasha, 9102, miss you'", "'\\s'", "10", "2"))
                 .isEqualTo(20);
+    }
+
+    @Test
+    public void testSearchInterruptible()
+            throws IOException, InterruptedException
+    {
+        String source = Resources.toString(Resources.getResource("regularExpressionExtraLongSource.txt"), UTF_8);
+        String pattern = "\\((.*,)+(.*\\))";
+        // Test the interruptible version of `Matcher#search` by "REGEXP_REPLACE"
+        testJoniRegexpFunctionsInterruptible(() -> regexpReplace(utf8Slice(source), joniRegexp(utf8Slice(pattern))));
+    }
+
+    private static void testJoniRegexpFunctionsInterruptible(Runnable joniRegexpRunnable)
+            throws InterruptedException
+    {
+        AtomicReference<TrinoException> trinoException = new AtomicReference<>();
+        Thread searchChildThread = new Thread(() -> {
+            try {
+                joniRegexpRunnable.run();
+            }
+            catch (TrinoException e) {
+                trinoException.compareAndSet(null, e);
+            }
+        });
+
+        searchChildThread.start();
+
+        // wait for the child thread to make some progress
+        searchChildThread.join(1000);
+        searchChildThread.interrupt();
+
+        // wait for child thread to get in to terminated state
+        searchChildThread.join();
+        assertThat(trinoException.get()).isNotNull();
+        assertThat(trinoException.get().getErrorCode()).isEqualTo(GENERIC_USER_ERROR.toErrorCode());
     }
 }

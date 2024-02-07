@@ -16,13 +16,11 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.Re2JCastToRegexpFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -33,12 +31,10 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
-import io.trino.type.Re2JRegexp;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -77,7 +73,6 @@ import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
-import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -254,7 +249,6 @@ public class TestLiteralEncoder
     public void testEncodeRegex()
     {
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), JONI_REGEXP, (left, right) -> left.pattern().equals(right.pattern()));
-        assertRoundTrip(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), PLANNER_CONTEXT.getTypeManager().getType(RE2J_REGEXP_SIGNATURE), (left, right) -> left.pattern().equals(right.pattern()));
     }
 
     @Test
@@ -347,10 +341,5 @@ public class TestLiteralEncoder
     {
         CatalogSchemaFunctionName name = function.toCatalogSchemaFunctionName();
         return "%s.\"%s\".\"%s\"".formatted(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
-    }
-
-    private static Re2JRegexp castVarcharToRe2JRegexp(Slice value)
-    {
-        return Re2JCastToRegexpFunction.castToRegexp(Integer.MAX_VALUE, 5, false, VarcharType.UNBOUNDED_LENGTH, value);
     }
 }

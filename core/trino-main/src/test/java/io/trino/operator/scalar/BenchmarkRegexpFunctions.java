@@ -18,7 +18,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.type.JoniRegexp;
-import io.trino.type.Re2JRegexp;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -54,12 +53,6 @@ public class BenchmarkRegexpFunctions
         return JoniRegexpFunctions.regexpLike(data.getSource(), data.getJoniPattern());
     }
 
-    @Benchmark
-    public boolean benchmarkLikeRe2J(DotStarAroundData data)
-    {
-        return Re2JRegexpFunctions.regexpLike(data.getSource(), data.getRe2JPattern());
-    }
-
     @State(Thread)
     public static class DotStarAroundData
     {
@@ -70,7 +63,6 @@ public class BenchmarkRegexpFunctions
         private int sourceLength;
 
         private JoniRegexp joniPattern;
-        private Re2JRegexp re2JPattern;
         private Slice source;
 
         @Setup
@@ -106,7 +98,6 @@ public class BenchmarkRegexpFunctions
             }
 
             joniPattern = joniRegexp(pattern);
-            re2JPattern = re2JRegexp(pattern);
             source = sliceOutput.slice();
             checkState(source.length() == sourceLength, "source.length=%s, sourceLength=%s", source.length(), sourceLength);
         }
@@ -120,16 +111,6 @@ public class BenchmarkRegexpFunctions
         {
             return joniPattern;
         }
-
-        public Re2JRegexp getRe2JPattern()
-        {
-            return re2JPattern;
-        }
-    }
-
-    private static Re2JRegexp re2JRegexp(Slice pattern)
-    {
-        return new Re2JRegexp(Integer.MAX_VALUE, 5, pattern);
     }
 
     public static void main(String[] args)

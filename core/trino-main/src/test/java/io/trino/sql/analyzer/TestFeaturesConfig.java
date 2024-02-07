@@ -29,8 +29,6 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.CompressionCodec.ZSTD;
-import static io.trino.sql.analyzer.RegexLibrary.JONI;
-import static io.trino.sql.analyzer.RegexLibrary.RE2J;
 
 public class TestFeaturesConfig
 {
@@ -42,9 +40,6 @@ public class TestFeaturesConfig
                 .setScaleWriters(true)
                 .setWriterScalingMinDataProcessed(DataSize.of(120, MEGABYTE))
                 .setMaxMemoryPerPartitionWriter(DataSize.of(256, MEGABYTE))
-                .setRegexLibrary(JONI)
-                .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
-                .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("4MB"))
                 .setSpillerSpillPaths("")
@@ -76,9 +71,6 @@ public class TestFeaturesConfig
                 .put("scale-writers", "false")
                 .put("writer-scaling-min-data-processed", "4GB")
                 .put("max-memory-per-partition-writer", "4GB")
-                .put("regex-library", "RE2J")
-                .put("re2j.dfa-states-limit", "42")
-                .put("re2j.dfa-retries", "42")
                 .put("spill-enabled", "true")
                 .put("aggregation-operator-unspill-memory-limit", "100MB")
                 .put("spiller-spill-path", "/tmp/custom/spill/path1,/tmp/custom/spill/path2")
@@ -107,9 +99,6 @@ public class TestFeaturesConfig
                 .setScaleWriters(false)
                 .setWriterScalingMinDataProcessed(DataSize.of(4, GIGABYTE))
                 .setMaxMemoryPerPartitionWriter(DataSize.of(4, GIGABYTE))
-                .setRegexLibrary(RE2J)
-                .setRe2JDfaStatesLimit(42)
-                .setRe2JDfaRetries(42)
                 .setSpillEnabled(true)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("100MB"))
                 .setSpillerSpillPaths("/tmp/custom/spill/path1,/tmp/custom/spill/path2")
