@@ -24,6 +24,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -1034,6 +1035,14 @@ public abstract class BaseBigQueryConnectorTest
     {
         assertThatThrownBy(super::testCharVarcharComparison)
                 .hasMessage("Unsupported column type: char(3)");
+    }
+
+    @Test
+    @Disabled
+    @Override
+    public void testSelectInformationSchemaColumns()
+    {
+        // TODO https://github.com/trinodb/trino/issues/20178 Enable this test after fixing the timeout issue
     }
 
     @Override
