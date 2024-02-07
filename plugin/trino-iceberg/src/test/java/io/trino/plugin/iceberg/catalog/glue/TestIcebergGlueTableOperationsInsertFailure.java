@@ -36,7 +36,6 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 import static com.google.common.reflect.Reflection.newProxy;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -89,7 +88,10 @@ public class TestIcebergGlueTableOperationsInsertFailure
         Path dataDirectory = Files.createTempDirectory("iceberg_data");
         dataDirectory.toFile().deleteOnExit();
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingIcebergPlugin(
+                dataDirectory,
+                Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider)),
+                Optional.empty()));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of());
 
         glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory);
