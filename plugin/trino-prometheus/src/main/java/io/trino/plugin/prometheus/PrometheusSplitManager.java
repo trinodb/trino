@@ -14,7 +14,6 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.units.Duration;
@@ -149,14 +148,15 @@ public class PrometheusSplitManager
 
         int numChunks = maxQueryRangeDecimal.divide(queryChunkSizeDecimal, 0, RoundingMode.UP).intValue();
 
-        return Lists.reverse(IntStream.range(0, numChunks)
+        return IntStream.range(0, numChunks)
                 .mapToObj(n -> {
                     long endTime = upperBound.toEpochMilli() -
                             n * queryChunkSizeDuration.toMillis() - n * OFFSET_MILLIS;
                     return endTime;
                 })
                 .map(PrometheusSplitManager::decimalSecondString)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList())
+                .reversed();
     }
 
     protected static Optional<PrometheusPredicateTimeInfo> determinePredicateTimes(TupleDomain<ColumnHandle> predicate)

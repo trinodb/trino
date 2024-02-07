@@ -16,7 +16,6 @@ package io.trino.sql.parser;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import io.trino.grammar.sql.SqlBaseBaseVisitor;
 import io.trino.grammar.sql.SqlBaseLexer;
 import io.trino.grammar.sql.SqlBaseParser;
@@ -2776,7 +2775,7 @@ class AstBuilder
     @Override
     public Node visitPosition(SqlBaseParser.PositionContext context)
     {
-        List<Expression> arguments = Lists.reverse(visit(context.valueExpression(), Expression.class));
+        List<Expression> arguments = visit(context.valueExpression(), Expression.class).reversed();
         return new FunctionCall(getLocation(context), QualifiedName.of("strpos"), arguments);
     }
 

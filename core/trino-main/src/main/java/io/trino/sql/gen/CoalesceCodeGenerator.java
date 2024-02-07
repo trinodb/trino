@@ -13,7 +13,6 @@
  */
 package io.trino.sql.gen;
 
-import com.google.common.collect.Lists;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
@@ -56,7 +55,7 @@ public class CoalesceCodeGenerator
                 .pushJavaDefault(returnType.getJavaType());
 
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
-        for (BytecodeNode operand : Lists.reverse(operands)) {
+        for (BytecodeNode operand : operands.reversed()) {
             IfStatement ifStatement = new IfStatement();
 
             ifStatement.condition()
