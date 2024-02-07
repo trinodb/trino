@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
@@ -55,7 +54,7 @@ public class TableMetadata
     private final Optional<String> viewOriginalText;
     private final Optional<String> viewExpandedText;
 
-    private final Map<String, HiveColumnStatistics> columnStatistics;
+    private final Map<String, ColumnStatistics> columnStatistics;
 
     @JsonCreator
     public TableMetadata(
@@ -72,7 +71,7 @@ public class TableMetadata
             @JsonProperty("externalLocation") Optional<String> externalLocation,
             @JsonProperty("viewOriginalText") Optional<String> viewOriginalText,
             @JsonProperty("viewExpandedText") Optional<String> viewExpandedText,
-            @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
+            @JsonProperty("columnStatistics") Map<String, ColumnStatistics> columnStatistics)
     {
         this.writerVersion = requireNonNull(writerVersion, "writerVersion is null");
         this.owner = requireNonNull(owner, "owner is null");
@@ -227,7 +226,7 @@ public class TableMetadata
     }
 
     @JsonProperty
-    public Map<String, HiveColumnStatistics> getColumnStatistics()
+    public Map<String, ColumnStatistics> getColumnStatistics()
     {
         return columnStatistics;
     }
@@ -270,7 +269,7 @@ public class TableMetadata
                 columnStatistics);
     }
 
-    public TableMetadata withColumnStatistics(String currentVersion, Map<String, HiveColumnStatistics> columnStatistics)
+    public TableMetadata withColumnStatistics(String currentVersion, Map<String, ColumnStatistics> columnStatistics)
     {
         return new TableMetadata(
                 Optional.of(requireNonNull(currentVersion, "currentVersion is null")),
