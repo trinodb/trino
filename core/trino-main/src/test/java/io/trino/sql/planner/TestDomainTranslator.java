@@ -104,6 +104,8 @@ import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
+import static java.math.BigDecimal.ONE;
+import static java.math.BigDecimal.TWO;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1194,8 +1196,8 @@ public class TestDomainTranslator
                 C_DECIMAL_21_3,
                 C_DECIMAL_21_3_1,
                 createDecimalType(21, 3),
-                Decimals.encodeScaledValue(new BigDecimal("1"), 3),
-                Decimals.encodeScaledValue(new BigDecimal("2"), 3));
+                Decimals.encodeScaledValue(ONE, 3),
+                Decimals.encodeScaledValue(TWO, 3));
     }
 
     @Test
