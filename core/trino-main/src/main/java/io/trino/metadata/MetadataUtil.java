@@ -15,7 +15,6 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
@@ -144,7 +143,7 @@ public final class MetadataUtil
             throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = Lists.reverse(name.getParts());
+        List<String> parts = name.getParts().reversed();
         String objectName = parts.get(0);
         String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
                 semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));

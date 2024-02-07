@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Lists.reverse;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.util.MoreMaps.mergeMaps;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -149,7 +148,7 @@ public final class PlanNodeStatsSummarizer
 
             // Gather output statistics
             processedNodes.clear();
-            for (OperatorStats operatorStats : reverse(pipelineStats.getOperatorSummaries())) {
+            for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries().reversed()) {
                 PlanNodeId planNodeId = operatorStats.getPlanNodeId();
 
                 // An "internal" pipeline like a hash build, links to another pipeline which is the actual output for this plan node
