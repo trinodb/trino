@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -125,7 +124,7 @@ public class RenameTableTask
             throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", target));
         }
 
-        List<String> parts = Lists.reverse(target.getParts());
+        List<String> parts = target.getParts().reversed();
         String objectName = parts.get(0);
         String schemaName = (parts.size() > 1) ? parts.get(1) : source.getSchemaName();
         String catalogName = (parts.size() > 2) ? parts.get(2) : source.getCatalogName();

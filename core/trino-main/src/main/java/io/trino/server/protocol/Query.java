@@ -16,7 +16,6 @@ package io.trino.server.protocol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -669,7 +668,7 @@ class Query
 
         // attempt to find a cancelable sub stage
         // check in reverse order since build side of a join will be later in the list
-        for (StageInfo subStage : Lists.reverse(stage.getSubStages())) {
+        for (StageInfo subStage : stage.getSubStages().reversed()) {
             Optional<Integer> leafStage = findCancelableLeafStage(subStage);
             if (leafStage.isPresent()) {
                 return leafStage;

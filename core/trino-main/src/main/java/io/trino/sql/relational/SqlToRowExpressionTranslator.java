@@ -15,7 +15,6 @@ package io.trino.sql.relational;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -537,7 +536,7 @@ public final class SqlToRowExpressionTranslator
                     .map(value -> process(value, context))
                     .orElse(constantNull(getType(node)));
 
-            for (WhenClause clause : Lists.reverse(node.getWhenClauses())) {
+            for (WhenClause clause : node.getWhenClauses().reversed()) {
                 expression = new SpecialForm(
                         IF,
                         getType(node),
