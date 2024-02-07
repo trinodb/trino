@@ -101,7 +101,7 @@ public final class Statistics
                 result.setTotalSizeInBytes(0);
                 return;
             case NUMBER_OF_DISTINCT_VALUES:
-                result.setDistinctValuesCount(0);
+                result.setDistinctValuesWithNullCount(0);
                 return;
             case NUMBER_OF_NON_NULL_VALUES:
                 result.setNullsCount(0);
@@ -214,7 +214,8 @@ public final class Statistics
             // number of distinct value is estimated using HLL, and can be higher than the number of non null values
             long numberOfNonNullValues = BIGINT.getLong(computedStatistics.get(NUMBER_OF_NON_NULL_VALUES), 0);
             long numberOfDistinctValues = BIGINT.getLong(computedStatistics.get(NUMBER_OF_DISTINCT_VALUES), 0);
-            result.setDistinctValuesCount(Math.min(numberOfDistinctValues, numberOfNonNullValues));
+            // Hive expects NDV to be one greater when column has a null
+            result.setDistinctValuesWithNullCount(Math.min(numberOfDistinctValues, numberOfNonNullValues) + (rowCount > numberOfNonNullValues ? 1 : 0));
         }
 
         // NUMBER OF FALSE, NUMBER OF TRUE
