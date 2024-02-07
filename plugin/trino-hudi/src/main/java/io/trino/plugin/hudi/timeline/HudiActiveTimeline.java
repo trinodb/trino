@@ -20,10 +20,7 @@ import io.trino.plugin.hudi.model.HudiInstant;
 import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.TrinoException;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Optional;
 import java.util.Set;
 
@@ -95,28 +92,10 @@ public class HudiActiveTimeline
     private Optional<byte[]> readDataFromPath(Location detailPath)
     {
         try (TrinoInputStream inputStream = metaClient.getFileSystem().newInputFile(detailPath).newStream()) {
-            return Optional.of(readAsByteArray(inputStream));
+            return Optional.of(inputStream.readAllBytes());
         }
         catch (IOException e) {
             throw new TrinoException(HUDI_BAD_DATA, "Could not read commit details from " + detailPath, e);
-        }
-    }
-
-    private static byte[] readAsByteArray(InputStream input)
-            throws IOException
-    {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(128);
-        copy(input, bos);
-        return bos.toByteArray();
-    }
-
-    private static void copy(InputStream inputStream, OutputStream outputStream)
-            throws IOException
-    {
-        byte[] buffer = new byte[1024];
-        int len;
-        while ((len = inputStream.read(buffer)) != -1) {
-            outputStream.write(buffer, 0, len);
         }
     }
 }
