@@ -221,6 +221,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final TaskExecutionStats taskExecutionStats;
     private final AdaptivePlanner adaptivePlanner;
     private final boolean adaptiveQueryPlanningEnabled;
+    private final StageExecutionStats stageExecutionStats;
     private final SubPlan originalPlan;
     private final boolean stageEstimationForEagerParentEnabled;
 
@@ -252,6 +253,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             DynamicFilterService dynamicFilterService,
             TaskExecutionStats taskExecutionStats,
             AdaptivePlanner adaptivePlanner,
+            StageExecutionStats stageExecutionStats,
             SubPlan originalPlan)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
@@ -277,6 +279,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
         this.adaptivePlanner = requireNonNull(adaptivePlanner, "adaptivePlanner is null");
         this.adaptiveQueryPlanningEnabled = isFaultTolerantExecutionAdaptiveQueryPlanningEnabled(queryStateMachine.getSession());
+        this.stageExecutionStats = requireNonNull(stageExecutionStats, "stageExecutionStats is null");
         this.originalPlan = requireNonNull(originalPlan, "originalPlan is null");
 
         this.stageEstimationForEagerParentEnabled = isFaultTolerantExecutionStageEstimationForEagerParentEnabled(queryStateMachine.getSession());
@@ -349,6 +352,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     failureDetector,
                     stageRegistry,
                     taskExecutionStats,
+                    stageExecutionStats,
                     dynamicFilterService,
                     new SchedulingDelayer(
                             getRetryInitialDelay(session),
@@ -697,6 +701,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final FailureDetector failureDetector;
         private final StageRegistry stageRegistry;
         private final TaskExecutionStats taskExecutionStats;
+        private final StageExecutionStats stageExecutionStats;
         private final DynamicFilterService dynamicFilterService;
         private final int maxPartitionCount;
         private final boolean runtimeAdaptivePartitioningEnabled;
@@ -756,6 +761,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 FailureDetector failureDetector,
                 StageRegistry stageRegistry,
                 TaskExecutionStats taskExecutionStats,
+                StageExecutionStats stageExecutionStats,
                 DynamicFilterService dynamicFilterService,
                 SchedulingDelayer schedulingDelayer,
                 SubPlan plan,
@@ -790,6 +796,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.stageRegistry = requireNonNull(stageRegistry, "stageRegistry is null");
             this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
+            this.stageExecutionStats = requireNonNull(stageExecutionStats, "stageExecutionStats is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             this.schedulingDelayer = requireNonNull(schedulingDelayer, "schedulingDelayer is null");
             this.plan = requireNonNull(plan, "plan is null");
@@ -1332,6 +1339,10 @@ public class EventDrivenFaultTolerantQueryScheduler
                         subPlan.getFragment().getId(),
                         finishedSourcesCount,
                         estimateCountByKind);
+                estimateCountByKind.forEach(stageExecutionStats::recordSourceOutputEstimationOnStageStart);
+            }
+            else {
+                stageExecutionStats.recordSourcesFinishedOnStageStart(subPlan.getChildren().size());
             }
             return IsReadyForExecutionResult.ready(sourceOutputStatsEstimates.buildOrThrow(), eager, speculative);
         }
