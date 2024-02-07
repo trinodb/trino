@@ -48,7 +48,7 @@ public class TestSparkMetastoreUtil
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setIntegerStatistics(new IntegerStatistics(OptionalLong.of(1), OptionalLong.of(4)))
                 .setNullsCount(0)
-                .setDistinctValuesCount(4)
+                .setDistinctValuesWithNullCount(4)
                 .build());
     }
 
@@ -71,7 +71,7 @@ public class TestSparkMetastoreUtil
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDoubleStatistics(new DoubleStatistics(OptionalDouble.of(0.3), OptionalDouble.of(3.3)))
                 .setNullsCount(1)
-                .setDistinctValuesCount(9)
+                .setDistinctValuesWithNullCount(10)
                 .build());
     }
 
@@ -95,7 +95,7 @@ public class TestSparkMetastoreUtil
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDecimalStatistics(new DecimalStatistics(Optional.of(new BigDecimal("0.3")), Optional.of(new BigDecimal("3.3"))))
                 .setNullsCount(1)
-                .setDistinctValuesCount(9)
+                .setDistinctValuesWithNullCount(10)
                 .build());
     }
 
@@ -140,7 +140,7 @@ public class TestSparkMetastoreUtil
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDateStatistics(new DateStatistics(Optional.of(LocalDate.of(2000, 1, 1)), Optional.of(LocalDate.of(2030, 12, 31))))
                 .setNullsCount(3)
-                .setDistinctValuesCount(7)
+                .setDistinctValuesWithNullCount(10)
                 .build());
     }
 
@@ -159,7 +159,7 @@ public class TestSparkMetastoreUtil
         HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_char", HiveType.HIVE_STRING, columnStatistics, 10);
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setNullsCount(7)
-                .setDistinctValuesCount(3)
+                .setDistinctValuesWithNullCount(3)
                 .setTotalSizeInBytes(30)
                 .build());
     }

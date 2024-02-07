@@ -271,17 +271,17 @@ class TestStatisticsUpdateMode
     void testMergeGenericColumnStatistics()
     {
         assertMergeIncrementalColumnStatistics(
-                HiveColumnStatistics.builder().setDistinctValuesCount(OptionalLong.empty()).build(),
-                HiveColumnStatistics.builder().setDistinctValuesCount(OptionalLong.empty()).build(),
-                HiveColumnStatistics.builder().setDistinctValuesCount(OptionalLong.empty()).build());
+                HiveColumnStatistics.builder().setDistinctValuesWithNullCount(OptionalLong.empty()).build(),
+                HiveColumnStatistics.builder().setDistinctValuesWithNullCount(OptionalLong.empty()).build(),
+                HiveColumnStatistics.builder().setDistinctValuesWithNullCount(OptionalLong.empty()).build());
         assertMergeIncrementalColumnStatistics(
-                HiveColumnStatistics.builder().setDistinctValuesCount(OptionalLong.of(1)).build(),
-                HiveColumnStatistics.builder().setDistinctValuesCount(OptionalLong.empty()).build(),
-                HiveColumnStatistics.builder().setDistinctValuesCount(OptionalLong.empty()).build());
+                HiveColumnStatistics.builder().setDistinctValuesWithNullCount(OptionalLong.of(1)).build(),
+                HiveColumnStatistics.builder().setDistinctValuesWithNullCount(OptionalLong.empty()).build(),
+                HiveColumnStatistics.builder().setDistinctValuesWithNullCount(OptionalLong.empty()).build());
         assertMergeIncrementalColumnStatistics(
-                HiveColumnStatistics.builder().setDistinctValuesCount(OptionalLong.of(1)).build(),
-                HiveColumnStatistics.builder().setDistinctValuesCount(OptionalLong.of(2)).build(),
-                HiveColumnStatistics.builder().setDistinctValuesCount(OptionalLong.of(2)).build());
+                HiveColumnStatistics.builder().setDistinctValuesWithNullCount(OptionalLong.of(1)).build(),
+                HiveColumnStatistics.builder().setDistinctValuesWithNullCount(OptionalLong.of(2)).build(),
+                HiveColumnStatistics.builder().setDistinctValuesWithNullCount(OptionalLong.of(2)).build());
 
         assertMergeIncrementalColumnStatistics(
                 HiveColumnStatistics.builder().setNullsCount(OptionalLong.empty()).build(),
@@ -344,7 +344,7 @@ class TestStatisticsUpdateMode
         assertThat(columnStatistics).containsEntry("a_column", HiveColumnStatistics.builder()
                         .setIntegerStatistics(new IntegerStatistics(OptionalLong.of(1), OptionalLong.of(5)))
                         .setNullsCount(0)
-                        .setDistinctValuesCount(5)
+                        .setDistinctValuesWithNullCount(5)
                         .build());
         assertThat(columnStatistics).containsEntry("b_column", HiveColumnStatistics.builder()
                         .setNullsCount(1)
