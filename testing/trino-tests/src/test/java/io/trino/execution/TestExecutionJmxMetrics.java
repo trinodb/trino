@@ -20,7 +20,7 @@ import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.spi.QueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Timeout;
 
 import javax.management.MBeanServer;
@@ -39,7 +39,7 @@ public class TestExecutionJmxMetrics
 {
     private static final String LONG_RUNNING_QUERY = "SELECT COUNT(*) FROM tpch.sf100000.lineitem";
 
-    @Test
+    @RepeatedTest(100)
     @Timeout(30)
     public void testQueryStats()
             throws Exception
