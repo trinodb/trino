@@ -65,41 +65,34 @@ public class GlueStatConverter
 
     private static final long MILLIS_PER_DAY = TimeUnit.DAYS.toMillis(1);
 
-    public static List<ColumnStatistics> toGlueColumnStatistics(
-            Partition partition,
-            Map<String,
-                    HiveColumnStatistics> trinoColumnStats,
-            OptionalLong rowCount)
+    public static List<ColumnStatistics> toGlueColumnStatistics(Partition partition, Map<String, HiveColumnStatistics> trinoColumnStats)
     {
         return partition.getColumns().stream()
                 .filter(column -> trinoColumnStats.containsKey(column.getName()))
-                .map(c -> toColumnStatistics(c, trinoColumnStats.get(c.getName()), rowCount))
+                .map(c -> toColumnStatistics(c, trinoColumnStats.get(c.getName())))
                 .collect(toImmutableList());
     }
 
-    public static List<ColumnStatistics> toGlueColumnStatistics(
-            Table table,
-            Map<String, HiveColumnStatistics> trinoColumnStats,
-            OptionalLong rowCount)
+    public static List<ColumnStatistics> toGlueColumnStatistics(Table table, Map<String, HiveColumnStatistics> trinoColumnStats)
     {
         return trinoColumnStats.entrySet().stream()
-                .map(e -> toColumnStatistics(table.getColumn(e.getKey()).get(), e.getValue(), rowCount))
+                .map(e -> toColumnStatistics(table.getColumn(e.getKey()).get(), e.getValue()))
                 .collect(toImmutableList());
     }
 
-    private static ColumnStatistics toColumnStatistics(Column column, HiveColumnStatistics statistics, OptionalLong rowCount)
+    private static ColumnStatistics toColumnStatistics(Column column, HiveColumnStatistics statistics)
     {
         ColumnStatistics columnStatistics = new ColumnStatistics();
         HiveType columnType = column.getType();
         columnStatistics.setColumnName(column.getName());
         columnStatistics.setColumnType(columnType.toString());
-        ColumnStatisticsData catalogColumnStatisticsData = toGlueColumnStatisticsData(statistics, columnType, rowCount);
+        ColumnStatisticsData catalogColumnStatisticsData = toGlueColumnStatisticsData(statistics, columnType);
         columnStatistics.setStatisticsData(catalogColumnStatisticsData);
         columnStatistics.setAnalyzedTime(new Date());
         return columnStatistics;
     }
 
-    public static HiveColumnStatistics fromGlueColumnStatistics(ColumnStatisticsData catalogColumnStatisticsData, OptionalLong rowCount)
+    public static HiveColumnStatistics fromGlueColumnStatistics(ColumnStatisticsData catalogColumnStatisticsData)
     {
         ColumnStatisticsType type = ColumnStatisticsType.fromValue(catalogColumnStatisticsData.getType());
         switch (type) {
@@ -162,7 +155,7 @@ public class GlueStatConverter
         throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + catalogColumnStatisticsData);
     }
 
-    private static ColumnStatisticsData toGlueColumnStatisticsData(HiveColumnStatistics statistics, HiveType columnType, OptionalLong rowCount)
+    private static ColumnStatisticsData toGlueColumnStatisticsData(HiveColumnStatistics statistics, HiveType columnType)
     {
         TypeInfo typeInfo = columnType.getTypeInfo();
         checkArgument(typeInfo.getCategory() == PRIMITIVE, "Unsupported statistics type: %s", columnType);
