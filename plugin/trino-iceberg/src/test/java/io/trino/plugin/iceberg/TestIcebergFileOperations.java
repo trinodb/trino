@@ -14,9 +14,9 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import com.google.inject.Key;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrackingFileSystemFactory;
@@ -39,7 +39,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_LAST_MODIFIED;
@@ -100,11 +100,10 @@ public class TestIcebergFileOperations
                 dataDirectory,
                 Optional.empty(),
                 Optional.of(trackingFileSystemFactory),
-                binder -> {
-                    newOptionalBinder(binder, Key.get(boolean.class, AsyncIcebergSplitProducer.class))
-                            .setBinding().toInstance(false);
-                }));
-        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg");
+                EMPTY_MODULE));
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.<String, String>builder()
+                .put("iceberg.split-manager-threads", "0")
+                .buildOrThrow());
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 

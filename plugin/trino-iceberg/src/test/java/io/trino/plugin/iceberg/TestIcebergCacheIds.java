@@ -78,6 +78,7 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Map.entry;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -129,7 +130,7 @@ public class TestIcebergCacheIds
                 new IcebergTransactionManager(icebergMetadataFactory),
                 TESTING_TYPE_MANAGER,
                 new DefaultIcebergFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
-                false,
+                newSingleThreadExecutor(),
                 createJsonCodec(IcebergCacheSplitId.class));
     }
 

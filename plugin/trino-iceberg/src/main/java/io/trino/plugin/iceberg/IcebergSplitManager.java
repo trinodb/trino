@@ -37,8 +37,8 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
@@ -52,7 +52,7 @@ public class IcebergSplitManager
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
     private final IcebergFileSystemFactory fileSystemFactory;
-    private final boolean asyncIcebergSplitProducer;
+    private final ExecutorService executor;
     private final JsonCodec<IcebergCacheSplitId> splitIdCodec;
 
     @Inject
@@ -60,13 +60,13 @@ public class IcebergSplitManager
             IcebergTransactionManager transactionManager,
             TypeManager typeManager,
             IcebergFileSystemFactory fileSystemFactory,
-            @AsyncIcebergSplitProducer boolean asyncIcebergSplitProducer,
+            @ForIcebergSplitManager ExecutorService executor,
             JsonCodec<IcebergCacheSplitId> splitIdCodec)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.asyncIcebergSplitProducer = asyncIcebergSplitProducer;
+        this.executor = requireNonNull(executor, "executor is null");
         this.splitIdCodec = requireNonNull(splitIdCodec, "splitIdCodec is null");
     }
 
@@ -91,10 +91,9 @@ public class IcebergSplitManager
         Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
 
         TableScan tableScan = icebergTable.newScan()
-                .useSnapshot(table.getSnapshotId().get());
-        if (!asyncIcebergSplitProducer) {
-            tableScan = tableScan.planWith(newDirectExecutorService());
-        }
+                .useSnapshot(table.getSnapshotId().get())
+                .planWith(executor);
+
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 fileSystemFactory,
                 session,
