@@ -246,7 +246,7 @@ public class TestThriftMetastoreUtil
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setMaxValueSizeInBytes(100)
-                .setTotalSizeInBytes(23)
+                .setAverageColumnLength(23.333)
                 .setNullsCount(1)
                 .setDistinctValuesWithNullCount(20)
                 .build());
@@ -274,7 +274,7 @@ public class TestThriftMetastoreUtil
 
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setMaxValueSizeInBytes(100)
-                .setTotalSizeInBytes(44)
+                .setAverageColumnLength(22.2)
                 .setNullsCount(2)
                 .build());
     }

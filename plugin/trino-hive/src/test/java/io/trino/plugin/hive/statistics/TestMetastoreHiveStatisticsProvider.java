@@ -152,9 +152,9 @@ public class TestMetastoreHiveStatisticsProvider
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
-                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setTotalSizeInBytes(-1).build()))
+                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setAverageColumnLength(-1).build()))
                         .build(),
-                invalidColumnStatistics("totalSizeInBytes must be greater than or equal to zero: -1"));
+                invalidColumnStatistics("averageColumnLength must be greater than or equal to zero: -1.0"));
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
@@ -531,23 +531,23 @@ public class TestMetastoreHiveStatisticsProvider
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCount(1000)), 1000)).isEqualTo(Estimate.unknown());
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(dataSize(1000)), 1000)).isEqualTo(Estimate.unknown());
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(dataSize(1000), rowsCount(1000)), 1000)).isEqualTo(Estimate.unknown());
-        assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(500, 1000)), 2000)).isEqualTo(Estimate.of(4000));
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(500, 2)), 2000)).isEqualTo(Estimate.of(4000));
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(0, 0)), 2000)).isEqualTo(Estimate.unknown());
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(0, 0)), 0)).isEqualTo(Estimate.zero());
         assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(1000, 0)), 2000)).isEqualTo(Estimate.of(0));
         assertThat(calculateDataSize(
                 COLUMN,
                 ImmutableList.of(
-                        rowsCountAndDataSize(500, 1000),
-                        rowsCountAndDataSize(1000, 5000)),
+                        rowsCountAndDataSize(500, 2),
+                        rowsCountAndDataSize(1000, 5)),
                 5000)).isEqualTo(Estimate.of(20000));
         assertThat(calculateDataSize(
                 COLUMN,
                 ImmutableList.of(
                         dataSize(1000),
-                        rowsCountAndDataSize(500, 1000),
+                        rowsCountAndDataSize(500, 2),
                         rowsCount(3000),
-                        rowsCountAndDataSize(1000, 5000)),
+                        rowsCountAndDataSize(1000, 5)),
                 5000)).isEqualTo(Estimate.of(20000));
     }
 
@@ -868,7 +868,7 @@ public class TestMetastoreHiveStatisticsProvider
 
     private static PartitionStatistics dataSize(long dataSize)
     {
-        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setTotalSizeInBytes(dataSize).build()));
+        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setAverageColumnLength(dataSize).build()));
     }
 
     private static PartitionStatistics rowsCountAndNullsCount(long rowsCount, long nullsCount)
@@ -878,11 +878,11 @@ public class TestMetastoreHiveStatisticsProvider
                 ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setNullsCount(nullsCount).build()));
     }
 
-    private static PartitionStatistics rowsCountAndDataSize(long rowsCount, long dataSize)
+    private static PartitionStatistics rowsCountAndDataSize(long rowsCount, long averageColumnLength)
     {
         return new PartitionStatistics(
                 new HiveBasicStatistics(0, rowsCount, 0, 0),
-                ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setTotalSizeInBytes(dataSize).build()));
+                ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setAverageColumnLength(averageColumnLength).build()));
     }
 
     private static PartitionStatistics distinctValuesCount(long count)

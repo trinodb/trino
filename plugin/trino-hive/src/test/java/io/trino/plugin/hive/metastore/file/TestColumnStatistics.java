@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.metastore.BooleanStatistics;
 import io.trino.plugin.hive.metastore.DateStatistics;
 import io.trino.plugin.hive.metastore.DecimalStatistics;
@@ -36,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestColumnStatistics
 {
     private static final JsonCodec<Map<String, ColumnStatistics>> MAP_COLUMN_STATISTICS_CODEC = JsonCodec.mapJsonCodec(String.class, ColumnStatistics.class);
+    private static final HiveBasicStatistics ROWS_100 = new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(100), OptionalLong.empty(), OptionalLong.empty());
 
     @Test
     void testRoundTrip()
@@ -52,18 +54,102 @@ class TestColumnStatistics
     }
 
     @Test
+    void testDeserializeBeforeAvgSize()
+    {
+        Map<String, ColumnStatistics> oldStats = MAP_COLUMN_STATISTICS_CODEC.fromJson(ALL_KINDS_JSON_BEFORE_AVG_SIZE);
+        assertThat(oldStats.get("integer").totalSizeInBytes()).isPresent();
+        assertThat(oldStats.get("integer").averageColumnLength()).isEmpty();
+
+        assertThat(toHive(oldStats, ROWS_100))
+                .isEqualTo(HIVE_ALL_KINDS);
+    }
+
+    @Test
     void testRoundHive()
     {
         Map<String, ColumnStatistics> fromHive = HIVE_ALL_KINDS.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, e -> ColumnStatistics.fromHiveColumnStatistics(e.getValue())));
         assertThat(fromHive).isEqualTo(ALL_KINDS);
 
-        assertThat(fromHive.entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toHiveColumnStatistics())))
+        // stats are not used in this case, so actual row count does not matter
+        assertThat(toHive(fromHive, HiveBasicStatistics.createEmptyStatistics()))
+                .isEqualTo(HIVE_ALL_KINDS);
+        assertThat(toHive(fromHive, HiveBasicStatistics.createZeroStatistics()))
+                .isEqualTo(HIVE_ALL_KINDS);
+        assertThat(toHive(fromHive, ROWS_100))
                 .isEqualTo(HIVE_ALL_KINDS);
     }
 
+    private static Map<String, HiveColumnStatistics> toHive(Map<String, ColumnStatistics> fromHive, HiveBasicStatistics emptyStatistics)
+    {
+        return fromHive.entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toHiveColumnStatistics(emptyStatistics)));
+    }
+
     private static final String ALL_KINDS_JSON =
+            """
+            {
+                "empty": {},
+                "integer": {
+                    "integerStatistics": {
+                        "min": 1,
+                        "max": 11
+                    },
+                    "maxValueSizeInBytes": 1,
+                    "averageColumnLength": 1.1,
+                    "nullsCount": 11,
+                    "distinctValuesCount": 111
+                },
+                "double": {
+                    "doubleStatistics": {
+                        "min": 2.0,
+                        "max": 12.0
+                    },
+                    "maxValueSizeInBytes": 2,
+                    "averageColumnLength": 2.2,
+                    "nullsCount": 22,
+                    "distinctValuesCount": 222
+                },
+                "decimal": {
+                    "decimalStatistics": {
+                        "min": 3.0,
+                        "max": 13.0
+                    },
+                    "maxValueSizeInBytes": 3,
+                    "averageColumnLength": 3.3,
+                    "nullsCount": 33,
+                    "distinctValuesCount": 333
+                },
+                "date": {
+                    "dateStatistics": {
+                        "min": "0004-04-04",
+                        "max": "0014-04-04"
+                    },
+                    "maxValueSizeInBytes": 4,
+                    "averageColumnLength": 4.4,
+                    "nullsCount": 44,
+                    "distinctValuesCount": 444
+                },
+                "boolean": {
+                    "booleanStatistics": {
+                        "trueCount": 5,
+                        "falseCount": 5
+                    },
+                    "maxValueSizeInBytes": 5,
+                    "averageColumnLength": 5.5,
+                    "nullsCount": 55,
+                    "distinctValuesCount": 555
+                },
+                "basic": {
+                    "maxValueSizeInBytes": 6,
+                    "averageColumnLength": 6.6,
+                    "nullsCount": 66,
+                    "distinctValuesCount": 666
+                }
+            }
+            """;
+
+    private static final String ALL_KINDS_JSON_BEFORE_AVG_SIZE =
             """
             {
                 "empty": {},
@@ -134,6 +220,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.empty(),
+                    OptionalDouble.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty()))
@@ -144,7 +231,8 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(1),
-                    OptionalLong.of(110),
+                    OptionalDouble.of(1.1),
+                    OptionalLong.empty(),
                     OptionalLong.of(11),
                     OptionalLong.of(111)))
             .put("double", new ColumnStatistics(
@@ -154,7 +242,8 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(2),
-                    OptionalLong.of(220),
+                    OptionalDouble.of(2.2),
+                    OptionalLong.empty(),
                     OptionalLong.of(22),
                     OptionalLong.of(222)))
             .put("decimal", new ColumnStatistics(
@@ -164,7 +253,8 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(3),
-                    OptionalLong.of(330),
+                    OptionalDouble.of(3.3),
+                    OptionalLong.empty(),
                     OptionalLong.of(33),
                     OptionalLong.of(333)))
             .put("date", new ColumnStatistics(
@@ -174,7 +264,8 @@ class TestColumnStatistics
                     Optional.of(new ColumnStatistics.DateStatistics(Optional.of(LocalDate.of(4, 4, 4)), Optional.of(LocalDate.of(14, 4, 4)))),
                     Optional.empty(),
                     OptionalLong.of(4),
-                    OptionalLong.of(440),
+                    OptionalDouble.of(4.4),
+                    OptionalLong.empty(),
                     OptionalLong.of(44),
                     OptionalLong.of(444)))
             .put("boolean", new ColumnStatistics(
@@ -184,7 +275,8 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.of(new ColumnStatistics.BooleanStatistics(OptionalLong.of(5), OptionalLong.of(5))),
                     OptionalLong.of(5),
-                    OptionalLong.of(550),
+                    OptionalDouble.of(5.5),
+                    OptionalLong.empty(),
                     OptionalLong.of(55),
                     OptionalLong.of(555)))
             .put("basic", new ColumnStatistics(
@@ -194,7 +286,8 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(6),
-                    OptionalLong.of(660),
+                    OptionalDouble.of(6.6),
+                    OptionalLong.empty(),
                     OptionalLong.of(66),
                     OptionalLong.of(666)))
             .buildOrThrow();
@@ -207,7 +300,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.empty(),
-                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty()))
             .put("integer", new HiveColumnStatistics(
@@ -217,7 +310,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(1),
-                    OptionalLong.of(110),
+                    OptionalDouble.of(1.1),
                     OptionalLong.of(11),
                     OptionalLong.of(111)))
             .put("double", new HiveColumnStatistics(
@@ -227,7 +320,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(2),
-                    OptionalLong.of(220),
+                    OptionalDouble.of(2.2),
                     OptionalLong.of(22),
                     OptionalLong.of(222)))
             .put("decimal", new HiveColumnStatistics(
@@ -237,7 +330,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(3),
-                    OptionalLong.of(330),
+                    OptionalDouble.of(3.3),
                     OptionalLong.of(33),
                     OptionalLong.of(333)))
             .put("date", new HiveColumnStatistics(
@@ -247,7 +340,7 @@ class TestColumnStatistics
                     Optional.of(new DateStatistics(Optional.of(LocalDate.of(4, 4, 4)), Optional.of(LocalDate.of(14, 4, 4)))),
                     Optional.empty(),
                     OptionalLong.of(4),
-                    OptionalLong.of(440),
+                    OptionalDouble.of(4.4),
                     OptionalLong.of(44),
                     OptionalLong.of(444)))
             .put("boolean", new HiveColumnStatistics(
@@ -257,7 +350,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.of(new BooleanStatistics(OptionalLong.of(5), OptionalLong.of(5))),
                     OptionalLong.of(5),
-                    OptionalLong.of(550),
+                    OptionalDouble.of(5.5),
                     OptionalLong.of(55),
                     OptionalLong.of(555)))
             .put("basic", new HiveColumnStatistics(
@@ -267,7 +360,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(6),
-                    OptionalLong.of(660),
+                    OptionalDouble.of(6.6),
                     OptionalLong.of(66),
                     OptionalLong.of(666)))
             .buildOrThrow();

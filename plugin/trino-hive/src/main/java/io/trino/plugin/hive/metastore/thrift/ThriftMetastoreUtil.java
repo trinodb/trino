@@ -151,7 +151,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Math.round;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -557,7 +556,7 @@ public final class ThriftMetastoreUtil
             OptionalLong distinctValuesWithNullCount = stringStatsData.isSetNumDVs() ? OptionalLong.of(stringStatsData.getNumDVs()) : OptionalLong.empty();
             return createStringColumnStatistics(
                     maxColumnLength,
-                    getTotalSizeInBytes(averageColumnLength, rowCount, nullsCount),
+                    averageColumnLength,
                     nullsCount,
                     distinctValuesWithNullCount);
         }
@@ -568,7 +567,7 @@ public final class ThriftMetastoreUtil
             OptionalLong nullsCount = binaryStatsData.isSetNumNulls() ? fromMetastoreNullsCount(binaryStatsData.getNumNulls()) : OptionalLong.empty();
             return createBinaryColumnStatistics(
                     maxColumnLength,
-                    getTotalSizeInBytes(averageColumnLength, rowCount, nullsCount),
+                    averageColumnLength,
                     nullsCount);
         }
         throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
@@ -601,18 +600,6 @@ public final class ThriftMetastoreUtil
             return Optional.empty();
         }
         return Optional.of(new BigDecimal(new BigInteger(decimal.getUnscaled()), decimal.getScale()));
-    }
-
-    public static OptionalLong getTotalSizeInBytes(OptionalDouble averageColumnLength, OptionalLong rowCount, OptionalLong nullsCount)
-    {
-        if (averageColumnLength.isPresent() && rowCount.isPresent() && nullsCount.isPresent()) {
-            long nonNullsCount = rowCount.getAsLong() - nullsCount.getAsLong();
-            if (nonNullsCount < 0) {
-                return OptionalLong.empty();
-            }
-            return OptionalLong.of(round(averageColumnLength.getAsDouble() * nonNullsCount));
-        }
-        return OptionalLong.empty();
     }
 
     public static Set<RoleGrant> fromRolePrincipalGrants(Collection<RolePrincipalGrant> grants)
@@ -796,11 +783,11 @@ public final class ThriftMetastoreUtil
             case STRING:
             case VARCHAR:
             case CHAR:
-                return createStringStatistics(columnName, columnType, statistics, rowCount);
+                return createStringStatistics(columnName, columnType, statistics);
             case DATE:
                 return createDateStatistics(columnName, columnType, statistics);
             case BINARY:
-                return createBinaryStatistics(columnName, columnType, statistics, rowCount);
+                return createBinaryStatistics(columnName, columnType, statistics);
             case DECIMAL:
                 return createDecimalStatistics(columnName, columnType, statistics);
 
@@ -850,13 +837,13 @@ public final class ThriftMetastoreUtil
         return new ColumnStatisticsObj(columnName, columnType.toString(), doubleStats(data));
     }
 
-    private static ColumnStatisticsObj createStringStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics, OptionalLong rowCount)
+    private static ColumnStatisticsObj createStringStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
     {
         StringColumnStatsData data = new StringColumnStatsData();
         statistics.getNullsCount().ifPresent(data::setNumNulls);
         statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumDVs);
         data.setMaxColLen(statistics.getMaxValueSizeInBytes().orElse(0));
-        data.setAvgColLen(getAverageColumnLength(statistics.getTotalSizeInBytes(), rowCount, statistics.getNullsCount()).orElse(0));
+        data.setAvgColLen(statistics.getAverageColumnLength().orElse(0));
         return new ColumnStatisticsObj(columnName, columnType.toString(), stringStats(data));
     }
 
@@ -872,12 +859,12 @@ public final class ThriftMetastoreUtil
         return new ColumnStatisticsObj(columnName, columnType.toString(), dateStats(data));
     }
 
-    private static ColumnStatisticsObj createBinaryStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics, OptionalLong rowCount)
+    private static ColumnStatisticsObj createBinaryStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
     {
         BinaryColumnStatsData data = new BinaryColumnStatsData();
         statistics.getNullsCount().ifPresent(data::setNumNulls);
         data.setMaxColLen(statistics.getMaxValueSizeInBytes().orElse(0));
-        data.setAvgColLen(getAverageColumnLength(statistics.getTotalSizeInBytes(), rowCount, statistics.getNullsCount()).orElse(0));
+        data.setAvgColLen(statistics.getAverageColumnLength().orElse(0));
         return new ColumnStatisticsObj(columnName, columnType.toString(), binaryStats(data));
     }
 
@@ -901,18 +888,6 @@ public final class ThriftMetastoreUtil
     public static Decimal toMetastoreDecimal(BigDecimal decimal)
     {
         return new Decimal(Shorts.checkedCast(decimal.scale()), ByteBuffer.wrap(decimal.unscaledValue().toByteArray()));
-    }
-
-    public static OptionalDouble getAverageColumnLength(OptionalLong totalSizeInBytes, OptionalLong rowCount, OptionalLong nullsCount)
-    {
-        if (totalSizeInBytes.isPresent() && rowCount.isPresent() && nullsCount.isPresent()) {
-            long nonNullsCount = rowCount.getAsLong() - nullsCount.getAsLong();
-            if (nonNullsCount <= 0) {
-                return OptionalDouble.empty();
-            }
-            return OptionalDouble.of(((double) totalSizeInBytes.getAsLong()) / nonNullsCount);
-        }
-        return OptionalDouble.empty();
     }
 
     public static Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
