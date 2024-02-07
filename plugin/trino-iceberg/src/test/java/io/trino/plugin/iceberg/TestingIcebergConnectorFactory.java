@@ -14,9 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
@@ -29,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.iceberg.IcebergConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
@@ -43,29 +40,22 @@ public class TestingIcebergConnectorFactory
 
     public TestingIcebergConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty(), Optional.empty(), EMPTY_MODULE);
+        this(localFileSystemRootPath, Optional.empty(), Optional.empty());
     }
 
     @Deprecated
     public TestingIcebergConnectorFactory(
             Path localFileSystemRootPath,
             Optional<Module> icebergCatalogModule,
-            Optional<TrinoFileSystemFactory> fileSystemFactory,
-            Module module)
+            Optional<TrinoFileSystemFactory> fileSystemFactory)
     {
         localFileSystemRootPath.toFile().mkdirs();
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.module = new AbstractConfigurationAwareModule()
-        {
-            @Override
-            protected void setup(Binder binder)
-            {
-                install(module);
-                newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
-                        .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
-                configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
-            }
+        this.module = binder -> {
+            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+            configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
         };
     }
 
