@@ -67,6 +67,7 @@ public class TestingTelemetry
     {
         // TODO: is there a way to parallelize that?
         lock.lock();
+        spanExporter.reset();
         runnable.run();
         List<SpanData> spans = ImmutableList.copyOf(spanExporter.getFinishedSpanItems());
         spanExporter.reset();
