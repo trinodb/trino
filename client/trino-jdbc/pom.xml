@@ -213,12 +213,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.trino</groupId>
-                    <artifactId>re2j</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -249,12 +243,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.trino</groupId>
-                    <artifactId>re2j</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
