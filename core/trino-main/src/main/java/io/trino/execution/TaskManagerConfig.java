@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
 import static java.lang.Math.clamp;
+import static java.math.BigDecimal.TWO;
 
 @DefunctConfig({
         "experimental.big-query-max-task-memory",
@@ -104,7 +105,7 @@ public class TaskManagerConfig
     private int taskYieldThreads = 3;
     private int driverTimeoutThreads = 5;
 
-    private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
+    private BigDecimal levelTimeMultiplier = TWO;
 
     @Config("experimental.thread-per-driver-scheduler-enabled")
     public TaskManagerConfig setThreadPerDriverSchedulerEnabled(boolean enabled)
