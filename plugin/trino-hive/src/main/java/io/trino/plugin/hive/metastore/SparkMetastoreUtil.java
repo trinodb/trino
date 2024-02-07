@@ -40,7 +40,6 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleCo
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getTotalSizeInBytes;
 import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 
 public final class SparkMetastoreUtil
@@ -121,7 +120,7 @@ public final class SparkMetastoreUtil
                     distinctValuesWithNullCount);
             case STRING, VARCHAR, CHAR -> createStringColumnStatistics(
                     maxLength,
-                    getTotalSizeInBytes(avgLength, OptionalLong.of(rowCount), nullsCount),
+                    avgLength,
                     nullsCount,
                     distinctValuesWithNullCount);
             case DATE -> createDateColumnStatistics(
@@ -131,7 +130,7 @@ public final class SparkMetastoreUtil
                     distinctValuesWithNullCount);
             case BINARY -> createBinaryColumnStatistics(
                     maxLength,
-                    getTotalSizeInBytes(avgLength, OptionalLong.of(rowCount), nullsCount),
+                    avgLength,
                     nullsCount);
             case DECIMAL -> createDecimalColumnStatistics(
                     toDecimal(parameters.get(field + COLUMN_MIN)),

@@ -160,7 +160,7 @@ public class TestSparkMetastoreUtil
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setNullsCount(7)
                 .setDistinctValuesWithNullCount(3)
-                .setTotalSizeInBytes(30)
+                .setAverageColumnLength(10)
                 .build());
     }
 
@@ -179,7 +179,7 @@ public class TestSparkMetastoreUtil
         HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_bin", HiveType.HIVE_BINARY, columnStatistics, 10);
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setNullsCount(3)
-                .setTotalSizeInBytes(70)
+                .setAverageColumnLength(10)
                 .setMaxValueSizeInBytes(10)
                 .build());
     }
