@@ -42,7 +42,7 @@ public class HiveColumnStatistics
     private final Optional<DateStatistics> dateStatistics;
     private final Optional<BooleanStatistics> booleanStatistics;
     private final OptionalLong maxValueSizeInBytes;
-    private final OptionalLong totalSizeInBytes;
+    private final OptionalDouble averageColumnLength;
     private final OptionalLong nullsCount;
     private final OptionalLong distinctValuesWithNullCount;
 
@@ -59,7 +59,7 @@ public class HiveColumnStatistics
             @JsonProperty("dateStatistics") Optional<DateStatistics> dateStatistics,
             @JsonProperty("booleanStatistics") Optional<BooleanStatistics> booleanStatistics,
             @JsonProperty("maxValueSizeInBytes") OptionalLong maxValueSizeInBytes,
-            @JsonProperty("totalSizeInBytes") OptionalLong totalSizeInBytes,
+            @JsonProperty("averageColumnLength") OptionalDouble averageColumnLength,
             @JsonProperty("nullsCount") OptionalLong nullsCount,
             @JsonProperty("distinctValuesWithNullCount") OptionalLong distinctValuesWithNullCount)
     {
@@ -69,7 +69,7 @@ public class HiveColumnStatistics
         this.dateStatistics = requireNonNull(dateStatistics, "dateStatistics is null");
         this.booleanStatistics = requireNonNull(booleanStatistics, "booleanStatistics is null");
         this.maxValueSizeInBytes = requireNonNull(maxValueSizeInBytes, "maxValueSizeInBytes is null");
-        this.totalSizeInBytes = requireNonNull(totalSizeInBytes, "totalSizeInBytes is null");
+        this.averageColumnLength = requireNonNull(averageColumnLength, "averageColumnLength is null");
         this.nullsCount = requireNonNull(nullsCount, "nullsCount is null");
         this.distinctValuesWithNullCount = requireNonNull(distinctValuesWithNullCount, "distinctValuesWithNullCount is null");
 
@@ -119,9 +119,9 @@ public class HiveColumnStatistics
     }
 
     @JsonProperty
-    public OptionalLong getTotalSizeInBytes()
+    public OptionalDouble getAverageColumnLength()
     {
-        return totalSizeInBytes;
+        return averageColumnLength;
     }
 
     @JsonProperty
@@ -152,7 +152,7 @@ public class HiveColumnStatistics
                 Objects.equals(dateStatistics, that.dateStatistics) &&
                 Objects.equals(booleanStatistics, that.booleanStatistics) &&
                 Objects.equals(maxValueSizeInBytes, that.maxValueSizeInBytes) &&
-                Objects.equals(totalSizeInBytes, that.totalSizeInBytes) &&
+                Objects.equals(averageColumnLength, that.averageColumnLength) &&
                 Objects.equals(nullsCount, that.nullsCount) &&
                 Objects.equals(distinctValuesWithNullCount, that.distinctValuesWithNullCount);
     }
@@ -167,7 +167,7 @@ public class HiveColumnStatistics
                 dateStatistics,
                 booleanStatistics,
                 maxValueSizeInBytes,
-                totalSizeInBytes,
+                averageColumnLength,
                 nullsCount,
                 distinctValuesWithNullCount);
     }
@@ -182,7 +182,7 @@ public class HiveColumnStatistics
         dateStatistics.ifPresent(stats -> toStringHelper.add("dateStatistics", stats));
         booleanStatistics.ifPresent(stats -> toStringHelper.add("booleanStatistics", stats));
         maxValueSizeInBytes.ifPresent(stats -> toStringHelper.add("maxValueSizeInBytes", stats));
-        totalSizeInBytes.ifPresent(stats -> toStringHelper.add("totalSizeInBytes", stats));
+        averageColumnLength.ifPresent(stats -> toStringHelper.add("averageColumnLength", stats));
         nullsCount.ifPresent(stats -> toStringHelper.add("nullsCount", stats));
         distinctValuesWithNullCount.ifPresent(stats -> toStringHelper.add("distinctValuesWithNullCount", stats));
         return toStringHelper.toString();
@@ -234,23 +234,23 @@ public class HiveColumnStatistics
 
     public static HiveColumnStatistics createStringColumnStatistics(
             OptionalLong maxValueSizeInBytes,
-            OptionalLong totalSizeInBytes,
+            OptionalDouble averageColumnLength,
             OptionalLong nullsCount,
             OptionalLong distinctValuesWithNullCount)
     {
         return builder()
                 .setMaxValueSizeInBytes(maxValueSizeInBytes)
-                .setTotalSizeInBytes(totalSizeInBytes)
+                .setAverageColumnLength(averageColumnLength)
                 .setNullsCount(nullsCount)
                 .setDistinctValuesWithNullCount(distinctValuesWithNullCount)
                 .build();
     }
 
-    public static HiveColumnStatistics createBinaryColumnStatistics(OptionalLong maxValueSizeInBytes, OptionalLong totalSizeInBytes, OptionalLong nullsCount)
+    public static HiveColumnStatistics createBinaryColumnStatistics(OptionalLong maxValueSizeInBytes, OptionalDouble averageColumnLength, OptionalLong nullsCount)
     {
         return builder()
                 .setMaxValueSizeInBytes(maxValueSizeInBytes)
-                .setTotalSizeInBytes(totalSizeInBytes)
+                .setAverageColumnLength(averageColumnLength)
                 .setNullsCount(nullsCount)
                 .build();
     }
@@ -268,7 +268,7 @@ public class HiveColumnStatistics
         private Optional<DateStatistics> dateStatistics = Optional.empty();
         private Optional<BooleanStatistics> booleanStatistics = Optional.empty();
         private OptionalLong maxValueSizeInBytes = OptionalLong.empty();
-        private OptionalLong totalSizeInBytes = OptionalLong.empty();
+        private OptionalDouble averageColumnLength = OptionalDouble.empty();
         private OptionalLong nullsCount = OptionalLong.empty();
         private OptionalLong distinctValuesWithNullCount = OptionalLong.empty();
 
@@ -316,15 +316,15 @@ public class HiveColumnStatistics
             return this;
         }
 
-        public Builder setTotalSizeInBytes(long totalSizeInBytes)
+        public Builder setAverageColumnLength(double averageColumnLength)
         {
-            this.totalSizeInBytes = OptionalLong.of(totalSizeInBytes);
+            this.averageColumnLength = OptionalDouble.of(averageColumnLength);
             return this;
         }
 
-        public Builder setTotalSizeInBytes(OptionalLong totalSizeInBytes)
+        public Builder setAverageColumnLength(OptionalDouble averageColumnLength)
         {
-            this.totalSizeInBytes = totalSizeInBytes;
+            this.averageColumnLength = averageColumnLength;
             return this;
         }
 
@@ -361,7 +361,7 @@ public class HiveColumnStatistics
                     dateStatistics,
                     booleanStatistics,
                     maxValueSizeInBytes,
-                    totalSizeInBytes,
+                    averageColumnLength,
                     nullsCount,
                     distinctValuesWithNullCount);
         }

@@ -58,6 +58,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -122,7 +123,7 @@ public class TestRecordingHiveMetastore
             Optional.empty(),
             Optional.empty(),
             OptionalLong.of(1234),
-            OptionalLong.of(1235),
+            OptionalDouble.of(123.0),
             OptionalLong.of(1),
             OptionalLong.of(8)));
     private static final PartitionStatistics PARTITION_STATISTICS = new PartitionStatistics(

@@ -57,8 +57,6 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleCo
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreNullsCount;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getAverageColumnLength;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getTotalSizeInBytes;
 import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 
 public class GlueStatConverter
@@ -110,10 +108,7 @@ public class GlueStatConverter
                 OptionalLong max = OptionalLong.of(data.getMaximumLength());
                 OptionalDouble avg = OptionalDouble.of(data.getAverageLength());
                 OptionalLong nulls = fromMetastoreNullsCount(data.getNumberOfNulls());
-                return createBinaryColumnStatistics(
-                        max,
-                        getTotalSizeInBytes(avg, rowCount, nulls),
-                        nulls);
+                return createBinaryColumnStatistics(max, avg, nulls);
             }
             case BOOLEAN: {
                 BooleanColumnStatisticsData catalogBooleanData = catalogColumnStatisticsData.getBooleanColumnStatisticsData();
@@ -160,11 +155,7 @@ public class GlueStatConverter
                 OptionalDouble avg = OptionalDouble.of(data.getAverageLength());
                 OptionalLong nullsCount = fromMetastoreNullsCount(data.getNumberOfNulls());
                 OptionalLong distinctValuesWithNullCount = OptionalLong.of(data.getNumberOfDistinctValues());
-                return createStringColumnStatistics(
-                        max,
-                        getTotalSizeInBytes(avg, rowCount, nullsCount),
-                        nullsCount,
-                        distinctValuesWithNullCount);
+                return createStringColumnStatistics(max, avg, nullsCount, distinctValuesWithNullCount);
             }
         }
 
@@ -194,7 +185,7 @@ public class GlueStatConverter
                 BinaryColumnStatisticsData data = new BinaryColumnStatisticsData();
                 statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
                 data.setMaximumLength(statistics.getMaxValueSizeInBytes().orElse(0));
-                data.setAverageLength(getAverageColumnLength(statistics.getTotalSizeInBytes(), rowCount, statistics.getNullsCount()).orElse(0));
+                data.setAverageLength(statistics.getAverageColumnLength().orElse(0));
                 catalogColumnStatisticsData.setType(ColumnStatisticsType.BINARY.toString());
                 catalogColumnStatisticsData.setBinaryColumnStatisticsData(data);
                 break;
@@ -259,7 +250,7 @@ public class GlueStatConverter
                 statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
                 statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumberOfDistinctValues);
                 data.setMaximumLength(statistics.getMaxValueSizeInBytes().orElse(0));
-                data.setAverageLength(getAverageColumnLength(statistics.getTotalSizeInBytes(), rowCount, statistics.getNullsCount()).orElse(0));
+                data.setAverageLength(statistics.getAverageColumnLength().orElse(0));
                 catalogColumnStatisticsData.setType(ColumnStatisticsType.STRING.toString());
                 catalogColumnStatisticsData.setStringColumnStatisticsData(data);
                 break;

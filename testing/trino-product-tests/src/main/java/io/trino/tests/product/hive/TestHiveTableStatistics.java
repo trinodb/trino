@@ -334,12 +334,12 @@ public class TestHiveTableStatistics
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
         onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
-        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
-                row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 109.0, 5.0, 0.0, null, null, null),
-                row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
-                row("p_comment", 1197.0, 5.0, 0.0, null, null, null),
-                row(null, null, null, null, 15.0, null, null));
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
+                row("p_nationkey", null, anyOf(4., 5.), 0.0, null, "8", "21"),
+                row("p_name", 31.0, 5.0, 0.0, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
+                row("p_comment", 351.0, 5.0, 0.0, null, null, null),
+                row(null, null, null, null, 5.0, null, null));
 
         assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -348,12 +348,12 @@ public class TestHiveTableStatistics
                 row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
-                row("p_nationkey", null, anyOf(4., 5.), 0.0, null, "8", "21"),
-                row("p_name", 31.0, 5.0, 0.0, null, null, null),
-                row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
-                row("p_comment", 351.0, 5.0, 0.0, null, null, null),
-                row(null, null, null, null, 5.0, null, null));
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
+                row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
+                row("p_name", 109.0, 5.0, 0.0, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
+                row("p_comment", 1197.0, 5.0, 0.0, null, null, null),
+                row(null, null, null, null, 15.0, null, null));
     }
 
     @Test
@@ -1090,9 +1090,9 @@ public class TestHiveTableStatistics
                     row("c_decimal_w_params", null, 2.0, 0.4, null, "345.67", "345.678"),
                     row("c_timestamp", null, 2.0, 0.4, null, null, null),
                     row("c_date", null, 2.0, 0.4, null, "2015-05-08", "2015-06-10"),
-                    row("c_string", 32.0, 2.0, 0.4, null, null, null),
-                    row("c_varchar", 29.0, 2.0, 0.4, null, null, null),
-                    row("c_char", 17.0, 2.0, 0.4, null, null, null),
+                    row("c_string", 32.0001, 2.0, 0.4, null, null, null),
+                    row("c_varchar", 29.0001, 2.0, 0.4, null, null, null),
+                    row("c_char", 17.0001, 2.0, 0.4, null, null, null),
                     row("c_boolean", null, 2.0, 0.4, null, null, null),
                     row("c_binary", 39.0, null, 0.4, null, null, null),
                     row(null, null, null, null, 5.0, null, null)));

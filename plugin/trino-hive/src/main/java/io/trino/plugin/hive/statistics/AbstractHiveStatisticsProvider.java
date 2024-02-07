@@ -84,6 +84,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
@@ -208,8 +209,8 @@ public abstract class AbstractHiveStatisticsProvider
     {
         columnStatistics.getMaxValueSizeInBytes().ifPresent(maxValueSizeInBytes ->
                 checkStatistics(maxValueSizeInBytes >= 0, table, partition, column, "maxValueSizeInBytes must be greater than or equal to zero: %s", maxValueSizeInBytes));
-        columnStatistics.getTotalSizeInBytes().ifPresent(totalSizeInBytes ->
-                checkStatistics(totalSizeInBytes >= 0, table, partition, column, "totalSizeInBytes must be greater than or equal to zero: %s", totalSizeInBytes));
+        columnStatistics.getAverageColumnLength().ifPresent(averageColumnLength ->
+                checkStatistics(averageColumnLength >= 0, table, partition, column, "averageColumnLength must be greater than or equal to zero: %s", averageColumnLength));
         columnStatistics.getNullsCount().ifPresent(nullsCount -> {
             checkStatistics(nullsCount >= 0, table, partition, column, "nullsCount must be greater than or equal to zero: %s", nullsCount);
             if (rowCount.isPresent()) {
@@ -782,7 +783,7 @@ public abstract class AbstractHiveStatisticsProvider
                     if (columnStatistics == null) {
                         return false;
                     }
-                    return columnStatistics.getTotalSizeInBytes().isPresent();
+                    return columnStatistics.getAverageColumnLength().isPresent();
                 })
                 .collect(toImmutableList());
 
@@ -791,27 +792,33 @@ public abstract class AbstractHiveStatisticsProvider
         }
 
         long knownRowCount = 0;
-        long knownDataSize = 0;
+        double knownDataSize = 0;
         for (PartitionStatistics statistics : statisticsWithKnownRowCountAndDataSize) {
             long rowCount = statistics.getBasicStatistics().getRowCount().orElseThrow(() -> new VerifyException("rowCount is not present"));
             verify(rowCount >= 0, "rowCount must be greater than or equal to zero");
+
             HiveColumnStatistics columnStatistics = statistics.getColumnStatistics().get(column);
             verifyNotNull(columnStatistics, "columnStatistics is null");
-            long dataSize = columnStatistics.getTotalSizeInBytes().orElseThrow(() -> new VerifyException("totalSizeInBytes is not present"));
-            verify(dataSize >= 0, "dataSize must be greater than or equal to zero");
+
+            long nullCount = columnStatistics.getNullsCount().orElse(0);
+            verify(nullCount >= 0, "nullCount must be greater than or equal to zero");
+            long nonNullRowCount = max(rowCount - nullCount, 0);
+
+            double averageColumnLength = columnStatistics.getAverageColumnLength().orElseThrow(() -> new VerifyException("averageColumnLength is not present"));
+            verify(averageColumnLength >= 0, "averageColumnLength must be greater than or equal to zero");
             knownRowCount += rowCount;
-            knownDataSize += dataSize;
+            knownDataSize += averageColumnLength * nonNullRowCount;
         }
 
-        if (totalRowCount == 0) {
+        if (totalRowCount <= 0) {
             return Estimate.zero();
         }
 
-        if (knownRowCount == 0) {
+        if (knownRowCount <= 0) {
             return Estimate.unknown();
         }
 
-        double averageValueDataSizeInBytes = ((double) knownDataSize) / knownRowCount;
+        double averageValueDataSizeInBytes = knownDataSize / knownRowCount;
         return Estimate.of(averageValueDataSizeInBytes * totalRowCount);
     }
 

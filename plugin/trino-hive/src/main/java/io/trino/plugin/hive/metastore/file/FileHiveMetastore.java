@@ -31,6 +31,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;
@@ -452,7 +453,7 @@ public class FileHiveMetastore
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(tableMetadata.getWriterVersion());
-        return toHiveColumnStats(columnNames, tableMetadata.getColumnStatistics());
+        return toHiveColumnStats(columnNames, tableMetadata.getParameters(), tableMetadata.getColumnStatistics());
     }
 
     @Override
@@ -471,7 +472,7 @@ public class FileHiveMetastore
         Location partitionDirectory = getPartitionMetadataDirectory(databaseName, tableName, partitionName);
         PartitionMetadata partitionMetadata = readSchemaFile(PARTITION, partitionDirectory, partitionCodec)
                 .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), extractPartitionValues(partitionName)));
-        return toHiveColumnStats(columnNames, partitionMetadata.getColumnStatistics());
+        return toHiveColumnStats(columnNames, partitionMetadata.getParameters(), partitionMetadata.getColumnStatistics());
     }
 
     private Table getRequiredTable(String databaseName, String tableName)
@@ -1628,7 +1629,10 @@ public class FileHiveMetastore
 
     private static PartitionStatistics toHivePartitionStatistics(Map<String, String> parameters, Map<String, ColumnStatistics> columnStatistics)
     {
-        return new PartitionStatistics(getHiveBasicStatistics(parameters), toHiveColumnStats(columnStatistics.keySet(), columnStatistics));
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(parameters);
+        Map<String, HiveColumnStatistics> hiveColumnStatistics = columnStatistics.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, column -> column.getValue().toHiveColumnStatistics(basicStatistics)));
+        return new PartitionStatistics(basicStatistics, hiveColumnStatistics);
     }
 
     private static Map<String, ColumnStatistics> fromHiveColumnStats(Map<String, HiveColumnStatistics> columnStatistics)
@@ -1637,11 +1641,12 @@ public class FileHiveMetastore
                 .collect(toImmutableMap(Entry::getKey, entry -> fromHiveColumnStatistics(entry.getValue())));
     }
 
-    private static Map<String, HiveColumnStatistics> toHiveColumnStats(Set<String> columnNames, Map<String, ColumnStatistics> columnStatistics)
+    private static Map<String, HiveColumnStatistics> toHiveColumnStats(Set<String> columnNames, Map<String, String> partitionMetadata, Map<String, ColumnStatistics> columnStatistics)
     {
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(partitionMetadata);
         return columnStatistics.entrySet().stream()
                 .filter(entry -> columnNames.contains(entry.getKey()))
-                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toHiveColumnStatistics()));
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toHiveColumnStatistics(basicStatistics)));
     }
 
     private record RoleGrantee(String role, HivePrincipal grantee)

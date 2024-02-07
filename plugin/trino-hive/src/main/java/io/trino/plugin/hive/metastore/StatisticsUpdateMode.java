@@ -127,7 +127,7 @@ public enum StatisticsUpdateMode
                 mergeDateStatistics(first.getDateStatistics(), second.getDateStatistics()),
                 mergeBooleanStatistics(first.getBooleanStatistics(), second.getBooleanStatistics()),
                 reduce(first.getMaxValueSizeInBytes(), second.getMaxValueSizeInBytes(), Operator.MAX, true),
-                reduce(first.getTotalSizeInBytes(), second.getTotalSizeInBytes(), Operator.ADD, true),
+                mergeAverageColumnLength(column, firstStats, secondStats),
                 reduce(first.getNullsCount(), second.getNullsCount(), Operator.ADD, false),
                 mergeDistinctValueCount(column, firstStats, secondStats));
     }
@@ -168,6 +168,39 @@ public enum StatisticsUpdateMode
             return false;
         }
         return stats.getBasicStatistics().getRowCount().getAsLong() == columnStats.getNullsCount().getAsLong();
+    }
+
+    private static OptionalDouble mergeAverageColumnLength(String column, PartitionStatistics first, PartitionStatistics second)
+    {
+        // row count is required to merge average column length
+        if (first.getBasicStatistics().getRowCount().isEmpty() || second.getBasicStatistics().getRowCount().isEmpty()) {
+            return OptionalDouble.empty();
+        }
+        long firstRowCount = first.getBasicStatistics().getRowCount().getAsLong();
+        long secondRowCount = second.getBasicStatistics().getRowCount().getAsLong();
+
+        HiveColumnStatistics firstColumn = first.getColumnStatistics().get(column);
+        HiveColumnStatistics secondColumn = second.getColumnStatistics().get(column);
+
+        // if one column is entirely null, return the average column length of the other column
+        if (firstRowCount == firstColumn.getNullsCount().orElse(0)) {
+            return secondColumn.getAverageColumnLength();
+        }
+        if (secondRowCount == secondColumn.getNullsCount().orElse(0)) {
+            return firstColumn.getAverageColumnLength();
+        }
+
+        if (firstColumn.getAverageColumnLength().isEmpty() || secondColumn.getAverageColumnLength().isEmpty()) {
+            return OptionalDouble.empty();
+        }
+
+        long firstNonNullRowCount = firstRowCount - firstColumn.getNullsCount().orElse(0);
+        long secondNonNullRowCount = secondRowCount - secondColumn.getNullsCount().orElse(0);
+
+        double firstTotalSize = firstColumn.getAverageColumnLength().getAsDouble() * firstNonNullRowCount;
+        double secondTotalSize = secondColumn.getAverageColumnLength().getAsDouble() * secondNonNullRowCount;
+
+        return OptionalDouble.of((firstTotalSize + secondTotalSize) / (firstNonNullRowCount + secondNonNullRowCount));
     }
 
     private static Optional<IntegerStatistics> mergeIntegerStatistics(Optional<IntegerStatistics> first, Optional<IntegerStatistics> second)
