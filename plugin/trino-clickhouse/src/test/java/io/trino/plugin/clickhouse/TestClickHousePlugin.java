@@ -33,6 +33,7 @@ public class TestClickHousePlugin
                 ImmutableMap.of(
                         "connection-url", "jdbc:clickhouse://test",
                         "bootstrap.quiet", "true"),
-                new TestingConnectorContext());
+                new TestingConnectorContext())
+                .shutdown();
     }
 }
