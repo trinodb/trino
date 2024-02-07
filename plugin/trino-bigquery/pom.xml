@@ -319,7 +319,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20231013</version>
+            <version>20240205</version>
         </dependency>
 
         <dependency>
