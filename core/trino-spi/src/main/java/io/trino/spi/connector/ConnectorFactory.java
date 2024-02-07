@@ -13,11 +13,14 @@
  */
 package io.trino.spi.connector;
 
+import com.google.errorprone.annotations.CheckReturnValue;
+
 import java.util.Map;
 
 public interface ConnectorFactory
 {
     String getName();
 
+    @CheckReturnValue
     Connector create(String catalogName, Map<String, String> config, ConnectorContext context);
 }
