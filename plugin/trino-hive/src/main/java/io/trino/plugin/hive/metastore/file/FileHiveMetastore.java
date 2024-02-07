@@ -84,7 +84,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -446,7 +445,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+    public synchronized Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
         checkArgument(!columnNames.isEmpty(), "columnNames is empty");
         Location tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
@@ -457,11 +456,11 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Map<String, OptionalLong> partitionNamesWithRowCount, Set<String> columnNames)
+    public synchronized Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
     {
         checkArgument(!columnNames.isEmpty(), "columnNames is empty");
         ImmutableMap.Builder<String, Map<String, HiveColumnStatistics>> result = ImmutableMap.builder();
-        for (String partitionName : partitionNamesWithRowCount.keySet()) {
+        for (String partitionName : partitionNames) {
             result.put(partitionName, getPartitionStatisticsInternal(databaseName, tableName, partitionName, columnNames));
         }
         return result.buildOrThrow();

@@ -303,21 +303,21 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
         checkArgument(!columnNames.isEmpty(), "columnNames is empty");
-        return columnStatisticsProvider.getTableColumnStatistics(databaseName, tableName, columnNames, rowCount);
+        return columnStatisticsProvider.getTableColumnStatistics(databaseName, tableName, columnNames);
     }
 
     @Override
     public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
             String databaseName,
             String tableName,
-            Map<String, OptionalLong> partitionNamesWithRowCount,
+            Set<String> partitionNames,
             Set<String> columnNames)
     {
         checkArgument(!columnNames.isEmpty(), "columnNames is empty");
-        return columnStatisticsProvider.getPartitionColumnStatistics(databaseName, tableName, partitionNamesWithRowCount, columnNames);
+        return columnStatisticsProvider.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames);
     }
 
     @Override
@@ -338,8 +338,7 @@ public class GlueHiveMetastore
         Map<String, HiveColumnStatistics> currentColumnStatistics = getTableColumnStatistics(
                 databaseName,
                 tableName,
-                Stream.concat(table.getDataColumns().stream(), table.getPartitionColumns().stream()).map(Column::getName).collect(toImmutableSet()),
-                currentBasicStatistics.getRowCount());
+                Stream.concat(table.getDataColumns().stream(), table.getPartitionColumns().stream()).map(Column::getName).collect(toImmutableSet()));
         PartitionStatistics currentStatistics = new PartitionStatistics(currentBasicStatistics, currentColumnStatistics);
 
         PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, statisticsUpdate);
@@ -375,13 +374,10 @@ public class GlueHiveMetastore
         Map<String, Partition> partitions = getPartitionsByNamesInternal(table, partitionUpdates.keySet()).entrySet().stream()
                 .filter(entry -> entry.getValue().isPresent())
                 .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
-        Map<String, HiveBasicStatistics> currentBasicStats = partitions.entrySet().stream()
-                .collect(toImmutableMap(Entry::getKey, entry -> getHiveBasicStatistics(entry.getValue().getParameters())));
         Map<String, Map<String, HiveColumnStatistics>> currentColumnStats = columnStatisticsProvider.getPartitionColumnStatistics(
                 table.getDatabaseName(),
                 table.getTableName(),
-                currentBasicStats.entrySet().stream()
-                        .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().getRowCount())),
+                partitionUpdates.keySet(),
                 table.getDataColumns().stream().map(Column::getName).collect(toImmutableSet()));
 
         ImmutableList.Builder<BatchUpdatePartitionRequestEntry> partitionUpdateRequests = ImmutableList.builder();
@@ -389,7 +385,7 @@ public class GlueHiveMetastore
         partitions.forEach((partitionName, partition) -> {
             PartitionStatistics update = partitionUpdates.get(partitionName);
 
-            PartitionStatistics currentStatistics = new PartitionStatistics(currentBasicStats.get(partitionName), currentColumnStats.get(partitionName));
+            PartitionStatistics currentStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), currentColumnStats.get(partitionName));
             PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, update);
 
             Map<String, String> updatedStatisticsParameters = updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics());

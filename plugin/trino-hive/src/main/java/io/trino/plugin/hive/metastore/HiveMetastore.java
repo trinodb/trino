@@ -50,19 +50,16 @@ public interface HiveMetastore
 
     /**
      * @param columnNames Must not be empty.
-     * @param rowCount row count is required to calculate the number of distinct values, because Hive treats a NULL as a distinct value resulting in a count that is off by one
      */
-    Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount);
+    Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
 
     /**
      * @param columnNames Must not be empty.
-     * @param partitionNamesWithRowCount row count for each partition is required to calculate the number of distinct values, because
-     * Hive treats a NULL as a distinct value resulting in a count that is off by one
      */
     Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
             String databaseName,
             String tableName,
-            Map<String, OptionalLong> partitionNamesWithRowCount,
+            Set<String> partitionNames,
             Set<String> columnNames);
 
     /**
