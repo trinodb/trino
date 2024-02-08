@@ -82,7 +82,7 @@ public class TestDeltaLakeFileOperations
             queryRunner.createCatalog("tpch", "tpch");
 
             Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
-            queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.empty(), Optional.empty(), binder -> {}));
+            queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.empty(), Optional.empty()));
             queryRunner.createCatalog(
                     "delta_lake",
                     "delta_lake",
