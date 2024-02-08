@@ -14,9 +14,8 @@ To use the Hudi connector, you need:
 - Network access from the Trino coordinator and workers to the Hudi storage.
 - Access to a Hive metastore service (HMS).
 - Network access from the Trino coordinator to the HMS.
-- Data files stored in the Parquet file format. These can be configured using
-  {ref}`file format configuration properties <hive-parquet-configuration>` per
-  catalog.
+- Data files stored in the [Parquet file format](hive-parquet-configuration) on
+  a [supported file system](hudi-file-system-configuration).
 
 ## General configuration
 
@@ -93,6 +92,21 @@ Additionally, following configuration properties can be set depending on the use
   - `false`
 
 :::
+
+(hudi-file-system-configuration)=
+## File system access configuration
+
+The connector supports native, high-performance file system access to object
+storage systems:
+
+* [](/object-storage)
+* [](/object-storage/file-system-azure)
+* [](/object-storage/file-system-gcs)
+* [](/object-storage/file-system-s3)
+
+You must enable and configure the specific native file system access. If none is
+activated, the [legacy support](file-system-legacy) is used and must be
+configured.
 
 ## SQL support
 

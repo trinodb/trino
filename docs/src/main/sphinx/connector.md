@@ -44,12 +44,3 @@ Thrift          <connector/thrift>
 TPCDS           <connector/tpcds>
 TPCH            <connector/tpch>
 ```
-
-Additional features for object storage connectors:
-
-```{toctree}
-:maxdepth: 1
-
-/connector/filesystem-cache
-```
-

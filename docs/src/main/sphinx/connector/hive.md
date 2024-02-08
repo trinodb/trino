@@ -341,14 +341,20 @@ Hive connector documentation.
   - `false`
 :::
 
-## Storage
+(hive-file-system-configuration)=
+### File system access configuration
 
-The Hive connector supports the following storage options:
+The connector supports native, high-performance file system access to object
+storage systems:
 
-- {doc}`Amazon S3 <hive-s3>`
-- {doc}`Azure Storage <hive-azure>`
-- {doc}`Google Cloud Storage <hive-gcs-tutorial>`
-- {doc}`IBM Cloud Object Storage <hive-cos>`
+* [](/object-storage)
+* [](/object-storage/file-system-azure)
+* [](/object-storage/file-system-gcs)
+* [](/object-storage/file-system-s3)
+
+You must enable and configure the specific native file system access. If none is
+activated, the [legacy support](file-system-legacy) is used and must be
+configured.
 
 ## Security
 
@@ -1283,7 +1289,7 @@ and Delta Lake tables with the following catalog configuration properties:
 ### Filesystem cache
 
 The connector supports configuring and using [filesystem
-caching](/connector/filesystem-cache).
+caching](/object-storage/file-system-cache).
 
 (hive-performance-tuning-configuration)=
 
