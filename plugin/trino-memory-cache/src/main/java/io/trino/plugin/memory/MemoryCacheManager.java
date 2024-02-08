@@ -186,7 +186,7 @@ public class MemoryCacheManager
         }
 
         return getLoadedChannelsWithSameStoreId(keys)
-                .map(channels -> new MemoryCachePageSource(updateChannels(keys, channels.toArray(new Channel[0]))));
+                .map(channels -> new MemoryCachePageSource(updateChannels(channels.toArray(new Channel[0]))));
     }
 
     private Optional<ConnectorPageSink> storePages(long signatureId, long[] columnIds, CacheSplitId splitId)
@@ -209,31 +209,31 @@ public class MemoryCacheManager
         long storeId = nextStoreId.getAndIncrement();
         Channel[] channels = new Channel[keys.length];
         for (int i = 0; i < keys.length; i++) {
-            channels[i] = new Channel(storeId);
+            channels[i] = new Channel(keys[i], storeId);
         }
 
-        return Optional.of(new MemoryCachePageSink(keys, createStoreChannels(signatureId, keys, channels)));
+        return Optional.of(new MemoryCachePageSink(createStoreChannels(signatureId, channels)));
     }
 
-    private Channel[] updateChannels(SplitKey[] keys, Channel[] channels)
+    private Channel[] updateChannels(Channel[] channels)
     {
         // make channels the freshest in cache
         runWithLock(lock.writeLock(), () -> {
-            for (int i = 0; i < keys.length; i++) {
-                removeChannel(keys[i], channels[i]);
-                splitCache.put(keys[i], channels[i]);
+            for (Channel channel : channels) {
+                removeChannel(channel);
+                splitCache.put(channel.getKey(), channel);
             }
         });
         return channels;
     }
 
-    private Channel[] createStoreChannels(long signatureId, SplitKey[] keys, Channel[] channels)
+    private Channel[] createStoreChannels(long signatureId, Channel[] channels)
     {
         runWithLock(lock.writeLock(), () -> {
-            signatureToId.acquireId(signatureId, keys.length);
-            for (int i = 0; i < keys.length; i++) {
-                columnToId.acquireId(keys[i].columnId());
-                splitCache.put(keys[i], channels[i]);
+            signatureToId.acquireId(signatureId, channels.length);
+            for (Channel channel : channels) {
+                columnToId.acquireId(channel.getKey().columnId());
+                splitCache.put(channel.getKey(), channel);
             }
         });
         return channels;
@@ -298,35 +298,35 @@ public class MemoryCacheManager
                 });
     }
 
-    private void finishStoreChannels(SplitKey[] keys, Channel[] channels)
+    private void finishStoreChannels(Channel[] channels)
     {
         runWithLock(lock.writeLock(), () -> {
             long entriesSize = 0L;
-            for (int i = 0; i < keys.length; i++) {
-                channels[i].setLoaded();
-                entriesSize += getCacheEntrySize(keys[i], channels[i]);
-                checkState(signatureToId.getUsageCount(keys[i].signatureId()) > 0, "Signature id must not be released while split is cached");
+            for (Channel channel : channels) {
+                channel.setLoaded();
+                entriesSize += getCacheEntrySize(channel);
+                checkState(signatureToId.getUsageCount(channel.getKey().signatureId()) > 0, "Signature id must not be released while split is cached");
             }
 
             if (!trySetRevocableBytes(getRevocableBytes(), getRevocableBytes() + entriesSize)) {
                 // not sufficient memory to store split pages
-                abortStoreChannels(keys, channels);
+                abortStoreChannels(channels);
             }
 
             cacheRevocableBytes += entriesSize;
-            removeEldestSplits(keys);
+            removeEldestChannels(channels);
         });
     }
 
-    private void abortStoreChannels(SplitKey[] keys, Channel[] channels)
+    private void abortStoreChannels(Channel[] channels)
     {
-        checkArgument(keys.length > 0);
+        checkArgument(channels.length > 0);
         runWithLock(lock.writeLock(), () -> {
             long initialRevocableBytes = getRevocableBytes();
-            signatureToId.releaseId(keys[0].signatureId(), keys.length);
-            for (int i = 0; i < keys.length; i++) {
-                removeChannel(keys[i], channels[i]);
-                columnToId.releaseId(keys[i].columnId());
+            signatureToId.releaseId(channels[0].getKey().signatureId(), channels.length);
+            for (Channel channel : channels) {
+                removeChannel(channel);
+                columnToId.releaseId(channel.getKey().columnId());
             }
             long currentRevocableBytes = getRevocableBytes();
             checkState(initialRevocableBytes >= currentRevocableBytes);
@@ -334,7 +334,7 @@ public class MemoryCacheManager
         });
     }
 
-    private void removeChannel(SplitKey key, Channel channel)
+    private void removeChannel(Channel channel)
     {
         boolean removed = false;
         // Multimap remove(key, elem) can take significant about of time if list of elements
@@ -342,7 +342,7 @@ public class MemoryCacheManager
         // therefore we can search for a given channel by reversing the elements list.
         // Ideally, we could keep pointer to a Channel entry in a LinkedListMultimap, but the API
         // doesn't expose that.
-        for (Iterator<Channel> iterator = reverse(splitCache.get(key)).iterator(); iterator.hasNext(); ) {
+        for (Iterator<Channel> iterator = reverse(splitCache.get(channel.getKey())).iterator(); iterator.hasNext(); ) {
             if (iterator.next() == channel) {
                 iterator.remove();
                 removed = true;
@@ -353,13 +353,14 @@ public class MemoryCacheManager
     }
 
     /**
-     * Removes the eldest channels for a given splits that exceed MAX_CACHED_CHANNELS_PER_COLUMN size threshold.
+     * Removes the eldest channels for a given split that exceed MAX_CACHED_CHANNELS_PER_COLUMN size threshold.
      */
-    private void removeEldestSplits(SplitKey[] keys)
+    private void removeEldestChannels(Channel[] splitChannels)
     {
         runWithLock(lock.writeLock(), () -> {
             long initialRevocableBytes = getRevocableBytes();
-            for (SplitKey key : keys) {
+            for (Channel splitChannel : splitChannels) {
+                SplitKey key = splitChannel.getKey();
                 List<Channel> channels = splitCache.get(key);
                 int counter = channels.size() - MAX_CACHED_CHANNELS_PER_COLUMN;
                 for (Iterator<Channel> iterator = channels.iterator(); iterator.hasNext() && counter > 0; counter--) {
@@ -370,9 +371,11 @@ public class MemoryCacheManager
                     }
 
                     iterator.remove();
+
                     signatureToId.releaseId(key.signatureId());
                     columnToId.releaseId(key.columnId());
-                    cacheRevocableBytes -= getCacheEntrySize(key, channel);
+
+                    cacheRevocableBytes -= getCacheEntrySize(channel);
                 }
             }
             checkState(cacheRevocableBytes >= 0);
@@ -407,11 +410,12 @@ public class MemoryCacheManager
                 }
 
                 iterator.remove();
+
                 signatureToId.releaseId(key.signatureId());
                 columnToId.releaseId(key.columnId());
-                elementsToRevoke--;
 
-                cacheRevocableBytes -= getCacheEntrySize(key, channel);
+                elementsToRevoke--;
+                cacheRevocableBytes -= getCacheEntrySize(channel);
             }
             checkState(cacheRevocableBytes >= 0);
 
@@ -471,9 +475,9 @@ public class MemoryCacheManager
         return initialRevocableBytes == currentRevocableBytes || revocableMemoryAllocator.trySetBytes(currentRevocableBytes);
     }
 
-    private static long getCacheEntrySize(SplitKey splitKey, Channel channel)
+    private static long getCacheEntrySize(Channel channel)
     {
-        return MAP_ENTRY_SIZE + splitKey.getRetainedSizeInBytes() + channel.getRetainedSizeInBytes();
+        return MAP_ENTRY_SIZE + channel.getKey().getRetainedSizeInBytes() + channel.getRetainedSizeInBytes();
     }
 
     private static void runWithLock(Lock lock, Runnable runnable)
@@ -539,18 +543,16 @@ public class MemoryCacheManager
     private class MemoryCachePageSink
             implements ConnectorPageSink
     {
-        private final SplitKey[] keys;
         private final Channel[] channels;
         private final List<Block>[] blocks;
         private long memoryUsageBytes;
         private boolean finished;
 
-        public MemoryCachePageSink(SplitKey[] keys, Channel[] channels)
+        public MemoryCachePageSink(Channel[] channels)
         {
-            this.keys = requireNonNull(keys, "keys is null");
             this.channels = requireNonNull(channels, "channels is null");
             // noinspection unchecked
-            this.blocks = (List<Block>[]) new List[keys.length];
+            this.blocks = (List<Block>[]) new List[channels.length];
             for (int i = 0; i < blocks.length; i++) {
                 blocks[i] = new ArrayList<>();
             }
@@ -582,7 +584,7 @@ public class MemoryCacheManager
             for (int i = 0; i < channels.length; i++) {
                 channels[i].setBlocks(blocks[i].toArray(new Block[0]));
             }
-            finishStoreChannels(keys, channels);
+            finishStoreChannels(channels);
             finished = true;
             return completedFuture(ImmutableList.of());
         }
@@ -591,7 +593,7 @@ public class MemoryCacheManager
         public void abort()
         {
             checkState(!finished);
-            abortStoreChannels(keys, channels);
+            abortStoreChannels(channels);
             finished = true;
         }
     }
@@ -693,14 +695,16 @@ public class MemoryCacheManager
     {
         private static final int INSTANCE_SIZE = instanceSize(Channel.class);
 
+        private final SplitKey key;
         private final long storeId;
         private volatile boolean loaded;
         private volatile Block[] blocks;
         private volatile long blocksRetainedSizeInBytes;
         private volatile long positionCount;
 
-        public Channel(long storeId)
+        public Channel(SplitKey key, long storeId)
         {
+            this.key = requireNonNull(key, "key is null");
             this.storeId = storeId;
         }
 
@@ -751,6 +755,11 @@ public class MemoryCacheManager
         {
             checkState(loaded);
             return positionCount;
+        }
+
+        public SplitKey getKey()
+        {
+            return key;
         }
 
         public long getStoreId()

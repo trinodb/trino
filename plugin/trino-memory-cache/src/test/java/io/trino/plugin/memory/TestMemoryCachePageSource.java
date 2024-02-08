@@ -18,6 +18,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.cache.CacheSplitId;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -61,7 +62,7 @@ public class TestMemoryCachePageSource
 
     private static Channel createChannel(Block... blocks)
     {
-        Channel channel = new Channel(0L);
+        Channel channel = new Channel(new MemoryCacheManager.SplitKey(0, 0, new CacheSplitId("id")), 0);
         channel.setBlocks(blocks);
         channel.setLoaded();
         return channel;

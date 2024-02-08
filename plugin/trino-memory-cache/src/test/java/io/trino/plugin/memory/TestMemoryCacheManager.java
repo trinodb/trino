@@ -473,7 +473,7 @@ public class TestMemoryCacheManager
 
     static long getChannelRetainedSizeInBytes(Block block)
     {
-        Channel channel = new Channel(0);
+        Channel channel = new Channel(new SplitKey(0, 0, new CacheSplitId("id")), 0);
         channel.setBlocks(new Block[] {block});
         channel.setLoaded();
         return channel.getRetainedSizeInBytes();
