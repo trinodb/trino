@@ -207,6 +207,7 @@ public class TestSetSessionTask
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
         getFutureValue(new SetSessionTask(plannerContext, accessControl, sessionPropertyManager).execute(new SetSession(qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
 

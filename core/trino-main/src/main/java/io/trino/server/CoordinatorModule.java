@@ -112,6 +112,7 @@ import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
 import io.trino.spi.VersionEmbedder;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.SessionSpecificationEvaluator;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.planner.OptimizerStatsMBeanExporter;
@@ -210,6 +211,8 @@ public class CoordinatorModule
 
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
+        // WITH SESSION interpreter
+        binder.bind(SessionSpecificationEvaluator.class).in(Scopes.SINGLETON);
         // export under the old name, for backwards compatibility
         newExporter(binder).export(DispatchManager.class).as(generator -> generator.generatedNameOf(QueryManager.class));
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);

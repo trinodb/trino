@@ -144,6 +144,7 @@ public class TestCommitTask
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
     }
 

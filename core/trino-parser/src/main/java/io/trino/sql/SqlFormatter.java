@@ -645,26 +645,22 @@ public final class SqlFormatter
             if (!node.getFunctions().isEmpty() || !node.getSessionProperties().isEmpty()) {
                 builder.append("WITH\n");
 
-                if (!node.getFunctions().isEmpty()) {
-                    Iterator<FunctionSpecification> functions = node.getFunctions().iterator();
-                    while (functions.hasNext()) {
-                        process(functions.next(), indent + 1);
-                        if (functions.hasNext()) {
-                            builder.append(',');
-                        }
-                        builder.append('\n');
+                Iterator<FunctionSpecification> functions = node.getFunctions().iterator();
+                while (functions.hasNext()) {
+                    process(functions.next(), indent + 1);
+                    if (functions.hasNext()) {
+                        builder.append(',');
                     }
+                    builder.append('\n');
                 }
 
-                if (!node.getSessionProperties().isEmpty()) {
-                    Iterator<SessionSpecification> sessionProperty = node.getSessionProperties().iterator();
-                    while (sessionProperty.hasNext()) {
-                        process(sessionProperty.next(), indent + 1);
-                        if (sessionProperty.hasNext()) {
-                            builder.append(',');
-                        }
-                        builder.append('\n');
+                Iterator<SessionSpecification> sessionProperties = node.getSessionProperties().iterator();
+                while (sessionProperties.hasNext()) {
+                    process(sessionProperties.next(), indent + 1);
+                    if (sessionProperties.hasNext()) {
+                        builder.append(',');
                     }
+                    builder.append('\n');
                 }
             }
 
@@ -2328,7 +2324,7 @@ public final class SqlFormatter
             append(indent, "SESSION ")
                     .append(formatName(node.getName()))
                     .append(" = ")
-                    .append(formatExpression(node.getExpression()));
+                    .append(formatExpression(node.getValue()));
             return null;
         }
 

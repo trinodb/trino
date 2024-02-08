@@ -26,23 +26,23 @@ public class SessionSpecification
         extends Node
 {
     private final QualifiedName name;
-    private final Expression expression;
+    private final Expression value;
 
-    public SessionSpecification(QualifiedName name, Expression expression)
+    public SessionSpecification(QualifiedName name, Expression value)
     {
-        this(Optional.empty(), name, expression);
+        this(Optional.empty(), name, value);
     }
 
-    public SessionSpecification(NodeLocation location, QualifiedName name, Expression expression)
+    public SessionSpecification(NodeLocation location, QualifiedName name, Expression value)
     {
-        this(Optional.of(location), name, expression);
+        this(Optional.of(location), name, value);
     }
 
-    public SessionSpecification(Optional<NodeLocation> location, QualifiedName name, Expression expression)
+    public SessionSpecification(Optional<NodeLocation> location, QualifiedName name, Expression value)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
-        this.expression = requireNonNull(expression, "expression is null");
+        this.value = requireNonNull(value, "value is null");
     }
 
     public QualifiedName getName()
@@ -50,9 +50,9 @@ public class SessionSpecification
         return name;
     }
 
-    public Expression getExpression()
+    public Expression getValue()
     {
-        return expression;
+        return value;
     }
 
     @Override
@@ -70,7 +70,7 @@ public class SessionSpecification
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, expression);
+        return Objects.hash(name, value);
     }
 
     @Override
@@ -78,7 +78,7 @@ public class SessionSpecification
     {
         return (obj instanceof SessionSpecification other) &&
                 Objects.equals(name, other.name) &&
-                Objects.equals(expression, other.expression);
+                Objects.equals(value, other.value);
     }
 
     @Override
@@ -86,7 +86,7 @@ public class SessionSpecification
     {
         return toStringHelper(this)
                 .add("name", name)
-                .add("expression", expression)
+                .add("expression", value)
                 .toString();
     }
 }

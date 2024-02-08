@@ -70,7 +70,7 @@ public class Query
             Optional<Node> limit)
     {
         super(location);
-        requireNonNull(functions, "function si snull"); // TODO: fix me
+        requireNonNull(functions, "functions is null");
         requireNonNull(sessionProperties, "sessionProperties is null");
         requireNonNull(with, "with is null");
         requireNonNull(queryBody, "queryBody is null");

@@ -6607,6 +6607,19 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testInlineSession()
+    {
+        assertThat(query("WITH SESSION time_zone_id = 'Europe/Wonderland' SELECT current_timezone()"))
+            .failure()
+            .hasMessageContaining("Time zone not supported: Europe/Wonderland");
+
+        assertThat(query("WITH SESSION time_zone_id = 'Europe/Warsaw' SELECT current_timezone()"))
+            .succeeds()
+            .skippingTypesCheck()
+            .matches("VALUES 'Europe/Warsaw'");
+    }
+
+    @Test
     public void testInlineSqlFunctions()
     {
         assertThat(query("""

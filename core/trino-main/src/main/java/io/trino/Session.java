@@ -55,9 +55,11 @@ import java.util.stream.Collectors;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.sql.SqlPath.EMPTY_PATH;
 import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
@@ -407,6 +409,11 @@ public final class Session
                     .putAll(catalogEntry.getValue());
         }
 
+        return withProperties(systemProperties, catalogProperties);
+    }
+
+    public Session withProperties(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties)
+    {
         return new Session(
                 queryId,
                 querySpan,
@@ -419,7 +426,9 @@ public final class Session
                 schema,
                 path,
                 traceToken,
-                timeZoneKey,
+                Optional.ofNullable(systemProperties.get(TIME_ZONE_ID))
+                        .map(TimeZoneKey::getTimeZoneKey)
+                        .orElse(timeZoneKey),
                 locale,
                 remoteUserAddress,
                 userAgent,

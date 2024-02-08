@@ -414,6 +414,12 @@ class AstBuilder
         return visit(context.functionSpecification());
     }
 
+    @Override
+    public Node visitStandaloneSessionSpecification(SqlBaseParser.StandaloneSessionSpecificationContext context)
+    {
+        return visit(context.sessionSpecification());
+    }
+
     // ******************* statements **********************
 
     @Override
