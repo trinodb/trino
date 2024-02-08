@@ -41,7 +41,7 @@ public class ObjectToIdMap<T>
      * then corresponding mapping from {@link ObjectToIdMap#objectToId}
      * can be dropped.
      */
-    private final Long2LongMap idUsageCount = new Long2LongOpenHashMap();
+    private final Long2LongMap idRevocableUsageCount = new Long2LongOpenHashMap();
     private long revocableBytes;
     private long nextId;
 
@@ -55,55 +55,55 @@ public class ObjectToIdMap<T>
         return Optional.ofNullable(objectToId.get(object));
     }
 
-    public long allocateId(T object)
+    public long allocateRevocableId(T object)
     {
-        return allocateId(object, 1L);
+        return allocateRevocableId(object, 1L);
     }
 
-    public long allocateId(T object, long count)
+    public long allocateRevocableId(T object, long count)
     {
         Long id = objectToId.get(object);
         if (id == null) {
             id = nextId++;
             objectToId.put(object, id);
-            idUsageCount.put((long) id, count);
+            idRevocableUsageCount.put((long) id, count);
             revocableBytes += getEntrySize(object);
             return id;
         }
 
-        acquireId(id, count);
+        acquireRevocableId(id, count);
         return id;
     }
 
-    public void acquireId(long id)
+    public void acquireRevocableId(long id)
     {
-        acquireId(id, 1L);
+        acquireRevocableId(id, 1L);
     }
 
-    public void acquireId(long id, long count)
+    public void acquireRevocableId(long id, long count)
     {
-        idUsageCount.merge(id, count, Long::sum);
+        idRevocableUsageCount.merge(id, count, Long::sum);
     }
 
-    public void releaseId(long id)
+    public void releaseRevocableId(long id)
     {
-        releaseId(id, 1L);
+        releaseRevocableId(id, 1L);
     }
 
-    public void releaseId(long id, long count)
+    public void releaseRevocableId(long id, long count)
     {
-        long usageCount = idUsageCount.merge(id, -count, Long::sum);
+        long usageCount = idRevocableUsageCount.merge(id, -count, Long::sum);
         checkState(usageCount >= 0, "Usage count is negative");
         if (usageCount == 0) {
             T object = requireNonNull(objectToId.inverse().remove(id));
-            idUsageCount.remove(id);
+            idRevocableUsageCount.remove(id);
             revocableBytes -= getEntrySize(object);
         }
     }
 
     public long getUsageCount(long id)
     {
-        return idUsageCount.getOrDefault(id, 0L);
+        return idRevocableUsageCount.getOrDefault(id, 0L);
     }
 
     public int size()

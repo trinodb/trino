@@ -30,20 +30,20 @@ public class TestObjectToIdMap
         assertThat(idMap.getUsageCount(42L)).isEqualTo(0L);
 
         long cacheEntrySize = 2L * MAP_ENTRY_SIZE + 3L * LONG_INSTANCE_SIZE + "A".length();
-        long idA = idMap.allocateId("A");
+        long idA = idMap.allocateRevocableId("A");
         assertThat(idA).isEqualTo(0L);
         assertThat(idMap.getUsageCount(idA)).isEqualTo(1L);
         assertThat(idMap.getRevocableBytes()).isEqualTo(cacheEntrySize);
 
-        idMap.acquireId(idA);
+        idMap.acquireRevocableId(idA);
         assertThat(idMap.getUsageCount(idA)).isEqualTo(2L);
 
-        long idB = idMap.allocateId("B");
+        long idB = idMap.allocateRevocableId("B");
         assertThat(idB).isEqualTo(1L);
         assertThat(idMap.getUsageCount(idB)).isEqualTo(1L);
         assertThat(idMap.getRevocableBytes()).isEqualTo(2 * cacheEntrySize);
 
-        idMap.releaseId(idB);
+        idMap.releaseRevocableId(idB);
         assertThat(idMap.getUsageCount(idB)).isEqualTo(0L);
         assertThat(idMap.getRevocableBytes()).isEqualTo(cacheEntrySize);
     }

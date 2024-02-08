@@ -249,9 +249,9 @@ public class MemoryCacheManager
             }
 
             // bump reference count for ids used by sink channels
-            signatureToId.acquireId(ids.signatureId(), keys.length);
+            signatureToId.acquireRevocableId(ids.signatureId(), keys.length);
             for (int i = 0; i < keys.length; i++) {
-                columnToId.acquireId(keys[i].columnId());
+                columnToId.acquireRevocableId(keys[i].columnId());
                 splitCache.put(keys[i], channels[i]);
             }
 
@@ -370,13 +370,13 @@ public class MemoryCacheManager
         runWithLock(lock.writeLock(), () -> {
             long initialRevocableBytes = getRevocableBytes();
 
-            signatureToId.releaseId(signatureIds.signatureId(), channels.length);
-            predicateToId.releaseId(predicateIds.predicateId(), channels.length);
-            predicateToId.releaseId(predicateIds.unenforcedPredicateId(), channels.length);
+            signatureToId.releaseRevocableId(signatureIds.signatureId(), channels.length);
+            predicateToId.releaseRevocableId(predicateIds.predicateId(), channels.length);
+            predicateToId.releaseRevocableId(predicateIds.unenforcedPredicateId(), channels.length);
 
             for (Channel channel : channels) {
                 removeChannel(channel);
-                columnToId.releaseId(channel.getKey().columnId());
+                columnToId.releaseRevocableId(channel.getKey().columnId());
             }
 
             long currentRevocableBytes = getRevocableBytes();
@@ -423,10 +423,10 @@ public class MemoryCacheManager
 
                     iterator.remove();
 
-                    signatureToId.releaseId(key.signatureId());
-                    columnToId.releaseId(key.columnId());
-                    predicateToId.releaseId(key.predicateId());
-                    predicateToId.releaseId(key.unenforcedPredicateId());
+                    signatureToId.releaseRevocableId(key.signatureId());
+                    columnToId.releaseRevocableId(key.columnId());
+                    predicateToId.releaseRevocableId(key.predicateId());
+                    predicateToId.releaseRevocableId(key.unenforcedPredicateId());
 
                     cacheRevocableBytes -= getCacheEntrySize(channel);
                 }
@@ -464,10 +464,10 @@ public class MemoryCacheManager
 
                 iterator.remove();
 
-                signatureToId.releaseId(key.signatureId());
-                columnToId.releaseId(key.columnId());
-                predicateToId.releaseId(key.predicateId());
-                predicateToId.releaseId(key.unenforcedPredicateId());
+                signatureToId.releaseRevocableId(key.signatureId());
+                columnToId.releaseRevocableId(key.columnId());
+                predicateToId.releaseRevocableId(key.predicateId());
+                predicateToId.releaseRevocableId(key.unenforcedPredicateId());
 
                 elementsToRevoke--;
                 cacheRevocableBytes -= getCacheEntrySize(channel);
@@ -489,19 +489,19 @@ public class MemoryCacheManager
         return runWithLock(lock.writeLock(), () -> {
             long initialRevocableBytes = getRevocableBytes();
 
-            long signatureId = signatureToId.allocateId(canonicalSignature);
+            long signatureId = signatureToId.allocateRevocableId(canonicalSignature);
             long[] columnIds = new long[signature.getColumns().size()];
             for (int i = 0; i < columnIds.length; i++) {
-                columnIds[i] = columnToId.allocateId(signature.getColumns().get(i));
+                columnIds[i] = columnToId.allocateRevocableId(signature.getColumns().get(i));
             }
 
             long currentRevocableBytes = getRevocableBytes();
             checkState(currentRevocableBytes >= initialRevocableBytes);
             if (!trySetRevocableBytes(initialRevocableBytes, currentRevocableBytes)) {
                 // couldn't allocate ids due to memory constraints
-                signatureToId.releaseId(signatureId);
+                signatureToId.releaseRevocableId(signatureId);
                 for (long columnId : columnIds) {
-                    columnToId.releaseId(columnId);
+                    columnToId.releaseRevocableId(columnId);
                 }
                 return Optional.empty();
             }
@@ -516,9 +516,9 @@ public class MemoryCacheManager
     {
         runWithLock(lock.writeLock(), () -> {
             long initialRevocableBytes = getRevocableBytes();
-            signatureToId.releaseId(ids.signatureId());
+            signatureToId.releaseRevocableId(ids.signatureId());
             for (long columnId : ids.columnIds()) {
-                columnToId.releaseId(columnId);
+                columnToId.releaseRevocableId(columnId);
             }
             long currentRevocableBytes = getRevocableBytes();
             checkState(initialRevocableBytes >= currentRevocableBytes);
@@ -538,13 +538,13 @@ public class MemoryCacheManager
         return runWithLock(lock.writeLock(), () -> {
             long initialRevocableBytes = getRevocableBytes();
 
-            PredicateIds predicateIds = new PredicateIds(predicateToId.allocateId(predicate, count), predicateToId.allocateId(unenforcedPredicate, count));
+            PredicateIds predicateIds = new PredicateIds(predicateToId.allocateRevocableId(predicate, count), predicateToId.allocateRevocableId(unenforcedPredicate, count));
 
             long currentRevocableBytes = getRevocableBytes();
             checkState(currentRevocableBytes >= initialRevocableBytes);
             if (!trySetRevocableBytes(initialRevocableBytes, currentRevocableBytes)) {
-                predicateToId.releaseId(predicateIds.predicateId());
-                predicateToId.releaseId(predicateIds.unenforcedPredicateId());
+                predicateToId.releaseRevocableId(predicateIds.predicateId());
+                predicateToId.releaseRevocableId(predicateIds.unenforcedPredicateId());
                 return Optional.empty();
             }
 
