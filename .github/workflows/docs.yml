@@ -35,7 +35,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       other: ${{ steps.filter.outputs.other }}
     steps:
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |

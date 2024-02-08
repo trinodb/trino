@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: 'Cancel Runs For Closed PRs'
-        uses: styfle/cancel-workflow-action@0.11.0
+        uses: styfle/cancel-workflow-action@0.12.1
         with:
           # Cancel workflow when PR closed. https://github.com/styfle/cancel-workflow-action#advanced-ignore-sha
           ignore_sha: true
