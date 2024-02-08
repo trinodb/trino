@@ -136,13 +136,15 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     @BeforeAll
     public void initFileSystem()
     {
-        this.fileSystem = new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
+        S3FileSystemConfig s3FileSystemConfig = new S3FileSystemConfig()
                 .setRegion(MINIO_REGION)
                 .setEndpoint(minio.getMinioAddress())
                 .setPathStyleAccess(true)
                 .setAwsAccessKey(MINIO_ACCESS_KEY)
-                .setAwsSecretKey(MINIO_SECRET_KEY)
-        ).create(SESSION);
+                .setAwsSecretKey(MINIO_SECRET_KEY);
+        // TODO S3Client leaks
+        this.fileSystem = new S3FileSystemFactory(() -> S3FileSystemFactory.createS3Client(OpenTelemetry.noop(), s3FileSystemConfig), s3FileSystemConfig)
+                .create(SESSION);
     }
 
     @Test

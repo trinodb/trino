@@ -57,11 +57,12 @@ public class TestS3FileSystemAwsS3
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
+        S3FileSystemConfig s3FileSystemConfig = new S3FileSystemConfig()
                 .setAwsAccessKey(accessKey)
                 .setAwsSecretKey(secretKey)
                 .setRegion(region)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+                .setStreamingPartSize(DataSize.valueOf("5.5MB"));
+        return new S3FileSystemFactory(() -> S3FileSystemFactory.createS3Client(OpenTelemetry.noop(), s3FileSystemConfig), s3FileSystemConfig);
     }
 
     private static String environmentVariable(String name)

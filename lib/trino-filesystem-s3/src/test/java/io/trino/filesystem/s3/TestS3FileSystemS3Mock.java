@@ -56,12 +56,13 @@ public class TestS3FileSystemS3Mock
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
+        S3FileSystemConfig s3FileSystemConfig = new S3FileSystemConfig()
                 .setAwsAccessKey("accesskey")
                 .setAwsSecretKey("secretkey")
                 .setEndpoint(S3_MOCK.getHttpEndpoint())
                 .setRegion(Region.US_EAST_1.id())
                 .setPathStyleAccess(true)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+                .setStreamingPartSize(DataSize.valueOf("5.5MB"));
+        return new S3FileSystemFactory(() ->S3FileSystemFactory.createS3Client(OpenTelemetry.noop(), s3FileSystemConfig), s3FileSystemConfig);
     }
 }

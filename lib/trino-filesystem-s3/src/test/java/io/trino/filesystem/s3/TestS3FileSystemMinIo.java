@@ -73,13 +73,14 @@ public class TestS3FileSystemMinIo
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
+        S3FileSystemConfig s3FileSystemConfig = new S3FileSystemConfig()
                 .setEndpoint(minio.getMinioAddress())
                 .setRegion(Minio.MINIO_REGION)
                 .setPathStyleAccess(true)
                 .setAwsAccessKey(Minio.MINIO_ACCESS_KEY)
                 .setAwsSecretKey(Minio.MINIO_SECRET_KEY)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+                .setStreamingPartSize(DataSize.valueOf("5.5MB"));
+        return new S3FileSystemFactory(() -> S3FileSystemFactory.createS3Client(OpenTelemetry.noop(), s3FileSystemConfig), s3FileSystemConfig);
     }
 
     @Test
