@@ -34,18 +34,18 @@ public final class TestConstants
                 "result": true
             }
             """,
-    200);
+            200);
     public static final HttpClientUtils.MockResponse NO_ACCESS_RESPONSE = new HttpClientUtils.MockResponse("""
             {
                 "decision_id": "",
                 "result": false
             }
             """,
-    200);
+            200);
     public static final HttpClientUtils.MockResponse MALFORMED_RESPONSE = new HttpClientUtils.MockResponse("""
             { "this"": is broken_json; }
             """,
-    200);
+            200);
     public static final HttpClientUtils.MockResponse UNDEFINED_RESPONSE = new HttpClientUtils.MockResponse("{}", 404);
     public static final HttpClientUtils.MockResponse BAD_REQUEST_RESPONSE = new HttpClientUtils.MockResponse("{}", 400);
     public static final HttpClientUtils.MockResponse SERVER_ERROR_RESPONSE = new HttpClientUtils.MockResponse("", 500);
