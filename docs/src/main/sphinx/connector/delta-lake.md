@@ -21,9 +21,8 @@ To connect to Databricks Delta Lake, you need:
   or a Glue metastore.
 - Network access to the HMS from the coordinator and workers. Port 9083 is the
   default port for the Thrift protocol used by the HMS.
-- Data files stored in the Parquet file format. These can be configured using
-  {ref}`file format configuration properties <hive-parquet-configuration>` per
-  catalog.
+- Data files stored in the [Parquet file format](hive-parquet-configuration) on
+  a [supported file system](delta-lake-file-system-configuration).
 
 ## General configuration
 
@@ -53,12 +52,20 @@ The connector recognizes Delta Lake tables created in the metastore by the Datab
 runtime. If non-Delta Lake tables are present in the metastore as well, they are not
 visible to the connector.
 
-To configure access to S3 and S3-compatible storage, Azure storage, and others,
-consult the appropriate section of the Hive documentation:
+(delta-lake-file-system-configuration)=
+## File system access configuration
 
-- {doc}`Amazon S3 </connector/hive-s3>`
-- {doc}`Azure storage documentation </connector/hive-azure>`
-- {ref}`GCS <hive-google-cloud-storage-configuration>`
+The connector supports native, high-performance file system access to object
+storage systems:
+
+* [](/object-storage)
+* [](/object-storage/file-system-azure)
+* [](/object-storage/file-system-gcs)
+* [](/object-storage/file-system-s3)
+
+You must enable and configure the specific native file system access. If none is
+activated, the [legacy support](file-system-legacy) is used and must be
+configured.
 
 ### Delta Lake general configuration properties
 
@@ -1081,7 +1088,7 @@ keep a backup of the original values if you change them.
   - `false`
 :::
 
-### Filesystem cache
+### File system cache
 
-The connector supports configuring and using [filesystem
-caching](/connector/filesystem-cache).
+The connector supports configuring and using [file system
+caching](/object-storage/file-system-cache).
