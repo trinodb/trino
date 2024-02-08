@@ -20,9 +20,9 @@ import static io.trino.filesystem.manager.FileSystemConfig.CacheType.NONE;
 public class FileSystemConfig
 {
     private boolean hadoopEnabled = true;
-    private boolean nativeAzureEnabled;
-    private boolean nativeS3Enabled;
-    private boolean nativeGcsEnabled;
+    private boolean nativeAzureEnabled = true;
+    private boolean nativeS3Enabled = true;
+    private boolean nativeGcsEnabled = true;
     private CacheType cacheType = NONE;
 
     public boolean isHadoopEnabled()
