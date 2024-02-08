@@ -21,8 +21,8 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.type.Type;
 
+import java.util.Collection;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -31,13 +31,9 @@ public interface GlueColumnStatisticsProvider
 {
     Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type);
 
-    Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount);
+    Map<String, HiveColumnStatistics> getTableColumnStatistics(Table table);
 
-    Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
-            String databaseName,
-            String tableName,
-            Map<String, OptionalLong> partitionNamesWithRowCount,
-            Set<String> columns);
+    Map<Partition, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(Collection<Partition> partitions);
 
     void updateTableColumnStatistics(Table table, Map<String, HiveColumnStatistics> columnStatistics);
 

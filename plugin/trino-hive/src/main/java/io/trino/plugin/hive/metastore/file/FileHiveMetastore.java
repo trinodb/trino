@@ -31,6 +31,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;
@@ -83,7 +84,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -444,37 +444,36 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+    public synchronized PartitionStatistics getTableStatistics(Table table)
     {
-        checkArgument(!columnNames.isEmpty(), "columnNames is empty");
+        return getTableStatistics(table.getDatabaseName(), table.getTableName());
+    }
+
+    private synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
+    {
         Location tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(tableMetadata.getWriterVersion());
-        return tableMetadata.getColumnStatistics().entrySet().stream()
-                .filter(entry -> columnNames.contains(entry.getKey()))
-                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(tableMetadata.getParameters());
+        Map<String, HiveColumnStatistics> columnStatistics = tableMetadata.getColumnStatistics();
+        return new PartitionStatistics(basicStatistics, columnStatistics);
     }
 
     @Override
-    public synchronized Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Map<String, OptionalLong> partitionNamesWithRowCount, Set<String> columnNames)
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
     {
-        checkArgument(!columnNames.isEmpty(), "columnNames is empty");
-        ImmutableMap.Builder<String, Map<String, HiveColumnStatistics>> result = ImmutableMap.builder();
-        for (String partitionName : partitionNamesWithRowCount.keySet()) {
-            result.put(partitionName, getPartitionStatisticsInternal(databaseName, tableName, partitionName, columnNames));
-        }
-        return result.buildOrThrow();
+        return partitions.stream()
+                .collect(toImmutableMap(partition -> makePartitionName(table, partition), partition -> getPartitionStatisticsInternal(table, partition.getValues())));
     }
 
-    private synchronized Map<String, HiveColumnStatistics> getPartitionStatisticsInternal(String databaseName, String tableName, String partitionName, Set<String> columnNames)
+    private synchronized PartitionStatistics getPartitionStatisticsInternal(Table table, List<String> partitionValues)
     {
-        Location partitionDirectory = getPartitionMetadataDirectory(databaseName, tableName, partitionName);
+        Location partitionDirectory = getPartitionMetadataDirectory(table, ImmutableList.copyOf(partitionValues));
         PartitionMetadata partitionMetadata = readSchemaFile(PARTITION, partitionDirectory, partitionCodec)
-                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), extractPartitionValues(partitionName)));
-        return partitionMetadata.getColumnStatistics().entrySet().stream()
-                .filter(entry -> columnNames.contains(entry.getKey()))
-                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+                .orElseThrow(() -> new PartitionNotFoundException(table.getSchemaTableName(), partitionValues));
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(partitionMetadata.getParameters());
+        return new PartitionStatistics(basicStatistics, partitionMetadata.getColumnStatistics());
     }
 
     private Table getRequiredTable(String databaseName, String tableName)
@@ -500,13 +499,13 @@ public class FileHiveMetastore
     @Override
     public synchronized void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
+        PartitionStatistics originalStatistics = getTableStatistics(databaseName, tableName);
+        PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, statisticsUpdate);
+
         Location tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(tableMetadata.getWriterVersion());
-
-        PartitionStatistics originalStatistics = new PartitionStatistics(getHiveBasicStatistics(tableMetadata.getParameters()), tableMetadata.getColumnStatistics());
-        PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, statisticsUpdate);
 
         TableMetadata updatedMetadata = tableMetadata
                 .withParameters(currentVersion, updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
@@ -519,12 +518,13 @@ public class FileHiveMetastore
     public synchronized void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
         partitionUpdates.forEach((partitionName, partitionUpdate) -> {
-            Location partitionDirectory = getPartitionMetadataDirectory(table, partitionName);
-            PartitionMetadata partitionMetadata = readSchemaFile(PARTITION, partitionDirectory, partitionCodec)
-                    .orElseThrow(() -> new PartitionNotFoundException(table.getSchemaTableName(), extractPartitionValues(partitionName)));
-            PartitionStatistics originalStatistics = new PartitionStatistics(getHiveBasicStatistics(partitionMetadata.getParameters()), partitionMetadata.getColumnStatistics());
-
+            PartitionStatistics originalStatistics = getPartitionStatisticsInternal(table, extractPartitionValues(partitionName));
             PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, partitionUpdate);
+
+            List<String> partitionValues = extractPartitionValues(partitionName);
+            Location partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
+            PartitionMetadata partitionMetadata = readSchemaFile(PARTITION, partitionDirectory, partitionCodec)
+                    .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues));
 
             PartitionMetadata updatedMetadata = partitionMetadata
                     .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
@@ -1567,12 +1567,7 @@ public class FileHiveMetastore
 
     private Location getPartitionMetadataDirectory(Table table, String partitionName)
     {
-        return getPartitionMetadataDirectory(table.getDatabaseName(), table.getTableName(), partitionName);
-    }
-
-    private Location getPartitionMetadataDirectory(String databaseName, String tableName, String partitionName)
-    {
-        return getTableMetadataDirectory(databaseName, tableName).appendPath(partitionName);
+        return getTableMetadataDirectory(table).appendPath(partitionName);
     }
 
     private Location getPermissionsDirectory(Table table)

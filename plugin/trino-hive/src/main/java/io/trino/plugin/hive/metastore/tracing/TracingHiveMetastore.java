@@ -24,7 +24,6 @@ import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -111,34 +110,28 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames, OptionalLong rowCount)
+    public PartitionStatistics getTableStatistics(Table table)
     {
-        Span span = tracer.spanBuilder("HiveMetastore.getTableColumnStatistics")
-                .setAttribute(SCHEMA, databaseName)
-                .setAttribute(TABLE, tableName)
+        Span span = tracer.spanBuilder("HiveMetastore.getTableStatistics")
+                .setAttribute(SCHEMA, table.getDatabaseName())
+                .setAttribute(TABLE, table.getTableName())
                 .startSpan();
-        return withTracing(span, () -> delegate.getTableColumnStatistics(databaseName, tableName, columnNames, rowCount));
+        return withTracing(span, () -> delegate.getTableStatistics(table));
     }
 
     @Override
-    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Map<String, OptionalLong> partitionNamesWithRowCount, Set<String> columnNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
     {
-        Span span = tracer.spanBuilder("HiveMetastore.getPartitionColumnStatistics")
-                .setAttribute(SCHEMA, databaseName)
-                .setAttribute(TABLE, tableName)
-                .setAttribute(PARTITION_REQUEST_COUNT, (long) partitionNamesWithRowCount.size())
+        Span span = tracer.spanBuilder("HiveMetastore.getPartitionStatistics")
+                .setAttribute(SCHEMA, table.getDatabaseName())
+                .setAttribute(TABLE, table.getTableName())
+                .setAttribute(PARTITION_REQUEST_COUNT, (long) partitions.size())
                 .startSpan();
         return withTracing(span, () -> {
-            var partitionColumnStatistics = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesWithRowCount, columnNames);
-            span.setAttribute(PARTITION_RESPONSE_COUNT, partitionColumnStatistics.size());
-            return partitionColumnStatistics;
+            Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(table, partitions);
+            span.setAttribute(PARTITION_RESPONSE_COUNT, partitionStatistics.size());
+            return partitionStatistics;
         });
-    }
-
-    @Override
-    public boolean useSparkTableStatistics()
-    {
-        return delegate.useSparkTableStatistics();
     }
 
     @Override
