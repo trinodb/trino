@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
@@ -97,9 +97,9 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.TableInfo;
-import io.trino.plugin.hive.metastore.glue.v1.ForGlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.v1.GlueColumnStatisticsProvider;
-import io.trino.plugin.hive.metastore.glue.v1.GlueColumnStatisticsProviderFactory;
+import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
+import io.trino.plugin.hive.metastore.glue.GlueExpressionUtil;
+import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.GluePartitionConverter;

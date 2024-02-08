@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.ColumnStatistics;
@@ -38,6 +38,7 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.spi.TrinoException;
 
 import java.util.ArrayList;
@@ -54,8 +55,8 @@ import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_NOT_FOUND;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueStatConverter.fromGlueColumnStatistics;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueStatConverter.toGlueColumnStatistics;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueStatConverter.fromGlueColumnStatistics;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueStatConverter.toGlueColumnStatistics;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
