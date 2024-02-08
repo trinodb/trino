@@ -22,6 +22,8 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
+import static java.util.Objects.requireNonNull;
+
 public class MongoPageSinkProvider
         implements ConnectorPageSinkProvider
 {
@@ -31,7 +33,7 @@ public class MongoPageSinkProvider
     @Inject
     public MongoPageSinkProvider(MongoClientConfig config, MongoSession mongoSession)
     {
-        this.mongoSession = mongoSession;
+        this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
         this.implicitPrefix = config.getImplicitRowFieldPrefix();
     }
 
