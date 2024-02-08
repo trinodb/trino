@@ -50,7 +50,7 @@ runs:
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2/repository
@@ -61,7 +61,7 @@ runs:
       - name: Restore local Maven repo
         id: cache_restore
         if: ${{ format('{0}', inputs.cache) == 'restore' }}
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}

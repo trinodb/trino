@@ -15,7 +15,7 @@ runs:
         echo "tree-hash=${TREE_HASH}" >> $GITHUB_OUTPUT
     - name: Cache compile-commit action success
       id: check-compile-commit-success
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: compile-commit-success.txt
         # use tree hashes instead of commit hashes to reuse cache when changes in commits are reorganized without changing the workspace
