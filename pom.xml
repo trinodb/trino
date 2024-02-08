@@ -203,7 +203,7 @@
         <dep.drift.version>1.21</dep.drift.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.errorprone.version>2.24.1</dep.errorprone.version>
-        <dep.flyway.version>10.7.1</dep.flyway.version>
+        <dep.flyway.version>10.7.2</dep.flyway.version>
         <dep.sap-hana-jdbc.version>2.17.12</dep.sap-hana-jdbc.version>
         <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
         <dep.iceberg.version>1.4.3</dep.iceberg.version>
