@@ -100,7 +100,7 @@ public class TestDeltaLakeConcurrentModificationGlueMetastore
                 stats,
                 table -> true);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty()));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore))));
         queryRunner.createCatalog(CATALOG_NAME, "delta_lake");
         queryRunner.execute("CREATE SCHEMA " + SCHEMA);
         return queryRunner;
