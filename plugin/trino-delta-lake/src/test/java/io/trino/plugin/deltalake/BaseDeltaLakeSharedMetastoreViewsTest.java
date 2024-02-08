@@ -64,7 +64,7 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("shared_data");
         this.metastore = createTestMetastore(dataDirectory);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty()));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore))));
         queryRunner.createCatalog(DELTA_CATALOG_NAME, "delta_lake");
 
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory, metastore));
