@@ -36,18 +36,16 @@ public class TestingDeltaLakePlugin
 {
     private final Path localFileSystemRootPath;
     private final Optional<Module> metastoreModule;
-    private final Optional<TrinoFileSystemFactory> fileSystemFactory;
 
     public TestingDeltaLakePlugin(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty(), Optional.empty());
+        this(localFileSystemRootPath, Optional.empty());
     }
 
-    public TestingDeltaLakePlugin(Path localFileSystemRootPath, Optional<Module> metastoreModule, Optional<TrinoFileSystemFactory> fileSystemFactory)
+    public TestingDeltaLakePlugin(Path localFileSystemRootPath, Optional<Module> metastoreModule)
     {
         this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
         this.metastoreModule = requireNonNull(metastoreModule, "metastoreModule is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
     @Override
@@ -70,7 +68,6 @@ public class TestingDeltaLakePlugin
                         config,
                         context,
                         metastoreModule,
-                        fileSystemFactory,
                         binder -> {
                             binder.install(new TestingDeltaLakeExtensionsModule());
                             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
