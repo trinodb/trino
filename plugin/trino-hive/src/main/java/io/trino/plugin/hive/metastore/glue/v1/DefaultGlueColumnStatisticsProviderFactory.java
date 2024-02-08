@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
+import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 
 import java.util.concurrent.Executor;
 

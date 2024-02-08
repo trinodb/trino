@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
@@ -19,10 +19,11 @@ import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 
 import java.util.Set;
 
-import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueClientUtil.createAsyncGlueClient;
 import static java.util.Objects.requireNonNull;
 
 public class HiveGlueClientProvider

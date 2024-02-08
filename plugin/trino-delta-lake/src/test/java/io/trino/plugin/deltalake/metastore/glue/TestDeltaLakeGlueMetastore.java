@@ -36,7 +36,7 @@ import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastore;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
