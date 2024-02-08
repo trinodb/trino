@@ -159,6 +159,11 @@ evenly and each receive 50% of the queries in a given timeframe.
 
 ## Selector rules
 
+The selector rules for pattern matching use Java's regular expression
+capabilities. Java implements regular expressions through the `java.util.regex`
+package. For more information, see the [Java
+documentation](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html).
+
 - `user` (optional): Java regex to match against user name.
 
 - `userGroup` (optional): Java regex to match against every user group the user belongs to.
