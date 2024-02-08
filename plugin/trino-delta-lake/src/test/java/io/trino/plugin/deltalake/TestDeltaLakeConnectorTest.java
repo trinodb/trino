@@ -74,6 +74,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -113,10 +114,11 @@ public class TestDeltaLakeConnectorTest
                     .put("hive.metastore", "file")
                     .put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toString())
                     .put("hive.metastore.disable-location-checks", "true")
-                    .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                    .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                    .put("hive.s3.endpoint", minio.getMinioAddress())
-                    .put("hive.s3.path-style-access", "true")
+                    .put("s3.aws-access-key", MINIO_ACCESS_KEY)
+                    .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                    .put("s3.region", MINIO_REGION)
+                    .put("s3.endpoint", minio.getMinioAddress())
+                    .put("s3.path-style-access", "true")
                     .put("delta.enable-non-concurrent-writes", "true")
                     .put("delta.register-table-procedure.enabled", "true")
                     .buildOrThrow());

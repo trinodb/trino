@@ -27,6 +27,7 @@ import java.util.Map;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -58,6 +59,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
         Map<String, String> s3Properties = ImmutableMap.<String, String>builder()
                 .put("s3.aws-access-key", MINIO_ACCESS_KEY)
                 .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .put("s3.region", MINIO_REGION)
                 .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                 .put("s3.path-style-access", "true")
                 .buildOrThrow();
