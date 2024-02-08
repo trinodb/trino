@@ -1,6 +1,6 @@
-# Filesystem cache
+# File system cache
 
-Trino accesses files directly on object storage and remote filesystem storage.
+Trino accesses files directly on object storage and remote file system storage.
 This often involves the transfer of large amounts of data. The files are
 retrieved from HDFS, or any other supported object storage, by multiple workers
 and processed on these workers. Repeated queries with different parameters, or
@@ -18,18 +18,18 @@ using the following connectors:
 (fs-cache-distributed)=
 ## Distributed caching
 
-Filesystem caching is distributed in Trino as part of the mechanism of any other
+File system caching is distributed in Trino as part of the mechanism of any other
 query processing. Query processing, detailed more in [](/overview/concepts) is
 broken up into different stages, where tasks and splits are processed by
 different nodes in the cluster. The lowest level splits retrieve data from the
 data source with the help of the connector of the specific catalog. For
-filesystem caching, these splits result in the retrieval of files from object
+file system caching, these splits result in the retrieval of files from object
 storage.
 
 Different nodes process splits with data from objects storage randomly over
 time, but with preference for using a fixed set of nodes for a given file. If
 the preferred nodes are too busy, the split, and hence the caching, takes place
-on a non-preferred, less busy node. Filesystem caching keeps copies of the
+on a non-preferred, less busy node. File system caching keeps copies of the
 retrieved files on a local cache storage, separate for each node. Over time the
 same files from object storage are cached on any nodes that require the data
 file for processing a specific task. Each cache on each node is managed
@@ -93,7 +93,7 @@ also when hosted in public cloud provider systems.
 Use the properties from the following table in your catalog properties files to
 enable and configure caching for the specific catalogs.
 
-:::{list-table} Filesystem cache configuration properties
+:::{list-table} File system cache configuration properties
 :widths: 25, 75
 :header-rows: 1
 
