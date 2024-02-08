@@ -122,8 +122,6 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                                 .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
-                                .put("fs.hadoop.enabled", "false")
-                                .put("fs.native-s3.enabled", "true")
                                 .put("s3.region", MINIO_REGION)
                                 .put("s3.endpoint", minio.getMinioAddress())
                                 .put("s3.path-style-access", "true")

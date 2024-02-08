@@ -57,8 +57,6 @@ public final class S3HudiQueryRunner
                 "hudi",
                 "hudi",
                 ImmutableMap.<String, String>builder()
-                        .put("fs.hadoop.enabled", "false")
-                        .put("fs.native-s3.enabled", "true")
                         .put("s3.aws-access-key", MINIO_ACCESS_KEY)
                         .put("s3.aws-secret-key", MINIO_SECRET_KEY)
                         .put("s3.region", MINIO_REGION)
