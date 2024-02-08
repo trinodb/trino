@@ -308,7 +308,7 @@ public class MemoryCacheManager
                 checkState(signatureToId.getUsageCount(keys[i].signatureId()) > 0, "Signature id must not be released while split is cached");
             }
 
-            if (!revocableMemoryAllocator.trySetBytes(getRevocableBytes() + entriesSize)) {
+            if (!trySetRevocableBytes(getRevocableBytes(), getRevocableBytes() + entriesSize)) {
                 // not sufficient memory to store split pages
                 abortStoreChannels(keys, channels);
             }
@@ -330,7 +330,7 @@ public class MemoryCacheManager
             }
             long currentRevocableBytes = getRevocableBytes();
             checkState(initialRevocableBytes >= currentRevocableBytes);
-            checkState(initialRevocableBytes == currentRevocableBytes || revocableMemoryAllocator.trySetBytes(currentRevocableBytes));
+            checkState(trySetRevocableBytes(initialRevocableBytes, currentRevocableBytes));
         });
     }
 
@@ -378,7 +378,7 @@ public class MemoryCacheManager
             checkState(cacheRevocableBytes >= 0);
             long currentRevocableBytes = getRevocableBytes();
             checkState(initialRevocableBytes >= currentRevocableBytes);
-            checkState(initialRevocableBytes == currentRevocableBytes || revocableMemoryAllocator.trySetBytes(currentRevocableBytes));
+            checkState(trySetRevocableBytes(initialRevocableBytes, currentRevocableBytes));
         });
     }
 
@@ -418,7 +418,7 @@ public class MemoryCacheManager
             // freeing memory should always succeed, while any non-negative allocation might return false
             long currentRevocableBytes = getRevocableBytes();
             checkState(initialRevocableBytes >= currentRevocableBytes);
-            checkState(initialRevocableBytes == currentRevocableBytes || revocableMemoryAllocator.trySetBytes(currentRevocableBytes));
+            checkState(trySetRevocableBytes(initialRevocableBytes, currentRevocableBytes));
             return initialRevocableBytes - currentRevocableBytes;
         });
     }
@@ -437,7 +437,7 @@ public class MemoryCacheManager
 
             long currentRevocableBytes = getRevocableBytes();
             checkState(currentRevocableBytes >= initialRevocableBytes);
-            if (currentRevocableBytes > initialRevocableBytes && !revocableMemoryAllocator.trySetBytes(currentRevocableBytes)) {
+            if (!trySetRevocableBytes(initialRevocableBytes, currentRevocableBytes)) {
                 // couldn't allocate ids due to memory constraints
                 signatureToId.releaseId(signatureId);
                 for (long columnId : columnIds) {
@@ -462,8 +462,13 @@ public class MemoryCacheManager
             }
             long currentRevocableBytes = getRevocableBytes();
             checkState(initialRevocableBytes >= currentRevocableBytes);
-            checkState(initialRevocableBytes == currentRevocableBytes || revocableMemoryAllocator.trySetBytes(currentRevocableBytes));
+            checkState(trySetRevocableBytes(initialRevocableBytes, currentRevocableBytes));
         });
+    }
+
+    private boolean trySetRevocableBytes(long initialRevocableBytes, long currentRevocableBytes)
+    {
+        return initialRevocableBytes == currentRevocableBytes || revocableMemoryAllocator.trySetBytes(currentRevocableBytes);
     }
 
     private static long getCacheEntrySize(SplitKey splitKey, Channel channel)
