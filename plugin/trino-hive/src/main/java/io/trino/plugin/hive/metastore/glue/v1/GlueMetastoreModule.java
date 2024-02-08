@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
@@ -32,6 +32,7 @@ import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 
 import java.util.concurrent.Executor;
 import java.util.function.Predicate;

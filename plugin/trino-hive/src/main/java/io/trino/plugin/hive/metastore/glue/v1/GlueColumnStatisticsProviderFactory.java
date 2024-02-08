@@ -11,19 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
-import com.google.inject.BindingAnnotation;
+import com.amazonaws.services.glue.AWSGlueAsync;
+import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-@Retention(RUNTIME)
-@Target({FIELD, PARAMETER, METHOD})
-@BindingAnnotation
-public @interface ForGlueColumnStatisticsRead {}
+public interface GlueColumnStatisticsProviderFactory
+{
+    GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient, GlueMetastoreStats stats);
+}

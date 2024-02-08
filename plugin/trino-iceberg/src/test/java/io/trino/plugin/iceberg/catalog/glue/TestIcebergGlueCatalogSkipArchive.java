@@ -47,8 +47,8 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static io.trino.testing.TestingConnectorSession.SESSION;

@@ -39,8 +39,8 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 

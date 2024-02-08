@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastore;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;

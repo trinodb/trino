@@ -19,8 +19,8 @@ import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
-import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
+import io.trino.plugin.hive.metastore.glue.v1.ForGlueHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule;
 
 import java.util.function.Predicate;
 
