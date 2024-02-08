@@ -38,7 +38,6 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
@@ -71,7 +70,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
         this.metastore = createTestMetastore(dataDirectory);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty()));
 
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
                 .put("delta.unique-table-location", "true")

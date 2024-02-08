@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
@@ -29,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
@@ -40,19 +37,17 @@ public class TestingDeltaLakePlugin
     private final Path localFileSystemRootPath;
     private final Optional<Module> metastoreModule;
     private final Optional<TrinoFileSystemFactory> fileSystemFactory;
-    private final Module additionalModule;
 
     public TestingDeltaLakePlugin(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty(), Optional.empty(), EMPTY_MODULE);
+        this(localFileSystemRootPath, Optional.empty(), Optional.empty());
     }
 
-    public TestingDeltaLakePlugin(Path localFileSystemRootPath, Optional<Module> metastoreModule, Optional<TrinoFileSystemFactory> fileSystemFactory, Module additionalModule)
+    public TestingDeltaLakePlugin(Path localFileSystemRootPath, Optional<Module> metastoreModule, Optional<TrinoFileSystemFactory> fileSystemFactory)
     {
         this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
         this.metastoreModule = requireNonNull(metastoreModule, "metastoreModule is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.additionalModule = requireNonNull(additionalModule, "additionalModule is null");
     }
 
     @Override
@@ -76,17 +71,11 @@ public class TestingDeltaLakePlugin
                         context,
                         metastoreModule,
                         fileSystemFactory,
-                        new AbstractConfigurationAwareModule()
-                        {
-                            @Override
-                            protected void setup(Binder binder)
-                            {
-                                install(additionalModule);
-                                install(new TestingDeltaLakeExtensionsModule());
-                                newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
-                                        .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
-                                configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
-                            }
+                        binder -> {
+                            binder.install(new TestingDeltaLakeExtensionsModule());
+                            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+                            configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, defaults -> defaults.setCatalogDirectory("local:///"));
                         });
             }
         });
