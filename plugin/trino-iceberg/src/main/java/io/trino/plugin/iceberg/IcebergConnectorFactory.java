@@ -23,7 +23,6 @@ import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
@@ -77,7 +76,7 @@ public class IcebergConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.empty(), Optional.empty());
+        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.empty());
     }
 
     public static Connector createConnector(
@@ -85,8 +84,7 @@ public class IcebergConnectorFactory
             Map<String, String> config,
             ConnectorContext context,
             Module module,
-            Optional<Module> icebergCatalogModule,
-            Optional<TrinoFileSystemFactory> fileSystemFactory)
+            Optional<Module> icebergCatalogModule)
     {
         ClassLoader classLoader = IcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -99,9 +97,7 @@ public class IcebergConnectorFactory
                     new IcebergSecurityModule(),
                     icebergCatalogModule.orElse(new IcebergCatalogModule()),
                     new MBeanServerModule(),
-                    fileSystemFactory
-                            .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
-                            .orElseGet(() -> new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry())),
+                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry()),
                     binder -> {
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());
