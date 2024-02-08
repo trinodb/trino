@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake.metastore.glue;
 
 import io.trino.plugin.deltalake.BaseDeltaLakeRegisterTableProcedureTest;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
-import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 

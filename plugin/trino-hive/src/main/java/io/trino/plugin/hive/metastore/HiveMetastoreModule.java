@@ -22,7 +22,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
-import io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule;
+import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 
 import java.util.Optional;
@@ -50,6 +50,7 @@ public class HiveMetastoreModule
             bindMetastoreModule("thrift", new ThriftMetastoreModule());
             bindMetastoreModule("file", new FileMetastoreModule());
             bindMetastoreModule("glue", new GlueMetastoreModule());
+            bindMetastoreModule("glue-v1", new io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule());
         }
 
         install(new CachingHiveMetastoreModule(true));
