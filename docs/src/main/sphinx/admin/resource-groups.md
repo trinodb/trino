@@ -159,11 +159,11 @@ evenly and each receive 50% of the queries in a given timeframe.
 
 ## Selector rules
 
-- `user` (optional): regex to match against user name.
+- `user` (optional): Java regex to match against user name.
 
-- `userGroup` (optional): regex to match against every user group the user belongs to.
+- `userGroup` (optional): Java regex to match against every user group the user belongs to.
 
-- `source` (optional): regex to match against source string.
+- `source` (optional): Java regex to match against source string.
 
 - `queryType` (optional): string to match against the type of the query submitted:
 
