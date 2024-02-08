@@ -35,23 +35,20 @@ public class TestingIcebergConnectorFactory
         implements ConnectorFactory
 {
     private final Optional<Module> icebergCatalogModule;
-    private final Optional<TrinoFileSystemFactory> fileSystemFactory;
     private final Module module;
 
     public TestingIcebergConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty(), Optional.empty());
+        this(localFileSystemRootPath, Optional.empty());
     }
 
     @Deprecated
     public TestingIcebergConnectorFactory(
             Path localFileSystemRootPath,
-            Optional<Module> icebergCatalogModule,
-            Optional<TrinoFileSystemFactory> fileSystemFactory)
+            Optional<Module> icebergCatalogModule)
     {
         localFileSystemRootPath.toFile().mkdirs();
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.module = binder -> {
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                     .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
@@ -74,6 +71,6 @@ public class TestingIcebergConnectorFactory
                     .put("iceberg.catalog.type", "TESTING_FILE_METASTORE")
                     .buildOrThrow();
         }
-        return createConnector(catalogName, config, context, module, icebergCatalogModule, fileSystemFactory);
+        return createConnector(catalogName, config, context, module, icebergCatalogModule);
     }
 }
