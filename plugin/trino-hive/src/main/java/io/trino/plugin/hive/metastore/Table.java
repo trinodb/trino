@@ -19,6 +19,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.ArrayList;
@@ -33,6 +36,11 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -154,6 +162,174 @@ public class Table
     public OptionalLong getWriteId()
     {
         return writeId;
+    }
+
+    public Table withComment(Optional<String> comment)
+    {
+        Map<String, String> parameters = new LinkedHashMap<>(this.parameters);
+        comment.ifPresentOrElse(
+                value -> parameters.put(TABLE_COMMENT, value),
+                () -> parameters.remove(TABLE_COMMENT));
+
+        return builder(this)
+                .setParameters(parameters)
+                .build();
+    }
+
+    public Table withOwner(HivePrincipal principal)
+    {
+        // TODO Add role support https://github.com/trinodb/trino/issues/5706
+        if (principal.getType() != USER) {
+            throw new TrinoException(NOT_SUPPORTED, "Setting table owner type as a role is not supported");
+        }
+
+        return builder(this)
+                .setOwner(Optional.of(principal.getName()))
+                .build();
+    }
+
+    public Table withColumnComment(String columnName, Optional<String> columnComment)
+    {
+        boolean found = false;
+        ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
+        for (Column dataColumn : dataColumns) {
+            if (dataColumn.getName().equals(columnName)) {
+                if (found) {
+                    throw new TrinoException(HIVE_INVALID_METADATA, "Table %s.%s has multiple columns named %s".formatted(databaseName, tableName, columnName));
+                }
+                dataColumn = dataColumn.withComment(columnComment);
+                found = true;
+            }
+            newDataColumns.add(dataColumn);
+        }
+
+        ImmutableList.Builder<Column> newPartitionColumns = ImmutableList.builder();
+        for (Column partitionColumn : partitionColumns) {
+            if (partitionColumn.getName().equals(columnName)) {
+                if (found) {
+                    throw new TrinoException(HIVE_INVALID_METADATA, "Table %s.%s has multiple columns named %s".formatted(databaseName, tableName, columnName));
+                }
+                partitionColumn = partitionColumn.withComment(columnComment);
+                found = true;
+            }
+            newPartitionColumns.add(partitionColumn);
+        }
+
+        if (!found) {
+            throw new ColumnNotFoundException(getSchemaTableName(), columnName);
+        }
+
+        return builder(this)
+                .setDataColumns(newDataColumns.build())
+                .setPartitionColumns(newPartitionColumns.build())
+                .build();
+    }
+
+    public Table withAddColumn(Column newColumn)
+    {
+        if (dataColumns.stream().map(Column::getName).anyMatch(columnName -> columnName.equals(newColumn.getName())) ||
+                partitionColumns.stream().map(Column::getName).anyMatch(columnName -> columnName.equals(newColumn.getName()))) {
+            throw new TrinoException(ALREADY_EXISTS, "Table %s.%s already has a column named %s".formatted(databaseName, tableName, newColumn.getName()));
+        }
+        return builder(this)
+                .addDataColumn(newColumn)
+                .build();
+    }
+
+    public Table withDropColumn(String columnName)
+    {
+        if (partitionColumns.stream().map(Column::getName).anyMatch(columnName::equals)) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop partition columns");
+        }
+        if (storage.getBucketProperty().stream().flatMap(bucket -> bucket.bucketedBy().stream()).anyMatch(columnName::equals) ||
+                storage.getBucketProperty().stream().flatMap(bucket -> bucket.sortedBy().stream()).map(SortingColumn::getColumnName).anyMatch(columnName::equals)) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop bucket column %s.%s.%s".formatted(databaseName, tableName, columnName));
+        }
+
+        boolean found = false;
+        ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
+        for (Column dataColumn : dataColumns) {
+            if (dataColumn.getName().equals(columnName)) {
+                found = true;
+            }
+            else {
+                newDataColumns.add(dataColumn);
+            }
+        }
+        if (!found) {
+            throw new ColumnNotFoundException(getSchemaTableName(), columnName);
+        }
+        List<Column> dataColumns = newDataColumns.build();
+        if (dataColumns.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop the only non-partition column in a table");
+        }
+        return builder(this)
+                .setDataColumns(dataColumns)
+                .build();
+    }
+
+    public Table withRenameColumn(String oldColumnName, String newColumnName)
+    {
+        if (partitionColumns.stream().map(Column::getName).anyMatch(oldColumnName::equals)) {
+            throw new TrinoException(NOT_SUPPORTED, "Renaming partition columns is not supported");
+        }
+
+        if (dataColumns.stream().map(Column::getName).anyMatch(newColumnName::equals) ||
+                partitionColumns.stream().map(Column::getName).anyMatch(newColumnName::equals)) {
+            throw new TrinoException(ALREADY_EXISTS, "Table %s.%s already has a column named %s".formatted(databaseName, tableName, newColumnName));
+        }
+
+        boolean found = false;
+        ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
+        for (Column dataColumn : dataColumns) {
+            if (dataColumn.getName().equals(oldColumnName)) {
+                newDataColumns.add(dataColumn.withName(newColumnName));
+                found = true;
+            }
+            else {
+                newDataColumns.add(dataColumn);
+            }
+        }
+        if (!found) {
+            throw new ColumnNotFoundException(getSchemaTableName(), oldColumnName);
+        }
+
+        Builder builder = builder(this)
+                .setDataColumns(newDataColumns.build());
+
+        if (storage.getBucketProperty().isPresent()) {
+            HiveBucketProperty bucketProperty = storage.getBucketProperty().get();
+
+            ImmutableList.Builder<String> newBucketColumns = ImmutableList.builder();
+            for (String bucketColumn : bucketProperty.bucketedBy()) {
+                if (bucketColumn.equals(oldColumnName)) {
+                    newBucketColumns.add(newColumnName);
+                }
+                else {
+                    newBucketColumns.add(bucketColumn);
+                }
+            }
+
+            ImmutableList.Builder<SortingColumn> newSortedColumns = ImmutableList.builder();
+            for (SortingColumn sortingColumn : bucketProperty.sortedBy()) {
+                if (sortingColumn.getColumnName().equals(oldColumnName)) {
+                    newSortedColumns.add(new SortingColumn(newColumnName, sortingColumn.getOrder()));
+                }
+                else {
+                    newSortedColumns.add(sortingColumn);
+                }
+            }
+
+            builder.getStorageBuilder().setBucketProperty(new HiveBucketProperty(newBucketColumns.build(), bucketProperty.bucketCount(), newSortedColumns.build()));
+        }
+        return builder.build();
+    }
+
+    public Table withParameters(Map<String, String> newParameters)
+    {
+        return builder(this)
+                .setParameters(newParameters)
+                .build();
     }
 
     public static Builder builder()

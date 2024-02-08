@@ -13,21 +13,17 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.hive.metastore.glue.v1.DefaultGlueColumnStatisticsProviderFactory;
-import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastoreConfig;
+import io.opentelemetry.api.OpenTelemetry;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.TableKind;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.EnumSet;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.metastore.glue.v1.GlueClientUtil.createAsyncGlueClient;
+import static io.trino.plugin.hive.metastore.glue.GlueMetastoreModule.createGlueClient;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isDirectory;
@@ -54,23 +50,11 @@ public final class TestingGlueHiveMetastore
     {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(warehouseUri.toString());
-        GlueMetastoreStats stats = new GlueMetastoreStats();
         return new GlueHiveMetastore(
+                createGlueClient(glueConfig, OpenTelemetry.noop()),
+                new GlueContext(glueConfig),
                 HDFS_FILE_SYSTEM_FACTORY,
                 glueConfig,
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                createTestingAsyncGlueClient(glueConfig, stats),
-                stats,
-                table -> true);
-    }
-
-    public static AWSGlueAsync createTestingAsyncGlueClient(GlueHiveMetastoreConfig glueConfig, GlueMetastoreStats stats)
-    {
-        return createAsyncGlueClient(
-                glueConfig,
-                DefaultAWSCredentialsProviderChain.getInstance(),
-                ImmutableSet.of(),
-                stats.newRequestMetricsCollector());
+                EnumSet.allOf(TableKind.class));
     }
 }
