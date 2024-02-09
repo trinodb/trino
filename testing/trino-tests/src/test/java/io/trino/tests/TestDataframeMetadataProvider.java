@@ -91,9 +91,8 @@ public class TestDataframeMetadataProvider
     public void setup()
     {
         closer = Closer.create();
-        PlanTester planTester = PlanTester.create(TEST_SESSION);
+        PlanTester planTester = closer.register(PlanTester.create(TEST_SESSION));
         planTester.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(), ImmutableMap.of());
-        closer.register(planTester);
         transactionManager = planTester.getTransactionManager();
 
         AccessControlManager accessControlManager = new AccessControlManager(
