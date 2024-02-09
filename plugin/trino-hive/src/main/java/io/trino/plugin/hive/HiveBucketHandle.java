@@ -91,7 +91,6 @@ public class HiveBucketHandle
                 columns.stream()
                         .map(HiveColumnHandle::getName)
                         .collect(toList()),
-                bucketingVersion,
                 tableBucketCount,
                 sortedBy);
     }
