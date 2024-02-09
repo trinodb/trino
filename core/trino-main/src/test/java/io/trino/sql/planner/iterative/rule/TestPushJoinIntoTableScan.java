@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorFactory.ApplyJoinLegacy;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
@@ -595,7 +596,7 @@ public class TestPushJoinIntoTableScan
                 new ConnectorTransactionHandle() {});
     }
 
-    private MockConnectorFactory createMockConnectorFactory(MockConnectorFactory.ApplyJoin applyJoin)
+    private MockConnectorFactory createMockConnectorFactory(ApplyJoinLegacy applyJoin)
     {
         return MockConnectorFactory.builder()
                 .withListSchemaNames(connectorSession -> ImmutableList.of(SCHEMA))

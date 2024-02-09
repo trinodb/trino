@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.trino.connector.MockConnectorFactory.ApplyAggregation;
 import io.trino.connector.MockConnectorFactory.ApplyFilter;
 import io.trino.connector.MockConnectorFactory.ApplyJoin;
+import io.trino.connector.MockConnectorFactory.ApplyJoinLegacy;
 import io.trino.connector.MockConnectorFactory.ApplyProjection;
 import io.trino.connector.MockConnectorFactory.ApplyTableFunction;
 import io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
@@ -123,6 +124,7 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -161,7 +163,8 @@ public class MockConnector
     private final Function<SchemaTableName, List<String>> checkConstraints;
     private final MockConnectorFactory.ApplyProjection applyProjection;
     private final MockConnectorFactory.ApplyAggregation applyAggregation;
-    private final MockConnectorFactory.ApplyJoin applyJoin;
+    private final Optional<ApplyJoinLegacy> applyJoinLegacy;
+    private final Optional<ApplyJoin> applyJoin;
     private final MockConnectorFactory.ApplyTopN applyTopN;
     private final MockConnectorFactory.ApplyFilter applyFilter;
     private final MockConnectorFactory.ApplyTableFunction applyTableFunction;
@@ -215,7 +218,8 @@ public class MockConnector
             Function<SchemaTableName, List<String>> checkConstraints,
             ApplyProjection applyProjection,
             ApplyAggregation applyAggregation,
-            ApplyJoin applyJoin,
+            Optional<ApplyJoinLegacy> applyJoinLegacy,
+            Optional<ApplyJoin> applyJoin,
             ApplyTopN applyTopN,
             ApplyFilter applyFilter,
             ApplyTableFunction applyTableFunction,
@@ -267,7 +271,9 @@ public class MockConnector
         this.checkConstraints = requireNonNull(checkConstraints, "checkConstraints is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
+        this.applyJoinLegacy = requireNonNull(applyJoinLegacy, "applyJoinLegacy is null");
         this.applyJoin = requireNonNull(applyJoin, "applyJoin is null");
+        verify(applyJoin.isEmpty() || applyJoinLegacy.isEmpty(), "cannot provide both join implementations");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
         this.applyTableFunction = requireNonNull(applyTableFunction, "applyTableFunction is null");
@@ -481,7 +487,25 @@ public class MockConnector
                 Map<String, ColumnHandle> rightAssignments,
                 JoinStatistics statistics)
         {
-            return applyJoin.apply(session, joinType, left, right, joinConditions, leftAssignments, rightAssignments);
+            return applyJoinLegacy.flatMap(impl -> impl.apply(session, joinType, left, right, joinConditions, leftAssignments, rightAssignments));
+        }
+
+        @Override
+        public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
+                ConnectorSession session,
+                JoinType joinType,
+                ConnectorTableHandle left,
+                ConnectorTableHandle right,
+                ConnectorExpression joinCondition,
+                Map<String, ColumnHandle> leftAssignments,
+                Map<String, ColumnHandle> rightAssignments,
+                JoinStatistics statistics)
+        {
+            if (applyJoin.isEmpty()) {
+                return ConnectorMetadata.super.applyJoin(session, joinType, left, right, joinCondition, leftAssignments, rightAssignments, statistics);
+            }
+
+            return applyJoin.get().apply(session, joinType, left, right, joinCondition, leftAssignments, rightAssignments);
         }
 
         @Override
