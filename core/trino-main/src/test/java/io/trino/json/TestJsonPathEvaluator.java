@@ -34,6 +34,7 @@ import io.trino.json.ir.TypedValue;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
@@ -284,6 +285,7 @@ public class TestJsonPathEvaluator
         assertThat(pathResult(
                 IntNode.valueOf(-5),
                 path(true, subtract(variable("short_decimal_parameter"), variable("long_decimal_parameter")))))
+                .withEqualsForType(TypeSignature::equals, TypeSignature.class) // we don't want deep TypeSignature comparison because of cached hashCode
                 .isEqualTo(singletonSequence(new TypedValue(createDecimalType(31, 20), Int128.valueOf("-1330000000000000000000"))));
 
         // division by 0
