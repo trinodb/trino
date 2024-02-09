@@ -410,7 +410,7 @@ public abstract class BaseConnectorSmokeTest
 
         String schemaName = "test_rename_schema_" + randomNameSuffix();
         try {
-            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate(createSchemaSql(schemaName));
             assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
         }
         finally {
