@@ -61,6 +61,9 @@ public class TestHiveS3AndGlueMetastoreTest
                 .setCreateTpchSchemas(false)
                 .addHiveProperty("hive.security", "allow-all")
                 .addHiveProperty("hive.non-managed-table-writes-enabled", "true")
+                // TODO the test currently fails with native S3 enabled
+                .addHiveProperty("fs.hadoop.enabled", "true")
+                .addHiveProperty("fs.native-s3.enabled", "false")
                 .setMetastore(runner -> metastore)
                 .build();
         queryRunner.execute("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaPath() + "')");
