@@ -1151,7 +1151,7 @@ public class TrinoGlueCatalog
             TableInput materializedViewTableInput = getMaterializedViewTableInput(
                     viewName.getTableName(),
                     encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(definition)),
-                    session.getUser(),
+                    isUsingSystemSecurity ? null : session.getUser(),
                     createMaterializedViewProperties(session, storageMetadataLocation));
             if (existing.isPresent()) {
                 updateTable(viewName.getSchemaName(), materializedViewTableInput);
