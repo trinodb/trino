@@ -22,10 +22,12 @@ import io.trino.cost.StatsProvider;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -37,8 +39,7 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.testing.LocalQueryRunner;
-import org.junit.jupiter.api.AfterAll;
+import io.trino.transaction.TestingTransactionManager;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -50,7 +51,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
@@ -60,11 +60,12 @@ import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.PRE_AGGREGATE;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.SINGLE_STEP;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.SPLIT_TO_SUBQUERIES;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -76,35 +77,31 @@ public class TestDistinctAggregationController
     private static final int NODE_COUNT = 6;
     private static final TaskCountEstimator TASK_COUNT_ESTIMATOR = new TaskCountEstimator(() -> NODE_COUNT);
     private static final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-    private LocalQueryRunner queryRunner;
+
+    private TestingTransactionManager transactionManager;
+    private Metadata metadata;
 
     @BeforeAll
     public final void setUp()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(TEST_SESSION)
-                .withMetadataDecorator(metadata -> new DelegatingMetadata(metadata)
-                {
-                    @Override
-                    public boolean isColumnarTableScan(Session session, TableHandle tableHandle)
-                    {
-                        return true;
-                    }
-                }).build();
-        queryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
-        this.queryRunner = queryRunner;
-    }
-
-    @AfterAll
-    public final void tearDown()
-    {
-        closeAllRuntimeException(queryRunner);
-        queryRunner = null;
+        this.transactionManager = new TestingTransactionManager();
+        PlannerContext plannerContext = plannerContextBuilder()
+                .withTransactionManager(transactionManager)
+                .build();
+        this.metadata = new DelegatingMetadata(plannerContext.getMetadata())
+        {
+            @Override
+            public boolean isColumnarTableScan(Session session, TableHandle tableHandle)
+            {
+                return true;
+            }
+        };
     }
 
     @Test
     public void testSingleStepPreferredForHighCardinalitySingleGroupByKey()
     {
-        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, queryRunner.getMetadata());
+        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, metadata);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         Symbol groupingKey = symbolAllocator.newSymbol("groupingKey", BIGINT);
 
@@ -121,7 +118,7 @@ public class TestDistinctAggregationController
     @Test
     public void testSingleStepPreferredForHighCardinalityMultipleGroupByKeys()
     {
-        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, queryRunner.getMetadata());
+        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, metadata);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
 
         Symbol lowCardinalityGroupingKey = symbolAllocator.newSymbol("lowCardinalityGroupingKey", BIGINT);
@@ -141,7 +138,7 @@ public class TestDistinctAggregationController
     @Test
     public void testPreAggregatePreferredForLowCardinality2GroupByKeys()
     {
-        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, queryRunner.getMetadata());
+        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, metadata);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
 
         List<Symbol> groupingKeys = ImmutableList.of(
@@ -163,7 +160,7 @@ public class TestDistinctAggregationController
     @Test
     public void testPreAggregatePreferredForUnknownStatisticsAnd2GroupByKeys()
     {
-        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, queryRunner.getMetadata());
+        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, metadata);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
 
         List<Symbol> groupingKeys = ImmutableList.of(
@@ -179,7 +176,7 @@ public class TestDistinctAggregationController
     @Test
     public void testPreAggregatePreferredForMediumCardinalitySingleGroupByKey()
     {
-        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, queryRunner.getMetadata());
+        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, metadata);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         Symbol groupingKey = symbolAllocator.newSymbol("groupingKey", BIGINT);
 
@@ -196,7 +193,7 @@ public class TestDistinctAggregationController
     @Test
     public void testSingleStepPreferredForMediumCardinality3GroupByKeys()
     {
-        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, queryRunner.getMetadata());
+        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, metadata);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         List<Symbol> groupingKeys = ImmutableList.of(
                 symbolAllocator.newSymbol("key1", BIGINT),
@@ -218,7 +215,7 @@ public class TestDistinctAggregationController
     @Test
     public void testSplitToSubqueriesPreferredForGlobalAggregation()
     {
-        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, queryRunner.getMetadata());
+        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, metadata);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
 
         PlanNode source = tableScan();
@@ -234,7 +231,7 @@ public class TestDistinctAggregationController
     @Test
     public void testMarkDistinctPreferredForLowCardinality3GroupByKeys()
     {
-        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, queryRunner.getMetadata());
+        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, metadata);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
 
         List<Symbol> groupingKeys = ImmutableList.of(
@@ -259,7 +256,7 @@ public class TestDistinctAggregationController
     @Test
     public void testMarkDistinctPreferredForUnknownStatisticsAnd3GroupByKeys()
     {
-        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, queryRunner.getMetadata());
+        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, metadata);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
 
         List<Symbol> groupingKeys = ImmutableList.of(
@@ -275,7 +272,7 @@ public class TestDistinctAggregationController
     public void testChoiceForcedByTheSessionProperty()
     {
         int clusterThreadCount = NODE_COUNT * getTaskConcurrency(TEST_SESSION);
-        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, queryRunner.getMetadata());
+        DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR, metadata);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         Symbol groupingKey = symbolAllocator.newSymbol("groupingKey", BIGINT);
 
@@ -327,13 +324,8 @@ public class TestDistinctAggregationController
 
     private <T> T inTransaction(Session session, Function<Session, T> callback)
     {
-        return queryRunner.inTransaction(
-                session,
-                transactionalSession -> {
-                    // register catalog in transaction
-                    assertThat(queryRunner.getMetadata().getCatalogHandle(transactionalSession, TEST_CATALOG_NAME)).isPresent();
-                    return callback.apply(transactionalSession);
-                });
+        return transaction(transactionManager, metadata, new AllowAllAccessControl())
+                .execute(session, callback);
     }
 
     private static PlanNode tableScan()
