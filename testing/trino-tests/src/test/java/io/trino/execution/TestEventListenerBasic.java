@@ -612,7 +612,7 @@ public class TestEventListenerBasic
 
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
-        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_materialized_view_stale$materialized_view_storage");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_materialized_view_stale");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
 
