@@ -51,7 +51,6 @@ public class TestDeltaLakeJmx
                 row("io.trino.hdfs:name=delta,type=trinohdfsfilesystemstats"),
                 row("io.trino.plugin.hive.metastore.cache:name=delta,type=cachinghivemetastore"),
                 row("io.trino.plugin.hive.metastore.thrift:name=delta,type=thrifthivemetastore"),
-                row("io.trino.hdfs.s3:name=delta,type=trinos3filesystem"),
                 row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
                 row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
     }
