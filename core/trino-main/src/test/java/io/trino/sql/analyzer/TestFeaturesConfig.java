@@ -77,7 +77,7 @@ public class TestFeaturesConfig
                 .put("scale-writers", "false")
                 .put("writer-scaling-min-data-processed", "4GB")
                 .put("max-memory-per-partition-writer", "4GB")
-                .put("regex-library", "RE2J")
+                .put("deprecated.regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
                 .put("spill-enabled", "true")

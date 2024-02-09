@@ -222,12 +222,15 @@ public class FeaturesConfig
         return this;
     }
 
+    @Deprecated(forRemoval = true)
     public RegexLibrary getRegexLibrary()
     {
         return regexLibrary;
     }
 
-    @Config("regex-library")
+    @Deprecated(forRemoval = true)
+    @Config("deprecated.regex-library")
+    @LegacyConfig("regex-library")
     public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
     {
         this.regexLibrary = regexLibrary;
