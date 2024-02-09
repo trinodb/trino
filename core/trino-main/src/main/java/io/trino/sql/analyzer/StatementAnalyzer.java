@@ -694,8 +694,8 @@ class StatementAnalyzer
             accessControl.checkCanRefreshMaterializedView(session.toSecurityContext(), name);
             analysis.setUpdateType("REFRESH MATERIALIZED VIEW");
 
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, refreshMaterializedView, name.getCatalogName());
             if (metadata.delegateMaterializedViewRefreshToConnector(session, name)) {
-                CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, refreshMaterializedView, name.getCatalogName());
                 analysis.setDelegatedRefreshMaterializedView(name);
                 analysis.setUpdateTarget(
                         catalogHandle.getVersion(),
@@ -745,8 +745,8 @@ class StatementAnalyzer
                     Column::new);
 
             analysis.setUpdateTarget(
-                    targetTableHandle.getCatalogHandle().getVersion(),
-                    targetTable,
+                    catalogHandle.getVersion(),
+                    name,
                     Optional.empty(),
                     Optional.of(Streams.zip(
                                     columns,
