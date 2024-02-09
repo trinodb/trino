@@ -47,7 +47,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.memory.EmptySplitCache.EMPTY_SPLIT_CACHE;
 import static io.trino.plugin.memory.MemoryCacheManager.MAP_ENTRY_SIZE;
 import static io.trino.plugin.memory.MemoryCacheManager.MAX_CACHED_CHANNELS_PER_COLUMN;
 import static io.trino.plugin.memory.MemoryCacheManager.canonicalizePlanSignature;
@@ -103,13 +102,13 @@ public class TestMemoryCacheManager
         long idSize = ObjectToIdMap.getEntrySize(canonicalizePlanSignature(signature), PlanSignature::getRetainedSizeInBytes)
                 + ObjectToIdMap.getEntrySize(COLUMN1, CacheColumnId::getRetainedSizeInBytes);
         long tupleDomainIdSize = ObjectToIdMap.getEntrySize(TupleDomain.<CacheColumnId>all(), tupleDomain -> tupleDomain.getRetainedSizeInBytes(CacheColumnId::getRetainedSizeInBytes));
-        // account for ids memory
-        assertThat(allocatedRevocableMemory).isEqualTo(idSize);
+        // SplitCache doesn't allocate any revocable memory
+        assertThat(allocatedRevocableMemory).isEqualTo(0L);
 
         Optional<ConnectorPageSink> sinkOptional = cache.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all());
         assertThat(sinkOptional).isPresent();
-        // extra memory is required by TupleDomain -> id mapping
-        assertThat(allocatedRevocableMemory).isEqualTo(idSize + tupleDomainIdSize);
+        // active sink doesn't allocate any revocable memory
+        assertThat(allocatedRevocableMemory).isEqualTo(0L);
 
         // second sink should not be present as split data is already being cached
         assertThat(cache.storePages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
@@ -119,9 +118,9 @@ public class TestMemoryCacheManager
         ConnectorPageSink sink = sinkOptional.get();
         sink.appendPage(oneMegabytePage);
 
-        // make sure memory usage is accounted for in page sink
+        // make sure memory usage is accounted for page sink
         assertThat(sink.getMemoryUsage()).isEqualTo(block.getRetainedSizeInBytes());
-        assertThat(allocatedRevocableMemory).isEqualTo(idSize + tupleDomainIdSize);
+        assertThat(allocatedRevocableMemory).isEqualTo(0L);
 
         // make sure memory is transferred to cacheManager after sink is finished
         sink.finish();
@@ -143,11 +142,8 @@ public class TestMemoryCacheManager
         PlanSignature anotherSignature = createPlanSignature("sig2");
         SplitCache anotherCache = cacheManager.getSplitCache(anotherSignature);
         assertThat(anotherCache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
-        long anotherIdSize = ObjectToIdMap.getEntrySize(canonicalizePlanSignature(anotherSignature), PlanSignature::getRetainedSizeInBytes);
-        assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize + tupleDomainIdSize + anotherIdSize);
-        anotherCache.close();
-        // SplitCache close should release signature memory
         assertThat(allocatedRevocableMemory).isEqualTo(cacheEntrySize + idSize + tupleDomainIdSize);
+        anotherCache.close();
 
         // store data for another split
         sink = cache.storePages(SPLIT2, TupleDomain.all(), TupleDomain.all()).orElseThrow();
@@ -412,9 +408,6 @@ public class TestMemoryCacheManager
         PlanSignature signature = createPlanSignature("sig");
 
         // create new SplitCache
-        long idSize = ObjectToIdMap.getEntrySize(canonicalizePlanSignature(signature), PlanSignature::getRetainedSizeInBytes)
-                + ObjectToIdMap.getEntrySize(COLUMN1, CacheColumnId::getRetainedSizeInBytes)
-                + ObjectToIdMap.getEntrySize(TupleDomain.<CacheColumnId>all(), tupleDomain -> tupleDomain.getRetainedSizeInBytes(CacheColumnId::getRetainedSizeInBytes));
         SplitCache cache = cacheManager.getSplitCache(signature);
 
         // start caching of new split
@@ -422,13 +415,12 @@ public class TestMemoryCacheManager
         assertThat(sinkOptional).isPresent();
         ConnectorPageSink sink = sinkOptional.get();
         sink.appendPage(oneMegabytePage);
-        assertThat(allocatedRevocableMemory).isEqualTo(idSize);
         assertThat(sink.getMemoryUsage()).isEqualTo(oneMegabytePage.getBlock(0).getRetainedSizeInBytes());
         assertThat(cache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
 
-        // active sink should keep signature memory allocated
+        // active sink shouldn't allocate any revocable memory
         cache.close();
-        assertThat(allocatedRevocableMemory).isEqualTo(idSize);
+        assertThat(allocatedRevocableMemory).isEqualTo(0L);
 
         // no data should be cached after abort
         sink.abort();
@@ -471,19 +463,12 @@ public class TestMemoryCacheManager
         // revoke some small amount of memory
         assertThat(cacheManager.revokeMemory(100)).isPositive();
 
-        // only one split (for secondBigSignature signature) should be cached, because big signature was purged
+        // only one split (for secondBigSignature signature) should be cached, because initial bigSignature was purged
         anotherCache = cacheManager.getSplitCache(bigSignature);
         cacheForSecondSignature = cacheManager.getSplitCache(secondBigSignature);
         assertThat(anotherCache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
         assertThat(cacheForSecondSignature.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isPresent();
         anotherCache.close();
-
-        // memory limits should be enforced for large signatures
-        memoryLimit = 10_000;
-        long initialMemory = allocatedRevocableMemory;
-        SplitCache thirdCache = cacheManager.getSplitCache(bigSignature);
-        assertThat(thirdCache).isEqualTo(EMPTY_SPLIT_CACHE);
-        assertThat(allocatedRevocableMemory).isEqualTo(initialMemory);
     }
 
     @Test

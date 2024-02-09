@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.LONG_INSTANCE_SIZE;
 import static io.trino.plugin.memory.MemoryCacheManager.MAP_ENTRY_SIZE;
@@ -37,10 +38,11 @@ public class ObjectToIdMap<T>
     private final Function<T, Long> retainedSizeInBytesProvider;
     private final BiMap<T, Long> objectToId = HashBiMap.create();
     /**
-     * Usage count per id. When usage count for particular id drops to 0,
-     * then corresponding mapping from {@link ObjectToIdMap#objectToId}
-     * can be dropped.
+     * Usage count per id. When non-revocable and revocable usage count
+     * for particular id drops to 0, then corresponding mapping from
+     * {@link ObjectToIdMap#objectToId} can be dropped.
      */
+    private final Long2LongMap idUsageCount = new Long2LongOpenHashMap();
     private final Long2LongMap idRevocableUsageCount = new Long2LongOpenHashMap();
     private long revocableBytes;
     private long nextId;
@@ -55,24 +57,54 @@ public class ObjectToIdMap<T>
         return Optional.ofNullable(objectToId.get(object));
     }
 
+    public long allocateId(T object)
+    {
+        return allocateId(object, 1L);
+    }
+
+    public long allocateId(T object, long delta)
+    {
+        return allocateId(object, delta, 0L);
+    }
+
     public long allocateRevocableId(T object)
     {
         return allocateRevocableId(object, 1L);
     }
 
-    public long allocateRevocableId(T object, long count)
+    public long allocateRevocableId(T object, long delta)
     {
+        return allocateId(object, 0L, delta);
+    }
+
+    private long allocateId(T object, long delta, long revocableDelta)
+    {
+        checkArgument(delta >= 0, "delta is negative");
+        checkArgument(revocableDelta >= 0, "revocableDelta is negative");
         Long id = objectToId.get(object);
         if (id == null) {
             id = nextId++;
             objectToId.put(object, id);
-            idRevocableUsageCount.put((long) id, count);
-            revocableBytes += getEntrySize(object);
+            idUsageCount.put((long) id, delta);
+            idRevocableUsageCount.put((long) id, revocableDelta);
+            if (revocableDelta > 0) {
+                revocableBytes += getEntrySize(object);
+            }
             return id;
         }
 
-        acquireRevocableId(id, count);
+        acquireId(id, delta, revocableDelta);
         return id;
+    }
+
+    public void acquireId(long id)
+    {
+        acquireId(id, 1L);
+    }
+
+    public void acquireId(long id, long delta)
+    {
+        acquireId(id, delta, 0L);
     }
 
     public void acquireRevocableId(long id)
@@ -80,9 +112,31 @@ public class ObjectToIdMap<T>
         acquireRevocableId(id, 1L);
     }
 
-    public void acquireRevocableId(long id, long count)
+    public void acquireRevocableId(long id, long delta)
     {
-        idRevocableUsageCount.merge(id, count, Long::sum);
+        acquireId(id, 0L, delta);
+    }
+
+    private void acquireId(long id, long delta, long revocableDelta)
+    {
+        checkArgument(delta >= 0, "delta is negative");
+        checkArgument(revocableDelta >= 0, "revocableDelta is negative");
+        checkArgument(objectToId.inverse().containsKey(id), "Trying to acquire missing id");
+
+        idUsageCount.mergeLong(id, delta, Long::sum);
+        if (revocableDelta > 0 && idRevocableUsageCount.mergeLong(id, revocableDelta, Long::sum) == revocableDelta) {
+            revocableBytes += getEntrySize(objectToId.inverse().get(id));
+        }
+    }
+
+    public void releaseId(long id)
+    {
+        releaseId(id, 1L);
+    }
+
+    public void releaseId(long id, long delta)
+    {
+        releaseId(id, delta, 0L);
     }
 
     public void releaseRevocableId(long id)
@@ -90,20 +144,35 @@ public class ObjectToIdMap<T>
         releaseRevocableId(id, 1L);
     }
 
-    public void releaseRevocableId(long id, long count)
+    public void releaseRevocableId(long id, long delta)
     {
-        long usageCount = idRevocableUsageCount.merge(id, -count, Long::sum);
+        releaseId(id, 0L, delta);
+    }
+
+    private void releaseId(long id, long delta, long revocableDelta)
+    {
+        checkArgument(delta >= 0, "delta is negative");
+        checkArgument(revocableDelta >= 0, "revocableDelta is negative");
+
+        long usageCount = idUsageCount.mergeLong(id, -delta, Long::sum);
         checkState(usageCount >= 0, "Usage count is negative");
-        if (usageCount == 0) {
-            T object = requireNonNull(objectToId.inverse().remove(id));
+
+        long revocableUsageCount = idRevocableUsageCount.mergeLong(id, -revocableDelta, Long::sum);
+        checkState(revocableUsageCount >= 0, "Revocable usage count is negative");
+        if (revocableDelta > 0 && revocableUsageCount == 0) {
+            revocableBytes -= getEntrySize(objectToId.inverse().get(id));
+        }
+
+        if (usageCount == 0 && revocableUsageCount == 0) {
+            requireNonNull(objectToId.inverse().remove(id));
+            idUsageCount.remove(id);
             idRevocableUsageCount.remove(id);
-            revocableBytes -= getEntrySize(object);
         }
     }
 
-    public long getUsageCount(long id)
+    public long getTotalUsageCount(long id)
     {
-        return idRevocableUsageCount.getOrDefault(id, 0L);
+        return idUsageCount.getOrDefault(id, 0L) + idRevocableUsageCount.getOrDefault(id, 0L);
     }
 
     public int size()
@@ -124,6 +193,7 @@ public class ObjectToIdMap<T>
     @VisibleForTesting
     static <T> long getEntrySize(T object, Function<T, Long> retainedSizeInBytesProvider)
     {
+        requireNonNull(object, "object is null");
         // account for objectToId
         return MAP_ENTRY_SIZE + retainedSizeInBytesProvider.apply(object) + LONG_INSTANCE_SIZE +
                 // account for idUsageCount
