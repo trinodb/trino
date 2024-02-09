@@ -358,6 +358,7 @@ public class MemoryCacheManager
             if (!trySetRevocableBytes(getRevocableBytes(), getRevocableBytes() + entriesSize)) {
                 // not sufficient memory to store split pages
                 abortStoreChannels(signatureIds, predicateIds, channels);
+                return;
             }
 
             cacheRevocableBytes += entriesSize;
