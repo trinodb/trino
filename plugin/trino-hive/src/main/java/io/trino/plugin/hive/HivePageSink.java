@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -99,10 +100,9 @@ public class HivePageSink
     private long validationCpuNanos;
 
     public HivePageSink(
-            HiveWritableTableHandle tableHandle,
             HiveWriterFactory writerFactory,
             List<HiveColumnHandle> inputColumns,
-            boolean isTransactional,
+            AcidTransaction acidTransaction,
             Optional<HiveBucketProperty> bucketProperty,
             PageIndexerFactory pageIndexerFactory,
             int maxOpenWriters,
@@ -116,12 +116,12 @@ public class HivePageSink
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
-        this.isTransactional = isTransactional;
+        this.isTransactional = acidTransaction.isTransactional();
         this.maxOpenWriters = maxOpenWriters;
         this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
-        this.isMergeSink = tableHandle.getTransaction().isMerge();
+        this.isMergeSink = acidTransaction.isMerge();
         requireNonNull(bucketProperty, "bucketProperty is null");
         this.pagePartitioner = new HiveWriterPagePartitioner(
                 inputColumns,
