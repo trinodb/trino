@@ -30,10 +30,10 @@ public class TestFileSystemConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FileSystemConfig.class)
-                .setHadoopEnabled(true)
-                .setNativeAzureEnabled(true)
-                .setNativeS3Enabled(true)
-                .setNativeGcsEnabled(true)
+                .setHadoopEnabled(false)
+                .setNativeAzureEnabled(false)
+                .setNativeS3Enabled(false)
+                .setNativeGcsEnabled(false)
                 .setCacheType(NONE));
     }
 
@@ -41,18 +41,18 @@ public class TestFileSystemConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("fs.hadoop.enabled", "false")
-                .put("fs.native-azure.enabled", "false")
-                .put("fs.native-s3.enabled", "false")
-                .put("fs.native-gcs.enabled", "false")
+                .put("fs.hadoop.enabled", "true")
+                .put("fs.native-azure.enabled", "true")
+                .put("fs.native-s3.enabled", "true")
+                .put("fs.native-gcs.enabled", "true")
                 .put("fs.cache", "alluxio")
                 .buildOrThrow();
 
         FileSystemConfig expected = new FileSystemConfig()
-                .setHadoopEnabled(false)
-                .setNativeAzureEnabled(false)
-                .setNativeS3Enabled(false)
-                .setNativeGcsEnabled(false)
+                .setHadoopEnabled(true)
+                .setNativeAzureEnabled(true)
+                .setNativeS3Enabled(true)
+                .setNativeGcsEnabled(true)
                 .setCacheType(ALLUXIO);
 
         assertFullMapping(properties, expected);
