@@ -296,7 +296,7 @@ public class ParquetPageSourceFactory
             if (e instanceof ParquetCorruptionException) {
                 throw new TrinoException(HIVE_BAD_DATA, e);
             }
-            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", inputFile.location(), start, length, e.getMessage());
+            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", inputFile.location(), start, length, e);
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
     }
