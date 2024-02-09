@@ -13,15 +13,12 @@
  */
 package io.trino.filesystem.s3;
 
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
-import com.google.inject.Provider;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
-import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -40,37 +37,19 @@ import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
 import java.net.URI;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 
 public final class S3FileSystemFactory
         implements TrinoFileSystemFactory
 {
-    private Provider<S3Client> s3ClientProvider;
-    @Nullable
-    @GuardedBy("this")
-    private S3Client client;
+    private final S3Client client;
     private final S3Context context;
-    @GuardedBy("this")
-    private boolean destroyed;
 
     @Inject
-    public S3FileSystemFactory(Provider<S3Client> s3ClientProvider, S3FileSystemConfig config)
-    {
-        this.s3ClientProvider = requireNonNull(s3ClientProvider, "s3ClientProvider is null");
-        context = new S3Context(
-                toIntExact(config.getStreamingPartSize().toBytes()),
-                config.isRequesterPays(),
-                config.getSseType(),
-                config.getSseKmsKeyId(),
-                Optional.empty());
-    }
-
-    public static S3Client createS3Client(OpenTelemetry openTelemetry, S3FileSystemConfig config)
+    public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config)
     {
         S3ClientBuilder s3 = S3Client.builder();
 
@@ -126,26 +105,20 @@ public final class S3FileSystemFactory
 
         s3.httpClientBuilder(httpClient);
 
-        return s3.build();
-    }
+        this.client = s3.build();
 
-    private synchronized S3Client client()
-    {
-        checkState(!destroyed, "Factory is already destroyed");
-        if (client == null) {
-            client = s3ClientProvider.get();
-        }
-        return client;
+        context = new S3Context(
+                toIntExact(config.getStreamingPartSize().toBytes()),
+                config.isRequesterPays(),
+                config.getSseType(),
+                config.getSseKmsKeyId(),
+                Optional.empty());
     }
 
     @PreDestroy
-    public synchronized void destroy()
+    public void destroy()
     {
-        destroyed = true;
-        if (client != null) {
-            client.close();
-            client = null;
-        }
+        client.close();
     }
 
     @Override
@@ -156,10 +129,10 @@ public final class S3FileSystemFactory
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
-            return new S3FileSystem(client(), context.withCredentialsProviderOverride(credentialsProvider));
+            return new S3FileSystem(client, context.withCredentialsProviderOverride(credentialsProvider));
         }
 
-        return new S3FileSystem(client(), context);
+        return new S3FileSystem(client, context);
     }
 
     private static Optional<StaticCredentialsProvider> getStaticCredentialsProvider(S3FileSystemConfig config)

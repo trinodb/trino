@@ -15,9 +15,6 @@ package io.trino.filesystem.s3;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Provides;
-import io.opentelemetry.api.OpenTelemetry;
-import software.amazon.awssdk.services.s3.S3Client;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -30,11 +27,5 @@ public class S3FileSystemModule
     {
         configBinder(binder).bindConfig(S3FileSystemConfig.class);
         binder.bind(S3FileSystemFactory.class).in(SINGLETON);
-    }
-
-    @Provides
-    public S3Client createS3Client(OpenTelemetry openTelemetry, S3FileSystemConfig config)
-    {
-        return S3FileSystemFactory.createS3Client(openTelemetry, config);
     }
 }
