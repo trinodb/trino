@@ -18,6 +18,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +37,7 @@ public class StaticDynamicFilter
     private final Set<ColumnHandle> columnsCovered;
     private final boolean isComplete;
     private final TupleDomain<ColumnHandle> tupleDomain;
+    private volatile int hashCode;
 
     public static StaticDynamicFilter createStaticDynamicFilter(List<DynamicFilter> disjunctiveDynamicFilters)
     {
@@ -93,5 +95,29 @@ public class StaticDynamicFilter
     public OptionalLong getPreferredDynamicFilterTimeout()
     {
         return OptionalLong.of(0L);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        StaticDynamicFilter that = (StaticDynamicFilter) o;
+        return isComplete == that.isComplete
+                && Objects.equals(columnsCovered, that.columnsCovered)
+                && Objects.equals(tupleDomain, that.tupleDomain);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        if (hashCode == 0) {
+            hashCode = Objects.hash(columnsCovered, isComplete, tupleDomain);
+        }
+        return hashCode;
     }
 }
