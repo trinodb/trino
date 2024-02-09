@@ -143,6 +143,9 @@ public class TestEventListenerBasic
                             if (schemaTableName.equals(new SchemaTableName("tiny", "nation")) || schemaTableName.equals(new SchemaTableName("tiny", "nation_storage"))) {
                                 return TPCH_NATION_SCHEMA;
                             }
+                            if (schemaTableName.equals(new SchemaTableName("default", "test_materialized_view_stale$materialized_view_storage"))) {
+                                return ImmutableList.of(new ColumnMetadata("test_column", BIGINT));
+                            }
                             return ImmutableList.of(
                                     new ColumnMetadata("test_varchar", createVarcharType(15)),
                                     new ColumnMetadata("test_bigint", BIGINT));
@@ -200,9 +203,9 @@ public class TestEventListenerBasic
                         .withGetMaterializedViews((connectorSession, prefix) -> {
                             ConnectorMaterializedViewDefinition definitionStale = new ConnectorMaterializedViewDefinition(
                                     "SELECT nationkey AS test_column FROM tpch.tiny.nation",
-                                    Optional.empty(),
-                                    Optional.empty(),
-                                    Optional.empty(),
+                                    Optional.of(new CatalogSchemaTableName("mock", "default", "test_materialized_view_stale$materialized_view_storage")),
+                                    Optional.of("mock"),
+                                    Optional.of("default"),
                                     ImmutableList.of(new Column("test_column", BIGINT.getTypeId(), Optional.empty())),
                                     Optional.of(Duration.ZERO),
                                     Optional.empty(),
@@ -596,6 +599,32 @@ public class TestEventListenerBasic
                 .hasAuthorization("user")
                 .isDirectlyReferenced()
                 .hasColumnsWithoutMasking("nationkey", "regionkey", "name", "comment")
+                .hasNoRowFilters()
+                .hasNoTableReferences();
+    }
+
+    @Test
+    public void testReferencedTablesInRefreshMaterializedView()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("REFRESH MATERIALIZED VIEW mock.default.test_materialized_view_stale").getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_materialized_view_stale$materialized_view_storage");
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(1);
+
+        TableInfo table = tables.get(0);
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey")
                 .hasNoRowFilters()
                 .hasNoTableReferences();
     }
