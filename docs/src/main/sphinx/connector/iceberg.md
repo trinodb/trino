@@ -1427,7 +1427,7 @@ You can use the {ref}`iceberg-table-properties` to control the created storage
 table and therefore the layout and performance. For example, you can use the
 following clause with {doc}`/sql/create-materialized-view` to use the ORC format
 for the data files and partition the storage per day using the column
-`_date`:
+`event_date`:
 
 ```
 WITH ( format = 'ORC', partitioning = ARRAY['event_date'] )
