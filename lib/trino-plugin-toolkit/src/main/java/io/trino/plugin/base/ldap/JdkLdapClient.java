@@ -109,7 +109,7 @@ public class JdkLdapClient
         SearchControls searchControls = new SearchControls();
         searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
         searchControls.setReturningAttributes(ldapQuery.getAttributes());
-        return new CloseableSearchResults(context.search(ldapQuery.getSearchBase(), ldapQuery.getSearchFilter(), searchControls));
+        return new CloseableSearchResults(context.search(ldapQuery.getSearchBase(), ldapQuery.getSearchFilter(), ldapQuery.getFilterArguments(), searchControls));
     }
 
     private CloseableContext createUserDirContext(String userDistinguishedName, String password)
@@ -175,10 +175,10 @@ public class JdkLdapClient
         }
 
         @SuppressWarnings("BanJNDI")
-        public NamingEnumeration<SearchResult> search(String name, String filter, SearchControls searchControls)
+        public NamingEnumeration<SearchResult> search(String name, String filter, Object[] filterArguments, SearchControls searchControls)
                 throws NamingException
         {
-            return context.search(name, filter, searchControls);
+            return context.search(name, filter, filterArguments, searchControls);
         }
 
         @Override
