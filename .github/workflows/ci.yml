@@ -40,8 +40,6 @@ env:
   # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
   # This value should be greater than the time taken for the longest image pull.
   TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
-  TEST_REPORT_RETENTION_DAYS: 5
-  HEAP_DUMP_RETENTION_DAYS: 14
   # used by actions/cache to retry the download after this time: https://github.com/actions/cache/blob/main/workarounds.md#cache-segment-restore-timeout
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
   CI_SKIP_SECRETS_PRESENCE_CHECKS: ${{ secrets.CI_SKIP_SECRETS_PRESENCE_CHECKS }}
@@ -273,45 +271,24 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Test old JDBC vs current server
+        id: tests-old
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
             testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
           fi
       - name: Test current JDBC vs old server
+        id: tests-current
         if: always()
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-server gib-impacted.log; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
           fi
       - name: Upload test results
-        uses: actions/upload-artifact@v4
-        # Upload all test reports only on failure, because the artifacts are large
-        if: failure()
-        with:
-          name: result ${{ github.job }}
-          path: |
-            **/target/surefire-reports
-            **/target/checkstyle-*
-      - name: Upload test report
-        uses: actions/upload-artifact@v4
-        # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+        uses: ./.github/actions/process-test-results
         if: always()
         with:
-          # Name prefix is checked in the `Annotate checks` workflow
-          name: test report ${{ github.job }}
-          path: |
-            **/surefire-reports/TEST-*.xml
-          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-      - name: Upload heap dump
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: heap dump ${{ github.job }}
-          if-no-files-found: 'ignore'
-          path: |
-            **/*.hprof
-          retention-days: ${{ env.HEAP_DUMP_RETENTION_DAYS }}
+          has-failed-tests: ${{ steps.tests-old.outcome == 'failure' || steps.tests-current.outcome == 'failure' }}
+          upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
 
   hive-tests:
     runs-on: [self-hosted, sep-cicd, gha-fleet-small]
@@ -346,6 +323,7 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -am -pl :trino-hive
       - name: Run Hive Cloud Tests
+        id: tests
         env:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
           ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
@@ -362,34 +340,11 @@ jobs:
             $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P cloud-tests
           fi
       - name: Upload test results
-        uses: actions/upload-artifact@v4
-        # Upload all test reports only on failure, because the artifacts are large
-        if: failure()
-        with:
-          name: result ${{ github.job }}
-          path: |
-            **/target/surefire-reports
-            **/target/checkstyle-*
-      - name: Upload test report
-        uses: actions/upload-artifact@v4
-        # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+        uses: ./.github/actions/process-test-results
         if: always()
         with:
-          # Name prefix is checked in the `Annotate checks` workflow
-          name: test report ${{ github.job }} (${{ matrix.config }})
-          path: |
-            **/surefire-reports/TEST-*.xml
-          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-      - name: Upload heap dump
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: heap dump ${{ github.job }} (${{ matrix.config }})
-          if-no-files-found: 'ignore'
-          path: |
-            **/*.hprof
-          retention-days: ${{ env.HEAP_DUMP_RETENTION_DAYS }}
+          has-failed-tests: ${{ steps.tests.outcome == 'failure' }}
+          upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
       - name: Update PR check
         uses: ./.github/actions/update-check
         if: >-
@@ -528,6 +483,7 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Maven Tests
+        id: tests
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
             !:starburst-base-jdbc,
@@ -590,34 +546,11 @@ jobs:
             !:trino-tests,
             !:trino-thrift'
       - name: Upload test results
-        uses: actions/upload-artifact@v4
-        # Upload all test reports only on failure, because the artifacts are large
-        if: failure()
-        with:
-          name: result ${{ github.job }}
-          path: |
-            **/target/surefire-reports
-            **/target/checkstyle-*
-      - name: Upload test report
-        uses: actions/upload-artifact@v4
-        # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+        uses: ./.github/actions/process-test-results
         if: always()
         with:
-          # Name prefix is checked in the `Annotate checks` workflow
-          name: test report ${{ github.job }}
-          path: |
-            **/surefire-reports/TEST-*.xml
-          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-      - name: Upload heap dump
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: heap dump ${{ github.job }}
-          if-no-files-found: 'ignore'
-          path: |
-            **/*.hprof
-          retention-days: ${{ env.HEAP_DUMP_RETENTION_DAYS }}
+          has-failed-tests: ${{ steps.tests.outcome == 'failure' }}
+          upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
 
   build-test-matrix:
     runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
@@ -790,6 +723,7 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
+        id: tests
         if: >-
           matrix.modules != 'plugin/trino-singlestore'
           && matrix.modules != 'plugin/starburst-snowflake'
@@ -806,6 +740,7 @@ jobs:
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Run Snowflake AWS tests
+        id: tests-snowflake-aws
         env:
           SNOWFLAKE_ACCOUNT_NAME: ${{ secrets.SNOWFLAKE_ACCOUNT_NAME }}
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
@@ -823,6 +758,7 @@ jobs:
           -Dsnowflake.test.warehouse=TRINO_PLUGINS_TEST_WH \
           -Dsnowflake.test.account-url=https://"${SNOWFLAKE_ACCOUNT_NAME}".snowflakecomputing.com
       - name: Run Snowflake Azure tests
+        id: tests-snowflake-azure
         env:
           SNOWFLAKE_AZURE_ACCOUNT_NAME: ${{ secrets.SNOWFLAKE_AZURE_ACCOUNT_NAME }}
           SNOWFLAKE_AZURE_PASSWORD: ${{ secrets.SNOWFLAKE_AZURE_PASSWORD }}
@@ -841,6 +777,7 @@ jobs:
           -Dsnowflake.test.warehouse=TRINO_PLUGINS_TEST_WH \
           -Dsnowflake.test.account-url=https://"${SNOWFLAKE_AZURE_ACCOUNT_NAME}"."${SNOWFLAKE_AZURE_REGION}".azure.snowflakecomputing.com
       - name: Run Synapse tests
+        id: tests-synapse
         env:
           SYNAPSE_ENDPOINT: ${{ secrets.SYNAPSE_ENDPOINT }}
           SYNAPSE_USER: ${{ secrets.SYNAPSE_USER }}
@@ -855,10 +792,12 @@ jobs:
             -Dtest.synapse.jdbc.user="${SYNAPSE_USER}" \
             -Dtest.synapse.jdbc.password="${SYNAPSE_PASSWORD}"
       - name: HDFS file system cache isolated JVM tests
+        id: tests-hdfs-isolated
         if: contains(matrix.modules, 'trino-hdfs')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P test-isolated-jvm-suites
       - name: Hadoop FileSystem Cloud Tests
+        id: tests-hdfs
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
@@ -871,6 +810,7 @@ jobs:
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P cloud-tests
       - name: S3 FileSystem Cloud Tests
+        id: tests-s3
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
@@ -893,6 +833,7 @@ jobs:
         if: always()
         run: .github/bin/s3/delete-s3-bucket.sh || true
       - name: Azure FileSystem Cloud Tests
+        id: tests-azure
         env:
           ABFS_BLOB_ACCOUNT: todo
           ABFS_BLOB_ACCESS_KEY: todo
@@ -908,6 +849,7 @@ jobs:
         run: |
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: GCS FileSystem Cloud Tests
+        id: tests-gcs
         env:
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
         if: >-
@@ -916,6 +858,7 @@ jobs:
         run: |
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: Cloud Delta Lake Tests
+        id: tests-delta
       # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
         env:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
@@ -939,12 +882,14 @@ jobs:
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
       - name: Memsql Tests
+        id: tests-memsql
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
         if: matrix.modules == 'plugin/trino-singlestore' && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.MEMSQL_LICENSE != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
       - name: Cloud BigQuery Tests
+        id: tests-bq
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
@@ -954,6 +899,7 @@ jobs:
             -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}"
       - name: Cloud BigQuery Smoke Tests
+        id: tests-bq-smoke
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
@@ -964,12 +910,14 @@ jobs:
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.alternate-bq-project-id=bigquery-cicd-alternate
       - name: Cloud BigQuery Case Insensitive Mapping Tests
+        id: tests-bq-ci
         env:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Iceberg Cloud Tests
+        id: tests-iceberg
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
@@ -991,6 +939,7 @@ jobs:
             -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
             -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESS_KEY}"
       - name: Cloud Redshift Tests ${{ matrix.profile }}
+        id: tests-redshift
         env:
           AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.REDSHIFT_AWS_ACCESS_KEY_ID }}
@@ -1033,34 +982,28 @@ jobs:
           # final artifact name can't be longer than 128 characters
           echo "ARTIFACT_NAME=${name:0:100}" >> $GITHUB_ENV
       - name: Upload test results
-        uses: actions/upload-artifact@v4
-        # Upload all test reports only on failure, because the artifacts are large
-        if: failure()
-        with:
-          name: result ${{ env.ARTIFACT_NAME }}
-          path: |
-            **/target/surefire-reports
-            **/target/checkstyle-*
-      - name: Upload test report
-        uses: actions/upload-artifact@v4
-        # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+        uses: ./.github/actions/process-test-results
         if: always()
         with:
-          # Name prefix is checked in the `Annotate checks` workflow
-          name: test report ${{ github.job }} (${{ env.ARTIFACT_NAME }})
-          path: |
-            **/surefire-reports/TEST-*.xml
-          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-      - name: Upload heap dump
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: heap dump ${{ github.job }} (${{ env.ARTIFACT_NAME }})
-          if-no-files-found: 'ignore'
-          path: |
-            **/*.hprof
-          retention-days: ${{ env.HEAP_DUMP_RETENTION_DAYS }}
+          artifact-name: ${{ env.ARTIFACT_NAME }}
+          has-failed-tests: >-
+            ${{ steps.tests.outcome == 'failure'
+              || steps.tests-snowflake-aws.outcome == 'failure'
+              || steps.tests-snowflake-azure.outcome == 'failure'
+              || steps.tests-hdfs-isolated.outcome == 'failure'
+              || steps.tests-hdfs.outcome == 'failure'
+              || steps.tests-s3.outcome == 'failure'
+              || steps.tests-azure.outcome == 'failure'
+              || steps.tests-gcs.outcome == 'failure'
+              || steps.tests-delta.outcome == 'failure'
+              || steps.tests-memsql.outcome == 'failure'
+              || steps.tests-bq.outcome == 'failure'
+              || steps.tests-bq-ci.outcome == 'failure'
+              || steps.tests-bq-smoke.outcome == 'failure'
+              || steps.tests-iceberg.outcome == 'failure'
+              || steps.tests-redshift.outcome == 'failure'
+            }}
+          upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
       - name: Update PR check
         uses: ./.github/actions/update-check
         if: >-
@@ -1323,25 +1266,13 @@ jobs:
             --config config-${{ matrix.config }} \
             ${PTL_OPTS:-} \
             --bind=off --logs-dir logs/ --timeout 2h
-      - name: Upload test logs and results
-        uses: actions/upload-artifact@v4
-        # Upload all test reports only on failure, because the artifacts are large
-        if: failure()
-        with:
-          name: result pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
-          path: |
-            testing/trino-product-tests/target/*
-            logs/*
-      - name: Upload test report
-        uses: actions/upload-artifact@v4
-        # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+      - name: Upload test results
+        uses: ./.github/actions/process-test-results
         if: always()
         with:
-          # Name prefix is checked in the `Annotate checks` workflow
-          name: test report pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
-          path: testing/trino-product-tests/target/reports/**/testng-results.xml
-          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+          artifact-name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
+          has-failed-tests: ${{ steps.tests.outcome == 'failure' }}
+          upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
       - name: Update PR check
         uses: ./.github/actions/update-check
         if: >-
