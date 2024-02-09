@@ -17,6 +17,8 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
+
 public class AzureFileSystemModule
         extends AbstractConfigurationAwareModule
 {
@@ -26,7 +28,7 @@ public class AzureFileSystemModule
         Module module = switch (buildConfigObject(AzureFileSystemConfig.class).getAuthType()) {
             case ACCESS_KEY -> new AzureAuthAccessKeyModule();
             case OAUTH -> new AzureAuthOAuthModule();
-            case NONE -> new AzureAuthNoopModule();
+            case NONE -> EMPTY_MODULE;
         };
         install(module);
     }
