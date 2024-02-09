@@ -14,7 +14,6 @@
 package io.trino.plugin.opa;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.spi.security.Identity;
@@ -22,13 +21,9 @@ import io.trino.testing.DistributedQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -44,10 +39,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.opa.FunctionalHelpers.Pair;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -86,9 +79,8 @@ public class TestOpaAccessControlSystem
             }
         }
 
-        @ParameterizedTest(name = "{index}: {0}")
-        @MethodSource("io.trino.plugin.opa.TestOpaAccessControlSystem#filterSchemaTests")
-        public void testAllowsQueryAndFilters(String userName, Set<String> expectedCatalogs)
+        @Test
+        public void testAllowsQueryAndFilters()
                 throws IOException, InterruptedException
         {
             submitPolicy("""
@@ -117,8 +109,10 @@ public class TestOpaAccessControlSystem
                       input.action.resource.catalog.name == "catalog_one"
                     }
                     """);
-            Set<String> catalogs = querySetOfStrings(user(userName), "SHOW CATALOGS");
-            assertThat(catalogs).containsExactlyInAnyOrderElementsOf(expectedCatalogs);
+            Set<String> catalogsForBob = querySetOfStrings(user("bob"), "SHOW CATALOGS");
+            assertThat(catalogsForBob).containsExactlyInAnyOrder("catalog_one");
+            Set<String> catalogsForAdmin = querySetOfStrings(user("admin"), "SHOW CATALOGS");
+            assertThat(catalogsForAdmin).containsExactlyInAnyOrder("catalog_one", "catalog_two", "system");
         }
 
         @Test
@@ -162,9 +156,8 @@ public class TestOpaAccessControlSystem
             }
         }
 
-        @ParameterizedTest(name = "{index}: {0}")
-        @MethodSource("io.trino.plugin.opa.TestOpaAccessControlSystem#filterSchemaTests")
-        public void testFilterOutItemsBatch(String userName, Set<String> expectedCatalogs)
+        @Test
+        public void testFilterOutItemsBatch()
                 throws IOException, InterruptedException
         {
             submitPolicy("""
@@ -201,8 +194,10 @@ public class TestOpaAccessControlSystem
                         is_admin
                     }
                     """);
-            Set<String> catalogs = querySetOfStrings(user(userName), "SHOW CATALOGS");
-            assertThat(catalogs).containsExactlyInAnyOrderElementsOf(expectedCatalogs);
+            Set<String> catalogsForBob = querySetOfStrings(user("bob"), "SHOW CATALOGS");
+            assertThat(catalogsForBob).containsExactlyInAnyOrder("catalog_one");
+            Set<String> catalogsForAdmin = querySetOfStrings(user("admin"), "SHOW CATALOGS");
+            assertThat(catalogsForAdmin).containsExactlyInAnyOrder("catalog_one", "catalog_two", "system");
         }
 
         @Test
@@ -281,32 +276,17 @@ public class TestOpaAccessControlSystem
         throw new SocketTimeoutException("Timed out waiting for addr %s to be available (%d attempts made with a %d ms wait)".formatted(addr, attempts, timeoutMs));
     }
 
-    private static String stringOfLines(String... lines)
-    {
-        StringBuilder out = new StringBuilder();
-        for (String line : lines) {
-            out.append(line);
-            out.append("\r\n");
-        }
-        return out.toString();
-    }
-
-    private void submitPolicy(String... policyLines)
+    private void submitPolicy(String policyString)
             throws IOException, InterruptedException
     {
         HttpClient httpClient = HttpClient.newHttpClient();
         HttpResponse<String> policyResponse =
                 httpClient.send(
                         HttpRequest.newBuilder(opaServerUri.resolve("v1/policies/trino"))
-                                .PUT(HttpRequest.BodyPublishers.ofString(stringOfLines(policyLines)))
+                                .PUT(HttpRequest.BodyPublishers.ofString(policyString))
                                 .header("Content-Type", "text/plain").build(),
                         HttpResponse.BodyHandlers.ofString());
         assertThat(policyResponse.statusCode()).withFailMessage("Failed to submit policy: %s", policyResponse.body()).isEqualTo(200);
-    }
-
-    private Session user(String user)
-    {
-        return testSessionBuilder().setIdentity(Identity.ofUser(user)).build();
     }
 
     private Set<String> querySetOfStrings(Session session, String query)
@@ -314,11 +294,8 @@ public class TestOpaAccessControlSystem
         return runner.execute(session, query).getMaterializedRows().stream().map(row -> row.getField(0).toString()).collect(toImmutableSet());
     }
 
-    private static Stream<Arguments> filterSchemaTests()
+    private static Session user(String user)
     {
-        Stream<Pair<String, Set<String>>> userAndExpectedCatalogs = Stream.of(
-                Pair.of("bob", ImmutableSet.of("catalog_one")),
-                Pair.of("admin", ImmutableSet.of("catalog_one", "catalog_two", "system")));
-        return userAndExpectedCatalogs.map(testCase -> Arguments.of(Named.of(testCase.first(), testCase.first()), testCase.second()));
+        return testSessionBuilder().setIdentity(Identity.ofUser(user)).build();
     }
 }

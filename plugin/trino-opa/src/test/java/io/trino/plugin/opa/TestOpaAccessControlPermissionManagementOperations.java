@@ -19,10 +19,8 @@ import io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
-import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.Test;
 
@@ -31,17 +29,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.opa.TestHelpers.SYSTEM_ACCESS_CONTROL_CONTEXT;
+import static io.trino.plugin.opa.TestConstants.SYSTEM_ACCESS_CONTROL_CONTEXT;
+import static io.trino.plugin.opa.TestConstants.TEST_SECURITY_CONTEXT;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
-import static io.trino.plugin.opa.TestHelpers.systemSecurityContextFromIdentity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOpaAccessControlPermissionManagementOperations
 {
     private static final URI OPA_SERVER_URI = URI.create("http://my-uri/");
-    private static final Identity REQUESTING_IDENTITY = Identity.ofUser("source-user");
-    private static final SystemSecurityContext REQUESTING_SECURITY_CONTEXT = systemSecurityContextFromIdentity(REQUESTING_IDENTITY);
 
     @Test
     public void testTablePrivilegeGrantingOperationsDeniedOrAllowedByConfig()
@@ -50,11 +46,11 @@ public class TestOpaAccessControlPermissionManagementOperations
         TrinoPrincipal samplePrincipal = new TrinoPrincipal(PrincipalType.USER, "some_user");
 
         testOperationAllowedOrDeniedByConfig(
-                authorizer -> authorizer.checkCanGrantTablePrivilege(REQUESTING_SECURITY_CONTEXT, Privilege.CREATE, sampleTableName, samplePrincipal, false));
+                authorizer -> authorizer.checkCanGrantTablePrivilege(TEST_SECURITY_CONTEXT, Privilege.CREATE, sampleTableName, samplePrincipal, false));
         testOperationAllowedOrDeniedByConfig(
-                authorizer -> authorizer.checkCanRevokeTablePrivilege(REQUESTING_SECURITY_CONTEXT, Privilege.CREATE, sampleTableName, samplePrincipal, false));
+                authorizer -> authorizer.checkCanRevokeTablePrivilege(TEST_SECURITY_CONTEXT, Privilege.CREATE, sampleTableName, samplePrincipal, false));
         testOperationAllowedOrDeniedByConfig(
-                authorizer -> authorizer.checkCanDenyTablePrivilege(REQUESTING_SECURITY_CONTEXT, Privilege.CREATE, sampleTableName, samplePrincipal));
+                authorizer -> authorizer.checkCanDenyTablePrivilege(TEST_SECURITY_CONTEXT, Privilege.CREATE, sampleTableName, samplePrincipal));
     }
 
     @Test
@@ -64,25 +60,25 @@ public class TestOpaAccessControlPermissionManagementOperations
         TrinoPrincipal samplePrincipal = new TrinoPrincipal(PrincipalType.USER, "some_user");
 
         testOperationAllowedOrDeniedByConfig(
-                authorizer -> authorizer.checkCanGrantSchemaPrivilege(REQUESTING_SECURITY_CONTEXT, Privilege.CREATE, sampleSchemaName, samplePrincipal, false));
+                authorizer -> authorizer.checkCanGrantSchemaPrivilege(TEST_SECURITY_CONTEXT, Privilege.CREATE, sampleSchemaName, samplePrincipal, false));
         testOperationAllowedOrDeniedByConfig(
-                authorizer -> authorizer.checkCanRevokeSchemaPrivilege(REQUESTING_SECURITY_CONTEXT, Privilege.CREATE, sampleSchemaName, samplePrincipal, false));
+                authorizer -> authorizer.checkCanRevokeSchemaPrivilege(TEST_SECURITY_CONTEXT, Privilege.CREATE, sampleSchemaName, samplePrincipal, false));
         testOperationAllowedOrDeniedByConfig(
-                authorizer -> authorizer.checkCanDenySchemaPrivilege(REQUESTING_SECURITY_CONTEXT, Privilege.CREATE, sampleSchemaName, samplePrincipal));
+                authorizer -> authorizer.checkCanDenySchemaPrivilege(TEST_SECURITY_CONTEXT, Privilege.CREATE, sampleSchemaName, samplePrincipal));
     }
 
     @Test
     public void testCanCreateRoleAllowedOrDeniedByConfig()
     {
         testOperationAllowedOrDeniedByConfig(
-                authorizer -> authorizer.checkCanCreateRole(REQUESTING_SECURITY_CONTEXT, "some_role", Optional.empty()));
+                authorizer -> authorizer.checkCanCreateRole(TEST_SECURITY_CONTEXT, "some_role", Optional.empty()));
     }
 
     @Test
     public void testCanDropRoleAllowedOrDeniedByConfig()
     {
         testOperationAllowedOrDeniedByConfig(
-                authorizer -> authorizer.checkCanDropRole(REQUESTING_SECURITY_CONTEXT, "some_role"));
+                authorizer -> authorizer.checkCanDropRole(TEST_SECURITY_CONTEXT, "some_role"));
     }
 
     @Test
@@ -91,7 +87,25 @@ public class TestOpaAccessControlPermissionManagementOperations
         Set<String> roles = ImmutableSet.of("role_one", "role_two");
         Set<TrinoPrincipal> grantees = ImmutableSet.of(new TrinoPrincipal(PrincipalType.USER, "some_principal"));
         testOperationAllowedOrDeniedByConfig(
-                authorizer -> authorizer.checkCanGrantRoles(REQUESTING_SECURITY_CONTEXT, roles, grantees, true, Optional.empty()));
+                authorizer -> authorizer.checkCanGrantRoles(TEST_SECURITY_CONTEXT, roles, grantees, true, Optional.empty()));
+    }
+
+    @Test
+    public void testShowRolesAlwaysAllowedRegardlessOfConfig()
+    {
+        testOperationAlwaysAllowedRegardlessOfConfig(authorizer -> authorizer.checkCanShowRoles(TEST_SECURITY_CONTEXT));
+    }
+
+    @Test
+    public void testShowCurrentRolesAlwaysAllowedRegardlessOfConfig()
+    {
+        testOperationAlwaysAllowedRegardlessOfConfig(authorizer -> authorizer.checkCanShowCurrentRoles(TEST_SECURITY_CONTEXT));
+    }
+
+    @Test
+    public void testShowRoleGrantsAlwaysAllowedRegardlessOfConfig()
+    {
+        testOperationAlwaysAllowedRegardlessOfConfig(authorizer -> authorizer.checkCanShowRoleGrants(TEST_SECURITY_CONTEXT));
     }
 
     private static void testOperationAllowedOrDeniedByConfig(Consumer<OpaAccessControl> methodToTest)
@@ -105,24 +119,6 @@ public class TestOpaAccessControlPermissionManagementOperations
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Access Denied:");
         assertThat(mockClient.getRequests()).isEmpty();
-    }
-
-    @Test
-    public void testShowRolesAlwaysAllowedRegardlessOfConfig()
-    {
-        testOperationAlwaysAllowedRegardlessOfConfig(authorizer -> authorizer.checkCanShowRoles(REQUESTING_SECURITY_CONTEXT));
-    }
-
-    @Test
-    public void testShowCurrentRolesAlwaysAllowedRegardlessOfConfig()
-    {
-        testOperationAlwaysAllowedRegardlessOfConfig(authorizer -> authorizer.checkCanShowCurrentRoles(REQUESTING_SECURITY_CONTEXT));
-    }
-
-    @Test
-    public void testShowRoleGrantsAlwaysAllowedRegardlessOfConfig()
-    {
-        testOperationAlwaysAllowedRegardlessOfConfig(authorizer -> authorizer.checkCanShowRoleGrants(REQUESTING_SECURITY_CONTEXT));
     }
 
     private static void testOperationAlwaysAllowedRegardlessOfConfig(Consumer<OpaAccessControl> methodToTest)
