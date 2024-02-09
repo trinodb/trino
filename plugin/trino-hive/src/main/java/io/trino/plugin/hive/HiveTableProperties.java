@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.trino.plugin.hive.HiveWritableTableHandle.BucketInfo;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
@@ -244,7 +245,7 @@ public class HiveTableProperties
         return partitionedBy == null ? ImmutableList.of() : ImmutableList.copyOf(partitionedBy);
     }
 
-    public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
+    public static Optional<BucketInfo> getBucketInfo(Map<String, Object> tableProperties)
     {
         List<String> bucketedBy = getBucketedBy(tableProperties);
         List<SortingColumn> sortedBy = getSortedBy(tableProperties);
@@ -262,7 +263,7 @@ public class HiveTableProperties
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
         BucketingVersion bucketingVersion = getBucketingVersion(tableProperties);
-        return Optional.of(new HiveBucketProperty(bucketedBy, bucketingVersion, bucketCount, sortedBy));
+        return Optional.of(new BucketInfo(bucketedBy, bucketingVersion, bucketCount, sortedBy));
     }
 
     public static BucketingVersion getBucketingVersion(Map<String, Object> tableProperties)

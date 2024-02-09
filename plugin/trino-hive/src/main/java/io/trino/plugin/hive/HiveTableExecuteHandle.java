@@ -43,7 +43,7 @@ public class HiveTableExecuteHandle
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
             @JsonProperty("pageSinkMetadata") HivePageSinkMetadata pageSinkMetadata,
             @JsonProperty("locationHandle") LocationHandle locationHandle,
-            @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
+            @JsonProperty("bucketInfo") Optional<BucketInfo> bucketInfo,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
             @JsonProperty("transaction") AcidTransaction transaction,
@@ -55,14 +55,14 @@ public class HiveTableExecuteHandle
                 inputColumns,
                 pageSinkMetadata,
                 locationHandle,
-                bucketProperty,
+                bucketInfo,
                 tableStorageFormat,
                 partitionStorageFormat,
                 transaction,
                 retriesEnabled);
 
         // todo to be added soon
-        verify(bucketProperty.isEmpty(), "bucketed tables not supported yet");
+        verify(bucketInfo.isEmpty(), "bucketed tables not supported yet");
 
         this.procedureName = requireNonNull(procedureName, "procedureName is null");
         this.writeDeclarationId = requireNonNull(writeDeclarationId, "writeDeclarationId is null");
@@ -98,7 +98,7 @@ public class HiveTableExecuteHandle
                 getInputColumns(),
                 getPageSinkMetadata(),
                 getLocationHandle(),
-                getBucketProperty(),
+                getBucketInfo(),
                 getTableStorageFormat(),
                 getPartitionStorageFormat(),
                 getTransaction(),

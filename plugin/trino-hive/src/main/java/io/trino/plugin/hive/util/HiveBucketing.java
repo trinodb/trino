@@ -197,7 +197,7 @@ public final class HiveBucketing
             bucketColumns.add(bucketColumnHandle);
         }
 
-        BucketingVersion bucketingVersion = hiveBucketProperty.get().getBucketingVersion();
+        BucketingVersion bucketingVersion = getBucketingVersion(table.getParameters());
         int bucketCount = hiveBucketProperty.get().getBucketCount();
         List<SortingColumn> sortedBy = hiveBucketProperty.get().getSortedBy();
         return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketingVersion, bucketCount, bucketCount, sortedBy));
@@ -217,7 +217,8 @@ public final class HiveBucketing
         if (bindings.isEmpty()) {
             return Optional.empty();
         }
-        Optional<Set<Integer>> buckets = getHiveBuckets(hiveBucketProperty, dataColumns, bindings.get());
+        BucketingVersion bucketingVersion = hiveTable.getBucketHandle().get().getBucketingVersion();
+        Optional<Set<Integer>> buckets = getHiveBuckets(bucketingVersion, hiveBucketProperty, dataColumns, bindings.get());
         if (buckets.isPresent()) {
             return Optional.of(new HiveBucketFilter(buckets.get()));
         }
@@ -241,7 +242,7 @@ public final class HiveBucketing
         return Optional.of(new HiveBucketFilter(builder.build()));
     }
 
-    private static Optional<Set<Integer>> getHiveBuckets(HiveBucketProperty hiveBucketProperty, List<HiveColumnHandle> dataColumns, Map<ColumnHandle, List<NullableValue>> bindings)
+    private static Optional<Set<Integer>> getHiveBuckets(BucketingVersion bucketingVersion, HiveBucketProperty hiveBucketProperty, List<HiveColumnHandle> dataColumns, Map<ColumnHandle, List<NullableValue>> bindings)
     {
         if (bindings.isEmpty()) {
             return Optional.empty();
@@ -286,7 +287,7 @@ public final class HiveBucketing
                 .collect(toImmutableList());
 
         return getHiveBuckets(
-                hiveBucketProperty.getBucketingVersion(),
+                bucketingVersion,
                 hiveBucketProperty.getBucketCount(),
                 typeInfos,
                 orderedBindings);
@@ -308,12 +309,12 @@ public final class HiveBucketing
 
     public static boolean isSupportedBucketing(Table table)
     {
-        return isSupportedBucketing(table.getStorage().getBucketProperty().orElseThrow(), table.getDataColumns(), table.getTableName());
+        return isSupportedBucketing(table.getStorage().getBucketProperty().orElseThrow().getBucketedBy(), table.getDataColumns(), table.getTableName());
     }
 
-    public static boolean isSupportedBucketing(HiveBucketProperty bucketProperty, List<Column> dataColumns, String tableName)
+    public static boolean isSupportedBucketing(List<String> bucketedBy, List<Column> dataColumns, String tableName)
     {
-        return bucketProperty.getBucketedBy().stream()
+        return bucketedBy.stream()
                 .map(columnName -> dataColumns.stream().filter(column -> column.getName().equals(columnName)).findFirst()
                         .orElseThrow(() -> new IllegalArgumentException(format("Cannot find column '%s' in %s", columnName, tableName))))
                 .map(Column::getType)
