@@ -345,8 +345,8 @@ public class CoordinatorModule
                 .withTracing()
                 .withFilter(GenerateTraceTokenRequestFilter.class)
                 .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(30, SECONDS));
-                    config.setRequestTimeout(new Duration(10, SECONDS));
+                    config.setIdleTimeout(new Duration(60, SECONDS));
+                    config.setRequestTimeout(new Duration(20, SECONDS));
                     config.setMaxConnectionsPerServer(250);
                 }).build());
 
