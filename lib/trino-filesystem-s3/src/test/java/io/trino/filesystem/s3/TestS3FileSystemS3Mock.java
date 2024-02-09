@@ -63,6 +63,6 @@ public class TestS3FileSystemS3Mock
                 .setRegion(Region.US_EAST_1.id())
                 .setPathStyleAccess(true)
                 .setStreamingPartSize(DataSize.valueOf("5.5MB"));
-        return new S3FileSystemFactory(() ->S3FileSystemFactory.createS3Client(OpenTelemetry.noop(), s3FileSystemConfig), s3FileSystemConfig);
+        return new S3FileSystemFactory(() -> S3FileSystemFactory.createS3Client(OpenTelemetry.noop(), s3FileSystemConfig), s3FileSystemConfig);
     }
 }
