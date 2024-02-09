@@ -857,6 +857,60 @@ public class TestBackgroundHiveSplitLoader
     }
 
     @Test
+    public void testBuildManifestFileIteratorWithCacheInvalidation()
+            throws IOException
+    {
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(1, MEGABYTE), List.of("*"));
+        Map<String, String> schema = ImmutableMap.<String, String>builder()
+                .put(FILE_INPUT_FORMAT, SYMLINK_TEXT_INPUT_FORMAT_CLASS)
+                .put(SERIALIZATION_LIB, AVRO.getSerde())
+                .buildOrThrow();
+
+        InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
+                "partition",
+                AVRO,
+                schema,
+                List.of(),
+                TupleDomain.all(),
+                () -> true,
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty(),
+                DataSize.of(512, MEGABYTE),
+                false,
+                Optional.empty());
+
+        Location firstFilePath = Location.of("memory:///db_name/table_name/file1");
+        List<Location> locations1 = List.of(firstFilePath);
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader1 = backgroundHiveSplitLoader(
+                locations1,
+                directoryLister);
+        Iterator<InternalHiveSplit> splitIterator1 = backgroundHiveSplitLoader1.buildManifestFileIterator(
+                splitFactory,
+                Location.of(TABLE_PATH),
+                locations1,
+                true);
+        List<InternalHiveSplit> splits1 = ImmutableList.copyOf(splitIterator1);
+        assertThat(splits1.size()).isEqualTo(1);
+        assertThat(splits1.get(0).getPath()).isEqualTo(firstFilePath.toString());
+
+        Location secondFilePath = Location.of("memory:///db_name/table_name/file2");
+        List<Location> locations2 = List.of(firstFilePath, secondFilePath);
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader2 = backgroundHiveSplitLoader(
+                locations2,
+                directoryLister);
+        Iterator<InternalHiveSplit> splitIterator2 = backgroundHiveSplitLoader2.buildManifestFileIterator(
+                splitFactory,
+                Location.of(TABLE_PATH),
+                locations2,
+                true);
+        List<InternalHiveSplit> splits2 = ImmutableList.copyOf(splitIterator2);
+        assertThat(splits2.size()).isEqualTo(2);
+        assertThat(splits2.get(0).getPath()).isEqualTo(firstFilePath.toString());
+        assertThat(splits2.get(1).getPath()).isEqualTo(secondFilePath.toString());
+    }
+
+    @Test
     public void testMaxPartitions()
             throws Exception
     {
