@@ -138,7 +138,7 @@ public class TestBackgroundHiveSplitLoader
 
     private static final String TABLE_PATH = "memory:///db_name/table_name";
     private static final Table SIMPLE_TABLE = table(TABLE_PATH, List.of(), Optional.empty(), Map.of());
-    private static final Table PARTITIONED_TABLE = table(TABLE_PATH, PARTITION_COLUMNS, Optional.of(new HiveBucketProperty(List.of("col1"), BUCKETING_V1, BUCKET_COUNT, List.of())), Map.of());
+    private static final Table PARTITIONED_TABLE = table(TABLE_PATH, PARTITION_COLUMNS, Optional.of(new HiveBucketProperty(List.of("col1"), BUCKET_COUNT, List.of())), Map.of());
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 

@@ -897,7 +897,7 @@ public class GlueHiveMetastore
                             .withDatabaseName(table.getDatabaseName())
                             .withTableName(table.getTableName())
                             .withPartitionValues(partitionValues)));
-            return Optional.of(new GluePartitionConverter(table).apply(result.getPartition()));
+            return Optional.of(new GluePartitionConverter(table.getDatabaseName(), table.getTableName()).apply(result.getPartition()));
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
@@ -1040,7 +1040,7 @@ public class GlueHiveMetastore
             ImmutableList.Builder<Partition> resultsBuilder = ImmutableList.builderWithExpectedSize(partitionNames.size());
 
             // Reuse immutable field instances opportunistically between partitions
-            GluePartitionConverter converter = new GluePartitionConverter(table);
+            GluePartitionConverter converter = new GluePartitionConverter(table.getDatabaseName(), table.getTableName());
 
             while (!pendingPartitions.isEmpty()) {
                 for (List<PartitionValueList> partitions : Lists.partition(pendingPartitions, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {

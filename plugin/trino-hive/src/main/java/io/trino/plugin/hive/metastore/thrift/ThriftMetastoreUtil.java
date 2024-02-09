@@ -418,7 +418,7 @@ public final class ThriftMetastoreUtil
                 .setViewExpandedText(Optional.ofNullable(emptyToNull(table.getViewExpandedText())))
                 .setWriteId(table.getWriteId() < 0 ? OptionalLong.empty() : OptionalLong.of(table.getWriteId()));
 
-        fromMetastoreApiStorageDescriptor(table.getParameters(), storageDescriptor, tableBuilder.getStorageBuilder(), table.getTableName());
+        fromMetastoreApiStorageDescriptor(storageDescriptor, tableBuilder.getStorageBuilder(), table.getTableName());
 
         return tableBuilder.build();
     }
@@ -490,9 +490,7 @@ public final class ThriftMetastoreUtil
                         .collect(toImmutableList()))
                 .setParameters(partition.getParameters());
 
-        // TODO is bucketing_version set on partition level??
         fromMetastoreApiStorageDescriptor(
-                partition.getParameters(),
                 storageDescriptor,
                 partitionBuilder.getStorageBuilder(),
                 format("%s.%s", partition.getTableName(), partition.getValues()));
@@ -650,7 +648,6 @@ public final class ThriftMetastoreUtil
     }
 
     private static void fromMetastoreApiStorageDescriptor(
-            Map<String, String> tableParameters,
             StorageDescriptor storageDescriptor,
             Storage.Builder builder,
             String tablePartitionName)
@@ -662,7 +659,7 @@ public final class ThriftMetastoreUtil
 
         builder.setStorageFormat(StorageFormat.createNullable(serdeInfo.getSerializationLib(), storageDescriptor.getInputFormat(), storageDescriptor.getOutputFormat()))
                 .setLocation(nullToEmpty(storageDescriptor.getLocation()))
-                .setBucketProperty(HiveBucketProperty.fromStorageDescriptor(tableParameters, storageDescriptor, tablePartitionName))
+                .setBucketProperty(HiveBucketProperty.fromStorageDescriptor(storageDescriptor, tablePartitionName))
                 .setSkewed(storageDescriptor.isSetSkewedInfo() && storageDescriptor.getSkewedInfo().isSetSkewedColNames() && !storageDescriptor.getSkewedInfo().getSkewedColNames().isEmpty())
                 .setSerdeParameters(serdeInfo.getParameters() == null ? ImmutableMap.of() : serdeInfo.getParameters());
     }

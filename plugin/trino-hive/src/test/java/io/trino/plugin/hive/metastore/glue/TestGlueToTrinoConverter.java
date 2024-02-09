@@ -73,7 +73,7 @@ public class TestGlueToTrinoConverter
 
     private static GluePartitionConverter createPartitionConverter(Table table)
     {
-        return new GluePartitionConverter(GlueToTrinoConverter.convertTable(table, table.getDatabaseName()));
+        return new GluePartitionConverter(table.getDatabaseName(), table.getName());
     }
 
     @Test

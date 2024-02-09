@@ -63,7 +63,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -85,7 +84,7 @@ public class TestRecordingHiveMetastore
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
             Optional.of("location"),
-            Optional.of(new HiveBucketProperty(ImmutableList.of("column"), BUCKETING_V1, 10, ImmutableList.of(new SortingColumn("column", Order.ASCENDING)))),
+            Optional.of(new HiveBucketProperty(ImmutableList.of("column"), 10, ImmutableList.of(new SortingColumn("column", Order.ASCENDING)))),
             true,
             ImmutableMap.of("param", "value2"));
     private static final Table TABLE = new Table(
