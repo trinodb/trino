@@ -218,8 +218,10 @@ public class MemoryCacheManager
         // make channels the freshest in cache
         runWithLock(lock.writeLock(), () -> {
             for (Channel channel : channels) {
-                removeChannel(channel);
-                splitCache.put(channel.getKey(), channel);
+                if (removeChannel(channel)) {
+                    // channel might have been purged in the meantime
+                    splitCache.put(channel.getKey(), channel);
+                }
             }
         });
         return channels;
@@ -392,13 +394,13 @@ public class MemoryCacheManager
             predicateToId.releaseId(predicateIds.predicateId(), channels.length);
             predicateToId.releaseId(predicateIds.unenforcedPredicateId(), channels.length);
             for (Channel channel : channels) {
-                removeChannel(channel);
+                checkState(removeChannel(channel), "Expected channel to be removed");
                 columnToId.releaseId(channel.getKey().columnId());
             }
         });
     }
 
-    private void removeChannel(Channel channel)
+    private boolean removeChannel(Channel channel)
     {
         boolean removed = false;
         // Multimap remove(key, elem) can take significant about of time if list of elements
@@ -413,7 +415,7 @@ public class MemoryCacheManager
                 break;
             }
         }
-        checkState(removed, "Expected channel to be removed");
+        return removed;
     }
 
     /**
