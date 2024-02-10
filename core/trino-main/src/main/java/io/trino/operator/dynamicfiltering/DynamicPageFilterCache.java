@@ -42,7 +42,7 @@ public class DynamicPageFilterCache
 
     private final TypeOperators typeOperators;
     private final ExecutorService executor;
-    private final NonEvictableCache<DynamicFilter, DynamicPageFilter> cache;
+    private final NonEvictableCache<CacheKey, DynamicPageFilter> cache;
     private final IsolatedBlockFilterFactory isolatedBlockFilterFactory;
 
     @Inject
@@ -73,7 +73,7 @@ public class DynamicPageFilterCache
     public DynamicPageFilter getDynamicPageFilter(DynamicFilter dynamicFilter, List<ColumnHandle> columns)
     {
         try {
-            return cache.get(dynamicFilter, () -> new DynamicPageFilter(
+            return cache.get(new CacheKey(columns, dynamicFilter), () -> new DynamicPageFilter(
                     dynamicFilter,
                     columns,
                     typeOperators,
@@ -85,4 +85,6 @@ public class DynamicPageFilterCache
             throw new RuntimeException(e.getCause());
         }
     }
+
+    private record CacheKey(List<ColumnHandle> columns, DynamicFilter dynamicFilter) {}
 }
