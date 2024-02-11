@@ -15,7 +15,7 @@ package io.trino.plugin.hive.parquet;
 
 import io.airlift.units.DataSize;
 import io.trino.parquet.writer.ParquetWriterOptions;
-import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.column.ParquetProperties;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -32,8 +32,8 @@ public class TestParquetWriterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ParquetWriterConfig.class)
-                .setBlockSize(DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE))
-                .setPageSize(DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE))
+                .setBlockSize(DataSize.of(128, MEGABYTE))
+                .setPageSize(DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE))
                 .setPageValueCount(ParquetWriterOptions.DEFAULT_MAX_PAGE_VALUE_COUNT)
                 .setBatchSize(ParquetWriterOptions.DEFAULT_BATCH_SIZE)
                 .setValidationPercentage(5));
