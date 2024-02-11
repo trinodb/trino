@@ -24,7 +24,6 @@ import io.trino.spi.predicate.TupleDomain;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.format.Util;
-import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
@@ -46,6 +45,8 @@ import java.util.function.BiFunction;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetMetadataConverter.fromParquetColumnIndex;
+import static io.trino.parquet.ParquetMetadataConverter.fromParquetOffsetIndex;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -108,7 +109,7 @@ public class TrinoColumnIndexStore
         if (columnIndexStore == null) {
             columnIndexStore = loadIndexes(dataSource, columnIndexReferences, (inputStream, columnMetadata) -> {
                 try {
-                    return ParquetMetadataConverter.fromParquetColumnIndex(columnMetadata.getPrimitiveType(), Util.readColumnIndex(inputStream));
+                    return fromParquetColumnIndex(columnMetadata.getPrimitiveType(), Util.readColumnIndex(inputStream));
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
@@ -125,7 +126,7 @@ public class TrinoColumnIndexStore
         if (offsetIndexStore == null) {
             offsetIndexStore = loadIndexes(dataSource, offsetIndexReferences, (inputStream, columnMetadata) -> {
                 try {
-                    return ParquetMetadataConverter.fromParquetOffsetIndex(Util.readOffsetIndex(inputStream));
+                    return fromParquetOffsetIndex(Util.readOffsetIndex(inputStream));
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
