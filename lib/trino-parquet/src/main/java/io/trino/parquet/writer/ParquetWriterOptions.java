@@ -15,12 +15,14 @@ package io.trino.parquet.writer;
 
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
-import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.column.ParquetProperties;
+
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class ParquetWriterOptions
 {
-    private static final DataSize DEFAULT_MAX_ROW_GROUP_SIZE = DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE);
-    private static final DataSize DEFAULT_MAX_PAGE_SIZE = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE);
+    private static final DataSize DEFAULT_MAX_ROW_GROUP_SIZE = DataSize.of(128, MEGABYTE);
+    private static final DataSize DEFAULT_MAX_PAGE_SIZE = DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE);
     // org.apache.parquet.column.DEFAULT_PAGE_ROW_COUNT_LIMIT is 20_000 to improve selectivity of page indexes
     // This value should be revisited when TODO https://github.com/trinodb/trino/issues/9359 is implemented
     public static final int DEFAULT_MAX_PAGE_VALUE_COUNT = 60_000;

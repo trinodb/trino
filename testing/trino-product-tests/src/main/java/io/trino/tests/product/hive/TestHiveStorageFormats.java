@@ -29,7 +29,7 @@ import io.trino.tempto.query.QueryExecutor.QueryParam;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.utils.JdbcDriverUtils;
-import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.column.ParquetProperties;
 import org.assertj.core.api.SoftAssertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -775,7 +775,7 @@ public class TestHiveStorageFormats
     @Test(groups = STORAGE_FORMATS_DETAILED)
     public void testLargeParquetInsert()
     {
-        DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
+        DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE / 4);
         runLargeInsert(storageFormat(
                 "PARQUET",
                 ImmutableMap.of(
