@@ -13,13 +13,13 @@
  */
 package io.trino.parquet.writer;
 
+import io.trino.parquet.ParquetMetadataConverter;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.Statistics;
-import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.io.api.Binary;
 
 import static com.google.common.base.Verify.verify;
-import static org.apache.parquet.format.converter.ParquetMetadataConverter.MAX_STATS_SIZE;
+import static io.trino.parquet.ParquetMetadataConverter.MAX_STATS_SIZE;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;

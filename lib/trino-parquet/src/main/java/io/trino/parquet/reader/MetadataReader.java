@@ -31,13 +31,11 @@ import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Statistics;
 import org.apache.parquet.format.Type;
-import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
-import org.apache.parquet.internal.hadoop.metadata.IndexReference;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -59,13 +57,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.parquet.ParquetMetadataConverter.convertEncodingStats;
+import static io.trino.parquet.ParquetMetadataConverter.fromParquetStatistics;
+import static io.trino.parquet.ParquetMetadataConverter.getEncoding;
+import static io.trino.parquet.ParquetMetadataConverter.getLogicalTypeAnnotation;
+import static io.trino.parquet.ParquetMetadataConverter.toColumnIndexReference;
+import static io.trino.parquet.ParquetMetadataConverter.toOffsetIndexReference;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static org.apache.parquet.format.Util.readFileMetaData;
-import static org.apache.parquet.format.converter.ParquetMetadataConverterUtil.getLogicalTypeAnnotation;
 
 public final class MetadataReader
 {
@@ -75,7 +78,6 @@ public final class MetadataReader
     private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
     // Typical 1GB files produced by Trino were found to have footer size between 30-40KB
     private static final int EXPECTED_FOOTER_SIZE = 48 * 1024;
-    private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
     private MetadataReader() {}
 
@@ -154,7 +156,7 @@ public final class MetadataReader
                             columnPath,
                             primitiveType,
                             CompressionCodecName.fromParquet(metaData.codec),
-                            PARQUET_METADATA_CONVERTER.convertEncodingStats(metaData.encoding_stats),
+                            convertEncodingStats(metaData.encoding_stats),
                             readEncodings(metaData.encodings),
                             readStats(Optional.ofNullable(fileMetaData.getCreated_by()), Optional.ofNullable(metaData.statistics), primitiveType),
                             metaData.data_page_offset,
@@ -197,7 +199,6 @@ public final class MetadataReader
 
     private static void readTypeSchema(Types.GroupBuilder<?> builder, Iterator<SchemaElement> schemaIterator, int typeCount)
     {
-        ParquetMetadataConverter parquetMetadataConverter = new ParquetMetadataConverter();
         for (int i = 0; i < typeCount; i++) {
             SchemaElement element = schemaIterator.next();
             Types.Builder<?, ?> typeBuilder;
@@ -223,11 +224,11 @@ public final class MetadataReader
             // https://github.com/apache/parquet-mr/blob/apache-parquet-1.12.0/parquet-hadoop/src/main/java/org/apache/parquet/format/converter/ParquetMetadataConverter.java#L1568-L1582
             LogicalTypeAnnotation annotationFromLogicalType = null;
             if (element.isSetLogicalType()) {
-                annotationFromLogicalType = getLogicalTypeAnnotation(parquetMetadataConverter, element.logicalType);
+                annotationFromLogicalType = getLogicalTypeAnnotation(element.logicalType);
                 typeBuilder.as(annotationFromLogicalType);
             }
             if (element.isSetConverted_type()) {
-                LogicalTypeAnnotation annotationFromConvertedType = getLogicalTypeAnnotation(parquetMetadataConverter, element.converted_type, element);
+                LogicalTypeAnnotation annotationFromConvertedType = getLogicalTypeAnnotation(element.converted_type, element);
                 if (annotationFromLogicalType != null) {
                     // Both element.logicalType and element.converted_type set
                     if (annotationFromLogicalType.toOriginalType() == annotationFromConvertedType.toOriginalType()) {
@@ -261,7 +262,7 @@ public final class MetadataReader
     public static org.apache.parquet.column.statistics.Statistics<?> readStats(Optional<String> fileCreatedBy, Optional<Statistics> statisticsFromFile, PrimitiveType type)
     {
         Statistics statistics = statisticsFromFile.orElse(null);
-        org.apache.parquet.column.statistics.Statistics<?> columnStatistics = new ParquetMetadataConverter().fromParquetStatistics(fileCreatedBy.orElse(null), statistics, type);
+        org.apache.parquet.column.statistics.Statistics<?> columnStatistics = fromParquetStatistics(fileCreatedBy.orElse(null), statistics, type);
 
         if (isStringType(type)
                 && statistics != null
@@ -355,7 +356,7 @@ public final class MetadataReader
     {
         Set<org.apache.parquet.column.Encoding> columnEncodings = new HashSet<>();
         for (Encoding encoding : encodings) {
-            columnEncodings.add(org.apache.parquet.column.Encoding.valueOf(encoding.name()));
+            columnEncodings.add(getEncoding(encoding));
         }
         return Collections.unmodifiableSet(columnEncodings);
     }
@@ -381,22 +382,6 @@ public final class MetadataReader
                 return PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
         }
         throw new IllegalArgumentException("Unknown type " + type);
-    }
-
-    private static IndexReference toColumnIndexReference(ColumnChunk columnChunk)
-    {
-        if (columnChunk.isSetColumn_index_offset() && columnChunk.isSetColumn_index_length()) {
-            return new IndexReference(columnChunk.getColumn_index_offset(), columnChunk.getColumn_index_length());
-        }
-        return null;
-    }
-
-    private static IndexReference toOffsetIndexReference(ColumnChunk columnChunk)
-    {
-        if (columnChunk.isSetOffset_index_offset() && columnChunk.isSetOffset_index_length()) {
-            return new IndexReference(columnChunk.getOffset_index_offset(), columnChunk.getOffset_index_length());
-        }
-        return null;
     }
 
     private static void validateFileMetadata(ParquetDataSourceId dataSourceId, org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData, Optional<ParquetWriteValidation> parquetWriteValidation)
