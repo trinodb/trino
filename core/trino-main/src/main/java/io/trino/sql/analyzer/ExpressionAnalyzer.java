@@ -302,7 +302,6 @@ public class ExpressionAnalyzer
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
-    private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
 
     // Coercions needed for window function frame of type RANGE.
     // These are coercions for the sort key, needed for frame bound calculation, identified by frame range offset expression.
@@ -435,11 +434,6 @@ public class ExpressionAnalyzer
     public Map<NodeRef<Expression>, Type> getExpressionCoercions()
     {
         return unmodifiableMap(expressionCoercions);
-    }
-
-    public Set<NodeRef<Expression>> getTypeOnlyCoercions()
-    {
-        return unmodifiableSet(typeOnlyCoercions);
     }
 
     public Map<NodeRef<Expression>, Type> getSortKeyCoercionsForFrameBoundCalculation()
@@ -944,14 +938,14 @@ public class ExpressionAnalyzer
             }
 
             if (commonType != operandType) {
-                addOrReplaceExpressionCoercion(node.getOperand(), operandType, commonType);
+                addOrReplaceExpressionCoercion(node.getOperand(), commonType);
             }
 
             for (int i = 0; i < whenOperandTypes.size(); i++) {
                 Type whenOperandType = whenOperandTypes.get(i);
                 if (!whenOperandType.equals(commonType)) {
                     Expression whenOperand = whenClauses.get(i).getOperand();
-                    addOrReplaceExpressionCoercion(whenOperand, whenOperandType, commonType);
+                    addOrReplaceExpressionCoercion(whenOperand, commonType);
                 }
             }
         }
@@ -2192,13 +2186,13 @@ public class ExpressionAnalyzer
             }
 
             if (!valueType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getValue(), valueType, commonType.get());
+                addOrReplaceExpressionCoercion(node.getValue(), commonType.get());
             }
             if (!minType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getMin(), minType, commonType.get());
+                addOrReplaceExpressionCoercion(node.getMin(), commonType.get());
             }
             if (!maxType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getMax(), maxType, commonType.get());
+                addOrReplaceExpressionCoercion(node.getMax(), commonType.get());
             }
 
             return setExpressionType(node, BOOLEAN);
@@ -2232,7 +2226,7 @@ public class ExpressionAnalyzer
             }
 
             Type value = process(node.getExpression(), context);
-            if (!value.equals(UNKNOWN) && !node.isTypeOnly()) {
+            if (!value.equals(UNKNOWN)) {
                 try {
                     plannerContext.getMetadata().getCoercion(value, type);
                 }
@@ -2838,7 +2832,7 @@ public class ExpressionAnalyzer
                         catch (OperatorNotFoundException e) {
                             throw semanticException(NOT_SUPPORTED, node, "Unsupported type of JSON path parameter: %s", parameterType.getDisplayName());
                         }
-                        addOrReplaceExpressionCoercion(parameter, parameterType, VARCHAR);
+                        addOrReplaceExpressionCoercion(parameter, VARCHAR);
                         passedType = VARCHAR;
                     }
                 }
@@ -2998,7 +2992,7 @@ public class ExpressionAnalyzer
                         catch (OperatorNotFoundException e) {
                             throw semanticException(NOT_SUPPORTED, node, "Unsupported type of value passed to JSON_OBJECT function: %s", valueType.getDisplayName());
                         }
-                        addOrReplaceExpressionCoercion(value, valueType, VARCHAR);
+                        addOrReplaceExpressionCoercion(value, VARCHAR);
                         valueType = VARCHAR;
                     }
                 }
@@ -3110,7 +3104,7 @@ public class ExpressionAnalyzer
                         catch (OperatorNotFoundException e) {
                             throw semanticException(NOT_SUPPORTED, node, "Unsupported type of value passed to JSON_ARRAY function: %s", elementType.getDisplayName());
                         }
-                        addOrReplaceExpressionCoercion(element, elementType, VARCHAR);
+                        addOrReplaceExpressionCoercion(element, VARCHAR);
                         elementType = VARCHAR;
                     }
                 }
@@ -3198,7 +3192,7 @@ public class ExpressionAnalyzer
                 if (!typeCoercion.canCoerce(actualType, expectedType)) {
                     throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to a %s (actual: %s)", message, expectedType, actualType);
                 }
-                addOrReplaceExpressionCoercion(expression, actualType, expectedType);
+                addOrReplaceExpressionCoercion(expression, expectedType);
             }
         }
 
@@ -3226,10 +3220,10 @@ public class ExpressionAnalyzer
                     && typeCoercion.canCoerce(secondType, superTypeOptional.get())) {
                 Type superType = superTypeOptional.get();
                 if (!firstType.equals(superType)) {
-                    addOrReplaceExpressionCoercion(first, firstType, superType);
+                    addOrReplaceExpressionCoercion(first, superType);
                 }
                 if (!secondType.equals(superType)) {
-                    addOrReplaceExpressionCoercion(second, secondType, superType);
+                    addOrReplaceExpressionCoercion(second, superType);
                 }
                 return superType;
             }
@@ -3278,27 +3272,21 @@ public class ExpressionAnalyzer
                                 type,
                                 typeExpressions.keySet());
                     }
-                    addOrReplaceExpressionsCoercion(coercionCandidates, type, superType);
+                    addOrReplaceExpressionsCoercion(coercionCandidates, superType);
                 }
             }
 
             return superType;
         }
 
-        private void addOrReplaceExpressionCoercion(Expression expression, Type type, Type superType)
+        private void addOrReplaceExpressionCoercion(Expression expression, Type superType)
         {
-            addOrReplaceExpressionsCoercion(ImmutableList.of(NodeRef.of(expression)), type, superType);
+            addOrReplaceExpressionsCoercion(ImmutableList.of(NodeRef.of(expression)), superType);
         }
 
-        private void addOrReplaceExpressionsCoercion(Collection<NodeRef<Expression>> expressions, Type type, Type superType)
+        private void addOrReplaceExpressionsCoercion(Collection<NodeRef<Expression>> expressions, Type superType)
         {
             expressions.forEach(expression -> expressionCoercions.put(expression, superType));
-            if (typeCoercion.isTypeOnlyCoercion(type, superType)) {
-                typeOnlyCoercions.addAll(expressions);
-            }
-            else {
-                typeOnlyCoercions.removeAll(expressions);
-            }
         }
     }
 
@@ -3456,7 +3444,6 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getWindowFunctions());
     }
@@ -3489,7 +3476,6 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getWindowFunctions());
     }
@@ -3518,7 +3504,6 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getWindowFunctions());
     }
@@ -3546,7 +3531,6 @@ public class ExpressionAnalyzer
                         analyzer.getSubqueries(),
                         analyzer.getExistsSubqueries(),
                         analyzer.getColumnReferences(),
-                        analyzer.getTypeOnlyCoercions(),
                         analyzer.getQuantifiedComparisons(),
                         analyzer.getWindowFunctions()));
     }
@@ -3575,7 +3559,6 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getWindowFunctions()));
     }
@@ -3651,7 +3634,6 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getWindowFunctions());
     }
@@ -3661,7 +3643,6 @@ public class ExpressionAnalyzer
         analysis.addTypes(analyzer.getExpressionTypes());
         analysis.addCoercions(
                 analyzer.getExpressionCoercions(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getSortKeyCoercionsForFrameBoundCalculation(),
                 analyzer.getSortKeyCoercionsForFrameBoundComparison());
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());

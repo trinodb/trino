@@ -423,7 +423,7 @@ public class SqlRoutineAnalyzer
                         throw semanticException(TYPE_MISMATCH, whenClause.getExpression(), "WHEN clause value must evaluate to CASE value type %s (actual: %s)", valueType, whenType);
                     }
                     if (!whenType.equals(superType.get())) {
-                        addCoercion(whenClause.getExpression(), whenType, superType.get());
+                        addCoercion(whenClause.getExpression(), superType.get());
                     }
                 }
             }
@@ -517,7 +517,7 @@ public class SqlRoutineAnalyzer
                 throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to %s (actual: %s)", message, expectedType, actualType);
             }
 
-            addCoercion(expression, actualType, expectedType);
+            addCoercion(expression, expectedType);
         }
 
         private Type analyzeExpression(Context context, Expression expression)
@@ -545,9 +545,9 @@ public class SqlRoutineAnalyzer
             return analysis.getType(expression);
         }
 
-        private void addCoercion(Expression expression, Type actualType, Type expectedType)
+        private void addCoercion(Expression expression, Type expectedType)
         {
-            analysis.addCoercion(expression, expectedType, typeCoercion.isTypeOnlyCoercion(actualType, expectedType));
+            analysis.addCoercion(expression, expectedType);
         }
 
         private void analyzeNodes(Context context, List<? extends Node> statements)

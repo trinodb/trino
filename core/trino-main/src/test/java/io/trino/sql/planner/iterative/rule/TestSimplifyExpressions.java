@@ -388,7 +388,7 @@ public class TestSimplifyExpressions
         {
             // the `expected` Cast expression comes out of the AstBuilder with the `typeOnly` flag set to false.
             // always set the `typeOnly` flag to false so that it does not break the comparison.
-            return new Cast(node.getExpression(), node.getType(), node.isSafe(), false);
+            return new Cast(node.getExpression(), node.getType(), node.isSafe());
         }
     }
 }

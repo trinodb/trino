@@ -39,7 +39,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.Cast;
-import io.trino.type.TypeCoercion;
 
 import java.util.Map;
 import java.util.Optional;
@@ -62,12 +61,10 @@ public class ApplyTableScanRedirection
             .matching(node -> !node.isUpdateTarget());
 
     private final PlannerContext plannerContext;
-    private final TypeCoercion typeCoercion;
 
     public ApplyTableScanRedirection(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
 
     @Override
@@ -274,7 +271,6 @@ public class ApplyTableScanRedirection
         return new Cast(
                 destinationSymbol.toSymbolReference(),
                 toSqlType(sourceType),
-                false,
-                typeCoercion.isTypeOnlyCoercion(destinationType, sourceType));
+                false);
     }
 }

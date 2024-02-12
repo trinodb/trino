@@ -33,7 +33,6 @@ public class ExpressionAnalysis
 {
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final Map<NodeRef<Expression>, Type> expressionCoercions;
-    private final Set<NodeRef<Expression>> typeOnlyCoercions;
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences;
     private final Set<NodeRef<InPredicate>> subqueryInPredicates;
     private final Set<NodeRef<SubqueryExpression>> subqueries;
@@ -48,13 +47,11 @@ public class ExpressionAnalysis
             Set<NodeRef<SubqueryExpression>> subqueries,
             Set<NodeRef<ExistsPredicate>> existsSubqueries,
             Map<NodeRef<Expression>, ResolvedField> columnReferences,
-            Set<NodeRef<Expression>> typeOnlyCoercions,
             Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons,
             Set<NodeRef<FunctionCall>> windowFunctions)
     {
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         this.expressionCoercions = ImmutableMap.copyOf(requireNonNull(expressionCoercions, "expressionCoercions is null"));
-        this.typeOnlyCoercions = ImmutableSet.copyOf(requireNonNull(typeOnlyCoercions, "typeOnlyCoercions is null"));
         this.columnReferences = ImmutableMap.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
         this.subqueryInPredicates = ImmutableSet.copyOf(requireNonNull(subqueryInPredicates, "subqueryInPredicates is null"));
         this.subqueries = ImmutableSet.copyOf(requireNonNull(subqueries, "subqueries is null"));
@@ -76,11 +73,6 @@ public class ExpressionAnalysis
     public Type getCoercion(Expression expression)
     {
         return expressionCoercions.get(NodeRef.of(expression));
-    }
-
-    public boolean isTypeOnlyCoercion(Expression expression)
-    {
-        return typeOnlyCoercions.contains(NodeRef.of(expression));
     }
 
     public boolean isColumnReference(Expression node)

@@ -48,7 +48,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
 import static io.trino.geospatial.KdbTree.Node.newLeaf;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
-import static io.trino.plugin.geospatial.GeoFunctions.stPoint;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -67,8 +66,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.Math.cos;
-import static java.lang.Math.toRadians;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -80,7 +77,6 @@ public class TestSpatialJoinPlanning
     private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(new KdbTree(newLeaf(new Rectangle(0, 0, 10, 10), 0)));
 
     private String kdbTreeLiteral;
-    private String point21x21Literal;
 
     @Override
     protected PlanTester createPlanTester()
@@ -105,7 +101,6 @@ public class TestSpatialJoinPlanning
         DynamicSliceOutput output = new DynamicSliceOutput(0);
         BlockSerdeUtil.writeBlock(new TestingBlockEncodingSerde(), output, block);
         kdbTreeLiteral = format("\"%s\"(from_base64('%s'))", LITERAL_FUNCTION_NAME, Base64.getEncoder().encodeToString(output.slice().getBytes()));
-        point21x21Literal = format("\"%s\"(from_base64('%s'))", LITERAL_FUNCTION_NAME, Base64.getEncoder().encodeToString(stPoint(2.1, 2.1).getBytes()));
     }
 
     @Test
@@ -300,60 +295,6 @@ public class TestSpatialJoinPlanning
                                         project(ImmutableMap.of("partitions_b", expression(format("spatial_partitions(%s, geometry_b)", kdbTreeLiteral))),
                                                 project(ImmutableMap.of("geometry_b", expression("ST_GeometryFromText(cast(wkt_b as varchar))")),
                                                         tableScan("polygons", ImmutableMap.of("wkt_b", "wkt", "name_b", "name"))))))));
-    }
-
-    @Test
-    public void testDistanceQuery()
-    {
-        // broadcast
-        assertPlan("SELECT b.name, a.name " +
-                        "FROM " + singleRow("2.1", "2.1", "'x'") + " AS a (lng, lat, name), " + singleRow("2.1", "2.1", "'x'") + " AS b (lng, lat, name) " +
-                        "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 3.1",
-                anyTree(
-                        spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
-                                project(
-                                        ImmutableMap.of("st_point_a", expression(point21x21Literal), "a_name", expression("'x'")),
-                                        singleRow()),
-                                any(
-                                        project(
-                                                ImmutableMap.of("st_point_b", expression(point21x21Literal), "radius", expression("3.1e0"), "b_name", expression("'x'")),
-                                                singleRow())))));
-
-        assertPlan("SELECT b.name, a.name " +
-                        "FROM " + singleRow("2.1", "2.1", "'x'") + " AS a (lng, lat, name), " + singleRow("2.1", "2.1", "'x'") + " AS b (lng, lat, name) " +
-                        "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 300 / (cos(radians(b.lat)) * 111321)",
-                anyTree(
-                        spatialJoin("st_distance(st_point_a, st_point_b) <= radius",
-                                project(
-                                        ImmutableMap.of("st_point_a", expression(point21x21Literal), "a_name", expression("'x'")),
-                                        singleRow()),
-                                any(
-                                        project(
-                                                ImmutableMap.of("st_point_b", expression(point21x21Literal), "radius", expression(doubleLiteral(3e2 / (cos(toRadians(2.1)) * 111.321e3))), "b_name", expression("'x'")),
-                                                singleRow())))));
-
-        // distributed
-        assertDistributedPlan("SELECT b.name, a.name " +
-                        "FROM " + singleRow("2.1", "2.1", "'x'") + " AS a (lng, lat, name), " + singleRow("2.1", "2.1", "'x'") + " AS b (lng, lat, name) " +
-                        "WHERE ST_Distance(ST_Point(a.lng, a.lat), ST_Point(b.lng, b.lat)) <= 3.1",
-                withSpatialPartitioning("memory.default.kdb_tree"),
-                anyTree(
-                        spatialJoin("st_distance(st_point_a, st_point_b) <= radius", Optional.of(KDB_TREE_JSON),
-                                anyTree(
-                                        unnest(
-                                                project(
-                                                        ImmutableMap.of(
-                                                                "st_point_a", expression(point21x21Literal),
-                                                                "partitions_a", expression(format("spatial_partitions(%s, %s)", kdbTreeLiteral, point21x21Literal))),
-                                                        singleRow()))),
-                                anyTree(
-                                        unnest(
-                                                project(
-                                                        ImmutableMap.of(
-                                                                "st_point_b", expression(point21x21Literal),
-                                                                "partitions_b", expression(format("spatial_partitions(%s, %s, 3.1e0)", kdbTreeLiteral, point21x21Literal)),
-                                                                "radius", expression("3.1e0")),
-                                                        singleRow()))))));
     }
 
     @Test

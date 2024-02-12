@@ -221,7 +221,7 @@ class QueryPlanner
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.session = session;
         this.outerContext = outerContext;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, typeCoercion, outerContext, session, recursiveSubqueries);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries);
         this.recursiveSubqueries = recursiveSubqueries;
     }
 
@@ -1559,8 +1559,7 @@ class QueryPlanner
                 Expression cast = new Cast(
                         coercions.get(sortKey).toSymbolReference(),
                         toSqlType(expectedType),
-                        false,
-                        typeCoercion.isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
+                        false);
                 sortKeyCoercedForFrameBoundCalculation = symbolAllocator.newSymbol(cast, expectedType);
                 sortKeyCoercions.put(expectedType, sortKeyCoercedForFrameBoundCalculation);
                 subPlan = subPlan.withNewRoot(new ProjectNode(
@@ -1603,8 +1602,7 @@ class QueryPlanner
                 Expression cast = new Cast(
                         coercions.get(sortKey).toSymbolReference(),
                         toSqlType(expectedType),
-                        false,
-                        typeCoercion.isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
+                        false);
                 Symbol castSymbol = symbolAllocator.newSymbol(cast, expectedType);
                 sortKeyCoercions.put(expectedType, castSymbol);
                 subPlan = subPlan.withNewRoot(new ProjectNode(
@@ -1674,8 +1672,7 @@ class QueryPlanner
             offsetToBigint = new Cast(
                     offsetSymbol.toSymbolReference(),
                     toSqlType(BIGINT),
-                    false,
-                    typeCoercion.isTypeOnlyCoercion(offsetType, BIGINT));
+                    false);
         }
 
         Symbol coercedOffsetSymbol = symbolAllocator.newSymbol(offsetToBigint, BIGINT);
@@ -2040,14 +2037,12 @@ class QueryPlanner
             // expressions may be repeated, for example, when resolving ordinal references in a GROUP BY clause
             if (!mappings.containsKey(NodeRef.of(expression))) {
                 if (coercion != null) {
-                    Type type = analysis.getType(expression);
                     Symbol symbol = symbolAllocator.newSymbol(expression, coercion);
 
                     assignments.put(symbol, new Cast(
                             subPlan.rewrite(expression),
                             toSqlType(coercion),
-                            false,
-                            typeCoercion.isTypeOnlyCoercion(type, coercion)));
+                            false));
 
                     mappings.put(NodeRef.of(expression), symbol);
                 }
@@ -2076,8 +2071,7 @@ class QueryPlanner
         return new Cast(
                 rewritten,
                 toSqlType(coercion),
-                false,
-                analysis.isTypeOnlyCoercion(original));
+                false);
     }
 
     public static NodeAndMappings coerce(RelationPlan plan, List<Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)

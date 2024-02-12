@@ -68,11 +68,7 @@ public class ParameterRewriter
 
         Type coercion = analysis.getCoercion(original);
         if (coercion != null) {
-            rewritten = new Cast(
-                    rewritten,
-                    toSqlType(coercion),
-                    false,
-                    analysis.isTypeOnlyCoercion(original));
+            rewritten = new Cast(rewritten, toSqlType(coercion), false);
         }
         return rewritten;
     }
