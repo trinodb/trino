@@ -49,6 +49,6 @@ public class ByEagerParentOutputStatsEstimator
         for (int i = 0; i < outputPartitionsCount; ++i) {
             estimateBuilder.add(0);
         }
-        return Optional.of(new OutputStatsEstimateResult(estimateBuilder.build(), 0, "FOR_EAGER_PARENT"));
+        return Optional.of(new OutputStatsEstimateResult(estimateBuilder.build(), 0, "FOR_EAGER_PARENT", false));
     }
 }
