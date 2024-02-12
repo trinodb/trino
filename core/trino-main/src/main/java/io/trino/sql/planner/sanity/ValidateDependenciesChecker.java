@@ -21,6 +21,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -122,6 +123,15 @@ public final class ValidateDependenciesChecker
         protected Void visitPlan(PlanNode node, Set<Symbol> boundSymbols)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+
+        @Override
+        public Void visitAdaptivePlanNode(AdaptivePlanNode node, Set<Symbol> boundSymbols)
+        {
+            PlanNode source = node.getCurrentPlan();
+            source.accept(this, boundSymbols); // visit child
+
+            return null;
         }
 
         @Override

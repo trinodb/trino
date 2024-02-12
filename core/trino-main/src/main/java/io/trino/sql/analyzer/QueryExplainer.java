@@ -76,7 +76,7 @@ public class QueryExplainer
             CostCalculator costCalculator,
             NodeVersion version)
     {
-        this.planOptimizers = requireNonNull(planOptimizersFactory.get(), "planOptimizers is null");
+        this.planOptimizers = requireNonNull(planOptimizersFactory.getPlanOptimizers(), "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");

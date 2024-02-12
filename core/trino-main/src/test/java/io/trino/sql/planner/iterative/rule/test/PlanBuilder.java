@@ -1022,6 +1022,22 @@ public class PlanBuilder
         return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty(), Optional.empty());
     }
 
+    public JoinNode join(JoinType type, JoinNode.DistributionType distributionType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
+    {
+        return join(
+                type,
+                left,
+                right,
+                ImmutableList.copyOf(criteria),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(distributionType),
+                ImmutableMap.of());
+    }
+
     public JoinNode join(
             JoinType type,
             PlanNode left,
