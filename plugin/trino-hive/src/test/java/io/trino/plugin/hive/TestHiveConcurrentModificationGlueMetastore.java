@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
+import io.trino.plugin.hive.metastore.glue.GlueCache;
 import io.trino.plugin.hive.metastore.glue.GlueContext;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
@@ -95,6 +96,7 @@ public class TestHiveConcurrentModificationGlueMetastore
         metastore = new GlueHiveMetastore(
                 proxiedGlueClient,
                 new GlueContext(glueConfig),
+                GlueCache.NOOP,
                 HDFS_FILE_SYSTEM_FACTORY,
                 glueConfig,
                 EnumSet.allOf(GlueHiveMetastore.TableKind.class));

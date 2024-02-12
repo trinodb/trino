@@ -102,6 +102,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -113,6 +114,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.opentelemetry.context.Context.taskWrapping;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -175,6 +177,7 @@ public class GlueHiveMetastore
 
     private final GlueClient glueClient;
     private final GlueContext glueContext;
+    private final GlueCache glueCache;
     private final TrinoFileSystem fileSystem;
     private final Optional<String> defaultDir;
     private final int partitionSegments;
@@ -187,6 +190,7 @@ public class GlueHiveMetastore
     public GlueHiveMetastore(
             GlueClient glueClient,
             GlueContext glueContext,
+            GlueCache glueCache,
             TrinoFileSystemFactory fileSystemFactory,
             GlueHiveMetastoreConfig config,
             Set<TableKind> visibleTableKinds)
@@ -194,6 +198,7 @@ public class GlueHiveMetastore
         this(
                 glueClient,
                 glueContext,
+                glueCache,
                 fileSystemFactory.create(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)),
                 config.getDefaultWarehouseDir(),
                 config.getPartitionSegments(),
@@ -205,7 +210,7 @@ public class GlueHiveMetastore
     public GlueHiveMetastore(
             GlueClient glueClient,
             GlueContext glueContext,
-            TrinoFileSystem fileSystem,
+            GlueCache glueCache, TrinoFileSystem fileSystem,
             Optional<String> defaultDir,
             int partitionSegments,
             boolean assumeCanonicalPartitionKeys,
@@ -214,6 +219,7 @@ public class GlueHiveMetastore
     {
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.glueContext = requireNonNull(glueContext, "glueContext is null");
+        this.glueCache = glueCache;
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.defaultDir = requireNonNull(defaultDir, "defaultDir is null");
         this.partitionSegments = partitionSegments;
@@ -229,14 +235,28 @@ public class GlueHiveMetastore
         return stats;
     }
 
+    @Managed
+    @Flatten
+    public GlueCache getGlueCache()
+    {
+        return glueCache;
+    }
+
     @Override
     public List<String> getAllDatabases()
+    {
+        return glueCache.getDatabaseNames(this::getDatabasesInternal);
+    }
+
+    private List<String> getDatabasesInternal(Consumer<Database> cacheDatabase)
     {
         try {
             return stats.getGetDatabases().call(() -> glueClient.getDatabasesPaginator(glueContext::configureClient).stream()
                     .map(GetDatabasesResponse::databaseList)
                     .flatMap(List::stream)
-                    .map(software.amazon.awssdk.services.glue.model.Database::name)
+                    .map(GlueConverter::fromGlueDatabase)
+                    .peek(cacheDatabase)
+                    .map(Database::getDatabaseName)
                     .toList());
         }
         catch (SdkException e) {
@@ -246,6 +266,11 @@ public class GlueHiveMetastore
 
     @Override
     public Optional<Database> getDatabase(String databaseName)
+    {
+        return glueCache.getDatabase(databaseName, () -> getDatabaseInternal(databaseName));
+    }
+
+    private Optional<Database> getDatabaseInternal(String databaseName)
     {
         try {
             GetDatabaseResponse response = stats.getGetDatabase().call(() -> glueClient.getDatabase(builder -> builder
@@ -297,6 +322,10 @@ public class GlueHiveMetastore
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+        finally {
+            glueCache.invalidateDatabase(database.getDatabaseName());
+            glueCache.invalidateDatabaseNames();
+        }
 
         if (database.getLocation().isPresent()) {
             Location location = Location.of(database.getLocation().get());
@@ -331,6 +360,10 @@ public class GlueHiveMetastore
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+        finally {
+            glueCache.invalidateDatabase(databaseName);
+            glueCache.invalidateDatabaseNames();
+        }
 
         location.ifPresent(this::deleteDir);
     }
@@ -361,6 +394,11 @@ public class GlueHiveMetastore
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+        finally {
+            glueCache.invalidateDatabase(databaseName);
+            glueCache.invalidateDatabase(newDatabaseName);
+            glueCache.invalidateDatabaseNames();
+        }
     }
 
     @Override
@@ -372,6 +410,11 @@ public class GlueHiveMetastore
     @Override
     public List<TableInfo> getTables(String databaseName)
     {
+        return glueCache.getTables(databaseName, cacheTable -> getTablesInternal(cacheTable, databaseName));
+    }
+
+    private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName)
+    {
         return stats.getGetTables()
                 .call(() -> glueClient.getTablesPaginator(builder -> builder
                                 .applyMutation(glueContext::configureClient)
@@ -379,14 +422,21 @@ public class GlueHiveMetastore
                         .map(GetTablesResponse::tableList)
                         .flatMap(List::stream))
                 .filter(tableVisibilityFilter)
+                .map(glueTable -> GlueConverter.fromGlueTable(glueTable, databaseName))
+                .peek(cacheTable)
                 .map(table -> new TableInfo(
-                        new SchemaTableName(databaseName, table.name()),
-                        TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.tableType(), table.parameters().get(TABLE_COMMENT))))
+                        new SchemaTableName(databaseName, table.getTableName()),
+                        TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.getTableType(), table.getParameters().get(TABLE_COMMENT))))
                 .toList();
     }
 
     @Override
     public Optional<Table> getTable(String databaseName, String tableName)
+    {
+        return glueCache.getTable(databaseName, tableName, () -> getTableInternal(databaseName, tableName));
+    }
+
+    private Optional<Table> getTableInternal(String databaseName, String tableName)
     {
         try {
             GetTableResponse result = stats.getGetTable().call(() -> glueClient.getTable(builder -> builder
@@ -435,6 +485,10 @@ public class GlueHiveMetastore
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+        finally {
+            glueCache.invalidateTable(table.getDatabaseName(), table.getTableName(), true);
+            glueCache.invalidateTables(table.getDatabaseName());
+        }
     }
 
     @Override
@@ -466,6 +520,10 @@ public class GlueHiveMetastore
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        finally {
+            glueCache.invalidateTable(databaseName, tableName, true);
+            glueCache.invalidateTables(databaseName);
         }
 
         deleteLocation.ifPresent(this::deleteDir);
@@ -521,6 +579,9 @@ public class GlueHiveMetastore
         catch (FailsafeException e) {
             throwIfUnchecked(e.getCause());
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        finally {
+            glueCache.invalidateTable(databaseName, tableName, false);
         }
     }
 
@@ -583,6 +644,14 @@ public class GlueHiveMetastore
             }
             throw e;
         }
+        finally {
+            glueCache.invalidateTable(databaseName, tableName, true);
+            glueCache.invalidateTable(newDatabaseName, newTableName, true);
+            glueCache.invalidateTables(databaseName);
+            if (!databaseName.equals(newDatabaseName)) {
+                glueCache.invalidateTables(newDatabaseName);
+            }
+        }
     }
 
     private static TableInput.Builder asTableInputBuilder(software.amazon.awssdk.services.glue.model.Table table)
@@ -617,6 +686,15 @@ public class GlueHiveMetastore
 
     @Override
     public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        return glueCache.getTableColumnStatistics(
+                databaseName,
+                tableName,
+                columnNames,
+                missingColumnNames -> getTableColumnStatisticsInternal(databaseName, tableName, missingColumnNames));
+    }
+
+    private Map<String, HiveColumnStatistics> getTableColumnStatisticsInternal(String databaseName, String tableName, Set<String> columnNames)
     {
         var columnStatsTasks = Lists.partition(ImmutableList.copyOf(columnNames), GLUE_COLUMN_READ_STAT_PAGE_SIZE).stream()
                 .map(partialColumns -> (Callable<List<ColumnStatistics>>) () -> stats.getGetColumnStatisticsForTable().call(() -> glueClient.getColumnStatisticsForTable(builder -> builder
@@ -668,6 +746,9 @@ public class GlueHiveMetastore
             throwIfUnchecked(e.getCause());
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+        finally {
+            glueCache.invalidateTable(databaseName, tableName, true);
+        }
 
         List<Callable<Void>> tasks = new ArrayList<>();
         Lists.partition(toGlueColumnStatistics(result.updateColumnStatistics()), GLUE_COLUMN_WRITE_STAT_PAGE_SIZE).stream()
@@ -699,6 +780,9 @@ public class GlueHiveMetastore
                 throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
             }
             throw new TrinoException(HIVE_METASTORE_ERROR, "Failed updating column statistics for %s.%s".formatted(databaseName, tableName), e.getCause());
+        }
+        finally {
+            glueCache.invalidateTableColumnStatistics(databaseName, tableName);
         }
     }
 
@@ -776,22 +860,29 @@ public class GlueHiveMetastore
             return Optional.of(ImmutableList.of());
         }
         String glueFilterExpression = GlueExpressionUtil.buildGlueExpression(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys);
-        return Optional.of(getPartitionNames(databaseName, tableName, glueFilterExpression).stream()
+        Set<PartitionName> partitionNames = glueCache.getPartitionNames(
+                databaseName,
+                tableName,
+                glueFilterExpression,
+                cachePartition -> getPartitionNames(cachePartition, databaseName, tableName, glueFilterExpression));
+
+        return Optional.of(partitionNames.stream()
                 .map(PartitionName::partitionValues)
                 .map(partitionValues -> toPartitionName(columnNames, partitionValues))
                 .collect(toImmutableList()));
     }
 
-    private Collection<PartitionName> getPartitionNames(String databaseName, String tableName, String glueExpression)
+    private Set<PartitionName> getPartitionNames(Consumer<Partition> cachePartition, String databaseName, String tableName, String glueExpression)
             throws EntityNotFoundException
     {
         if (partitionSegments == 1) {
-            return getPartitionNames(databaseName, tableName, glueExpression, null);
+            return getPartitionNames(cachePartition, databaseName, tableName, glueExpression, null);
         }
 
         try {
             return runParallel(IntStream.range(0, partitionSegments)
-                    .mapToObj(segmentNumber -> (Callable<List<PartitionName>>) () -> getPartitionNames(
+                    .mapToObj(segmentNumber -> (Callable<Set<PartitionName>>) () -> getPartitionNames(
+                            cachePartition,
                             databaseName,
                             tableName,
                             glueExpression,
@@ -802,7 +893,7 @@ public class GlueHiveMetastore
                     .toList())
                     .stream()
                     .flatMap(Collection::stream)
-                    .collect(toImmutableList());
+                    .collect(toImmutableSet());
         }
         catch (ExecutionException e) {
             if (e.getCause() instanceof EntityNotFoundException) {
@@ -812,7 +903,7 @@ public class GlueHiveMetastore
         }
     }
 
-    private List<PartitionName> getPartitionNames(String databaseName, String tableName, String expression, @Nullable Segment segment)
+    private Set<PartitionName> getPartitionNames(Consumer<Partition> cachePartition, String databaseName, String tableName, String expression, @Nullable Segment segment)
             throws EntityNotFoundException
     {
         try {
@@ -825,9 +916,11 @@ public class GlueHiveMetastore
                             .maxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS)).stream()
                     .map(GetPartitionsResponse::partitions)
                     .flatMap(List::stream)
-                    .map(software.amazon.awssdk.services.glue.model.Partition::values)
+                    .map(partition -> GlueConverter.fromGluePartition(databaseName, tableName, partition))
+                    .peek(cachePartition)
+                    .map(Partition::getValues)
                     .map(PartitionName::new)
-                    .collect(toImmutableList()));
+                    .collect(toImmutableSet()));
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -840,17 +933,20 @@ public class GlueHiveMetastore
     @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
-        return getPartition(table.getDatabaseName(), table.getTableName(), partitionValues);
+        String databaseName = table.getDatabaseName();
+        String tableName = table.getTableName();
+        PartitionName partitionName = new PartitionName(partitionValues);
+        return glueCache.getPartition(databaseName, tableName, partitionName, () -> getPartition(databaseName, tableName, partitionName));
     }
 
-    private Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionName)
+    private Optional<Partition> getPartition(String databaseName, String tableName, PartitionName partitionName)
     {
         try {
             GetPartitionResponse result = stats.getGetPartition().call(() -> glueClient.getPartition(builder -> builder
                     .applyMutation(glueContext::configureClient)
                     .databaseName(databaseName)
                     .tableName(tableName)
-                    .partitionValues(partitionName)));
+                    .partitionValues(partitionName.partitionValues())));
             return Optional.of(GlueConverter.fromGluePartition(databaseName, tableName, result.partition()));
         }
         catch (EntityNotFoundException e) {
@@ -858,14 +954,6 @@ public class GlueHiveMetastore
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-    }
-
-    private record PartitionName(List<String> partitionValues)
-    {
-        private PartitionName
-        {
-            requireNonNull(partitionValues, "partitionValues is null");
         }
     }
 
@@ -882,7 +970,11 @@ public class GlueHiveMetastore
 
     private Map<PartitionName, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, Collection<PartitionName> partitionNames)
     {
-        List<Partition> partitions = batchGetPartition(databaseName, tableName, partitionNames);
+        Collection<Partition> partitions = glueCache.batchGetPartitions(
+                databaseName,
+                tableName,
+                partitionNames,
+                (cachePartition, missingPartitions) -> batchGetPartition(databaseName, tableName, missingPartitions, cachePartition));
         Map<PartitionName, Partition> partitionValuesToPartitionMap = partitions.stream()
                 .collect(toMap(partition -> new PartitionName(partition.getValues()), identity()));
 
@@ -894,7 +986,7 @@ public class GlueHiveMetastore
         return resultBuilder.buildOrThrow();
     }
 
-    private List<Partition> batchGetPartition(String databaseName, String tableName, Collection<PartitionName> partitionNames)
+    private Collection<Partition> batchGetPartition(String databaseName, String tableName, Collection<PartitionName> partitionNames, Consumer<Partition> cachePartition)
             throws EntityNotFoundException
     {
         try {
@@ -922,6 +1014,7 @@ public class GlueHiveMetastore
 
                     response.partitions().stream()
                             .map(partition -> GlueConverter.fromGluePartition(databaseName, tableName, partition))
+                            .peek(cachePartition)
                             .forEach(resultsBuilder::add);
                     pendingPartitions.addAll(response.unprocessedKeys());
                 }
@@ -1001,12 +1094,13 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void dropPartition(String databaseName, String tableName, List<String> partitionName, boolean deleteData)
+    public void dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
     {
+        PartitionName partitionName = new PartitionName(partitionValues);
         Optional<Location> location = Optional.empty();
         if (deleteData) {
             Partition partition = getPartition(databaseName, tableName, partitionName)
-                    .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionName));
+                    .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
             location = Optional.of(Strings.nullToEmpty(partition.getStorage().getLocation()))
                     .map(Location::of);
         }
@@ -1015,13 +1109,16 @@ public class GlueHiveMetastore
                     .applyMutation(glueContext::configureClient)
                     .databaseName(databaseName)
                     .tableName(tableName)
-                    .partitionValues(partitionName)));
+                    .partitionValues(partitionValues)));
         }
         catch (EntityNotFoundException e) {
-            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionName);
+            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues);
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        finally {
+            glueCache.invalidatePartition(databaseName, tableName, partitionName);
         }
 
         location.ifPresent(this::deleteDir);
@@ -1056,6 +1153,9 @@ public class GlueHiveMetastore
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+        finally {
+            glueCache.invalidatePartition(partition.getDatabaseName(), partition.getTableName(), new PartitionName(partition.getValues()));
+        }
 
         try {
             runParallel(createUpdatePartitionStatisticsTasks(StatisticsUpdateMode.OVERWRITE_ALL, partition, partitionWithStatistics.getStatistics().columnStatistics()));
@@ -1065,6 +1165,10 @@ public class GlueHiveMetastore
                 throw new PartitionNotFoundException(new SchemaTableName(partition.getDatabaseName(), partition.getTableName()), partition.getValues());
             }
             throw new TrinoException(HIVE_METASTORE_ERROR, "Failed updating partition column statistics for %s %s".formatted(partition.getSchemaTableName(), partition.getValues()), e.getCause());
+        }
+        finally {
+            // this redundant, but be safe in case stats were cached before the update
+            glueCache.invalidatePartition(partition.getDatabaseName(), partition.getTableName(), new PartitionName(partition.getValues()));
         }
     }
 
@@ -1088,7 +1192,14 @@ public class GlueHiveMetastore
         Map<PartitionName, Map<String, HiveColumnStatistics>> columnStats;
         try {
             columnStats = runParallel(partitionNames.stream()
-                    .map(partitionName -> (Callable<Entry<PartitionName, Map<String, HiveColumnStatistics>>>) () -> entry(partitionName, getPartitionColumnStatistics(databaseName, tableName, partitionName, columnNames)))
+                    .map(partitionName -> (Callable<Entry<PartitionName, Map<String, HiveColumnStatistics>>>) () -> entry(
+                            partitionName,
+                            glueCache.getPartitionColumnStatistics(
+                                    databaseName,
+                                    tableName,
+                                    partitionName,
+                                    columnNames,
+                                    missingColumnNames -> getPartitionColumnStatisticsInternal(databaseName, tableName, partitionName, missingColumnNames))))
                     .collect(toImmutableList()))
                     .stream()
                     .collect(toImmutableMap(Entry::getKey, Entry::getValue));
@@ -1103,7 +1214,7 @@ public class GlueHiveMetastore
                 .collect(toImmutableMap(identity(), name -> columnStats.getOrDefault(name, ImmutableMap.of())));
     }
 
-    private Map<String, HiveColumnStatistics> getPartitionColumnStatistics(String databaseName, String tableName, PartitionName partitionName, Set<String> columnNames)
+    private Map<String, HiveColumnStatistics> getPartitionColumnStatisticsInternal(String databaseName, String tableName, PartitionName partitionName, Set<String> columnNames)
             throws EntityNotFoundException
     {
         var columnStatsTasks = Lists.partition(ImmutableList.copyOf(columnNames), GLUE_COLUMN_READ_STAT_PAGE_SIZE).stream()
@@ -1141,7 +1252,9 @@ public class GlueHiveMetastore
             throws EntityNotFoundException
     {
         // partitions are required for update
-        List<Partition> partitions = batchGetPartition(databaseName, tableName, ImmutableList.copyOf(newStatistics.keySet()));
+        // the glue cache is not used here because we need up-to-date partitions for the read-update-write operation
+        // loaded partitions are not cached here since the partition values are invalidated after the update
+        Collection<Partition> partitions = batchGetPartition(databaseName, tableName, ImmutableList.copyOf(newStatistics.keySet()), ignored -> {});
 
         // existing column statistics are required for the columns being updated when in merge incremental mode
         // this is fetched before the basic statistics are updated, to avoid reloading in the case of retries updating basic statistics
@@ -1151,7 +1264,7 @@ public class GlueHiveMetastore
                 existingColumnStatistics = runParallel(newStatistics.entrySet().stream()
                         .map(entry -> (Callable<Entry<PartitionName, Map<String, HiveColumnStatistics>>>) () -> {
                             PartitionName partitionName = entry.getKey();
-                            Map<String, HiveColumnStatistics> columnStatistics = getPartitionColumnStatistics(databaseName, tableName, partitionName, entry.getValue().columnStatistics().keySet());
+                            Map<String, HiveColumnStatistics> columnStatistics = getPartitionColumnStatisticsInternal(databaseName, tableName, partitionName, entry.getValue().columnStatistics().keySet());
                             return entry(partitionName, columnStatistics);
                         })
                         .collect(toImmutableList()))
@@ -1270,6 +1383,7 @@ public class GlueHiveMetastore
     public boolean functionExists(String databaseName, String functionName, String signatureToken)
     {
         try {
+            // this call is only used for create/drop function so is not worth caching
             stats.getUpdateUserDefinedFunction().call(() -> glueClient.getUserDefinedFunction(builder -> builder
                     .applyMutation(glueContext::configureClient)
                     .databaseName(databaseName)
@@ -1287,16 +1401,16 @@ public class GlueHiveMetastore
     @Override
     public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
-        return getFunctionsByPattern(databaseName, "trino__.*");
+        return glueCache.getAllFunctions(databaseName, () -> getFunctionsByPatternInternal(databaseName, "trino__.*"));
     }
 
     @Override
     public Collection<LanguageFunction> getFunctions(String databaseName, String functionName)
     {
-        return getFunctionsByPattern(databaseName, "trino__" + Pattern.quote(functionName) + "__.*");
+        return glueCache.getFunction(databaseName, functionName, () -> getFunctionsByPatternInternal(databaseName, "trino__" + Pattern.quote(functionName) + "__.*"));
     }
 
-    private Collection<LanguageFunction> getFunctionsByPattern(String databaseName, String functionNamePattern)
+    private Collection<LanguageFunction> getFunctionsByPatternInternal(String databaseName, String functionNamePattern)
     {
         try {
             return stats.getGetUserDefinedFunctions().call(() -> glueClient.getUserDefinedFunctionsPaginator(builder -> builder
@@ -1339,6 +1453,9 @@ public class GlueHiveMetastore
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+        finally {
+            glueCache.invalidateFunction(databaseName, functionName);
+        }
     }
 
     @Override
@@ -1358,6 +1475,9 @@ public class GlueHiveMetastore
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+        finally {
+            glueCache.invalidateFunction(databaseName, functionName);
+        }
     }
 
     @Override
@@ -1374,6 +1494,9 @@ public class GlueHiveMetastore
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        finally {
+            glueCache.invalidateFunction(databaseName, functionName);
         }
     }
 
