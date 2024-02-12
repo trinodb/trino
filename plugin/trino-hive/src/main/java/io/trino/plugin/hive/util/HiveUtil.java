@@ -65,6 +65,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -94,6 +95,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
+import static io.trino.plugin.hive.HiveMetadata.PARQUET_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
@@ -744,6 +746,14 @@ public final class HiveUtil
     public static List<HiveType> getColumnTypes(Map<String, String> schema)
     {
         return toHiveTypes(schema.getOrDefault(LIST_COLUMN_TYPES, ""));
+    }
+
+    public static Set<String> getParquetBloomFilterColumns(Map<String, String> schema)
+    {
+        return ImmutableSet.copyOf(
+                Optional.ofNullable(schema.get(PARQUET_BLOOM_FILTER_COLUMNS_KEY))
+                        .map(COLUMN_NAMES_SPLITTER::splitToList)
+                        .orElse(ImmutableList.of()));
     }
 
     public static OrcWriterOptions getOrcWriterOptions(Map<String, String> schema, OrcWriterOptions orcWriterOptions)
