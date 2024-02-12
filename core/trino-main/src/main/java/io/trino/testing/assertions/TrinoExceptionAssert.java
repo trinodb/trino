@@ -16,6 +16,7 @@ package io.trino.testing.assertions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.cache.SafeCaches;
 import io.trino.client.ErrorInfo;
 import io.trino.client.FailureException;
@@ -112,6 +113,7 @@ public final class TrinoExceptionAssert
         this.failureInfo = requireNonNull(failureInfo, "failureInfo is null");
     }
 
+    @CanIgnoreReturnValue
     public TrinoExceptionAssert hasErrorCode(ErrorCodeSupplier... errorCodeSupplier)
     {
         ErrorCode errorCode = null;
@@ -133,6 +135,7 @@ public final class TrinoExceptionAssert
         return myself;
     }
 
+    @CanIgnoreReturnValue
     public TrinoExceptionAssert hasLocation(int lineNumber, int columnNumber)
     {
         try {
