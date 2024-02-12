@@ -25,7 +25,6 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.TryExpression;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -108,13 +107,6 @@ public final class NullabilityAnalyzer
 
         @Override
         protected Void visitSubscriptExpression(SubscriptExpression node, AtomicBoolean result)
-        {
-            result.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitTryExpression(TryExpression node, AtomicBoolean result)
         {
             result.set(true);
             return null;
