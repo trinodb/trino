@@ -209,6 +209,9 @@ public class TestConcatWsFunction
     public void testLowArguments()
     {
         assertTrinoExceptionThrownBy(assertions.function("concat_ws", "','")::evaluate)
-                .hasCauseMessageContaining("There must be two or more arguments");
+                .hasMessageStartingWith("Compiler failed. Possible reasons include:")
+                .cause().cause().cause()
+                // TODO (https://github.com/trinodb/trino/issues/20663) this should always be the top-level TrinoException message visible to end-user
+                .hasToString("io.trino.spi.TrinoException: There must be two or more arguments");
     }
 }

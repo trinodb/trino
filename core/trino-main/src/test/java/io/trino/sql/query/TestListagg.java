@@ -346,7 +346,7 @@ public class TestListagg
                         "GROUP BY id " +
                         "ORDER BY id "))
                 .failure()
-                .hasCauseMessageContaining("Concatenated string has the length in bytes larger than the maximum output length 1048576")
+                .hasMessage("Concatenated string has the length in bytes larger than the maximum output length 1048576")
                 .hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
     }
 

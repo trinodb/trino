@@ -62,7 +62,10 @@ public class TestLocalExecutionPlanner
 
         assertTrinoExceptionThrownBy(() -> runner.execute("SELECT " + outer + " FROM (VALUES rand()) t(x)"))
                 .hasErrorCode(COMPILER_ERROR)
-                .hasCauseMessageContaining("Query exceeded maximum columns");
+                .hasMessageStartingWith("Compiler failed. Possible reasons include:")
+                .cause().cause().cause()
+                // TODO this should be top-level TrinoException message
+                .hasToString("io.trino.spi.TrinoException: Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.");
     }
 
     @Test
@@ -76,7 +79,10 @@ public class TestLocalExecutionPlanner
 
         assertTrinoExceptionThrownBy(() -> runner.execute("SELECT * " + filterQueryInner + filterQueryWhere))
                 .hasErrorCode(COMPILER_ERROR)
-                .hasCauseMessageContaining("Query exceeded maximum filters");
+                .hasMessageStartingWith("Compiler failed. Possible reasons include:")
+                .cause().cause().cause()
+                // TODO this should be top-level TrinoException message
+                .hasToString("io.trino.spi.TrinoException: Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.");
     }
 
     @Test
