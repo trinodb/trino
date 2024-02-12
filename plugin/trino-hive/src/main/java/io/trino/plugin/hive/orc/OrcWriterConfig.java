@@ -31,7 +31,6 @@ public class OrcWriterConfig
 {
     private OrcWriterOptions options = new OrcWriterOptions();
 
-    private final double defaultBloomFilterFpp = 0.05;
     private double validationPercentage;
     private OrcWriteValidationMode validationMode = OrcWriteValidationMode.BOTH;
 
