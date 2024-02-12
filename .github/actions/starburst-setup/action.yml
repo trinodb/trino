@@ -50,14 +50,10 @@ runs:
         echo " *** AWS user info"
         aws sts get-caller-identity
     - name: "Fetch secrets"
-      uses: t-botz/aws-secrets-manager-read-action@v2
-      id: secrets
-      env:
-        SEP_SECRET_ARN: "${{ inputs.secret-id }}"
+      uses: aws-actions/aws-secretsmanager-get-secrets@v2
       with:
-        secret-id: ${{ env.SEP_SECRET_ARN }}
-        keys-as-env-vars: true
-        mask-json-values: true
+        secret-ids: ${{ inputs.secret-id }}
+        parse-json-secrets: true
     - name: "Login to maven registry"
       if: inputs.login-maven != 'false'
       uses: starburstdata/codeartifact-login-action@v1
@@ -81,5 +77,5 @@ runs:
       if: inputs.login-docker != 'false'
       uses: docker/login-action@v3
       with:
-        username: ${{ env.DOCKERHUBUSERNAME }}
-        password: ${{ env.DOCKERHUBPASSWORD }}
+        username: ${{ env.SEP_CI_SEP_DOCKERHUBUSERNAME }}
+        password: ${{ env.SEP_CI_SEP_DOCKERHUBPASSWORD }}
