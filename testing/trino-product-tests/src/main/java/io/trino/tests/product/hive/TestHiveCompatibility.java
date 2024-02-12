@@ -40,6 +40,7 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -204,6 +205,52 @@ public class TestHiveCompatibility
                 .containsOnly(row(new BigDecimal("123")));
 
         onTrino().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(groups = STORAGE_FORMATS_DETAILED)
+    public void testTrinoHiveParquetBloomFilterCompatibility()
+    {
+        String trinoTableNameWithBloomFilter = "test_trino_hive_parquet_bloom_filter_compatibility_enabled_" + randomNameSuffix();
+        String trioTableNameNoBloomFilter = "test_trino_hive_parquet_bloom_filter_compatibility_disabled_" + randomNameSuffix();
+
+        onTrino().executeQuery(
+                String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) ", trinoTableNameWithBloomFilter) +
+                        "WITH (" +
+                        "format = 'PARQUET'," +
+                        "parquet_bloom_filter_columns = ARRAY['testInteger', 'testLong', 'testString', 'testDouble', 'testFloat']" +
+                        ")");
+        onTrino().executeQuery(
+                String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) WITH (FORMAT = 'PARQUET')", trioTableNameNoBloomFilter));
+        String[] tables = new String[] {trinoTableNameWithBloomFilter, trioTableNameNoBloomFilter};
+
+        for (String trinoTable : tables) {
+            onTrino().executeQuery(format(
+                    "INSERT INTO %s " +
+                            "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
+                            "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
+                            ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
+                            ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +
+                            ", (999999, 9999999999999, 'zzzzzzzzzzz', DOUBLE '9999999999.99', REAL '-9999999.9999')" +
+                            ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(testInteger, testLong, testString, testDouble, testFloat)",
+                    trinoTable));
+        }
+
+        assertHiveBloomFilterTableSelectResult(tables);
+
+        for (String trinoTable : tables) {
+            onTrino().executeQuery("DROP TABLE " + trinoTable);
+        }
+    }
+
+    private static void assertHiveBloomFilterTableSelectResult(String[] hiveTables)
+    {
+        for (String hiveTable : hiveTables) {
+            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE testInteger IN (9444, -88777, 6711111)")).containsOnly(List.of(row(1)));
+            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE testLong IN (4132455, 321324, 312321321322)")).containsOnly(List.of(row(1)));
+            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE testString IN ('fdsvxxbv33cb', 'cxxx322', 'cxxx323')")).containsOnly(List.of(row(1)));
+            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE testDouble IN (97662.2D, -97221.2D, -88777.22233D)")).containsOnly(List.of(row(1)));
+            assertThat(onHive().executeQuery("SELECT COUNT(*) FROM " + hiveTable + " WHERE testFloat IN (-65496.1, 98211862.2, 6761111555.1222)")).containsOnly(List.of(row(1)));
+        }
     }
 
     @DataProvider

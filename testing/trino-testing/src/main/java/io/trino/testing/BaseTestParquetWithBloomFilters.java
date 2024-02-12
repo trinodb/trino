@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
@@ -28,10 +27,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseTestParquetWithBloomFilters
         extends AbstractTestQueryFramework
 {
-    protected Path dataDirectory;
     private static final String COLUMN_NAME = "dataColumn";
     // containing extreme values, so the row group cannot be eliminated by the column chunk's min/max statistics
-    private static final List<Integer> TEST_VALUES = Arrays.asList(Integer.MIN_VALUE, Integer.MAX_VALUE, 1, 3, 7, 10, 15);
+    protected static final List<Integer> TEST_VALUES = Arrays.asList(Integer.MIN_VALUE, Integer.MAX_VALUE, 1, 3, 7, 10, 15);
     private static final int MISSING_VALUE = 0;
 
     @Test
@@ -50,18 +48,22 @@ public abstract class BaseTestParquetWithBloomFilters
     public void testBloomFilterRowGroupPruning()
     {
         CatalogSchemaTableName tableName = createParquetTableWithBloomFilter(COLUMN_NAME, TEST_VALUES);
+        testBloomFilterRowGroupPruning(tableName, COLUMN_NAME);
+    }
 
+    protected void testBloomFilterRowGroupPruning(CatalogSchemaTableName tableName, String columnName)
+    {
         // assert table is populated with data
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName,
+                "SELECT " + columnName + " FROM " + tableName,
                 queryStats -> {},
                 results -> assertThat(results.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.copyOf(TEST_VALUES)));
 
         // When reading bloom filter is enabled, row groups are pruned when searching for a missing value
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE " + COLUMN_NAME + " = " + MISSING_VALUE,
+                "SELECT " + columnName + " FROM " + tableName + " WHERE " + columnName + " = " + MISSING_VALUE,
                 queryStats -> {
                     assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(0);
                     assertThat(queryStats.getProcessedInputPositions()).isEqualTo(0);
@@ -71,7 +73,7 @@ public abstract class BaseTestParquetWithBloomFilters
         // When reading bloom filter is enabled, row groups are not pruned when searching for a value present in the file
         assertQueryStats(
                 getSession(),
-                "SELECT * FROM " + tableName + " WHERE " + COLUMN_NAME + " = " + TEST_VALUES.get(0),
+                "SELECT " + columnName + " FROM " + tableName + " WHERE " + columnName + " = " + TEST_VALUES.get(0),
                 queryStats -> {
                     assertThat(queryStats.getPhysicalInputPositions()).isGreaterThan(0);
                     assertThat(queryStats.getProcessedInputPositions()).isEqualTo(queryStats.getPhysicalInputPositions());
@@ -81,7 +83,7 @@ public abstract class BaseTestParquetWithBloomFilters
         // When reading bloom filter is disabled, row groups are not pruned when searching for a missing value
         assertQueryStats(
                 bloomFiltersDisabled(getSession()),
-                "SELECT * FROM " + tableName + " WHERE " + COLUMN_NAME + " = " + MISSING_VALUE,
+                "SELECT " + columnName + " FROM " + tableName + " WHERE " + columnName + " = " + MISSING_VALUE,
                 queryStats -> {
                     assertThat(queryStats.getPhysicalInputPositions()).isGreaterThan(0);
                     assertThat(queryStats.getProcessedInputPositions()).isEqualTo(queryStats.getPhysicalInputPositions());
