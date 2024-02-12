@@ -19,12 +19,15 @@ class ConcurrencyController
 {
     private static final double TARGET_UTILIZATION = 0.5;
 
+    private final int maxConcurrency;
     private int targetConcurrency;
 
-    public ConcurrencyController(int initialConcurrency)
+    public ConcurrencyController(int initialConcurrency, int maxConcurrency)
     {
         checkArgument(initialConcurrency > 0, "initial concurrency must be positive");
+        checkArgument(initialConcurrency <= maxConcurrency, "initial concurrency must be <= maxConcurrency>");
         this.targetConcurrency = initialConcurrency;
+        this.maxConcurrency = maxConcurrency;
     }
 
     public void update(double utilization, int currentConcurrency)
@@ -35,6 +38,8 @@ class ConcurrencyController
         else if (utilization < TARGET_UTILIZATION && currentConcurrency >= targetConcurrency) {
             targetConcurrency++;
         }
+
+        targetConcurrency = Math.min(maxConcurrency, targetConcurrency);
     }
 
     public int targetConcurrency()
