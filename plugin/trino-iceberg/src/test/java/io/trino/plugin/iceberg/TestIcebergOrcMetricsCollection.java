@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.INITIAL_SPLITS_PER_NODE;
 import static io.trino.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
@@ -70,6 +71,7 @@ public class TestIcebergOrcMetricsCollection
                 .setSystemProperty(TASK_CONCURRENCY, "1")
                 .setSystemProperty(TASK_MIN_WRITER_COUNT, "1")
                 .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
+                .setSystemProperty(INITIAL_SPLITS_PER_NODE, "1")
                 .setSystemProperty(MAX_DRIVERS_PER_TASK, "1")
                 .setCatalogSessionProperty("iceberg", "orc_string_statistics_limit", Integer.MAX_VALUE + "B")
                 .build();

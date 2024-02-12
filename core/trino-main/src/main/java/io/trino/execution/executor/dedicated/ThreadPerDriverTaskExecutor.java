@@ -54,6 +54,7 @@ public class ThreadPerDriverTaskExecutor
     private final FairScheduler scheduler;
     private final Tracer tracer;
     private final VersionEmbedder versionEmbedder;
+    private final int maxDriversPerTask;
     private final ScheduledThreadPoolExecutor backgroundTasks = new ScheduledThreadPoolExecutor(2);
 
     @GuardedBy("this")
@@ -65,15 +66,20 @@ public class ThreadPerDriverTaskExecutor
     @Inject
     public ThreadPerDriverTaskExecutor(TaskManagerConfig config, Tracer tracer, VersionEmbedder versionEmbedder)
     {
-        this(tracer, versionEmbedder, new FairScheduler(config.getMaxWorkerThreads(), "SplitRunner-%d", Ticker.systemTicker()));
+        this(
+                tracer,
+                versionEmbedder,
+                new FairScheduler(config.getMaxWorkerThreads(), "SplitRunner-%d", Ticker.systemTicker()),
+                config.getMaxDriversPerTask());
     }
 
     @VisibleForTesting
-    public ThreadPerDriverTaskExecutor(Tracer tracer, VersionEmbedder versionEmbedder, FairScheduler scheduler)
+    public ThreadPerDriverTaskExecutor(Tracer tracer, VersionEmbedder versionEmbedder, FairScheduler scheduler, int maxDriversPerTask)
     {
         this.scheduler = scheduler;
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
+        this.maxDriversPerTask = maxDriversPerTask;
     }
 
     @PostConstruct
@@ -104,7 +110,14 @@ public class ThreadPerDriverTaskExecutor
             OptionalInt maxDriversPerTask)
     {
         checkArgument(!closed, "Executor is already closed");
-        TaskEntry task = new TaskEntry(taskId, scheduler, versionEmbedder, tracer, initialSplitConcurrency, utilizationSupplier);
+        TaskEntry task = new TaskEntry(
+                taskId,
+                scheduler,
+                versionEmbedder,
+                tracer,
+                initialSplitConcurrency,
+                maxDriversPerTask.orElse(this.maxDriversPerTask),
+                utilizationSupplier);
         tasks.put(taskId, task);
         return task;
     }

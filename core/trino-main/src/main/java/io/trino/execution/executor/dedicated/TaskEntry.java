@@ -62,7 +62,7 @@ class TaskEntry
     @GuardedBy("this")
     private final Set<SplitRunner> running = new HashSet<>();
 
-    public TaskEntry(TaskId taskId, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, DoubleSupplier utilization)
+    public TaskEntry(TaskId taskId, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, int maxConcurrency, DoubleSupplier utilization)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
@@ -71,7 +71,7 @@ class TaskEntry
         this.utilization = requireNonNull(utilization, "utilization is null");
 
         this.group = scheduler.createGroup(taskId.toString());
-        this.concurrency = new ConcurrencyController(initialConcurrency);
+        this.concurrency = new ConcurrencyController(initialConcurrency, maxConcurrency);
     }
 
     public TaskId taskId()
