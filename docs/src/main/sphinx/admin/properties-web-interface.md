@@ -5,7 +5,7 @@ The following properties can be used to configure the {doc}`web-interface`.
 ## `web-ui.authentication.type`
 
 - **Type:** {ref}`prop-type-string`
-- **Allowed values:** `FORM`, `FIXED`, `CERTIFICATE`, `KERBEROS`, `JWT`, `OAUTH2`
+- **Allowed values:** `FORM`, `FIXED`, `CERTIFICATE`, `KERBEROS`, `JWT`, `OAUTH2`, `HEADER`
 - **Default value:** `FORM`
 
 The authentication mechanism to allow user access to the Web UI. See

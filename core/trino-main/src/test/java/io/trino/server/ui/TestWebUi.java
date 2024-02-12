@@ -34,6 +34,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
+import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.ChallengeFailedException;
@@ -43,6 +44,7 @@ import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.HeaderAuthenticator;
 import io.trino.spi.security.Identity;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -163,6 +165,8 @@ public class TestWebUi
     private static final PrivateKey JWK_PRIVATE_KEY;
     private static final String REFRESH_TOKEN = "REFRESH_TOKEN";
     private static final Duration REFRESH_TOKEN_TIMEOUT = Duration.ofMinutes(1);
+    private static final String AUTHN_HEADER = "header-authn";
+    private static final String ALTERNATE_AUTHN_HEADER = "header-authn-alternate";
 
     static {
         try {
@@ -869,6 +873,54 @@ public class TestWebUi
         finally {
             jwkServer.stop();
         }
+    }
+
+    @Test
+    public void testHeaderAuthenticator()
+            throws Exception
+    {
+        final Path headerConfigDummy = Files.createTempFile("passwordConfigDummy", "");
+        headerConfigDummy.toFile().deleteOnExit();
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("web-ui.authentication.type", "header")
+                        .put("header-authenticator.config-files", headerConfigDummy.toString())
+                        .buildOrThrow())
+                .build()) {
+            server.getInstance(Key.get(HeaderAuthenticatorManager.class))
+                    .setAuthenticators(
+                            headerAuthenticator(AUTHN_HEADER),
+                            headerAuthenticator(ALTERNATE_AUTHN_HEADER));
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
+
+            testLogIn(httpServerInfo.getHttpUri(), FORM_LOGIN_USER, TEST_PASSWORD, false);
+            testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
+
+            OkHttpClient clientWithAuthNHeader = client.newBuilder()
+                    .addInterceptor(chain -> chain.proceed(chain.request()
+                            .newBuilder()
+                            .addHeader(AUTHN_HEADER, TEST_USER)
+                            .build()))
+                    .build();
+            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithAuthNHeader, nodeId);
+
+            OkHttpClient clientWithAltAuthNHeader = client.newBuilder()
+                    .addInterceptor(chain -> chain.proceed(chain.request()
+                            .newBuilder()
+                            .addHeader(ALTERNATE_AUTHN_HEADER, TEST_USER)
+                            .build()))
+                    .build();
+            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithAltAuthNHeader, nodeId);
+        }
+    }
+
+    private static HeaderAuthenticator headerAuthenticator(String authnHeader)
+    {
+        return (headers) -> Optional.ofNullable(headers.getHeader(authnHeader))
+                .map(values -> new BasicPrincipal(values.get(0)))
+                .orElseThrow(() -> new AccessDeniedException("You shall not pass!"));
     }
 
     private void assertAuth2Authentication(TestingTrinoServer server, String accessToken, Optional<String> idToken, boolean refreshTokensEnabled, boolean supportsEndSessionEndpoint)
