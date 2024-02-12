@@ -20,13 +20,9 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.NodeLocation;
-import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.Window;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -37,11 +33,6 @@ public class BuiltinFunctionCallBuilder
     private String name;
     private List<TypeSignature> argumentTypes = new ArrayList<>();
     private List<Expression> argumentValues = new ArrayList<>();
-    private Optional<NodeLocation> location = Optional.empty();
-    private Optional<Window> window = Optional.empty();
-    private Optional<Expression> filter = Optional.empty();
-    private Optional<OrderBy> orderBy = Optional.empty();
-    private boolean distinct;
 
     public static BuiltinFunctionCallBuilder resolve(Metadata metadata)
     {
@@ -85,66 +76,9 @@ public class BuiltinFunctionCallBuilder
         return this;
     }
 
-    public BuiltinFunctionCallBuilder setLocation(NodeLocation location)
-    {
-        this.location = Optional.of(requireNonNull(location, "location is null"));
-        return this;
-    }
-
-    public BuiltinFunctionCallBuilder setWindow(Window window)
-    {
-        this.window = Optional.of(requireNonNull(window, "window is null"));
-        return this;
-    }
-
-    public BuiltinFunctionCallBuilder setWindow(Optional<Window> window)
-    {
-        this.window = requireNonNull(window, "window is null");
-        return this;
-    }
-
-    public BuiltinFunctionCallBuilder setFilter(Expression filter)
-    {
-        this.filter = Optional.of(requireNonNull(filter, "filter is null"));
-        return this;
-    }
-
-    public BuiltinFunctionCallBuilder setFilter(Optional<Expression> filter)
-    {
-        this.filter = requireNonNull(filter, "filter is null");
-        return this;
-    }
-
-    public BuiltinFunctionCallBuilder setOrderBy(OrderBy orderBy)
-    {
-        this.orderBy = Optional.of(requireNonNull(orderBy, "orderBy is null"));
-        return this;
-    }
-
-    public BuiltinFunctionCallBuilder setOrderBy(Optional<OrderBy> orderBy)
-    {
-        this.orderBy = requireNonNull(orderBy, "orderBy is null");
-        return this;
-    }
-
-    public BuiltinFunctionCallBuilder setDistinct(boolean distinct)
-    {
-        this.distinct = distinct;
-        return this;
-    }
-
     public FunctionCall build()
     {
         ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
-        return new FunctionCall(
-                location,
-                resolvedFunction.toQualifiedName(),
-                window,
-                filter,
-                orderBy,
-                distinct,
-                Optional.empty(),
-                Optional.empty(),
-                argumentValues);
+        return new FunctionCall(resolvedFunction.toQualifiedName(), argumentValues);
     }
 }
