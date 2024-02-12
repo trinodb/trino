@@ -91,10 +91,7 @@ public class TestVarbinaryFunctions
     public void testConcat()
     {
         assertTrinoExceptionThrownBy(assertions.function("CONCAT", "X''")::evaluate)
-                .hasMessageStartingWith("Compiler failed. Possible reasons include:")
-                .cause().cause().cause()
-                // TODO (https://github.com/trinodb/trino/issues/20663) this should always be the top-level TrinoException message visible to end-user
-                .hasToString("io.trino.spi.TrinoException: There must be two or more concatenation arguments");
+                .hasMessage("There must be two or more concatenation arguments");
 
         assertThat(assertions.expression("CAST('foo' AS VARBINARY) || CAST ('bar' AS VARBINARY)"))
                 .isEqualTo(sqlVarbinary("foo" + "bar"));
