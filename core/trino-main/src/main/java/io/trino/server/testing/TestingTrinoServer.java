@@ -87,6 +87,7 @@ import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.SessionSupplier;
 import io.trino.server.ShutdownAction;
 import io.trino.server.StartupStatus;
+import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.spi.ErrorType;
@@ -213,6 +214,7 @@ public class TestingTrinoServer
     private final boolean coordinator;
     private final FailureInjector failureInjector;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final SpoolingManagerRegistry spoolingManagerRegistry;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -250,6 +252,7 @@ public class TestingTrinoServer
             Optional<Path> baseDataDir,
             Optional<SpanProcessor> spanProcessor,
             Optional<FactoryConfiguration> systemAccessControlConfiguration,
+            Optional<FactoryConfiguration> spoolingConfiguration,
             Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners,
             Consumer<TestingTrinoServer> additionalConfiguration,
@@ -427,6 +430,7 @@ public class TestingTrinoServer
         mBeanServer = injector.getInstance(MBeanServer.class);
         failureInjector = injector.getInstance(FailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
+        spoolingManagerRegistry = injector.getInstance(SpoolingManagerRegistry.class);
 
         systemAccessControlConfiguration.ifPresentOrElse(
                 configuration -> {
@@ -434,6 +438,9 @@ public class TestingTrinoServer
                     accessControl.loadSystemAccessControl(configuration.factoryName(), configuration.configuration());
                 },
                 () -> accessControl.setSystemAccessControls(systemAccessControls.orElseThrow()));
+
+        spoolingConfiguration.ifPresent(config ->
+                spoolingManagerRegistry.loadSpoolingManager(config.factoryName(), config.configuration()));
 
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
@@ -513,6 +520,11 @@ public class TestingTrinoServer
     public void loadExchangeManager(String name, Map<String, String> properties)
     {
         exchangeManagerRegistry.loadExchangeManager(name, properties);
+    }
+
+    public void loadSpoolingManager(String name, Map<String, String> properties)
+    {
+        spoolingManagerRegistry.loadSpoolingManager(name, properties);
     }
 
     /**
@@ -732,6 +744,7 @@ public class TestingTrinoServer
         private Optional<Path> baseDataDir = Optional.empty();
         private Optional<SpanProcessor> spanProcessor = Optional.empty();
         private Optional<FactoryConfiguration> systemAccessControlConfiguration = Optional.empty();
+        private Optional<FactoryConfiguration> spoolingConfiguration = Optional.empty();
         private Optional<List<SystemAccessControl>> systemAccessControls = Optional.of(ImmutableList.of());
         private List<EventListener> eventListeners = ImmutableList.of();
         private Consumer<TestingTrinoServer> additionalConfiguration = _ -> {};
@@ -834,6 +847,7 @@ public class TestingTrinoServer
                     baseDataDir,
                     spanProcessor,
                     systemAccessControlConfiguration,
+                    spoolingConfiguration,
                     systemAccessControls,
                     eventListeners,
                     additionalConfiguration,

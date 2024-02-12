@@ -27,6 +27,7 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
+import io.trino.client.RawQueryData;
 import io.trino.client.StatementStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryManagerConfig;
@@ -279,7 +280,7 @@ public class QueuedStatementResource
                 null,
                 nextUri,
                 null,
-                null,
+                RawQueryData.of(null),
                 StatementStats.builder()
                         .setState(state.toString())
                         .setQueued(state == QUEUED)

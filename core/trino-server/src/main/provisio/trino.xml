@@ -333,6 +333,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/spooling-filesystem">
+        <artifact id="${project.groupId}:trino-spooling-filesystem:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/sqlserver">
         <artifact id="${project.groupId}:trino-sqlserver:zip:${project.version}">
             <unpack />

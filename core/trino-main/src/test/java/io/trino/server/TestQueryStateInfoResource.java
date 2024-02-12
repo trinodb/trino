@@ -19,9 +19,12 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.client.QueryResults;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.server.protocol.spooling.QueryDataJacksonModule;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorCode;
 import org.junit.jupiter.api.AfterAll;
@@ -32,6 +35,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -60,7 +64,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestQueryStateInfoResource
 {
     private static final String LONG_LASTING_QUERY = "SELECT * FROM tpch.sf1.lineitem";
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = jsonCodec(QueryResults.class);
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
+            .withModules(Set.of(new QueryDataJacksonModule())))
+            .jsonCodec(QueryResults.class);
 
     private TestingTrinoServer server;
     private HttpClient client;
@@ -87,7 +93,7 @@ public class TestQueryStateInfoResource
                 .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
                 .setHeader(TRINO_HEADERS.requestUser(), "user2")
                 .build();
-        QueryResults queryResults2 = client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        QueryResults queryResults2 = client.execute(request2, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         client.execute(prepareGet().setUri(queryResults2.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
         // queries are started in the background, so they may not all be immediately visible

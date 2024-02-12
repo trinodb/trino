@@ -20,7 +20,6 @@ import com.google.common.io.Closer;
 import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.FeaturesConfig;
@@ -126,6 +125,9 @@ import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
 import io.trino.server.SessionPropertyDefaults;
+import io.trino.server.protocol.spooling.PreferredQueryDataEncoderSelector;
+import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
+import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorConfig;
 import io.trino.server.security.HeaderAuthenticatorManager;
@@ -207,6 +209,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -218,6 +221,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
+import static io.opentelemetry.api.OpenTelemetry.noop;
 import static io.trino.connector.CatalogServiceProviderModule.createAccessControlProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createAnalyzePropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createColumnPropertyManager;
@@ -296,7 +300,7 @@ public class PlanTester
     private final CoordinatorDynamicCatalogManager catalogManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
-
+    private final SpoolingManagerRegistry spoolingManagerRegistry;
     private final TaskManagerConfig taskManagerConfig;
     private final OptimizerConfig optimizerConfig;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
@@ -375,7 +379,7 @@ public class PlanTester
                 pageIndexerFactory,
                 nodeInfo,
                 testingVersionEmbedder(),
-                OpenTelemetry.noop(),
+                noop(),
                 transactionManager,
                 typeManager,
                 nodeSchedulerConfig,
@@ -447,7 +451,8 @@ public class PlanTester
                 ImmutableSet.of(),
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), noopTracer(), secretsResolver);
+        exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver);
+        spoolingManagerRegistry = new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 Optional.empty(),
@@ -464,7 +469,8 @@ public class PlanTester
                 typeRegistry,
                 blockEncodingManager,
                 new HandleResolver(),
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                spoolingManagerRegistry);
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         languageFunctionManager.setPlannerContext(plannerContext);
@@ -496,7 +502,8 @@ public class PlanTester
                 sessionPropertyManager,
                 defaultSession.getPreparedStatements(),
                 defaultSession.getProtocolHeaders(),
-                defaultSession.getExchangeEncryptionKey());
+                defaultSession.getExchangeEncryptionKey(),
+                defaultSession.getQueryDataEncodingId());
     }
 
     private static SessionPropertyManager createSessionPropertyManager(
@@ -716,6 +723,7 @@ public class PlanTester
             throw new AssertionError("Expected sub-plan to have no children");
         }
 
+        SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer());
         TaskContext taskContext = createTaskContext(notificationExecutor, yieldExecutor, session);
         TableExecuteContextManager tableExecuteContextManager = new TableExecuteContextManager();
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
@@ -733,6 +741,8 @@ public class PlanTester
                 new IndexJoinLookupStats(),
                 this.taskManagerConfig,
                 new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
+                new PreferredQueryDataEncoderSelector(Set.of(), spoolingManagerRegistry),
+                Optional.empty(),
                 unsupportedSingleStreamSpillerFactory(),
                 unsupportedPartitioningSpillerFactory(),
                 new PagesIndex.TestingFactory(false),
@@ -873,6 +883,7 @@ public class PlanTester
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
+                new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer()),
                 statsCalculator,
                 costCalculator,
                 warningCollector,

@@ -39,6 +39,9 @@ import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
+import io.trino.server.protocol.spooling.PreferredQueryDataEncoderSelector;
+import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
+import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
@@ -68,7 +71,10 @@ import io.trino.util.FinalizerService;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
+import static io.airlift.tracing.Tracing.noopTracer;
+import static io.opentelemetry.api.OpenTelemetry.noop;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -154,6 +160,7 @@ public final class TaskTestUtils
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
+        SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer());
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
                 Optional.empty(),
@@ -170,6 +177,8 @@ public final class TaskTestUtils
                 new GenericSpillerFactory((types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 }),
+                new PreferredQueryDataEncoderSelector(Set.of(), spoolingManagerRegistry),
+                Optional.empty(),
                 (types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 },

@@ -866,7 +866,7 @@ public class TestQueryStateMachine
                     warningCollector,
                     createPlanOptimizersStatsCollector(),
                     QUERY_TYPE,
-                    true,
+                    false,
                     new NodeVersion("test"));
             stateMachine.setInputs(INPUTS);
             stateMachine.setOutput(OUTPUT);

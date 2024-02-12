@@ -1211,7 +1211,8 @@ public class TestResourceSecurity
                     createTestMetadataManager(),
                     user -> ImmutableSet.of(),
                     accessControl,
-                    new ProtocolConfig());
+                    new ProtocolConfig(),
+                    _ -> Optional.empty());
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)

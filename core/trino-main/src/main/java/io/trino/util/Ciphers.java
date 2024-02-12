@@ -55,11 +55,8 @@ public class Ciphers
         return new SecretKeySpec(key.byteArray(), key.byteArrayOffset(), key.length(), "AES");
     }
 
-    public static boolean is256BitSecretKeySpec(SecretKey secretKey)
+    public static boolean is256BitSecretKeySpec(SecretKey key)
     {
-        if (secretKey instanceof SecretKeySpec spec) {
-            return spec.getAlgorithm().equals("AES") && spec.getEncoded().length == AES_ENCRYPTION_KEY_BITS / 8;
-        }
-        return false;
+        return key.getAlgorithm().equals("AES") && key.getEncoded().length == AES_ENCRYPTION_KEY_BITS / 8;
     }
 }

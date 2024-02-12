@@ -57,6 +57,7 @@ public class JsonCodec<T>
                 .disable(MapperFeature.INFER_PROPERTY_MUTATORS)
                 .disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
                 .addModule(new Jdk8Module())
+                .addModule(new QueryDataClientJacksonModule())
                 .build();
     };
 
@@ -104,6 +105,16 @@ public class JsonCodec<T>
             T value = mapper.readerFor(javaType).readValue(parser);
             checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
             return value;
+        }
+    }
+
+    public String toJson(T instance)
+    {
+        try {
+            return mapper.writerFor(javaType).writeValueAsString(instance);
+        }
+        catch (IOException exception) {
+            throw new IllegalArgumentException(String.format("%s could not be converted to JSON", instance.getClass().getName()), exception);
         }
     }
 }

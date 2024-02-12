@@ -112,6 +112,11 @@ public class Minio
 
     public void createBucket(String bucketName)
     {
+        createBucket(bucketName, false);
+    }
+
+    public void createBucket(String bucketName, boolean objectLock)
+    {
         try (MinioClient minioClient = createMinioClient()) {
             // use retry loop for minioClient.makeBucket as minio container tends to return "Server not initialized, please try again" error
             // for some time after starting up
@@ -120,7 +125,7 @@ public class Minio
                     .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
                     .withDelay(Duration.of(10, SECONDS))
                     .build();
-            Failsafe.with(retryPolicy).run(() -> minioClient.makeBucket(bucketName));
+            Failsafe.with(retryPolicy).run(() -> minioClient.makeBucket(bucketName, objectLock));
         }
     }
 

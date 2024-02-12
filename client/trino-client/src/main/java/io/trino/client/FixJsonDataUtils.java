@@ -14,6 +14,7 @@
 package io.trino.client;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import io.trino.client.ClientTypeSignatureParameter.ParameterKind;
 
@@ -53,33 +54,35 @@ import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-final class FixJsonDataUtils
+public final class FixJsonDataUtils
 {
     private FixJsonDataUtils() {}
 
-    public static Iterable<List<Object>> fixData(List<Column> columns, List<List<Object>> data)
+    public static Iterable<List<Object>> fixData(List<Column> columns, Iterable<List<Object>> data)
     {
         if (data == null) {
             return null;
         }
+
         ColumnTypeHandler[] typeHandlers = createTypeHandlers(columns);
-        ImmutableList.Builder<List<Object>> rows = ImmutableList.builderWithExpectedSize(data.size());
-        for (List<Object> row : data) {
-            if (row.size() != typeHandlers.length) {
-                throw new IllegalArgumentException("row/column size mismatch");
-            }
-            ArrayList<Object> newRow = new ArrayList<>(typeHandlers.length);
-            int column = 0;
-            for (Object value : row) {
-                if (value != null) {
-                    value = typeHandlers[column].fixValue(value);
-                }
-                newRow.add(value);
-                column++;
-            }
-            rows.add(unmodifiableList(newRow)); // allow nulls in list
+        return Iterables.transform(data, row -> fixRow(typeHandlers, row));
+    }
+
+    private static List<Object> fixRow(ColumnTypeHandler[] typeHandlers, List<Object> row)
+    {
+        if (row.size() != typeHandlers.length) {
+            throw new IllegalArgumentException("row/column size mismatch");
         }
-        return rows.build();
+        ArrayList<Object> newRow = new ArrayList<>(typeHandlers.length);
+        int column = 0;
+        for (Object value : row) {
+            if (value != null) {
+                value = typeHandlers[column].fixValue(value);
+            }
+            newRow.add(value);
+            column++;
+        }
+        return unmodifiableList(newRow); // allow nulls in list
     }
 
     private static ColumnTypeHandler[] createTypeHandlers(List<Column> columns)
