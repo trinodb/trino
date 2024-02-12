@@ -921,11 +921,7 @@ public class IrExpressionInterpreter
                     return value;
                 }
 
-                return new Cast((Expression) value, node.getType(), node.isSafe(), node.isTypeOnly());
-            }
-
-            if (node.isTypeOnly()) {
-                return value;
+                return new Cast((Expression) value, node.getType(), node.isSafe());
             }
 
             if (value == null) {

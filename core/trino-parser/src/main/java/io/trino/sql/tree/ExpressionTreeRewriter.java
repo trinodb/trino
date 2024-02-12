@@ -892,7 +892,7 @@ public final class ExpressionTreeRewriter<C>
             DataType type = rewrite(node.getType(), context.get());
 
             if (node.getExpression() != expression || node.getType() != type) {
-                return new Cast(expression, type, node.isSafe(), node.isTypeOnly());
+                return new Cast(expression, type, node.isSafe());
             }
 
             return node;

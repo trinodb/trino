@@ -108,7 +108,6 @@ import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Update;
 import io.trino.tracing.ScopedSpan;
 import io.trino.tracing.TrinoAttributes;
-import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 import jakarta.annotation.Nonnull;
 
@@ -185,7 +184,6 @@ public class LogicalPlanner
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
     private final PlannerContext plannerContext;
-    private final TypeCoercion typeCoercion;
     private final IrTypeAnalyzer typeAnalyzer;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
     private final StatsCalculator statsCalculator;
@@ -230,7 +228,6 @@ public class LogicalPlanner
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, plannerContext, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -1010,7 +1007,7 @@ public class LogicalPlanner
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
         PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
         if (statement.getWhere().isPresent()) {
-            SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, typeCoercion, Optional.empty(), session, ImmutableMap.of());
+            SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
             Expression whereExpression = statement.getWhere().get();
             sourcePlanBuilder = subqueryPlanner.handleSubqueries(sourcePlanBuilder, whereExpression, analysis.getSubqueries(statement));
             sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), sourcePlanBuilder.rewrite(whereExpression)));

@@ -111,7 +111,7 @@ public final class LiteralEncoder
             if (type.equals(UNKNOWN)) {
                 return new NullLiteral();
             }
-            return new Cast(new NullLiteral(), toSqlType(type), false, true);
+            return new Cast(new NullLiteral(), toSqlType(type), false);
         }
 
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
@@ -205,14 +205,14 @@ public final class LiteralEncoder
                 return stringLiteral;
             }
             if (boundedLength > valueLength) {
-                return new Cast(stringLiteral, toSqlType(type), false, true);
+                return new Cast(stringLiteral, toSqlType(type), false);
             }
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value [%s] does not fit in type %s", value.toStringUtf8(), varcharType));
         }
 
         if (type instanceof CharType) {
             StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
-            return new Cast(stringLiteral, toSqlType(type), false, true);
+            return new Cast(stringLiteral, toSqlType(type), false);
         }
 
         if (type.equals(BOOLEAN)) {

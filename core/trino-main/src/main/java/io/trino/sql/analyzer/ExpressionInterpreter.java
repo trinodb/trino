@@ -224,7 +224,7 @@ public class ExpressionInterpreter
                 .buildOrThrow();
 
         // add coercions
-        Expression rewrite = Coercer.addCoercions(expression, coercions, analyzer.getTypeOnlyCoercions());
+        Expression rewrite = Coercer.addCoercions(expression, coercions);
 
         // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
         analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
@@ -255,11 +255,7 @@ public class ExpressionInterpreter
             return rewritten;
         }
 
-        return new Cast(
-                rewritten,
-                toSqlType(coercion),
-                false,
-                analysis.isTypeOnlyCoercion(original));
+        return new Cast(rewritten, toSqlType(coercion), false);
     }
 
     private Object evaluate()
@@ -897,10 +893,6 @@ public class ExpressionInterpreter
             Object value = processWithExceptionHandling(node.getExpression(), context);
             Type targetType = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
             Type sourceType = type(node.getExpression());
-
-            if (node.isTypeOnly()) {
-                return value;
-            }
 
             if (value == null) {
                 return null;

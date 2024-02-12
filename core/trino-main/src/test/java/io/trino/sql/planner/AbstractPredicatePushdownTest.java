@@ -430,26 +430,24 @@ public abstract class AbstractPredicatePushdownTest
     @Test
     public void testTablePredicateIsExtracted()
     {
-        PlanMatchPattern ordersTableScan = tableScan("orders", ImmutableMap.of("ORDERSTATUS", "orderstatus"));
-        if (enableDynamicFiltering) {
-            ordersTableScan = filter(TRUE_LITERAL, ordersTableScan);
-        }
         assertPlan(
                 "SELECT * FROM orders, nation WHERE orderstatus = CAST(nation.name AS varchar(1)) AND orderstatus BETWEEN 'A' AND 'O'",
                 anyTree(
                         node(JoinNode.class,
-                                ordersTableScan,
+                                filter("ORDERSTATUS IN ('F', 'O')",
+                                        tableScan("orders", ImmutableMap.of("ORDERSTATUS", "orderstatus"))),
                                 anyTree(
                                         filter("CAST(NAME AS varchar(1)) IN ('F', 'O')",
                                                 tableScan(
                                                         "nation",
                                                         ImmutableMap.of("NAME", "name")))))));
 
+        PlanMatchPattern ordersTableScan = tableScan("orders", ImmutableMap.of("ORDERSTATUS", "orderstatus"));
         assertPlan(
                 "SELECT * FROM orders JOIN nation ON orderstatus = CAST(nation.name AS varchar(1))",
                 anyTree(
                         node(JoinNode.class,
-                                ordersTableScan,
+                                enableDynamicFiltering ? filter(TRUE_LITERAL, ordersTableScan) : ordersTableScan,
                                 anyTree(
                                         filter("CAST(NAME AS varchar(1)) IN ('F', 'O', 'P')",
                                                 tableScan(

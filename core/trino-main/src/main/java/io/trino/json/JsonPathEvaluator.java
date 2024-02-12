@@ -51,7 +51,7 @@ public class JsonPathEvaluator
 
         this.path = path;
         this.invoker = new Invoker(session, functionManager);
-        this.resolver = new CachingResolver(metadata, typeManager);
+        this.resolver = new CachingResolver(metadata);
     }
 
     public List<Object> evaluate(JsonNode input, Object[] parameters)

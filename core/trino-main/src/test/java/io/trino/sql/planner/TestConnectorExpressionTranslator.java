@@ -304,7 +304,6 @@ public class TestConnectorExpressionTranslator
                 new Cast(
                         new SymbolReference("varchar_symbol_1"),
                         toSqlType(BIGINT),
-                        true,
                         true),
                 Optional.empty());
     }

@@ -48,7 +48,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -179,19 +178,6 @@ public class TestTypeValidator
                         Optional.empty(),
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)));
-
-        assertTypesValid(node);
-    }
-
-    @Test
-    public void testValidTypeOnlyCoercion()
-    {
-        Expression expression = new Cast(columnB.toSymbolReference(), toSqlType(BIGINT));
-        Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression, BIGINT), expression)
-                .put(symbolAllocator.newSymbol(columnE.toSymbolReference(), VARCHAR), columnE.toSymbolReference()) // implicit coercion from varchar(3) to varchar
-                .build();
-        PlanNode node = new ProjectNode(newId(), baseTableScan, assignments);
 
         assertTypesValid(node);
     }

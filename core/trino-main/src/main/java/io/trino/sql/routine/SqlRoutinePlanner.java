@@ -22,6 +22,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
@@ -360,7 +361,7 @@ public final class SqlRoutinePlanner
             analyzer.analyze(optimized, scope);
 
             // translate to RowExpression
-            TranslationVisitor translator = new TranslationVisitor(plannerContext.getMetadata(), analyzer.getExpressionTypes(), ImmutableMap.of(), context.variables());
+            TranslationVisitor translator = new TranslationVisitor(plannerContext.getMetadata(), plannerContext.getTypeManager(), analyzer.getExpressionTypes(), ImmutableMap.of(), context.variables());
             RowExpression rowExpression = translator.process(optimized, null);
 
             // optimize RowExpression
@@ -376,7 +377,7 @@ public final class SqlRoutinePlanner
             if (coercion == null) {
                 return rewritten;
             }
-            return new Cast(rewritten, toSqlType(coercion), false, analysis.isTypeOnlyCoercion(original));
+            return new Cast(rewritten, toSqlType(coercion), false);
         }
 
         private ExpressionAnalyzer createExpressionAnalyzer(Session session, TypeProvider typeProvider)
@@ -432,11 +433,12 @@ public final class SqlRoutinePlanner
 
         public TranslationVisitor(
                 Metadata metadata,
+                TypeManager typeManager,
                 Map<NodeRef<Expression>, Type> types,
                 Map<Symbol, Integer> layout,
                 Map<String, IrVariable> variables)
         {
-            super(metadata, types, layout);
+            super(metadata, typeManager, types, layout);
             this.variables = requireNonNull(variables, "variables is null");
         }
 

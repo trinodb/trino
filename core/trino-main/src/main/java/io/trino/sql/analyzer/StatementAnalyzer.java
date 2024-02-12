@@ -2205,7 +2205,7 @@ class StatementAnalyzer
                             if (!typeCoercion.canCoerce(type, commonSuperType)) {
                                 throw semanticException(TYPE_MISMATCH, column, "Cannot coerce column of type %s to common supertype: %s", type.getDisplayName(), commonSuperType.getDisplayName());
                             }
-                            analysis.addCoercion(column, commonSuperType, typeCoercion.isTypeOnlyCoercion(type, commonSuperType));
+                            analysis.addCoercion(column, commonSuperType);
                         }
                     }
                 }
@@ -3326,7 +3326,7 @@ class StatementAnalyzer
                         throw semanticException(TYPE_MISMATCH, expression, "JOIN ON clause must evaluate to a boolean: actual type %s", clauseType);
                     }
                     // coerce expression to boolean
-                    analysis.addCoercion(expression, BOOLEAN, false);
+                    analysis.addCoercion(expression, BOOLEAN);
                 }
 
                 analysis.recordSubqueries(node, expressionAnalysis);
@@ -3445,7 +3445,7 @@ class StatementAnalyzer
                 Type expressionType = expressionTypes.get(index);
                 Type targetType = tableTypes.get(index);
                 if (!targetType.equals(expressionType)) {
-                    analysis.addCoercion(expression, targetType, typeCoercion.isTypeOnlyCoercion(expressionType, targetType));
+                    analysis.addCoercion(expression, targetType);
                 }
                 analysis.recordSubqueries(update, analyses.get(index));
             }
@@ -3545,7 +3545,7 @@ class StatementAnalyzer
                 throw semanticException(TYPE_MISMATCH, mergePredicate, "The MERGE predicate must evaluate to a boolean: actual type %s", mergePredicateType);
             }
             if (!mergePredicateType.equals(BOOLEAN)) {
-                analysis.addCoercion(mergePredicate, BOOLEAN, typeCoercion.isTypeOnlyCoercion(mergePredicateType, BOOLEAN));
+                analysis.addCoercion(mergePredicate, BOOLEAN);
             }
             analysis.recordSubqueries(merge, predicateAnalysis);
 
@@ -3581,7 +3581,7 @@ class StatementAnalyzer
                             throw semanticException(TYPE_MISMATCH, predicate, "WHERE clause predicate must evaluate to a boolean: actual type %s", predicateType);
                         }
                         // Coerce the predicate to boolean
-                        analysis.addCoercion(predicate, BOOLEAN, typeCoercion.isTypeOnlyCoercion(predicateType, BOOLEAN));
+                        analysis.addCoercion(predicate, BOOLEAN);
                     }
                 }
 
@@ -3611,7 +3611,7 @@ class StatementAnalyzer
                     Type targetType = dataColumnTypes.get(caseColumnNames.get(index));
                     Type expressionType = setExpressionTypes.get(index);
                     if (!targetType.equals(expressionType)) {
-                        analysis.addCoercion(expression, targetType, typeCoercion.isTypeOnlyCoercion(expressionType, targetType));
+                        analysis.addCoercion(expression, targetType);
                     }
                 }
             }
@@ -3887,21 +3887,21 @@ class StatementAnalyzer
                         Type actualItemType = actualType.getTypeParameters().get(i);
                         Type expectedItemType = commonSuperType.getTypeParameters().get(i);
                         if (!actualItemType.equals(expectedItemType)) {
-                            analysis.addCoercion(item, expectedItemType, typeCoercion.isTypeOnlyCoercion(actualItemType, expectedItemType));
+                            analysis.addCoercion(item, expectedItemType);
                         }
                     }
                 }
                 else if (actualType instanceof RowType) {
                     // coerce row-type expression as a whole
                     if (!actualType.equals(commonSuperType)) {
-                        analysis.addCoercion(row, commonSuperType, typeCoercion.isTypeOnlyCoercion(actualType, commonSuperType));
+                        analysis.addCoercion(row, commonSuperType);
                     }
                 }
                 else {
                     // coerce field. it will be wrapped in Row by Planner
                     Type superType = getOnlyElement(commonSuperType.getTypeParameters());
                     if (!actualType.equals(superType)) {
-                        analysis.addCoercion(row, superType, typeCoercion.isTypeOnlyCoercion(actualType, superType));
+                        analysis.addCoercion(row, superType);
                     }
                 }
             }
@@ -4864,7 +4864,7 @@ class StatementAnalyzer
                     throw semanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
                 }
                 // coerce null to boolean
-                analysis.addCoercion(predicate, BOOLEAN, false);
+                analysis.addCoercion(predicate, BOOLEAN);
             }
 
             analysis.setWhere(node, predicate);
@@ -5112,7 +5112,7 @@ class StatementAnalyzer
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected row filter for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
                 }
 
-                analysis.addCoercion(expression, BOOLEAN, coercion.isTypeOnlyCoercion(actualType, BOOLEAN));
+                analysis.addCoercion(expression, BOOLEAN);
             }
 
             analysis.addRowFilter(table, expression);
@@ -5170,7 +5170,7 @@ class StatementAnalyzer
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected check constraint for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
                 }
 
-                analysis.addCoercion(expression, BOOLEAN, coercion.isTypeOnlyCoercion(actualType, BOOLEAN));
+                analysis.addCoercion(expression, BOOLEAN);
             }
 
             analysis.addCheckConstraints(table, expression);
@@ -5235,7 +5235,7 @@ class StatementAnalyzer
                 // due to the line "changeType(value, returnType)" in SqlToRowExpressionTranslator.visitCast. If there's an expression
                 // like CAST(CAST(x AS VARCHAR(1)) AS VARCHAR(2)), it determines that the outer cast is type-only and converts the expression
                 // to CAST(x AS VARCHAR(2)) by changing the type of the inner cast.
-                analysis.addCoercion(expression, expectedType, false);
+                analysis.addCoercion(expression, expectedType);
             }
 
             analysis.addColumnMask(table, column, expression);
@@ -5733,7 +5733,7 @@ class StatementAnalyzer
         {
             if (analysis.isDescribe()) {
                 analyzeExpression(parameter, scope);
-                analysis.addCoercion(parameter, BIGINT, false);
+                analysis.addCoercion(parameter, BIGINT);
                 return OptionalLong.empty();
             }
             // validate parameter index

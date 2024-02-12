@@ -66,7 +66,7 @@ public final class NullabilityAnalyzer
             //
             // Also, try_cast (i.e., safe cast) can return null
             process(node.getExpression(), result);
-            result.compareAndSet(false, node.isSafe() || !node.isTypeOnly());
+            result.compareAndSet(false, node.isSafe());
             return null;
         }
 

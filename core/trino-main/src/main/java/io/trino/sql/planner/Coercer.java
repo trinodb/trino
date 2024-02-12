@@ -22,7 +22,6 @@ import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.NodeRef;
 
 import java.util.Map;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -34,26 +33,24 @@ public final class Coercer
 
     public static Expression addCoercions(Expression expression, Analysis analysis)
     {
-        return addCoercions(expression, analysis.getCoercions(), analysis.getTypeOnlyCoercions());
+        return addCoercions(expression, analysis.getCoercions());
     }
 
-    public static Expression addCoercions(Expression expression, Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
+    public static Expression addCoercions(Expression expression, Map<NodeRef<Expression>, Type> coercions)
     {
         // ExpressionAnalyzer checks for explicit Cast to unknown. The check here is to prevent engine from adding such invalid coercion.
         checkArgument(coercions.values().stream().noneMatch(UNKNOWN::equals), "Cannot add coercion to UNKNOWN");
-        return ExpressionTreeRewriter.rewriteWith(new Rewriter(coercions, typeOnlyCoercions), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Rewriter(coercions), expression);
     }
 
     private static class Rewriter
             extends ExpressionRewriter<Void>
     {
         private final Map<NodeRef<Expression>, Type> coercions;
-        private final Set<NodeRef<Expression>> typeOnlyCoercions;
 
-        public Rewriter(Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
+        public Rewriter(Map<NodeRef<Expression>, Type> coercions)
         {
             this.coercions = coercions;
-            this.typeOnlyCoercions = typeOnlyCoercions;
         }
 
         @Override
@@ -66,8 +63,7 @@ public final class Coercer
                 rewritten = new Cast(
                         rewritten,
                         toSqlType(target),
-                        false,
-                        typeOnlyCoercions.contains(NodeRef.of(expression)));
+                        false);
             }
 
             return rewritten;

@@ -207,7 +207,6 @@ public class Analysis
 
     private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
-    private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
 
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
@@ -372,11 +371,6 @@ public class Analysis
         return unmodifiableMap(coercions);
     }
 
-    public Set<NodeRef<Expression>> getTypeOnlyCoercions()
-    {
-        return unmodifiableSet(typeOnlyCoercions);
-    }
-
     public Type getCoercion(Expression expression)
     {
         return coercions.get(NodeRef.of(expression));
@@ -405,11 +399,6 @@ public class Analysis
     public boolean isAggregation(QuerySpecification node)
     {
         return groupingSets.containsKey(NodeRef.of(node));
-    }
-
-    public boolean isTypeOnlyCoercion(Expression expression)
-    {
-        return typeOnlyCoercions.contains(NodeRef.of(expression));
     }
 
     public GroupingSetAnalysis getGroupingSets(QuerySpecification node)
@@ -713,22 +702,17 @@ public class Analysis
         this.types.putAll(types);
     }
 
-    public void addCoercion(Expression expression, Type type, boolean isTypeOnlyCoercion)
+    public void addCoercion(Expression expression, Type type)
     {
         this.coercions.put(NodeRef.of(expression), type);
-        if (isTypeOnlyCoercion) {
-            this.typeOnlyCoercions.add(NodeRef.of(expression));
-        }
     }
 
     public void addCoercions(
             Map<NodeRef<Expression>, Type> coercions,
-            Set<NodeRef<Expression>> typeOnlyCoercions,
             Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation,
             Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison)
     {
         this.coercions.putAll(coercions);
-        this.typeOnlyCoercions.addAll(typeOnlyCoercions);
         this.sortKeyCoercionsForFrameBoundCalculation.putAll(sortKeyCoercionsForFrameBoundCalculation);
         this.sortKeyCoercionsForFrameBoundComparison.putAll(sortKeyCoercionsForFrameBoundComparison);
     }

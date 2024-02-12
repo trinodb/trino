@@ -23,6 +23,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -61,13 +62,15 @@ public class ExpressionEquivalence
     private static final Ordering<RowExpression> ROW_EXPRESSION_ORDERING = Ordering.from(new RowExpressionComparator());
     private final Metadata metadata;
     private final FunctionManager functionManager;
+    private final TypeManager typeManager;
     private final IrTypeAnalyzer typeAnalyzer;
     private final CanonicalizationVisitor canonicalizationVisitor;
 
-    public ExpressionEquivalence(Metadata metadata, FunctionManager functionManager, IrTypeAnalyzer typeAnalyzer)
+    public ExpressionEquivalence(Metadata metadata, FunctionManager functionManager, TypeManager typeManager, IrTypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.canonicalizationVisitor = new CanonicalizationVisitor();
     }
@@ -97,6 +100,7 @@ public class ExpressionEquivalence
                 symbolInput,
                 metadata,
                 functionManager,
+                typeManager,
                 session,
                 false);
     }
