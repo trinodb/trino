@@ -218,7 +218,7 @@
         <dep.swagger.version>2.2.20</dep.swagger.version>
         <dep.takari.version>2.1.3</dep.takari.version>
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
-        <dep.tempto.version>201</dep.tempto.version>
+        <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>4.8.1</dep.wire.version>
 
         <!-- released from https://github.com/starburstdata/starburst-dataframe -->
