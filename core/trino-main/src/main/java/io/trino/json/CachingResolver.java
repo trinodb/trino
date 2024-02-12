@@ -23,8 +23,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import io.trino.type.TypeCoercion;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -53,16 +51,12 @@ public class CachingResolver
     private static final int MAX_CACHE_SIZE = 1000;
 
     private final Metadata metadata;
-    private final TypeCoercion typeCoercion;
     private final NonEvictableCache<NodeAndTypes, ResolvedOperatorAndCoercions> operators = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE));
 
-    public CachingResolver(Metadata metadata, TypeManager typeManager)
+    public CachingResolver(Metadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(typeManager, "typeManager is null");
-
         this.metadata = metadata;
-        this.typeCoercion = new TypeCoercion(typeManager::getType);
     }
 
     public ResolvedOperatorAndCoercions getOperators(IrPathNode node, OperatorType operatorType, Type leftType, Type rightType)
@@ -89,7 +83,7 @@ public class CachingResolver
         BoundSignature signature = operator.getSignature();
 
         Optional<ResolvedFunction> leftCast = Optional.empty();
-        if (!signature.getArgumentTypes().get(0).equals(leftType) && !typeCoercion.isTypeOnlyCoercion(leftType, signature.getArgumentTypes().get(0))) {
+        if (!signature.getArgumentTypes().get(0).equals(leftType)) {
             try {
                 leftCast = Optional.of(metadata.getCoercion(leftType, signature.getArgumentTypes().get(0)));
             }
@@ -99,7 +93,7 @@ public class CachingResolver
         }
 
         Optional<ResolvedFunction> rightCast = Optional.empty();
-        if (!signature.getArgumentTypes().get(1).equals(rightType) && !typeCoercion.isTypeOnlyCoercion(rightType, signature.getArgumentTypes().get(1))) {
+        if (!signature.getArgumentTypes().get(1).equals(rightType)) {
             try {
                 rightCast = Optional.of(metadata.getCoercion(rightType, signature.getArgumentTypes().get(1)));
             }

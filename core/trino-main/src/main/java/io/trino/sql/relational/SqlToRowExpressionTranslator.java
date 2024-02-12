@@ -28,6 +28,7 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.SpecialForm.Form;
 import io.trino.sql.relational.optimizer.ExpressionOptimizer;
@@ -70,6 +71,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
 import io.trino.type.JsonType;
+import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
 import java.util.List;
@@ -128,13 +130,11 @@ public final class SqlToRowExpressionTranslator
             Map<Symbol, Integer> layout,
             Metadata metadata,
             FunctionManager functionManager,
+            TypeManager typeManager,
             Session session,
             boolean optimize)
     {
-        Visitor visitor = new Visitor(
-                metadata,
-                types,
-                layout);
+        Visitor visitor = new Visitor(metadata, typeManager, types, layout);
         RowExpression result = visitor.process(expression, null);
 
         requireNonNull(result, "result is null");
@@ -151,16 +151,19 @@ public final class SqlToRowExpressionTranslator
             extends AstVisitor<RowExpression, Void>
     {
         private final Metadata metadata;
+        private final TypeCoercion typeCoercion;
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<Symbol, Integer> layout;
         private final StandardFunctionResolution standardFunctionResolution;
 
         protected Visitor(
                 Metadata metadata,
+                TypeManager typeManager,
                 Map<NodeRef<Expression>, Type> types,
                 Map<Symbol, Integer> layout)
         {
             this.metadata = metadata;
+            this.typeCoercion = new TypeCoercion(typeManager::getType);
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
             standardFunctionResolution = new StandardFunctionResolution(metadata);
@@ -393,7 +396,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression value = process(node.getExpression(), context);
 
             Type returnType = getType(node);
-            if (node.isTypeOnly()) {
+            if (typeCoercion.isTypeOnlyCoercion(value.getType(), returnType)) {
                 return changeType(value, returnType);
             }
 
@@ -433,7 +436,7 @@ public final class SqlToRowExpressionTranslator
             @Override
             public RowExpression visitSpecialForm(SpecialForm specialForm, Void context)
             {
-                return new SpecialForm(specialForm.getForm(), targetType, specialForm.getArguments());
+                return new SpecialForm(specialForm.getForm(), targetType, specialForm.getArguments(), specialForm.getFunctionDependencies());
             }
 
             @Override
