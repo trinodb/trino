@@ -29,6 +29,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
@@ -1237,6 +1238,7 @@ public class TestBackgroundHiveSplitLoader
                 hiveSplitLoader,
                 executor,
                 new CounterStat(),
+                new DefaultCachingHostAddressProvider(),
                 false);
     }
 

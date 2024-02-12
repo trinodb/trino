@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.deltalake;
+package io.trino.tests.product.hive;
 
 import io.airlift.units.Duration;
 import io.trino.tempto.ProductTest;
@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_ALLUXIO_CACHING;
+import static io.trino.tests.product.TestGroups.HIVE_ALLUXIO_CACHING;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.CachingTestUtils.getCacheStats;
 import static io.trino.tests.product.utils.QueryAssertions.assertEventually;
@@ -29,10 +29,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-public class TestDeltaLakeAlluxioCaching
+public class TestHiveAlluxioCaching
         extends ProductTest
 {
-    @Test(groups = {DELTA_LAKE_ALLUXIO_CACHING, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {HIVE_ALLUXIO_CACHING, PROFILE_SPECIFIC_TESTS})
     public void testReadFromCache()
     {
         testReadFromTable("table1");
@@ -41,22 +41,22 @@ public class TestDeltaLakeAlluxioCaching
 
     private void testReadFromTable(String tableNameSuffix)
     {
-        String cachedTableName = "delta.default.test_cache_read" + tableNameSuffix;
-        String nonCachedTableName = "delta_non_cached.default.test_cache_read" + tableNameSuffix;
+        String cachedTableName = "hive.default.test_cache_read" + tableNameSuffix;
+        String nonCachedTableName = "hivenoncached.default.test_cache_read" + tableNameSuffix;
 
-        createTestTable(cachedTableName);
+        createTestTable(nonCachedTableName);
 
-        CacheStats beforeCacheStats = getCacheStats("delta");
-
+        CacheStats beforeCacheStats = getCacheStats("hive");
         long tableSize = (Long) onTrino().executeQuery("SELECT SUM(size) as size FROM (SELECT \"$path\", \"$file_size\" AS size FROM " + nonCachedTableName + " GROUP BY 1, 2)").getOnlyValue();
 
-        assertThat(onTrino().executeQuery("SELECT * FROM " + cachedTableName)).hasAnyRows();
+        assertThat(onTrino().executeQuery("SELECT * FROM " + cachedTableName))
+                .hasRowsCount(150000);
 
         assertEventually(
                 new Duration(20, SECONDS),
                 () -> {
-                    // first query via caching catalog should fetch external data
-                    CacheStats afterQueryCacheStats = getCacheStats("delta");
+                    // first query via caching catalog should fetch remote data
+                    CacheStats afterQueryCacheStats = getCacheStats("hive");
                     assertGreaterThanOrEqual(afterQueryCacheStats.cacheSpaceUsed(), beforeCacheStats.cacheSpaceUsed() + tableSize);
                     assertGreaterThan(afterQueryCacheStats.externalReads(), beforeCacheStats.externalReads());
                     assertGreaterThanOrEqual(afterQueryCacheStats.cacheReads(), beforeCacheStats.cacheReads());
@@ -65,12 +65,12 @@ public class TestDeltaLakeAlluxioCaching
         assertEventually(
                 new Duration(10, SECONDS),
                 () -> {
-                    CacheStats beforeQueryCacheStats = getCacheStats("delta");
+                    CacheStats beforeQueryCacheStats = getCacheStats("hive");
 
                     assertThat(onTrino().executeQuery("SELECT * FROM " + cachedTableName)).hasAnyRows();
 
                     // query via caching catalog should read exclusively from cache
-                    CacheStats afterQueryCacheStats = getCacheStats("delta");
+                    CacheStats afterQueryCacheStats = getCacheStats("hive");
                     assertGreaterThan(afterQueryCacheStats.cacheReads(), beforeQueryCacheStats.cacheReads());
                     assertEquals(afterQueryCacheStats.externalReads(), beforeQueryCacheStats.externalReads());
                     assertEquals(afterQueryCacheStats.cacheSpaceUsed(), beforeQueryCacheStats.cacheSpaceUsed());
@@ -80,12 +80,12 @@ public class TestDeltaLakeAlluxioCaching
     }
 
     /**
-     * Creates a table which should contain around 6 2 MB parquet files
+     * Creates a table which should contain multiple small ORC files
      */
     private void createTestTable(String tableName)
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onTrino().executeQuery("SET SESSION delta.target_max_file_size = '2MB'");
+        onTrino().executeQuery("SET SESSION hive.target_max_file_size = '4MB'");
         onTrino().executeQuery("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.customer");
     }
 }

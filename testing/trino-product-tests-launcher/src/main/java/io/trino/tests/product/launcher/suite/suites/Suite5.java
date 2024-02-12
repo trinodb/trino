@@ -27,7 +27,7 @@ import java.util.List;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
-import static io.trino.tests.product.TestGroups.HIVE_CACHING;
+import static io.trino.tests.product.TestGroups.HIVE_ALLUXIO_CACHING;
 import static io.trino.tests.product.TestGroups.HIVE_KERBEROS;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
@@ -50,7 +50,7 @@ public class Suite5
                         .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_IMPERSONATION, AUTHORIZATION)
                         .build(),
                 testOnEnvironment(EnvMultinodeHiveCaching.class)
-                        .withGroups(CONFIGURED_FEATURES, HIVE_CACHING, STORAGE_FORMATS)
+                        .withGroups(CONFIGURED_FEATURES, HIVE_ALLUXIO_CACHING)
                         .withExcludedGroups(ICEBERG)
                         .build());
     }

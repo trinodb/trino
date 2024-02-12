@@ -12,6 +12,7 @@ source [Alluxio](https://github.com/Alluxio/alluxio) libraries with catalogs
 using the following connectors:
 
 * [](/connector/delta-lake)
+* [](/connector/hive)
 
 (fs-cache-distributed)=
 ## Distributed caching

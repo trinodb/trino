@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
@@ -125,7 +126,8 @@ public class TestHiveCacheIds
                 executorService,
                 new EmbedVersion("test"),
                 new TestingTypeManager(),
-                createJsonCodec(HiveCacheSplitId.class));
+                createJsonCodec(HiveCacheSplitId.class),
+                new DefaultCachingHostAddressProvider());
     }
 
     @AfterAll
