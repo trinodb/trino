@@ -65,6 +65,6 @@ public class ByStatsOutputStatsEstimator
         int partitionsCount = stageExecution.getPartitionsCount();
         // Assume uniform output-size distribution across all partitions.
         ImmutableLongArray sizes = ImmutableLongArray.copyOf(LongStream.generate(() -> (long) (size / partitionsCount)).limit(partitionsCount));
-        return Optional.of(new OutputStatsEstimateResult(new OutputDataSizeEstimate(sizes), (long) outputRowCount, "BY_STATS"));
+        return Optional.of(new OutputStatsEstimateResult(new OutputDataSizeEstimate(sizes), (long) outputRowCount, "BY_STATS", false));
     }
 }

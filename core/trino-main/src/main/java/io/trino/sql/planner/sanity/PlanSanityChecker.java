@@ -80,6 +80,21 @@ public final class PlanSanityChecker
                         new DynamicFiltersChecker(),
                         new TableScanValidator(),
                         new TableExecuteStructureValidator())
+                .putAll(
+                        Stage.AFTER_ADAPTIVE_PLANNING,
+                        new ValidateDependenciesChecker(),
+                        new NoDuplicatePlanNodeIdsChecker(),
+                        new SugarFreeChecker(),
+                        new AllFunctionsResolved(),
+                        new TypeValidator(),
+                        new NoSubqueryExpressionLeftChecker(),
+                        new NoIdentifierLeftChecker(),
+                        new VerifyOnlyOneOutputNode(),
+                        new VerifyNoFilteredAggregations(),
+                        new VerifyUseConnectorNodePartitioningSet(),
+                        new ValidateScaledWritersUsage(),
+                        new TableScanValidator(),
+                        new TableExecuteStructureValidator())
                 .build();
     }
 
@@ -114,6 +129,17 @@ public final class PlanSanityChecker
             WarningCollector warningCollector)
     {
         validate(Stage.AFTER_ALTERNATIVES_PLANNING, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
+    }
+
+    public void validateAdaptivePlan(
+            PlanNode planNode,
+            Session session,
+            PlannerContext plannerContext,
+            IrTypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
+    {
+        validate(Stage.AFTER_ADAPTIVE_PLANNING, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
     }
 
     private void validate(
@@ -162,6 +188,6 @@ public final class PlanSanityChecker
 
     private enum Stage
     {
-        INTERMEDIATE, AFTER_LOGICAL_PLANNING, AFTER_ALTERNATIVES_PLANNING
+        INTERMEDIATE, AFTER_LOGICAL_PLANNING, AFTER_ALTERNATIVES_PLANNING, AFTER_ADAPTIVE_PLANNING
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.cost.CostCalculator;
@@ -25,6 +26,7 @@ import io.trino.sql.planner.iterative.rule.PruneFilterColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjectionsInOrder;
+import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 
 import java.util.List;
@@ -69,8 +71,14 @@ public class AlternativesOptimizers
     }
 
     @Override
-    public List<PlanOptimizer> get()
+    public List<PlanOptimizer> getPlanOptimizers()
     {
         return optimizers;
+    }
+
+    @Override
+    public List<AdaptivePlanOptimizer> getAdaptivePlanOptimizers()
+    {
+        return ImmutableList.of();
     }
 }

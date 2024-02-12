@@ -143,6 +143,6 @@ public class BySmallStageOutputStatsEstimator
             estimateBuilder.add(inputSizeEstimate / outputPartitionsCount);
         }
         // TODO: For now we can skip calculating outputRowCountEstimate since we won't run adaptive planner in the case of small inputs
-        return Optional.of(new OutputStatsEstimateResult(estimateBuilder.build(), 0, "BY_SMALL_INPUT"));
+        return Optional.of(new OutputStatsEstimateResult(estimateBuilder.build(), 0, "BY_SMALL_INPUT", false));
     }
 }

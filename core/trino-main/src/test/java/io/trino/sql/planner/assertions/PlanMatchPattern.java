@@ -34,6 +34,7 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.optimizations.SymbolMapper;
+import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -60,8 +61,10 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
@@ -201,6 +204,21 @@ public final class PlanMatchPattern
                         .map(expression -> extractDynamicFilters(expression).getDynamicConjuncts())
                         .collect(toImmutableList())));
         return result;
+    }
+
+    public static PlanMatchPattern adaptivePlan(PlanMatchPattern initialPlan, PlanMatchPattern currentPlan)
+    {
+        return node(AdaptivePlanNode.class, currentPlan).with(new AdaptivePlanMatcher(initialPlan));
+    }
+
+    public static PlanMatchPattern remoteSource(List<PlanFragmentId> sourceFragmentIds)
+    {
+        return node(RemoteSourceNode.class)
+                .with(new RemoteSourceMatcher(
+                        sourceFragmentIds,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     public static PlanMatchPattern tableScan(String expectedTableName)
@@ -1294,7 +1312,10 @@ public final class PlanMatchPattern
                 .collect(toImmutableList());
 
         for (Matcher matcher : matchersToPrint) {
-            builder.append(indentString(indent + 1)).append(matcher.toString()).append("\n");
+            builder
+                    .append(indentString(indent + 1))
+                    .append(matcher.toString().replace("\n", "\n" + indentString(indent + 1)))
+                    .append("\n");
         }
 
         for (PlanMatchPattern pattern : sourcePatterns) {

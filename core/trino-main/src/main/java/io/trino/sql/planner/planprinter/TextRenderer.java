@@ -20,6 +20,7 @@ import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Iterator;
 import java.util.List;
@@ -60,10 +61,10 @@ public class TextRenderer
         StringBuilder output = new StringBuilder();
         NodeRepresentation root = plan.getRoot();
         boolean hasChildren = hasChildren(root, plan);
-        return writeTextOutput(output, plan, Indent.newInstance(level, hasChildren), root);
+        return writeTextOutput(output, plan, Indent.newInstance(level, hasChildren), root, false);
     }
 
-    private String writeTextOutput(StringBuilder output, PlanRepresentation plan, Indent indent, NodeRepresentation node)
+    private String writeTextOutput(StringBuilder output, PlanRepresentation plan, Indent indent, NodeRepresentation node, boolean isAdaptivePlanInitialNode)
     {
         output.append(indent.nodeIndent())
                 .append(node.getName())
@@ -102,18 +103,30 @@ public class TextRenderer
             }
         }
 
-        List<NodeRepresentation> children = node.getChildren().stream()
-                .map(plan::getNode)
+        // Print the initial children first, then the children
+        printChildren(output, plan, node.getInitialChildren(), indent, true);
+        printChildren(output, plan, node.getChildren(), indent, isAdaptivePlanInitialNode);
+
+        return output.toString();
+    }
+
+    private void printChildren(
+            StringBuilder output,
+            PlanRepresentation plan,
+            List<PlanNodeId> childrenIds,
+            Indent indent,
+            boolean isAdaptivePlanInitialNode)
+    {
+        List<NodeRepresentation> children = childrenIds.stream()
+                .map(isAdaptivePlanInitialNode ? plan::getInitialNode : plan::getNode)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toList());
 
         for (Iterator<NodeRepresentation> iterator = children.iterator(); iterator.hasNext(); ) {
             NodeRepresentation child = iterator.next();
-            writeTextOutput(output, plan, indent.forChild(!iterator.hasNext(), hasChildren(child, plan)), child);
+            writeTextOutput(output, plan, indent.forChild(!iterator.hasNext(), hasChildren(child, plan)), child, isAdaptivePlanInitialNode);
         }
-
-        return output.toString();
     }
 
     private String printStats(PlanRepresentation plan, NodeRepresentation node)
