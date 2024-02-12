@@ -110,6 +110,7 @@ As the maven-release-plugin commits were skipped during previous step, we need t
 
 ```shell
 ./mvnw versions:set -DnewVersion="${NEW}-cork-1-SNAPSHOT" &&
+./mvnw -pl :trino-test-jdbc-compatibility-old-driver versions:set-property -Dproperty="dep.presto-jdbc-under-test" -DnewVersion="${NEW}-cork-1-SNAPSHOT" &&
 find -name pom.xml.versionsBackup -delete &&
 git commit -a -m "Bump Cork version after code sync with Trino ${NEW}"
 ```
