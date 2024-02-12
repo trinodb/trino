@@ -16,19 +16,26 @@ package io.trino.sql.planner.assertions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.graph.Traverser;
 import io.trino.Session;
+import io.trino.cost.RuntimeInfoProvider;
+import io.trino.cost.StaticRuntimeInfoProvider;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
+import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -40,15 +47,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -265,5 +279,74 @@ public class BasePlanTest
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);
         }
+    }
+
+    protected SubPlan createAdaptivePlan(@Language("SQL") String sql, List<AdaptivePlanOptimizer> optimizers, Map<PlanFragmentId, OutputStatsEstimateResult> completeStageStats)
+    {
+        return createAdaptivePlan(sql, planTester.getDefaultSession(), optimizers, completeStageStats);
+    }
+
+    protected SubPlan createAdaptivePlan(@Language("SQL") String sql, Session session, List<AdaptivePlanOptimizer> optimizers, Map<PlanFragmentId, OutputStatsEstimateResult> completeStageStats)
+    {
+        try {
+            return planTester.inTransaction(session, transactionSession -> {
+                Plan plan = planTester.createPlan(transactionSession, sql, planTester.getPlanOptimizers(false), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                SubPlan subPlan = planTester.createSubPlans(transactionSession, plan, false);
+                return planTester.createAdaptivePlan(transactionSession, subPlan, optimizers, WarningCollector.NOOP, createPlanOptimizersStatsCollector(), createRuntimeInfoProvider(subPlan, completeStageStats));
+            });
+        }
+        catch (RuntimeException e) {
+            throw new AssertionError("Adaptive Planning failed for SQL: " + sql, e);
+        }
+    }
+
+    protected void assertAdaptivePlan(@Language("SQL") String sql, Map<PlanFragmentId, OutputStatsEstimateResult> completeStageStats, SubPlanMatcher subPlanMatcher)
+    {
+        assertAdaptivePlan(sql, planTester.getDefaultSession(), planTester.getAdaptivePlanOptimizers(), completeStageStats, subPlanMatcher);
+    }
+
+    protected void assertAdaptivePlan(@Language("SQL") String sql, Session session, Map<PlanFragmentId, OutputStatsEstimateResult> completeStageStats, SubPlanMatcher subPlanMatcher)
+    {
+        assertAdaptivePlan(sql, session, planTester.getAdaptivePlanOptimizers(), completeStageStats, subPlanMatcher);
+    }
+
+    protected void assertAdaptivePlan(@Language("SQL") String sql, Session session, List<AdaptivePlanOptimizer> optimizers, Map<PlanFragmentId, OutputStatsEstimateResult> completeStageStats, SubPlanMatcher subPlanMatcher)
+    {
+        try {
+            planTester.inTransaction(session, transactionSession -> {
+                Plan plan = planTester.createPlan(transactionSession, sql, planTester.getPlanOptimizers(false), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                SubPlan subPlan = planTester.createSubPlans(transactionSession, plan, false);
+                SubPlan adaptivePlan = planTester.createAdaptivePlan(transactionSession, subPlan, optimizers, WarningCollector.NOOP, createPlanOptimizersStatsCollector(), createRuntimeInfoProvider(subPlan, completeStageStats));
+                String formattedPlan = textDistributedPlan(adaptivePlan, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), transactionSession, false, UNKNOWN);
+                if (!subPlanMatcher.matches(adaptivePlan, planTester.getStatsCalculator(), transactionSession, planTester.getPlannerContext().getMetadata())) {
+                    throw new AssertionError(format(
+                            "Adaptive plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]",
+                            subPlanMatcher,
+                            formattedPlan));
+                }
+                return null;
+            });
+        }
+        catch (RuntimeException e) {
+            e.addSuppressed(new Exception("Query: " + sql));
+            throw e;
+        }
+    }
+
+    private RuntimeInfoProvider createRuntimeInfoProvider(
+            SubPlan subPlan,
+            Map<PlanFragmentId, OutputStatsEstimateResult> completeStageStats)
+    {
+        Map<PlanFragmentId, PlanFragment> fragments = traverse(subPlan)
+                .map(SubPlan::getFragment)
+                .collect(toImmutableMap(PlanFragment::getId, val -> val));
+
+        return new StaticRuntimeInfoProvider(completeStageStats, fragments);
+    }
+
+    private Stream<SubPlan> traverse(SubPlan subPlan)
+    {
+        Iterable<SubPlan> iterable = Traverser.forTree(SubPlan::getChildren).depthFirstPreOrder(subPlan);
+        return StreamSupport.stream(iterable.spliterator(), false);
     }
 }

@@ -72,6 +72,6 @@ public class ByTaskProgressOutputStatsEstimator
             estimateBuilder.add((long) (partitionSize / progress));
         }
         long outputRowCountEstimate = (long) (stageExecution.getOutputRowCount() / progress);
-        return Optional.of(new OutputStatsEstimateResult(new OutputDataSizeEstimate(estimateBuilder.build()), outputRowCountEstimate, "BY_PROGRESS"));
+        return Optional.of(new OutputStatsEstimateResult(new OutputDataSizeEstimate(estimateBuilder.build()), outputRowCountEstimate, "BY_PROGRESS", true));
     }
 }

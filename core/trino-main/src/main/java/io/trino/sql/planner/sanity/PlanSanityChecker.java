@@ -64,6 +64,21 @@ public final class PlanSanityChecker
                         new DynamicFiltersChecker(),
                         new TableScanValidator(),
                         new TableExecuteStructureValidator())
+                .putAll(
+                        Stage.AFTER_ADAPTIVE_PLANNING,
+                        new ValidateDependenciesChecker(),
+                        new NoDuplicatePlanNodeIdsChecker(),
+                        new SugarFreeChecker(),
+                        new AllFunctionsResolved(),
+                        new TypeValidator(),
+                        new NoSubqueryExpressionLeftChecker(),
+                        new NoIdentifierLeftChecker(),
+                        new VerifyOnlyOneOutputNode(),
+                        new VerifyNoFilteredAggregations(),
+                        new VerifyUseConnectorNodePartitioningSet(),
+                        new ValidateScaledWritersUsage(),
+                        new TableScanValidator(),
+                        new TableExecuteStructureValidator())
                 .build();
     }
 
@@ -75,28 +90,7 @@ public final class PlanSanityChecker
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        try {
-            checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
-        }
-        catch (RuntimeException e) {
-            try {
-                int nestLevel = 4; // so that it renders reasonably within exception stacktrace
-                String explain = textLogicalPlan(
-                        planNode,
-                        types,
-                        plannerContext.getMetadata(),
-                        plannerContext.getFunctionManager(),
-                        StatsAndCosts.empty(),
-                        session,
-                        nestLevel,
-                        false);
-                e.addSuppressed(new Exception("Current plan:\n" + explain));
-            }
-            catch (RuntimeException ignore) {
-                // ignored
-            }
-            throw e;
-        }
+        validate(Stage.FINAL, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
     }
 
     public void validateIntermediatePlan(
@@ -107,8 +101,31 @@ public final class PlanSanityChecker
             TypeProvider types,
             WarningCollector warningCollector)
     {
+        validate(Stage.INTERMEDIATE, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
+    }
+
+    public void validateAdaptivePlan(
+            PlanNode planNode,
+            Session session,
+            PlannerContext plannerContext,
+            IrTypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
+    {
+        validate(Stage.AFTER_ADAPTIVE_PLANNING, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
+    }
+
+    private void validate(
+            Stage stage,
+            PlanNode planNode,
+            Session session,
+            PlannerContext plannerContext,
+            IrTypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
+    {
         try {
-            checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
+            checkers.get(stage).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
         }
         catch (RuntimeException e) {
             try {
@@ -144,6 +161,6 @@ public final class PlanSanityChecker
 
     private enum Stage
     {
-        INTERMEDIATE, FINAL
+        INTERMEDIATE, FINAL, AFTER_ADAPTIVE_PLANNING
     }
 }

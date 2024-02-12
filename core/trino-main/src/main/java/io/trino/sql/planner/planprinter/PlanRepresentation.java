@@ -33,6 +33,9 @@ class PlanRepresentation
     private final Optional<Duration> totalBlockedTime;
 
     private final Map<PlanNodeId, NodeRepresentation> nodeInfo = new HashMap<>();
+    // Record the initial plan node info for adaptive plan since it is possible that the plan node id remain the same
+    // but the plan node itself changes
+    private final Map<PlanNodeId, NodeRepresentation> initialNodeInfo = new HashMap<>();
 
     public PlanRepresentation(PlanNode root, TypeProvider types, Optional<Duration> totalCpuTime, Optional<Duration> totalScheduledTime, Optional<Duration> totalBlockedTime)
     {
@@ -73,8 +76,18 @@ class PlanRepresentation
         return Optional.ofNullable(nodeInfo.get(id));
     }
 
+    public Optional<NodeRepresentation> getInitialNode(PlanNodeId id)
+    {
+        return Optional.ofNullable(initialNodeInfo.get(id));
+    }
+
     public void addNode(NodeRepresentation node)
     {
         nodeInfo.put(node.getId(), node);
+    }
+
+    public void addInitialNode(NodeRepresentation node)
+    {
+        initialNodeInfo.put(node.getId(), node);
     }
 }

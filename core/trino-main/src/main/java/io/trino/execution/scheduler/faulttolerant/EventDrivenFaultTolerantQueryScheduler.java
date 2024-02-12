@@ -2438,7 +2438,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             if (stage.getState() == StageState.FINISHED) {
                 return Optional.of(new OutputStatsEstimateResult(
-                        new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), outputRowCount, "FINISHED"));
+                        new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), outputRowCount, "FINISHED", true));
             }
             return outputStatsEstimator.getEstimatedOutputStats(this, stageExecutionLookup, parentEager);
         }

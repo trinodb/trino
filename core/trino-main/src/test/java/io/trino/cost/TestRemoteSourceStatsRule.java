@@ -108,7 +108,7 @@ public class TestRemoteSourceStatsRule
 
     private OutputStatsEstimateResult createRuntimeOutputStatsEstimate()
     {
-        return new OutputStatsEstimateResult(ImmutableLongArray.of(1_000_000_000L, 2_000_000_000L, 3_000_000_000L), 1_000_000L, "FINISHED");
+        return new OutputStatsEstimateResult(ImmutableLongArray.of(1_000_000_000L, 2_000_000_000L, 3_000_000_000L), 1_000_000L, "FINISHED", true);
     }
 
     private PlanFragment createPlanFragment(StatsAndCosts statsAndCosts)

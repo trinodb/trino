@@ -46,6 +46,7 @@ public class NodeRepresentation
     private final Map<String, String> descriptor;
     private final List<TypedSymbol> outputs;
     private final List<PlanNodeId> children;
+    private final List<PlanNodeId> initialChildren;
     private final List<PlanFragmentId> remoteSources;
     private final Optional<PlanNodeStats> stats;
     private final List<PlanNodeStatsEstimate> estimatedStats;
@@ -65,6 +66,8 @@ public class NodeRepresentation
             List<PlanCostEstimate> estimatedCost,
             Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
             List<PlanNodeId> children,
+            // This is used in the case of adaptive plan node
+            List<PlanNodeId> initialChildren,
             List<PlanFragmentId> remoteSources)
     {
         this.id = requireNonNull(id, "id is null");
@@ -77,6 +80,7 @@ public class NodeRepresentation
         this.estimatedCost = requireNonNull(estimatedCost, "estimatedCost is null");
         this.reorderJoinStatsAndCost = requireNonNull(reorderJoinStatsAndCost, "reorderJoinStatsAndCost is null");
         this.children = requireNonNull(children, "children is null");
+        this.initialChildren = requireNonNull(initialChildren, "initialChildren is null");
         this.remoteSources = requireNonNull(remoteSources, "remoteSources is null");
 
         checkArgument(estimatedCost.size() == estimatedStats.size(), "size of cost and stats list does not match");
@@ -121,6 +125,11 @@ public class NodeRepresentation
     public List<PlanNodeId> getChildren()
     {
         return children;
+    }
+
+    public List<PlanNodeId> getInitialChildren()
+    {
+        return initialChildren;
     }
 
     public List<PlanFragmentId> getRemoteSources()

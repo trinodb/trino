@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -38,10 +39,13 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -61,7 +65,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.joining;
 
 public class IterativeOptimizer
-        implements PlanOptimizer
+        implements AdaptivePlanOptimizer
 {
     private static final Logger LOG = Logger.get(IterativeOptimizer.class);
 
@@ -96,17 +100,17 @@ public class IterativeOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, PlanOptimizer.Context context)
+    public Result optimizeAndMarkPlanChanges(PlanNode plan, PlanOptimizer.Context context)
     {
         // only disable new rules if we have legacy rules to fall back to
         if (useLegacyRules.test(context.session()) && !legacyRules.isEmpty()) {
             for (PlanOptimizer optimizer : legacyRules) {
                 plan = optimizer.optimize(plan, context);
             }
-
-            return plan;
+            return new Result(plan, ImmutableSet.of());
         }
 
+        Set<PlanNodeId> changedPlanNodeIds = new HashSet<>();
         Memo memo = new Memo(context.idAllocator(), plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
@@ -122,9 +126,9 @@ public class IterativeOptimizer
                 context.warningCollector(),
                 context.tableStatsProvider(),
                 context.runtimeInfoProvider());
-        exploreGroup(memo.getRootGroup(), optimizerContext);
+        exploreGroup(memo.getRootGroup(), optimizerContext, changedPlanNodeIds);
         context.planOptimizersStatsCollector().add(optimizerContext.getIterativeOptimizerStatsCollector());
-        return memo.extract();
+        return new Result(memo.extract(), ImmutableSet.copyOf(changedPlanNodeIds));
     }
 
     // Used for diagnostics.
@@ -133,18 +137,18 @@ public class IterativeOptimizer
         return rules;
     }
 
-    private boolean exploreGroup(int group, Context context)
+    private boolean exploreGroup(int group, Context context, Set<PlanNodeId> changedPlanNodeIds)
     {
         // tracks whether this group or any children groups change as
         // this method executes
-        boolean progress = exploreNode(group, context);
+        boolean progress = exploreNode(group, context, changedPlanNodeIds);
 
-        while (exploreChildren(group, context)) {
+        while (exploreChildren(group, context, changedPlanNodeIds)) {
             progress = true;
 
             // if children changed, try current group again
             // in case we can match additional rules
-            if (!exploreNode(group, context)) {
+            if (!exploreNode(group, context, changedPlanNodeIds)) {
                 // no additional matches, so bail out
                 break;
             }
@@ -153,7 +157,7 @@ public class IterativeOptimizer
         return progress;
     }
 
-    private boolean exploreNode(int group, Context context)
+    private boolean exploreNode(int group, Context context, Set<PlanNodeId> changedPlanNodeIds)
     {
         PlanNode node = context.memo.getNode(group);
 
@@ -176,7 +180,9 @@ public class IterativeOptimizer
                     invoked = true;
                     Rule.Result result = transform(node, rule, context);
                     timeEnd = nanoTime();
-
+                    if (result.getTransformedPlan().isPresent()) {
+                        changedPlanNodeIds.add(result.getTransformedPlan().get().getId());
+                    }
                     if (result.getTransformedPlan().isPresent()) {
                         node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
 
@@ -249,7 +255,7 @@ public class IterativeOptimizer
         return Rule.Result.empty();
     }
 
-    private boolean exploreChildren(int group, Context context)
+    private boolean exploreChildren(int group, Context context, Set<PlanNodeId> changedPlanNodeIds)
     {
         boolean progress = false;
 
@@ -257,7 +263,7 @@ public class IterativeOptimizer
         for (PlanNode child : expression.getSources()) {
             checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: " + child.getClass().getName());
 
-            if (exploreGroup(((GroupReference) child).getGroupId(), context)) {
+            if (exploreGroup(((GroupReference) child).getGroupId(), context, changedPlanNodeIds)) {
                 progress = true;
             }
         }
