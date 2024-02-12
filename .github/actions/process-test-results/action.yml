@@ -49,3 +49,35 @@ runs:
       path: |
         **/*.hprof
       retention-days: 14
+  - name: Upload test results to S3
+    env:
+      # Despite name, this is a Starburst-wide bucket for test result collection
+      BUILD_ARTIFACTS_BUCKET: starburstdata-sep-cicd
+    shell: bash --noprofile --norc -euo pipefail {0}
+    run: |
+      # 1. Don't prefix attributes, because +@ (the default prefix) is not a valid character in nested row field names in the Hive connector for JSON files.
+      # 2. When converting to JSON, make sure 'testcase' is always an array: https://mikefarah.gitbook.io/yq/usage/xml#parse-xml-force-as-an-array
+      # 3. Remove system-err and system-out, because they cannot be easily parsed and add significant bloat, making storing and processing the data much more costly.
+      # 4. Remove properties, because they leak secret values.
+      # 5. Truncate all strings to 1k characters to avoid having lines longer than 100MB.
+      find . \
+        -name TEST-\*.xml \
+        -exec yq \
+          --input-format=xml \
+          --output-format=json \
+          --xml-attribute-prefix='' \
+          --xml-content-name='content' \
+          --xml-skip-directives \
+          --xml-skip-proc-inst \
+          '.testsuite.testcase |= ([] + .), .testsuite.testcase[] |= del(.system-err, .system-out), .testsuite |= del(.properties), .. |= select(tag == "!!str") |= sub("(.{0,1000}).*", "${1}")' {} \; \
+            | jq -c > surefire.ndjson
+      if [ -s surefire.ndjson ]; then
+        artifact_id='${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.artifact-name }}.json.gz'
+        jq -c \
+          --arg workflow_job_name '${{ inputs.job-name }}' \
+          --arg timestamp "$(date -u '+%F %T.%3NZ')" \
+          --argjson addObj '{"branch":"${{ github.head_ref || github.ref_name }}","git_sha":"${{ github.sha }}","workflow_run":"${{ github.run_id }}","workflow_job":"","workflow_run_attempt":"${{ github.run_attempt }}","timestamp":""}' \
+          '. + $addObj | .workflow_job=$workflow_job_name | .timestamp=$timestamp' surefire.ndjson | gzip -c > "$artifact_id"
+
+        aws s3 cp --no-progress "$artifact_id" "s3://${{ env.BUILD_ARTIFACTS_BUCKET }}/tests/results/surefire_reports/repo=cork/date_created=$(date -u '+%Y-%m-%d')/$artifact_id"
+      fi
