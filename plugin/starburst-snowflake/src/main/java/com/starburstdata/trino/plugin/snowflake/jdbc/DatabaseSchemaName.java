@@ -10,11 +10,13 @@
 package com.starburstdata.trino.plugin.snowflake.jdbc;
 
 import com.google.common.base.Splitter;
+import io.trino.spi.TrinoException;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.starburstdata.trino.plugin.snowflake.jdbc.SnowflakeClient.DATABASE_SEPARATOR;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static java.util.Objects.requireNonNull;
 
 public class DatabaseSchemaName
@@ -28,10 +30,10 @@ public class DatabaseSchemaName
     {
         List<String> databaseSchemaName = DATABASE_SPLITTER.splitToList(schemaName);
         if (databaseSchemaName.size() < 2) {
-            throw new IllegalArgumentException("The expected format is '<database name>.<schema name>': " + schemaName);
+            throw new TrinoException(INVALID_ARGUMENTS, "The expected format is '<database name>.<schema name>': " + schemaName);
         }
         if (databaseSchemaName.size() > 2) {
-            throw new IllegalArgumentException("Too many identifier parts found");
+            throw new TrinoException(INVALID_ARGUMENTS, "Too many identifier parts found");
         }
         return new DatabaseSchemaName(databaseSchemaName.get(0), databaseSchemaName.get(1));
     }

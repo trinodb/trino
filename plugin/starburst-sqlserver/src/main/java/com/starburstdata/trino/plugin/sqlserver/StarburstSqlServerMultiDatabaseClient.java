@@ -41,6 +41,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -241,10 +242,10 @@ public class StarburstSqlServerMultiDatabaseClient
     {
         List<String> databaseSchemaName = DATABASE_SPLITTER.splitToList(schemaName);
         if (databaseSchemaName.size() < 2) {
-            throw new IllegalArgumentException("The expected format is '<database name>.<schema name>': " + schemaName);
+            throw new TrinoException(INVALID_ARGUMENTS, "The expected format is '<database name>.<schema name>': " + schemaName);
         }
         if (databaseSchemaName.size() > 2) {
-            throw new IllegalArgumentException("Too many identifier parts found");
+            throw new TrinoException(INVALID_ARGUMENTS, "Too many identifier parts found");
         }
         return new DatabaseSchemaName(databaseSchemaName.get(0), databaseSchemaName.get(1));
     }
