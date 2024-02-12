@@ -18,6 +18,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
+import io.trino.plugin.hive.metastore.glue.GlueCache;
 import io.trino.plugin.hive.metastore.glue.GlueContext;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
@@ -96,6 +97,7 @@ public class TestDeltaLakeConcurrentModificationGlueMetastore
         metastore = new GlueHiveMetastore(
                 proxiedGlueClient,
                 new GlueContext(glueConfig),
+                GlueCache.NOOP,
                 HDFS_FILE_SYSTEM_FACTORY,
                 glueConfig,
                 ImmutableSet.of(DELTA));

@@ -53,6 +53,7 @@ public final class TestingGlueHiveMetastore
         return new GlueHiveMetastore(
                 createGlueClient(glueConfig, OpenTelemetry.noop()),
                 new GlueContext(glueConfig),
+                GlueCache.NOOP,
                 HDFS_FILE_SYSTEM_FACTORY,
                 glueConfig,
                 EnumSet.allOf(TableKind.class));
