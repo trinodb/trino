@@ -45,7 +45,6 @@ import io.trino.sql.tree.ComparisonExpression.Operator;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Identifier;
@@ -176,12 +175,6 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitExpression(Expression node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: expression translator for " + node.getClass().getName());
-        }
-
-        @Override
-        protected RowExpression visitFieldReference(FieldReference node, Void context)
-        {
-            return field(node.getFieldIndex(), getType(node));
         }
 
         @Override

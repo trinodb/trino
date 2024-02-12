@@ -33,8 +33,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TryExpression;
-import io.trino.sql.util.AstUtils;
 
 import java.util.Map;
 import java.util.Optional;
@@ -189,16 +187,8 @@ public class InlineProjections
                 .filter(input -> !child.getAssignments().isIdentity(input)) // skip identities, otherwise, this rule will keep firing forever
                 .collect(toSet());
 
-        // exclude any complex inputs to TRY expressions. Inlining them would potentially
-        // change the semantics of those expressions
-        Set<Symbol> tryArguments = parent.getAssignments()
-                .getExpressions().stream()
-                .flatMap(expression -> extractTryArguments(expression).stream())
-                .collect(toSet());
-
         Set<Symbol> singletons = dependencies.entrySet().stream()
                 .filter(entry -> entry.getValue() == 1) // reference appears just once across all expressions in parent project node
-                .filter(entry -> !tryArguments.contains(entry.getKey())) // they are not inputs to TRY. Otherwise, inlining might change semantics
                 .filter(entry -> !child.getAssignments().isIdentity(entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
                 .filter(entry -> {
                     // skip dereferences, otherwise, inlining can cause conflicts with PushdownDereferences
@@ -216,15 +206,6 @@ public class InlineProjections
                 .collect(toSet());
 
         return Sets.union(singletons, basicReferences);
-    }
-
-    private static Set<Symbol> extractTryArguments(Expression expression)
-    {
-        return AstUtils.preOrder(expression)
-                .filter(TryExpression.class::isInstance)
-                .map(TryExpression.class::cast)
-                .flatMap(tryExpression -> SymbolsExtractor.extractAll(tryExpression).stream())
-                .collect(toSet());
     }
 
     private static boolean isSymbolReference(Symbol symbol, Expression expression)
