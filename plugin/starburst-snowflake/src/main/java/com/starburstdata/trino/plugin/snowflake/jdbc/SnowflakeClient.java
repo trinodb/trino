@@ -69,7 +69,6 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.BooleanType;
@@ -911,7 +910,7 @@ public class SnowflakeClient
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
     {
         if (!statisticsEnabled) {
             return TableStatistics.empty();

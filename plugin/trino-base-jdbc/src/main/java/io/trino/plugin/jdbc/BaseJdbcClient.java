@@ -1218,7 +1218,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
     {
         verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
         return TableStatistics.empty();

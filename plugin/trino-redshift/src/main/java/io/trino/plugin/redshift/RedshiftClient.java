@@ -71,7 +71,6 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
@@ -378,7 +377,7 @@ public class RedshiftClient
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
     {
         if (!statisticsEnabled) {
             return TableStatistics.empty();

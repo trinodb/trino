@@ -40,7 +40,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
@@ -62,7 +61,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -417,13 +415,6 @@ public class CachingJdbcClient
             throws SQLException
     {
         return delegate.getPreparedStatement(connection, sql, columnCount);
-    }
-
-    @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
-    {
-        checkArgument(tupleDomain.isAll(), "Unexpected non-ALL constraint: %s", tupleDomain);
-        return getTableStatistics(session, handle);
     }
 
     @Override

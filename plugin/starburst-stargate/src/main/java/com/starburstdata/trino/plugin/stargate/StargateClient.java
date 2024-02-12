@@ -52,7 +52,6 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
@@ -743,15 +742,11 @@ public class StargateClient
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
     {
         if (!statisticsEnabled) {
             return TableStatistics.empty();
         }
-
-        // Currently the engine never sets TupleDomain for getTableStatistics, relying on predicate pushdown happening first.
-        // Handling of tupleDomain would be easy here, but should come with set of tests that verify it does not interfere with caching.
-        verify(tupleDomain.isAll(), "tupleDomain other than all: %s", tupleDomain);
 
         try {
             return readTableStatistics(session, handle);

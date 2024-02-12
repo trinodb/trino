@@ -42,7 +42,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
 import org.weakref.jmx.Flatten;
@@ -380,12 +379,6 @@ public final class StatisticsAwareJdbcClient
             throws SQLException
     {
         return stats.getGetPreparedStatement().wrap(() -> delegate().getPreparedStatement(connection, sql, columnCount));
-    }
-
-    @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
-    {
-        return stats.getGetTableStatistics().wrap(() -> delegate().getTableStatistics(session, handle, tupleDomain));
     }
 
     @Override
