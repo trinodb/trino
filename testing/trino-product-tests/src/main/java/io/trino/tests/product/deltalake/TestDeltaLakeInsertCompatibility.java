@@ -56,7 +56,6 @@ public class TestDeltaLakeInsertCompatibility
     @BeforeMethodWithContext
     public void setup()
     {
-        super.setUp();
         databricksRuntimeVersion = getDatabricksRuntimeVersion();
     }
 
