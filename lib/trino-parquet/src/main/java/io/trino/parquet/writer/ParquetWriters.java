@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.writer;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.writer.valuewriter.BigintValueWriter;
 import io.trino.parquet.writer.valuewriter.BinaryValueWriter;
@@ -45,6 +46,8 @@ import io.trino.spi.type.VarcharType;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -58,9 +61,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -90,11 +97,12 @@ final class ParquetWriters
             Map<List<String>, Type> trinoTypes,
             ParquetProperties parquetProperties,
             CompressionCodec compressionCodec,
-            int pageValueCountLimit,
+            ParquetWriterOptions writerOptions,
+            Set<String> bloomFilterColumns,
             Optional<DateTimeZone> parquetTimeZone)
     {
         TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(parquetProperties);
-        WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, valuesWriterFactory, compressionCodec, pageValueCountLimit, parquetTimeZone);
+        WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, valuesWriterFactory, compressionCodec, writerOptions.getMaxPageValueCount(), writerOptions.getMaxBloomFilterSize(), writerOptions.getBloomFilterNDV(), writerOptions.getBLoomFilterFPP(), bloomFilterColumns, parquetTimeZone);
         ParquetTypeVisitor.visit(messageType, writeBuilder);
         return writeBuilder.build();
     }
@@ -108,8 +116,12 @@ final class ParquetWriters
         private final TrinoValuesWriterFactory valuesWriterFactory;
         private final CompressionCodec compressionCodec;
         private final int pageValueCountLimit;
+        private final Set<String> bloomFilterColumns;
         private final Optional<DateTimeZone> parquetTimeZone;
         private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
+        private final int maxBloomFilterSize;
+        private final OptionalLong bloomFilterNDV;
+        private final OptionalDouble bloomFilterFPP;
 
         WriteBuilder(
                 MessageType messageType,
@@ -118,6 +130,10 @@ final class ParquetWriters
                 TrinoValuesWriterFactory valuesWriterFactory,
                 CompressionCodec compressionCodec,
                 int pageValueCountLimit,
+                int maxBloomFilterSize,
+                OptionalLong bloomFilterNDV,
+                OptionalDouble bloomFilterFPP,
+                Set<String> bloomFilterColumns,
                 Optional<DateTimeZone> parquetTimeZone)
         {
             this.type = requireNonNull(messageType, "messageType is null");
@@ -126,7 +142,12 @@ final class ParquetWriters
             this.valuesWriterFactory = requireNonNull(valuesWriterFactory, "valuesWriterFactory is null");
             this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
             this.pageValueCountLimit = pageValueCountLimit;
+            this.maxBloomFilterSize = maxBloomFilterSize;
+            this.bloomFilterColumns = requireNonNull(bloomFilterColumns, "bloomFilterColumns is null");
             this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
+            this.bloomFilterNDV = requireNonNull(bloomFilterNDV, "bloomFilterNDV is null");
+            this.bloomFilterFPP = requireNonNull(bloomFilterFPP, "bloomFilterFPP is null");
+            checkArgument(bloomFilterNDV.isPresent() == bloomFilterFPP.isPresent(), "Both bloomFilterNDV and bloomFilterFPP must either be set or unset");
         }
 
         List<ColumnWriter> build()
@@ -174,15 +195,36 @@ final class ParquetWriters
             int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
             int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
             ColumnDescriptor columnDescriptor = new ColumnDescriptor(path, primitive, fieldRepetitionLevel, fieldDefinitionLevel);
+            Optional<BloomFilter> bloomFilter = createBloomFilter(bloomFilterColumns, maxBloomFilterSize, columnDescriptor);
             Type trinoType = requireNonNull(trinoTypes.get(ImmutableList.copyOf(path)), "Trino type is null");
+            checkArgument(bloomFilter.isEmpty() || SUPPORTED_BLOOM_FILTER_TYPES.contains(trinoType), format("%s does not support bloom filters", trinoType));
             return new PrimitiveColumnWriter(
                     columnDescriptor,
-                    getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
+                    getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilter), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
                     parquetProperties.newDefinitionLevelWriter(columnDescriptor),
                     parquetProperties.newRepetitionLevelWriter(columnDescriptor),
                     compressionCodec,
                     parquetProperties.getPageSizeThreshold(),
-                    pageValueCountLimit);
+                    pageValueCountLimit,
+                    bloomFilter);
+        }
+
+        private Optional<BloomFilter> createBloomFilter(Set<String> bloomFilterColumns, int maxBloomFilterSize, ColumnDescriptor columnDescriptor)
+        {
+            // TODO: Enable use of AdaptiveBlockSplitBloomFilter once parquet-mr 1.14.0 is released
+            String dotPath = Joiner.on('.').join(columnDescriptor.getPath());
+            if (bloomFilterColumns.contains(dotPath)) {
+                OptionalLong ndv = bloomFilterNDV;
+                OptionalDouble fpp = bloomFilterFPP;
+                if (ndv.isPresent()) {
+                    int optimalNumOfBits = BlockSplitBloomFilter.optimalNumOfBits(ndv.orElseThrow(), fpp.orElseThrow());
+                    return Optional.of(new BlockSplitBloomFilter(optimalNumOfBits / 8, maxBloomFilterSize));
+                }
+                else {
+                    return Optional.of(new BlockSplitBloomFilter(maxBloomFilterSize, maxBloomFilterSize));
+                }
+            }
+            return Optional.empty();
         }
 
         private String[] currentPath()
