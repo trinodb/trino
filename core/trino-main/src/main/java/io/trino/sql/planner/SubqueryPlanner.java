@@ -46,7 +46,6 @@ import io.trino.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SubqueryExpression;
-import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -76,7 +75,6 @@ class SubqueryPlanner
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
     private final PlannerContext plannerContext;
-    private final TypeCoercion typeCoercion;
     private final Session session;
     private final Map<NodeRef<Node>, RelationPlan> recursiveSubqueries;
 
@@ -86,7 +84,6 @@ class SubqueryPlanner
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
             PlannerContext plannerContext,
-            TypeCoercion typeCoercion,
             Optional<TranslationMap> outerContext,
             Session session,
             Map<NodeRef<Node>, RelationPlan> recursiveSubqueries)
@@ -96,7 +93,6 @@ class SubqueryPlanner
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
         requireNonNull(plannerContext, "plannerContext is null");
-        requireNonNull(typeCoercion, "typeCoercion is null");
         requireNonNull(outerContext, "outerContext is null");
         requireNonNull(session, "session is null");
         requireNonNull(recursiveSubqueries, "recursiveSubqueries is null");
@@ -106,7 +102,6 @@ class SubqueryPlanner
         this.idAllocator = idAllocator;
         this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
         this.plannerContext = plannerContext;
-        this.typeCoercion = typeCoercion;
         this.session = session;
         this.recursiveSubqueries = recursiveSubqueries;
     }
@@ -459,7 +454,7 @@ class SubqueryPlanner
             column = wrapped;
         }
 
-        return coerceIfNecessary(subPlan, column, value, actualType, coercion);
+        return coerceIfNecessary(subPlan, column, value, coercion);
     }
 
     private PlanAndMappings planSubquery(Expression subquery, Optional<Type> coercion, TranslationMap outerContext)
@@ -492,10 +487,10 @@ class SubqueryPlanner
                         relationPlan.getRoot(),
                         Assignments.of(column, new Cast(new Row(fields.build()), toSqlType(type)))));
 
-        return coerceIfNecessary(subqueryPlan, column, subquery, analysis.getType(subquery), coercion);
+        return coerceIfNecessary(subqueryPlan, column, subquery, coercion);
     }
 
-    private PlanAndMappings coerceIfNecessary(PlanBuilder subPlan, Symbol symbol, Expression value, Type type, Optional<? extends Type> coercion)
+    private PlanAndMappings coerceIfNecessary(PlanBuilder subPlan, Symbol symbol, Expression value, Optional<? extends Type> coercion)
     {
         Symbol coerced = symbol;
 
@@ -507,8 +502,7 @@ class SubqueryPlanner
                     .put(coerced, new Cast(
                             symbol.toSymbolReference(),
                             toSqlType(coercion.get()),
-                            false,
-                            typeCoercion.isTypeOnlyCoercion(type, coercion.get())))
+                            false))
                     .build();
 
             subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments));

@@ -79,7 +79,7 @@ public class PushCastIntoRow
                         Expression item = row.getItems().get(i);
                         DataType itemType = type.getFields().get(i).getType();
                         if (!(itemType instanceof GenericDataType) || !((GenericDataType) itemType).getName().getValue().equalsIgnoreCase(UnknownType.NAME)) {
-                            item = new Cast(item, itemType, node.isSafe(), node.isTypeOnly());
+                            item = new Cast(item, itemType, node.isSafe());
                         }
                         items.add(item);
                     }

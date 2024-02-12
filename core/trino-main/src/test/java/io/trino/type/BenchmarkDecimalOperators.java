@@ -627,6 +627,7 @@ public class BenchmarkDecimalOperators
                     sourceLayout,
                     PLANNER_CONTEXT.getMetadata(),
                     PLANNER_CONTEXT.getFunctionManager(),
+                    PLANNER_CONTEXT.getTypeManager(),
                     TEST_SESSION,
                     true);
         }

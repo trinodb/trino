@@ -155,11 +155,7 @@ public final class ExpressionTestUtils
                 // cast expression if coercion is registered
                 Type coercion = analyzer.getExpressionCoercions().get(NodeRef.of(originalExpression));
                 if (coercion != null) {
-                    rewrittenExpression = new Cast(
-                            rewrittenExpression,
-                            toSqlType(coercion),
-                            false,
-                            analyzer.getTypeOnlyCoercions().contains(NodeRef.of(originalExpression)));
+                    rewrittenExpression = new Cast(rewrittenExpression, toSqlType(coercion), false);
                 }
                 return rewrittenExpression;
             }

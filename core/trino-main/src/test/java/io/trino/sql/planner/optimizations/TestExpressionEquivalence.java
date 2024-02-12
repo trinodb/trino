@@ -57,6 +57,7 @@ public class TestExpressionEquivalence
     private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(
             PLANNER_CONTEXT.getMetadata(),
             PLANNER_CONTEXT.getFunctionManager(),
+            PLANNER_CONTEXT.getTypeManager(),
             new IrTypeAnalyzer(PLANNER_CONTEXT));
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("a_boolean"), BOOLEAN)
