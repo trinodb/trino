@@ -19,6 +19,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
@@ -71,6 +72,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -167,7 +169,13 @@ public class PageFunctionCompiler
         if (projectionCache == null) {
             return compileProjectionInternal(projection, classNameSuffix);
         }
-        return projectionCache.getUnchecked(projection);
+        try {
+            return projectionCache.getUnchecked(projection);
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw e;
+        }
     }
 
     private Supplier<PageProjection> compileProjectionInternal(RowExpression projection, Optional<String> classNameSuffix)
@@ -368,7 +376,13 @@ public class PageFunctionCompiler
         if (filterCache == null) {
             return compileFilterInternal(filter, classNameSuffix);
         }
-        return filterCache.getUnchecked(filter);
+        try {
+            return filterCache.getUnchecked(filter);
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw e;
+        }
     }
 
     private Supplier<PageFilter> compileFilterInternal(RowExpression filter, Optional<String> classNameSuffix)
