@@ -222,16 +222,16 @@ public class TestQueryAssertions
         assertThatThrownBy(() -> queryAssert.matches("VALUES X'001299'"))
                 .hasMessageMatching(
                         "(?s).*" +
-                        "\\Q" +
-                        "Expecting actual:\n" +
-                        "  ([0, 18, 52])\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [([0, 18, -103])]\n" +
-                        "elements not found:\n" +
-                        "  ([0, 18, -103])\n" +
-                        "and elements not expected:\n" +
-                        "  ([0, 18, 52])" +
-                        "\\E.*");
+                                "\\Q" +
+                                "Expecting actual:\n" +
+                                "  ([0, 18, 52])\n" +
+                                "to contain exactly in any order:\n" +
+                                "  [([0, 18, -103])]\n" +
+                                "elements not found:\n" +
+                                "  ([0, 18, -103])\n" +
+                                "and elements not expected:\n" +
+                                "  ([0, 18, 52])" +
+                                "\\E.*");
     }
 
     @Test
@@ -244,16 +244,16 @@ public class TestQueryAssertions
         assertThatThrownBy(() -> queryAssert.matches("SELECT CAST(ROW(X'001299') AS ROW(foo varbinary))"))
                 .hasMessageMatching(
                         "(?s).*" +
-                        "\\Q" +
-                        "Expecting actual:\n" +
-                        "  ([X'00 12 34'])\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [([X'00 12 99'])]\n" +
-                        "elements not found:\n" +
-                        "  ([X'00 12 99'])\n" +
-                        "and elements not expected:\n" +
-                        "  ([X'00 12 34'])" +
-                        "\\E.*");
+                                "\\Q" +
+                                "Expecting actual:\n" +
+                                "  ([X'00 12 34'])\n" +
+                                "to contain exactly in any order:\n" +
+                                "  [([X'00 12 99'])]\n" +
+                                "elements not found:\n" +
+                                "  ([X'00 12 99'])\n" +
+                                "and elements not expected:\n" +
+                                "  ([X'00 12 34'])" +
+                                "\\E.*");
     }
 
     /**
