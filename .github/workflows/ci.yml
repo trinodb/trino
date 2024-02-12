@@ -372,7 +372,7 @@ jobs:
     timeout-minutes: 30
     if: "(github.event_name == 'schedule') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'salesforce')) || (github.event_name == 'workflow_dispatch')"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
       - name: Set up AWS code-artifacts login
@@ -409,7 +409,7 @@ jobs:
           name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: results ${{ env.ARTIFACT_NAME }}

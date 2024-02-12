@@ -11,7 +11,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     steps:
       - name: spot-loss-retry
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             console.log("Checking " + context.payload.workflow_run.html_url);
