@@ -468,7 +468,7 @@ public final class QueryAssertions
         catch (RuntimeException exception) {
             exception.addSuppressed(new Exception("Query: " + sql));
             assertThatTrinoException(exception)
-                    .hasCauseMessageMatching(expectedMessageRegExp);
+                    .hasMessageMatching(expectedMessageRegExp);
         }
     }
 
