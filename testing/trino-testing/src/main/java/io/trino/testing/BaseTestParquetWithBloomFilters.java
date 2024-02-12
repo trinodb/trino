@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
@@ -28,7 +27,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseTestParquetWithBloomFilters
         extends AbstractTestQueryFramework
 {
-    protected Path dataDirectory;
     private static final String COLUMN_NAME = "dataColumn";
     // containing extreme values, so the row group cannot be eliminated by the column chunk's min/max statistics
     private static final List<Integer> TEST_VALUES = Arrays.asList(Integer.MIN_VALUE, Integer.MAX_VALUE, 1, 3, 7, 10, 15);

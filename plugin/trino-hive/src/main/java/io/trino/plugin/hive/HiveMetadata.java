@@ -213,6 +213,7 @@ import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERT
 import static io.trino.plugin.hive.HiveTableProperties.NULL_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
+import static io.trino.plugin.hive.HiveTableProperties.PARQUET_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.REGEX_CASE_INSENSITIVE;
 import static io.trino.plugin.hive.HiveTableProperties.REGEX_PATTERN;
@@ -233,6 +234,7 @@ import static io.trino.plugin.hive.HiveTableProperties.getHiveStorageFormat;
 import static io.trino.plugin.hive.HiveTableProperties.getNullFormat;
 import static io.trino.plugin.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static io.trino.plugin.hive.HiveTableProperties.getOrcBloomFilterFpp;
+import static io.trino.plugin.hive.HiveTableProperties.getParquetBloomFilterColumns;
 import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
 import static io.trino.plugin.hive.HiveTableProperties.getRegexPattern;
 import static io.trino.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
@@ -360,6 +362,8 @@ public class HiveMetadata
     private static final String CSV_SEPARATOR_KEY = "separatorChar";
     private static final String CSV_QUOTE_KEY = "quoteChar";
     private static final String CSV_ESCAPE_KEY = "escapeChar";
+
+    public static final String PARQUET_BLOOM_FILTER_COLUMNS_KEY_PREFIX = "parquet.bloom-filter-enabled.column.";
 
     private static final String REGEX_KEY = "input.regex";
     private static final String REGEX_CASE_SENSITIVE_KEY = "input.regex.case.insensitive";
@@ -1138,12 +1142,22 @@ public class HiveMetadata
         bucketInfo.ifPresent(info -> tableProperties.put(BUCKETING_VERSION, String.valueOf(info.bucketingVersion().getVersion())));
 
         // ORC format specific properties
-        List<String> columns = getOrcBloomFilterColumns(tableMetadata.getProperties());
-        if (columns != null && !columns.isEmpty()) {
+        List<String> orcBloomFilterColumns = getOrcBloomFilterColumns(tableMetadata.getProperties());
+        if (orcBloomFilterColumns != null && !orcBloomFilterColumns.isEmpty()) {
             checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.ORC, ORC_BLOOM_FILTER_COLUMNS);
-            validateOrcBloomFilterColumns(tableMetadata, columns);
-            tableProperties.put(ORC_BLOOM_FILTER_COLUMNS_KEY, Joiner.on(",").join(columns));
+            validateOrcBloomFilterColumns(tableMetadata, orcBloomFilterColumns);
+            tableProperties.put(ORC_BLOOM_FILTER_COLUMNS_KEY, Joiner.on(",").join(orcBloomFilterColumns));
             tableProperties.put(ORC_BLOOM_FILTER_FPP_KEY, String.valueOf(getOrcBloomFilterFpp(tableMetadata.getProperties())));
+        }
+
+        List<String> parquetBloomFilterColumns = getParquetBloomFilterColumns(tableMetadata.getProperties());
+        if (parquetBloomFilterColumns != null && !parquetBloomFilterColumns.isEmpty()) {
+            checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS);
+            validateParquetBloomFilterColumns(tableMetadata, parquetBloomFilterColumns);
+            for (String column : parquetBloomFilterColumns) {
+                tableProperties.put(PARQUET_BLOOM_FILTER_COLUMNS_KEY_PREFIX + column, "true");
+                // TODO: Enable specifying NDV and FPP
+            }
         }
 
         // Avro specific properties
@@ -1307,6 +1321,16 @@ public class HiveMetadata
                 .collect(toImmutableSet());
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
+        }
+    }
+
+    private static void validateParquetBloomFilterColumns(ConnectorTableMetadata tableMetadata, List<String> parquetBloomFilterColumns)
+    {
+        Set<String> allColumns = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableSet());
+        if (!allColumns.containsAll(parquetBloomFilterColumns)) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(parquetBloomFilterColumns), allColumns)));
         }
     }
 

@@ -65,13 +65,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.bucketColumnHandle;
@@ -90,6 +94,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
+import static io.trino.plugin.hive.HiveMetadata.PARQUET_BLOOM_FILTER_COLUMNS_KEY_PREFIX;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
@@ -164,6 +169,26 @@ public final class HiveUtil
     public static String splitError(Throwable t, Location location, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", location, start, length, t.getMessage());
+    }
+
+    public static Set<String> getParquetBloomFilterColumns(Map<String, String> schema)
+    {
+        return schema.entrySet().stream().filter(entry -> entry.getKey().startsWith(PARQUET_BLOOM_FILTER_COLUMNS_KEY_PREFIX) && entry.getValue().equals("true"))
+                .map(entry -> entry.getKey().substring(PARQUET_BLOOM_FILTER_COLUMNS_KEY_PREFIX.length())).collect(toImmutableSet());
+    }
+
+    public static void validateBloomFilterColumns(List<String> columnNames, List<Type> types, Set<String> bloomFilterColumns)
+    {
+        checkArgument(columnNames.size() == types.size());
+        for (int i = 0; i < columnNames.size(); i++) {
+            String columnName = columnNames.get(i);
+            if (bloomFilterColumns.contains(columnName)) {
+                Type type = types.get(i);
+                if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(type)) {
+                    throw new TrinoException(NOT_SUPPORTED, format("Bloom filters are not supported for type %s", type.getBaseName()));
+                }
+            }
+        }
     }
 
     static {
@@ -633,10 +658,10 @@ public final class HiveUtil
             columnValue = path;
         }
         else if (isBucketColumnHandle(columnHandle)) {
-            columnValue = String.valueOf(bucketNumber.getAsInt());
+            columnValue = java.lang.String.valueOf(bucketNumber.getAsInt());
         }
         else if (isFileSizeColumnHandle(columnHandle)) {
-            columnValue = String.valueOf(fileSize);
+            columnValue = java.lang.String.valueOf(fileSize);
         }
         else if (isFileModifiedTimeColumnHandle(columnHandle)) {
             columnValue = HIVE_TIMESTAMP_PARSER.print(fileModifiedTime);

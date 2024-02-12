@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
@@ -57,6 +58,8 @@ import static io.trino.plugin.hive.HiveSessionProperties.isParquetOptimizedWrite
 import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
+import static io.trino.plugin.hive.util.HiveUtil.getParquetBloomFilterColumns;
+import static io.trino.plugin.hive.util.HiveUtil.validateBloomFilterColumns;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -101,17 +104,20 @@ public class ParquetFileWriterFactory
             return Optional.empty();
         }
 
+        Set<String> bloomFilterColumns = getParquetBloomFilterColumns(schema);
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
                 .setMaxPageValueCount(HiveSessionProperties.getParquetWriterPageValueCount(session))
                 .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
+                .setBloomFilterColumns(bloomFilterColumns)
                 .build();
 
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
                 .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
                 .collect(toList());
+        validateBloomFilterColumns(fileColumnNames, fileColumnTypes, bloomFilterColumns);
 
         int[] fileInputColumnIndexes = fileColumnNames.stream()
                 .mapToInt(inputColumnNames::indexOf)

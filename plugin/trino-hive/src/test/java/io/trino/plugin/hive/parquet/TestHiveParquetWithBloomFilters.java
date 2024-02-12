@@ -13,31 +13,17 @@
  */
 package io.trino.plugin.hive.parquet;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Joiner;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.BaseTestParquetWithBloomFilters;
 import io.trino.testing.QueryRunner;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.mapred.JobConf;
-import org.joda.time.DateTimeZone;
 
-import java.io.File;
-import java.nio.file.Path;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
-import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
-import static org.apache.parquet.format.CompressionCodec.SNAPPY;
-import static org.apache.parquet.hadoop.ParquetOutputFormat.BLOOM_FILTER_ENABLED;
-import static org.apache.parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
 
 public class TestHiveParquetWithBloomFilters
         extends BaseTestParquetWithBloomFilters
@@ -46,9 +32,7 @@ public class TestHiveParquetWithBloomFilters
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = HiveQueryRunner.builder().build();
-        dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
-        return queryRunner;
+        return HiveQueryRunner.builder().build();
     }
 
     @Override
@@ -57,39 +41,8 @@ public class TestHiveParquetWithBloomFilters
         // create the managed table
         String tableName = "parquet_with_bloom_filters_" + randomNameSuffix();
         CatalogSchemaTableName catalogSchemaTableName = new CatalogSchemaTableName("hive", new SchemaTableName("tpch", tableName));
-        assertUpdate(format("CREATE TABLE %s (%s INT) WITH (format = 'PARQUET')", catalogSchemaTableName, columnName));
-
-        // directly write data to the managed table
-        Path tableLocation = Path.of("%s/tpch/%s".formatted(dataDirectory, tableName));
-        Path fileLocation = tableLocation.resolve("bloomFilterFile.parquet");
-        writeParquetFileWithBloomFilter(fileLocation.toFile(), columnName, testValues);
+        assertUpdate(format("CREATE TABLE %s WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['%s']) AS SELECT * FROM (VALUES %s) t(%s)", catalogSchemaTableName, columnName, Joiner.on(", ").join(testValues), columnName), testValues.size());
 
         return catalogSchemaTableName;
-    }
-
-    public static void writeParquetFileWithBloomFilter(File tempFile, String columnName, List<Integer> testValues)
-    {
-        List<ObjectInspector> objectInspectors = singletonList(javaIntObjectInspector);
-        List<String> columnNames = ImmutableList.of(columnName);
-
-        JobConf jobConf = new JobConf(false);
-        jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
-        jobConf.setBoolean(BLOOM_FILTER_ENABLED, true);
-
-        try {
-            ParquetTester.writeParquetColumn(
-                    jobConf,
-                    tempFile,
-                    SNAPPY,
-                    ParquetTester.createTableProperties(columnNames, objectInspectors),
-                    getStandardStructObjectInspector(columnNames, objectInspectors),
-                    new Iterator<?>[] {testValues.iterator()},
-                    Optional.empty(),
-                    false,
-                    DateTimeZone.getDefault());
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 }
