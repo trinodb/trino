@@ -32,6 +32,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
@@ -99,6 +100,49 @@ public class TestQueryAssertions
     {
         assertThat(query("SELECT name FROM nation WHERE nationkey = 3"))
                 .matches("VALUES CAST('CANADA' AS varchar(25))");
+    }
+
+    @Test
+    public void testQueryFails()
+    {
+        // Accept failure
+        assertQueryFails("SELECT CAST('123a' AS integer)", "Cannot cast '123a' to INT");
+
+        // Report wrong message
+        assertThatThrownBy(() -> assertQueryFails("SELECT CAST('123a' AS integer)", "Different expected message"))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageStartingWith("""
+
+                        Expecting message:
+                          "Cannot cast '123a' to INT"
+                        to match regex:
+                          "Different expected message"
+                        but did not.
+
+                        Throwable that failed the check:""");
+
+        // Match message with regular expression
+        assertQueryFails("SELECT CAST('123a' AS integer)", "Cannot cast '\\w+' (to)? INT");
+        assertQueryFails("SELECT fail('Some (message|with).pattern-likes++')", Pattern.quote("Some (message|with).pattern-likes++"));
+
+        // Verify message full match
+        assertQueryFails("SELECT CAST('123a' AS integer)", "^Cannot cast '123a' to INT$");
+        assertThatThrownBy(() -> assertQueryFails("SELECT CAST('123a' AS integer)", "Cannot cast"))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageStartingWith("""
+
+                        Expecting message:
+                          "Cannot cast '123a' to INT"
+                        to match regex:
+                          "Cannot cast"
+                        but did not.
+
+                        Throwable that failed the check:""");
+
+        // Report query success
+        assertThatThrownBy(() -> assertQueryFails("SELECT 1", "Foo bar"))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageMatching("Expected query to fail: SELECT 1 \\[QueryId: \\w+]");
     }
 
     @Test
