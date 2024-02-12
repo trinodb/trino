@@ -13,11 +13,8 @@
  */
 package io.trino.cost;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.IntegerType;
@@ -25,8 +22,6 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
-import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralInterpreter;
@@ -51,7 +46,6 @@ import java.util.OptionalDouble;
 
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
-import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NaN;
@@ -114,8 +108,7 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
         {
-            ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
-            Type type = analyzer.analyze(node, Scope.create());
+            Type type = typeAnalyzer.getType(session, TypeProvider.empty(), node);
             Object value = literalInterpreter.evaluate(node, type);
 
             OptionalDouble doubleValue = toStatsRepresentation(type, value);
