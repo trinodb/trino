@@ -20,12 +20,15 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.ProvidesIntoOptional;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
+import io.trino.spi.NodeManager;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
@@ -75,6 +78,25 @@ public class GlueMetastoreModule
             return EnumSet.complementOf(EnumSet.of(GlueHiveMetastore.TableKind.DELTA));
         }
         return EnumSet.allOf(GlueHiveMetastore.TableKind.class);
+    }
+
+    @Provides
+    @Singleton
+    public static GlueCache createGlueCache(CachingHiveMetastoreConfig config, NodeManager nodeManager)
+    {
+        Duration metadataCacheTtl = config.getMetastoreCacheTtl();
+        Duration statsCacheTtl = config.getStatsCacheTtl();
+
+        // Disable caching on workers, because there currently is no way to invalidate such a cache.
+        // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
+        // configuration can remain identical for all nodes, making cluster configuration easier.
+        boolean enabled = nodeManager.getCurrentNode().isCoordinator() &&
+                (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
+
+        if (enabled) {
+            return new InMemoryGlueCache(metadataCacheTtl, statsCacheTtl, config.getMetastoreCacheMaximumSize());
+        }
+        return GlueCache.NOOP;
     }
 
     @Provides

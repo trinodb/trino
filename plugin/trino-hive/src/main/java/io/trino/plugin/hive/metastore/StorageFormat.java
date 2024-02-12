@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class StorageFormat
 {
-    private static final StorageFormat NULL_STORAGE_FORMAT = new StorageFormat(null, null, null);
+    public static final StorageFormat NULL_STORAGE_FORMAT = new StorageFormat(null, null, null);
     public static final StorageFormat VIEW_STORAGE_FORMAT = NULL_STORAGE_FORMAT;
 
     private final String serde;

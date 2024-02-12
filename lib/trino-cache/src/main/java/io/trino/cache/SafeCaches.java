@@ -70,4 +70,9 @@ public final class SafeCaches
     {
         return cacheBuilder.build(cacheLoader);
     }
+
+    public static <K, V> LoadingCache<K, V> emptyLoadingCache(CacheLoader<K, V> cacheLoader, boolean recordStats)
+    {
+        return new EmptyCache<>(cacheLoader, recordStats);
+    }
 }
