@@ -13,20 +13,14 @@
  */
 package io.trino.cost;
 
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.inject.Inject;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
-import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
@@ -448,17 +442,7 @@ public class FilterStatsCalculator
                 return requireNonNull(types.get(symbol), () -> format("No type for symbol %s", symbol));
             }
 
-            ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    plannerContext,
-                    new AllowAllAccessControl(),
-                    session,
-                    types,
-                    ImmutableMap.of(),
-                    // At this stage, there should be no subqueries in the plan.
-                    node -> new VerifyException("Unexpected subquery"),
-                    WarningCollector.NOOP,
-                    false);
-            return expressionAnalyzer.analyze(expression, Scope.create());
+            return typeAnalyzer.getType(session, types, expression);
         }
 
         private SymbolStatsEstimate getExpressionStats(Expression expression)
