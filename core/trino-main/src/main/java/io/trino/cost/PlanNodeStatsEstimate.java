@@ -30,6 +30,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.util.MoreMath.firstNonNaN;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -82,6 +83,7 @@ public class PlanNodeStatsEstimate
         requireNonNull(outputSymbols, "outputSymbols is null");
 
         return outputSymbols.stream()
+                .filter(symbol -> !symbol.type().equals(SPOOLING_METADATA_TYPE)) // We don't want extra metadata block stats to be accounted for
                 .mapToDouble(symbol -> getOutputSizeForSymbol(getSymbolStatistics(symbol), symbol.type()))
                 .sum();
     }

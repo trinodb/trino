@@ -631,6 +631,14 @@ public class DistributedQueryRunner
     }
 
     @Override
+    public void loadSpoolingManager(String name, Map<String, String> properties)
+    {
+        for (TestingTrinoServer server : servers) {
+            server.loadSpoolingManager(name, properties);
+        }
+    }
+
+    @Override
     public final void close()
     {
         if (closed) {

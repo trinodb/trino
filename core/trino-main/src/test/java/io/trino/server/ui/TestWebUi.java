@@ -424,7 +424,8 @@ public class TestWebUi
                     createTestMetadataManager(),
                     ImmutableSet::of,
                     accessControl,
-                    new ProtocolConfig());
+                    new ProtocolConfig(),
+                    _ -> Optional.empty());
         }
 
         @ResourceSecurity(WEB_UI)

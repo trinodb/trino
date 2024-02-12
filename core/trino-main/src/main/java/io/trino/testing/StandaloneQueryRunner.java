@@ -316,4 +316,10 @@ public final class StandaloneQueryRunner
     {
         server.loadExchangeManager(name, properties);
     }
+
+    @Override
+    public void loadSpoolingManager(String name, Map<String, String> properties)
+    {
+        server.loadSpoolingManager(name, properties);
+    }
 }

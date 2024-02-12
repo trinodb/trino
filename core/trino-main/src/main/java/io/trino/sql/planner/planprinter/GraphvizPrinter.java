@@ -16,6 +16,7 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.trino.server.protocol.spooling.SpooledBlock;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -70,6 +71,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Collections2.filter;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -618,7 +620,7 @@ public final class GraphvizPrinter
 
         private static String getColumns(OutputNode node)
         {
-            Iterator<String> columnNames = node.getColumnNames().iterator();
+            Iterator<String> columnNames = filter(node.getColumnNames(), value -> !value.equals(SpooledBlock.SPOOLING_METADATA_COLUMN_NAME)).iterator();
             String columns = "";
             int nameWidth = 0;
             while (columnNames.hasNext()) {

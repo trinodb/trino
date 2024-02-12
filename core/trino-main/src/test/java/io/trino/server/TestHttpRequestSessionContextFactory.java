@@ -192,6 +192,7 @@ public class TestHttpRequestSessionContextFactory
                 ImmutableSet::of,
                 new AllowAllAccessControl(),
                 new ProtocolConfig()
-                        .setAlternateHeaderName(headers.getProtocolName()));
+                        .setAlternateHeaderName(headers.getProtocolName()),
+                _ -> Optional.empty());
     }
 }

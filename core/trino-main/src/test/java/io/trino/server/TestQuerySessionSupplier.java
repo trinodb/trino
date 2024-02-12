@@ -72,7 +72,8 @@ public class TestQuerySessionSupplier
             createTestMetadataManager(),
             ImmutableSet::of,
             new AllowAllAccessControl(),
-            new ProtocolConfig());
+            new ProtocolConfig(),
+            _ -> Optional.empty());
 
     @Test
     public void testCreateSession()
