@@ -263,7 +263,7 @@ public class TestHiveS3AndGlueMetastoreTest
             if (partitioned) {
                 assertQuery("SHOW STATS FOR " + tableName, """
                         VALUES
-                        ('col_str', 0.0, 1.0, 0.0, null, null, null),
+                        ('col_str', 16.0, 1.0, 0.0, null, null, null),
                         ('col_int', null, 4.0, 0.0, null, 1, 4),
                         (null, null, null, null, 4.0, null, null)""");
             }
