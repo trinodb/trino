@@ -59,6 +59,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_NOT_FOUND;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueStatConverter.fromGlueColumnStatistics;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueStatConverter.toGlueColumnStatistics;
+import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -139,7 +140,7 @@ public class DefaultGlueColumnStatisticsProvider
                         .withDatabaseName(databaseName)
                         .withTableName(tableName)
                         .withColumnNames(columnBatch)
-                        .withPartitionValues(partitionName);
+                        .withPartitionValues(toPartitionValues(partitionName));
                 futures.add(supplyAsync(() -> stats.getGetColumnStatisticsForPartition().call(() -> glueClient.getColumnStatisticsForPartition(request)), readExecutor));
             }
             resultsForPartition.put(partitionName, futures.build());
