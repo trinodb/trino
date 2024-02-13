@@ -20,6 +20,7 @@ import io.trino.spi.Unstable;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,7 +45,7 @@ public class QueryMetadata
     private final Optional<String> plan;
     private final Optional<String> jsonPlan;
 
-    private final Optional<String> payload;
+    private final Supplier<Optional<String>> payloadProvider;
 
     @JsonCreator
     @Unstable
@@ -62,6 +63,35 @@ public class QueryMetadata
             Optional<String> jsonPlan,
             Optional<String> payload)
     {
+        this(
+                queryId,
+                transactionId,
+                query,
+                updateType,
+                preparedQuery,
+                queryState,
+                tables,
+                routines,
+                uri,
+                plan,
+                jsonPlan,
+                () -> payload);
+    }
+
+    public QueryMetadata(
+            String queryId,
+            Optional<String> transactionId,
+            String query,
+            Optional<String> updateType,
+            Optional<String> preparedQuery,
+            String queryState,
+            List<TableInfo> tables,
+            List<RoutineInfo> routines,
+            URI uri,
+            Optional<String> plan,
+            Optional<String> jsonPlan,
+            Supplier<Optional<String>> payloadProvider)
+    {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.query = requireNonNull(query, "query is null");
@@ -73,7 +103,7 @@ public class QueryMetadata
         this.uri = requireNonNull(uri, "uri is null");
         this.plan = requireNonNull(plan, "plan is null");
         this.jsonPlan = requireNonNull(jsonPlan, "jsonPlan is null");
-        this.payload = requireNonNull(payload, "payload is null");
+        this.payloadProvider = requireNonNull(payloadProvider, "payloadProvider is null");
     }
 
     @JsonProperty
@@ -145,6 +175,6 @@ public class QueryMetadata
     @JsonProperty
     public Optional<String> getPayload()
     {
-        return payload;
+        return payloadProvider.get();
     }
 }

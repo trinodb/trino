@@ -78,6 +78,7 @@ import org.joda.time.DateTime;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,6 +87,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.QueryState.QUEUED;
@@ -166,7 +168,7 @@ public class QueryMonitor
                                 queryInfo.getSelf(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty())));
+                                Optional::empty)));
     }
 
     public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
@@ -184,7 +186,7 @@ public class QueryMonitor
                         queryInfo.getSelf(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty()),
+                        Optional::empty),
                 new QueryStatistics(
                         ofMillis(0),
                         ofMillis(0),
@@ -245,9 +247,13 @@ public class QueryMonitor
 
     public void queryCompletedEvent(QueryInfo queryInfo)
     {
+        Map<Boolean, QueryCompletedEvent> memo = new HashMap<>();
         QueryStats queryStats = queryInfo.getQueryStats();
-        eventListenerManager.queryCompleted(requiresAnonymizedPlan ->
-                new QueryCompletedEvent(
+
+        eventListenerManager.queryCompleted(requiresAnonymizedPlan -> {
+            QueryCompletedEvent queryCompletedEvent = memo.get(requiresAnonymizedPlan);
+            if (queryCompletedEvent == null) {
+                queryCompletedEvent = new QueryCompletedEvent(
                         createQueryMetadata(queryInfo, requiresAnonymizedPlan),
                         createQueryStatistics(queryInfo),
                         createQueryContext(
@@ -260,8 +266,11 @@ public class QueryMonitor
                         queryInfo.getWarnings(),
                         ofEpochMilli(queryStats.getCreateTime().getMillis()),
                         ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
-                        ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0)));
-
+                        ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0));
+                memo.put(requiresAnonymizedPlan, queryCompletedEvent);
+            }
+            return queryCompletedEvent;
+        });
         logQueryTimeline(queryInfo);
     }
 
@@ -280,7 +289,7 @@ public class QueryMonitor
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo, anonymizer),
                 createJsonQueryPlan(queryInfo, anonymizer),
-                queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)));
+                memoize(() -> queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit))));
     }
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
@@ -335,7 +344,7 @@ public class QueryMonitor
                 queryInfo.isFinalQueryInfo(),
                 getCpuDistributions(queryInfo),
                 getStageOutputBufferUtilizations(queryInfo),
-                operatorSummaries.build(),
+                memoize(() -> operatorStats.stream().map(operatorStatsCodec::toJson).toList()),
                 ImmutableList.copyOf(queryInfo.getQueryStats().getOptimizerRulesSummaries()),
                 serializedPlanNodeStatsAndCosts);
     }
