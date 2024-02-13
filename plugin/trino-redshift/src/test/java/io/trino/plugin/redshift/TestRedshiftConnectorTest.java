@@ -803,6 +803,7 @@ public class TestRedshiftConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testInsertRowConcurrently()
     {

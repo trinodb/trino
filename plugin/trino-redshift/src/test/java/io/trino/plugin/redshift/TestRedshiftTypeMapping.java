@@ -659,7 +659,7 @@ public class TestRedshiftTypeMapping
         // The max timestamp with time zone value in Redshift is larger than Trino
         try (TestTable table = new TestTable(getRedshiftExecutor(), TEST_SCHEMA + ".timestamp_tz_max", "(ts timestamptz)", ImmutableList.of("TIMESTAMP '294276-12-31 23:59:59' AT TIME ZONE 'UTC'"))) {
             assertThat(query("SELECT * FROM " + table.getName()))
-                    .failure().hasMessage("Millis overflow: 9224318015999000");
+                    .nonTrinoExceptionFailure().hasMessage("Millis overflow: 9224318015999000");
         }
     }
 

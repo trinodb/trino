@@ -240,10 +240,11 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <!-- Run only the smoke tests of the connector on the CI environment due to unpredictable -->
-                                <!-- locations of GitHub runners which can lead to increased client latency on the -->
-                                <!-- JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
+                                <include>**/TestRedshiftAutomaticJoinPushdown.java</include>
+                                <include>**/TestRedshiftConnectorTest.java</include>
                                 <include>**/TestRedshiftConnectorSmokeTest.java</include>
+                                <include>**/TestRedshiftTableStatisticsReader.java</include>
+                                <include>**/TestRedshiftTypeMapping.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -264,9 +265,7 @@
                             <!-- Failure recovery tests spend most of the time waiting for a retry -->
                             <threadCount>4</threadCount>
                             <includes>
-                                <!-- Run only the smoke tests of the connector for the fault-tolerant execution functionality -->
-                                <!-- on the CI environment due to unpredictable locations of GitHub runners which can lead -->
-                                <!-- to increased client latency on the JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
+                                <include>**/Test*FailureRecoveryTest.java</include>
                                 <include>**/Test*FailureRecoverySmokeTest.java</include>
                             </includes>
                         </configuration>
