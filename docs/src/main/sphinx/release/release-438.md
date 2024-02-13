@@ -35,7 +35,6 @@
   property or the `parquet_writer_page_value_count` session property. ({issue}`20171`)
 * Add support for `array`, `map` and `row` types in the `migrate` table
   procedure. ({issue}`17583`)
-* Fix potential query failure when running the `optimize` table procedure. ({issue}`20490`)
 
 ## Pinot connector
 
