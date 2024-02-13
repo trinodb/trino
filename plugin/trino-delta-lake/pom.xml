@@ -271,12 +271,6 @@
             <groupId>org.alluxio</groupId>
             <artifactId>alluxio-core-common</artifactId>
             <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.rabbitmq</groupId>
-                    <artifactId>amqp-client</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
