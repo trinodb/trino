@@ -46,6 +46,7 @@ import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StaticRuntimeInfoProvider;
 import io.trino.exchange.ExchangeContextInstance;
 import io.trino.exchange.SpoolingExchangeInput;
+import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.NodeTaskMap;
@@ -393,6 +394,12 @@ public class EventDrivenFaultTolerantQueryScheduler
     public BasicStageStats getBasicStageStats()
     {
         return stageRegistry.getBasicStageStats();
+    }
+
+    @Override
+    public BasicStageInfo getBasicStageInfo()
+    {
+        return new BasicStageInfo(stageRegistry.getStageInfo());
     }
 
     @Override
