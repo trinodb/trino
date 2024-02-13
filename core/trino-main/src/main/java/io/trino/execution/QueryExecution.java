@@ -24,6 +24,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.ResultQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
@@ -55,6 +56,8 @@ public interface QueryExecution
     BasicQueryInfo getBasicQueryInfo();
 
     QueryInfo getQueryInfo();
+
+    ResultQueryInfo getResultQueryInfo();
 
     Slug getSlug();
 

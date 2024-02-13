@@ -34,16 +34,17 @@ import io.trino.client.QueryResults;
 import io.trino.exchange.ExchangeDataSource;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
+import io.trino.execution.BasicStageInfo;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
-import io.trino.execution.StageInfo;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -201,7 +202,7 @@ class Query
             // This listener also makes sure the exchange client is always properly closed upon query failure.
             if (state.isDone() || state == FINISHING) {
                 QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
-                result.closeExchangeIfNecessary(queryInfo);
+                result.closeExchangeIfNecessary(new ResultQueryInfo(queryInfo));
             }
         });
 
@@ -411,10 +412,10 @@ class Query
 
         // get the query info before returning
         // force update if query manager is closed
-        QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+        ResultQueryInfo queryInfo = queryManager.getResultQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
-        boolean isStarted = queryInfo.getState().ordinal() > QueryState.STARTING.ordinal();
+        boolean isStarted = queryInfo.state().ordinal() > QueryState.STARTING.ordinal();
         QueryResultRows resultRows;
         if (isStarted) {
             closeExchangeIfNecessary(queryInfo);
@@ -425,17 +426,17 @@ class Query
             resultRows = queryResultRowsBuilder(session).build();
         }
 
-        if ((queryInfo.getUpdateType() != null) && (updateCount == null)) {
+        if ((queryInfo.updateType() != null) && (updateCount == null)) {
             // grab the update count for non-queries
             Optional<Long> updatedRowsCount = resultRows.getUpdateCount();
             updateCount = updatedRowsCount.orElse(null);
         }
 
-        if (isStarted && (queryInfo.getOutputStage().isEmpty() || exchangeDataSource.isFinished())) {
+        if (isStarted && (queryInfo.outputStage().isEmpty() || exchangeDataSource.isFinished())) {
             queryManager.resultsConsumed(queryId);
             resultsConsumed = true;
             // update query since the query might have been transitioned to the FINISHED state
-            queryInfo = queryManager.getFullQueryInfo(queryId);
+            queryInfo = queryManager.getResultQueryInfo(queryId);
         }
 
         // advance next token
@@ -445,7 +446,7 @@ class Query
         // (2) there is more data to send (due to buffering)
         //   OR
         // (3) cached query result needs client acknowledgement to discard
-        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeDataSource.isFinished() || (queryInfo.getOutputStage().isPresent() && !resultRows.isEmpty()))) {
+        if (queryInfo.state() != FAILED && (!queryInfo.finalQueryInfo() || !exchangeDataSource.isFinished() || (queryInfo.outputStage().isPresent() && !resultRows.isEmpty()))) {
             nextToken = OptionalLong.of(token + 1);
         }
         else {
@@ -465,28 +466,28 @@ class Query
         }
 
         // update catalog, schema, and path
-        setCatalog = queryInfo.getSetCatalog();
-        setSchema = queryInfo.getSetSchema();
-        setPath = queryInfo.getSetPath();
+        setCatalog = queryInfo.setCatalog();
+        setSchema = queryInfo.setSchema();
+        setPath = queryInfo.setPath();
 
         // update setAuthorizationUser
-        setAuthorizationUser = queryInfo.getSetAuthorizationUser();
-        resetAuthorizationUser = queryInfo.isResetAuthorizationUser();
+        setAuthorizationUser = queryInfo.setAuthorizationUser();
+        resetAuthorizationUser = queryInfo.resetAuthorizationUser();
 
         // update setSessionProperties
-        setSessionProperties = queryInfo.getSetSessionProperties();
-        resetSessionProperties = queryInfo.getResetSessionProperties();
+        setSessionProperties = queryInfo.setSessionProperties();
+        resetSessionProperties = queryInfo.resetSessionProperties();
 
         // update setRoles
-        setRoles = queryInfo.getSetRoles();
+        setRoles = queryInfo.setRoles();
 
         // update preparedStatements
-        addedPreparedStatements = queryInfo.getAddedPreparedStatements();
-        deallocatedPreparedStatements = queryInfo.getDeallocatedPreparedStatements();
+        addedPreparedStatements = queryInfo.addedPreparedStatements();
+        deallocatedPreparedStatements = queryInfo.deallocatedPreparedStatements();
 
         // update startedTransactionId
-        startedTransactionId = queryInfo.getStartedTransactionId();
-        clearTransactionId = queryInfo.isClearTransactionId();
+        startedTransactionId = queryInfo.startedTransactionId();
+        clearTransactionId = queryInfo.clearTransactionId();
 
         // first time through, self is null
         QueryResults queryResults = new QueryResults(
@@ -498,8 +499,8 @@ class Query
                 resultRows.isEmpty() ? null : resultRows, // client excepts null that indicates "no data"
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo, typeSerializationException),
-                mappedCopy(queryInfo.getWarnings(), ProtocolUtil::toClientWarning),
-                queryInfo.getUpdateType(),
+                mappedCopy(queryInfo.warnings(), ProtocolUtil::toClientWarning),
+                queryInfo.updateType(),
                 updateCount);
 
         // cache the new result
@@ -528,9 +529,9 @@ class Query
                 queryResults);
     }
 
-    private synchronized QueryResultRows removePagesFromExchange(QueryInfo queryInfo, long targetResultBytes)
+    private synchronized QueryResultRows removePagesFromExchange(ResultQueryInfo queryInfo, long targetResultBytes)
     {
-        if (!resultsConsumed && queryInfo.getOutputStage().isEmpty()) {
+        if (!resultsConsumed && queryInfo.outputStage().isEmpty()) {
             return queryResultRowsBuilder(session)
                     .withColumnsAndTypes(ImmutableList.of(), ImmutableList.of())
                     .build();
@@ -570,16 +571,16 @@ class Query
         return resultBuilder.build();
     }
 
-    private void closeExchangeIfNecessary(QueryInfo queryInfo)
+    private void closeExchangeIfNecessary(ResultQueryInfo queryInfo)
     {
-        if (queryInfo.getState() != FAILED && queryInfo.getOutputStage().isPresent()) {
+        if (queryInfo.state() != FAILED && queryInfo.outputStage().isPresent()) {
             return;
         }
         // Close the exchange client if the query has failed, or if the query
         // does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
         synchronized (this) {
-            if (queryInfo.getState() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.getOutputStage().isEmpty())) {
+            if (queryInfo.state() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.outputStage().isEmpty())) {
                 exchangeDataSource.close();
             }
         }
@@ -653,13 +654,13 @@ class Query
                 .build();
     }
 
-    private static Optional<Integer> findCancelableLeafStage(QueryInfo queryInfo)
+    private static Optional<Integer> findCancelableLeafStage(ResultQueryInfo queryInfo)
     {
         // if query is running, find the leaf-most running stage
-        return queryInfo.getOutputStage().flatMap(Query::findCancelableLeafStage);
+        return queryInfo.outputStage().flatMap(Query::findCancelableLeafStage);
     }
 
-    private static Optional<Integer> findCancelableLeafStage(StageInfo stage)
+    private static Optional<Integer> findCancelableLeafStage(BasicStageInfo stage)
     {
         // if this stage is already done, we can't cancel it
         if (stage.getState().isDone()) {
@@ -668,7 +669,7 @@ class Query
 
         // attempt to find a cancelable sub stage
         // check in reverse order since build side of a join will be later in the list
-        for (StageInfo subStage : stage.getSubStages().reversed()) {
+        for (BasicStageInfo subStage : stage.getSubStages().reversed()) {
             Optional<Integer> leafStage = findCancelableLeafStage(subStage);
             if (leafStage.isPresent()) {
                 return leafStage;
@@ -679,9 +680,9 @@ class Query
         return Optional.of(stage.getStageId().getId());
     }
 
-    private static QueryError toQueryError(QueryInfo queryInfo, Optional<Throwable> exception)
+    private static QueryError toQueryError(ResultQueryInfo queryInfo, Optional<Throwable> exception)
     {
-        if (queryInfo.getFailureInfo() == null && exception.isPresent()) {
+        if (queryInfo.failureInfo() == null && exception.isPresent()) {
             ErrorCode errorCode = SERIALIZATION_ERROR.toErrorCode();
             FailureInfo failure = toFailure(exception.get()).toFailureInfo();
             return new QueryError(
