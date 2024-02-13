@@ -4,6 +4,8 @@ Exchanges transfer data between Trino nodes for different stages of
 a query. Adjusting these properties may help to resolve inter-node
 communication issues or improve network utilization.
 
+Additionally, you can configure the exchange [HTTP client usage](/admin/properties-http-client).
+
 ## `exchange.client-threads`
 
 - **Type:** {ref}`prop-type-integer`
