@@ -19,6 +19,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
@@ -33,7 +34,7 @@ public class SynapseServer
     static final String USERNAME = requireNonNull(System.getProperty("test.synapse.jdbc.user"), "test.synapse.jdbc.user is not set");
     static final String PASSWORD = requireNonNull(System.getProperty("test.synapse.jdbc.password"), "test.synapse.jdbc.password is not set");
 
-    private static final String DATABASE = "SQLPOOL1";
+    private static final String DATABASE = new Random().nextBoolean() ? "SQLPOOL1" : "SQLPOOL2";
     private static final String PORT = "1433";
 
     static final String JDBC_URL = "jdbc:sqlserver://" + ENDPOINT + ":" + PORT + ";database=" + DATABASE;
