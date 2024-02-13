@@ -163,12 +163,14 @@ public class HudiTableMetaClient
     private List<FileEntry> scanFiles(Predicate<Location> pathPredicate)
             throws IOException
     {
-        FileIterator fileIterator = fileSystem.listFiles(metaPath);
+        FileIterator fileIterator = fileSystem.listFilesNonRecursively(metaPath);
         List<FileEntry> result = new ArrayList<>();
         while (fileIterator.hasNext()) {
             FileEntry fileEntry = fileIterator.next();
-            if (pathPredicate.test(fileEntry.location())) {
-                result.add(fileEntry);
+            if (fileEntry.location().parentDirectory().toString().equals(metaPath.toString())) { // to avoid recursive file if any
+                if (pathPredicate.test(fileEntry.location())) {
+                    result.add(fileEntry);
+                }
             }
         }
         return result;

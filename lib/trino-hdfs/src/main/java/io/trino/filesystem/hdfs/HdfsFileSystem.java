@@ -228,12 +228,25 @@ class HdfsFileSystem
     public FileIterator listFiles(Location location)
             throws IOException
     {
+        return listFiles(location, true);
+    }
+
+    @Override
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return listFiles(location, false);
+    }
+
+    public FileIterator listFiles(Location location, Boolean isRecursive)
+            throws IOException
+    {
         stats.getListFilesCalls().newCall();
         Path directory = hadoopPath(location);
         FileSystem fileSystem = environment.getFileSystem(context, directory);
         return environment.doAs(context.getIdentity(), () -> {
             try (TimeStat.BlockTimer ignored = stats.getListFilesCalls().time()) {
-                return new HdfsFileIterator(location, directory, fileSystem.listFiles(directory, true));
+                return new HdfsFileIterator(location, directory, fileSystem.listFiles(directory, isRecursive));
             }
             catch (FileNotFoundException e) {
                 return FileIterator.empty();

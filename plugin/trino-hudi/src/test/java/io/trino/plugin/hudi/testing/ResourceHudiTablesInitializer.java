@@ -167,6 +167,7 @@ public class ResourceHudiTablesInitializer
         HUDI_COW_PT_TBL(multiPartitionRegularColumns(), multiPartitionColumns(), multiPartitions()),
         STOCK_TICKS_COW(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
         STOCK_TICKS_MOR(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
+        STOCK_DATA_WITH_HASHING_MOR(stockTicksRegularColumns(), stockDataPartitionColumns(), stockDataPartitions()),
         /**/;
 
         private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
@@ -260,6 +261,16 @@ public class ResourceHudiTablesInitializer
                     column("id", HIVE_LONG),
                     column("name", HIVE_STRING),
                     column("ts", HIVE_LONG));
+        }
+
+        private static List<Column> stockDataPartitionColumns()
+        {
+            return ImmutableList.of(column("dt", HIVE_STRING));
+        }
+
+        private static Map<String, String> stockDataPartitions()
+        {
+            return ImmutableMap.of("dt=2023-12-20", "2023/12/20");
         }
 
         private static List<Column> multiPartitionColumns()
