@@ -1176,7 +1176,13 @@ public class EventDrivenFaultTolerantQueryScheduler
                 if (stageExecution == null) {
                     IsReadyForExecutionResult result = isReadyForExecutionCache.computeIfAbsent(subPlan, ignored -> isReadyForExecution(subPlan));
                     if (result.isReadyForExecution()) {
-                        createStageExecution(subPlan, fragmentId.equals(rootFragmentId), result.getSourceOutputSizeEstimates(), nextSchedulingPriority++, result.isEager());
+                        createStageExecution(
+                                subPlan,
+                                fragmentId.equals(rootFragmentId),
+                                result.getSourceOutputSizeEstimates(),
+                                nextSchedulingPriority++,
+                                result.isSpeculative(),
+                                result.isEager());
                     }
                 }
                 if (stageExecution != null && stageExecution.getState().equals(StageState.FINISHED) && !stageExecution.isExchangeClosed()) {
@@ -1396,6 +1402,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 boolean rootFragment,
                 Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates,
                 int schedulingPriority,
+                boolean speculative,
                 boolean eager)
         {
             Closer closer = Closer.create();
@@ -1497,6 +1504,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         taskSplitMemoryThreshold,
                         taskSplitFactor,
                         dynamicFilterService);
+                execution.setSpeculative(speculative);
 
                 stageExecutions.put(execution.getStageId(), execution);
 
