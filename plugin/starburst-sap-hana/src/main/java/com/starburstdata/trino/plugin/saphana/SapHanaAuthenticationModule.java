@@ -17,6 +17,7 @@ import com.sap.db.jdbc.Driver;
 import com.starburstdata.trino.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.trino.plugin.jdbc.PoolingConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -25,11 +26,13 @@ import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.Properties;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -56,12 +59,18 @@ public class SapHanaAuthenticationModule
         @Provides
         @Singleton
         @DefaultSapHanaBinding
-        public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider, IdentityCacheMapping identityCacheMapping)
+        public ConnectionFactory getConnectionFactory(
+                CatalogName catalogName,
+                BaseJdbcConfig config,
+                JdbcConnectionPoolConfig poolConfig,
+                CredentialProvider credentialProvider,
+                IdentityCacheMapping identityCacheMapping,
+                OpenTelemetry openTelemetry)
         {
             if (poolConfig.isConnectionPoolEnabled()) {
                 return new PoolingConnectionFactory(catalogName.toString(), Driver.class, config, poolConfig, credentialProvider, identityCacheMapping);
             }
-            return new DriverConnectionFactory(new Driver(), config, credentialProvider);
+            return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), new Properties(), new DefaultCredentialPropertiesProvider(credentialProvider), openTelemetry);
         }
     }
 
