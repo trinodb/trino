@@ -255,7 +255,7 @@
             <dependency>
                 <groupId>com.oracle.database.jdbc</groupId>
                 <artifactId>ojdbc10-production</artifactId>
-                <version>19.21.0.0</version>
+                <version>19.22.0.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
