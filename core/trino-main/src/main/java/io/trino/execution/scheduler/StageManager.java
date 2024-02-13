@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryStateMachine;
@@ -246,6 +247,15 @@ class StageManager
         return buildStageInfo(rootStageId, stageInfos);
     }
 
+    public BasicStageInfo getBasicStageInfo()
+    {
+        Map<StageId, BasicStageInfo> stageInfos = stages.values().stream()
+                .map(SqlStage::getBasicStageInfo)
+                .collect(toImmutableMap(BasicStageInfo::getStageId, identity()));
+
+        return buildBasicStageInfo(rootStageId, stageInfos);
+    }
+
     private StageInfo buildStageInfo(StageId stageId, Map<StageId, StageInfo> stageInfos)
     {
         StageInfo parent = stageInfos.get(stageId);
@@ -267,6 +277,25 @@ class StageManager
                 childStages,
                 parent.getTables(),
                 parent.getFailureCause());
+    }
+
+    private BasicStageInfo buildBasicStageInfo(StageId stageId, Map<StageId, BasicStageInfo> stageInfos)
+    {
+        BasicStageInfo parent = stageInfos.get(stageId);
+        checkArgument(parent != null, "No stageInfo for %s", parent);
+        List<BasicStageInfo> childStages = children.get(stageId).stream()
+                .map(childStageId -> buildBasicStageInfo(childStageId, stageInfos))
+                .collect(toImmutableList());
+        if (childStages.isEmpty()) {
+            return parent;
+        }
+        return new BasicStageInfo(
+                parent.getStageId(),
+                parent.getState(),
+                parent.isCoordinatorOnly(),
+                parent.getStageStats(),
+                childStages,
+                parent.getTasks());
     }
 
     public long getUserMemoryReservation()

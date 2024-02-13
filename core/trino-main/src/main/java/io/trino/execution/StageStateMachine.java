@@ -270,6 +270,7 @@ public class StageStateMachine
         int queuedDrivers = 0;
         int runningDrivers = 0;
         int completedDrivers = 0;
+        int blockedDrivers = 0;
 
         double cumulativeUserMemory = 0;
         double failedCumulativeUserMemory = 0;
@@ -283,6 +284,7 @@ public class StageStateMachine
 
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
+        long physicalWrittenBytes = 0;
         long physicalInputReadTime = 0;
 
         long internalNetworkInputDataSize = 0;
@@ -290,6 +292,7 @@ public class StageStateMachine
 
         long rawInputDataSize = 0;
         long rawInputPositions = 0;
+        long spilledDataSize = 0;
 
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
@@ -308,6 +311,7 @@ public class StageStateMachine
             queuedDrivers += taskStats.getQueuedDrivers();
             runningDrivers += taskStats.getRunningDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
+            blockedDrivers += taskStats.getBlockedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
             if (taskFailedOrFailing) {
@@ -333,6 +337,7 @@ public class StageStateMachine
             physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
             physicalInputPositions += taskStats.getPhysicalInputPositions();
             physicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
+            physicalWrittenBytes += taskStats.getPhysicalWrittenDataSize().toBytes();
 
             internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
@@ -341,6 +346,11 @@ public class StageStateMachine
                 rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }
+
+            spilledDataSize += taskStats.getPipelines().stream()
+                    .flatMap(pipeline -> pipeline.getOperatorSummaries().stream())
+                    .mapToLong(summary -> summary.getSpilledDataSize().toBytes())
+                    .sum();
         }
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
@@ -361,16 +371,19 @@ public class StageStateMachine
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+                blockedDrivers,
 
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
                 new Duration(physicalInputReadTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                succinctBytes(physicalWrittenBytes),
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
 
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
+                succinctBytes(spilledDataSize),
 
                 cumulativeUserMemory,
                 failedCumulativeUserMemory,
@@ -673,6 +686,22 @@ public class StageStateMachine
                 ImmutableList.of(),
                 tables,
                 failureInfo);
+    }
+
+    public BasicStageInfo getBasicStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
+    {
+        Optional<StageInfo> finalStageInfo = this.finalStageInfo.get();
+        if (finalStageInfo.isPresent()) {
+            return new BasicStageInfo(finalStageInfo.get());
+        }
+
+        return new BasicStageInfo(
+                stageId,
+                stageState.get(),
+                fragment.getPartitioning().isCoordinatorOnly(),
+                getBasicStageStats(taskInfosSupplier),
+                ImmutableList.of(),
+                ImmutableList.copyOf(taskInfosSupplier.get()));
     }
 
     private static List<OperatorStats> combineTaskOperatorSummaries(List<TaskInfo> taskInfos, int maxTaskOperatorSummaries)

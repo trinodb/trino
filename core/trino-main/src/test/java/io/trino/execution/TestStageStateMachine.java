@@ -50,10 +50,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
+import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
+import static io.trino.execution.StageState.PLANNED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -88,7 +92,7 @@ public class TestStageStateMachine
     public void testBasicStateChanges()
     {
         StageStateMachine stateMachine = createStageStateMachine();
-        assertState(stateMachine, StageState.PLANNED);
+        assertState(stateMachine, PLANNED);
 
         assertThat(stateMachine.transitionToScheduling()).isTrue();
         assertState(stateMachine, StageState.SCHEDULING);
@@ -110,7 +114,7 @@ public class TestStageStateMachine
     public void testPlanned()
     {
         StageStateMachine stateMachine = createStageStateMachine();
-        assertState(stateMachine, StageState.PLANNED);
+        assertState(stateMachine, PLANNED);
 
         stateMachine = createStageStateMachine();
         assertThat(stateMachine.transitionToScheduling()).isTrue();
@@ -286,7 +290,73 @@ public class TestStageStateMachine
         assertThat(operatorSummaries.get(0).getAlternativeId()).isEqualTo(2);
     }
 
+    @Test
+    public void testGetBasicStageInfo()
+    {
+        ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(1);
+        StageStateMachine stateMachine = createStageStateMachine();
+        StageId stageId = new StageId(new QueryId("0"), 0);
+        PipelineContext pipeline0Context = TestingOperatorContext.createDriverContext(executorService).getPipelineContext();
+        PipelineContext pipeline1Context = TestingOperatorContext.createDriverContext(executorService).getPipelineContext();
+        int baseValue = 1;
+
+        TaskInfo task0 = TaskInfo.createInitialTask(
+                new TaskId(stageId, 0, 0),
+                URI.create(""),
+                "0",
+                false,
+                Optional.empty(),
+                taskStats(ImmutableList.of(pipeline0Context, pipeline1Context), baseValue));
+        TaskInfo task1 = task0.withTaskStatus(TaskStatus.failWith(task0.getTaskStatus(), TaskState.FAILED, ImmutableList.of()));
+        List<TaskInfo> taskInfos = ImmutableList.of(task0, task1);
+        int expectedStatsValue = baseValue * taskInfos.size();
+
+        BasicStageInfo stageInfo = stateMachine.getBasicStageInfo(() -> taskInfos);
+        assertThat(stageInfo.getStageId()).isEqualTo(STAGE_ID);
+        assertThat(stageInfo.getState()).isEqualTo(PLANNED);
+        assertThat(stageInfo.isCoordinatorOnly()).isFalse();
+        assertThat(stageInfo.getSubStages()).isEmpty();
+        assertThat(stageInfo.getTasks().size()).isEqualTo(taskInfos.size());
+
+        BasicStageStats stats = stageInfo.getStageStats();
+
+        assertThat(stats.isScheduled()).isFalse();
+        assertThat(stats.getFailedTasks()).isEqualTo(1);
+        assertThat(stats.getTotalDrivers()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getQueuedDrivers()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getRunningDrivers()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getCompletedDrivers()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getBlockedDrivers()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getPhysicalInputDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
+        assertThat(stats.getPhysicalWrittenDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
+        assertThat(stats.getInternalNetworkInputDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
+        assertThat(stats.getInternalNetworkInputPositions()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getPhysicalInputPositions()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getPhysicalInputReadTime()).isEqualTo(succinctDuration(expectedStatsValue, MILLISECONDS));
+        assertThat(stats.getPhysicalInputPositions()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getRawInputDataSize()).isEqualTo(succinctBytes(0));
+        assertThat(stats.getRawInputPositions()).isEqualTo(0);
+        assertThat(stats.getCumulativeUserMemory()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getFailedCumulativeUserMemory()).isEqualTo(1);
+        assertThat(stats.getTotalMemoryReservation()).isEqualTo(succinctBytes(expectedStatsValue * 2L));
+        assertThat(stats.getUserMemoryReservation()).isEqualTo(succinctBytes(expectedStatsValue));
+        assertThat(stats.isFullyBlocked()).isFalse();
+        assertThat(stats.getBlockedReasons()).isEmpty();
+        assertThat(stats.getTotalCpuTime()).isEqualTo(succinctDuration(expectedStatsValue, MILLISECONDS));
+        assertThat(stats.getTotalScheduledTime()).isEqualTo(succinctDuration(expectedStatsValue, MILLISECONDS));
+        assertThat(stats.getFailedCpuTime()).isEqualTo(succinctDuration(1, MILLISECONDS));
+        assertThat(stats.getFailedScheduledTime()).isEqualTo(succinctDuration(1, MILLISECONDS));
+        assertThat(stats.getRunningPercentage()).isEmpty();
+        assertThat(stats.getProgressPercentage()).isEmpty();
+        assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(0));
+    }
+
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts)
+    {
+        return taskStats(pipelineContexts, 0);
+    }
+
+    private static TaskStats taskStats(List<PipelineContext> pipelineContexts, int baseValue)
     {
         return new TaskStats(DateTime.now(),
                 null,
@@ -294,44 +364,44 @@ public class TestStageStateMachine
                 null,
                 null,
                 null,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                0,
-                0,
-                0,
-                0L,
-                0,
-                0,
-                0L,
-                0,
-                0,
-                0.0,
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                Duration.ZERO,
-                new Duration(0, MILLISECONDS),
-                Duration.ZERO,
+                new Duration(baseValue, MILLISECONDS),
+                new Duration(baseValue, MILLISECONDS),
+                baseValue,
+                baseValue,
+                baseValue,
+                baseValue,
+                baseValue,
+                baseValue,
+                baseValue,
+                baseValue,
+                baseValue,
+                baseValue,
+                DataSize.ofBytes(baseValue),
+                DataSize.ofBytes(baseValue),
+                DataSize.ofBytes(baseValue),
+                new Duration(baseValue, MILLISECONDS),
+                new Duration(baseValue, MILLISECONDS),
+                new Duration(baseValue, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
-                DataSize.ofBytes(0),
-                0,
-                new Duration(0, MILLISECONDS),
-                DataSize.ofBytes(0),
-                0,
-                DataSize.ofBytes(0),
-                0,
-                DataSize.ofBytes(0),
-                0,
-                new Duration(0, MILLISECONDS),
-                DataSize.ofBytes(0),
-                0,
-                new Duration(0, MILLISECONDS),
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
+                DataSize.ofBytes(baseValue),
+                baseValue,
+                new Duration(baseValue, MILLISECONDS),
+                DataSize.ofBytes(baseValue),
+                baseValue,
+                DataSize.ofBytes(baseValue),
+                baseValue,
+                DataSize.ofBytes(baseValue),
+                baseValue,
+                new Duration(baseValue, MILLISECONDS),
+                DataSize.ofBytes(baseValue),
+                baseValue,
+                new Duration(baseValue, MILLISECONDS),
+                DataSize.ofBytes(baseValue),
+                DataSize.ofBytes(baseValue),
                 Optional.empty(),
-                0,
-                new Duration(0, MILLISECONDS),
+                baseValue,
+                new Duration(baseValue, MILLISECONDS),
                 pipelineContexts.stream().map(PipelineContext::getPipelineStats).collect(toImmutableList()));
     }
 

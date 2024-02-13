@@ -35,6 +35,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -645,13 +646,16 @@ public class StageStats
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+                blockedDrivers,
                 physicalInputDataSize,
                 physicalInputPositions,
                 physicalInputReadTime,
+                physicalWrittenDataSize,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
                 rawInputDataSize,
                 rawInputPositions,
+                succinctBytes(operatorSummaries.stream().mapToLong(operatorSummary -> operatorSummary.getSpilledDataSize().toBytes()).sum()),
                 (long) cumulativeUserMemory,
                 (long) failedCumulativeUserMemory,
                 userMemoryReservation,
