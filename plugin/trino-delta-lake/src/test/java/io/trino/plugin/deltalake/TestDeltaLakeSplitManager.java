@@ -20,7 +20,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.cache.NoneCachingHostAddressProvider;
+import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
@@ -245,7 +245,7 @@ public class TestDeltaLakeSplitManager
                 HDFS_FILE_SYSTEM_FACTORY,
                 createJsonCodec(DeltaLakeCacheSplitId.class),
                 deltaLakeTransactionManager,
-                new NoneCachingHostAddressProvider());
+                new DefaultCachingHostAddressProvider());
     }
 
     private AddFileEntry addFileEntryOfSize(long fileSize)

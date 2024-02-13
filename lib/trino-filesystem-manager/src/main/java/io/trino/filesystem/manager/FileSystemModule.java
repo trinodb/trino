@@ -29,7 +29,7 @@ import io.trino.filesystem.cache.CacheFileSystemFactory;
 import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
-import io.trino.filesystem.cache.NoneCachingHostAddressProvider;
+import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
@@ -101,7 +101,7 @@ public class FileSystemModule
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
         }
 
-        newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(NoneCachingHostAddressProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(DefaultCachingHostAddressProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
         newMapBinder(binder, FileSystemConfig.CacheType.class, TrinoFileSystemCache.class);
 

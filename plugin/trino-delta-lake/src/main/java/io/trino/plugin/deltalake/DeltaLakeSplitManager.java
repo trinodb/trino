@@ -369,7 +369,7 @@ public class DeltaLakeSplitManager
                     addFileEntry.getStats().flatMap(DeltaLakeFileStatistics::getNumRecords),
                     addFileEntry.getModificationTime(),
                     addFileEntry.getDeletionVector(),
-                    cachingHostAddressProvider.getHosts(splitPath),
+                    cachingHostAddressProvider.getHosts(splitPath, ImmutableList.of()),
                     SplitWeight.standard(),
                     statisticsPredicate,
                     partitionKeys));
@@ -395,7 +395,7 @@ public class DeltaLakeSplitManager
                     Optional.empty(),
                     addFileEntry.getModificationTime(),
                     addFileEntry.getDeletionVector(),
-                    cachingHostAddressProvider.getHosts(splitPath),
+                    cachingHostAddressProvider.getHosts(splitPath, ImmutableList.of()),
                     SplitWeight.fromProportion(clamp((double) splitSize / maxSplitSize, minimumAssignedSplitWeight, 1.0)),
                     statisticsPredicate,
                     partitionKeys));
