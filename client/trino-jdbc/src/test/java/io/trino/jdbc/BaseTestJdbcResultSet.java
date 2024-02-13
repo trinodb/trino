@@ -16,7 +16,7 @@ package io.trino.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.IntMath;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -1149,13 +1149,17 @@ public abstract class BaseTestJdbcResultSet
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Max rows exceeds limit of 2147483647")
+    @Test
     public void testMaxRowsExceedsLimit()
             throws Exception
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
-            connectedStatement.getStatement().setLargeMaxRows(Integer.MAX_VALUE * 10L);
-            connectedStatement.getStatement().getMaxRows();
+            assertThatThrownBy(() -> {
+                connectedStatement.getStatement().setLargeMaxRows(Integer.MAX_VALUE * 10L);
+                connectedStatement.getStatement().getMaxRows();
+            })
+                    .isInstanceOf(SQLException.class)
+                    .hasMessage("Max rows exceeds limit of 2147483647");
         }
     }
 
