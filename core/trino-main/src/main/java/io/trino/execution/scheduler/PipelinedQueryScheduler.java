@@ -31,6 +31,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.exchange.DirectExchangeInput;
+import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.NodeTaskMap;
@@ -455,6 +456,12 @@ public class PipelinedQueryScheduler
     public StageInfo getStageInfo()
     {
         return stageManager.getStageInfo();
+    }
+
+    @Override
+    public BasicStageInfo getBasicStageInfo()
+    {
+        return stageManager.getBasicStageInfo();
     }
 
     @Override

@@ -29,6 +29,7 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.server.ResultQueryInfo;
 import io.trino.server.SessionContext;
 import io.trino.server.protocol.ProtocolUtil;
 import io.trino.server.protocol.Slug;
@@ -178,7 +179,7 @@ class DirectTrinoClient
                 Optional.ofNullable(queryInfo.getUpdateType()),
                 updateCount,
                 mappedCopy(queryInfo.getWarnings(), ProtocolUtil::toClientWarning),
-                Optional.of(ProtocolUtil.toStatementStats(queryInfo)));
+                Optional.of(ProtocolUtil.toStatementStats(new ResultQueryInfo(queryInfo))));
     }
 
     private static List<MaterializedRow> toMaterializedRows(ConnectorSession session, List<Type> types, List<Page> pages)

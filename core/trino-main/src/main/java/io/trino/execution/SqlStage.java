@@ -232,6 +232,11 @@ public final class SqlStage
         return stateMachine.getStageInfo(this::getAllTaskInfo);
     }
 
+    public BasicStageInfo getBasicStageInfo()
+    {
+        return stateMachine.getBasicStageInfo(this::getAllTaskInfo);
+    }
+
     private Iterable<TaskInfo> getAllTaskInfo()
     {
         return tasks.values().stream()

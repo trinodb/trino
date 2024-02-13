@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import io.airlift.units.Duration;
+import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
@@ -28,6 +29,8 @@ public interface QueryScheduler
     void failTask(TaskId taskId, Throwable failureCause);
 
     BasicStageStats getBasicStageStats();
+
+    BasicStageInfo getBasicStageInfo();
 
     StageInfo getStageInfo();
 
