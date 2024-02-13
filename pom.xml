@@ -1799,6 +1799,10 @@
                 <version>${dep.alluxio.version}</version>
                 <exclusions>
                     <exclusion>
+                        <groupId>com.rabbitmq</groupId>
+                        <artifactId>amqp-client</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
                     </exclusion>
