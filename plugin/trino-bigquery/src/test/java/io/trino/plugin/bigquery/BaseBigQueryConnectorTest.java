@@ -563,6 +563,26 @@ public abstract class BaseBigQueryConnectorTest
         onBigQuery(format("DROP VIEW %s.%s", schemaName, viewName));
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/20627
+    public void testPredicatePushdownOnView()
+    {
+        String tableName = "test_predeicate_pushdown_table_" + randomNameSuffix();
+        String viewName = "test_predeicate_pushdown_view_" + randomNameSuffix();
+
+        onBigQuery("CREATE TABLE test." + tableName + " AS SELECT 1 a, 10 b");
+        onBigQuery("CREATE VIEW test." + viewName + " AS SELECT * FROM test." + tableName);
+        try {
+            assertQuery("SELECT * FROM test." + viewName + " WHERE a = 1", "VALUES (1, 10)");
+            assertQuery("SELECT a FROM test." + viewName + " WHERE a = 1", "VALUES 1");
+            assertQuery("SELECT a FROM test." + viewName + " WHERE b = 10", "VALUES 1");
+            assertQuery("SELECT b FROM test." + viewName + " WHERE a = 1", "VALUES 10");
+        }
+        finally {
+            onBigQuery("DROP TABLE test." + tableName);
+            onBigQuery("DROP VIEW test." + viewName);
+        }
+    }
+
     @Test
     @Override
     public void testShowCreateTable()
