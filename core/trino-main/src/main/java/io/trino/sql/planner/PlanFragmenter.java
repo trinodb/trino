@@ -127,7 +127,15 @@ public class PlanFragmenter
                 .flatMap(catalogHandle -> catalogManager.getCatalogProperties(catalogHandle).stream())
                 .collect(toImmutableList());
         List<LanguageScalarFunctionData> languageScalarFunctions = languageFunctionManager.serializeFunctionsForWorkers(session);
-        Fragmenter fragmenter = new Fragmenter(session, metadata, functionManager, plan.getTypes(), plan.getStatsAndCosts(), activeCatalogs, languageScalarFunctions);
+        Fragmenter fragmenter = new Fragmenter(
+                session,
+                metadata,
+                functionManager,
+                plan.getTypes(),
+                plan.getStatsAndCosts(),
+                activeCatalogs,
+                languageScalarFunctions,
+                new PlanFragmentIdAllocator(0));
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
@@ -216,8 +224,6 @@ public class PlanFragmenter
     private static class Fragmenter
             extends SimplePlanRewriter<FragmentProperties>
     {
-        private static final int ROOT_FRAGMENT_ID = 0;
-
         private final Session session;
         private final Metadata metadata;
         private final FunctionManager functionManager;
@@ -225,7 +231,8 @@ public class PlanFragmenter
         private final StatsAndCosts statsAndCosts;
         private final List<CatalogProperties> activeCatalogs;
         private final List<LanguageScalarFunctionData> languageFunctions;
-        private final PlanFragmentIdAllocator idAllocator = new PlanFragmentIdAllocator(ROOT_FRAGMENT_ID + 1);
+        private final PlanFragmentIdAllocator idAllocator;
+        private final PlanFragmentId rootFragmentID;
 
         public Fragmenter(
                 Session session,
@@ -234,7 +241,8 @@ public class PlanFragmenter
                 TypeProvider types,
                 StatsAndCosts statsAndCosts,
                 List<CatalogProperties> activeCatalogs,
-                List<LanguageScalarFunctionData> languageFunctions)
+                List<LanguageScalarFunctionData> languageFunctions,
+                PlanFragmentIdAllocator idAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -243,11 +251,13 @@ public class PlanFragmenter
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
             this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
             this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.rootFragmentID = idAllocator.getNextId();
         }
 
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
         {
-            return buildFragment(root, properties, new PlanFragmentId(String.valueOf(ROOT_FRAGMENT_ID)));
+            return buildFragment(root, properties, rootFragmentID);
         }
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
