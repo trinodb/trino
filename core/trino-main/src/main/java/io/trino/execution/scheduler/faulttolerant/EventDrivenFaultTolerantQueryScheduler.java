@@ -1391,7 +1391,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
         }
 
-        private void createStageExecution(SubPlan subPlan, boolean rootFragment, Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates, int schedulingPriority, boolean eager)
+        private void createStageExecution(
+                SubPlan subPlan,
+                boolean rootFragment,
+                Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates,
+                int schedulingPriority,
+                boolean eager)
         {
             Closer closer = Closer.create();
 
@@ -3208,7 +3213,8 @@ public class EventDrivenFaultTolerantQueryScheduler
 
     private interface Event
     {
-        Event ABORT = new Event() {
+        Event ABORT = new Event()
+        {
             @Override
             public <T> T accept(EventListener<T> listener)
             {
@@ -3216,7 +3222,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
         };
 
-        Event WAKE_UP = new Event() {
+        Event WAKE_UP = new Event()
+        {
             @Override
             public <T> T accept(EventListener<T> listener)
             {
