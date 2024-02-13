@@ -44,7 +44,10 @@ import static java.lang.Math.clamp;
         "task.level-absolute-priority"})
 public class TaskManagerConfig
 {
-    private boolean threadPerDriverSchedulerEnabled = true;
+    // TODO (https://starburstdata.atlassian.net/browse/SEP-13195) re-enable the new scheduler. It is temporarily disabled for Starburst
+    //  as a significant regression was reported
+    //  https://starburst-engineering.slack.com/archives/C03A6KCS256/p1707783286307469?thread_ts=1706549021.918299&cid=C03A6KCS256
+    private boolean threadPerDriverSchedulerEnabled;
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
     private boolean statisticsCpuTimerEnabled = true;
