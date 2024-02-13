@@ -22,7 +22,6 @@ import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.QueryParameterValue;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardTableDefinition;
-import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
@@ -153,8 +152,8 @@ public class BigQueryMetadata
         BigQueryClient client = bigQueryClientFactory.create(session);
         String projectId = client.getProjectId();
 
-        Stream<String> remoteSchemaNames = Streams.stream(client.listDatasets(projectId))
-                .map(dataset -> dataset.getDatasetId().getDataset())
+        Stream<String> remoteSchemaNames = Streams.stream(client.listDatasetIds(projectId))
+                .map(DatasetId::getDataset)
                 .distinct();
 
         // filter out all the ambiguous schemas to prevent failures if anyone tries to access the listed schemas
@@ -214,14 +213,14 @@ public class BigQueryMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         try {
-            Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName));
-            for (Table table : tables) {
+            Iterable<TableId> tableIds = client.listTableIds(DatasetId.of(projectId, remoteSchemaName));
+            for (TableId tableId : tableIds) {
                 // filter ambiguous tables
-                client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
+                client.toRemoteTable(projectId, remoteSchemaName, tableId.getTable().toLowerCase(ENGLISH), tableIds)
                         .filter(RemoteDatabaseObject::isAmbiguous)
                         .ifPresentOrElse(
-                                remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable()),
-                                () -> tableNames.add(new SchemaTableName(client.toSchemaName(DatasetId.of(projectId, table.getTableId().getDataset())), table.getTableId().getTable())));
+                                remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, tableId.getTable()),
+                                () -> tableNames.add(new SchemaTableName(client.toSchemaName(DatasetId.of(projectId, tableId.getDataset())), tableId.getTable())));
             }
         }
         catch (BigQueryException e) {
