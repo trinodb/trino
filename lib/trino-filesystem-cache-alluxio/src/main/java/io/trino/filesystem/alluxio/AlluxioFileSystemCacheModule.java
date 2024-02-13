@@ -32,6 +32,13 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class AlluxioFileSystemCacheModule
         extends AbstractConfigurationAwareModule
 {
+    private final boolean isCoordinator;
+
+    public AlluxioFileSystemCacheModule(boolean isCoordinator)
+    {
+        this.isCoordinator = isCoordinator;
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -40,8 +47,13 @@ public class AlluxioFileSystemCacheModule
         binder.bind(AlluxioCacheStats.class).in(SINGLETON);
         newExporter(binder).export(AlluxioCacheStats.class).as(generator -> generator.generatedNameOf(AlluxioCacheStats.class));
 
-        binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
-        newOptionalBinder(binder, CachingHostAddressProvider.class).setBinding().to(ConsistentHashingHostAddressProvider.class).in(SINGLETON);
+        if (isCoordinator) {
+            binder.bind(TrinoFileSystemCache.class).to(AlluxioCoordinatorNoOpFileSystemCache.class).in(SINGLETON);
+            newOptionalBinder(binder, CachingHostAddressProvider.class).setBinding().to(ConsistentHashingHostAddressProvider.class).in(SINGLETON);
+        }
+        else {
+            binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
+        }
 
         Properties metricProps = new Properties();
         metricProps.put("sink.jmx.class", "alluxio.metrics.sink.JmxSink");

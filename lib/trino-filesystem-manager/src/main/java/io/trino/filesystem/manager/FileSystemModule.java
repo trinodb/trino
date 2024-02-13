@@ -110,7 +110,7 @@ public class FileSystemModule
         install(conditionalModule(
                 FileSystemConfig.class,
                 cache -> cache.getCacheType() == FileSystemConfig.CacheType.ALLUXIO,
-                new AlluxioFileSystemCacheModule()));
+                new AlluxioFileSystemCacheModule(nodeManager.getCurrentNode().isCoordinator())));
     }
 
     @Provides
