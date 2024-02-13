@@ -1196,22 +1196,27 @@ public class EventDrivenFaultTolerantQueryScheduler
         private static class IsReadyForExecutionResult
         {
             private final boolean readyForExecution;
+            private final boolean speculative;
             private final Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates;
             private final boolean eager;
 
             @CheckReturnValue
-            public static IsReadyForExecutionResult ready(Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates, boolean eager)
+            public static IsReadyForExecutionResult ready(Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates, boolean eager, boolean speculative)
             {
-                return new IsReadyForExecutionResult(true, Optional.of(sourceOutputSizeEstimates), eager);
+                return new IsReadyForExecutionResult(true, Optional.of(sourceOutputSizeEstimates), eager, speculative);
             }
 
             @CheckReturnValue
             public static IsReadyForExecutionResult notReady()
             {
-                return new IsReadyForExecutionResult(false, Optional.empty(), false);
+                return new IsReadyForExecutionResult(false, Optional.empty(), false, false);
             }
 
-            private IsReadyForExecutionResult(boolean readyForExecution, Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates, boolean eager)
+            private IsReadyForExecutionResult(
+                    boolean readyForExecution,
+                    Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates,
+                    boolean eager,
+                    boolean speculative)
             {
                 requireNonNull(sourceOutputSizeEstimates, "sourceOutputSizeEstimates is null");
                 if (readyForExecution) {
@@ -1221,6 +1226,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     checkArgument(sourceOutputSizeEstimates.isEmpty(), "expected sourceOutputSizeEstimates to be not set");
                 }
                 this.readyForExecution = readyForExecution;
+                this.speculative = speculative;
                 this.sourceOutputSizeEstimates = sourceOutputSizeEstimates.map(ImmutableMap::copyOf);
                 this.eager = eager;
             }
@@ -1238,6 +1244,11 @@ public class EventDrivenFaultTolerantQueryScheduler
             public boolean isEager()
             {
                 return eager;
+            }
+
+            public boolean isSpeculative()
+            {
+                return speculative;
             }
         }
 
@@ -1324,7 +1335,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         finishedSourcesCount,
                         estimateCountByKind);
             }
-            return IsReadyForExecutionResult.ready(sourceOutputStatsEstimates.buildOrThrow(), eager);
+            return IsReadyForExecutionResult.ready(sourceOutputStatsEstimates.buildOrThrow(), eager, speculative);
         }
 
         private boolean shouldScheduleEagerly(SubPlan subPlan)
