@@ -91,11 +91,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-hadoop</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
             <scope>test</scope>

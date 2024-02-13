@@ -1637,6 +1637,16 @@
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
                 <version>3.1.2-22</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.parquet</groupId>
+                        <artifactId>parquet-hadoop</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.parquet</groupId>
+                        <artifactId>parquet-jackson</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1989,6 +1999,12 @@
                 <groupId>org.apache.parquet</groupId>
                 <artifactId>parquet-avro</artifactId>
                 <version>${dep.parquet.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.parquet</groupId>
+                        <artifactId>parquet-hadoop</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2605,6 +2621,22 @@
                                 </conflictingDependencies>
                                 <packages>
                                     <package>shaded.parquet.it.unimi.dsi.fastutil</package>
+                                </packages>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.apache.parquet</groupId>
+                                        <artifactId>parquet-hadoop</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>io.trino</groupId>
+                                        <artifactId>trino-parquet</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <packages>
+                                    <package>org.apache.parquet.hadoop.metadata</package>
+                                    <package>org.apache.parquet.internal.hadoop.metadata</package>
                                 </packages>
                             </exception>
                             <exception>
