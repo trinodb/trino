@@ -61,7 +61,7 @@ public class ConsistentHashingHostAddressProvider
     }
 
     @Override
-    public List<HostAddress> getHosts(String splitPath)
+    public List<HostAddress> getHosts(String splitPath, List<HostAddress> defaultAddresses)
     {
         return consistentHashRing.locate(splitPath, replicationFactor)
                 .stream()
