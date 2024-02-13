@@ -71,9 +71,10 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 .buildOrThrow();
 
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder(session)
+                .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setDeltaProperties(deltaLakeProperties)
                 .setCatalogName(DELTA_CATALOG)
-                .setNodeCount(1)
+                .setNodeCount(2)
                 .build();
 
         queryRunner.execute("CREATE SCHEMA " + session.getSchema().orElseThrow());
