@@ -16,6 +16,7 @@ package io.trino.plugin.elasticsearch;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
@@ -59,6 +60,7 @@ public class ElasticsearchConnectorFactory
                 binder -> {
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                 });
 
         Injector injector = app

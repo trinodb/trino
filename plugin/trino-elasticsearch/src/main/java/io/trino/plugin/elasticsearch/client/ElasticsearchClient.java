@@ -33,6 +33,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.elasticsearch.AwsSecurityConfig;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import io.trino.plugin.elasticsearch.PasswordConfig;
@@ -134,11 +135,12 @@ public class ElasticsearchClient
 
     @Inject
     public ElasticsearchClient(
+            OpenTelemetry openTelemetry,
             ElasticsearchConfig config,
             Optional<AwsSecurityConfig> awsSecurityConfig,
             Optional<PasswordConfig> passwordConfig)
     {
-        client = createClient(config, awsSecurityConfig, passwordConfig, backpressureStats);
+        client = createClient(openTelemetry, config, awsSecurityConfig, passwordConfig, backpressureStats);
 
         this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
@@ -193,6 +195,7 @@ public class ElasticsearchClient
     }
 
     private static BackpressureRestHighLevelClient createClient(
+            OpenTelemetry openTelemetry,
             ElasticsearchConfig config,
             Optional<AwsSecurityConfig> awsSecurityConfig,
             Optional<PasswordConfig> passwordConfig,
@@ -242,7 +245,7 @@ public class ElasticsearchClient
             return clientBuilder;
         });
 
-        return new BackpressureRestHighLevelClient(builder, config, backpressureStats);
+        return new BackpressureRestHighLevelClient(builder, openTelemetry, config, backpressureStats);
     }
 
     private static AWSCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)

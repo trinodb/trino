@@ -22,6 +22,8 @@ import dev.failsafe.event.ExecutionCompletedEvent;
 import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.instrumentation.elasticsearch.rest.v7_0.ElasticsearchRest7Telemetry;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionResponse;
@@ -31,6 +33,7 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
 import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.RestHighLevelClientBuilder;
@@ -56,10 +59,11 @@ public class BackpressureRestHighLevelClient
     private final TimeStat backpressureStats;
     private final ThreadLocal<Stopwatch> stopwatch = ThreadLocal.withInitial(Stopwatch::createUnstarted);
 
-    public BackpressureRestHighLevelClient(RestClientBuilder restClientBuilder, ElasticsearchConfig config, TimeStat backpressureStats)
+    public BackpressureRestHighLevelClient(RestClientBuilder restClientBuilder, OpenTelemetry openTelemetry, ElasticsearchConfig config, TimeStat backpressureStats)
     {
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
-        delegate = new RestHighLevelClientBuilder(requireNonNull(restClientBuilder, "restClientBuilder is null").build())
+        RestClient restClient = requireNonNull(restClientBuilder, "restClientBuilder is null").build();
+        delegate = new RestHighLevelClientBuilder(ElasticsearchRest7Telemetry.create(openTelemetry).wrap(restClient))
                 .build();
         backpressureRestClient = new BackpressureRestClient(delegate.getLowLevelClient(), config, backpressureStats);
         retryPolicy = RetryPolicy.<ActionResponse>builder()
