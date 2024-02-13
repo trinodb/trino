@@ -2701,14 +2701,6 @@
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
                             <DynamicDependency>
-                                <groupId>org.mockito</groupId>
-                                <artifactId>mockito-core</artifactId>
-                                <!-- legacy version which Surefire seems to need for some reason -->
-                                <version>2.28.2</version>
-                                <type>pom</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
                                 <groupId>org.powermock</groupId>
                                 <artifactId>powermock-reflect</artifactId>
                                 <!-- legacy version which Surefire seems to need for some reason -->
