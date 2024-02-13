@@ -13,17 +13,16 @@
  */
 package io.trino.filesystem.cache;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 
 import java.util.List;
 
-public class NoneCachingHostAddressProvider
+public class DefaultCachingHostAddressProvider
         implements CachingHostAddressProvider
 {
     @Override
-    public List<HostAddress> getHosts(String splitPath)
+    public List<HostAddress> getHosts(String splitPath, List<HostAddress> defaultAddresses)
     {
-        return ImmutableList.of();
+        return defaultAddresses;
     }
 }

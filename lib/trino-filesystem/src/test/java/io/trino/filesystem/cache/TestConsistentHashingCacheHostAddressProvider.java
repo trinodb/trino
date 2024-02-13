@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.cache;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.trino.client.NodeVersion;
 import io.trino.metadata.InternalNode;
@@ -85,7 +86,7 @@ public class TestConsistentHashingCacheHostAddressProvider
         int n = 1000;
         Map<String, Integer> counts = new HashMap<>();
         for (int i = 0; i < n; i++) {
-            counts.merge(cachingHostAddressProvider.getHosts(String.valueOf(i)).get(0).getHostText(), 1, Math::addExact);
+            counts.merge(cachingHostAddressProvider.getHosts(String.valueOf(i), ImmutableList.of()).get(0).getHostText(), 1, Math::addExact);
         }
         assertThat(nodeNames.stream().map(m -> m.getHostAndPort().getHostText()).collect(Collectors.toSet())).isEqualTo(counts.keySet());
         counts.values().forEach(c -> assertThat(abs(c - n / nodeNames.size()) < 0.1 * n).isTrue());
@@ -105,7 +106,7 @@ public class TestConsistentHashingCacheHostAddressProvider
         int n = 1000;
         Map<String, Set<Integer>> distribution = new HashMap<>();
         for (int i = 0; i < n; i++) {
-            String host = provider.getHosts(String.valueOf(i)).get(0).getHostText();
+            String host = provider.getHosts(String.valueOf(i), ImmutableList.of()).get(0).getHostText();
             distribution.computeIfAbsent(host, (k) -> new HashSet<>()).add(i);
         }
         return distribution;
