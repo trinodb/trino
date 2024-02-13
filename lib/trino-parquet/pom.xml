@@ -93,11 +93,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-hadoop</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
             <scope>provided</scope>
