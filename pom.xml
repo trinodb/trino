@@ -53,8 +53,6 @@
         <module>lib/trino-geospatial-toolkit</module>
         <module>lib/trino-hdfs</module>
         <module>lib/trino-hive-formats</module>
-        <!-- TODO Remove whole module when Ignite is released -->
-        <module>lib/trino-ignite-patched</module>
         <module>lib/trino-matching</module>
         <module>lib/trino-memory-context</module>
         <module>lib/trino-orc</module>
@@ -1262,13 +1260,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-ignite</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <!-- TODO Remove whole module when Ignite is released -->
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-ignite-patched</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
