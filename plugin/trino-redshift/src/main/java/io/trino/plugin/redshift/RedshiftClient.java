@@ -256,8 +256,13 @@ public class RedshiftClient
         this.legacyTypeMapping = redshiftConfig.isLegacyTypeMapping();
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
-                // TODO allow all comparison operators for numeric types
                 .add(new RewriteComparison(ImmutableSet.of(ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL)))
+                .map("$equal(left, right)").to("left = right")
+                .map("$not_equal(left, right)").to("left <> right")
+                .map("$less_than(left, right)").to("left < right")
+                .map("$less_than_or_equal(left, right)").to("left <= right")
+                .map("$greater_than(left, right)").to("left > right")
+                .map("$greater_than_or_equal(left, right)").to("left >= right")
                 .add(new RewriteIn())
                 // TODO Add support for arithmetical function
                 .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")

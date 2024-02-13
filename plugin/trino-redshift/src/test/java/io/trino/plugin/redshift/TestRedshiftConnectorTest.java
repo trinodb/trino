@@ -639,18 +639,6 @@ public class TestRedshiftConnectorTest
     }
 
     @Test
-    @Override
-    public void testArithmeticPredicatePushdown()
-    {
-        super.testArithmeticPredicatePushdown();
-
-        // Redshift executes each operand individually - for an expression `nationkey > 0 AND (nationkey - regionkey) % nationkey`
-        // `(nationkey - regionkey) % nationkey` fails even if `nationkey > 0` ensures that nationkey won't be zero.
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'SELECT 1 FROM %s.nation WHERE nationkey > 0 AND (nationkey - regionkey) %% nationkey = 2'))".formatted(TEST_SCHEMA)))
-                .hasMessageContaining("by zero");
-    }
-
-    @Test
     public void testLikePredicatePushdown()
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
