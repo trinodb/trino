@@ -70,7 +70,7 @@ public class EnvSinglenodeStargateWithRemoteSinglenodeStarburst
 
         // TODO(https://starburstdata.atlassian.net/browse/SEP-4889) Allow enabling java debugging
         DockerContainer remotePresto =
-                createTrinoContainer(dockerFiles, serverPackage, jdkProvider, false, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, "remote-starburst")
+                createTrinoContainer(dockerFiles, serverPackage, jdkProvider, false, false, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, "remote-starburst")
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), Standard.CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(resourceProvider.getPath("remote-starburst-config.properties")), Standard.CONTAINER_TRINO_CONFIG_PROPERTIES)
                         // TODO: should I use PortBinder for it?
