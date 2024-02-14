@@ -10,9 +10,6 @@ inputs:
   cleanup-node:
     description: "Clean up node (true/false) to increase free disk space"
     default: false # Disabled by default as it adds ~4 minutes of test runtime. Should be enabled case by case.
-  download_dependencies:
-    description: "Download all Maven dependencies so Maven can work in offline mode"
-    default: true
 
 runs:
   using: composite
@@ -50,7 +47,7 @@ runs:
         if: ${{ format('{0}', inputs.cache) == 'true' }}
         uses: actions/cache@v4
         with:
-          path: | 
+          path: |
             ~/.m2/repository
             /tmp/pt_java_downloads
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -65,10 +62,6 @@ runs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
-      - name: Fetch any missing dependencies
-        shell: bash
-        if: ${{ format('{0}', inputs.download_dependencies) == 'true' }}
-        run: ./.github/bin/download-maven-dependencies.sh
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash
