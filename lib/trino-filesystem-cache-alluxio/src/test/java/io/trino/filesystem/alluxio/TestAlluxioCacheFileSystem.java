@@ -53,7 +53,7 @@ public class TestAlluxioCacheFileSystem
                 .setCachePageSize(DataSize.valueOf("32003B"))
                 .disableTTL()
                 .setMaxCacheSizes("100MB");
-        memoryFileSystem = new MemoryFileSystem();
+        memoryFileSystem = new IncompleteStreamMemoryFileSystem();
         cache = new AlluxioFileSystemCache(noopTracer(), configuration, new AlluxioCacheStats());
         fileSystem = new CacheFileSystem(memoryFileSystem, cache, new DefaultCacheKeyProvider());
     }
