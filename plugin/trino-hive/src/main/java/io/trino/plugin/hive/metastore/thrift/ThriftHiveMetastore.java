@@ -459,7 +459,7 @@ public final class ThriftHiveMetastore
                     Optional<Column> column = table.getColumn(entry.getKey());
                     if (column.isEmpty() && isAvroTableWithSchemaSet(modifiedTable)) {
                         // Avro table can have different effective schema than declared in metastore. Still, metastore does not allow
-                        // to store statistics for a column it does not know about.
+                        // storing statistics for a column it does not know about.
                         return Stream.of();
                     }
 
@@ -1026,11 +1026,11 @@ public final class ThriftHiveMetastore
                             }
                             catch (NoSuchObjectException e) {
                                 if (attemptCount.get() == 1) {
-                                    // Throw exception only on first attempt.
+                                    // Throw exception only on the first attempt.
                                     throw e;
                                 }
-                                // If table is not found on consecutive attempts it was probably dropped on first attempt and timeout occurred.
-                                // Exception in such case can be safely ignored and dropping table is finished.
+                                // If the table is not found on consecutive attempts, it was probably dropped on the first attempt and timeout occurred.
+                                // Exception in such a case can be safely ignored and dropping table is finished.
                                 return null;
                             }
                             client.dropTable(databaseName, tableName, deleteData);
@@ -1088,8 +1088,8 @@ public final class ThriftHiveMetastore
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
                             EnvironmentContext context = new EnvironmentContext();
                             // This prevents Hive 3.x from collecting basic table stats at table creation time.
-                            // These stats are not useful by themselves and can take very long time to collect when creating an
-                            // external table over large data set.
+                            // These stats are not useful by themselves and can take a very long time to collect when creating an
+                            // external table over a large data set.
                             context.setProperties(ImmutableMap.of("DO_NOT_UPDATE_STATS", "true"));
                             client.alterTableWithEnvironmentContext(databaseName, tableName, table, context);
                         }
@@ -1321,7 +1321,7 @@ public final class ThriftHiveMetastore
      * The old statistics are supposed to be replaced by storing the new partition statistics.
      *
      * In case when the new statistics are not present for some columns, or if the table schema has changed
-     * if is needed to explicitly remove the statistics from the metastore for that columns.
+     * if is needed to explicitly remove the statistics from the metastore for those columns.
      */
     private void dropExtraColumnStatisticsAfterAlterPartition(
             String databaseName,
@@ -1796,7 +1796,7 @@ public final class ThriftHiveMetastore
                 .setOperationType(operation)
                 .setDbname(table.getSchemaName())
                 .setTablename(table.getTableName())
-                // acquire locks is called only for TransactionalTable
+                // acquire lock is called only for TransactionalTable
                 .setIsTransactional(true)
                 .setIsDynamicPartitionWrite(isDynamicPartitionWrite)
                 .setLevel(LockLevel.TABLE);
@@ -2117,7 +2117,7 @@ public final class ThriftHiveMetastore
             throw new TrinoException(GENERIC_USER_ERROR, format("Invalid object name: '%s'", objectName));
         }
         if (objectName.contains("/")) {
-            // Older HMS instances may allow names like 'foo/bar' which can cause managed tables to be
+            // Older HMS instances may allow names like 'foo/bar', which can cause managed tables to be
             // saved in a different location than its intended schema directory
             throw new TrinoException(GENERIC_USER_ERROR, format("Invalid object name: '%s'", objectName));
         }
