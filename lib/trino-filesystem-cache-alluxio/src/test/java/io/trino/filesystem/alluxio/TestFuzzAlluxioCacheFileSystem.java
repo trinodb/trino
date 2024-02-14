@@ -183,10 +183,8 @@ public class TestFuzzAlluxioCacheFileSystem
                     .setCachePageSize(DataSize.ofBytes(PAGE_SIZE))
                     .disableTTL()
                     .setMaxCacheSizes(CACHE_SIZE + "B");
-            MemoryFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
             AlluxioFileSystemCache alluxioCache = new AlluxioFileSystemCache(Tracing.noopTracer(), configuration, new AlluxioCacheStats());
-            return new CacheFileSystem(fileSystemFactory.create(ConnectorIdentity.ofUser("hello")),
-                    alluxioCache, new TestingCacheKeyProvider());
+            return new CacheFileSystem(new IncompleteStreamMemoryFileSystem(), alluxioCache, new TestingCacheKeyProvider());
         }
 
         @Override
