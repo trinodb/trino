@@ -50,6 +50,9 @@ public final class EnvironmentOptions
     @Option(names = "--debug", description = "Open Java debug ports")
     public boolean debug;
 
+    @Option(names = "--tracing", description = "Automatic collection of OpenTracing data")
+    public boolean tracing;
+
     @Option(names = "--output", description = "Container output handling mode: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "PRINT")
     public DockerContainer.OutputMode output;
 

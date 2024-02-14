@@ -142,4 +142,12 @@ public final class EnvironmentModule
     {
         return options.debug;
     }
+
+    @Provides
+    @Singleton
+    @Tracing
+    public boolean provideTracing(EnvironmentOptions options)
+    {
+        return options.tracing;
+    }
 }
