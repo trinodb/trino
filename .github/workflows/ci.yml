@@ -27,14 +27,13 @@ env:
   mavenSnapshotsUsername: ${{ secrets.CODE_ARTIFACT_USERNAME }}
   mavenSnapshotsPassword: ${{ secrets.CODE_ARTIFACT_PASSWORD }}
   # allow overriding Maven command
-  MAVEN: ./mvnw --offline -s .github/settings.xml
-  # maven.wagon.rto is in millis, defaults to 30m
-  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
-  MAVEN_COMPILE_COMMITS: "-B --strict-checksums --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
+  MAVEN: ./mvnw -s .github/settings.xml
+  MAVEN_OPTS: ""
+  MAVEN_INSTALL_OPTS: ""
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -b smart -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
+  MAVEN_COMPILE_COMMITS: "-B --quiet -T 1C -b smart -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
   MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
-  MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
+  MAVEN_TEST: "-B -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
   # that if an image doesn't download all it's layers within ~2m then any other concurrent pull will be killed because
   # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
@@ -132,11 +131,11 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl :trino-spi -am
-          ${MAVEN//--offline/} clean verify -B --strict-checksums -DskipTests -pl :trino-spi
+          $MAVEN clean verify -B --strict-checksums -DskipTests -pl :trino-spi
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean verify -B --strict-checksums -V -T 1C -DskipTests -P ci -pl '!:trino-server-rpm'
+          $MAVEN clean verify -B --strict-checksums -V -T 1C -b smart -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
         if: steps.cache.outputs.cache-hit != 'true' && matrix.cache == 'true'
@@ -162,8 +161,8 @@ jobs:
             ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
-          cache: restore
-          cleanup-node: true
+          cache: 'restore'
+          cleanup-node: 'true'
       - name: "Login to ECR pull-through cache"
         shell: bash
         run: |
@@ -220,8 +219,9 @@ jobs:
           echo "matrix=$(jq -c '.' commit-matrix.json)" >> $GITHUB_OUTPUT
 
   check-commit:
+    needs:
+      - check-commits-dispatcher
     runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
-    needs: check-commits-dispatcher
     if: github.event_name == 'pull_request' && needs.check-commits-dispatcher.outputs.matrix != ''
     strategy:
       fail-fast: false
@@ -269,7 +269,7 @@ jobs:
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN ${MAVEN_TEST} -T 1C clean verify -DskipTests ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T 1C -b smart clean verify -DskipTests ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
@@ -1288,7 +1288,6 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache: 'false'
-          download_dependencies: false
       - name: Run ECR login
         uses: ./.github/actions/starburst-setup
         with:

@@ -169,6 +169,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.sap.cloud.db.jdbc</groupId>
+            <artifactId>ngdbc</artifactId>
+            <!-- defined here only for maven-dependency-plugin to copy it to target directory -->
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-protobuf-provider</artifactId>
             <!-- This is under Confluent Community License and we use it under runtime scope only for tests -->
@@ -247,6 +254,16 @@
         </dependency>
     </dependencies>
 
+    <repositories>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>confluent</id>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
+
     <build>
         <plugins>
             <plugin>
@@ -308,48 +325,54 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>copy</id>
+                        <id>copy-kafka</id>
                         <goals>
-                            <goal>copy</goal>
+                            <goal>copy-dependencies</goal>
                         </goals>
                         <phase>package</phase>
                         <configuration>
                             <skip>false</skip>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>io.confluent</groupId>
-                                    <artifactId>kafka-protobuf-provider</artifactId>
-                                    <type>jar</type>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>io.confluent</groupId>
-                                    <artifactId>kafka-protobuf-types</artifactId>
-                                    <type>jar</type>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>org.apache.hive</groupId>
-                                    <artifactId>hive-jdbc</artifactId>
-                                    <classifier>standalone</classifier>
-                                    <type>jar</type>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
-                                    <destFileName>hive-jdbc.jar</destFileName>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.sap.cloud.db.jdbc</groupId>
-                                    <artifactId>ngdbc</artifactId>
-                                    <type>jar</type>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.databricks</groupId>
-                                    <artifactId>databricks-jdbc</artifactId>
-                                    <type>jar</type>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
-                                    <destFileName>databricks-jdbc.jar</destFileName>
-                                </artifactItem>
-                            </artifactItems>
+                            <includeArtifactIds>kafka-protobuf-provider,kafka-protobuf-types</includeArtifactIds>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-sap-hana-driver</id>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <includeArtifactIds>ngdbc</includeArtifactIds>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-databricks</id>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <includeArtifactIds>databricks-jdbc</includeArtifactIds>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                            <stripVersion>true</stripVersion>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-hive</id>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <includeArtifactIds>hive-jdbc</includeArtifactIds>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                            <stripVersion>true</stripVersion>
+                            <stripClassifier>true</stripClassifier>
                         </configuration>
                     </execution>
                 </executions>

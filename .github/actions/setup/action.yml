@@ -10,9 +10,6 @@ inputs:
   cleanup-node:
     description: "Clean up node (true/false) to increase free disk space"
     default: false # Disabled by default as it adds ~4 minutes of test runtime. Should be enabled case by case.
-  download_dependencies:
-    description: "Download all Maven dependencies so Maven can work in offline mode"
-    default: true
 
 runs:
   using: composite
@@ -65,10 +62,12 @@ runs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
-      - name: Fetch any missing dependencies
+      - name: Install starburst-testing-auto-configuration
+        # starburst-testing-auto-configuration is used by all tests and not implicitly built
+        # This module has very little dependencies, so no need to cache it, or build conditionally
         shell: bash
-        if: ${{ format('{0}', inputs.download_dependencies) == 'true' }}
-        run: ./.github/bin/download-maven-dependencies.sh
+        run: |
+          .github/bin/retry ./mvnw -s .github/settings.xml clean install -B -V --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all -pl :starburst-testing-auto-configuration
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash
