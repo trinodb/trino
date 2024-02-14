@@ -51,6 +51,7 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.procedure.OptimizeTableProcedure;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.plugin.hive.statistics.HiveStatisticsProvider;
@@ -794,10 +795,11 @@ public class HiveMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
     {
         if (optionalSchemaName.isEmpty()) {
-            Optional<List<SchemaTableName>> allTables = metastore.getAllTables();
+            Optional<List<TableInfo>> allTables = metastore.getTables();
             if (allTables.isPresent()) {
                 return ImmutableSet.<SchemaTableName>builder()
                         .addAll(allTables.get().stream()
+                                .map(TableInfo::tableName)
                                 .filter(table -> !isHiveSystemSchema(table.getSchemaName()))
                                 .collect(toImmutableList()))
                         .addAll(listMaterializedViews(session, optionalSchemaName))
@@ -807,8 +809,8 @@ public class HiveMetadata
         }
         ImmutableSet.Builder<SchemaTableName> tableNames = ImmutableSet.builder();
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
-            for (String tableName : metastore.getAllTables(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName));
+            for (TableInfo tableInfo : metastore.getTables(schemaName)) {
+                tableNames.add(tableInfo.tableName());
             }
         }
 
@@ -823,18 +825,18 @@ public class HiveMetadata
 
         boolean fetched = false;
         if (optionalSchemaName.isEmpty()) {
-            Optional<Map<SchemaTableName, RelationType>> relationTypes = metastore.getRelationTypes();
-            if (relationTypes.isPresent()) {
-                relationTypes.get().entrySet().stream()
-                        .filter(entry -> !isHiveSystemSchema(entry.getKey().getSchemaName()))
-                        .forEach(result::put);
+            Optional<List<TableInfo>> tables = metastore.getTables();
+            if (tables.isPresent()) {
+                tables.get().stream()
+                        .filter(entry -> !isHiveSystemSchema(entry.tableName().getSchemaName()))
+                        .forEach(table -> result.put(table.tableName(), table.extendedRelationType().toRelationType()));
                 fetched = true;
             }
         }
         if (!fetched) {
             for (String schemaName : listSchemas(session, optionalSchemaName)) {
-                for (Entry<String, RelationType> entry : metastore.getRelationTypes(schemaName).entrySet()) {
-                    result.put(new SchemaTableName(schemaName, entry.getKey()), entry.getValue());
+                for (TableInfo tableInfo : metastore.getTables(schemaName)) {
+                    result.put(tableInfo.tableName(), tableInfo.extendedRelationType().toRelationType());
                 }
             }
         }
@@ -2784,26 +2786,22 @@ public class HiveMetadata
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> optionalSchemaName)
     {
-        Set<SchemaTableName> materializedViews = ImmutableSet.copyOf(listMaterializedViews(session, optionalSchemaName));
         if (optionalSchemaName.isEmpty()) {
-            Optional<List<SchemaTableName>> allViews = metastore.getAllViews();
-            if (allViews.isPresent()) {
-                return allViews.get().stream()
+            Optional<List<TableInfo>> allTables = metastore.getTables();
+            if (allTables.isPresent()) {
+                return allTables.get().stream()
+                        .filter(tableInfo -> tableInfo.extendedRelationType().toRelationType() == RelationType.VIEW)
+                        .map(TableInfo::tableName)
                         .filter(view -> !isHiveSystemSchema(view.getSchemaName()))
-                        .filter(view -> !materializedViews.contains(view))
                         .collect(toImmutableList());
             }
         }
-        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : listSchemas(session, optionalSchemaName)) {
-            for (String tableName : metastore.getAllViews(schemaName)) {
-                SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
-                if (!materializedViews.contains(schemaTableName)) {
-                    tableNames.add(schemaTableName);
-                }
-            }
-        }
-        return tableNames.build();
+        return listSchemas(session, optionalSchemaName).stream()
+                .map(metastore::getTables)
+                .flatMap(List::stream)
+                .filter(tableInfo -> tableInfo.extendedRelationType().toRelationType() == RelationType.VIEW)
+                .map(TableInfo::tableName)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -2833,6 +2831,9 @@ public class HiveMetadata
         for (SchemaTableName name : listViews(session, schemaName)) {
             try {
                 getView(session, name).ifPresent(view -> views.put(name, view));
+            }
+            catch (HiveViewNotSupportedException e) {
+                // Ignore hive views when translation is disabled
             }
             catch (TrinoException e) {
                 if (e.getErrorCode().equals(HIVE_VIEW_TRANSLATION_ERROR.toErrorCode())) {

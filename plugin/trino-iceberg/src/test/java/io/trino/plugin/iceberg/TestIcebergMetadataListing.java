@@ -97,6 +97,7 @@ public class TestIcebergMetadataListing
     public void testTableListing()
     {
         assertThat(metastore.getTables("test_schema"))
+                .extracting(table -> table.tableName().getTableName())
                 .containsExactlyInAnyOrder(
                         "iceberg_table1",
                         "iceberg_table2",

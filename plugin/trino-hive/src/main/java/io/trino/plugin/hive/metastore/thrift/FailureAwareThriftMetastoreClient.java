@@ -29,9 +29,9 @@ import io.trino.hive.thrift.metastore.PrivilegeBag;
 import io.trino.hive.thrift.metastore.Role;
 import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.Table;
+import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.plugin.hive.acid.AcidOperation;
-import io.trino.spi.connector.SchemaTableName;
 import org.apache.thrift.TException;
 
 import java.util.Collection;
@@ -87,38 +87,10 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<TableMeta> getTableMeta(Optional<String> databaseName)
             throws TException
     {
-        return runWithHandle(() -> delegate.getAllTables(databaseName));
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
-            throws TException
-    {
-        return runWithHandle(() -> delegate.getAllTables());
-    }
-
-    @Override
-    public List<String> getAllViews(String databaseName)
-            throws TException
-    {
-        return runWithHandle(() -> delegate.getAllViews(databaseName));
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-            throws TException
-    {
-        return runWithHandle(() -> delegate.getAllViews());
-    }
-
-    @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-            throws TException
-    {
-        return runWithHandle(() -> delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue));
+        return runWithHandle(() -> delegate.getTableMeta(databaseName));
     }
 
     @Override

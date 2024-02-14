@@ -36,9 +36,9 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -144,53 +144,24 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public List<String> getTables(String databaseName)
+    public Optional<List<TableInfo>> getAllTables()
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getAllTables()
+                .map(tables -> tables.stream()
+                        .map(table -> new TableInfo(
+                                new SchemaTableName(table.getDbName(), table.getTableName()),
+                                TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.getTableType(), table.getComments())))
+                        .collect(toImmutableList()));
     }
 
     @Override
-    public Map<String, RelationType> getRelationTypes(String databaseName)
+    public List<TableInfo> getTables(String databaseName)
     {
-        ImmutableMap.Builder<String, RelationType> relationTypes = ImmutableMap.builder();
-        getTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
-        getViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
-        return relationTypes.buildKeepingLast();
-    }
-
-    @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-    {
-        return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
-    }
-
-    @Override
-    public List<String> getViews(String databaseName)
-    {
-        return delegate.getAllViews(databaseName);
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
-    {
-        return delegate.getAllTables();
-    }
-
-    @Override
-    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
-    {
-        return getAllTables().flatMap(relations -> getAllViews().map(views -> {
-            ImmutableMap.Builder<SchemaTableName, RelationType> relationTypes = ImmutableMap.builder();
-            relations.forEach(name -> relationTypes.put(name, RelationType.TABLE));
-            views.forEach(name -> relationTypes.put(name, RelationType.VIEW));
-            return relationTypes.buildKeepingLast();
-        }));
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-    {
-        return delegate.getAllViews();
+        return delegate.getTables(databaseName).stream()
+                .map(table -> new TableInfo(
+                        new SchemaTableName(table.getDbName(), table.getTableName()),
+                        TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.getTableType(), table.getComments())))
+                .collect(toImmutableList());
     }
 
     @Override

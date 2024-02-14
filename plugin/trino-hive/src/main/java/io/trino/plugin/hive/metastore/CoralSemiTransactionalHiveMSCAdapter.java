@@ -67,7 +67,9 @@ public class CoralSemiTransactionalHiveMSCAdapter
     @Override
     public List<String> getAllTables(String dbName)
     {
-        return delegate.getAllTables(dbName);
+        return delegate.getTables(dbName).stream()
+                .map(tableInfo -> tableInfo.tableName().getTableName())
+                .toList();
     }
 
     @Override
