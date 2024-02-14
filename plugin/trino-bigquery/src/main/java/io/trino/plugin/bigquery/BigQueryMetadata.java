@@ -75,14 +75,12 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -269,7 +267,7 @@ public class BigQueryMetadata
                 .withProjectedColumns(columns.build());
     }
 
-    private ConnectorTableHandle getTableHandleIgnoringConflicts(ConnectorSession session, SchemaTableName schemaTableName)
+    private Optional<TableInfo> getTableInfoIgnoringConflicts(ConnectorSession session, SchemaTableName schemaTableName)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         DatasetId localDatasetId = client.toDatasetId(schemaTableName.getSchemaName());
@@ -279,18 +277,7 @@ public class BigQueryMetadata
         String remoteTableName = client.toRemoteTable(localDatasetId.getProject(), remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getAnyRemoteName)
                 .orElse(schemaTableName.getTableName());
-        Optional<TableInfo> tableInfo = client.getTable(TableId.of(localDatasetId.getProject(), remoteSchemaName, remoteTableName));
-        if (tableInfo.isEmpty()) {
-            log.debug("Table [%s.%s] was not found", schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            return null;
-        }
-
-        return new BigQueryTableHandle(new BigQueryNamedRelationHandle(
-                schemaTableName,
-                new RemoteTableName(tableInfo.get().getTableId()),
-                tableInfo.get().getDefinition().getType().toString(),
-                getPartitionType(tableInfo.get().getDefinition()),
-                Optional.ofNullable(tableInfo.get().getDescription())));
+        return client.getTable(TableId.of(localDatasetId.getProject(), remoteSchemaName, remoteTableName));
     }
 
     @Override
@@ -378,31 +365,22 @@ public class BigQueryMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
+        BigQueryClient client = bigQueryClientFactory.create(session);
         log.debug("listTableColumns(session=%s, prefix=%s)", session, prefix);
         List<SchemaTableName> tables = prefix.toOptionalSchemaTableName()
                 .<List<SchemaTableName>>map(ImmutableList::of)
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
 
-        List<BigQueryTableHandle> tableHandles = processInParallel(tables, table -> getTableHandleIgnoringConflicts(session, table))
-                .filter(Objects::nonNull)
-                .map(BigQueryTableHandle.class::cast)
+        List<TableInfo> tableInfos = processInParallel(tables, table -> getTableInfoIgnoringConflicts(session, table))
+                .flatMap(Optional::stream)
                 .collect(toImmutableList());
 
-        return processInParallel(tableHandles, tableHandle -> safeGetTableMetadata(session, tableHandle))
-                .filter(Objects::nonNull)
-                .collect(toImmutableMap(ConnectorTableMetadata::getTable, ConnectorTableMetadata::getColumns));
-    }
-
-    @Nullable
-    private ConnectorTableMetadata safeGetTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        try {
-            return getTableMetadata(session, tableHandle);
-        }
-        catch (TableNotFoundException e) {
-            // table disappeared during listing operation
-            return null;
-        }
+        return tableInfos.stream()
+                .collect(toImmutableMap(
+                        table -> new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable()),
+                        table -> client.buildColumnHandles(table).stream()
+                                .map(BigQueryColumnHandle::getColumnMetadata)
+                                .collect(toImmutableList())));
     }
 
     protected <T, R> Stream<R> processInParallel(List<T> list, Function<T, R> function)
