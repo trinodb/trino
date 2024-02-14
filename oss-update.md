@@ -85,6 +85,7 @@ Action items:
 - [ ] Update project version
 - [ ] Squash fixups
 - [ ] Check OSS release notes for breaking changes
+- [ ] Run benchmarks and verify results (talk to performance team)
 EOF
 )&labels=salesforce"
 ```
