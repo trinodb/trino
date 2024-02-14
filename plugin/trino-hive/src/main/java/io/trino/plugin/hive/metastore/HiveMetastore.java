@@ -64,7 +64,7 @@ public interface HiveMetastore
 
     /**
      * If true, callers should inspect table and partition parameters for spark stats.
-     * This method realy only exists for the ThriftHiveMetastore implementation. Spark mixes table and column statistics into the table parameters, and this breaks
+     * This method really only exists for the ThriftHiveMetastore implementation. Spark mixes table and column statistics into the table parameters, and this breaks
      * the abstractions of the metastore interface.
      */
     default boolean useSparkTableStatistics()
@@ -79,7 +79,7 @@ public interface HiveMetastore
     List<String> getTables(String databaseName);
 
     /**
-     * @return List of tables, views and materialized views names from all schemas or Optional.empty if operation is not supported
+     * @return List of tables, views and materialized views names from all schemas or {@code Optional.empty} if operation is not supported
      */
     Optional<List<SchemaTableName>> getAllTables();
 
@@ -93,12 +93,12 @@ public interface HiveMetastore
     List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
 
     /**
-     * Lists views and materialized views from given database.
+     * Lists views and materialized views from the given database.
      */
     List<String> getViews(String databaseName);
 
     /**
-     * @return List of views including materialized views names from all schemas or Optional.empty if operation is not supported
+     * @return List of views including materialized views names from all schemas or {@code Optional.empty} if operation is not supported
      */
     Optional<List<SchemaTableName>> getAllViews();
 
@@ -115,7 +115,7 @@ public interface HiveMetastore
     void dropTable(String databaseName, String tableName, boolean deleteData);
 
     /**
-     * This should only be used if the semantic here is drop and add. Trying to
+     * This should only be used if the semantic here is to drop and add. Trying to
      * alter one field of a table object previously acquired from getTable is
      * probably not what you want.
      */

@@ -145,8 +145,8 @@ public class FileHiveMetastore
     private static final String TRINO_SCHEMA_FILE_NAME_SUFFIX = ".trinoSchema";
     private static final String TRINO_PERMISSIONS_DIRECTORY_NAME = ".trinoPermissions";
     private static final String TRINO_FUNCTIONS_DIRECTORY_NAME = ".trinoFunction";
-    public static final String ROLES_FILE_NAME = ".roles";
-    public static final String ROLE_GRANTS_FILE_NAME = ".roleGrants";
+    private static final String ROLES_FILE_NAME = ".roles";
+    private static final String ROLE_GRANTS_FILE_NAME = ".roleGrants";
     // todo there should be a way to manage the admins list
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
 
@@ -203,7 +203,7 @@ public class FileHiveMetastore
         Optional<Database> existingDatabase = getDatabase(database.getDatabaseName());
         if (existingDatabase.isPresent()) {
             // Do not throw SchemaAlreadyExistsException if this query has already created the database.
-            // This may happen when an actually successful metastore create call is retried,
+            // This may happen when an actually successful metastore create call is retried
             // because of a timeout on our side.
             String expectedQueryId = database.getParameters().get(TRINO_QUERY_ID_NAME);
             if (expectedQueryId != null && expectedQueryId.equals(existingDatabase.get().getParameters().get(TRINO_QUERY_ID_NAME))) {
@@ -300,14 +300,14 @@ public class FileHiveMetastore
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
     }
 
-    private void verifyDatabaseNameLength(String databaseName)
+    private static void verifyDatabaseNameLength(String databaseName)
     {
         if (databaseName.length() > MAX_NAME_LENGTH) {
             throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", MAX_NAME_LENGTH, databaseName.length()));
         }
     }
 
-    private void verifyTableNameLength(String tableName)
+    private static void verifyTableNameLength(String tableName)
     {
         if (tableName.length() > MAX_NAME_LENGTH) {
             throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", MAX_NAME_LENGTH, tableName.length()));
@@ -360,7 +360,7 @@ public class FileHiveMetastore
         Optional<Table> existingTable = getTable(table.getDatabaseName(), table.getTableName());
         if (existingTable.isPresent()) {
             // Do not throw TableAlreadyExistsException if this query has already created the table.
-            // This may happen when an actually successful metastore create call is retried,
+            // This may happen when an actually successful metastore create call is retried
             // because of a timeout on our side.
             String expectedQueryId = table.getParameters().get(TRINO_QUERY_ID_NAME);
             if (expectedQueryId != null && expectedQueryId.equals(existingTable.get().getParameters().get(TRINO_QUERY_ID_NAME))) {
@@ -702,7 +702,7 @@ public class FileHiveMetastore
         try {
             if (isIcebergTable(table)) {
                 fileSystem.createDirectory(newPath);
-                // Iceberg metadata references files in old path, so these cannot be moved. Moving table description (metadata from metastore perspective) only.
+                // Iceberg metadata references files in the old path, so these cannot be moved. Moving table description (metadata from metastore perspective) only.
                 fileSystem.renameFile(getSchemaFile(TABLE, oldPath), getSchemaFile(TABLE, newPath));
                 // TODO drop data files when table is being dropped
             }
@@ -974,7 +974,7 @@ public class FileHiveMetastore
     public synchronized Set<String> listRoles()
     {
         Set<String> roles = new HashSet<>();
-        // Hive SQL standard assumes admin role already exists, so until that is fixed always add it here
+        // Hive SQL standard assumes the admin role already exists, so until that is fixed always add it here
         roles.add("admin");
         readFile("roles", getRolesFile(), rolesCodec).ifPresent(roles::addAll);
         return ImmutableSet.copyOf(roles);
@@ -1063,7 +1063,7 @@ public class FileHiveMetastore
         return removeDuplicatedEntries(removeNonExistingRoles(grants, existingRoles));
     }
 
-    private Set<RoleGrant> removeDuplicatedEntries(Set<RoleGrant> grants)
+    private static Set<RoleGrant> removeDuplicatedEntries(Set<RoleGrant> grants)
     {
         Map<RoleGrantee, RoleGrant> map = new HashMap<>();
         for (RoleGrant grant : grants) {
@@ -1279,7 +1279,7 @@ public class FileHiveMetastore
                     continue;
                 }
 
-                String name = unescapePathName(parts.get(0));
+                String name = unescapePathName(parts.getFirst());
                 if (functionName.isPresent() && !name.equals(functionName.get())) {
                     continue;
                 }
