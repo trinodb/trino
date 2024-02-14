@@ -29,6 +29,7 @@ public final class EnvironmentContainers
     public static final String WORKER_NTH = WORKER + "-";
     public static final String HADOOP = "hadoop-master";
     public static final String TESTS = "tests";
+    public static final String OPENTRACING_COLLECTOR = "opentracing-collector";
     public static final String LDAP = "ldapserver";
 
     private EnvironmentContainers() {}
