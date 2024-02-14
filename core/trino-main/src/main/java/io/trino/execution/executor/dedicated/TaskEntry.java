@@ -33,7 +33,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.DoubleSupplier;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -62,7 +61,7 @@ class TaskEntry
     @GuardedBy("this")
     private final Set<SplitRunner> running = new HashSet<>();
 
-    public TaskEntry(TaskId taskId, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, int maxConcurrency, DoubleSupplier utilization)
+    public TaskEntry(TaskId taskId, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, DoubleSupplier utilization)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
@@ -71,7 +70,7 @@ class TaskEntry
         this.utilization = requireNonNull(utilization, "utilization is null");
 
         this.group = scheduler.createGroup(taskId.toString());
-        this.concurrency = new ConcurrencyController(initialConcurrency, maxConcurrency);
+        this.concurrency = new ConcurrencyController(initialConcurrency);
     }
 
     public TaskId taskId()
@@ -97,62 +96,67 @@ class TaskEntry
         pending.clear();
     }
 
-    public synchronized ListenableFuture<Void> addSplit(SplitRunner split, boolean intermediate)
+    public synchronized ListenableFuture<Void> enqueueLeafSplit(SplitRunner split)
     {
-        checkArgument(!destroyed, "Task already destroyed: %s", taskId);
-
-        if (intermediate) {
-            return submit(split, false);
-        }
-        else {
-            QueuedSplit queuedSplit = new QueuedSplit(split, SettableFuture.create());
-            pending.add(queuedSplit);
-            scheduleMoreLeafSplits();
-            return queuedSplit.done();
-        }
+        SettableFuture<Void> done = SettableFuture.create();
+        pending.add(new QueuedSplit(split, done));
+        return done;
     }
 
-    private ListenableFuture<Void> submit(SplitRunner split, boolean leaf)
+    /**
+     * @return true if a split was scheduled; false if no splits are pending
+     */
+    public synchronized boolean dequeueAndRunLeafSplit(Runnable doneCallback)
     {
-        running.add(split);
+        QueuedSplit split = pending.poll();
+        if (split == null) {
+            return false;
+        }
+
+        runSplit(split.split())
+                .addListener(() -> {
+                    leafSplitDone(split);
+                    doneCallback.run();
+                }, directExecutor());
+
+        runningLeafSplits++;
+
+        return true;
+    }
+
+    private synchronized void leafSplitDone(QueuedSplit split)
+    {
+        runningLeafSplits--;
+        split.done().set(null);
+    }
+
+    public synchronized ListenableFuture<Void> runSplit(SplitRunner split)
+    {
         int splitId = nextSplitId();
         ListenableFuture<Void> done = scheduler.submit(
                 group,
                 splitId,
                 new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer)));
-        done.addListener(() -> splitDone(split, leaf), directExecutor());
+        done.addListener(() -> splitDone(split), directExecutor());
+        running.add(split);
+
         return done;
     }
 
-    private void splitDone(SplitRunner split, boolean leaf)
+    private synchronized void splitDone(SplitRunner split)
     {
         split.close();
-        synchronized (this) {
-            running.remove(split);
-
-            if (leaf) {
-                runningLeafSplits--;
-            }
-
-            scheduleMoreLeafSplits();
-        }
-    }
-
-    public synchronized void scheduleMoreLeafSplits()
-    {
-        int target = concurrency.targetConcurrency();
-
-        while (runningLeafSplits < target && !pending.isEmpty()) {
-            QueuedSplit entry = pending.poll();
-            submit(entry.split(), true)
-                    .addListener(() -> entry.done().set(null), directExecutor());
-            runningLeafSplits++;
-        }
+        running.remove(split);
     }
 
     private int nextSplitId()
     {
         return nextSplitId.incrementAndGet();
+    }
+
+    public synchronized int runningLeafSplits()
+    {
+        return runningLeafSplits;
     }
 
     @Override
@@ -164,6 +168,16 @@ class TaskEntry
     public synchronized void updateConcurrency()
     {
         concurrency.update(utilization.getAsDouble(), runningLeafSplits);
+    }
+
+    public synchronized boolean hasPendingLeafSplits()
+    {
+        return !pending.isEmpty();
+    }
+
+    public synchronized int targetConcurrency()
+    {
+        return concurrency.targetConcurrency();
     }
 
     private record QueuedSplit(SplitRunner split, SettableFuture<Void> done) {}
