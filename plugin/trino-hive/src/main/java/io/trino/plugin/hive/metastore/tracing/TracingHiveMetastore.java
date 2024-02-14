@@ -32,7 +32,7 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.connector.RelationType;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -157,91 +157,27 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public List<String> getTables(String databaseName)
-    {
-        Span span = tracer.spanBuilder("HiveMetastore.getTables")
-                .setAttribute(SCHEMA, databaseName)
-                .startSpan();
-        return withTracing(span, () -> {
-            List<String> tables = delegate.getTables(databaseName);
-            span.setAttribute(TABLE_RESPONSE_COUNT, tables.size());
-            return tables;
-        });
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<TableInfo>> getAllTables()
     {
         Span span = tracer.spanBuilder("HiveMetastore.getAllTables")
                 .startSpan();
         return withTracing(span, () -> {
-            Optional<List<SchemaTableName>> tables = delegate.getAllTables();
+            Optional<List<TableInfo>> tables = delegate.getAllTables();
             tables.ifPresent(list -> span.setAttribute(TABLE_RESPONSE_COUNT, list.size()));
             return tables;
         });
     }
 
     @Override
-    public Map<String, RelationType> getRelationTypes(String databaseName)
+    public List<TableInfo> getTables(String databaseName)
     {
-        Span span = tracer.spanBuilder("HiveMetastore.getRelationTypes")
+        Span span = tracer.spanBuilder("HiveMetastore.getTables")
                 .setAttribute(SCHEMA, databaseName)
                 .startSpan();
         return withTracing(span, () -> {
-            Map<String, RelationType> relationTypes = delegate.getRelationTypes(databaseName);
-            span.setAttribute(TABLE_RESPONSE_COUNT, relationTypes.size());
-            return relationTypes;
-        });
-    }
-
-    @Override
-    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
-    {
-        Span span = tracer.spanBuilder("HiveMetastore.getAllRelationTypes")
-                .startSpan();
-        return withTracing(span, () -> {
-            Optional<Map<SchemaTableName, RelationType>> relationTypes = delegate.getAllRelationTypes();
-            relationTypes.ifPresent(map -> span.setAttribute(TABLE_RESPONSE_COUNT, map.size()));
-            return relationTypes;
-        });
-    }
-
-    @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-    {
-        Span span = tracer.spanBuilder("HiveMetastore.getTablesWithParameter")
-                .setAttribute(SCHEMA, databaseName)
-                .setAttribute(TABLE, parameterKey)
-                .startSpan();
-        return withTracing(span, () -> {
-            List<String> tables = delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
+            List<TableInfo> tables = delegate.getTables(databaseName);
             span.setAttribute(TABLE_RESPONSE_COUNT, tables.size());
             return tables;
-        });
-    }
-
-    @Override
-    public List<String> getViews(String databaseName)
-    {
-        Span span = tracer.spanBuilder("HiveMetastore.getViews")
-                .setAttribute(SCHEMA, databaseName)
-                .startSpan();
-        return withTracing(span, () -> {
-            List<String> views = delegate.getViews(databaseName);
-            span.setAttribute(TABLE_RESPONSE_COUNT, views.size());
-            return views;
-        });
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-    {
-        Span span = tracer.spanBuilder("HiveMetastore.getAllViews")
-                .startSpan();
-        return withTracing(span, () -> {
-            Optional<List<SchemaTableName>> views = delegate.getAllViews();
-            views.ifPresent(list -> span.setAttribute(TABLE_RESPONSE_COUNT, list.size()));
-            return views;
         });
     }
 

@@ -32,6 +32,7 @@ import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.EnvironmentContext;
 import io.trino.hive.thrift.metastore.FieldSchema;
+import io.trino.hive.thrift.metastore.Function;
 import io.trino.hive.thrift.metastore.HiveObjectPrivilege;
 import io.trino.hive.thrift.metastore.HiveObjectRef;
 import io.trino.hive.thrift.metastore.InvalidInputException;
@@ -52,6 +53,7 @@ import io.trino.hive.thrift.metastore.PrincipalType;
 import io.trino.hive.thrift.metastore.PrivilegeBag;
 import io.trino.hive.thrift.metastore.PrivilegeGrantInfo;
 import io.trino.hive.thrift.metastore.Table;
+import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.hive.thrift.metastore.TxnAbortedException;
 import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.hive.thrift.metastore.UnknownDBException;
@@ -117,7 +119,6 @@ import static io.trino.hive.thrift.metastore.HiveObjectType.TABLE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRED;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
-import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
@@ -159,7 +160,6 @@ public final class ThriftHiveMetastore
     private final Duration maxWaitForLock;
     private final int maxRetries;
     private final boolean deleteFilesOnDrop;
-    private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
     private final boolean useSparkTableStatisticsFallback;
     private final boolean batchMetadataFetchEnabled;
@@ -177,7 +177,6 @@ public final class ThriftHiveMetastore
             Duration maxWaitForLock,
             int maxRetries,
             boolean deleteFilesOnDrop,
-            boolean translateHiveViews,
             boolean assumeCanonicalPartitionKeys,
             boolean useSparkTableStatisticsFallback,
             boolean batchMetadataFetchEnabled,
@@ -194,7 +193,6 @@ public final class ThriftHiveMetastore
         this.maxWaitForLock = requireNonNull(maxWaitForLock, "maxWaitForLock is null");
         this.maxRetries = maxRetries;
         this.deleteFilesOnDrop = deleteFilesOnDrop;
-        this.translateHiveViews = translateHiveViews;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.useSparkTableStatisticsFallback = useSparkTableStatisticsFallback;
         this.batchMetadataFetchEnabled = batchMetadataFetchEnabled;
@@ -253,23 +251,26 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public Optional<List<TableMeta>> getAllTables()
     {
+        if (!batchMetadataFetchEnabled) {
+            return Optional.empty();
+        }
+
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getAllTables", () -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return client.getAllTables(databaseName);
+                            return Optional.of(client.getTableMeta(Optional.empty()));
                         }
                     });
         }
-        catch (NoSuchObjectException e) {
-            return ImmutableList.of();
-        }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        catch (TTransportException e) {
+            log.warn(e, "Failed to get all tables");
+            // fallback in case of HMS error
+            return Optional.empty();
         }
         catch (Exception e) {
             throw propagate(e);
@@ -277,19 +278,19 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<TableMeta> getTables(String databaseName)
     {
         try {
             return retry()
-                    .stopOn(UnknownDBException.class)
+                    .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("getTablesWithParameter", stats.getGetTablesWithParameter().wrap(() -> {
+                    .run("getTables", () -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return client.getTablesWithParameter(databaseName, parameterKey, parameterValue);
+                            return client.getTableMeta(Optional.ofNullable(databaseName));
                         }
-                    }));
+                    });
         }
-        catch (UnknownDBException e) {
+        catch (NoSuchObjectException e) {
             return ImmutableList.of();
         }
         catch (TException e) {
@@ -777,99 +778,6 @@ public final class ThriftHiveMetastore
                             return fromRolePrincipalGrants(client.listRoleGrants(principal.getName(), fromTrinoPrincipalType(principal.getType())));
                         }
                     }));
-        }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            throw propagate(e);
-        }
-    }
-
-    @Override
-    public List<String> getAllViews(String databaseName)
-    {
-        try {
-            return retry()
-                    .stopOn(UnknownDBException.class)
-                    .stopOnIllegalExceptions()
-                    .run("getAllViews", stats.getGetAllViews().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            if (translateHiveViews) {
-                                return client.getAllViews(databaseName);
-                            }
-                            return client.getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true");
-                        }
-                    }));
-        }
-        catch (UnknownDBException e) {
-            return ImmutableList.of();
-        }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            throw propagate(e);
-        }
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
-    {
-        if (!batchMetadataFetchEnabled) {
-            return Optional.empty();
-        }
-
-        try {
-            return retry()
-                    .stopOn(UnknownDBException.class)
-                    .stopOnIllegalExceptions()
-                    .run("getAllTables", stats.getGetAllTables().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return client.getAllTables();
-                        }
-                    }));
-        }
-        catch (TTransportException e) {
-            log.warn(e, "Failed to get all views");
-            // fallback in case of HMS error
-            return Optional.empty();
-        }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            throw propagate(e);
-        }
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-    {
-        // Without translateHiveViews, Hive views are represented as tables in Trino,
-        // and they should not be returned from ThriftHiveMetastore.getAllViews() call
-        if (!translateHiveViews) {
-            return Optional.empty();
-        }
-
-        if (!batchMetadataFetchEnabled) {
-            return Optional.empty();
-        }
-
-        try {
-            return retry()
-                    .stopOn(UnknownDBException.class)
-                    .stopOnIllegalExceptions()
-                    .run("getAllViews", stats.getGetAllViews().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return client.getAllViews();
-                        }
-                    }));
-        }
-        catch (TTransportException e) {
-            log.warn(e, "Failed to get all tables");
-            // fallback in case of HMS error
-            return Optional.empty();
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -1935,7 +1843,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public Optional<io.trino.hive.thrift.metastore.Function> getFunction(String databaseName, String functionName)
+    public Optional<Function> getFunction(String databaseName, String functionName)
     {
         try {
             return retry()
@@ -1983,7 +1891,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public void createFunction(io.trino.hive.thrift.metastore.Function function)
+    public void createFunction(Function function)
     {
         try {
             retry()
@@ -2008,7 +1916,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public void alterFunction(io.trino.hive.thrift.metastore.Function function)
+    public void alterFunction(Function function)
     {
         try {
             retry()

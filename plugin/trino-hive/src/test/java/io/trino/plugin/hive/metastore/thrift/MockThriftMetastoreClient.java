@@ -37,6 +37,7 @@ import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.SerDeInfo;
 import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.hive.thrift.metastore.Table;
+import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testng.services.ManageTestResources;
@@ -152,46 +153,17 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public List<String> getAllTables(String dbName)
+    public List<TableMeta> getTableMeta(Optional<String> databaseName)
+            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE)) {
+        if (!databaseName.orElse(TEST_DATABASE).equals(TEST_DATABASE)) {
             return ImmutableList.of(); // As specified by Hive specification
         }
-        return ImmutableList.of(TEST_TABLE);
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
-            throws TException
-    {
-        accessCount.incrementAndGet();
-        if (throwException) {
-            throw new RuntimeException();
-        }
-        return Optional.of(ImmutableList.of(new SchemaTableName(TEST_DATABASE, TEST_TABLE)));
-    }
-
-    @Override
-    public List<String> getAllViews(String databaseName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-            throws TException
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-    {
-        throw new UnsupportedOperationException();
+        return ImmutableList.of(new TableMeta(TEST_DATABASE, TEST_TABLE, MANAGED_TABLE.name()));
     }
 
     @Override

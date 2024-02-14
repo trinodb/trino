@@ -64,7 +64,6 @@ import io.trino.hive.thrift.metastore.UnlockRequest;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport;
-import io.trino.spi.connector.SchemaTableName;
 import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -78,7 +77,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.propagateIfPossible;
@@ -89,9 +87,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.hive.thrift.metastore.GrantRevokeType.GRANT;
 import static io.trino.hive.thrift.metastore.GrantRevokeType.REVOKE;
-import static io.trino.hive.thrift.metastore.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
-import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
-import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.NOT_SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.UNKNOWN;
@@ -106,9 +101,6 @@ public class ThriftHiveMetastoreClient
 {
     private static final Logger log = Logger.get(ThriftHiveMetastoreClient.class);
 
-    private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
-    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
-
     private final TransportSupplier transportSupplier;
     private TTransport transport;
     protected ThriftHiveMetastore.Iface client;
@@ -116,10 +108,6 @@ public class ThriftHiveMetastoreClient
 
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
     private final AtomicInteger chosenGetTableAlternative;
-    private final AtomicInteger chosenTableParamAlternative;
-    private final AtomicInteger chosenGetAllTablesAlternative;
-    private final AtomicInteger chosenGetAllViewsPerDatabaseAlternative;
-    private final AtomicInteger chosenGetAllViewsAlternative;
     private final AtomicInteger chosenAlterTransactionalTableAlternative;
     private final AtomicInteger chosenAlterPartitionsAlternative;
 
@@ -140,12 +128,8 @@ public class ThriftHiveMetastoreClient
         this.hostname = requireNonNull(hostname, "hostname is null");
         this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
         this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
-        this.chosenTableParamAlternative = requireNonNull(chosenTableParamAlternative, "chosenTableParamAlternative is null");
-        this.chosenGetAllViewsPerDatabaseAlternative = requireNonNull(chosenGetAllViewsPerDatabaseAlternative, "chosenGetAllViewsPerDatabaseAlternative is null");
         this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
         this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
-        this.chosenGetAllTablesAlternative = requireNonNull(chosenGetAllTablesAlternative, "chosenGetAllTablesAlternative is null");
-        this.chosenGetAllViewsAlternative = requireNonNull(chosenGetAllViewsAlternative, "chosenGetAllViewsAlternative is null");
 
         connect();
     }
@@ -187,80 +171,19 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<TableMeta> getTableMeta(Optional<String> databaseName)
             throws TException
     {
-        return client.getAllTables(databaseName);
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
-            throws TException
-    {
-        return alternativeCall(
-                exception -> !isUnknownMethodExceptionalResponse(exception),
-                chosenGetAllTablesAlternative,
-                // Empty table types argument (the 3rd one) means all types of tables
-                () -> getSchemaTableNames(client.getTableMeta("*", "*", ImmutableList.of())),
-                Optional::empty);
-    }
-
-    @Override
-    public List<String> getAllViews(String databaseName)
-            throws TException
-    {
-        return alternativeCall(
-                exception -> !isUnknownMethodExceptionalResponse(exception),
-                chosenGetAllViewsPerDatabaseAlternative,
-                () -> client.getTablesByType(databaseName, ".*", VIRTUAL_VIEW.name()),
-                // fallback to enumerating Presto views only (Hive views can still be executed, but will be listed as tables and not views)
-                () -> getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-            throws TException
-    {
-        return alternativeCall(
-                exception -> !isUnknownMethodExceptionalResponse(exception),
-                chosenGetAllViewsAlternative,
-                () -> getSchemaTableNames(client.getTableMeta("*", "*", ImmutableList.of(VIRTUAL_VIEW.name()))),
-                Optional::empty);
-    }
-
-    private static Optional<List<SchemaTableName>> getSchemaTableNames(List<TableMeta> tablesMetadata)
-    {
-        return Optional.of(tablesMetadata.stream()
-                .map(metadata -> new SchemaTableName(metadata.getDbName(), metadata.getTableName()))
-                .collect(toImmutableList()));
-    }
-
-    @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-            throws TException
-    {
-        checkArgument(TABLE_PARAMETER_SAFE_KEY_PATTERN.matcher(parameterKey).matches(), "Parameter key contains invalid characters: '%s'", parameterKey);
-        /*
-         * The parameter value is restricted to have only alphanumeric characters so that it's safe
-         * to be used against HMS. When using with a LIKE operator, the HMS may want the parameter
-         * value to follow a Java regex pattern or an SQL pattern. And it's hard to predict the
-         * HMS's behavior from outside. Also, by restricting parameter values, we avoid the problem
-         * of how to quote them when passing within the filter string.
-         */
-        checkArgument(TABLE_PARAMETER_SAFE_VALUE_PATTERN.matcher(parameterValue).matches(), "Parameter value contains invalid characters: '%s'", parameterValue);
-        /*
-         * Thrift call `get_table_names_by_filter` may be translated by Metastore to an SQL query against Metastore database.
-         * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
-         * CLOB values. At the same time, they allow `LIKE` predicates over them.
-         */
-        String filterWithEquals = HIVE_FILTER_FIELD_PARAMS + parameterKey + " = \"" + parameterValue + "\"";
-        String filterWithLike = HIVE_FILTER_FIELD_PARAMS + parameterKey + " LIKE \"" + parameterValue + "\"";
-
-        return alternativeCall(
-                ThriftHiveMetastoreClient::defaultIsValidExceptionalResponse,
-                chosenTableParamAlternative,
-                () -> client.getTableNamesByFilter(databaseName, filterWithEquals, (short) -1),
-                () -> client.getTableNamesByFilter(databaseName, filterWithLike, (short) -1));
+        if (databaseName.isPresent()) {
+            String name = databaseName.get();
+            if (name.indexOf('*') >= 0 || name.indexOf('|') >= 0) {
+                // in this case we replace any pipes with a glob and then filter the output
+                return client.getTableMeta(name.replace('|', '*'), "*", ImmutableList.of()).stream()
+                        .filter(tableMeta -> tableMeta.getDbName().equals(name))
+                        .collect(toImmutableList());
+            }
+        }
+        return client.getTableMeta(databaseName.orElse("*"), "*", ImmutableList.of());
     }
 
     @Override
