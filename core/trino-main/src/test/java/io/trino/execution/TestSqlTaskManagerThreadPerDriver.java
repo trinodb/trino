@@ -31,6 +31,8 @@ public class TestSqlTaskManagerThreadPerDriver
                 Tracing.noopTracer(),
                 testingVersionEmbedder(),
                 new FairScheduler(8, "Runner-%d", Ticker.systemTicker()),
-                Integer.MAX_VALUE);
+                1,
+                Integer.MAX_VALUE,
+                8);
     }
 }
