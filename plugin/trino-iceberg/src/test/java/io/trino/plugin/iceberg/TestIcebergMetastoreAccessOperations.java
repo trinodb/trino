@@ -34,7 +34,6 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES_WITH_PARAMETER;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
@@ -376,7 +375,6 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLES)
                         .addCopies(GET_TABLE, tables * 2)
-                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
                         .build());
 
         // Pointed lookup
@@ -422,14 +420,12 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLES)
                         .addCopies(GET_TABLE, tables * 2)
-                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
                         .build());
 
         // Bulk retrieval for two schemas
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent') AND table_name LIKE 'test_select_s_m_t_comments%'",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLES, 2)
-                        .addCopies(GET_TABLES_WITH_PARAMETER, 4)
                         .addCopies(GET_TABLE, tables * 2)
                         .build());
 
@@ -475,21 +471,21 @@ public class TestIcebergMetastoreAccessOperations
         // Bulk retrieval
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_TABLES_WITH_PARAMETER)
+                        .add(GET_TABLES)
                         .addCopies(GET_TABLE, 4)
                         .build());
 
         // Bulk retrieval without selecting freshness
         assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_TABLES_WITH_PARAMETER)
+                        .add(GET_TABLES)
                         .addCopies(GET_TABLE, 2)
                         .build());
 
         // Bulk retrieval for two schemas
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent')",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
+                        .addCopies(GET_TABLES, 2)
                         .addCopies(GET_TABLE, 4)
                         .build());
 

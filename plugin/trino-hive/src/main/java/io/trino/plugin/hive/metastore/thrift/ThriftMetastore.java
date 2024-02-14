@@ -18,6 +18,7 @@ import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.FieldSchema;
 import io.trino.hive.thrift.metastore.Partition;
 import io.trino.hive.thrift.metastore.Table;
+import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
@@ -64,15 +65,9 @@ public sealed interface ThriftMetastore
 
     List<String> getAllDatabases();
 
-    List<String> getAllTables(String databaseName);
+    Optional<List<TableMeta>> getAllTables();
 
-    Optional<List<SchemaTableName>> getAllTables();
-
-    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
-
-    List<String> getAllViews(String databaseName);
-
-    Optional<List<SchemaTableName>> getAllViews();
+    List<TableMeta> getTables(String databaseName);
 
     Optional<Database> getDatabase(String databaseName);
 

@@ -31,7 +31,7 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.connector.RelationType;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.filterKeys;
 import static com.google.common.collect.Maps.transformValues;
@@ -132,34 +133,23 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public List<String> getTables(String databaseName)
+    public Optional<List<TableInfo>> getAllTables()
     {
-        return recording.getAllTables(databaseName, () -> delegate.getTables(databaseName));
+        // no point implementing give statistics recording is broken anyway
+        throw new RuntimeException("not supported");
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<TableInfo> getTables(String databaseName)
     {
-        TablesWithParameterCacheKey key = new TablesWithParameterCacheKey(databaseName, parameterKey, parameterValue);
-        return recording.getTablesWithParameter(key, () -> delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue));
-    }
-
-    @Override
-    public List<String> getViews(String databaseName)
-    {
-        return recording.getAllViews(databaseName, () -> delegate.getViews(databaseName));
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
-    {
-        return recording.getAllTables(delegate::getAllTables);
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-    {
-        return recording.getAllViews(delegate::getAllViews);
+        return recording.getAllTables(
+                databaseName,
+                () -> {
+                    throw new RuntimeException("recording tables not supported");
+                })
+                .stream()
+                .map(name -> new TableInfo(new SchemaTableName(databaseName, name), TableInfo.ExtendedRelationType.TABLE))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -412,18 +402,6 @@ public class RecordingHiveMetastore
         return recording.listRoleGrants(
                 principal,
                 () -> delegate.listRoleGrants(principal));
-    }
-
-    @Override
-    public Map<String, RelationType> getRelationTypes(String databaseName)
-    {
-        return delegate.getRelationTypes(databaseName);
-    }
-
-    @Override
-    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
-    {
-        return delegate.getAllRelationTypes();
     }
 
     private void verifyRecordingMode()

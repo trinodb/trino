@@ -21,7 +21,6 @@ import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -72,31 +71,9 @@ public interface HiveMetastore
 
     void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates);
 
-    List<String> getTables(String databaseName);
+    Optional<List<TableInfo>> getAllTables();
 
-    /**
-     * @return List of tables, views and materialized views names from all schemas or {@code Optional.empty} if operation is not supported
-     */
-    Optional<List<SchemaTableName>> getAllTables();
-
-    Map<String, RelationType> getRelationTypes(String databaseName);
-
-    /**
-     * @return empty if operation is not supported
-     */
-    Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes();
-
-    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
-
-    /**
-     * Lists views and materialized views from the given database.
-     */
-    List<String> getViews(String databaseName);
-
-    /**
-     * @return List of views including materialized views names from all schemas or {@code Optional.empty} if operation is not supported
-     */
-    Optional<List<SchemaTableName>> getAllViews();
+    List<TableInfo> getTables(String databaseName);
 
     void createDatabase(Database database);
 

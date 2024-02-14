@@ -17,8 +17,6 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.spi.connector.RelationType;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
@@ -83,43 +81,13 @@ public class UnimplementedHiveMetastore
     }
 
     @Override
-    public List<String> getTables(String databaseName)
+    public List<TableInfo> getTables(String databaseName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Optional<List<SchemaTableName>> getAllTables()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Map<String, RelationType> getRelationTypes(String databaseName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<String> getViews(String databaseName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
+    public Optional<List<TableInfo>> getAllTables()
     {
         throw new UnsupportedOperationException();
     }

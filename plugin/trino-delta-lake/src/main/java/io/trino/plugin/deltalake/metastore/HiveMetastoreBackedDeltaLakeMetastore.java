@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
@@ -59,10 +60,9 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     @Override
     public List<String> getAllTables(String databaseName)
     {
-        // it would be nice to filter out non-Delta tables; however, we can not call
-        // metastore.getTablesWithParameter(schema, TABLE_PROVIDER_PROP, TABLE_PROVIDER_VALUE), because that property
-        // contains a dot and must be compared case-insensitive
-        return delegate.getTables(databaseName);
+        return delegate.getTables(databaseName).stream()
+                .map(tableInfo -> tableInfo.tableName().getTableName())
+                .collect(toImmutableList());
     }
 
     @Override

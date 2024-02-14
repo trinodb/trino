@@ -243,37 +243,16 @@ public class SharedHiveMetastoreCache
 
         @Managed
         @Nested
-        public AggregateCacheStatsMBean getTableNamesStats()
+        public AggregateCacheStatsMBean getTablesStats()
         {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTableNamesCache);
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTablesCacheNew);
         }
 
         @Managed
         @Nested
-        public AggregateCacheStatsMBean getAllTableNamesStats()
+        public AggregateCacheStatsMBean getAllTablesStats()
         {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllTableNamesCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getRelationTypesStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getRelationTypesCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getAllRelationTypesStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllRelationTypesCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getTableWithParameterStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTablesWithParameterCache);
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllTablesCacheNew);
         }
 
         @Managed
@@ -288,20 +267,6 @@ public class SharedHiveMetastoreCache
         public AggregateCacheStatsMBean getPartitionStatisticsStats()
         {
             return new AggregateCacheStatsMBean(CachingHiveMetastore::getPartitionStatisticsCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getViewNamesStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getViewNamesCache);
-        }
-
-        @Managed
-        @Nested
-        public AggregateCacheStatsMBean getAllViewNamesStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllViewNamesCache);
         }
 
         @Managed
