@@ -40,7 +40,6 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableType;
-import io.trino.plugin.hive.ViewReaderUtil;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -53,10 +52,10 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -84,7 +83,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -166,7 +164,7 @@ public class FileHiveMetastore
     private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
 
     // TODO Remove this speed-up workaround once that https://github.com/trinodb/trino/issues/13115 gets implemented
-    private final LoadingCache<String, List<String>> listTablesCache;
+    private final LoadingCache<String, List<TableInfo>> listTablesCache;
 
     public FileHiveMetastore(NodeVersion nodeVersion, TrinoFileSystemFactory fileSystemFactory, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {
@@ -228,7 +226,7 @@ public class FileHiveMetastore
         databaseName = databaseName.toLowerCase(ENGLISH);
 
         getRequiredDatabase(databaseName);
-        if (!getTables(databaseName).isEmpty()) {
+        if (!listAllTables(databaseName).isEmpty()) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
@@ -523,61 +521,25 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getTables(String databaseName)
-    {
-        return listAllTables(databaseName).stream()
-                .filter(hideDeltaLakeTables
-                        ? Predicate.not(ImmutableSet.copyOf(getTablesWithParameter(databaseName, SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER))::contains)
-                        : tableName -> true)
-                .collect(toImmutableList());
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<TableInfo>> getAllTables()
     {
         return Optional.empty();
     }
 
     @Override
-    public synchronized Map<String, RelationType> getRelationTypes(String databaseName)
+    public List<TableInfo> getTables(String databaseName)
     {
-        ImmutableMap.Builder<String, RelationType> relationTypes = ImmutableMap.builder();
-        getTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
-        getViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
-        return relationTypes.buildKeepingLast();
-    }
-
-    @Override
-    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-    {
-        requireNonNull(parameterKey, "parameterKey is null");
-        requireNonNull(parameterValue, "parameterValue is null");
-
-        List<String> tables = listAllTables(databaseName);
-
-        return tables.stream()
-                .map(tableName -> getTable(databaseName, tableName))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .filter(table -> parameterValue.equals(table.getParameters().get(parameterKey)))
-                .map(Table::getTableName)
-                .collect(toImmutableList());
+        return listAllTables(databaseName);
     }
 
     @GuardedBy("this")
-    private List<String> listAllTables(String databaseName)
+    private List<TableInfo> listAllTables(String databaseName)
     {
         return listTablesCache.getUnchecked(databaseName);
     }
 
     @GuardedBy("this")
-    private List<String> doListAllTables(String databaseName)
+    private List<TableInfo> doListAllTables(String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
 
@@ -592,14 +554,23 @@ public class FileHiveMetastore
             if (!prefix.endsWith("/")) {
                 prefix += "/";
             }
-            Set<String> tables = new HashSet<>();
+            Set<TableInfo> tables = new HashSet<>();
 
             for (Location subdirectory : fileSystem.listDirectories(metadataDirectory)) {
                 String locationString = subdirectory.toString();
                 verify(locationString.startsWith(prefix) && locationString.endsWith("/"), "Unexpected subdirectory %s when listing %s", subdirectory, metadataDirectory);
-                if (fileSystem.newInputFile(subdirectory.appendPath(TRINO_SCHEMA_FILE_NAME_SUFFIX)).exists()) {
-                    tables.add(locationString.substring(prefix.length(), locationString.length() - 1));
-                }
+
+                String tableName = locationString.substring(prefix.length(), locationString.length() - 1);
+                Location schemaFileLocation = subdirectory.appendPath(TRINO_SCHEMA_FILE_NAME_SUFFIX);
+                readFile("table schema", schemaFileLocation, tableCodec).ifPresent(tableMetadata -> {
+                    checkVersion(tableMetadata.getWriterVersion());
+                    if (hideDeltaLakeTables && DELTA_LAKE_PROVIDER.equals(tableMetadata.getParameters().get(SPARK_TABLE_PROVIDER_KEY))) {
+                        return;
+                    }
+                    tables.add(new TableInfo(
+                            new SchemaTableName(databaseName, tableName),
+                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(tableMetadata.getTableType(), tableMetadata.getParameters().get(TABLE_COMMENT))));
+                });
             }
 
             return ImmutableList.copyOf(tables);
@@ -607,24 +578,6 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
-    }
-
-    @Override
-    public synchronized List<String> getViews(String databaseName)
-    {
-        return getTables(databaseName).stream()
-                .map(tableName -> getTable(databaseName, tableName))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .filter(ViewReaderUtil::isSomeKindOfAView)
-                .map(Table::getTableName)
-                .collect(toImmutableList());
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-    {
-        return Optional.empty();
     }
 
     @Override

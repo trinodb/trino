@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.HiveConfig;
-import io.trino.spi.connector.SchemaTableName;
+import io.trino.hive.thrift.metastore.TableMeta;
+import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransportException;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +31,6 @@ public class TestHiveWithDisabledBatchFetch
     {
         ThriftMetastore thriftMetastore = prepareThriftMetastore(true);
         assertThat(thriftMetastore.getAllTables()).isPresent();
-        assertThat(thriftMetastore.getAllViews()).isPresent();
     }
 
     @Test
@@ -40,7 +38,6 @@ public class TestHiveWithDisabledBatchFetch
     {
         ThriftMetastore thriftMetastore = prepareThriftMetastore(false);
         assertThat(thriftMetastore.getAllTables()).isEmpty();
-        assertThat(thriftMetastore.getAllViews()).isEmpty();
     }
 
     @Test
@@ -49,38 +46,17 @@ public class TestHiveWithDisabledBatchFetch
         ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder()
                 .thriftMetastoreConfig(new ThriftMetastoreConfig().setBatchMetadataFetchEnabled(true))
                 .metastoreClient(createFailingMetastoreClient())
-                .hiveConfig(new HiveConfig().setTranslateHiveViews(true))
                 .build();
 
         assertThat(thriftMetastore.getAllTables()).isEmpty();
-        assertThat(thriftMetastore.getAllViews()).isEmpty();
     }
 
     private static ThriftMetastore prepareThriftMetastore(boolean enabled)
     {
         return testingThriftHiveMetastoreBuilder()
                 .thriftMetastoreConfig(new ThriftMetastoreConfig().setBatchMetadataFetchEnabled(enabled))
-                .metastoreClient(createFakeMetastoreClient())
-                .hiveConfig(new HiveConfig().setTranslateHiveViews(true))
+                .metastoreClient(new MockThriftMetastoreClient())
                 .build();
-    }
-
-    private static ThriftMetastoreClient createFakeMetastoreClient()
-    {
-        return new MockThriftMetastoreClient()
-        {
-            @Override
-            public Optional<List<SchemaTableName>> getAllTables()
-            {
-                return Optional.of(ImmutableList.of(new SchemaTableName("test_schema", "test_table")));
-            }
-
-            @Override
-            public Optional<List<SchemaTableName>> getAllViews()
-            {
-                return Optional.of(ImmutableList.of(new SchemaTableName("test_schema", "test_view")));
-            }
-        };
     }
 
     private static ThriftMetastoreClient createFailingMetastoreClient()
@@ -88,15 +64,8 @@ public class TestHiveWithDisabledBatchFetch
         return new MockThriftMetastoreClient()
         {
             @Override
-            public Optional<List<SchemaTableName>> getAllTables()
-                    throws TTransportException
-            {
-                throw new TTransportException();
-            }
-
-            @Override
-            public Optional<List<SchemaTableName>> getAllViews()
-                    throws TTransportException
+            public List<TableMeta> getTableMeta(Optional<String> databaseName)
+                    throws TException
             {
                 throw new TTransportException();
             }

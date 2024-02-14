@@ -23,7 +23,7 @@ import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_VIEWS;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_TABLE_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.fromMethodName;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
@@ -35,7 +35,7 @@ class TestMetastoreMethod
     @Test
     void testFromMethodName()
     {
-        assertThat(fromMethodName("getAllViews")).isEqualTo(GET_ALL_VIEWS);
+        assertThat(fromMethodName("updateTableStatistics")).isEqualTo(UPDATE_TABLE_STATISTICS);
         assertThat(fromMethodName("dropTable")).isEqualTo(DROP_TABLE);
     }
 

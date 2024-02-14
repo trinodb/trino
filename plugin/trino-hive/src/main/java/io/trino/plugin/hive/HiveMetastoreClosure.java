@@ -28,9 +28,9 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.LanguageFunction;
@@ -119,34 +119,14 @@ public class HiveMetastoreClosure
         delegate.updatePartitionStatistics(table, mode, partitionUpdates);
     }
 
-    public List<String> getTables(String databaseName)
-    {
-        return delegate.getTables(databaseName);
-    }
-
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<TableInfo>> getTables()
     {
         return delegate.getAllTables();
     }
 
-    public Map<String, RelationType> getRelationTypes(String databaseName)
+    public List<TableInfo> getTables(String databaseName)
     {
-        return delegate.getRelationTypes(databaseName);
-    }
-
-    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
-    {
-        return delegate.getAllRelationTypes();
-    }
-
-    public List<String> getViews(String databaseName)
-    {
-        return delegate.getViews(databaseName);
-    }
-
-    public Optional<List<SchemaTableName>> getAllViews()
-    {
-        return delegate.getAllViews();
+        return delegate.getTables(databaseName);
     }
 
     public void createDatabase(Database database)

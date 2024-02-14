@@ -40,7 +40,6 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 public final class TestingThriftHiveMetastoreBuilder
 {
     private TokenAwareMetastoreClientFactory tokenAwareMetastoreClientFactory;
-    private HiveConfig hiveConfig = new HiveConfig();
     private ThriftMetastoreConfig thriftMetastoreConfig = new ThriftMetastoreConfig();
     private TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
 
@@ -84,12 +83,6 @@ public final class TestingThriftHiveMetastoreBuilder
         return this;
     }
 
-    public TestingThriftHiveMetastoreBuilder hiveConfig(HiveConfig hiveConfig)
-    {
-        this.hiveConfig = requireNonNull(hiveConfig, "hiveConfig is null");
-        return this;
-    }
-
     public TestingThriftHiveMetastoreBuilder thriftMetastoreConfig(ThriftMetastoreConfig thriftMetastoreConfig)
     {
         this.thriftMetastoreConfig = requireNonNull(thriftMetastoreConfig, "thriftMetastoreConfig is null");
@@ -108,7 +101,6 @@ public final class TestingThriftHiveMetastoreBuilder
         ThriftHiveMetastoreFactory metastoreFactory = new ThriftHiveMetastoreFactory(
                 new UgiBasedMetastoreClientFactory(tokenAwareMetastoreClientFactory, SIMPLE_USER_NAME_PROVIDER, thriftMetastoreConfig),
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
-                hiveConfig.isTranslateHiveViews(),
                 thriftMetastoreConfig,
                 fileSystemFactory,
                 newFixedThreadPool(thriftMetastoreConfig.getWriteStatisticsThreads()));
