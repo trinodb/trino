@@ -1312,7 +1312,7 @@ public class IcebergPageSourceProvider
             return new ReaderPageSourceWithRowPositions(
                     new ReaderPageSource(
                             constantPopulatingPageSourceBuilder.build(new IcebergAvroPageSource(
-                            file,
+                                    file,
                                     start,
                                     length,
                                     fileSchema,
