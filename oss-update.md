@@ -75,7 +75,7 @@ The PR will serve as a place to store Action items that may occur during the cod
 
 ```shell
 git checkout -b "update/cork/trino-${NEW}" "origin/master" &&
-git commit --allow-empty --only -m "Empty placeholder commit for update to ${NEW}" `# this will disappear when merging the PR` &&
+git commit --allow-empty --only -m "Empty placeholder commit for update to ${NEW}" `# this commit will be replaced later` &&
 git push origin "update/cork/trino-${NEW}" -u &&
 open "https://github.com/starburstdata/cork/compare/update/cork/trino-${NEW}?expand=1&title=Update+to+Trino+${NEW}&body=$(
 python3 -c 'import urllib.parse, sys; print(urllib.parse.quote(sys.stdin.read()))' <<EOF
