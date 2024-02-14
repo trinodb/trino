@@ -25,7 +25,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
-import org.apache.accumulo.core.client.Connector;
+import org.apache.accumulo.core.client.AccumuloClient;
 
 import java.util.List;
 
@@ -41,15 +41,15 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final Connector connector;
+    private final AccumuloClient client;
     private final String username;
 
     @Inject
     public AccumuloRecordSetProvider(
-            Connector connector,
+            AccumuloClient client,
             AccumuloConfig config)
     {
-        this.connector = requireNonNull(connector, "connector is null");
+        this.client = requireNonNull(client, "client is null");
         this.username = config.getUsername();
     }
 
@@ -63,6 +63,6 @@ public class AccumuloRecordSetProvider
                 .map(AccumuloColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        return new AccumuloRecordSet(connector, session, accSplit, username, accTable, accColumns);
+        return new AccumuloRecordSet(client, session, accSplit, username, accTable, accColumns);
     }
 }
