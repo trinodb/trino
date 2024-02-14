@@ -117,6 +117,7 @@ public final class Standard
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
+        builder.addStartupLogs(() -> "Trino running with JDK: " + jdkProvider.getDescription());
         if (tracing) {
             DockerContainer tracingContainer = createTracingCollector();
             builder.addContainer(tracingContainer);
