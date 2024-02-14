@@ -158,10 +158,11 @@ public class AlluxioInputStream
         }
         externalStream.seek(aligned.pageStart());
         byte[] readBuffer = new byte[aligned.length()];
-        int externalBytesRead = externalStream.read(readBuffer, 0, aligned.length());
+        int externalBytesRead = externalStream.readNBytes(readBuffer, 0, aligned.length());
         if (externalBytesRead < 0) {
             throw new IOException("Unexpected end of stream");
         }
+        verify(aligned.length() == externalBytesRead, "invalid number of external bytes read");
         helper.putCache(aligned.pageStart(), aligned.pageEnd(), readBuffer, externalBytesRead);
         int bytesToCopy = min(length, max(externalBytesRead - aligned.pageOffset(), 0));
         System.arraycopy(readBuffer, aligned.pageOffset(), buffer, offset, bytesToCopy);
