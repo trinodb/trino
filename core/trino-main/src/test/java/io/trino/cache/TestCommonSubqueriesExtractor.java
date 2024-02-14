@@ -123,7 +123,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.symbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -332,7 +331,7 @@ public class TestCommonSubqueriesExtractor
                 ImmutableMap.of(
                         Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY")))),
                 Optional.empty(),
-                PARTIAL,
+                AggregationNode.Step.PARTIAL,
                 identityProject(
                         filter("(REGIONKEY > BIGINT '10')",
                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
@@ -418,7 +417,7 @@ public class TestCommonSubqueriesExtractor
                 globalAggregation(),
                 ImmutableMap.of(Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY")))),
                 Optional.empty(),
-                PARTIAL,
+                AggregationNode.Step.PARTIAL,
                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey")));
 
         SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
@@ -472,7 +471,7 @@ public class TestCommonSubqueriesExtractor
                 ImmutableList.of(),
                 ImmutableList.of("MASK"),
                 Optional.empty(),
-                PARTIAL,
+                AggregationNode.Step.PARTIAL,
                 project(ImmutableMap.of(
                                 "MULTIPLICATION", PlanMatchPattern.expression("NATIONKEY * BIGINT '2'"),
                                 "MASK", PlanMatchPattern.expression("NATIONKEY > BIGINT '10'")),
@@ -542,7 +541,7 @@ public class TestCommonSubqueriesExtractor
                 singleGroupingSet("MULTIPLICATION"),
                 ImmutableMap.of(Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY")))),
                 Optional.empty(),
-                PARTIAL,
+                AggregationNode.Step.PARTIAL,
                 project(ImmutableMap.of(
                                 "MULTIPLICATION", PlanMatchPattern.expression("REGIONKEY * BIGINT '2'")),
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey"))));
@@ -602,7 +601,7 @@ public class TestCommonSubqueriesExtractor
                         Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY"))),
                         Optional.of("MAX"), functionCall("max", false, ImmutableList.of(symbol("NATIONKEY")))),
                 Optional.empty(),
-                PARTIAL,
+                AggregationNode.Step.PARTIAL,
                 filter("(NATIONKEY > BIGINT '10') AND ((REGIONKEY > BIGINT '10') OR (REGIONKEY < BIGINT '5'))",
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey", "NAME", "name"))));
 
@@ -662,7 +661,7 @@ public class TestCommonSubqueriesExtractor
                 ImmutableMap.of(
                         Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("EXPR")))),
                 Optional.empty(),
-                PARTIAL,
+                AggregationNode.Step.PARTIAL,
                 strictProject(ImmutableMap.of(
                                 "NAME", PlanMatchPattern.expression("NAME"),
                                 "REGIONKEY", PlanMatchPattern.expression("REGIONKEY"),
