@@ -170,8 +170,6 @@ public class SemiTransactionalHiveMetastore
     private final Optional<Duration> configuredTransactionHeartbeatInterval;
     private final TableInvalidationCallback tableInvalidationCallback;
 
-    private boolean throwOnCleanupFailure;
-
     @GuardedBy("this")
     private final Map<SchemaTableName, Action<TableAndMore>> tableActions = new HashMap<>();
     @GuardedBy("this")
@@ -2476,12 +2474,6 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    @VisibleForTesting
-    public void testOnlyThrowOnCleanupFailures()
-    {
-        throwOnCleanupFailure = true;
-    }
-
     @GuardedBy("this")
     private void checkReadable()
     {
@@ -2531,20 +2523,14 @@ public class SemiTransactionalHiveMetastore
     }
 
     @FormatMethod
-    private void logCleanupFailure(String format, Object... args)
+    private static void logCleanupFailure(String format, Object... args)
     {
-        if (throwOnCleanupFailure) {
-            throw new RuntimeException(format(format, args));
-        }
         log.warn(format, args);
     }
 
     @FormatMethod
-    private void logCleanupFailure(Throwable t, String format, Object... args)
+    private static void logCleanupFailure(Throwable t, String format, Object... args)
     {
-        if (throwOnCleanupFailure) {
-            throw new RuntimeException(format(format, args), t);
-        }
         log.warn(t, format, args);
     }
 
