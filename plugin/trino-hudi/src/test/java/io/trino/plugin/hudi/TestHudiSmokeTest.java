@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -32,6 +33,8 @@ import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.Testing
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR_EXCEPTION_TEST;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiSmokeTest
@@ -63,6 +66,13 @@ public class TestHudiSmokeTest
 
         assertQuery("SELECT dt, count(1) FROM " + STOCK_TICKS_MOR + " GROUP BY dt",
                 "SELECT * FROM VALUES ('2018-08-31', '99')");
+    }
+
+    @Test
+    public void testIfExceptionIsThrownProperly()
+    {
+        assertQueryFailsEventually("SELECT dt, count(1) FROM " + STOCK_TICKS_MOR_EXCEPTION_TEST + " GROUP BY dt",
+                "Failed to generate splits for stock_ticks_mor_exception_test", new Duration(1, MINUTES));
     }
 
     @Test
