@@ -19,7 +19,6 @@ import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.cache.CacheFileSystem;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
@@ -47,7 +46,10 @@ public class TestFuzzAlluxioCacheFileSystem
     public void testFuzzTrinoInputReadFully()
             throws IOException
     {
-        fuzzTrinoInputOperation((fs, l) -> fs.newInputFile(l).newInput(), TrinoInput::readFully);
+        fuzzTrinoInputOperation((fs, l) -> fs.newInputFile(l).newInput(), (trinoInput, position, buffer, bufferOffset, bufferLength) -> {
+            trinoInput.readFully(position, buffer, bufferOffset, bufferLength);
+            return bufferLength - bufferOffset;
+        });
     }
 
     @Test
@@ -63,7 +65,17 @@ public class TestFuzzAlluxioCacheFileSystem
     {
         fuzzTrinoInputOperation((fs, l) -> fs.newInputFile(l).newStream(), (input, position, buffer, bufferOffset, bufferLength) -> {
             input.seek(position);
-            input.read(buffer, bufferOffset, bufferLength);
+            return input.read(buffer, bufferOffset, bufferLength);
+        });
+    }
+
+    @Test
+    public void testFuzzTrinoInputStreamReadSkip()
+            throws IOException
+    {
+        fuzzTrinoInputOperation((fs, l) -> fs.newInputFile(l).newStream(), (input, position, buffer, bufferOffset, bufferLength) -> {
+            input.skip(position);
+            return input.read(buffer, bufferOffset, bufferLength);
         });
     }
 
@@ -104,9 +116,10 @@ public class TestFuzzAlluxioCacheFileSystem
         byte[] bufferExpected = new byte[bufferSize];
         byte[] bufferActual = new byte[bufferSize];
 
-        operation.apply(expectedInput, position, bufferExpected, bufferOffset, length);
-        operation.apply(actualInput, position, bufferActual, bufferOffset, length);
+        int expectedBytesRead = operation.apply(expectedInput, position, bufferExpected, bufferOffset, length);
+        int actualBytesRead = operation.apply(actualInput, position, bufferActual, bufferOffset, length);
 
+        assertEquals(expectedBytesRead, actualBytesRead);
         assertEquals(Slices.wrappedBuffer(bufferExpected), Slices.wrappedBuffer(bufferActual));
     }
 
@@ -191,7 +204,7 @@ public class TestFuzzAlluxioCacheFileSystem
 
     private interface TrinoInputOperation<T>
     {
-        void apply(T input, long position, byte[] buffer, int bufferOffset, int bufferLength)
+        int apply(T input, long position, byte[] buffer, int bufferOffset, int bufferLength)
                 throws IOException;
     }
 

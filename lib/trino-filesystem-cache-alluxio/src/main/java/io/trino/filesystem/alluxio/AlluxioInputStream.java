@@ -113,6 +113,9 @@ public class AlluxioInputStream
         ensureOpen();
 
         checkFromIndexSize(offset, length, bytes.length);
+        if (length == 0) {
+            return 0;
+        }
         if (position >= fileLength) {
             return -1;
         }
