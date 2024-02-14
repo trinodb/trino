@@ -50,7 +50,7 @@ public class Suite5
                         .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_IMPERSONATION, AUTHORIZATION)
                         .build(),
                 testOnEnvironment(EnvMultinodeHiveCaching.class)
-                        .withGroups(CONFIGURED_FEATURES, HIVE_ALLUXIO_CACHING)
+                        .withGroups(CONFIGURED_FEATURES, HIVE_ALLUXIO_CACHING, STORAGE_FORMATS)
                         .withExcludedGroups(ICEBERG)
                         .build());
     }
