@@ -473,7 +473,7 @@ public final class CommonSubqueriesExtractor
             List<CanonicalSubplan> subplans,
             Expression commonPredicate,
             Set<Expression> intersectingConjuncts,
-            Optional<Set<CacheColumnId>> groupByColumns,
+            Optional<Set<CacheColumnId>> pullupColumns,
             Optional<List<CommonPlanAdaptation>> childAdaptations)
     {
         // Extract common projections. Common (cached) subquery must contain projections from all subqueries.
@@ -495,7 +495,7 @@ public final class CommonSubqueriesExtractor
                 .flatMap(Collection::stream)
                 .distinct()
                 .collect(toImmutableMap(CanonicalSubplanExtractor::canonicalSymbolToColumnId, Symbol::toSymbolReference));
-        groupByColumns.ifPresent(columns -> checkState(columns.containsAll(propagatedSymbols.keySet()), "group by columns don't contain all propagated symbols"));
+        pullupColumns.ifPresent(columns -> checkState(columns.containsAll(propagatedSymbols.keySet()), "pullup columns don't contain all propagated symbols"));
         return Streams.concat(commonProjections.entrySet().stream(), propagatedSymbols.entrySet().stream())
                 .distinct()
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
