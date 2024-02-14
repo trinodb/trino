@@ -34,7 +34,7 @@ public class TestingKuduServer
 {
     private static final String KUDU_IMAGE = "apache/kudu";
     public static final String EARLIEST_TAG = "1.13.0";
-    public static final String LATEST_TAG = "1.15.0";
+    public static final String LATEST_TAG = "1.17";
 
     private static final Integer KUDU_MASTER_PORT = 7051;
     private static final Integer KUDU_TSERVER_PORT = 7050;
@@ -68,14 +68,11 @@ public class TestingKuduServer
     public TestingKuduServer(String kuduVersion, List<String> extraTServerArgs)
     {
         network = Network.newNetwork();
-
-        String hostIP = getHostIPAddress();
-
         String masterContainerAlias = "kudu-master";
         this.master = new GenericContainer<>(format("%s:%s", KUDU_IMAGE, kuduVersion))
                 .withExposedPorts(KUDU_MASTER_PORT)
                 .withCommand("master")
-                .withEnv("MASTER_ARGS", "--default_num_replicas=1")
+                .withEnv("MASTER_ARGS", "--default_num_replicas=1 --unlock_unsafe_flags --use_hybrid_clock=false")
                 .withNetwork(network)
                 .withNetworkAliases(masterContainerAlias);
 
@@ -86,8 +83,8 @@ public class TestingKuduServer
 
         String instanceName = "kudu-tserver";
         ToxiproxyContainer.ContainerProxy proxy = toxiProxy.getProxy(instanceName, KUDU_TSERVER_PORT);
-        String tServerArgs = "--fs_wal_dir=/var/lib/kudu/tserver --logtostderr --use_hybrid_clock=false --rpc_bind_addresses=%s:%s --rpc_advertised_addresses=%s:%s %s"
-                .formatted(instanceName, KUDU_TSERVER_PORT, hostIP, proxy.getProxyPort(), String.join(" ", extraTServerArgs));
+        String tServerArgs = "--fs_wal_dir=/var/lib/kudu/tserver --logtostderr --use_hybrid_clock=false --unlock_unsafe_flags --rpc_bind_addresses=%s:%s --rpc_advertised_addresses=%s:%s %s"
+                .formatted(instanceName, KUDU_TSERVER_PORT, TOXIPROXY_NETWORK_ALIAS, proxy.getOriginalProxyPort(), String.join(" ", extraTServerArgs));
         tabletServer = new GenericContainer<>(format("%s:%s", KUDU_IMAGE, kuduVersion))
                 .withExposedPorts(KUDU_TSERVER_PORT)
                 .withCommand("tserver")
