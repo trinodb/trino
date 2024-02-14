@@ -17,30 +17,46 @@ import alluxio.client.file.cache.CacheManager;
 import alluxio.conf.AlluxioProperties;
 import alluxio.conf.InstancedConfiguration;
 import com.google.inject.Inject;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
+import io.trino.filesystem.cache.AllowFilesystemCacheOnCoordinator;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 
 import java.io.IOException;
+import java.util.Optional;
 
 /**
- * Used to skip caching data on coordinator while still registering alluxio metrics so
- * that JMX queries for metrics can succeed on the coordinator
+ * When AllowFilesystemCacheOnCoordinator is disabled, used to skip caching data on coordinator
+ * while still registering alluxio metrics so that JMX queries for metrics can succeed on the coordinator.
  */
-public class AlluxioCoordinatorNoOpFileSystemCache
+public class AlluxioCoordinatorFileSystemCache
         implements TrinoFileSystemCache
 {
+    private final Optional<AlluxioFileSystemCache> alluxioFileSystemCache;
+
     @Inject
-    public AlluxioCoordinatorNoOpFileSystemCache()
+    public AlluxioCoordinatorFileSystemCache(
+            @AllowFilesystemCacheOnCoordinator boolean allowFilesystemCacheOnCoordinator,
+            Tracer tracer,
+            AlluxioFileSystemCacheConfig config,
+            AlluxioCacheStats statistics)
+            throws IOException
     {
-        try {
-            CacheManager cacheManager = CacheManager.Factory.create(new InstancedConfiguration(new AlluxioProperties()));
-            cacheManager.close();
+        if (allowFilesystemCacheOnCoordinator) {
+            alluxioFileSystemCache = Optional.of(new AlluxioFileSystemCache(tracer, config, statistics));
         }
-        catch (Exception e) {
-            throw new RuntimeException(e);
+        else {
+            alluxioFileSystemCache = Optional.empty();
+            try {
+                CacheManager cacheManager = CacheManager.Factory.create(new InstancedConfiguration(new AlluxioProperties()));
+                cacheManager.close();
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -48,6 +64,9 @@ public class AlluxioCoordinatorNoOpFileSystemCache
     public TrinoInput cacheInput(TrinoInputFile delegate, String key)
             throws IOException
     {
+        if (alluxioFileSystemCache.isPresent()) {
+            return alluxioFileSystemCache.get().cacheInput(delegate, key);
+        }
         return delegate.newInput();
     }
 
@@ -55,6 +74,9 @@ public class AlluxioCoordinatorNoOpFileSystemCache
     public TrinoInputStream cacheStream(TrinoInputFile delegate, String key)
             throws IOException
     {
+        if (alluxioFileSystemCache.isPresent()) {
+            return alluxioFileSystemCache.get().cacheStream(delegate, key);
+        }
         return delegate.newStream();
     }
 
