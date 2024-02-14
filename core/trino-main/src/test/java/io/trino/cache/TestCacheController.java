@@ -21,24 +21,27 @@ import io.trino.Session;
 import io.trino.cache.CacheController.CacheCandidate;
 import io.trino.cache.CanonicalSubplan.AggregationKey;
 import io.trino.cache.CanonicalSubplan.ScanFilterProjectKey;
+import io.trino.cache.CanonicalSubplan.TopNRankingKey;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ValuesNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 
 import static io.trino.SystemSessionProperties.CACHE_AGGREGATIONS_ENABLED;
 import static io.trino.SystemSessionProperties.CACHE_COMMON_SUBQUERIES_ENABLED;
 import static io.trino.SystemSessionProperties.CACHE_PROJECTIONS_ENABLED;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,11 +55,13 @@ public class TestCacheController
     {
         CacheColumnId columnA = new CacheColumnId("A");
         CacheColumnId columnB = new CacheColumnId("B");
-        CanonicalSubplan firstGroupByAB = createCanonicalSubplan(Optional.of(ImmutableSet.of(columnA, columnB)));
-        CanonicalSubplan secondGroupByAB = createCanonicalSubplan(Optional.of(ImmutableSet.of(columnA, columnB)));
-        CanonicalSubplan groupByA = createCanonicalSubplan(Optional.of(ImmutableSet.of(columnA)));
-        CanonicalSubplan firstProjection = createCanonicalSubplan(Optional.empty());
-        CanonicalSubplan secondProjection = createCanonicalSubplan(Optional.empty());
+        CanonicalSubplan firstGroupByAB = createCanonicalAggregationSubplan(ImmutableSet.of(columnA, columnB));
+        CanonicalSubplan secondGroupByAB = createCanonicalAggregationSubplan(ImmutableSet.of(columnA, columnB));
+        CanonicalSubplan groupByA = createCanonicalAggregationSubplan(ImmutableSet.of(columnA));
+        CanonicalSubplan firstProjection = createCanonicalTableScanSubplan();
+        CanonicalSubplan secondProjection = createCanonicalTableScanSubplan();
+        CanonicalSubplan topN = createCanonicalTopNSubplan(ImmutableMap.of(columnA, SortOrder.ASC_NULLS_FIRST), 10);
+        CanonicalSubplan topNRanking = createCanonicalTopNRankingSubplan(ImmutableList.of(columnB), ImmutableMap.of(columnA, SortOrder.ASC_NULLS_FIRST), RankingType.ROW_NUMBER, 10);
         List<CanonicalSubplan> subplans = ImmutableList.of(secondProjection, firstProjection, groupByA, secondGroupByAB, firstGroupByAB);
 
         CacheController cacheController = new CacheController();
@@ -89,11 +94,89 @@ public class TestCacheController
                 .containsExactly(
                         new CacheCandidate(ImmutableList.of(secondProjection), 1),
                         new CacheCandidate(ImmutableList.of(firstProjection), 1));
+
+        subplans = ImmutableList.of(secondProjection, firstProjection, topN);
+        assertThat(cacheController.getCachingCandidates(cacheProperties(true, true, true), subplans))
+                .containsExactly(
+                        // common projections are first
+                        new CacheCandidate(ImmutableList.of(secondProjection, firstProjection), 2),
+                        // then single topN
+                        new CacheCandidate(ImmutableList.of(topN), 1),
+                        // then single projections
+                        new CacheCandidate(ImmutableList.of(secondProjection), 1),
+                        new CacheCandidate(ImmutableList.of(firstProjection), 1));
+
+        assertThat(cacheController.getCachingCandidates(cacheProperties(true, false, false), subplans))
+                .containsExactly(new CacheCandidate(ImmutableList.of(secondProjection, firstProjection), 2));
+        assertThat(cacheController.getCachingCandidates(cacheProperties(false, true, false), subplans))
+                .containsExactly(new CacheCandidate(ImmutableList.of(topN), 1));
+        assertThat(cacheController.getCachingCandidates(cacheProperties(false, false, true), subplans))
+                .containsExactly(
+                        new CacheCandidate(ImmutableList.of(secondProjection), 1),
+                        new CacheCandidate(ImmutableList.of(firstProjection), 1));
+
+        subplans = ImmutableList.of(secondProjection, firstProjection, topNRanking);
+
+        assertThat(cacheController.getCachingCandidates(cacheProperties(true, true, true), subplans))
+                .containsExactly(
+                        // common projections are first
+                        new CacheCandidate(ImmutableList.of(secondProjection, firstProjection), 2),
+                        // then single topNRanking
+                        new CacheCandidate(ImmutableList.of(topNRanking), 1),
+                        // then single projections
+                        new CacheCandidate(ImmutableList.of(secondProjection), 1),
+                        new CacheCandidate(ImmutableList.of(firstProjection), 1));
+
+        assertThat(cacheController.getCachingCandidates(cacheProperties(true, false, false), subplans))
+                .containsExactly(new CacheCandidate(ImmutableList.of(secondProjection, firstProjection), 2));
+        assertThat(cacheController.getCachingCandidates(cacheProperties(false, true, false), subplans))
+                .containsExactly(new CacheCandidate(ImmutableList.of(topNRanking), 1));
+        assertThat(cacheController.getCachingCandidates(cacheProperties(false, false, true), subplans))
+                .containsExactly(
+                        new CacheCandidate(ImmutableList.of(secondProjection), 1),
+                        new CacheCandidate(ImmutableList.of(firstProjection), 1));
     }
 
-    private CanonicalSubplan createCanonicalSubplan(Optional<Set<CacheColumnId>> groupByColumns)
+    private CanonicalSubplan createCanonicalAggregationSubplan(Set<CacheColumnId> groupByColumns)
     {
-        CanonicalSubplan tableScanPlan = CanonicalSubplan.builderForTableScan(
+        CanonicalSubplan tableScanPlan = createCanonicalTableScanSubplan();
+
+        return CanonicalSubplan.builderForChildSubplan(new AggregationKey(groupByColumns, ImmutableSet.of()), tableScanPlan)
+                .originalPlanNode(new ValuesNode(PLAN_NODE_ID, 0))
+                .originalSymbolMapping(ImmutableBiMap.of())
+                .assignments(ImmutableMap.of())
+                .pullableConjuncts(ImmutableSet.of())
+                .groupByColumns(groupByColumns)
+                .build();
+    }
+
+    private CanonicalSubplan createCanonicalTopNRankingSubplan(List<CacheColumnId> partitionBy, Map<CacheColumnId, SortOrder> orderBy, RankingType rankingType, int maxRankingPerPartition)
+    {
+        CanonicalSubplan tableScanPlan = createCanonicalTableScanSubplan();
+
+        return CanonicalSubplan.builderForChildSubplan(new TopNRankingKey(partitionBy, orderBy.keySet().stream().toList(), orderBy, rankingType, maxRankingPerPartition, ImmutableSet.of()), tableScanPlan)
+                .originalPlanNode(new ValuesNode(PLAN_NODE_ID, 0))
+                .originalSymbolMapping(ImmutableBiMap.of())
+                .assignments(ImmutableMap.of())
+                .pullableConjuncts(ImmutableSet.of())
+                .build();
+    }
+
+    private CanonicalSubplan createCanonicalTopNSubplan(Map<CacheColumnId, SortOrder> orderBy, long count)
+    {
+        CanonicalSubplan tableScanPlan = createCanonicalTableScanSubplan();
+
+        return CanonicalSubplan.builderForChildSubplan(new CanonicalSubplan.TopNKey(orderBy.keySet().stream().toList(), orderBy, count, ImmutableSet.of()), tableScanPlan)
+                .originalPlanNode(new ValuesNode(PLAN_NODE_ID, 0))
+                .originalSymbolMapping(ImmutableBiMap.of())
+                .assignments(ImmutableMap.of())
+                .pullableConjuncts(ImmutableSet.of())
+                .build();
+    }
+
+    private static CanonicalSubplan createCanonicalTableScanSubplan()
+    {
+        return CanonicalSubplan.builderForTableScan(
                         new ScanFilterProjectKey(TABLE_ID),
                         ImmutableMap.of(),
                         new TableHandle(createRootCatalogHandle("catalog", new CatalogVersion("version")), new ConnectorTableHandle() {}, new ConnectorTransactionHandle() {}),
@@ -104,18 +187,6 @@ public class TestCacheController
                 .originalSymbolMapping(ImmutableBiMap.of())
                 .assignments(ImmutableMap.of())
                 .pullableConjuncts(ImmutableSet.of())
-                .build();
-
-        if (groupByColumns.isEmpty()) {
-            return tableScanPlan;
-        }
-
-        return CanonicalSubplan.builderForChildSubplan(new AggregationKey(groupByColumns.get(), ImmutableSet.of()), tableScanPlan)
-                .originalPlanNode(new ValuesNode(PLAN_NODE_ID, 0))
-                .originalSymbolMapping(ImmutableBiMap.of())
-                .assignments(ImmutableMap.of())
-                .pullableConjuncts(ImmutableSet.of())
-                .groupByColumns(groupByColumns.get())
                 .build();
     }
 

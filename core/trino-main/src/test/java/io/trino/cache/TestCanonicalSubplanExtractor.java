@@ -23,6 +23,8 @@ import io.trino.cache.CanonicalSubplan.AggregationKey;
 import io.trino.cache.CanonicalSubplan.FilterProjectKey;
 import io.trino.cache.CanonicalSubplan.ScanFilterProjectKey;
 import io.trino.cache.CanonicalSubplan.TableScan;
+import io.trino.cache.CanonicalSubplan.TopNKey;
+import io.trino.cache.CanonicalSubplan.TopNRankingKey;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
@@ -32,6 +34,7 @@ import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -75,8 +78,11 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -358,6 +364,126 @@ public class TestCanonicalSubplanExtractor
         List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery(query);
         assertThat(subplans).hasSize(1);
         assertThat(getOnlyElement(subplans).getGroupByColumns()).isEmpty();
+    }
+
+    @Test
+    public void testTopNRankingRank()
+    {
+        List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery("SELECT name, regionkey FROM nation ORDER BY regionkey FETCH FIRST 6 ROWS WITH TIES", false);
+        assertThat(subplans).hasSize(2);
+        CanonicalSubplan scanSubplan = subplans.get(0);
+        assertThat(scanSubplan.getAssignments()).containsExactly(
+                entry(NAME_ID, NAME_REF),
+                entry(REGIONKEY_ID, REGIONKEY_REF));
+        CanonicalSubplan topNSubplan = subplans.get(1);
+        assertThat(topNSubplan.getChildSubplan().get()).isEqualTo(scanSubplan);
+        assertThat(topNSubplan.getKey()).isInstanceOf(TopNRankingKey.class);
+        TopNRankingKey key = (TopNRankingKey) topNSubplan.getKey();
+        assertThat(key.partitionBy()).isEqualTo(ImmutableList.of());
+        assertThat(key.orderings()).containsExactly(entry(REGIONKEY_ID, SortOrder.ASC_NULLS_LAST));
+        assertThat(key.rankingType()).isEqualTo(RANK);
+        assertThat(key.maxRankingPerPartition()).isEqualTo(6);
+    }
+
+    @Test
+    public void testTopNRankingRowNumber()
+    {
+        List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery("""
+                SELECT *
+                FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY name, nationkey ORDER BY regionkey DESC) update_rank FROM nation) AS t
+                WHERE t.update_rank = 1""", false);
+        assertThat(subplans).hasSize(2);
+        CanonicalSubplan scanSubplan = subplans.get(0);
+        assertThat(scanSubplan.getAssignments()).containsExactly(
+                entry(NATIONKEY_ID, NATIONKEY_REF),
+                entry(NAME_ID, NAME_REF),
+                entry(REGIONKEY_ID, REGIONKEY_REF));
+        CanonicalSubplan topNSubplan = subplans.get(1);
+        assertThat(topNSubplan.getChildSubplan().get()).isEqualTo(scanSubplan);
+        assertThat(topNSubplan.getKey()).isInstanceOf(TopNRankingKey.class);
+        TopNRankingKey key = (TopNRankingKey) topNSubplan.getKey();
+        assertThat(key.partitionBy().stream().toList()).isEqualTo(ImmutableList.of(NAME_ID, NATIONKEY_ID));
+        assertThat(key.orderings()).containsExactly(entry(REGIONKEY_ID, SortOrder.DESC_NULLS_LAST));
+        assertThat(key.rankingType()).isEqualTo(ROW_NUMBER);
+        assertThat(key.maxRankingPerPartition()).isEqualTo(1);
+    }
+
+    @Test
+    public void testTopN()
+    {
+        List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery("SELECT nationkey FROM nation ORDER BY name LIMIT 5");
+        assertThat(subplans).hasSize(2);
+        CanonicalSubplan scanSubplan = subplans.get(0);
+        assertThat(scanSubplan.getAssignments()).containsExactly(
+                entry(NATIONKEY_ID, NATIONKEY_REF),
+                entry(NAME_ID, NAME_REF));
+        CanonicalSubplan topNSubplan = subplans.get(1);
+        assertThat(topNSubplan.getChildSubplan().get()).isEqualTo(scanSubplan);
+        assertThat(topNSubplan.getKey()).isInstanceOf(TopNKey.class);
+    }
+
+    @Test
+    public void testTopNWithMultipleOrderByColumns()
+    {
+        List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery("SELECT nationkey FROM nation ORDER BY regionkey, nationkey DESC offset 10 LIMIT 5");
+        CanonicalSubplan scanSubplan = subplans.get(0);
+        assertThat(scanSubplan.getAssignments()).containsExactly(
+                entry(NATIONKEY_ID, NATIONKEY_REF),
+                entry(REGIONKEY_ID, REGIONKEY_REF));
+        CanonicalSubplan topNSubplan = subplans.get(1);
+        assertThat(topNSubplan.getKey()).isInstanceOf(TopNKey.class);
+        TopNKey key = (TopNKey) topNSubplan.getKey();
+        assertThat(key.orderings()).containsExactly(
+                entry(REGIONKEY_ID, SortOrder.ASC_NULLS_LAST),
+                entry(NATIONKEY_ID, SortOrder.DESC_NULLS_LAST));
+        assertThat(key.count()).isEqualTo(15);
+    }
+
+    @Test
+    public void testTopNWithExpressionInOrderByColumn()
+    {
+        List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery("SELECT nationkey FROM nation ORDER BY regionkey + 5 offset 10 LIMIT 5");
+        CanonicalSubplan scanSubplan = subplans.get(0);
+        CacheColumnId regionKeyAdded5 = canonicalExpressionToColumnId(expression("\"[regionkey:bigint]\" + BIGINT '5'"));
+        assertThat(scanSubplan.getAssignments()).containsExactly(
+                entry(NATIONKEY_ID, NATIONKEY_REF),
+                entry(regionKeyAdded5, expression("\"[regionkey:bigint]\" + BIGINT '5'")));
+        CanonicalSubplan topNSubplan = subplans.get(1);
+        assertThat(topNSubplan.getKey()).isInstanceOf(TopNKey.class);
+        TopNKey key = (TopNKey) topNSubplan.getKey();
+        assertThat(key.orderings()).containsExactly(entry(regionKeyAdded5, SortOrder.ASC_NULLS_LAST));
+        assertThat(key.count()).isEqualTo(15);
+    }
+
+    @Test
+    public void testNestedTopN()
+    {
+        List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery("SELECT nationkey FROM (SELECT nationkey, name FROM nation ORDER BY nationkey limit 5) ORDER BY 1 limit 15");
+        assertThat(subplans).hasSize(2);
+        CanonicalSubplan scanSubplan = subplans.get(0);
+        assertThat(scanSubplan.getAssignments()).containsExactly(entry(NATIONKEY_ID, NATIONKEY_REF));
+        CanonicalSubplan topNSubplan = subplans.get(1);
+        assertThat(topNSubplan.getKey()).isInstanceOf(TopNKey.class);
+        TopNKey key = (TopNKey) topNSubplan.getKey();
+        assertThat(key.orderings()).containsExactly(entry(NATIONKEY_ID, SortOrder.ASC_NULLS_LAST));
+        assertThat(key.count()).isEqualTo(5);
+    }
+
+    @Test
+    public void testUnsupportedTopNWithGroupBy()
+    {
+        // unsupported final aggregation and exchanges between two topN
+        List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery("SELECT max(nationkey) FROM nation GROUP BY name ORDER BY name LIMIT 1");
+        assertThat(subplans).hasSize(2);
+        assertThat(subplans).noneMatch((subplan) -> subplan.getKey() instanceof TopNKey);
+    }
+
+    @Test
+    public void testNondeterministicTopN()
+    {
+        List<CanonicalSubplan> subplans = extractCanonicalSubplansForQuery("SELECT * FROM nation ORDER BY RANDOM() LIMIT 1");
+        assertThat(subplans).hasSize(1);
+        assertThat(getOnlyElement(subplans).getKey()).isNotExactlyInstanceOf(TopNKey.class);
     }
 
     private Optional<List<Expression>> getGroupByExpressions(CanonicalSubplan subplan)
@@ -644,7 +770,12 @@ public class TestCanonicalSubplanExtractor
 
     private List<CanonicalSubplan> extractCanonicalSubplansForQuery(@Language("SQL") String query)
     {
-        Plan plan = plan(query);
+        return extractCanonicalSubplansForQuery(query, true);
+    }
+
+    private List<CanonicalSubplan> extractCanonicalSubplansForQuery(@Language("SQL") String query, boolean forceSingleNode)
+    {
+        Plan plan = plan(query, OPTIMIZED_AND_VALIDATED, forceSingleNode);
         PlanTester planTester = getPlanTester();
         return planTester.inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction

@@ -16,17 +16,21 @@ package io.trino.cache;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cache.CanonicalSubplan.AggregationKey;
 import io.trino.cache.CanonicalSubplan.CanonicalSubplanBuilder;
 import io.trino.cache.CanonicalSubplan.FilterProjectKey;
 import io.trino.cache.CanonicalSubplan.ScanFilterProjectKey;
+import io.trino.cache.CanonicalSubplan.TopNKey;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.optimizations.SymbolMapper;
@@ -38,10 +42,13 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.SymbolReference;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +59,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.cache.CanonicalSubplan.TopNRankingKey;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
@@ -241,6 +249,80 @@ public final class CanonicalSubplanExtractor
         }
 
         @Override
+        public Optional<CanonicalSubplan> visitTopNRanking(TopNRankingNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+
+            if (!node.isPartial() || node.getHashSymbol().isPresent() || node.getSpecification().getOrderingScheme().isEmpty()) {
+                canonicalizeRecursively(source);
+                return Optional.empty();
+            }
+
+            Optional<CanonicalSubplan> subplanOptional = canonicalizeRecursively(source);
+            if (subplanOptional.isEmpty()) {
+                return Optional.empty();
+            }
+
+            CanonicalSubplan subplan = subplanOptional.get();
+            BiMap<CacheColumnId, Symbol> originalSymbolMapping = subplan.getOriginalSymbolMapping();
+
+            // Sorting partition columns increases hit ratio and does not affect output rows
+            List<CacheColumnId> partitionBy = node.getPartitionBy()
+                    .stream().map(partitionKey -> originalSymbolMapping.inverse().get(partitionKey))
+                    .sorted(Comparator.comparing(CacheColumnId::toString))
+                    .collect(toImmutableList());
+
+            Optional<Map<CacheColumnId, SortOrder>> orderings = canonicalizeOrderingScheme(node.getOrderingScheme(), originalSymbolMapping);
+            return orderings.map(orderBy -> CanonicalSubplan.builderForChildSubplan(
+                            new TopNRankingKey(
+                                    partitionBy,
+                                    ImmutableList.copyOf(orderBy.keySet()),
+                                    orderBy,
+                                    node.getRankingType(),
+                                    node.getMaxRankingPerPartition(),
+                                    ImmutableSet.copyOf(subplan.getPullableConjuncts())),
+                            subplanOptional.get())
+                    .originalPlanNode(node)
+                    .originalSymbolMapping(originalSymbolMapping)
+                    .assignments(subplan.getAssignments())
+                    .pullableConjuncts(ImmutableSet.of())
+                    .build());
+        }
+
+        @Override
+        public Optional<CanonicalSubplan> visitTopN(TopNNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+
+            if (node.getStep() != TopNNode.Step.PARTIAL) {
+                canonicalizeRecursively(source);
+                return Optional.empty();
+            }
+
+            Optional<CanonicalSubplan> subplanOptional = canonicalizeRecursively(source);
+            if (subplanOptional.isEmpty()) {
+                return Optional.empty();
+            }
+
+            CanonicalSubplan subplan = subplanOptional.get();
+            BiMap<CacheColumnId, Symbol> originalSymbolMapping = subplan.getOriginalSymbolMapping();
+            Optional<Map<CacheColumnId, SortOrder>> orderings = canonicalizeOrderingScheme(node.getOrderingScheme(), originalSymbolMapping);
+
+            return orderings.map(orderBy -> CanonicalSubplan.builderForChildSubplan(
+                            new TopNKey(
+                                    ImmutableList.copyOf(orderBy.keySet()),
+                                    orderBy,
+                                    node.getCount(),
+                                    ImmutableSet.copyOf(subplan.getPullableConjuncts())),
+                            subplanOptional.get())
+                    .originalPlanNode(node)
+                    .originalSymbolMapping(originalSymbolMapping)
+                    .assignments(subplan.getAssignments())
+                    .pullableConjuncts(ImmutableSet.of())
+                    .build());
+        }
+
+        @Override
         public Optional<CanonicalSubplan> visitProject(ProjectNode node, Void context)
         {
             PlanNode source = node.getSource();
@@ -423,6 +505,19 @@ public final class CanonicalSubplanExtractor
                     .assignments(assignments)
                     .pullableConjuncts(ImmutableSet.of())
                     .build());
+        }
+
+        private Optional<Map<CacheColumnId, SortOrder>> canonicalizeOrderingScheme(OrderingScheme orderingScheme, BiMap<CacheColumnId, Symbol> originalSymbolMapping)
+        {
+            Map<CacheColumnId, SortOrder> orderings = new LinkedHashMap<>();
+            for (Symbol orderKey : orderingScheme.getOrderBy()) {
+                CacheColumnId columnId = requireNonNull(originalSymbolMapping.inverse().get(orderKey));
+                if (orderings.put(columnId, orderingScheme.getOrdering(orderKey)) != null) {
+                    // duplicated column ids are not supported
+                    return Optional.empty();
+                }
+            }
+            return Optional.of(ImmutableMap.copyOf(orderings));
         }
 
         private Optional<CanonicalSubplan> canonicalizeRecursively(PlanNode node)

@@ -23,10 +23,12 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.tree.Expression;
 
 import java.util.List;
@@ -385,5 +387,16 @@ public class CanonicalSubplan
     public record AggregationKey(Set<CacheColumnId> groupByColumns, Set<Expression> nonPullableConjuncts)
             implements CanonicalSubplan.Key {}
 
+    public record TopNKey(List<CacheColumnId> orderBy, Map<CacheColumnId, SortOrder> orderings, long count, Set<Expression> nonPullableConjuncts)
+            implements CanonicalSubplan.Key {}
+
+    public record TopNRankingKey(
+            List<CacheColumnId> partitionBy,
+            List<CacheColumnId> orderBy,
+            Map<CacheColumnId, SortOrder> orderings,
+            RankingType rankingType,
+            int maxRankingPerPartition,
+            Set<Expression> nonPullableConjuncts)
+            implements CanonicalSubplan.Key {}
     public interface Key {}
 }

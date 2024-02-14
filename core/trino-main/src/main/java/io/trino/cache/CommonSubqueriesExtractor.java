@@ -27,6 +27,8 @@ import io.trino.cache.CanonicalSubplan.FilterProjectKey;
 import io.trino.cache.CanonicalSubplan.Key;
 import io.trino.cache.CanonicalSubplan.ScanFilterProjectKey;
 import io.trino.cache.CanonicalSubplan.TableScan;
+import io.trino.cache.CanonicalSubplan.TopNKey;
+import io.trino.cache.CanonicalSubplan.TopNRankingKey;
 import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.ResolvedFunction;
@@ -36,6 +38,7 @@ import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.cache.SignatureKey;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
@@ -53,11 +56,14 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
@@ -218,6 +224,12 @@ public final class CommonSubqueriesExtractor
         else if (key instanceof AggregationKey) {
             return adaptAggregation(childAdaptations, subplans);
         }
+        if (key instanceof TopNKey) {
+            return adaptTopN(childAdaptations, subplans);
+        }
+        if (key instanceof TopNRankingKey) {
+            return adaptTopNRanking(childAdaptations, subplans);
+        }
         else {
             throw new UnsupportedOperationException(format("Unsupported key: %s", key));
         }
@@ -296,6 +308,93 @@ public final class CommonSubqueriesExtractor
                             columnIdMapping,
                             symbolMapper);
                     List<Expression> adaptationConjuncts = createAdaptationConjuncts(subplan, commonPredicate, intersectingConjuncts, Optional.of(childAdaptation));
+                    return new CommonPlanAdaptation(
+                            commonSubplan,
+                            planSignature,
+                            childAdaptation,
+                            createAdaptationPredicate(adaptationConjuncts, symbolMapper),
+                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping, symbolMapper),
+                            columnIdMapping,
+                            adaptationConjuncts);
+                }).collect(toImmutableList());
+    }
+
+    private List<CommonPlanAdaptation> adaptTopNRanking(List<CommonPlanAdaptation> childAdaptations, List<CanonicalSubplan> subplans)
+    {
+        CanonicalSubplan canonicalSubplan = subplans.get(0);
+        TopNRankingKey topNRankingKey = (TopNRankingKey) canonicalSubplan.getKey();
+
+        Map<CacheColumnId, Symbol> commonColumnIds = extractCommonColumnIds(subplans);
+        PlanSignatureWithPredicate childPlanSignature = childAdaptations.get(0).getCommonSubplanSignature();
+        Map<CacheColumnId, Expression> commonProjections = extractCommonProjections(subplans, TRUE_LITERAL, ImmutableSet.of(), Optional.of(ImmutableSet.of()), Optional.of(childAdaptations));
+        PlanSignatureWithPredicate planSignature = computePlanSignature(
+                commonColumnIds,
+                topNRankingKey(childPlanSignature.signature().getKey(), topNRankingKey.partitionBy(), topNRankingKey.orderings(), topNRankingKey.rankingType(), topNRankingKey.maxRankingPerPartition()),
+                childPlanSignature,
+                TRUE_LITERAL,
+                commonProjections.keySet().stream()
+                        .collect(toImmutableList()),
+                Optional.empty());
+
+        return zip(subplans.stream(), childAdaptations.stream(),
+                (subplan, childAdaptation) -> {
+                    Map<CacheColumnId, Symbol> columnIdMapping = createSubplanColumnIdMapping(subplan, commonColumnIds, Optional.of(childAdaptation));
+                    SymbolMapper symbolMapper = createSymbolMapper(columnIdMapping);
+                    TopNRankingNode originalPlanNode = (TopNRankingNode) subplan.getOriginalPlanNode();
+                    TopNRankingKey key = (TopNRankingKey) subplan.getKey();
+                    List<Symbol> partitionedBy = key.partitionBy().stream().map(columnIdMapping::get).toList();
+                    DataOrganizationSpecification dataOrganizationSpecific = new DataOrganizationSpecification(
+                            partitionedBy,
+                            Optional.of(originalPlanNode.getOrderingScheme()));
+                    PlanNode commonSubplan = new TopNRankingNode(
+                            idAllocator.getNextId(),
+                            childAdaptation.getCommonSubplan(),
+                            dataOrganizationSpecific,
+                            originalPlanNode.getRankingType(),
+                            originalPlanNode.getRankingSymbol(),
+                            originalPlanNode.getMaxRankingPerPartition(),
+                            true,
+                            Optional.empty());
+                    List<Expression> adaptationConjuncts = createAdaptationConjuncts(subplan, TRUE_LITERAL, ImmutableSet.of(), Optional.of(childAdaptation));
+                    return new CommonPlanAdaptation(
+                            commonSubplan,
+                            planSignature,
+                            childAdaptation,
+                            createAdaptationPredicate(adaptationConjuncts, symbolMapper),
+                            createAdaptationAssignments(commonSubplan, subplan, columnIdMapping, symbolMapper),
+                            columnIdMapping,
+                            adaptationConjuncts);
+                }).collect(toImmutableList());
+    }
+
+    private List<CommonPlanAdaptation> adaptTopN(List<CommonPlanAdaptation> childAdaptations, List<CanonicalSubplan> subplans)
+    {
+        CanonicalSubplan canonicalSubplan = subplans.get(0);
+        TopNKey topNKey = (TopNKey) canonicalSubplan.getKey();
+
+        Map<CacheColumnId, Symbol> commonColumnIds = extractCommonColumnIds(subplans);
+        PlanSignatureWithPredicate childPlanSignature = childAdaptations.get(0).getCommonSubplanSignature();
+        Map<CacheColumnId, Expression> commonProjections = extractCommonProjections(subplans, TRUE_LITERAL, ImmutableSet.of(), Optional.of(ImmutableSet.of()), Optional.of(childAdaptations));
+        PlanSignatureWithPredicate planSignature = computePlanSignature(
+                commonColumnIds,
+                topNKey(childPlanSignature.signature().getKey(), topNKey.orderings(), topNKey.count()),
+                childPlanSignature,
+                TRUE_LITERAL,
+                commonProjections.keySet().stream()
+                        .collect(toImmutableList()),
+                Optional.empty());
+        return zip(subplans.stream(), childAdaptations.stream(),
+                (subplan, childAdaptation) -> {
+                    Map<CacheColumnId, Symbol> columnIdMapping = createSubplanColumnIdMapping(subplan, commonColumnIds, Optional.of(childAdaptation));
+                    SymbolMapper symbolMapper = createSymbolMapper(columnIdMapping);
+                    TopNNode originalPlanNode = (TopNNode) subplan.getOriginalPlanNode();
+                    PlanNode commonSubplan = new TopNNode(
+                            idAllocator.getNextId(),
+                            childAdaptation.getCommonSubplan(),
+                            topNKey.count(),
+                            originalPlanNode.getOrderingScheme(),
+                            TopNNode.Step.PARTIAL);
+                    List<Expression> adaptationConjuncts = createAdaptationConjuncts(subplan, TRUE_LITERAL, ImmutableSet.of(), Optional.of(childAdaptation));
                     return new CommonPlanAdaptation(
                             commonSubplan,
                             planSignature,
@@ -824,6 +923,33 @@ public final class CommonSubqueriesExtractor
     {
         return new SignatureKey(toStringHelper("Aggregation")
                 .add("childKey", childKey)
+                .toString());
+    }
+
+    @VisibleForTesting
+    public static SignatureKey topNRankingKey(
+            SignatureKey childKey,
+            List<CacheColumnId> partitionBy,
+            Map<CacheColumnId, SortOrder> orderBy,
+            TopNRankingNode.RankingType rankingType,
+            int maxRankingPerPartition)
+    {
+        return new SignatureKey(toStringHelper("TopNRanking")
+                .add("childKey", childKey)
+                .add("partitionBy", partitionBy)
+                .add("orderBy", orderBy)
+                .add("rankingType", rankingType)
+                .add("maxRankingPerPartition", maxRankingPerPartition)
+                .toString());
+    }
+
+    @VisibleForTesting
+    public static SignatureKey topNKey(SignatureKey childKey, Map<CacheColumnId, SortOrder> orderBy, long count)
+    {
+        return new SignatureKey(toStringHelper("TopN")
+                .add("childKey", childKey)
+                .add("orderBy", orderBy)
+                .add("count", count)
                 .toString());
     }
 

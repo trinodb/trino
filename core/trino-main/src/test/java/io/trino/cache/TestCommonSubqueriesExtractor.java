@@ -67,8 +67,12 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SortItem.NullOrdering;
+import io.trino.sql.tree.SortItem.Ordering;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import io.trino.testing.TestingTransactionHandle;
@@ -96,10 +100,14 @@ import static io.trino.cache.CommonSubqueriesExtractor.aggregationKey;
 import static io.trino.cache.CommonSubqueriesExtractor.combine;
 import static io.trino.cache.CommonSubqueriesExtractor.filterProjectKey;
 import static io.trino.cache.CommonSubqueriesExtractor.scanFilterProjectKey;
+import static io.trino.cache.CommonSubqueriesExtractor.topNKey;
+import static io.trino.cache.CommonSubqueriesExtractor.topNRankingKey;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.predicate.Range.greaterThan;
 import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -118,11 +126,16 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation
 import static io.trino.sql.planner.assertions.PlanMatchPattern.identityProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.symbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -310,6 +323,417 @@ public class TestCommonSubqueriesExtractor
         assertThat(projectionA.getDynamicFilterColumnMapping())
                 .containsExactly(new SimpleEntry<>(NATIONKEY_ID, nationkeyHandle), new SimpleEntry<>(REGIONKEY_ID, regionkeyHandle));
         assertThat(projectionA.getDynamicFilterColumnMapping()).isEqualTo(projectionB.getDynamicFilterColumnMapping());
+    }
+
+    @Test
+    public void testCacheTopNRankingRank()
+    {
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
+                        SELECT name, regionkey FROM nation WHERE nationkey > 10 ORDER BY regionkey FETCH FIRST 6 ROWS WITH TIES
+                        """,
+                false, true, false, false);
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).hasSize(1);
+        assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNRankingNode.class));
+        CommonPlanAdaptation topNRanking = planAdaptations.values().stream().findFirst().get();
+        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
+
+        PlanMatchPattern commonSubplan = topNRanking(pattern -> pattern.specification(
+                                ImmutableList.of(),
+                                ImmutableList.of("REGIONKEY"),
+                                ImmutableMap.of("REGIONKEY", ASC_NULLS_LAST))
+                        .rankingType(RANK)
+                        .maxRankingPerPartition(6)
+                        .partial(true),
+                strictProject(ImmutableMap.of(
+                                "NAME", PlanMatchPattern.expression("NAME"),
+                                "REGIONKEY", PlanMatchPattern.expression("REGIONKEY")),
+                        filter("(NATIONKEY > BIGINT '10')",
+                                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
+        assertTpchPlan(symbolAllocator, topNRanking.getCommonSubplan(), commonSubplan);
+
+        PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
+        // validate no adaptation is required
+        assertThat(topNRanking.adaptCommonSubplan(topNRanking.getCommonSubplan(), idAllocator)).isEqualTo(topNRanking.getCommonSubplan());
+
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, REGIONKEY_ID);
+        List<Type> cacheColumnsTypes = ImmutableList.of(createVarcharType(25), BIGINT);
+        assertThat(topNRanking.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        topNRankingKey(
+                                combine(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")), "filters=(\"[nationkey:bigint]\" > BIGINT '10')"),
+                                ImmutableList.of(),
+                                ImmutableMap.of(REGIONKEY_ID, ASC_NULLS_LAST),
+                                RANK, 6),
+                        Optional.empty(),
+                        cacheColumnIds,
+                        cacheColumnsTypes),
+                TupleDomain.all()));
+    }
+
+    @Test
+    public void testCacheTopNRankingRankWithPullableConjuncts()
+    {
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
+                        (SELECT name, regionkey FROM nation WHERE nationkey > 10 ORDER BY regionkey FETCH FIRST 6 ROWS WITH TIES)
+                        UNION ALL
+                        (SELECT name, regionkey FROM nation WHERE nationkey > 10 ORDER BY regionkey FETCH FIRST 6 ROWS WITH TIES)
+                        """,
+                false, true, false, false);
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).hasSize(2);
+        assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNRankingNode.class));
+        CommonPlanAdaptation topNA = Iterables.get(planAdaptations.values(), 0);
+        CommonPlanAdaptation topNB = Iterables.get(planAdaptations.values(), 1);
+        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
+
+        PlanMatchPattern commonSubplan = topNRanking(pattern -> pattern.specification(
+                                ImmutableList.of(),
+                                ImmutableList.of("REGIONKEY"),
+                                ImmutableMap.of("REGIONKEY", ASC_NULLS_LAST))
+                        .rankingType(RANK)
+                        .maxRankingPerPartition(6)
+                        .partial(true),
+                strictProject(ImmutableMap.of(
+                                "NAME", PlanMatchPattern.expression("NAME"),
+                                "REGIONKEY", PlanMatchPattern.expression("REGIONKEY")),
+                        filter("(NATIONKEY > BIGINT '10')",
+                                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
+        assertTpchPlan(symbolAllocator, topNA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(symbolAllocator, topNB.getCommonSubplan(), commonSubplan);
+
+        PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
+        // validate no adaptation is required
+        assertThat(topNA.adaptCommonSubplan(topNA.getCommonSubplan(), idAllocator)).isEqualTo(topNA.getCommonSubplan());
+        assertThat(topNB.adaptCommonSubplan(topNB.getCommonSubplan(), idAllocator)).isEqualTo(topNB.getCommonSubplan());
+
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, REGIONKEY_ID);
+        List<Type> cacheColumnsTypes = ImmutableList.of(createVarcharType(25), BIGINT);
+        assertThat(topNA.getCommonSubplanSignature()).isEqualTo(topNB.getCommonSubplanSignature());
+        assertThat(topNA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        topNRankingKey(
+                                combine(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")), "filters=(\"[nationkey:bigint]\" > BIGINT '10')"),
+                                ImmutableList.of(),
+                                ImmutableMap.of(REGIONKEY_ID, ASC_NULLS_LAST),
+                                RANK, 6),
+                        Optional.empty(),
+                        cacheColumnIds,
+                        cacheColumnsTypes),
+                TupleDomain.all()));
+    }
+
+    @Test
+    public void testCacheTopNRankingRankWithNonPullableConjuncts()
+    {
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
+                        (SELECT name, regionkey FROM nation WHERE nationkey > 10 ORDER BY regionkey FETCH FIRST 6 ROWS WITH TIES)
+                        UNION ALL
+                        (SELECT name, regionkey FROM nation WHERE nationkey > 11 ORDER BY regionkey FETCH FIRST 6 ROWS WITH TIES)
+                        """,
+                false, true, false, false);
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).hasSize(2);
+        assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNRankingNode.class));
+        CommonPlanAdaptation topNA = Iterables.get(planAdaptations.values(), 0);
+        CommonPlanAdaptation topNB = Iterables.get(planAdaptations.values(), 1);
+        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
+
+        PlanMatchPattern commonSubplanA = topNRanking(pattern -> pattern.specification(
+                                ImmutableList.of(),
+                                ImmutableList.of("REGIONKEY"),
+                                ImmutableMap.of("REGIONKEY", ASC_NULLS_LAST))
+                        .rankingType(RANK)
+                        .maxRankingPerPartition(6)
+                        .partial(true),
+                strictProject(ImmutableMap.of(
+                                "NAME", PlanMatchPattern.expression("NAME"),
+                                "REGIONKEY", PlanMatchPattern.expression("REGIONKEY")),
+                        filter("(NATIONKEY > BIGINT '10')",
+                                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
+        assertTpchPlan(symbolAllocator, topNA.getCommonSubplan(), commonSubplanA);
+        PlanMatchPattern commonSubplanB = topNRanking(pattern -> pattern.specification(
+                                ImmutableList.of(),
+                                ImmutableList.of("REGIONKEY"),
+                                ImmutableMap.of("REGIONKEY", ASC_NULLS_LAST))
+                        .rankingType(RANK)
+                        .maxRankingPerPartition(6)
+                        .partial(true),
+                strictProject(ImmutableMap.of(
+                                "NAME", PlanMatchPattern.expression("NAME"),
+                                "REGIONKEY", PlanMatchPattern.expression("REGIONKEY")),
+                        filter("(NATIONKEY > BIGINT '11')",
+                                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
+        assertTpchPlan(symbolAllocator, topNB.getCommonSubplan(), commonSubplanB);
+
+        PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
+        // validate no adaptation is required
+        assertThat(topNA.adaptCommonSubplan(topNA.getCommonSubplan(), idAllocator)).isEqualTo(topNA.getCommonSubplan());
+        assertThat(topNB.adaptCommonSubplan(topNB.getCommonSubplan(), idAllocator)).isEqualTo(topNB.getCommonSubplan());
+
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, REGIONKEY_ID);
+        List<Type> cacheColumnsTypes = ImmutableList.of(createVarcharType(25), BIGINT);
+        assertThat(topNA.getCommonSubplanSignature()).isNotEqualTo(topNB.getCommonSubplanSignature());
+        assertThat(topNA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        topNRankingKey(
+                                combine(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")), "filters=(\"[nationkey:bigint]\" > BIGINT '10')"),
+                                ImmutableList.of(),
+                                ImmutableMap.of(REGIONKEY_ID, ASC_NULLS_LAST),
+                                RANK, 6),
+                        Optional.empty(),
+                        cacheColumnIds,
+                        cacheColumnsTypes),
+                TupleDomain.all()));
+    }
+
+    @Test
+    public void testCacheTopNRankingRow()
+    {
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
+                        SELECT *
+                        FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY name, nationkey ORDER BY regionkey DESC) update_rank FROM nation) AS t
+                        WHERE t.update_rank = 1""",
+                false, true, false, false);
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).hasSize(1);
+        assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNRankingNode.class));
+        CommonPlanAdaptation topNRanking = planAdaptations.values().stream().findFirst().get();
+        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
+        PlanMatchPattern commonSubplan = topNRanking(pattern -> pattern.specification(
+                                ImmutableList.of("NAME", "NATIONKEY"),
+                                ImmutableList.of("REGIONKEY"),
+                                ImmutableMap.of("REGIONKEY", DESC_NULLS_LAST))
+                        .rankingType(ROW_NUMBER)
+                        .maxRankingPerPartition(1)
+                        .partial(true),
+                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")));
+        assertTpchPlan(symbolAllocator, topNRanking.getCommonSubplan(), commonSubplan);
+        PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
+
+        // validate no adaptation is required
+        assertThat(topNRanking.adaptCommonSubplan(topNRanking.getCommonSubplan(), idAllocator)).isEqualTo(topNRanking.getCommonSubplan());
+
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_ID, NAME_ID, REGIONKEY_ID);
+        List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25), BIGINT);
+        assertThat(topNRanking.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
+                new PlanSignature(
+                topNRankingKey(
+                        scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
+                        ImmutableList.of(NAME_ID, NATIONKEY_ID),
+                        ImmutableMap.of(REGIONKEY_ID, DESC_NULLS_LAST),
+                        ROW_NUMBER, 1),
+                Optional.empty(),
+                cacheColumnIds,
+                cacheColumnsTypes),
+                TupleDomain.all()));
+    }
+
+    @Test
+    public void testCacheTopNRankingRowUnionWithSwappedPartitionBy() {
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
+                        (SELECT *
+                        FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY nationkey, name ORDER BY regionkey DESC) update_rank
+                        FROM nation WHERE regionkey < 10) AS t
+                        WHERE t.update_rank = 1)
+                        UNION ALL (SELECT *
+                        FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY name, nationkey ORDER BY regionkey DESC) update_rank
+                        FROM nation WHERE regionkey < 10) AS t
+                        WHERE t.update_rank = 1)""",
+                false, true, false, false);
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).hasSize(2);
+        assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNRankingNode.class));
+
+        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
+        CommonPlanAdaptation topNA = Iterables.get(planAdaptations.values(), 0);
+        CommonPlanAdaptation topNB = Iterables.get(planAdaptations.values(), 1);
+
+        PlanMatchPattern commonSubplan = topNRanking(pattern -> pattern.specification(
+                                ImmutableList.of("NAME", "NATIONKEY"),
+                                ImmutableList.of("REGIONKEY"),
+                                ImmutableMap.of("REGIONKEY", DESC_NULLS_LAST))
+                        .rankingType(ROW_NUMBER)
+                        .maxRankingPerPartition(1)
+                        .partial(true),
+                filter("(REGIONKEY < BIGINT '10')",
+                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
+        assertTpchPlan(symbolAllocator, topNA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(symbolAllocator, topNB.getCommonSubplan(), commonSubplan);
+
+        PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
+        assertTpchPlan(symbolAllocator, topNA.adaptCommonSubplan(topNA.getCommonSubplan(), idAllocator), commonSubplan);
+        assertTpchPlan(symbolAllocator, topNB.adaptCommonSubplan(topNB.getCommonSubplan(), idAllocator), commonSubplan);
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_ID, NAME_ID, REGIONKEY_ID);
+        List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25), BIGINT);
+        assertThat(topNA.getCommonSubplanSignature()).isEqualTo(topNB.getCommonSubplanSignature());
+        assertThat(topNA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        topNRankingKey(
+                                scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
+                                ImmutableList.of(NAME_ID, NATIONKEY_ID),
+                                ImmutableMap.of(REGIONKEY_ID, DESC_NULLS_LAST),
+                                ROW_NUMBER, 1),
+                        Optional.empty(),
+                        cacheColumnIds,
+                        cacheColumnsTypes),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        REGIONKEY_ID, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 10L)), false)))));
+    }
+
+    @Test
+    public void testTopNRankingRowWithWithNonPullableConjuncts()
+    {
+        @Language("SQL") String query = """
+                        (SELECT *
+                        FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY nationkey ORDER BY regionkey DESC) update_rank
+                        FROM nation WHERE regionkey < 11) AS t
+                        WHERE t.update_rank = 1)
+                        UNION ALL (SELECT *
+                        FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY nationkey ORDER BY regionkey DESC) update_rank
+                        FROM nation WHERE regionkey < 10) AS t
+                        WHERE t.update_rank = 1)""";
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries(query, true, true, false, false);
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        // common subplans has higher priority than aggregations
+        assertThat(planAdaptations).noneSatisfy((node, adaptation) ->
+                assertThat(node).isInstanceOf(TopNRankingNode.class));
+        commonSubqueries = extractTpchCommonSubqueries(query, false, true, false, false);
+        planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).allSatisfy((node, adaptation) ->
+                assertThat(node).isInstanceOf(TopNRankingNode.class));
+        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
+        CommonPlanAdaptation topNRankingA = Iterables.get(planAdaptations.values(), 0);
+        CommonPlanAdaptation topNRankingB = Iterables.get(planAdaptations.values(), 1);
+
+        PlanMatchPattern commonSubplanA = topNRanking(pattern -> pattern.specification(
+                                ImmutableList.of("NATIONKEY"),
+                                ImmutableList.of("REGIONKEY"),
+                                ImmutableMap.of("REGIONKEY", DESC_NULLS_LAST))
+                        .rankingType(ROW_NUMBER)
+                        .maxRankingPerPartition(1)
+                        .partial(true),
+                filter("(REGIONKEY < BIGINT '10')",
+                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey","REGIONKEY", "regionkey"))));
+        PlanMatchPattern commonSubplanB = topNRanking(pattern -> pattern.specification(
+                                ImmutableList.of("NATIONKEY"),
+                                ImmutableList.of("REGIONKEY"),
+                                ImmutableMap.of("REGIONKEY", DESC_NULLS_LAST))
+                        .rankingType(ROW_NUMBER)
+                        .maxRankingPerPartition(1)
+                        .partial(true),
+                filter("(REGIONKEY < BIGINT '11')",
+                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey","REGIONKEY", "regionkey"))));
+        assertTpchPlan(symbolAllocator, topNRankingB.getCommonSubplan(), commonSubplanA);
+        assertTpchPlan(symbolAllocator, topNRankingA.getCommonSubplan(), commonSubplanB);
+        assertThat(topNRankingA.getCommonSubplanSignature()).isNotEqualTo(topNRankingB.getCommonSubplanSignature());
+    }
+
+    @Test
+    public void testCacheTopN()
+    {
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
+                        SELECT nationkey FROM nation
+                        WHERE regionkey > 10 and nationkey > 2
+                        ORDER BY name ASC, regionkey DESC OFFSET 5 LIMIT 5""",
+                false, true, false);
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).hasSize(1);
+        assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNNode.class));
+        CommonPlanAdaptation topN = planAdaptations.values().stream().findFirst().get();
+        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
+        PlanMatchPattern commonSubplan = topN(
+                10,
+                ImmutableList.of(sort("NAME", Ordering.ASCENDING, NullOrdering.LAST),
+                        sort("REGIONKEY", Ordering.DESCENDING, NullOrdering.LAST)),
+                TopNNode.Step.PARTIAL,
+                filter("(REGIONKEY > BIGINT '10') AND (NATIONKEY > BIGINT '2')",
+                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
+        assertTpchPlan(symbolAllocator, topN.getCommonSubplan(), commonSubplan);
+
+        // validate no adaptation is required
+        PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
+        assertThat(topN.adaptCommonSubplan(topN.getCommonSubplan(), idAllocator)).isEqualTo(topN.getCommonSubplan());
+
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_ID, NAME_ID, REGIONKEY_ID);
+        List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25), BIGINT);
+        assertThat(topN.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        topNKey(
+                                scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
+                                ImmutableMap.of(NAME_ID, ASC_NULLS_LAST, REGIONKEY_ID, DESC_NULLS_LAST), 10),
+                        Optional.empty(),
+                        cacheColumnIds,
+                        cacheColumnsTypes),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        REGIONKEY_ID, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 10L)), false),
+                        NATIONKEY_ID, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 2L)), false)))));
+    }
+
+    @Test
+    public void testTopNWithNonPullableConjuncts()
+    {
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
+                        (SELECT nationkey FROM nation WHERE regionkey > 1 ORDER BY name ASC OFFSET 5 LIMIT 5)
+                        UNION ALL
+                        (SELECT regionkey FROM nation WHERE regionkey > 2 ORDER BY name ASC OFFSET 5 LIMIT 5)""",
+                true, false, false);
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).noneSatisfy((node, adaptation) ->
+                assertThat(node).isInstanceOf(TopNNode.class));
+    }
+
+
+    @Test
+    public void testMultipleCacheTopN()
+    {
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
+                        (SELECT nationkey FROM nation WHERE regionkey < 10 ORDER BY name ASC OFFSET 5 LIMIT 5)
+                        UNION ALL
+                        (SELECT regionkey FROM nation WHERE regionkey < 10 ORDER BY name ASC OFFSET 5 LIMIT 5)""",
+                true, false, false);
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).hasSize(2);
+        assertThat(planAdaptations).allSatisfy((node, adaptation) ->
+                assertThat(node).isInstanceOf(TopNNode.class));
+
+        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
+        CommonPlanAdaptation topNA = Iterables.get(planAdaptations.values(), 0);
+        CommonPlanAdaptation topNB = Iterables.get(planAdaptations.values(), 1);
+
+        PlanMatchPattern commonSubplan = topN(
+                10,
+                ImmutableList.of(sort("NAME", Ordering.ASCENDING, NullOrdering.LAST)),
+                TopNNode.Step.PARTIAL,
+                filter("(REGIONKEY < BIGINT '10')",
+                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
+        assertTpchPlan(symbolAllocator, topNA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(symbolAllocator, topNB.getCommonSubplan(), commonSubplan);
+
+        PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
+        assertTpchPlan(symbolAllocator, topNA.adaptCommonSubplan(topNA.getCommonSubplan(), idAllocator),
+                strictProject(ImmutableMap.of(
+                                "NATIONKEY", PlanMatchPattern.expression("NATIONKEY"),
+                                "NAME", PlanMatchPattern.expression("NAME")),
+                        commonSubplan));
+        assertTpchPlan(symbolAllocator, topNB.adaptCommonSubplan(topNB.getCommonSubplan(), idAllocator),
+                strictProject(ImmutableMap.of(
+                                "REGIONKEY", PlanMatchPattern.expression("REGIONKEY"),
+                                "NAME", PlanMatchPattern.expression("NAME")),
+                        commonSubplan));
+        assertThat(topNA.getCommonSubplanSignature()).isEqualTo(topNB.getCommonSubplanSignature());
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_ID, NAME_ID, REGIONKEY_ID);
+        List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25), BIGINT);
+        assertThat(topNB.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
+                new PlanSignature(
+                        topNKey(
+                                scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
+                                ImmutableMap.of(NAME_ID, ASC_NULLS_LAST), 10),
+                        Optional.empty(),
+                        cacheColumnIds,
+                        cacheColumnsTypes),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        REGIONKEY_ID, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 10L)), false)))));
     }
 
     @Test
@@ -1544,6 +1968,11 @@ public class TestCommonSubqueriesExtractor
 
     private CommonSubqueries extractTpchCommonSubqueries(@Language("SQL") String query, boolean cacheSubqueries, boolean cacheAggregations, boolean cacheProjections)
     {
+        return extractTpchCommonSubqueries(query, cacheSubqueries, cacheAggregations, cacheProjections, true);
+    }
+
+    private CommonSubqueries extractTpchCommonSubqueries(@Language("SQL") String query, boolean cacheSubqueries, boolean cacheAggregations, boolean cacheProjections, boolean forceSingleNode)
+    {
         Session tpchSession = Session.builder(TPCH_SESSION)
                 .setSystemProperty(CACHE_COMMON_SUBQUERIES_ENABLED, Boolean.toString(cacheSubqueries))
                 .setSystemProperty(CACHE_AGGREGATIONS_ENABLED, Boolean.toString(cacheAggregations))
@@ -1551,7 +1980,7 @@ public class TestCommonSubqueriesExtractor
                 .build();
         PlanTester planTester = getPlanTester();
         return planTester.inTransaction(tpchSession, session -> {
-            Plan plan = planTester.createPlan(session, query, planTester.getPlanOptimizers(true), planTester.getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+            Plan plan = planTester.createPlan(session, query, planTester.getPlanOptimizers(forceSingleNode), planTester.getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> getPlanTester().getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
             SymbolAllocator symbolAllocator = new SymbolAllocator(plan.getTypes().allTypes());

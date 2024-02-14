@@ -26,6 +26,9 @@ import static com.google.common.collect.ImmutableListMultimap.toImmutableListMul
 import static io.trino.SystemSessionProperties.isCacheAggregationsEnabled;
 import static io.trino.SystemSessionProperties.isCacheCommonSubqueriesEnabled;
 import static io.trino.SystemSessionProperties.isCacheProjectionsEnabled;
+import static io.trino.cache.CanonicalSubplan.Key;
+import static io.trino.cache.CanonicalSubplan.TopNKey;
+import static io.trino.cache.CanonicalSubplan.TopNRankingKey;
 
 public class CacheController
 {
@@ -71,11 +74,14 @@ public class CacheController
 
     record CacheCandidate(List<CanonicalSubplan> subplans, int minSubplans) {}
 
-    record SubplanKey(List<CanonicalSubplan.Key> keyChain, boolean aggregation)
+    record SubplanKey(List<Key> keyChain, boolean aggregation)
     {
         public SubplanKey(CanonicalSubplan subplan)
         {
-            this(subplan.getKeyChain(), subplan.getGroupByColumns().isPresent());
+            this(
+                    subplan.getKeyChain(),
+                    // TopN and TopNRanking are treated as aggregations because of an assumption of a significant reduction of output rows
+                    subplan.getGroupByColumns().isPresent() || subplan.getKey() instanceof TopNKey || subplan.getKey() instanceof TopNRankingKey);
         }
 
         public int getPriority()
