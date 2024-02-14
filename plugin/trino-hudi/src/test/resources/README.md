@@ -45,3 +45,10 @@ Download the `hudi_non_part_cow` table from the MinIO client http://localhost:90
 ### Use Resources
 
 Unzip the downloaded `hudi_non_part_cow.zip`. Remove any unnecessary files obtained after unzipping to prepare the resource for testing.
+
+
+## Generate Hudi table stock_ticks_mor_exception_test
+
+1. stock_ticks_mor_exception_test is created with the help of https://hudi.apache.org/cn/docs/0.8.0/docker_demo/ reference where table name  stock_ticks_mor_exception_test is used instead of stock_ticks_mor.
+2. once the data is generated zip the hdfs data location and copy and unzip here
+3. temp.parquet file is added at partition location to test exception case
