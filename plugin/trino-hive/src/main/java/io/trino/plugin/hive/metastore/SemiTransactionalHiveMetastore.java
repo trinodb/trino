@@ -3068,7 +3068,7 @@ public class SemiTransactionalHiveMetastore
                 created = true;
             }
             catch (RuntimeException e) {
-                boolean done = false;
+                RuntimeException failure = e;
                 try {
                     Optional<Table> existingTable = metastore.getTable(newTable.getDatabaseName(), newTable.getTableName());
                     if (existingTable.isPresent()) {
@@ -3076,7 +3076,7 @@ public class SemiTransactionalHiveMetastore
                         Optional<String> existingTableQueryId = getQueryId(table);
                         if (existingTableQueryId.isPresent() && existingTableQueryId.get().equals(queryId)) {
                             // ignore table if it was already created by the same query during retries
-                            done = true;
+                            failure = null;
                             created = true;
                         }
                         else {
@@ -3085,10 +3085,12 @@ public class SemiTransactionalHiveMetastore
                             // but another tx already created T(a: varchar)).
                             // This may be a problem if there is an insert after this step.
                             if (!hasTheSameSchema(newTable, table)) {
-                                e = new TrinoException(TRANSACTION_CONFLICT, format("Table already exists with a different schema: '%s'", newTable.getTableName()));
+                                // produce an understandable error message
+                                failure = new TrinoException(TRANSACTION_CONFLICT, format("Table already exists with a different schema: '%s'", newTable.getTableName()));
                             }
-                            else {
-                                done = ignoreExisting;
+                            else if (ignoreExisting) {
+                                // if the statement is "CREATE TABLE IF NOT EXISTS", then ignore the exception
+                                failure = null;
                             }
                         }
                     }
@@ -3100,8 +3102,8 @@ public class SemiTransactionalHiveMetastore
                     // Therefore, the table is not considered added.
                 }
 
-                if (!done) {
-                    throw e;
+                if (failure != null) {
+                    throw failure;
                 }
             }
             tableCreated = true;
