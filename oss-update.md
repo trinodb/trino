@@ -98,10 +98,22 @@ We will update the version manually.
 ```shell
 # The initial cherry pick is just to add "(cherry picked from commit ...)" to the commit messages
 git reset --hard "${OLD}" &&
-git rev-list --reverse "${OLD}..${NEW}" --invert-grep --grep '^\[maven-release-plugin]' | git cherry-pick -x --stdin &&
+git rev-list --reverse "${OLD}..${NEW}" --invert-grep --grep '^\[maven-release-plugin]' | git cherry-pick -x --stdin
+```
+
+```shell
+# Verify commit messages are unique. If they are not, change them manually adding "(n)" suffix to commit messages.
+# This will later help fixups to be squashed correctly.
+echo "The following commits have non-unique commit titles and need to be manually updated:" &&
+git log "${OLD}.." --format="%H %s" | grep -Ef <(
+    git log "${OLD}.." --format="%s" | sort | uniq -c \
+        | grep -v '^\s\+1 ' | sed -e 's/^\s\+[0-9]\+ /[0-9a-f]{40} /' -e 's/$/$/')
+# TODO automate updating the messages
+```
+
+```shell
 # Do the actual rebase
 git rebase --interactive --empty=drop "${OLD}" --onto master
-
 # Run the rebase, resolving the code conflicts as necessary and using git rebase --continue to continue
 ```
 
