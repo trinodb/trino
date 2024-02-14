@@ -109,7 +109,6 @@ public class TestHiveCacheIds
                 ImmutableSet.of(
                         new PartitionsSystemTableProvider(hivePartitionManager, TESTING_TYPE_MANAGER),
                         new PropertiesSystemTableProvider()),
-                new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
                 new FileSystemDirectoryLister(),
                 new TransactionScopeCachingDirectoryListerFactory(config),
