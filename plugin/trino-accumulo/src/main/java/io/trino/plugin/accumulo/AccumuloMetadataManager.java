@@ -42,9 +42,9 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.TimestampType;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
-import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.data.Key;
@@ -91,26 +91,26 @@ public class AccumuloMetadataManager
     private final ZooKeeperMetadataManager metaManager;
     private final Authorizations auths;
     private final AccumuloTableManager tableManager;
-    private final Connector connector;
+    private final AccumuloClient client;
     private final IndexLookup indexLookup;
     private final String username;
 
     @Inject
     public AccumuloMetadataManager(
-            Connector connector,
+            AccumuloClient client,
             AccumuloConfig config,
             ZooKeeperMetadataManager metaManager,
             AccumuloTableManager tableManager,
             IndexLookup indexLookup)
             throws AccumuloException, AccumuloSecurityException
     {
-        this.connector = requireNonNull(connector, "connector is null");
+        this.client = requireNonNull(client, "client is null");
         this.username = config.getUsername();
         this.metaManager = requireNonNull(metaManager, "metaManager is null");
         this.tableManager = requireNonNull(tableManager, "tableManager is null");
         this.indexLookup = requireNonNull(indexLookup, "indexLookup is null");
 
-        this.auths = connector.securityOperations().getUserAuthorizations(username);
+        this.auths = client.securityOperations().getUserAuthorizations(username);
 
         // The default namespace is created in ZooKeeperMetadataManager's constructor
         if (!tableManager.namespaceExists(DEFAULT_SCHEMA)) {
@@ -773,7 +773,7 @@ public class AccumuloMetadataManager
     {
         String sessionScanUser = AccumuloSessionProperties.getScanUsername(session);
         if (sessionScanUser != null) {
-            Authorizations scanAuths = connector.securityOperations().getUserAuthorizations(sessionScanUser);
+            Authorizations scanAuths = client.securityOperations().getUserAuthorizations(sessionScanUser);
             LOG.debug("Using session scan auths for user %s: %s", sessionScanUser, scanAuths);
             return scanAuths;
         }
@@ -805,7 +805,7 @@ public class AccumuloMetadataManager
             }
             else {
                 // Call out to Accumulo to split the range on tablets
-                rangeBuilder.addAll(connector.tableOperations().splitRangeByTablets(tableName, range, Integer.MAX_VALUE));
+                rangeBuilder.addAll(client.tableOperations().splitRangeByTablets(tableName, range, Integer.MAX_VALUE));
             }
         }
         return rangeBuilder.build();
@@ -822,10 +822,10 @@ public class AccumuloMetadataManager
     {
         try {
             // Get the Accumulo table ID so we can scan some fun stuff
-            String tableId = connector.tableOperations().tableIdMap().get(table);
+            String tableId = client.tableOperations().tableIdMap().get(table);
 
             // Create our scanner against the metadata table, fetching 'loc' family
-            Scanner scanner = connector.createScanner("accumulo.metadata", auths);
+            Scanner scanner = client.createScanner("accumulo.metadata", auths);
             scanner.fetchColumnFamily(new Text("loc"));
 
             // Set the scan range to just this table, from the table ID to the default tablet
@@ -895,10 +895,10 @@ public class AccumuloMetadataManager
     private Optional<String> getDefaultTabletLocation(String fulltable)
     {
         try {
-            String tableId = connector.tableOperations().tableIdMap().get(fulltable);
+            String tableId = client.tableOperations().tableIdMap().get(fulltable);
 
             // Create a scanner over the metadata table, fetching the 'loc' column of the default tablet row
-            Scanner scan = connector.createScanner("accumulo.metadata", connector.securityOperations().getUserAuthorizations(username));
+            Scanner scan = client.createScanner("accumulo.metadata", client.securityOperations().getUserAuthorizations(username));
             scan.fetchColumnFamily(new Text("loc"));
             scan.setRange(new Range(tableId + '<'));
 

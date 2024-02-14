@@ -23,7 +23,7 @@ import io.trino.plugin.accumulo.metadata.ZooKeeperMetadataManager;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import org.apache.accumulo.core.client.Connector;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -48,14 +48,15 @@ public class TestAccumuloMetadataManager
     public void setUp()
             throws Exception
     {
+        TestingAccumuloServer server = TestingAccumuloServer.getInstance();
         AccumuloConfig config = new AccumuloConfig()
+                .setZooKeepers(server.getZooKeepers())
+                .setInstance(server.getInstanceName())
                 .setUsername("root")
                 .setPassword("secret");
-
-        Connector connector = TestingAccumuloServer.getInstance().getConnector();
-        config.setZooKeepers(connector.getInstance().getZooKeepers());
+        AccumuloClient client = server.getClient();
         zooKeeperMetadataManager = new ZooKeeperMetadataManager(config, TESTING_TYPE_MANAGER);
-        metadataManager = new AccumuloMetadataManager(connector, config, zooKeeperMetadataManager, new AccumuloTableManager(connector), new IndexLookup(connector, new ColumnCardinalityCache(connector, config)));
+        metadataManager = new AccumuloMetadataManager(client, config, zooKeeperMetadataManager, new AccumuloTableManager(client), new IndexLookup(client, new ColumnCardinalityCache(client, config)));
     }
 
     @AfterAll
