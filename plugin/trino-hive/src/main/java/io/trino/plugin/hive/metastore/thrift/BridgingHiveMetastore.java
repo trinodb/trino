@@ -209,7 +209,7 @@ public class BridgingHiveMetastore
         }
         catch (SchemaAlreadyExistsException e) {
             // Ignore SchemaAlreadyExistsException when this query has already created the database.
-            // This may happen when an actually successful metastore create call is retried,
+            // This may happen when an actually successful metastore create call is retried
             // because of a timeout on our side.
             String expectedQueryId = database.getParameters().get(TRINO_QUERY_ID_NAME);
             if (expectedQueryId != null) {
@@ -267,7 +267,7 @@ public class BridgingHiveMetastore
         }
         catch (TableAlreadyExistsException e) {
             // Ignore TableAlreadyExistsException when this query has already created the table.
-            // This may happen when an actually successful metastore create call is retried,
+            // This may happen when an actually successful metastore create call is retried
             // because of a timeout on our side.
             String expectedQueryId = table.getParameters().get(TRINO_QUERY_ID_NAME);
             if (expectedQueryId != null) {
@@ -619,7 +619,7 @@ public class BridgingHiveMetastore
     @Override
     public boolean functionExists(String databaseName, String functionName, String signatureToken)
     {
-        return delegate.getFunction(databaseName, ThriftMetastoreUtil.metastoreFunctionName(functionName, signatureToken)).isPresent();
+        return delegate.getFunction(databaseName, metastoreFunctionName(functionName, signatureToken)).isPresent();
     }
 
     @Override
