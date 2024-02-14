@@ -79,7 +79,7 @@ public final class AccumuloQueryRunner
         if (!tpchLoaded) {
             queryRunner.execute("CREATE SCHEMA accumulo.tpch");
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
-            server.getConnector().tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
+            server.getClient().tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
             tpchLoaded = true;
         }
 
