@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
+import io.trino.plugin.hive.coercions.BooleanCoercer.OrcVarcharToBooleanCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.DateToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.DoubleToVarcharCoercer;
@@ -26,6 +27,7 @@ import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCo
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.coercions.VarcharToDoubleCoercer;
 import io.trino.plugin.hive.coercions.VarcharToFloatCoercer;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
@@ -73,6 +75,9 @@ public final class OrcTypeTranslator
             return Optional.of(new DateToVarcharCoercer(varcharType));
         }
         if (isVarcharType(fromOrcType)) {
+            if (toTrinoType instanceof BooleanType) {
+                return Optional.of(new OrcVarcharToBooleanCoercer(createUnboundedVarcharType()));
+            }
             if (toTrinoType instanceof TimestampType timestampType) {
                 if (timestampType.isShort()) {
                     return Optional.of(new VarcharToShortTimestampCoercer(createUnboundedVarcharType(), timestampType));

@@ -59,6 +59,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
+import static java.sql.JDBCType.BOOLEAN;
 import static java.sql.JDBCType.CHAR;
 import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.DECIMAL;
@@ -101,6 +102,10 @@ public abstract class BaseTestHiveCoercion
                 "list_to_list",
                 "map_to_map",
                 "boolean_to_varchar",
+                "string_to_boolean",
+                "special_string_to_boolean",
+                "numeric_string_to_boolean",
+                "varchar_to_boolean",
                 "tinyint_to_smallint",
                 "tinyint_to_int",
                 "tinyint_to_bigint",
@@ -208,6 +213,10 @@ public abstract class BaseTestHiveCoercion
                         "  ARRAY [CAST(ROW (2, -101, 12345, 'removed') AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
                         "  MAP (ARRAY [TINYINT '2'], ARRAY [CAST(ROW (-3, 2323, REAL '0.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %2$s))]), " +
                         "  TRUE, " +
+                        "  'TRUE', " +
+                        "  ' ', " +
+                        "  '-123', " +
+                        "  'No', " +
                         "  TINYINT '-1', " +
                         "  TINYINT '2', " +
                         "  TINYINT '-3', " +
@@ -287,6 +296,10 @@ public abstract class BaseTestHiveCoercion
                         "  ARRAY [CAST(ROW (-2, 101, -12345, NULL) AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
                         "  MAP (ARRAY [TINYINT '-2'], ARRAY [CAST(ROW (null, -2323, REAL '-1.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %2$s))]), " +
                         "  FALSE, " +
+                        "  'FAlSE', " +
+                        "  'oFF', " +
+                        "  '-0', " +
+                        "  '', " +
                         "  TINYINT '1', " +
                         "  TINYINT '-2', " +
                         "  NULL, " +
@@ -371,11 +384,21 @@ public abstract class BaseTestHiveCoercion
         String hiveValueForCaseChangeField;
         String coercedNaN = "NaN";
         Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
+        Map<String, List<Object>> varcharToBooleanCoercionValues = ImmutableMap.of(
+                "string_to_boolean", ImmutableList.of(true, false),
+                "special_string_to_boolean", ImmutableList.of(true, false),
+                "numeric_string_to_boolean", ImmutableList.of(true, true),
+                "varchar_to_boolean", ImmutableList.of(false, false));
         if (Stream.of("rctext", "textfile", "sequencefile").anyMatch(isFormat)) {
             hiveValueForCaseChangeField = "\"lower2uppercase\":2";
         }
         else if (isFormat.test("orc")) {
             hiveValueForCaseChangeField = "\"LOWER2UPPERCASE\":null";
+            varcharToBooleanCoercionValues = ImmutableMap.of(
+                    "string_to_boolean", Arrays.asList(null, null),
+                    "special_string_to_boolean", Arrays.asList(null, null),
+                    "numeric_string_to_boolean", ImmutableList.of(true, false),
+                    "varchar_to_boolean", Arrays.asList(null, null));
         }
         else {
             hiveValueForCaseChangeField = "\"LOWER2UPPERCASE\":2";
@@ -444,6 +467,7 @@ public abstract class BaseTestHiveCoercion
                 .put("boolean_to_varchar", ImmutableList.of(
                         "TRUE",
                         "FALSE"))
+                .putAll(varcharToBooleanCoercionValues)
                 .put("tinyint_to_smallint", ImmutableList.of(
                         -1,
                         1))
@@ -1050,6 +1074,10 @@ public abstract class BaseTestHiveCoercion
                 row("list_to_list", "array(row(ti2int integer, si2bi bigint, bi2vc varchar))"),
                 row("map_to_map", "map(integer, row(ti2bi bigint, int2bi bigint, float2double double, add tinyint))"),
                 row("boolean_to_varchar", "varchar(5)"),
+                row("string_to_boolean", "boolean"),
+                row("special_string_to_boolean", "boolean"),
+                row("numeric_string_to_boolean", "boolean"),
+                row("varchar_to_boolean", "boolean"),
                 row("tinyint_to_smallint", "smallint"),
                 row("tinyint_to_int", "integer"),
                 row("tinyint_to_bigint", "bigint"),
@@ -1145,6 +1173,10 @@ public abstract class BaseTestHiveCoercion
                 .put("list_to_list", ARRAY) // list
                 .put("map_to_map", JAVA_OBJECT) // map
                 .put("boolean_to_varchar", VARCHAR)
+                .put("string_to_boolean", BOOLEAN)
+                .put("special_string_to_boolean", BOOLEAN)
+                .put("numeric_string_to_boolean", BOOLEAN)
+                .put("varchar_to_boolean", BOOLEAN)
                 .put("tinyint_to_smallint", SMALLINT)
                 .put("tinyint_to_int", INTEGER)
                 .put("tinyint_to_bigint", BIGINT)
@@ -1240,6 +1272,10 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN map_to_map map_to_map map<int,struct<ti2bi:bigint, int2bi:bigint, float2double:double, add:tinyint>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN boolean_to_varchar boolean_to_varchar varchar(5)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_boolean string_to_boolean boolean", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN special_string_to_boolean special_string_to_boolean boolean", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN numeric_string_to_boolean numeric_string_to_boolean boolean", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_boolean varchar_to_boolean boolean", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_int tinyint_to_int int", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_bigint tinyint_to_bigint bigint", tableName));
