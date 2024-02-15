@@ -28,7 +28,6 @@ import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.hive.thrift.metastore.DataOperationType;
-import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -55,7 +54,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -439,12 +437,6 @@ public final class CachingHiveMetastore
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         return getOptional(tableCache, hiveTableName(databaseName, tableName));
-    }
-
-    @Override
-    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
-    {
-        return delegate.getSupportedColumnStatistics(type);
     }
 
     private Optional<Table> loadTable(HiveTableName hiveTableName)

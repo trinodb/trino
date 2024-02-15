@@ -34,14 +34,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.TrinoException;
-import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -87,12 +84,6 @@ public class DefaultGlueColumnStatisticsProvider
         this.readExecutor = readExecutor;
         this.writeExecutor = writeExecutor;
         this.stats = stats;
-    }
-
-    @Override
-    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
-    {
-        return ThriftMetastoreUtil.getSupportedColumnStatistics(type);
     }
 
     @Override
