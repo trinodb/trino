@@ -187,6 +187,12 @@ public class DeltaLakePageSourceProvider
         if (filteredSplitPredicate.isNone()) {
             return new EmptyPageSource();
         }
+        Map<DeltaLakeColumnHandle, Domain> partitionColumnDomains = filteredSplitPredicate.getDomains().orElseThrow().entrySet().stream()
+                .filter(entry -> entry.getKey().getColumnType() == DeltaLakeColumnType.PARTITION_KEY)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        if (!partitionMatchesPredicate(split.getPartitionKeys(), partitionColumnDomains)) {
+            return new EmptyPageSource();
+        }
         if (filteredSplitPredicate.isAll() &&
                 split.getStart() == 0 && split.getLength() == split.getFileSize() &&
                 split.getFileRowCount().isPresent() &&
@@ -306,12 +312,12 @@ public class DeltaLakePageSourceProvider
         DeltaLakeSplit split = (DeltaLakeSplit) connectorSplit;
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) connectorTable;
 
-        TupleDomain<ColumnHandle> prunedPredicate = prunePredicate(connectorSession, connectorSplit, connectorTable,
-                TupleDomain.intersect(ImmutableList.of(
-                        table.getNonPartitionConstraint(),
-                        split.getStatisticsPredicate(),
-                        predicate)));
-        return prunedPredicate.simplify(domainCompactionThreshold);
+        TupleDomain<ColumnHandle> prunedPredicate = prunePredicate(connectorSession, connectorSplit, connectorTable, predicate);
+        return TupleDomain.intersect(ImmutableList.of(
+                table.getNonPartitionConstraint(),
+                split.getStatisticsPredicate(),
+                prunedPredicate))
+                .simplify(domainCompactionThreshold);
     }
 
     @Override
