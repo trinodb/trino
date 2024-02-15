@@ -71,8 +71,6 @@ public interface HiveMetastore
 
     void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates);
 
-    Optional<List<TableInfo>> getAllTables();
-
     List<TableInfo> getTables(String databaseName);
 
     void createDatabase(Database database);

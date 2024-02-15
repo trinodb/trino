@@ -157,18 +157,6 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public Optional<List<TableInfo>> getAllTables()
-    {
-        Span span = tracer.spanBuilder("HiveMetastore.getAllTables")
-                .startSpan();
-        return withTracing(span, () -> {
-            Optional<List<TableInfo>> tables = delegate.getAllTables();
-            tables.ifPresent(list -> span.setAttribute(TABLE_RESPONSE_COUNT, list.size()));
-            return tables;
-        });
-    }
-
-    @Override
     public List<TableInfo> getTables(String databaseName)
     {
         Span span = tracer.spanBuilder("HiveMetastore.getTables")

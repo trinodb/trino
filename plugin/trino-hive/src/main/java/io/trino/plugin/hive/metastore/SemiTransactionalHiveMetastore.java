@@ -236,15 +236,6 @@ public class SemiTransactionalHiveMetastore
         return delegate.getDatabase(databaseName);
     }
 
-    public synchronized Optional<List<TableInfo>> getTables()
-    {
-        checkReadable();
-        if (!tableActions.isEmpty()) {
-            throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
-        }
-        return delegate.getTables();
-    }
-
     public synchronized List<TableInfo> getTables(String databaseName)
     {
         checkReadable();
