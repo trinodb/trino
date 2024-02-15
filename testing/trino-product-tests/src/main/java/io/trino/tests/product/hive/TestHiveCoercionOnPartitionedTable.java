@@ -95,6 +95,7 @@ public class TestHiveCoercionOnPartitionedTable
     {
         String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
         String floatType = fileFormat.toLowerCase(ENGLISH).contains("parquet") ? "DOUBLE" : "FLOAT";
+        String varcharTypeForBooleanCoercion = fileFormat.toLowerCase(ENGLISH).contains("orc") ? "VARCHAR(5)" : "STRING";
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +
@@ -103,6 +104,10 @@ public class TestHiveCoercionOnPartitionedTable
                         "    list_to_list               ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>, " +
                         "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: " + floatType + ">>, " +
                         "    boolean_to_varchar         BOOLEAN," +
+                        "    string_to_boolean          STRING," +
+                        "    special_string_to_boolean  STRING," +
+                        "    numeric_string_to_boolean  STRING," +
+                        "    varchar_to_boolean         " + varcharTypeForBooleanCoercion + "," +
                         "    tinyint_to_smallint        TINYINT," +
                         "    tinyint_to_int             TINYINT," +
                         "    tinyint_to_bigint          TINYINT," +
