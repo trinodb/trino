@@ -65,7 +65,7 @@ public class TestDeltaLakeAlluxioCacheMinioAndHmsConnectorSmokeTest
     {
         return ImmutableMap.<String, String>builder()
                 .putAll(super.deltaStorageConfiguration())
-                .put("fs.cache", "alluxio")
+                .put("fs.cache.enabled", "true")
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
                 .buildOrThrow();

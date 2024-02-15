@@ -54,7 +54,7 @@ public class TestIcebergAlluxioCacheFileOperations
         metastoreDirectory.toFile().deleteOnExit();
 
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
-                .put("fs.cache", "alluxio")
+                .put("fs.cache.enabled", "true")
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
                 .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())

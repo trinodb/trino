@@ -78,7 +78,7 @@ class TestAlluxioFileSystemCacheConfig
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("fs.cache.directories", cacheDirectory.toString())
-                .put("fs.cache.alluxio.page-size", "7MB")
+                .put("fs.cache.page-size", "7MB")
                 .put("fs.cache.max-sizes", "1GB")
                 .put("fs.cache.max-disk-usage-percentages", "50")
                 .put("fs.cache.ttl", "1d")
