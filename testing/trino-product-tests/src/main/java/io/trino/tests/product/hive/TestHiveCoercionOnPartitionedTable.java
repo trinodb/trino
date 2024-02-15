@@ -153,6 +153,10 @@ public class TestHiveCoercionOnPartitionedTable
                         "    varchar_to_smaller_varchar         VARCHAR(3)," +
                         "    varchar_to_date                    VARCHAR(10)," +
                         "    varchar_to_distant_date            VARCHAR(12)," +
+                        "    varchar_to_float                   VARCHAR(40)," +
+                        "    string_to_float                    STRING," +
+                        "    varchar_to_float_infinity          VARCHAR(40)," +
+                        "    varchar_to_special_float           VARCHAR(40)," +
                         "    varchar_to_double                  VARCHAR(40)," +
                         "    string_to_double                   STRING," +
                         "    varchar_to_double_infinity         VARCHAR(40)," +
