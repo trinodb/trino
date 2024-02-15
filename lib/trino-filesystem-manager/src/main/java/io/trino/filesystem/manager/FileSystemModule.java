@@ -43,7 +43,6 @@ import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemModule
@@ -103,14 +102,12 @@ public class FileSystemModule
 
         newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(DefaultCachingHostAddressProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
-        newMapBinder(binder, FileSystemConfig.CacheType.class, TrinoFileSystemCache.class);
 
         newOptionalBinder(binder, TrinoFileSystemCache.class);
 
-        install(conditionalModule(
-                FileSystemConfig.class,
-                cache -> cache.getCacheType() == FileSystemConfig.CacheType.ALLUXIO,
-                new AlluxioFileSystemCacheModule(nodeManager.getCurrentNode().isCoordinator())));
+        if (config.isCacheEnabled()) {
+            install(new AlluxioFileSystemCacheModule(nodeManager.getCurrentNode().isCoordinator()));
+        }
     }
 
     @Provides
