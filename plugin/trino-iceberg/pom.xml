@@ -16,7 +16,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <!-- Nessie version (matching to Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.71.0</dep.nessie.version>
+        <dep.nessie.version>0.71.1</dep.nessie.version>
     </properties>
 
     <dependencies>
