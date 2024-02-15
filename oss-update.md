@@ -86,7 +86,7 @@ Action items:
 - [ ] Squash fixups
 - [ ] Check OSS release notes for breaking changes
 EOF
-)"
+)&labels=salesforce"
 ```
 
 ### rebase OSS commits onto Cork codebase
