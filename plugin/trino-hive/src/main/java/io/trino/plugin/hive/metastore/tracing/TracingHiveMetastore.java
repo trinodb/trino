@@ -16,7 +16,6 @@ package io.trino.plugin.hive.metastore.tracing;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.hive.thrift.metastore.DataOperationType;
-import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -38,7 +37,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 
 import java.util.Collection;
 import java.util.List;
@@ -101,13 +99,6 @@ public class TracingHiveMetastore
                 .setAttribute(TABLE, tableName)
                 .startSpan();
         return withTracing(span, () -> delegate.getTable(databaseName, tableName));
-    }
-
-    @Override
-    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
-    {
-        // Tracing is not necessary
-        return delegate.getSupportedColumnStatistics(type);
     }
 
     @Override
