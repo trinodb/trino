@@ -138,7 +138,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -1058,8 +1057,8 @@ public class GlueHiveMetastore
                     List<PartitionValueList> unprocessedKeys = batchGetPartitionResult.getUnprocessedKeys();
 
                     // In the unlikely scenario where batchGetPartition call cannot make progress on retrieving partitions, avoid infinite loop
-                    if (partitions.isEmpty()) {
-                        verify(!unprocessedKeys.isEmpty(), "Empty unprocessedKeys for non-empty BatchGetPartitionRequest and empty partitions result");
+                    // We fail only in case there are still unprocessedKeys. Case with empty partitions and empty unprocessedKeys is correct in case partitions from request are not found.
+                    if (partitions.isEmpty() && !unprocessedKeys.isEmpty()) {
                         throw new TrinoException(HIVE_METASTORE_ERROR, "Cannot make progress retrieving partitions. Unable to retrieve partitions: " + unprocessedKeys);
                     }
 
