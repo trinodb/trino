@@ -37,7 +37,6 @@ import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Collection;
@@ -88,11 +87,6 @@ public class HiveMetastoreClosure
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         return delegate.getTable(databaseName, tableName);
-    }
-
-    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
-    {
-        return delegate.getSupportedColumnStatistics(type);
     }
 
     public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)

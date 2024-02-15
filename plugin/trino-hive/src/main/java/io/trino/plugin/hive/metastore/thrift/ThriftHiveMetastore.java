@@ -57,7 +57,6 @@ import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.hive.thrift.metastore.UnknownDBException;
 import io.trino.hive.thrift.metastore.UnknownTableException;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -82,7 +81,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransportException;
 
@@ -324,12 +322,6 @@ public final class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
-    }
-
-    @Override
-    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
-    {
-        return ThriftMetastoreUtil.getSupportedColumnStatistics(type);
     }
 
     @Override
