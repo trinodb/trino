@@ -116,8 +116,8 @@ public class AlluxioFileSystemCacheConfig
         return this.cachePageSize;
     }
 
-    @Config("fs.cache.alluxio.page-size")
-    @ConfigDescription("Page size of Alluxio cache")
+    @Config("fs.cache.page-size")
+    @ConfigDescription("Page size for cache")
     public AlluxioFileSystemCacheConfig setCachePageSize(DataSize cachePageSize)
     {
         this.cachePageSize = cachePageSize;

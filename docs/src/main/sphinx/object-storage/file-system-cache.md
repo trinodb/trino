@@ -99,9 +99,8 @@ enable and configure caching for the specific catalogs.
 
 * - Property
   - Description
-* - `fs.cache`
-  - Configure the caching type. Defaults to no caching with the value `none`.
-    Set to `alluxio` to enable object storage caching powered by Alluxio.
+* - `fs.cache.enabled`
+  - Enable object storage caching. Defaults to no caching with the value `false`.
 * - `fs.cache.directories`
   - Required, comma-separated list of absolute paths to directories to use for
     caching. All directories must exist on the coordinator and all workers.
@@ -128,12 +127,11 @@ enable and configure caching for the specific catalogs.
     nodes identified for caching a split are unavailable or too busy, then an
     available node is chosen at random from the cluster. More information in
     [](fs-cache-distributed).
-* - `fs.cache.alluxio.page-size`
-  - The page [data size](prop-type-data-size) used for caching data with
-    Alluxio. Each transfer of files uses at least this amount of data. Defaults
-    to `1MB`. Values must be between `64kB` and `15MB`. Larger value potentially
-    result in too much data transfer smaller values are less efficient since
-    they result in more individual downloads.
+* - `fs.cache.page-size`
+  - The page [data size](prop-type-data-size) used for caching data. Each transfer of files 
+    uses at least this amount of data. Defaults to `1MB`. Values must be between 
+    `64kB` and `15MB`. Larger value potentially result in too much data transfer 
+    smaller values are less efficient since they result in more individual downloads.
 :::
 
 ## Recommendations
