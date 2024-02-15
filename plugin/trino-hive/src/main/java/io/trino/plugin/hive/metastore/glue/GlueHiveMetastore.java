@@ -78,7 +78,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -111,7 +110,6 @@ import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -287,12 +285,6 @@ public class GlueHiveMetastore
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
-    }
-
-    @Override
-    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
-    {
-        return columnStatisticsProvider.getSupportedColumnStatistics(type);
     }
 
     private Table getExistingTable(String databaseName, String tableName)

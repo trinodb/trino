@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.metastore;
 
 import io.trino.hive.thrift.metastore.DataOperationType;
-import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -27,7 +26,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 
 import java.util.Collection;
 import java.util.List;
@@ -45,8 +43,6 @@ public interface HiveMetastore
     List<String> getAllDatabases();
 
     Optional<Table> getTable(String databaseName, String tableName);
-
-    Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type);
 
     /**
      * @param columnNames Must not be empty.

@@ -270,6 +270,7 @@ import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.MERGE_INCREMEN
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.STATS_PROPERTIES;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getSupportedColumnStatistics;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.arePartitionProjectionPropertiesSet;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionHiveTableProperties;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionTrinoTableProperties;
@@ -1670,7 +1671,7 @@ public class HiveMetadata
             Map<String, Set<HiveColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
                     .filter(columnHandle -> !partitionColumnNames.contains(columnHandle.getName()))
                     .filter(column -> !column.isHidden())
-                    .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(column.getType()))));
+                    .collect(toImmutableMap(HiveColumnHandle::getName, column -> getSupportedColumnStatistics(column.getType())));
             Supplier<PartitionStatistics> emptyPartitionStatistics = Suppliers.memoize(() -> createEmptyPartitionStatistics(columnTypes, columnStatisticTypes));
 
             List<Type> partitionTypes = handle.getPartitionColumns().stream()
@@ -3532,13 +3533,13 @@ public class HiveMetadata
         return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, Optional.empty(), false);
     }
 
-    private TableStatisticsMetadata getStatisticsCollectionMetadata(List<ColumnMetadata> columns, List<String> partitionedBy, Optional<Set<String>> analyzeColumns, boolean includeRowCount)
+    private static TableStatisticsMetadata getStatisticsCollectionMetadata(List<ColumnMetadata> columns, List<String> partitionedBy, Optional<Set<String>> analyzeColumns, boolean includeRowCount)
     {
         Set<ColumnStatisticMetadata> columnStatistics = columns.stream()
                 .filter(column -> !partitionedBy.contains(column.getName()))
                 .filter(column -> !column.isHidden())
                 .filter(column -> analyzeColumns.isEmpty() || analyzeColumns.get().contains(column.getName()))
-                .map(this::getColumnStatisticMetadata)
+                .map(HiveMetadata::getColumnStatisticMetadata)
                 .flatMap(List::stream)
                 .collect(toImmutableSet());
 
@@ -3546,14 +3547,10 @@ public class HiveMetadata
         return new TableStatisticsMetadata(columnStatistics, tableStatistics, partitionedBy);
     }
 
-    private List<ColumnStatisticMetadata> getColumnStatisticMetadata(ColumnMetadata columnMetadata)
+    private static List<ColumnStatisticMetadata> getColumnStatisticMetadata(ColumnMetadata columnMetadata)
     {
-        return getColumnStatisticMetadata(columnMetadata.getName(), metastore.getSupportedColumnStatistics(columnMetadata.getType()));
-    }
-
-    private static List<ColumnStatisticMetadata> getColumnStatisticMetadata(String columnName, Set<HiveColumnStatisticType> statisticTypes)
-    {
-        return statisticTypes.stream()
+        String columnName = columnMetadata.getName();
+        return getSupportedColumnStatistics(columnMetadata.getType()).stream()
                 .map(type -> type.createColumnStatisticMetadata(columnName))
                 .collect(toImmutableList());
     }

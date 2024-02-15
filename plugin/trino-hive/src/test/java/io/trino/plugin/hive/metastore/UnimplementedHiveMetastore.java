@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -23,7 +22,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 
 import java.util.Collection;
 import java.util.List;
@@ -48,12 +46,6 @@ public class UnimplementedHiveMetastore
 
     @Override
     public Optional<Table> getTable(String databaseName, String tableName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
         throw new UnsupportedOperationException();
     }

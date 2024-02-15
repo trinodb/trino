@@ -34,7 +34,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.HiveType;
@@ -61,7 +60,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.Type;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -300,11 +298,6 @@ public class SemiTransactionalHiveMetastore
             case INSERT_EXISTING, MERGE -> false; // Until the transaction is committed, the table data may or may not be visible.
             case DROP, DROP_PRESERVE_DATA -> false;
         };
-    }
-
-    public synchronized Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
-    {
-        return delegate.getSupportedColumnStatistics(type);
     }
 
     public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName, Optional<Set<String>> columns)
