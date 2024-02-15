@@ -131,6 +131,9 @@ public final class CoercionUtils
         if (fromType instanceof BooleanType && toType instanceof VarcharType toVarcharType) {
             return Optional.of(new BooleanToVarcharCoercer(toVarcharType));
         }
+        if (fromType instanceof VarcharType fromVarcharType && toType instanceof CharType toCharType) {
+            return Optional.of(new VarcharToCharCoercer(fromVarcharType, toCharType));
+        }
         if (fromType instanceof CharType fromCharType && toType instanceof CharType toCharType) {
             if (narrowerThan(toCharType, fromCharType)) {
                 return Optional.of(new CharCoercer(fromCharType, toCharType));
