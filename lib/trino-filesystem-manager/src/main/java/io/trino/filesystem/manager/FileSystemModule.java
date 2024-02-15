@@ -83,6 +83,11 @@ public class FileSystemModule
 
         var factories = newMapBinder(binder, String.class, TrinoFileSystemFactory.class);
 
+        if (config.isNativeS3ExpressEnabled()) {
+            install(new S3FileSystemModule());
+            factories.addBinding(Constants.S3_EXPRESS_FACTORY_KEY).to(S3FileSystemFactory.class);
+        }
+
         if (config.isNativeAzureEnabled()) {
             install(new AzureFileSystemModule());
             factories.addBinding("abfs").to(AzureFileSystemFactory.class);
