@@ -584,7 +584,7 @@
                 <activeByDefault>false</activeByDefault>
             </activation>
             <properties>
-                <air.test.jvm.additional-arguments>--add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
+                <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
             </properties>
             <build>
                 <plugins>
