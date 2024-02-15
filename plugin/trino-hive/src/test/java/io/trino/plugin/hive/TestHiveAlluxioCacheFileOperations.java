@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.io.Closer;
 import io.opentelemetry.api.common.Attributes;
-import io.trino.filesystem.manager.FileSystemConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -62,7 +61,7 @@ public class TestHiveAlluxioCacheFileOperations
         closer.register(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
 
         Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
-                .put("fs.cache", FileSystemConfig.CacheType.ALLUXIO.name())
+                .put("fs.cache.enabled", "true")
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
                 .put("hive.metastore", "file")
