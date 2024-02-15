@@ -13,13 +13,16 @@
  */
 package io.trino.cli;
 
-import au.com.bytecode.opencsv.CSVWriter;
 import com.google.common.collect.ImmutableList;
+import com.opencsv.CSVWriter;
+import com.opencsv.CSVWriterBuilder;
+import com.opencsv.ICSVWriter;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 
+import static com.opencsv.ICSVWriter.NO_QUOTE_CHARACTER;
 import static io.trino.cli.FormatUtils.formatValue;
 import static java.util.Objects.requireNonNull;
 
@@ -27,7 +30,7 @@ public class CsvPrinter
         implements OutputPrinter
 {
     private final List<String> fieldNames;
-    private final CSVWriter writer;
+    private final ICSVWriter writer;
 
     private boolean needHeader;
 
@@ -63,7 +66,7 @@ public class CsvPrinter
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
-        this.writer = csvOutputFormat.isQuoted() ? new CSVWriter(writer) : new CSVWriter(writer, CSVWriter.DEFAULT_SEPARATOR, CSVWriter.NO_QUOTE_CHARACTER);
+        this.writer = csvOutputFormat.isQuoted() ? new CSVWriter(writer) : new CSVWriterBuilder(writer).withQuoteChar(NO_QUOTE_CHARACTER).build();
         this.needHeader = csvOutputFormat.showHeader();
     }
 
