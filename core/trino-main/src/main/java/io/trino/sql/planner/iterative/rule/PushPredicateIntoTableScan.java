@@ -255,7 +255,9 @@ public class PushPredicateIntoTableScan
 
         // Create PlanNodes based on the alternatives returned by the connector
         List<PlanNode> alternatives = new ArrayList<>(result.get().getAlternatives().size());
-        for (ConstraintApplicationResult.Alternative<TableHandle> alternative : result.get().getAlternatives()) {
+        for (int i = 0; i < result.get().getAlternatives().size(); i++) {
+            ConstraintApplicationResult.Alternative<TableHandle> alternative = result.get().getAlternatives().get(i);
+
             TableProperties newTableProperties = plannerContext.getMetadata().getTableProperties(session, alternative.handle());
             if (newTableProperties.getPredicate().isNone()) {
                 // if there's an alternative with "false" filter - choose it without asking the connector
@@ -264,6 +266,8 @@ public class PushPredicateIntoTableScan
 
             TupleDomain<ColumnHandle> remainingFilter = alternative.remainingFilter();
             Optional<ConnectorExpression> remainingConnectorExpression = alternative.remainingExpression();
+            // statistics are calculated for the first alternative only. If the original plan is to be retained, then it would be the first alternative
+            boolean precalculateStatistics = !result.get().isRetainOriginalPlan() && i == 0 && alternative.precalculateStatistics();
             verifyTablePartitioning(session, plannerContext.getMetadata(), node, newTableProperties.getTablePartitioning());
 
             TableScanNode tableScan = new TableScanNode(
@@ -273,7 +277,7 @@ public class PushPredicateIntoTableScan
                     node.getAssignments(),
                     computeEnforced(newDomain, remainingFilter),
                     // TODO (https://github.com/trinodb/trino/issues/8144) distinguish between predicate pushed down and remaining
-                    deriveTableStatisticsForPushdown(statsProvider, session, alternative.precalculateStatistics(), filterNode),
+                    deriveTableStatisticsForPushdown(statsProvider, session, precalculateStatistics, filterNode),
                     node.isUpdateTarget(),
                     node.getUseConnectorNodePartitioning());
 

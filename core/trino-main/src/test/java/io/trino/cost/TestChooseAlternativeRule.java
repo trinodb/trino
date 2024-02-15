@@ -36,10 +36,10 @@ class TestChooseAlternativeRule
                         .chooseAlternative(
                                 List.of(
                                         pb.filter(expression("i1 = 5"),
-                                                pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))),
+                                                pb.values(pb.symbol("i1"), pb.symbol("i2"))),
                                         pb.filter(expression("i1 = 10"),
-                                                pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3")))),
-                                new FilteredTableScan(pb.tableScan(List.of(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3")), false), Optional.empty())))
+                                                pb.values(pb.symbol("i1"), pb.symbol("i2")))),
+                                new FilteredTableScan(pb.tableScan(List.of(pb.symbol("i1"), pb.symbol("i2")), false), Optional.empty())))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
@@ -54,13 +54,7 @@ class TestChooseAlternativeRule
                                 .setHighValue(3)
                                 .setAverageRowSize(25)
                                 .setDistinctValuesCount(4)
-                                .setNullsFraction(0)
-                                .build())
-                        .addSymbolStatistics(new Symbol("i3"), SymbolStatsEstimate.builder()
-                                .setLowValue(10)
-                                .setHighValue(15)
-                                .setDistinctValuesCount(4)
-                                .setNullsFraction(0.1)
+                                .setNullsFraction(0.5)
                                 .build())
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
@@ -68,43 +62,31 @@ class TestChooseAlternativeRule
                         .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(7)
                                 .setHighValue(9)
-                                .setAverageRowSize(NaN)
-                                .setDistinctValuesCount(3)
+                                .setAverageRowSize(3)
+                                .setDistinctValuesCount(NaN)
                                 .setNullsFraction(0.2)
                                 .build())
                         .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
-                                .setLowValue(NaN)
-                                .setHighValue(NaN)
+                                .setLowValue(-5)
+                                .setHighValue(12)
                                 .setAverageRowSize(NaN)
                                 .setDistinctValuesCount(NaN)
-                                .setNullsFraction(NaN)
-                                .build())
-                        .addSymbolStatistics(new Symbol("i3"), SymbolStatsEstimate.builder()
-                                .setLowValue(6)
-                                .setHighValue(14)
-                                .setDistinctValuesCount(5)
-                                .setNullsFraction(0.2)
+                                .setNullsFraction(0.1)
                                 .build())
                         .build())
                 .check(check -> check
-                        .outputRowsCount(5)
+                        .outputRowsCount(10)
                         .symbolStats("i1", assertion -> assertion
-                                .lowValue(7)
-                                .highValue(9)
-                                .distinctValuesCount(3)
-                                .dataSizeUnknown()
+                                .lowValue(1)
+                                .highValue(10)
+                                .averageRowSize(NaN)
+                                .distinctValuesCount(5)
                                 .nullsFraction(0))
                         .symbolStats("i2", assertion -> assertion
                                 .lowValue(0)
                                 .highValue(3)
                                 .averageRowSize(25)
                                 .distinctValuesCount(4)
-                                .nullsFraction(0))
-                        .symbolStats("i3", assertion -> assertion
-                                .lowValue(10)
-                                .highValue(14)
-                                .dataSizeUnknown()
-                                .distinctValuesCount(4)
-                                .nullsFraction(0.1)));
+                                .nullsFraction(0.5)));
     }
 }

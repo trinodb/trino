@@ -244,21 +244,21 @@ public class TestCostCalculator
                 "string", VARCHAR);
 
         assertCost(chooseAlternativeNode, costs, stats, types)
-                .cpu(2000)
+                .cpu(1000)
                 .memory(3000)
-                .memoryWhenOutputting(1000)
+                .memoryWhenOutputting(NaN)
                 .network(0);
 
         assertCostEstimatedExchanges(chooseAlternativeNode, costs, stats, types)
-                .cpu(2000)
+                .cpu(1000)
                 .memory(3000)
-                .memoryWhenOutputting(1000)
+                .memoryWhenOutputting(NaN)
                 .network(0);
 
         assertCostFragmentedPlan(chooseAlternativeNode, costs, stats, types)
-                .cpu(2000)
+                .cpu(1000)
                 .memory(3000)
-                .memoryWhenOutputting(1000)
+                .memoryWhenOutputting(NaN)
                 .network(0);
 
         assertCostHasUnknownComponentsForUnknownStats(chooseAlternativeNode, types);

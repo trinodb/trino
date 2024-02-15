@@ -144,7 +144,8 @@ public class ConstraintApplicationResult<T>
          * @param remainingExpression the remaining expression, which will be AND-ed with {@code remainingFilter},
          * or {@link Optional#empty()} if the remaining expression is equal to the original expression.
          * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
-         * as the connector may be unable to provide good table statistics for {@code handle}.
+         * as the connector may be unable to provide good table statistics for {@code handle}. This parameter is only taken into account
+         * for the first alternative and only if {@code retainOriginalPlan} is {@code false}.
          */
         public Alternative(
                 T handle,
