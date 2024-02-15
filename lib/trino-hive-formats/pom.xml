@@ -148,7 +148,7 @@
         <dependency>
             <groupId>io.starburst.openx.data</groupId>
             <artifactId>json-serde</artifactId>
-            <version>1.3.9-e.11</version>
+            <version>1.3.9-e.12</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
