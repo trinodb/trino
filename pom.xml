@@ -197,7 +197,7 @@
         <dep.alluxio.version>309</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.avro.version>1.11.3</dep.avro.version>
-        <dep.aws-sdk.version>1.12.657</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.659</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
         <dep.docker.images.version>90</dep.docker.images.version>
