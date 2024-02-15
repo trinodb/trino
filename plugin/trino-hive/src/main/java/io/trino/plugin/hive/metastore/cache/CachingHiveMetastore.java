@@ -113,7 +113,6 @@ public final class CachingHiveMetastore
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
     private final LoadingCache<String, List<TableInfo>> tablesCacheNew;
-    private final LoadingCache<SingletonCacheKey, Optional<List<TableInfo>>> allTablesCacheNew;
     private final Cache<HiveTableName, AtomicReference<Map<String, HiveColumnStatistics>>> tableColumnStatisticsCache;
     private final Cache<HivePartitionName, AtomicReference<Map<String, HiveColumnStatistics>>> partitionStatisticsCache;
     private final Cache<HivePartitionName, AtomicReference<Optional<Partition>>> partitionCache;
@@ -196,7 +195,6 @@ public final class CachingHiveMetastore
         databaseNamesCache = cacheFactory.buildCache(ignored -> loadAllDatabases());
         databaseCache = cacheFactory.buildCache(this::loadDatabase);
         tablesCacheNew = cacheFactory.buildCache(this::loadTablesNew);
-        allTablesCacheNew = cacheFactory.buildCache(ignore -> loadAllTablesNew());
         tableColumnStatisticsCache = statsCacheFactory.buildCache(this::refreshTableColumnStatistics);
         tableCache = cacheFactory.buildCache(this::loadTable);
         tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.database(), key.table(), key.owner(), key.principal()));
@@ -214,7 +212,6 @@ public final class CachingHiveMetastore
     {
         databaseNamesCache.invalidateAll();
         tablesCacheNew.invalidateAll();
-        allTablesCacheNew.invalidateAll();
         databaseCache.invalidateAll();
         tableCache.invalidateAll();
         partitionCache.invalidateAll();
@@ -548,17 +545,6 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public Optional<List<TableInfo>> getAllTables()
-    {
-        return getOptional(allTablesCacheNew, SingletonCacheKey.INSTANCE);
-    }
-
-    private Optional<List<TableInfo>> loadAllTablesNew()
-    {
-        return delegate.getAllTables();
-    }
-
-    @Override
     public List<TableInfo> getTables(String databaseName)
     {
         return get(tablesCacheNew, databaseName);
@@ -737,7 +723,6 @@ public final class CachingHiveMetastore
         HiveTableName hiveTableName = new HiveTableName(databaseName, tableName);
         tableCache.invalidate(hiveTableName);
         tablesCacheNew.invalidate(databaseName);
-        allTablesCacheNew.invalidateAll();
         invalidateAllIf(tablePrivilegesCache, userTableKey -> userTableKey.matches(databaseName, tableName));
         tableColumnStatisticsCache.invalidate(hiveTableName);
         invalidatePartitionCache(databaseName, tableName);
@@ -1158,11 +1143,6 @@ public final class CachingHiveMetastore
         return cacheBuilder.build();
     }
 
-    private enum SingletonCacheKey
-    {
-        INSTANCE
-    }
-
     record UserTableKey(Optional<HivePrincipal> principal, String database, String table, Optional<String> owner)
     {
         UserTableKey
@@ -1209,13 +1189,6 @@ public final class CachingHiveMetastore
     public CacheStatsMBean getTableNamesStats()
     {
         return new CacheStatsMBean(tablesCacheNew);
-    }
-
-    @Managed
-    @Nested
-    public CacheStatsMBean getAllTableNamesStats()
-    {
-        return new CacheStatsMBean(allTablesCacheNew);
     }
 
     @Managed
@@ -1295,11 +1268,6 @@ public final class CachingHiveMetastore
     public LoadingCache<String, List<TableInfo>> getTablesCacheNew()
     {
         return tablesCacheNew;
-    }
-
-    public LoadingCache<?, Optional<List<TableInfo>>> getAllTablesCacheNew()
-    {
-        return allTablesCacheNew;
     }
 
     Cache<HiveTableName, AtomicReference<Map<String, HiveColumnStatistics>>> getTableColumnStatisticsCache()

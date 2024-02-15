@@ -133,13 +133,6 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Optional<List<TableInfo>> getAllTables()
-    {
-        // no point implementing give statistics recording is broken anyway
-        throw new RuntimeException("not supported");
-    }
-
-    @Override
     public List<TableInfo> getTables(String databaseName)
     {
         return recording.getAllTables(
