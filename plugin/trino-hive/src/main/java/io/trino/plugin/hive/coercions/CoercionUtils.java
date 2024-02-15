@@ -110,6 +110,9 @@ public final class CoercionUtils
         if (fromType instanceof VarcharType varcharType && toHiveType.equals(HIVE_DOUBLE)) {
             return Optional.of(new VarcharToDoubleCoercer(varcharType, coercionContext.treatNaNAsNull()));
         }
+        if (fromType instanceof VarcharType varcharType && toHiveType.equals(HIVE_FLOAT)) {
+            return Optional.of(new VarcharToFloatCoercer(varcharType, coercionContext.treatNaNAsNull()));
+        }
         if (fromType instanceof VarcharType varcharType && toType instanceof TimestampType timestampType) {
             if (timestampType.isShort()) {
                 return Optional.of(new VarcharToShortTimestampCoercer(varcharType, timestampType));
