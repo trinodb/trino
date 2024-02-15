@@ -13,8 +13,9 @@
  */
 package io.trino.plugin.kafka.encoder.csv;
 
-import au.com.bytecode.opencsv.CSVWriter;
 import com.google.common.collect.ImmutableSet;
+import com.opencsv.CSVWriterBuilder;
+import com.opencsv.ICSVWriter;
 import io.trino.plugin.kafka.encoder.AbstractRowEncoder;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -128,7 +129,7 @@ public class CsvRowEncoder
 
         try (ByteArrayOutputStream byteArrayOuts = new ByteArrayOutputStream();
                 OutputStreamWriter outsWriter = new OutputStreamWriter(byteArrayOuts, StandardCharsets.UTF_8);
-                CSVWriter writer = new CSVWriter(outsWriter, ',', '"', "")) {
+                ICSVWriter writer = new CSVWriterBuilder(outsWriter).withLineEnd("").build()) {
             writer.writeNext(row);
             writer.flush();
 
