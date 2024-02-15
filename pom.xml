@@ -461,7 +461,7 @@
             <dependency>
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
-                <version>0.6.0</version>
+                <version>0.6.0-patch1</version>
                 <classifier>all</classifier>
             </dependency>
 
