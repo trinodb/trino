@@ -642,7 +642,7 @@ type conversions.
 * - `BOOLEAN`
   - `VARCHAR`
 * - `VARCHAR`
-  - `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, `DOUBLE`, `TIMESTAMP`, `DATE`, as well as
+  - `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, `REAL`, `DOUBLE`, `TIMESTAMP`, `DATE`, as well as
     narrowing conversions for `VARCHAR`
 * - `CHAR`
   - narrowing conversions for `CHAR`
