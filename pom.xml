@@ -164,12 +164,13 @@
         <!-- G1 default region size for a small heap is 1MB. Tests (TestHiveConnectorTest.testMultipleWritersWhenTaskScaleWritersIsEnabled) in particular
              were observed allocating large number of byte[] of about 1.6MB in size, thus being treated as humongous allocations and preventing heap saturation.
              Force bigger region size in attempt to help G1 utilize heap fully. -->
-        <air.test.jvm.additional-arguments>
+        <air.test.jvm.additional-arguments.default>
             -XX:G1HeapRegionSize=32M
             -XX:+UnlockDiagnosticVMOptions
             <!-- bump from default of 2 -->
             -XX:GCLockerRetryAllocationCount=10
-        </air.test.jvm.additional-arguments>
+        </air.test.jvm.additional-arguments.default>
+        <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
