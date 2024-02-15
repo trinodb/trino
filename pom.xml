@@ -2566,31 +2566,6 @@
                                     <resource>git.properties</resource>
                                 </resources>
                             </exception>
-                            <!-- TODO: Remove once Rubix is removed -->
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>com.qubole.rubix</groupId>
-                                        <artifactId>rubix-presto-shaded</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>com.github.ishugaliy</groupId>
-                                        <artifactId>allgood-consistent-hash</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>io.dropwizard.metrics</groupId>
-                                        <artifactId>metrics-core</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>io.dropwizard.metrics</groupId>
-                                        <artifactId>metrics-jvm</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>net.openhft</groupId>
-                                        <artifactId>zero-allocation-hashing</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                            </exception>
                             <exception>
                                 <conflictingDependencies>
                                     <dependency>
