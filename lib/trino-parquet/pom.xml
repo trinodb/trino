@@ -11,6 +11,10 @@
 
     <artifactId>trino-parquet</artifactId>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.google.errorprone</groupId>

@@ -12,6 +12,7 @@
     <artifactId>trino-plugin-reader</artifactId>
 
     <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>io.trino.server.PluginReader</main-class>
     </properties>
 
