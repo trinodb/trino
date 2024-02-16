@@ -13,8 +13,11 @@
  */
 package io.trino.server.rpm;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.assertj.core.api.AbstractAssert;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.testcontainers.containers.BindMode;
@@ -22,16 +25,25 @@ import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
+import static io.trino.server.rpm.ServerIT.PathInfoAssert.assertThatPaths;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE;
 import static java.sql.DriverManager.getConnection;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -103,6 +115,72 @@ public class ServerIT
     }
 
     @Test
+    public void testRpmContents()
+            throws IOException, InterruptedException
+    {
+        String rpm = "/" + new File(rpmHostPath).getName();
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE_PREFIX + "21" + BASE_IMAGE_SUFFIX)) {
+            container
+                    .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
+                    .withCommand("sleep 1h")
+                    .start();
+
+            Map<String, PathInfo> files = listRpmFiles(container, rpm);
+
+            // Launcher and init.d scripts
+            assertThatPaths(files)
+                    .exists("/usr/lib/trino/bin")
+                    .path("/usr/lib/trino/bin/launcher").isOwnerExecutable()
+                    .path("/usr/lib/trino/bin/launcher.py").isOwnerExecutable()
+                    .path("/etc/init.d/trino").isOwnerExecutable()
+                    .exists("/usr/lib/trino/bin/launcher.properties");
+
+            // Configuration files
+            assertThatPaths(files)
+                    .path("/usr/lib/trino/etc").linksTo("/etc/trino")
+                    .exists("/etc/trino/config.properties")
+                    .exists("/etc/trino/jvm.config")
+                    .exists("/etc/trino/env.sh")
+                    .exists("/etc/trino/log.properties")
+                    .exists("/etc/trino/node.properties");
+
+            // Assemblies
+            assertThatPaths(files)
+                    .exists("/usr/lib/trino/shared")
+                    .exists("/usr/shared/doc/trino")
+                    .exists("/usr/shared/doc/trino/README.txt")
+                    // Plugins' libs are always hardlinks
+                    .paths("/usr/lib/trino/plugin/[a-z_]+\\.jar", path -> {
+                        String filename = Path.of(path.getPath()).getFileName().toString();
+                        path.isLink().linksTo("../../shared/" + filename);
+                    });
+        }
+    }
+
+    @Test
+    public void testRpmMetadata()
+            throws IOException, InterruptedException
+    {
+        String rpm = "/" + new File(rpmHostPath).getName();
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE_PREFIX + "21" + BASE_IMAGE_SUFFIX)) {
+            container
+                    .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
+                    .withCommand("sleep 1h")
+                    .start();
+
+            Map<String, String> rpmMetadata = getRpmMetadata(container, rpm);
+            assertThat(rpmMetadata).extractingByKey("Name").isEqualTo("trino-server-rpm");
+            assertThat(rpmMetadata).extractingByKey("Epoch").isEqualTo("0");
+            assertThat(rpmMetadata).extractingByKey("Release").isEqualTo("1");
+            assertThat(rpmMetadata).extractingByKey("Version").isEqualTo("440.SNAPSHOT"); // TODO: fixme
+            assertThat(rpmMetadata).extractingByKey("Architecture").isEqualTo("noarch");
+            assertThat(rpmMetadata).extractingByKey("License").isEqualTo("Apache License 2.0");
+            assertThat(rpmMetadata).extractingByKey("Group").isEqualTo("Applications/Databases");
+            assertThat(rpmMetadata).extractingByKey("URL").isEqualTo("https://trino.io");
+        }
+    }
+
+    @Test
     public void testUninstall()
             throws Exception
     {
@@ -152,6 +230,59 @@ public class ServerIT
         assertThat(actualResult.getExitCode()).isEqualTo(0);
     }
 
+    private static Map<String, PathInfo> listRpmFiles(GenericContainer<?> container, String rpm)
+            throws IOException, InterruptedException
+    {
+        ExecResult result = container.execInContainer("rpm", "-qlpv", rpm);
+        assertThat(result.getExitCode()).isEqualTo(0);
+        String lines = result.getStdout();
+
+        // Parses RPM contents listing in the following format:
+        // rw-r--r-- 1 root root 39 Feb 16 10:29 /usr/lib/trino/lib/jetty-alpn-client-11.0.20.jar -> ../shared/jetty-alpn-client-11.0.20.jar
+        Splitter splitter = Splitter.onPattern("\s+").trimResults();
+        ImmutableMap.Builder<String, PathInfo> builder = ImmutableMap.builder();
+        for (String line : Splitter.on("\n").split(lines.trim())) {
+            List<String> columns = splitter.splitToList(line);
+            String mode = columns.get(0);
+            boolean isLink = mode.startsWith("l");
+            if (isLink) {
+                assertThat(columns).hasSize(11);
+            }
+            else {
+                assertThat(columns).hasSize(9);
+            }
+
+            String owner = columns.get(2);
+            String group = columns.get(3);
+            String path = columns.get(8);
+
+            builder.put(path, new PathInfo(
+                    path,
+                    PosixFilePermissions.fromString(mode.substring(1)),
+                    owner,
+                    group,
+                    isLink ? Optional.of(columns.get(10)) : Optional.empty()));
+        }
+        return builder.buildOrThrow();
+    }
+
+    private static Map<String, String> getRpmMetadata(GenericContainer<?> container, String rpm)
+            throws IOException, InterruptedException
+    {
+        ExecResult result = container.execInContainer("rpm", "-qip", rpm);
+        assertThat(result.getExitCode()).isEqualTo(0);
+        List<String> lines = Splitter.on("\n").splitToList(result.getStdout().trim());
+        Splitter splitter = Splitter.on(":").trimResults().limit(2);
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builderWithExpectedSize(lines.size() - 2); // last two lines are not KV
+        for (String line : lines) {
+            List<String> columns = splitter.splitToList(line);
+            if (columns.size() == 2) {
+                builder.put(columns.get(0), columns.get(1));
+            }
+        }
+        return builder.buildOrThrow();
+    }
+
     private static class QueryRunner
     {
         private final String host;
@@ -183,6 +314,110 @@ public class ServerIT
             catch (SQLException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    record PathInfo(String path, Set<PosixFilePermission> permissions, String owner, String group, Optional<String> link) {}
+
+    static class PathInfoAssert
+            extends AbstractAssert<PathInfoAssert, PathInfo>
+    {
+        private final PathsAssert files;
+
+        public PathInfoAssert(PathInfo actual, PathsAssert files)
+        {
+            super(actual, PathInfoAssert.class);
+            this.files = requireNonNull(files, "files is null");
+        }
+
+        public PathInfoAssert isLink()
+        {
+            if (actual.link.isEmpty()) {
+                failWithMessage("Expected %s to be a link", actual.path);
+            }
+            return this;
+        }
+
+        public PathInfoAssert isOwnerExecutable()
+        {
+            if (!actual.permissions.contains(OWNER_EXECUTE)) {
+                failWithMessage("Expected %s to be owner executable", actual.path);
+            }
+            return this;
+        }
+
+        public PathInfoAssert isNotOwnerExecutable()
+        {
+            if (actual.permissions.contains(OWNER_EXECUTE)) {
+                failWithMessage("Expected %s not to be executable", actual.path);
+            }
+            return this;
+        }
+
+        public PathInfoAssert linksTo(String target)
+        {
+            if (actual.link.isEmpty()) {
+                failWithMessage("Expected %s to be a link", actual.path);
+            }
+
+            if (!actual.link.equals(Optional.of(target))) {
+                failWithMessage("Expected %s to be linked to %s but was linked to %s", actual.path, target, actual.link.get());
+            }
+            return this;
+        }
+
+        public String getPath()
+        {
+            return actual.path();
+        }
+
+        public PathInfoAssert path(String path)
+        {
+            return files.path(path);
+        }
+
+        public PathsAssert exists(String path)
+        {
+            return files.exists(path);
+        }
+
+        static class PathsAssert
+                extends AbstractAssert<PathsAssert, Map<String, PathInfo>>
+        {
+            protected PathsAssert(Map<String, PathInfo> actual)
+            {
+                super(actual, PathsAssert.class);
+            }
+
+            public PathInfoAssert path(String path)
+            {
+                return new PathInfoAssert(actual.get(path), this);
+            }
+
+            public PathsAssert exists(String path)
+            {
+                if (!actual.containsKey(path)) {
+                    failWithMessage("Expected path %s to exists", path);
+                }
+
+                return this;
+            }
+
+            public PathsAssert paths(String pattern, Consumer<PathInfoAssert> assertConsumer)
+            {
+                for (String path : actual.keySet()) {
+                    System.out.println("Path is " + path);
+                    if (path.matches(pattern)) {
+                        assertConsumer.accept(path(path));
+                    }
+                }
+                return this;
+            }
+        }
+
+        static PathsAssert assertThatPaths(Map<String, PathInfo> paths)
+        {
+            return new PathsAssert(paths);
         }
     }
 }
