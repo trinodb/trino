@@ -15,7 +15,9 @@ package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.inject.Inject;
 import io.airlift.stats.CounterStat;
+import io.airlift.stats.DistributionStat;
 import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.Managed;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,7 +26,10 @@ import static java.util.Objects.requireNonNull;
 
 public class StageExecutionStats
 {
+    private static final int EXECUTION_FRACTION_RESCALE_FACTOR = 1_000_000;
     private final Map<String, CounterStat> outputEstimationKindCounters = new ConcurrentHashMap<>();
+    private final DistributionStat speculativeExecutionFractionDistribution = new DistributionStat();
+
     private final MBeanExporter mbeanExporter;
 
     @Inject
@@ -41,6 +46,12 @@ public class StageExecutionStats
     public void recordSourcesFinishedOnStageStart(int sourcesCount)
     {
         updateSourceOutputEstimationKindCounter("finished", sourcesCount);
+    }
+
+    @Managed
+    public void recordStageSpeculativeExecutionFraction(double fractionSpentSpeculative)
+    {
+        speculativeExecutionFractionDistribution.add((long) (fractionSpentSpeculative * EXECUTION_FRACTION_RESCALE_FACTOR));
     }
 
     private void updateSourceOutputEstimationKindCounter(String outputEstimationKind, int sourcesCount)
