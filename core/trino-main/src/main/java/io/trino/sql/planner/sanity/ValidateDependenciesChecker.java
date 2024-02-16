@@ -77,7 +77,7 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.tree.Expression;
 
 import java.util.Collection;

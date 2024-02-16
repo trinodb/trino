@@ -27,7 +27,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.RowsPerMatch;
 import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.Expression;
