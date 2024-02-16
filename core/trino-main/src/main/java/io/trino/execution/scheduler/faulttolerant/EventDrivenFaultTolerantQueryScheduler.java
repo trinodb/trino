@@ -128,6 +128,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -1511,6 +1512,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         taskSource,
                         sinkPartitioningScheme,
                         exchange,
+                        stageExecutionStats,
                         memoryEstimatorFactory.createPartitionMemoryEstimator(session, fragment, planFragmentLookup),
                         outputStatsEstimator,
                         schedulingQueue,
@@ -1919,6 +1921,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final EventDrivenTaskSource taskSource;
         private final FaultTolerantPartitioningScheme sinkPartitioningScheme;
         private final Exchange exchange;
+        private final StageExecutionStats stageExecutionStats;
         private final PartitionMemoryEstimator partitionMemoryEstimator;
         private final OutputStatsEstimator outputStatsEstimator;
         private final SchedulingQueue schedulingQueue;
@@ -1952,6 +1955,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         private boolean taskDescriptorLoadingActive;
         private boolean exchangeClosed;
 
+        private final long startTime = System.currentTimeMillis();
+        private OptionalLong nonSpeculativeSwitchTime = OptionalLong.empty();
+
         private MemoryRequirements initialMemoryRequirements;
 
         private StageExecution(
@@ -1961,6 +1967,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 EventDrivenTaskSource taskSource,
                 FaultTolerantPartitioningScheme sinkPartitioningScheme,
                 Exchange exchange,
+                StageExecutionStats stageExecutionStats,
                 PartitionMemoryEstimator partitionMemoryEstimator,
                 OutputStatsEstimator outputStatsEstimator,
                 SchedulingQueue schedulingQueue,
@@ -1977,6 +1984,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.taskSource = requireNonNull(taskSource, "taskSource is null");
             this.sinkPartitioningScheme = requireNonNull(sinkPartitioningScheme, "sinkPartitioningScheme is null");
             this.exchange = requireNonNull(exchange, "exchange is null");
+            this.stageExecutionStats = requireNonNull(stageExecutionStats, "stageExecutionStats is null");
             this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
             this.outputStatsEstimator = requireNonNull(outputStatsEstimator, "outputStatsEstimator is null");
             this.schedulingQueue = requireNonNull(schedulingQueue, "schedulingQueue is null");
@@ -2065,6 +2073,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         public void setSpeculative(boolean speculative)
         {
             checkArgument(!speculative || this.speculative, "cannot mark non-speculative stage as speculative");
+            if (this.speculative && !speculative) {
+                nonSpeculativeSwitchTime = OptionalLong.of(System.currentTimeMillis());
+            }
             this.speculative = speculative;
         }
 
@@ -2394,6 +2405,22 @@ public class EventDrivenFaultTolerantQueryScheduler
             sinkOutputSelectorBuilder = null;
             stage.finish();
             taskSource.close();
+
+            recordFinishStats();
+        }
+
+        private void recordFinishStats()
+        {
+            long finishTime = System.currentTimeMillis();
+            long nonSpeculativeSwitchTime = this.nonSpeculativeSwitchTime.orElse(finishTime);
+
+            double speculativeExecutionFraction = ((double) nonSpeculativeSwitchTime - (double) startTime) / ((double) finishTime - (double) startTime);
+            if (Double.isFinite(speculativeExecutionFraction)) {
+                stageExecutionStats.recordStageSpeculativeExecutionFraction(speculativeExecutionFraction);
+            }
+            else {
+                stageExecutionStats.recordStageSpeculativeExecutionFraction(1.0);
+            }
         }
 
         private void updateOutputSize(SpoolingOutputStats.Snapshot taskOutputStats)
