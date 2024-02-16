@@ -2020,6 +2020,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void setSpeculative(boolean speculative)
         {
+            checkArgument(!speculative || this.speculative, "cannot mark non-speculative stage as speculative");
             this.speculative = speculative;
         }
 
