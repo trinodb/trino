@@ -19,6 +19,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.http.HttpTransportOptions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.io.BaseEncoding;
 import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -28,7 +29,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.util.Base64;
 import java.util.Optional;
 
 public class StaticBigQueryCredentialsSupplier
@@ -60,7 +60,7 @@ public class StaticBigQueryCredentialsSupplier
 
     private static Credentials createCredentialsFromKey(Optional<HttpTransportFactory> httpTransportFactory, String key)
     {
-        return createCredentialsFromStream(httpTransportFactory, new ByteArrayInputStream(Base64.getDecoder().decode(key)));
+        return createCredentialsFromStream(httpTransportFactory, new ByteArrayInputStream(decodeBase64(key)));
     }
 
     private static Credentials createCredentialsFromFile(Optional<HttpTransportFactory> httpTransportFactory, String file)
@@ -83,6 +83,20 @@ public class StaticBigQueryCredentialsSupplier
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to create Credentials from stream", e);
+        }
+    }
+
+    // Copied from com.google.api.client.util.Base64 to avoid using a deprecated class
+    private static byte[] decodeBase64(String base64String)
+    {
+        try {
+            return BaseEncoding.base64().decode(base64String);
+        }
+        catch (IllegalArgumentException e) {
+            if (e.getCause() instanceof BaseEncoding.DecodingException) {
+                return BaseEncoding.base64Url().decode(base64String.trim());
+            }
+            throw e;
         }
     }
 }
