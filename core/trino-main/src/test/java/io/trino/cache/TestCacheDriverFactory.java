@@ -163,30 +163,6 @@ public class TestCacheDriverFactory
         assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
     }
 
-    private CacheDriverFactory createCacheDriverFactory(TestPageSourceProvider pageSourceProvider, PlanSignatureWithPredicate signature, AtomicInteger operatorIdAllocator)
-    {
-        DriverFactory driverFactory = new DriverFactory(
-                operatorIdAllocator.incrementAndGet(),
-                true,
-                false,
-                ImmutableList.of(
-                        new DevNullOperator.DevNullOperatorFactory(2, planNodeIdAllocator.getNextId()),
-                        new DevNullOperator.DevNullOperatorFactory(3, planNodeIdAllocator.getNextId())),
-                OptionalInt.empty());
-        return new CacheDriverFactory(
-                TEST_SESSION,
-                pageSourceProvider,
-                registry,
-                tupleDomainCodec,
-                TEST_TABLE_HANDLE,
-                signature,
-                ImmutableMap.of(new CacheColumnId("column"), new TestingColumnHandle("column")),
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                ImmutableList.of(driverFactory, driverFactory, driverFactory),
-                new CacheStats());
-    }
-
     @Test
     public void testCreateDriverWhenDynamicFilterWasChanged()
     {
@@ -274,6 +250,30 @@ public class TestCacheDriverFactory
         {
             return simplifyPredicateSupplier.apply(predicate);
         }
+    }
+
+    private CacheDriverFactory createCacheDriverFactory(TestPageSourceProvider pageSourceProvider, PlanSignatureWithPredicate signature, AtomicInteger operatorIdAllocator)
+    {
+        DriverFactory driverFactory = new DriverFactory(
+                operatorIdAllocator.incrementAndGet(),
+                true,
+                false,
+                ImmutableList.of(
+                        new DevNullOperator.DevNullOperatorFactory(2, planNodeIdAllocator.getNextId()),
+                        new DevNullOperator.DevNullOperatorFactory(3, planNodeIdAllocator.getNextId())),
+                OptionalInt.empty());
+        return new CacheDriverFactory(
+                TEST_SESSION,
+                pageSourceProvider,
+                registry,
+                tupleDomainCodec,
+                TEST_TABLE_HANDLE,
+                signature,
+                ImmutableMap.of(new CacheColumnId("column"), new TestingColumnHandle("column")),
+                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
+                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
+                ImmutableList.of(driverFactory, driverFactory, driverFactory),
+                new CacheStats());
     }
 
     private DriverContext createDriverContext()
