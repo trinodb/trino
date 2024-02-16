@@ -24,6 +24,7 @@ import java.util.List;
 
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public final class BigQuerySessionProperties
         implements SessionPropertiesProvider
@@ -31,6 +32,9 @@ public final class BigQuerySessionProperties
     private static final String SKIP_VIEW_MATERIALIZATION = "skip_view_materialization";
     private static final String QUERY_RESULTS_CACHE_ENABLED = "query_results_cache_enabled";
     private static final String CREATE_DISPOSITION_TYPE = "create_disposition_type";
+    private static final String PARENT_PROJECT_ID = "parent_project_id";
+    private static final String VIEW_MATERIALIZATION_PROJECT = "view_materialization_project";
+    private static final String VIEW_MATERIALIZATION_DATASET = "view_materialization_dataset";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -54,6 +58,21 @@ public final class BigQuerySessionProperties
                         CreateDisposition.class,
                         CreateDisposition.CREATE_IF_NEEDED, // https://cloud.google.com/bigquery/docs/cached-results
                         true))
+                .add(stringProperty(
+                        PARENT_PROJECT_ID,
+                        "Set parent project id",
+                        config.getParentProjectId().orElse(null),
+                        false))
+                .add(stringProperty(
+                        VIEW_MATERIALIZATION_PROJECT,
+                        "Set view materialization project",
+                        config.getViewMaterializationProject().orElse(null),
+                        false))
+                .add(stringProperty(
+                        VIEW_MATERIALIZATION_DATASET,
+                        "Set view materialization dataset",
+                        config.getViewMaterializationDataset().orElse(null),
+                        false))
                 .build();
     }
 
@@ -76,5 +95,20 @@ public final class BigQuerySessionProperties
     public static CreateDisposition createDisposition(ConnectorSession session)
     {
         return session.getProperty(CREATE_DISPOSITION_TYPE, CreateDisposition.class);
+    }
+
+    public static String getParentProjectId(ConnectorSession session)
+    {
+        return session.getProperty(PARENT_PROJECT_ID, String.class);
+    }
+
+    public static String getViewMaterializationProject(ConnectorSession session)
+    {
+        return session.getProperty(VIEW_MATERIALIZATION_PROJECT, String.class);
+    }
+
+    public static String getViewMaterializationDataset(ConnectorSession session)
+    {
+        return session.getProperty(VIEW_MATERIALIZATION_DATASET, String.class);
     }
 }

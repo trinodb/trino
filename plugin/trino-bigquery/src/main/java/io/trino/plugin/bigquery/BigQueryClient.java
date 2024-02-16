@@ -207,6 +207,13 @@ public class BigQueryClient
         return materializationCache.getCachedTable(this, query, viewExpiration, remoteTableId);
     }
 
+    public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns, ConnectorSession session)
+    {
+        String query = selectSql(remoteTableId, requiredColumns);
+        log.debug("query is %s", query);
+        return materializationCache.getCachedTable(this, query, viewExpiration, remoteTableId, session);
+    }
+
     /**
      * The Google Cloud Project ID that will be used to create the underlying BigQuery read session.
      * Effectively, this is the project that will be used for billing attribution.

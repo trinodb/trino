@@ -26,6 +26,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
@@ -34,6 +35,8 @@ import java.util.function.Supplier;
 
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.getViewMaterializationDataset;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.getViewMaterializationProject;
 import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -60,16 +63,26 @@ public class ViewMaterializationCache
         this.viewMaterializationDataset = config.getViewMaterializationDataset();
     }
 
-    public TableInfo getCachedTable(BigQueryClient client, String query, Duration viewExpiration, TableInfo remoteTableId)
+    public TableInfo getCachedTable(BigQueryClient client, String query, Duration viewExpiration, TableInfo tableInfo)
     {
-        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, createDestinationTable(remoteTableId.getTableId())));
+        TableId tableId = tableInfo.getTableId();
+        String project = viewMaterializationProject.orElseGet(tableId::getProject);
+        String dataset = viewMaterializationDataset.orElseGet(tableId::getDataset);
+
+        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, createDestinationTable(project, dataset, tableId)));
     }
 
-    private TableId createDestinationTable(TableId remoteTableId)
+    public TableInfo getCachedTable(BigQueryClient client, String query, Duration viewExpiration, TableInfo tableInfo, ConnectorSession session)
     {
-        String project = viewMaterializationProject.orElseGet(remoteTableId::getProject);
-        String dataset = viewMaterializationDataset.orElseGet(remoteTableId::getDataset);
+        TableId tableId = tableInfo.getTableId();
+        String project = getViewMaterializationProject(session);
+        String dataset = getViewMaterializationDataset(session);
 
+        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, createDestinationTable(project, dataset, tableId)));
+    }
+
+    private TableId createDestinationTable(String project, String dataset, TableId tableId)
+    {
         String name = format("_pbc_%s", randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
         return TableId.of(project, dataset, name);
     }

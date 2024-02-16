@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.getParentProjectId;
 import static java.util.Objects.requireNonNull;
 
 public class CredentialsOptionsConfigurer
@@ -47,6 +48,9 @@ public class CredentialsOptionsConfigurer
         String billingProjectId = calculateBillingProjectId(parentProjectId, credentials);
         credentials.ifPresent(builder::setCredentials);
         builder.setProjectId(billingProjectId);
+        if (getParentProjectId(session) != null) {
+            builder.setProjectId(getParentProjectId(session));
+        }
         return builder;
     }
 
