@@ -19,7 +19,7 @@ import io.trino.testing.QueryRunner;
 import static io.trino.plugin.mongodb.MongoAtlasQueryRunner.createMongoAtlasQueryRunner;
 import static io.trino.plugin.mongodb.TestingMongoAtlasInfoProvider.getConnectionString;
 
-public class TestMongoWithAtlasConnectorTest
+public class TestMongoWithAtlasConnectorSmokeTest
         extends BaseMongoConnectorSmokeTest
 {
     @Override

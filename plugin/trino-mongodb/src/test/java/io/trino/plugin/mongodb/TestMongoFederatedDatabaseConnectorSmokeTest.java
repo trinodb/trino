@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.abort;
 
-public class TestMongoFederatedDatabaseConnectorTest
+public class TestMongoFederatedDatabaseConnectorSmokeTest
         extends BaseMongoConnectorSmokeTest
 {
     private static final int RESOURCE_ALREADY_EXISTS = 72;
