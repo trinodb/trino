@@ -77,5 +77,6 @@ public final class SapHanaDockerInitializer
 
         container.waitingFor(forHealthcheck());
         container.withStartupTimeout(Duration.ofMinutes(15));
+        container.withStartupAttempts(3);
     }
 }
