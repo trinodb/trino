@@ -656,6 +656,7 @@ jobs:
             - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
+            - { modules: plugin/trino-mongodb, profile: cloud-tests }
             - { modules: plugin/trino-mysql }
             - { modules: plugin/trino-opensearch }
             - { modules: plugin/trino-oracle }
@@ -889,18 +890,18 @@ jobs:
         if: matrix.modules == 'plugin/trino-singlestore' && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.MEMSQL_LICENSE != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
-      - name: Mongodb Maven Tests
-        if: matrix.modules == 'plugin/trino-mongodb'
+      - name: Cloud MongoDB Tests
+        if: matrix.modules == 'plugin/trino-mongodb' && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.MONGODB_ATLAS_CONNECTION_URL != '')
         env:
           MONGODB_CONFIG: >-
             -Dtest.mongodb.atlas.connection-url=${{ secrets.MONGODB_ATLAS_CONNECTION_URL }}
             -Dtest.mongodb.federated-database.connection-url=${{ secrets.MONGODB_FEDERATED_DATABASE_CONNECTION_URL }}
             -Dtest.mongodb.federated-datasource.connection-url=${{ secrets.MONGODB_FEDERATED_DATASOURCE_CONNECTION_URL }}
-            -Dtest.mongodb.federated-datasource.cluster-name=${{ secrets.MONGODB_FEDERATED_DATASOURCE_CLUSTER_NAME }}
-            -Dtest.mongodb.federated-datasource.project-id=${{ secrets.MONGODB_FEDERATED_DATASOURCE_PROJECT_ID }}
+            -Dtest.mongodb.federated-datasource.cluster-name=${{ vars.MONGODB_FEDERATED_DATASOURCE_CLUSTER_NAME }}
+            -Dtest.mongodb.federated-datasource.project-id=${{ vars.MONGODB_FEDERATED_DATASOURCE_PROJECT_ID }}
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} ${MONGODB_CONFIG}
+          $MAVEN test ${MAVEN_TEST} -pl :trino-mongodb -Pcloud-tests ${MONGODB_CONFIG}
       - name: Cloud BigQuery Tests
         id: tests-bq
         env:
