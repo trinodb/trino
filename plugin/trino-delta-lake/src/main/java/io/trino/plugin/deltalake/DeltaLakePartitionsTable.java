@@ -134,11 +134,10 @@ public class DeltaLakePartitionsTable
         if (partitionColumns.isEmpty()) {
             return new EmptyPageSource();
         }
-        return new FixedPageSource(buildPages(session, tableSnapshot, metadataEntry, constraint));
+        return new FixedPageSource(buildPages(session, tableSnapshot, metadataEntry));
     }
 
-    private List<Page> buildPages(ConnectorSession session, TableSnapshot tableSnapshot, MetadataEntry metadataEntry,
-                                  TupleDomain<Integer> constraint)
+    private List<Page> buildPages(ConnectorSession session, TableSnapshot tableSnapshot, MetadataEntry metadataEntry)
     {
         PageListBuilder pageListBuilder = PageListBuilder.forTable(tableMetadata);
 
