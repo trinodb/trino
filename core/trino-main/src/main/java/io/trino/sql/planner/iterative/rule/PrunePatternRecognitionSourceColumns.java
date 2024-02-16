@@ -19,7 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.planner.iterative.rule.Util.restrictChildOutputs;
@@ -68,10 +68,10 @@ public class PrunePatternRecognitionSourceColumns
         node.getHashSymbol().ifPresent(referencedInputs::add);
         node.getMeasures().values().stream()
                 .map(PatternRecognitionNode.Measure::getExpressionAndValuePointers)
-                .map(LogicalIndexExtractor.ExpressionAndValuePointers::getInputSymbols)
+                .map(ExpressionAndValuePointers::getInputSymbols)
                 .forEach(referencedInputs::addAll);
         node.getVariableDefinitions().values().stream()
-                .map(LogicalIndexExtractor.ExpressionAndValuePointers::getInputSymbols)
+                .map(ExpressionAndValuePointers::getInputSymbols)
                 .forEach(referencedInputs::addAll);
 
         return restrictChildOutputs(context.getIdAllocator(), node, referencedInputs.build())
