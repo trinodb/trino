@@ -13,6 +13,7 @@
     <description>Trino - Proxy Service</description>
 
     <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>io.trino.proxy.TrinoProxy</main-class>
     </properties>
 

@@ -12,6 +12,7 @@
     <artifactId>trino-verifier</artifactId>
 
     <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>io.trino.verifier.TrinoVerifier</main-class>
     </properties>
 

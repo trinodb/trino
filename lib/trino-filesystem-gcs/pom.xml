@@ -13,6 +13,10 @@
     <name>trino-filesystem-gcs</name>
     <description>Trino Filesystem - GCS</description>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.google.api</groupId>
