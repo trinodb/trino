@@ -172,7 +172,7 @@ public class ServerIT
             assertThat(rpmMetadata).extractingByKey("Name").isEqualTo("trino-server-rpm");
             assertThat(rpmMetadata).extractingByKey("Epoch").isEqualTo("0");
             assertThat(rpmMetadata).extractingByKey("Release").isEqualTo("1");
-            assertThat(rpmMetadata).extractingByKey("Version").isEqualTo("440.SNAPSHOT"); // TODO: fixme
+            assertThat(rpmMetadata).extractingByKey("Version").isEqualTo("440-SNAPSHOT");
             assertThat(rpmMetadata).extractingByKey("Architecture").isEqualTo("noarch");
             assertThat(rpmMetadata).extractingByKey("License").isEqualTo("Apache License 2.0");
             assertThat(rpmMetadata).extractingByKey("Group").isEqualTo("Applications/Databases");
