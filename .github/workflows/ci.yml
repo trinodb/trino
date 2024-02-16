@@ -69,6 +69,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           java-version: ${{ matrix.java-version }}
+          cleanup-node: true
       - name: Check SPI backward compatibility
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
