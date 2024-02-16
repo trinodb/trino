@@ -13,6 +13,7 @@
     <description>Trino - Thrift Testing Server</description>
 
     <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>io.trino.plugin.thrift.server.ThriftTpchServer</main-class>
     </properties>
 

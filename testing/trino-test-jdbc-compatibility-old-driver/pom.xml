@@ -13,6 +13,7 @@
     <description>Trino - Tests whether older Trino JDBC clients are compatible with current Trino server</description>
 
     <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <!-- Version needs to be hardcoded for the release plugin to work. It will be updated by the release plugin. -->
         <dep.presto-jdbc-under-test>439-cork-1-SNAPSHOT</dep.presto-jdbc-under-test>
     </properties>

@@ -12,6 +12,7 @@
     <artifactId>trino-product-tests-launcher</artifactId>
 
     <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>io.trino.tests.product.launcher.cli.Launcher</main-class>
     </properties>
 

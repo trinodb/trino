@@ -12,6 +12,10 @@
     <artifactId>trino-memory-context</artifactId>
     <description>Trino - Memory Tracking Framework</description>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.google.errorprone</groupId>

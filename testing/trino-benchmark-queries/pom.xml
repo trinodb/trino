@@ -10,6 +10,10 @@
 
     <artifactId>trino-benchmark-queries</artifactId>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.airlift</groupId>

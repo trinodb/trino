@@ -14,6 +14,8 @@
     <description>Trino - Hive Connector</description>
 
     <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+
         <!--
           Project's default for air.test.parallel is 'methods'. By design, 'instances' runs all the methods in the same instance in the same thread,
           but two methods on two different instances will be running in different threads.

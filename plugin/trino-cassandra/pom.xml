@@ -13,6 +13,7 @@
     <description>Trino - Cassandra Connector</description>
 
     <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.native-protocol.version>1.5.1</dep.native-protocol.version>
     </properties>
 

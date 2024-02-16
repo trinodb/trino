@@ -11,6 +11,10 @@
     <artifactId>trino-geospatial-toolkit</artifactId>
     <description>Trino - Geospatial utilities</description>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.esri.geometry</groupId>

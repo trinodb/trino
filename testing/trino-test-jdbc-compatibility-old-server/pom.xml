@@ -12,6 +12,10 @@
     <artifactId>trino-test-jdbc-compatibility-old-server</artifactId>
     <description>Trino - Tests whether current Trino JDBC clients are compatible with old Trino servers</description>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.github.docker-java</groupId>

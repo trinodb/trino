@@ -14,6 +14,7 @@
     <description>Trino - Elasticsearch Connector</description>
 
     <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.elasticsearch.version>7.17.18</dep.elasticsearch.version>
     </properties>
 
