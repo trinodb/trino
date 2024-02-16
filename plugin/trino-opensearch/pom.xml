@@ -14,6 +14,7 @@
     <description>Trino - OpenSearch Connector</description>
 
     <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.opensearch.version>2.11.1</dep.opensearch.version>
     </properties>
 

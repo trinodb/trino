@@ -13,6 +13,10 @@
     <packaging>trino-plugin</packaging>
     <description>Trino - Session Property Managers</description>
 
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
