@@ -20,8 +20,6 @@ import com.mongodb.MongoCommandException;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import io.trino.sql.planner.plan.LimitNode;
-import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -34,14 +32,13 @@ import java.util.Set;
 
 import static io.trino.plugin.mongodb.MongoAtlasQueryRunner.createMongoAtlasFederatedMongoQueryRunner;
 import static io.trino.plugin.mongodb.TestingMongoAtlasInfoProvider.getMongoAtlasFederatedDatabaseInfo;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestMongoFederatedDatabaseConnectorTest
-        extends BaseConnectorTest
+        extends BaseMongoConnectorSmokeTest
 {
     private static final int RESOURCE_ALREADY_EXISTS = 72;
     private String clusterName;
@@ -57,29 +54,12 @@ public class TestMongoFederatedDatabaseConnectorTest
             case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-            case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS:
-            case SUPPORTS_RENAME_MATERIALIZED_VIEW:
                 return false;
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_CREATE_SCHEMA:
             case SUPPORTS_CREATE_TABLE_WITH_DATA:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_VIEW:
             case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-            case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-                return false;
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return false;
-            case SUPPORTS_DROP_COLUMN:
                 return false;
             case SUPPORTS_DELETE:
             case SUPPORTS_INSERT:
@@ -148,25 +128,19 @@ public class TestMongoFederatedDatabaseConnectorTest
         return requireNonNull(System.getProperty(key), () -> "system property not set: " + key);
     }
 
-    // Overridden as the failure message is different
     @Test
-    @Override
     public void testAddColumn()
     {
         assertQueryFails("ALTER TABLE nation ADD COLUMN test_add_column bigint", "Adding columns is not supported on Atlas data federation");
     }
 
-    // Overridden as the failure message is different
     @Test
-    @Override
     public void testCommentColumn()
     {
         assertQueryFails("COMMENT ON COLUMN nation.nationkey IS 'new comment'", "Setting column comments is not supported on Atlas data federation");
     }
 
-    // Overridden as the failure message is different
     @Test
-    @Override
     public void testCommentTable()
     {
         assertQueryFails("COMMENT ON TABLE nation IS 'new comment'", "Setting table comments is not supported on Atlas data federation");
@@ -196,16 +170,20 @@ public class TestMongoFederatedDatabaseConnectorTest
         assertQueryFails("CREATE TABLE IF NOT EXISTS test_ctas AS SELECT name, regionkey FROM nation", "Creating tables with data is not supported on Atlas data federation");
     }
 
-    // Overridden as the failure message is different
     @Test
-    @Override
+    @Override // Overridden as the failure message is different
+    public void testRenameTable()
+    {
+        assertQueryFails("ALTER TABLE nation RENAME TO yyyy", "Renaming tables is not supported on Atlas data federation");
+    }
+
+    @Test
     public void testDropColumn()
     {
         assertQueryFails("ALTER TABLE nation DROP COLUMN nationkey", "Dropping columns is not supported on Atlas data federation");
     }
 
     @Test
-    @Override
     public void testRenameColumn()
     {
         assertQueryFails("ALTER TABLE nation RENAME COLUMN nationkey TO test_rename_column", "Renaming columns is not supported on Atlas data federation");
@@ -219,17 +197,7 @@ public class TestMongoFederatedDatabaseConnectorTest
         assertQueryFails("INSERT INTO nation(nationkey) VALUES (42)", "Insert is not supported on Atlas data federation");
     }
 
-    // Overridden as the failure message is different
     @Test
-    @Override
-    public void testInsertNegativeDate()
-    {
-        assertQueryFails("INSERT INTO orders (orderdate) VALUES (DATE '-0001-01-01')", "Insert is not supported on Atlas data federation");
-    }
-
-    // Overridden as the failure message is different
-    @Test
-    @Override
     public void testSetColumnType()
     {
         assertQueryFails("ALTER TABLE nation ALTER COLUMN nationkey SET DATA TYPE bigint", "Setting column data types is not supported on Atlas data federation");
@@ -256,50 +224,6 @@ public class TestMongoFederatedDatabaseConnectorTest
                                    comment varchar
                                 )""",
                         catalog, schema));
-    }
-
-    // Overridden as the data types are different for few columns
-    @Override
-    protected MaterializedResult getDescribeOrdersResult()
-    {
-        // Data types are different as they are guessed through MongoSession#getTableMetadata as _schema
-        // is not populated with table schema. However, data types doesn't change in TestMongoWithAtlasConnectorTest
-        // and TestMongoConnectorTest as data type are not guessed as _schema is pre-populated with table
-        // schema when table is created through MongoSession#createTableMetadata.
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar", "", "") // Changed from varchar(1) to varchar
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "timestamp(3)", "", "") // Changed from date to timestamp(3)
-                .row("orderpriority", "varchar", "", "") // Changed from varchar(15) to varchar
-                .row("clerk", "varchar", "", "") // Changed from varchar(15) to varchar
-                .row("shippriority", "bigint", "", "") // Changed from integer to bigint
-                .row("comment", "varchar", "", "") // Changed from varchar(79) to varchar
-                .build();
-    }
-
-    // Overridden as the data types are different for few columns
-    @Override
-    @Test
-    public void testShowColumns()
-    {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedUnparametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "timestamp(3)", "", "") // Changed from date to timestamp(3)
-                .row("orderpriority", "varchar", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("shippriority", "bigint", "", "") // Changed from integer to bigint
-                .row("comment", "varchar", "", "")
-                .build();
-        assertThat(expectedUnparametrizedVarchar)
-                .as(format("%s does not match %s", actual, expectedUnparametrizedVarchar))
-                .isEqualTo(actual);
     }
 
     @Test
@@ -387,6 +311,34 @@ public class TestMongoFederatedDatabaseConnectorTest
                 {"test_predicate_pushdown_timestamp1", "timestamp '1970-01-01 00:00:00.000'"},
                 {"test_predicate_pushdown_timestamp2", "timestamp '1970-01-01 00:00:00.000 UTC'"}
         };
+    }
+
+    @Test
+    @Override
+    public void testProjectionPushdown()
+    {
+        abort("Creating tables is not supported on Atlas data federation");
+    }
+
+    @Test
+    @Override
+    public void testReadDottedField()
+    {
+        abort("Creating tables is not supported on Atlas data federation");
+    }
+
+    @Test
+    @Override
+    public void testReadDollarPrefixedField()
+    {
+        abort("Creating tables is not supported on Atlas data federation");
+    }
+
+    @Test
+    @Override
+    public void testProjectionPushdownWithHighlyNestedData()
+    {
+        abort("Creating tables is not supported on Atlas data federation");
     }
 
     @Test
