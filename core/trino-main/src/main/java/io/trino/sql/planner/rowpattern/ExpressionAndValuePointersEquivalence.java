@@ -15,7 +15,6 @@ package io.trino.sql.planner.rowpattern;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.SymbolReference;
 
