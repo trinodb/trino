@@ -20,6 +20,8 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 
@@ -31,7 +33,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class PageListBuilder
@@ -93,9 +101,44 @@ public final class PageListBuilder
         BIGINT.writeLong(nextColumn(), value);
     }
 
+    public void appendTinyint(long value)
+    {
+        TINYINT.writeLong(nextColumn(), value);
+    }
+
+    public void appendInteger(long value)
+    {
+        INTEGER.writeLong(nextColumn(), value);
+    }
+
     public void appendBoolean(boolean value)
     {
         BOOLEAN.writeBoolean(nextColumn(), value);
+    }
+
+    public void appendSmallint(long value)
+    {
+        SMALLINT.writeLong(nextColumn(), value);
+    }
+
+    public void appendDecimal(int precision, int scale, Int128 value)
+    {
+        DecimalType.createDecimalType(precision, scale).writeObject(nextColumn(), value);
+    }
+
+    public void appendDouble(double value)
+    {
+        DOUBLE.writeDouble(nextColumn(), value);
+    }
+
+    public void appendDate(long value)
+    {
+        DATE.writeLong(nextColumn(), value);
+    }
+
+    public void appendReal(float value)
+    {
+        REAL.writeFloat(nextColumn(), value);
     }
 
     public void appendTimestampTzMillis(long millisUtc, TimeZoneKey timeZoneKey)

@@ -140,11 +140,43 @@ public class TestDeltaLakePartitioning
     }
 
     @Test
-    public void testPartitionsSystemTableDoesNotExist()
+    public void testPartitionsSystemTableExists()
     {
-        assertQueryFails(
-                "SELECT * FROM \"partitions$partitions\"",
-                ".*'delta\\.tpch\\.\"partitions\\$partitions\"' does not exist");
+        assertQuerySucceeds("SELECT * FROM \"partitions$partitions\"");
+    }
+
+    @Test
+    public void testReadAllTypesPartitionsSystemTable()
+    {
+        assertQuery(
+                "SELECT " +
+                        "p_string, " +
+                        "p_byte, " +
+                        "p_short, " +
+                        "p_int, " +
+                        "p_long, " +
+                        "p_decimal, " +
+                        "p_boolean, " +
+                        "p_float, " +
+                        "p_double, " +
+                        "p_date, " +
+                        // H2QueryRunner does not support TIMESTAMP WITH TIME ZONE,
+                        // so instead we convert the TIMESTAMP WITH TIME ZONE from Delta to a string representation and compare that.
+                        "CAST(p_timestamp AS VARCHAR) " +
+                        "FROM \"partitions$partitions\" " +
+                        "LIMIT 1 ",
+                "VALUES (" +
+                        "'Alice', " +
+                        "123, " +
+                        "12345, " +
+                        "123456789, " +
+                        "1234567890123456789, " +
+                        "12345678901234567890.123456789012345678, " +
+                        "true, " +
+                        "3.1415927, " +
+                        "3.141592653589793, " +
+                        "DATE '2014-01-01', " +
+                        "'2014-01-01 23:00:01.123 UTC')");
     }
 
     @Test

@@ -103,4 +103,80 @@ public class TestDeltaLakeSystemTables
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
+
+    @Test
+    public void testPartitionsTable()
+    {
+        String tableName = "test_simple_partitions_table";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT, _date DATE) WITH (partitioned_by = ARRAY['_date'] )");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, NULL)", 1);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 7");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 4");
+
+            assertQuery("SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    """
+                            VALUES
+                            ('_date', 'date', '', '')
+                            """);
+
+            assertQuery("SElECT * FROM \"" + tableName + "$partitions\"", " VALUES (DATE '2019-09-08'), (DATE '2019-09-09'), (DATE '2019-09-10'), (NULL)");
+        }
+        finally{
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testPartitionsTableMultipleColumns()
+    {
+        String tableName = "test_partitions_table_multiple_columns";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT, _date DATE, _varchar VARCHAR) WITH (partitioned_by = ARRAY['_date', '_varchar'] )");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE), 'a'), (1, CAST('2019-09-09' AS DATE), 'b'), (2, CAST('2019-09-09' AS DATE), 'c')", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE), 'd'), (4, CAST('2019-09-10' AS DATE), 'e'), (5, CAST('2019-09-10' AS DATE), 'f'), (4, CAST('2019-09-10' AS DATE), 'f')", 4);
+            assertUpdate("UPDATE " + tableName + " SET _bigint = 50 WHERE _bigint =  BIGINT '5'", 1);
+            assertUpdate("DELETE FROM " + tableName + " WHERE _date =  DATE '2019-09-08'", 1);
+            assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 6");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 5");
+            assertQuery("SELECT count(_varchar) FROM \"" + tableName + "$partitions\"", "VALUES 5");
+            assertQuery("SELECT count(distinct _date) FROM \"" + tableName + "$partitions\"", "VALUES 2");
+
+            assertQuery("SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    """
+                            VALUES
+                            ('_date', 'date', '', ''),
+                            ('_varchar', 'varchar', '', '')
+                            """);
+
+            assertQuery("SELECT * FROM \"" + tableName + "$partitions\"", "VALUES (DATE '2019-09-09', 'b'), (DATE '2019-09-09', 'c'), (DATE '2019-09-09', 'd'), (DATE '2019-09-10', 'e'), (DATE '2019-09-10', 'f')");
+        }
+        finally{
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testPartitionsTableUnPartitioned()
+    {
+        String tableName = "test_partitions_table_unpartitioned";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT, _date DATE)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 6");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 0");
+
+            assertQueryReturnsEmptyResult("SHOW COLUMNS FROM \"" + tableName + "$partitions\"");
+        }
+        finally{
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+
+
 }
