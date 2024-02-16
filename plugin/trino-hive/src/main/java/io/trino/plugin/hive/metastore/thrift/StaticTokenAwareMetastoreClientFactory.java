@@ -65,11 +65,6 @@ public class StaticTokenAwareMetastoreClientFactory
                 authenticationConfig.getAuthenticationType());
     }
 
-    public StaticTokenAwareMetastoreClientFactory(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
-    {
-        this(metastoreUris, metastoreUsername, clientFactory, Ticker.systemTicker());
-    }
-
     private StaticTokenAwareMetastoreClientFactory(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
