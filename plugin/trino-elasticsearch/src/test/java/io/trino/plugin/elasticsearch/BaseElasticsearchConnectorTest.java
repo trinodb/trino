@@ -35,6 +35,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -1334,6 +1335,153 @@ public abstract class BaseElasticsearchConnectorTest
                         "(TIMESTAMP '1970-01-01 00:00:00.000')," +
                         "(TIMESTAMP '1970-01-01 00:00:00.001')," +
                         "(TIMESTAMP '1970-01-01 01:01:00.000')");
+    }
+
+    @Test
+    public void testCustomFormatTimestamps1()
+            throws IOException
+    {
+        String indexName = "custom_format_timestamps1";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"timestamp_column\": { " +
+                "     \"type\": \"date\", " +
+                "     \"format\": \"yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis\"" +
+                "   }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.of("timestamp_column", "2020-03-01 16:29:41"));
+        index(indexName, ImmutableMap.of("timestamp_column", "2020-02-29"));
+        index(indexName, ImmutableMap.of("timestamp_column", 1583055849000L));
+
+        MaterializedResult rows = computeActual("SELECT timestamp_column FROM " + indexName);
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(LocalDateTime.parse("2020-03-01T16:29:41"))
+                .row(LocalDateTime.parse("2020-02-29T00:00:00"))
+                .row(LocalDateTime.parse("2020-03-01T09:44:09"))
+                .build();
+
+        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testCustomFormatTimestamps2()
+            throws IOException
+    {
+        String indexName = "custom_format_timestamps2";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"timestamp_column\": { " +
+                "     \"type\": \"date\", " +
+                "     \"format\": \"yyyy/MM/dd HH:mm:ss||yyyy/MM/dd||epoch_millis\"" +
+                "   }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.of("timestamp_column", "2020/03/01 16:29:41"));
+        index(indexName, ImmutableMap.of("timestamp_column", "2020/02/01"));
+        index(indexName, ImmutableMap.of("timestamp_column", 1583055849000L));
+        index(indexName, ImmutableMap.of("timestamp_column", 1583055849123L));
+
+        MaterializedResult rows = computeActual("SELECT timestamp_column FROM " + indexName);
+        String pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(LocalDateTime.parse("2020-03-01T16:29:41"))
+                .row(LocalDateTime.parse("2020-02-01T00:00:00"))
+                .row(LocalDateTime.parse("2020-03-01T09:44:09"))
+                .row(LocalDateTime.parse("2020-03-01T09:44:09.123", formatter))
+                .build();
+
+        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testBasicFormatTimestamps1()
+            throws IOException
+    {
+        String indexName = "basic_format_timestamps1";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"timestamp_column\": { " +
+                "     \"type\": \"date\", " +
+                "     \"format\": \"basic_date||basic_date_time||basic_date_time_no_millis||basic_ordinal_date\"" +
+                "   }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.of("timestamp_column", "20150102"));
+        index(indexName, ImmutableMap.of("timestamp_column", "20220503T120228.33+08:00"));
+        index(indexName, ImmutableMap.of("timestamp_column", "20220503T120228+08:00"));
+        index(indexName, ImmutableMap.of("timestamp_column", "2022075"));
+
+        MaterializedResult rows = computeActual("SELECT timestamp_column FROM " + indexName);
+        String pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(LocalDateTime.parse("2015-01-02T00:00:00"))
+                .row(LocalDateTime.parse("2022-05-03T04:02:28.330", formatter))
+                .row(LocalDateTime.parse("2022-05-03T04:02:28"))
+                .row(LocalDateTime.parse("2022-07-05T00:00:00"))
+                .build();
+
+        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testBasicFormatTimestamps2()
+            throws IOException
+    {
+        String indexName = "basic_format_timestamps2";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"timestamp_column\": { " +
+                "     \"type\": \"date\", " +
+                "     \"format\": \"basic_ordinal_date_time||basic_ordinal_date_time_no_millis||basic_time||basic_t_time\"" +
+                "   }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+        // the 75th day of 2022
+        index(indexName, ImmutableMap.of("timestamp_column", "2022075T122345.466+08:00"));
+        index(indexName, ImmutableMap.of("timestamp_column", "2022075T122345+08:00"));
+        index(indexName, ImmutableMap.of("timestamp_column", "122345.999999999+08:00"));
+        index(indexName, ImmutableMap.of("timestamp_column", "T122345.999999999+08:00"));
+
+        MaterializedResult rows = computeActual("SELECT timestamp_column FROM " + indexName);
+        String pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(LocalDateTime.parse("2022-03-16T04:23:45.466", formatter))
+                .row(LocalDateTime.parse("2022-03-16T04:23:45"))
+                .row(LocalDateTime.parse("1970-01-01T04:23:45.999", formatter))
+                .row(LocalDateTime.parse("1970-01-01T04:23:45.999", formatter))
+                .build();
+
+        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
     }
 
     @Test
