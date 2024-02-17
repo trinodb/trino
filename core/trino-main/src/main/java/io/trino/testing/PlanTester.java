@@ -894,7 +894,7 @@ public class PlanTester
         // session must be in a transaction registered with the transaction manager in this query runner
         transactionManager.getTransactionInfo(session.getRequiredTransactionId());
 
-        PreparedQuery preparedQuery = new QueryPreparer(ImmutableSet.of(), sqlParser).prepareQuery(session, sql);
+        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql);
 
         assertFormattedSql(sqlParser, preparedQuery.getStatement());
 
@@ -956,7 +956,7 @@ public class PlanTester
                                 tablePropertyManager,
                                 materializedViewPropertyManager),
                         new ShowStatsRewrite(plannerContext.getMetadata(), queryExplainerFactory, statsCalculator),
-                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(ImmutableSet.of(), sqlParser)))),
+                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))),
                 plannerContext.getTracer());
     }
 

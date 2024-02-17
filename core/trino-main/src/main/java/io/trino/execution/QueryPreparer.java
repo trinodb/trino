@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
@@ -29,7 +28,6 @@ import io.trino.sql.tree.Statement;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static io.trino.execution.ParameterExtractor.getParameterCount;
 import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
@@ -42,24 +40,18 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryPreparer
 {
-    private final Set<QueryDecorator> queryDecorators;
     private final SqlParser sqlParser;
 
     @Inject
-    public QueryPreparer(Set<QueryDecorator> queryDecorators, SqlParser sqlParser)
+    public QueryPreparer(SqlParser sqlParser)
     {
-        this.queryDecorators = ImmutableSet.copyOf(requireNonNull(queryDecorators, "queryDecorators is null"));
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
     public PreparedQuery prepareQuery(Session session, String query)
             throws ParsingException, TrinoException
     {
-        String decoratedQuery = query;
-        for (QueryDecorator queryDecorator : queryDecorators) {
-            decoratedQuery = queryDecorator.decorateQuery(session, decoratedQuery);
-        }
-        Statement wrappedStatement = sqlParser.createStatement(decoratedQuery);
+        Statement wrappedStatement = sqlParser.createStatement(query);
         return prepareQuery(session, wrappedStatement);
     }
 

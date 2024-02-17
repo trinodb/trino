@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.sql.parser.ParsingException;
@@ -36,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestQueryPreparer
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final QueryPreparer QUERY_PREPARER = new QueryPreparer(ImmutableSet.of(), SQL_PARSER);
+    private static final QueryPreparer QUERY_PREPARER = new QueryPreparer(SQL_PARSER);
 
     @Test
     public void testSelectStatement()
