@@ -331,7 +331,9 @@ public class DeltaLakePageSourceProvider
             return TupleDomain.none();
         }
 
-        return predicate.filter((columnHandle, domain) -> ((DeltaLakeColumnHandle) columnHandle).getColumnType() != PARTITION_KEY);
+        return predicate.filter((columnHandle, domain) -> ((DeltaLakeColumnHandle) columnHandle).getColumnType() != PARTITION_KEY)
+                // remove domains from predicate that fully contain split data because they are irrelevant for filtering
+                .filter((handle, domain) -> !domain.contains(split.getStatisticsPredicate().getDomain((DeltaLakeColumnHandle) handle, domain.getType())));
     }
 
     @Override

@@ -85,6 +85,16 @@ public class TestDeltaPageSourceProvider
                 predicate
         );
         assertThat(prunedPredicate).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L))));
+
+        // prune data column domain if domain fully contains split data
+        assertThat(pageSourceProvider.prunePredicate(
+                TEST_SESSION.toConnectorSession(),
+                prepareSplit(
+                        TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L)))),
+                        ImmutableMap.of("partitionedColumn", Optional.of("0"))),
+                tableHandle,
+                predicate
+        )).isEqualTo(TupleDomain.all());
     }
 
     @Test
@@ -131,7 +141,7 @@ public class TestDeltaPageSourceProvider
 
         TupleDomain<ColumnHandle> prunedPredicate = pageSourceProvider.getUnenforcedPredicate(
                 TEST_SESSION.toConnectorSession(),
-                prepareSplit(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L)))), ImmutableMap.of()),
+                prepareSplit(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 100L)))), ImmutableMap.of()),
                 createDeltaLakeTableHandle(metadataEntry, TupleDomain.all()),
                 TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L, 2L))))
         );
