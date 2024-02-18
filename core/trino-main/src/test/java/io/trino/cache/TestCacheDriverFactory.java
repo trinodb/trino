@@ -44,7 +44,6 @@ import io.trino.spi.cache.SignatureKey;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
@@ -56,6 +55,7 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSplit;
 import io.trino.testing.TestingTaskContext;
 import org.junit.jupiter.api.AfterEach;
@@ -101,6 +101,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestCacheDriverFactory
 {
     private static final Session TEST_SESSION = testSessionBuilder().build();
+    private static final SignatureKey SIGNATURE_KEY = new SignatureKey("key");
+    private static final CacheSplitId SPLIT_ID = new CacheSplitId("split");
+    private static final ScheduledSplit SPLIT = new ScheduledSplit(0, new PlanNodeId("id"), new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of())));
     private final PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
     private TestSplitCache splitCache;
     private CacheManagerRegistry registry;
@@ -134,21 +137,18 @@ public class TestCacheDriverFactory
     public void testCreateDriverForOriginalPlan()
     {
         PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
-                new PlanSignature(new SignatureKey("sig"), Optional.empty(), ImmutableList.of(), ImmutableList.of()),
+                new PlanSignature(SIGNATURE_KEY, Optional.empty(), ImmutableList.of(), ImmutableList.of()),
                 TupleDomain.all());
         AtomicInteger operatorIdAllocator = new AtomicInteger();
-        ConnectorSplit connectorSplit = new TestingSplit(false, ImmutableList.of());
-        Split split = new Split(TEST_CATALOG_HANDLE, connectorSplit);
 
         // expect driver for original plan because cacheSplit is empty
         CacheDriverFactory cacheDriverFactory = createCacheDriverFactory(new TestPageSourceProvider(), signature, operatorIdAllocator);
-        ScheduledSplit scheduledSplit = new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split);
-        Driver driver = cacheDriverFactory.createDriver(createDriverContext(), scheduledSplit, Optional.empty());
+        Driver driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.empty());
         assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
 
         // expect driver for original plan because dynamic filter filters data completely
         cacheDriverFactory = createCacheDriverFactory(new TestPageSourceProvider(input -> TupleDomain.none()), signature, operatorIdAllocator);
-        driver = cacheDriverFactory.createDriver(createDriverContext(), scheduledSplit, Optional.of(new CacheSplitId("split")));
+        driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
         assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
 
         // expect driver for original plan because dynamic filter is too big
@@ -159,7 +159,7 @@ public class TestCacheDriverFactory
                 new TestPageSourceProvider(input -> TupleDomain.withColumnDomains(ImmutableMap.of(new TestingColumnHandle("column"), bigDomain))),
                 signature,
                 operatorIdAllocator);
-        driver = cacheDriverFactory.createDriver(createDriverContext(), scheduledSplit, Optional.of(new CacheSplitId("split")));
+        driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
         assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
     }
 
@@ -168,10 +168,8 @@ public class TestCacheDriverFactory
     {
         CacheColumnId columnId = new CacheColumnId("cacheColumnId");
         PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
-                new PlanSignature(new SignatureKey("sig"), Optional.empty(), ImmutableList.of(columnId), ImmutableList.of(BIGINT)),
+                new PlanSignature(SIGNATURE_KEY, Optional.empty(), ImmutableList.of(columnId), ImmutableList.of(BIGINT)),
                 TupleDomain.all());
-        ConnectorSplit connectorSplit = new TestingSplit(false, ImmutableList.of());
-        Split split = new Split(TEST_CATALOG_HANDLE, connectorSplit);
         ColumnHandle columnHandle = new TestingColumnHandle("column");
         TupleDomain<ColumnHandle> originalDynamicPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.create(ValueSet.of(BIGINT, 0L), false)));
 
@@ -194,13 +192,13 @@ public class TestCacheDriverFactory
 
         // baseSignature should use original dynamic filter because it contains more domains
         splitCache.setExpectedPredicates(TupleDomain.all(), originalDynamicPredicate.transformKeys(dynamicFilterColumnMapping::get));
-        Driver driver = cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(new CacheSplitId("id")));
+        Driver driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
         assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
 
         // baseSignature should use common dynamic filter as it uses same domains
         commonDynamicPredicate.set(TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.create(ValueSet.of(BIGINT, 0L, 1L), false))));
         splitCache.setExpectedPredicates(TupleDomain.all(), commonDynamicPredicate.get().transformKeys(dynamicFilterColumnMapping::get));
-        cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(new CacheSplitId("id")));
+        cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
         assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
     }
 
