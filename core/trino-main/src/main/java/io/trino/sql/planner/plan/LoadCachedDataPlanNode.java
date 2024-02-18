@@ -37,7 +37,7 @@ public class LoadCachedDataPlanNode
      * Dynamic filter disjuncts from all common subplans.
      */
     private final Expression dynamicFilterDisjuncts;
-    private final Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping;
+    private final Map<CacheColumnId, ColumnHandle> commonColumnHandles;
     private final List<Symbol> outputSymbols;
 
     @JsonCreator
@@ -45,13 +45,13 @@ public class LoadCachedDataPlanNode
             @JsonProperty PlanNodeId id,
             @JsonProperty PlanSignatureWithPredicate planSignature,
             @JsonProperty Expression dynamicFilterDisjuncts,
-            @JsonProperty Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping,
+            @JsonProperty Map<CacheColumnId, ColumnHandle> commonColumnHandles,
             @JsonProperty List<Symbol> outputSymbols)
     {
         super(id);
         this.planSignature = requireNonNull(planSignature, "planSignature is null");
         this.dynamicFilterDisjuncts = requireNonNull(dynamicFilterDisjuncts, "dynamicFilterDisjuncts is null");
-        this.dynamicFilterColumnMapping = requireNonNull(dynamicFilterColumnMapping, "dynamicFilterColumnMapping is null");
+        this.commonColumnHandles = requireNonNull(commonColumnHandles, "commonColumnHandles is null");
         this.outputSymbols = requireNonNull(outputSymbols, "outputSymbols is null");
     }
 
@@ -68,9 +68,9 @@ public class LoadCachedDataPlanNode
     }
 
     @JsonProperty
-    public Map<CacheColumnId, ColumnHandle> getDynamicFilterColumnMapping()
+    public Map<CacheColumnId, ColumnHandle> getCommonColumnHandles()
     {
-        return dynamicFilterColumnMapping;
+        return commonColumnHandles;
     }
 
     @Override
@@ -99,7 +99,7 @@ public class LoadCachedDataPlanNode
                 getId(),
                 planSignature,
                 dynamicFilterDisjuncts,
-                dynamicFilterColumnMapping,
+                commonColumnHandles,
                 outputSymbols);
     }
 }

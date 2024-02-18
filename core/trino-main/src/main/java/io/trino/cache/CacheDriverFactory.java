@@ -15,8 +15,11 @@ package io.trino.cache;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -27,6 +30,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
+import io.trino.plugin.base.cache.CacheUtils;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheManager.SplitCache;
@@ -46,19 +50,20 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.cache.CacheCommonSubqueries.LOAD_PAGES_ALTERNATIVE;
 import static io.trino.cache.CacheCommonSubqueries.ORIGINAL_PLAN_ALTERNATIVE;
 import static io.trino.cache.CacheCommonSubqueries.STORE_PAGES_ALTERNATIVE;
-import static io.trino.plugin.base.cache.CacheUtils.normalizeTupleDomain;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class CacheDriverFactory
 {
-    static final int MAX_DYNAMIC_FILTER_VALUE_COUNT = 1_000_000;
+    static final int MAX_UNENFORCED_PREDICATE_VALUE_COUNT = 1_000_000;
     private static final Logger LOG = Logger.get(CacheDriverFactory.class);
 
     public static final float THRASHING_CACHE_THRESHOLD = 0.7f;
@@ -69,8 +74,9 @@ public class CacheDriverFactory
     private final SplitCache splitCache;
     private final JsonCodec<TupleDomain> tupleDomainCodec;
     private final TableHandle originalTableHandle;
-    private final TupleDomain<CacheColumnId> signaturePredicate;
-    private final Map<ColumnHandle, CacheColumnId> dynamicFilterColumnMapping;
+    private final Set<CacheColumnId> projectedColumns;
+    private final TupleDomain<CacheColumnId> enforcedPredicate;
+    private final BiMap<ColumnHandle, CacheColumnId> commonColumnHandles;
     private final Supplier<StaticDynamicFilter> commonDynamicFilterSupplier;
     private final Supplier<StaticDynamicFilter> originalDynamicFilterSupplier;
     private final List<DriverFactory> alternatives;
@@ -85,7 +91,7 @@ public class CacheDriverFactory
             JsonCodec<TupleDomain> tupleDomainCodec,
             TableHandle originalTableHandle,
             PlanSignatureWithPredicate planSignature,
-            Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping,
+            Map<CacheColumnId, ColumnHandle> commonColumnHandles,
             Supplier<StaticDynamicFilter> commonDynamicFilterSupplier,
             Supplier<StaticDynamicFilter> originalDynamicFilterSupplier,
             List<DriverFactory> alternatives,
@@ -97,8 +103,9 @@ public class CacheDriverFactory
         this.splitCache = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null").getCacheManager().getSplitCache(planSignature.signature());
         this.tupleDomainCodec = requireNonNull(tupleDomainCodec, "tupleDomainCodec is null");
         this.originalTableHandle = requireNonNull(originalTableHandle, "originalTableHandle is null");
-        this.signaturePredicate = normalizeTupleDomain(planSignature.predicate());
-        this.dynamicFilterColumnMapping = ImmutableBiMap.copyOf(requireNonNull(dynamicFilterColumnMapping, "dynamicFilterColumnMapping is null")).inverse();
+        this.projectedColumns = ImmutableSet.copyOf(planSignature.signature().getColumns());
+        this.enforcedPredicate = planSignature.predicate();
+        this.commonColumnHandles = ImmutableBiMap.copyOf(requireNonNull(commonColumnHandles, "commonColumnHandles is null")).inverse();
         this.commonDynamicFilterSupplier = requireNonNull(commonDynamicFilterSupplier, "commonDynamicFilterSupplier is null");
         this.originalDynamicFilterSupplier = requireNonNull(originalDynamicFilterSupplier, "originalDynamicFilterSupplier is null");
         this.alternatives = requireNonNull(alternatives, "alternatives is null");
@@ -135,32 +142,36 @@ public class CacheDriverFactory
         }
         CacheSplitId splitId = cacheSplitIdOptional.get();
 
-        // simplify dynamic filter predicate to improve cache hits
         StaticDynamicFilter originalDynamicFilter = originalDynamicFilterSupplier.get();
         StaticDynamicFilter commonDynamicFilter = commonDynamicFilterSupplier.get();
         StaticDynamicFilter dynamicFilter = resolveDynamicFilter(originalDynamicFilter, commonDynamicFilter);
-        TupleDomain<ColumnHandle> dynamicPredicate = pageSourceProvider.getUnenforcedPredicate(
+
+        TupleDomain<CacheColumnId> enforcedPredicate = pruneEnforcedPredicate(split);
+        TupleDomain<CacheColumnId> unenforcedPredicate = pageSourceProvider.getUnenforcedPredicate(
                         session,
                         split.getSplit(),
                         originalTableHandle,
                         dynamicFilter.getCurrentPredicate())
-                // filter out DF columns which are not mapped to signature output columns
-                .filter((column, domain) -> dynamicFilterColumnMapping.containsKey(column));
+                .transformKeys(handle -> requireNonNull(commonColumnHandles.get(handle)));
 
         // skip caching of completely filtered out splits
-        if (dynamicPredicate.isNone()) {
+        if (enforcedPredicate.isNone() || unenforcedPredicate.isNone()) {
             return new DriverFactoryWithCacheContext(alternatives.get(ORIGINAL_PLAN_ALTERNATIVE), Optional.empty());
         }
 
-        // skip caching if dynamic filter becomes too big
-        if (getTupleDomainValueCount(dynamicPredicate) > MAX_DYNAMIC_FILTER_VALUE_COUNT) {
+        // skip caching if unenforced predicate becomes too big,
+        // because large predicates are not likely to be reused in other subqueries
+        if (getTupleDomainValueCount(unenforcedPredicate) > MAX_UNENFORCED_PREDICATE_VALUE_COUNT) {
             cacheStats.recordPredicateTooBig();
             return new DriverFactoryWithCacheContext(alternatives.get(ORIGINAL_PLAN_ALTERNATIVE), Optional.empty());
         }
 
+        ProjectPredicate projectedEnforcedPredicate = projectPredicate(enforcedPredicate);
+        ProjectPredicate projectedUnenforcedPredicate = projectPredicate(unenforcedPredicate);
+        CacheSplitId splitIdWithPredicates = appendRemainingPredicates(splitId, projectedEnforcedPredicate, projectedUnenforcedPredicate);
+
         // load data from cache
-        TupleDomain<CacheColumnId> signatureDynamicPredicate = dynamicPredicate.transformKeys(dynamicFilterColumnMapping::get);
-        Optional<ConnectorPageSource> pageSource = splitCache.loadPages(splitId, signaturePredicate, signatureDynamicPredicate);
+        Optional<ConnectorPageSource> pageSource = splitCache.loadPages(splitIdWithPredicates, projectedEnforcedPredicate.predicate(), projectedUnenforcedPredicate.predicate());
         if (pageSource.isPresent()) {
             cacheStats.recordCacheHit();
             return new DriverFactoryWithCacheContext(
@@ -176,7 +187,7 @@ public class CacheDriverFactory
         // try storing results instead
         // if splits are too large to be cached then do not try caching data as it adds extra computational cost
         if (cachingRatio > THRASHING_CACHE_THRESHOLD) {
-            Optional<ConnectorPageSink> pageSink = splitCache.storePages(splitId, signaturePredicate, signatureDynamicPredicate);
+            Optional<ConnectorPageSink> pageSink = splitCache.storePages(splitIdWithPredicates, projectedEnforcedPredicate.predicate(), projectedUnenforcedPredicate.predicate());
             if (pageSink.isPresent()) {
                 return new DriverFactoryWithCacheContext(
                         alternatives.get(STORE_PAGES_ALTERNATIVE),
@@ -195,6 +206,51 @@ public class CacheDriverFactory
     }
 
     private record DriverFactoryWithCacheContext(DriverFactory factory, Optional<CacheDriverContext> context) {}
+
+    private TupleDomain<CacheColumnId> pruneEnforcedPredicate(ScheduledSplit split)
+    {
+        return TupleDomain.intersect(ImmutableList.of(
+                // prune scan domains of enforced predicate
+                pageSourceProvider.prunePredicate(
+                                session,
+                                split.getSplit(),
+                                originalTableHandle,
+                                enforcedPredicate
+                                        .filter((columnId, domain) -> commonColumnHandles.containsValue(columnId))
+                                        .transformKeys(columnId -> commonColumnHandles.inverse().get(columnId)))
+                        .transformKeys(commonColumnHandles::get),
+                enforcedPredicate.filter((columnId, domain) -> !commonColumnHandles.containsValue(columnId))));
+    }
+
+    private ProjectPredicate projectPredicate(TupleDomain<CacheColumnId> predicate)
+    {
+        return new ProjectPredicate(
+                predicate.filter((columnId, domain) -> projectedColumns.contains(columnId)),
+                Optional.of(predicate.filter((columnId, domain) -> !projectedColumns.contains(columnId)))
+                        .filter(domain -> !domain.isAll())
+                        .map(CacheUtils::normalizeTupleDomain)
+                        .map(tupleDomainCodec::toJson));
+    }
+
+    private record ProjectPredicate(TupleDomain<CacheColumnId> predicate, Optional<String> remainingPredicate) {}
+
+    private static CacheSplitId appendRemainingPredicates(CacheSplitId splitId, ProjectPredicate enforcedPredicate, ProjectPredicate unenforcedPredicate)
+    {
+        return appendRemainingPredicates(splitId, enforcedPredicate.remainingPredicate(), unenforcedPredicate.remainingPredicate());
+    }
+
+    @VisibleForTesting
+    static CacheSplitId appendRemainingPredicates(CacheSplitId splitId, Optional<String> remainingEnforcedPredicate, Optional<String> remainingUnenforcedPredicate)
+    {
+        if (remainingEnforcedPredicate.isEmpty() && remainingUnenforcedPredicate.isEmpty()) {
+            return splitId;
+        }
+        return new CacheSplitId(toStringHelper("SplitId")
+                .add("splitId", splitId)
+                .add("enforcedPredicate", remainingEnforcedPredicate.orElse("all"))
+                .add("unenforcedPredicate", remainingUnenforcedPredicate.orElse("all"))
+                .toString());
+    }
 
     public void closeSplitCache()
     {

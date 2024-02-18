@@ -164,10 +164,25 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern loadCachedDataPlanNode(PlanSignatureWithPredicate signature, String... outputSymbolAliases)
     {
-        return loadCachedDataPlanNode(signature, ImmutableMap.of(), dynamicFilters -> true, outputSymbolAliases);
+        return loadCachedDataPlanNode(signature, Optional.empty(), dynamicFilters -> true, outputSymbolAliases);
     }
 
-    public static PlanMatchPattern loadCachedDataPlanNode(PlanSignatureWithPredicate signature, Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping, Predicate<List<List<DynamicFilters.Descriptor>>> dynamicFiltersPredicate, String... outputSymbolAliases)
+    public static PlanMatchPattern loadCachedDataPlanNode(PlanSignatureWithPredicate signature, Map<CacheColumnId, ColumnHandle> commonColumnHandles, String... outputSymbolAliases)
+    {
+        return loadCachedDataPlanNode(signature, Optional.of(commonColumnHandles), dynamicFilters -> true, outputSymbolAliases);
+    }
+
+    public static PlanMatchPattern loadCachedDataPlanNode(PlanSignatureWithPredicate signature, Predicate<List<List<DynamicFilters.Descriptor>>> dynamicFiltersPredicate, String... outputSymbolAliases)
+    {
+        return loadCachedDataPlanNode(signature, Optional.empty(), dynamicFiltersPredicate, outputSymbolAliases);
+    }
+
+    public static PlanMatchPattern loadCachedDataPlanNode(PlanSignatureWithPredicate signature, Map<CacheColumnId, ColumnHandle> commonColumnHandles, Predicate<List<List<DynamicFilters.Descriptor>>> dynamicFiltersPredicate, String... outputSymbolAliases)
+    {
+        return loadCachedDataPlanNode(signature, Optional.of(commonColumnHandles), dynamicFiltersPredicate, outputSymbolAliases);
+    }
+
+    private static PlanMatchPattern loadCachedDataPlanNode(PlanSignatureWithPredicate signature, Optional<Map<CacheColumnId, ColumnHandle>> commonColumnHandles, Predicate<List<List<DynamicFilters.Descriptor>>> dynamicFiltersPredicate, String... outputSymbolAliases)
     {
         PlanMatchPattern result = node(LoadCachedDataPlanNode.class);
         for (int i = 0; i < outputSymbolAliases.length; i++) {
@@ -180,7 +195,7 @@ public final class PlanMatchPattern
             });
         }
         result.with(LoadCachedDataPlanNode.class, node -> node.getPlanSignature().equals(signature));
-        result.with(LoadCachedDataPlanNode.class, node -> node.getDynamicFilterColumnMapping().equals(dynamicFilterColumnMapping));
+        result.with(LoadCachedDataPlanNode.class, node -> commonColumnHandles.map(handles -> node.getCommonColumnHandles().equals(handles)).orElse(true));
         result.with(LoadCachedDataPlanNode.class, node -> dynamicFiltersPredicate.test(
                 extractDisjuncts(node.getDynamicFilterDisjuncts()).stream()
                         .map(expression -> extractDynamicFilters(expression).getDynamicConjuncts())

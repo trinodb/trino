@@ -60,9 +60,9 @@ public class CommonPlanAdaptation
      */
     private final Expression commonDynamicFilterDisjuncts;
     /**
-     * Mapping from {@link CacheColumnId} to relevant (for plan signature) dynamic filtering columns.
+     * Mapping from {@link CacheColumnId} to {@link ColumnHandle}.
      */
-    private final Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping;
+    private final Map<CacheColumnId, ColumnHandle> commonColumnHandles;
     /**
      * Optional predicate that needs to be applied in order to adapt common subplan to
      * original plan.
@@ -96,7 +96,7 @@ public class CommonPlanAdaptation
                 commonSubplanSignature,
                 childAdaptation.getCommonSubplanFilteredTableScan(),
                 childAdaptation.getCommonDynamicFilterDisjuncts(),
-                childAdaptation.getDynamicFilterColumnMapping(),
+                childAdaptation.getCommonColumnHandles(),
                 adaptationPredicate,
                 adaptationAssignments,
                 columnIdMapping,
@@ -108,7 +108,7 @@ public class CommonPlanAdaptation
             PlanSignatureWithPredicate commonSubplanSignature,
             FilteredTableScan commonSubplanFilteredTableScan,
             Expression commonDynamicFilterDisjuncts,
-            Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping,
+            Map<CacheColumnId, ColumnHandle> commonColumnHandles,
             Optional<Expression> adaptationPredicate,
             Optional<Assignments> adaptationAssignments,
             Map<CacheColumnId, Symbol> columnIdMapping,
@@ -118,7 +118,7 @@ public class CommonPlanAdaptation
         this.commonSubplanSignature = requireNonNull(commonSubplanSignature, "commonSubplanSignature is null");
         this.commonSubplanFilteredTableScan = requireNonNull(commonSubplanFilteredTableScan, "commonSubplanFilteredTableScan is null");
         this.commonDynamicFilterDisjuncts = requireNonNull(commonDynamicFilterDisjuncts, "commonDynamicFilterDisjuncts is null");
-        this.dynamicFilterColumnMapping = requireNonNull(dynamicFilterColumnMapping, "dynamicFilterColumnMapping is null");
+        this.commonColumnHandles = requireNonNull(commonColumnHandles, "commonColumnHandles is null");
         this.adaptationPredicate = requireNonNull(adaptationPredicate, "adaptationPredicate is null");
         this.adaptationAssignments = requireNonNull(adaptationAssignments, "adaptationAssignments is null");
         this.columnIdMapping = ImmutableMap.copyOf(requireNonNull(columnIdMapping, "columnIdMapping is null"));
@@ -164,9 +164,9 @@ public class CommonPlanAdaptation
         return commonDynamicFilterDisjuncts;
     }
 
-    public Map<CacheColumnId, ColumnHandle> getDynamicFilterColumnMapping()
+    public Map<CacheColumnId, ColumnHandle> getCommonColumnHandles()
     {
-        return dynamicFilterColumnMapping;
+        return commonColumnHandles;
     }
 
     public Map<CacheColumnId, Symbol> getColumnIdMapping()

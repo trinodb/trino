@@ -783,7 +783,7 @@ public class LocalExecutionPlanner
                                 tupleDomainCodec,
                                 cacheContext.getOriginalTableHandle(),
                                 cacheContext.getPlanSignature(),
-                                cacheContext.getDynamicFilterColumnMapping(),
+                                cacheContext.getCommonColumnHandles(),
                                 cacheContext.getCommonDynamicFilterSupplier(),
                                 cacheContext.getOriginalDynamicFilterSupplier(),
                                 ImmutableList.copyOf(alternatives.values()), cacheStats));
@@ -941,7 +941,7 @@ public class LocalExecutionPlanner
     {
         private final TableHandle originalTableHandle;
         private final PlanSignatureWithPredicate planSignature;
-        private final Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping;
+        private final Map<CacheColumnId, ColumnHandle> commonColumnHandles;
         private final Supplier<StaticDynamicFilter> commonDynamicFilterSupplier;
         private final Supplier<StaticDynamicFilter> originalDynamicFilterSupplier;
 
@@ -954,7 +954,7 @@ public class LocalExecutionPlanner
             requireNonNull(loadCacheData, "loadCacheData is null");
             this.originalTableHandle = requireNonNull(originalTableHandle, "originalTableHandle is null");
             this.planSignature = loadCacheData.getPlanSignature();
-            this.dynamicFilterColumnMapping = loadCacheData.getDynamicFilterColumnMapping();
+            this.commonColumnHandles = loadCacheData.getCommonColumnHandles();
             this.commonDynamicFilterSupplier = requireNonNull(commonDynamicFilterSupplier, "commonDynamicFilterSupplier is null");
             this.originalDynamicFilterSupplier = requireNonNull(originalDynamicFilterSupplier, "originalDynamicFilterSupplier is null");
         }
@@ -969,9 +969,9 @@ public class LocalExecutionPlanner
             return planSignature;
         }
 
-        public Map<CacheColumnId, ColumnHandle> getDynamicFilterColumnMapping()
+        public Map<CacheColumnId, ColumnHandle> getCommonColumnHandles()
         {
-            return dynamicFilterColumnMapping;
+            return commonColumnHandles;
         }
 
         public Supplier<StaticDynamicFilter> getCommonDynamicFilterSupplier()

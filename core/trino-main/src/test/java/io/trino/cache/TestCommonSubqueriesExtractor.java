@@ -141,6 +141,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCommonSubqueriesExtractor
@@ -320,9 +321,9 @@ public class TestCommonSubqueriesExtractor
         // verify DF mappings for common dynamic filter
         TpchColumnHandle nationkeyHandle = new TpchColumnHandle("nationkey", BIGINT);
         TpchColumnHandle regionkeyHandle = new TpchColumnHandle("regionkey", BIGINT);
-        assertThat(projectionA.getDynamicFilterColumnMapping())
+        assertThat(projectionA.getCommonColumnHandles())
                 .containsExactly(new SimpleEntry<>(NATIONKEY_ID, nationkeyHandle), new SimpleEntry<>(REGIONKEY_ID, regionkeyHandle));
-        assertThat(projectionA.getDynamicFilterColumnMapping()).isEqualTo(projectionB.getDynamicFilterColumnMapping());
+        assertThat(projectionA.getCommonColumnHandles()).isEqualTo(projectionB.getCommonColumnHandles());
     }
 
     @Test
@@ -361,14 +362,15 @@ public class TestCommonSubqueriesExtractor
         assertThat(topNRanking.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
                 new PlanSignature(
                         topNRankingKey(
-                                combine(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")), "filters=(\"[nationkey:bigint]\" > BIGINT '10')"),
+                                scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
                                 ImmutableList.of(),
                                 ImmutableMap.of(REGIONKEY_ID, ASC_NULLS_LAST),
                                 RANK, 6),
                         Optional.empty(),
                         cacheColumnIds,
                         cacheColumnsTypes),
-                TupleDomain.all()));
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        NATIONKEY_ID, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 10L)), false)))));
     }
 
     @Test
@@ -413,14 +415,15 @@ public class TestCommonSubqueriesExtractor
         assertThat(topNA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
                 new PlanSignature(
                         topNRankingKey(
-                                combine(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")), "filters=(\"[nationkey:bigint]\" > BIGINT '10')"),
+                                scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
                                 ImmutableList.of(),
                                 ImmutableMap.of(REGIONKEY_ID, ASC_NULLS_LAST),
                                 RANK, 6),
                         Optional.empty(),
                         cacheColumnIds,
                         cacheColumnsTypes),
-                TupleDomain.all()));
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        NATIONKEY_ID, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 10L)), false)))));
     }
 
     @Test
@@ -477,14 +480,15 @@ public class TestCommonSubqueriesExtractor
         assertThat(topNA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
                 new PlanSignature(
                         topNRankingKey(
-                                combine(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")), "filters=(\"[nationkey:bigint]\" > BIGINT '10')"),
+                                scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
                                 ImmutableList.of(),
                                 ImmutableMap.of(REGIONKEY_ID, ASC_NULLS_LAST),
                                 RANK, 6),
                         Optional.empty(),
                         cacheColumnIds,
                         cacheColumnsTypes),
-                TupleDomain.all()));
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        NATIONKEY_ID, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 10L)), false)))));
     }
 
     @Test
@@ -775,12 +779,12 @@ public class TestCommonSubqueriesExtractor
         List<Type> cacheColumnsTypes = ImmutableList.of(createVarcharType(25), rowType);
         assertThat(aggregation.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
                 new PlanSignature(
-                        aggregationKey(
-                                combine(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")), "filters=(\"[regionkey:bigint]\" > BIGINT '10')")),
+                        aggregationKey(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01"))),
                         Optional.of(ImmutableList.of(NAME_ID)),
                         cacheColumnIds,
                         cacheColumnsTypes),
-                TupleDomain.all()));
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        REGIONKEY_ID, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 10L)), false)))));
     }
 
     @Test
@@ -815,11 +819,12 @@ public class TestCommonSubqueriesExtractor
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25));
         assertThat(projection.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
                 new PlanSignature(
-                        combine(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")), "filters=(\"[regionkey:bigint]\" > BIGINT '10')"),
+                        scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
                         Optional.empty(),
                         cacheColumnIds,
                         cacheColumnsTypes),
-                TupleDomain.all()));
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        REGIONKEY_ID, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 10L)), false)))));
     }
 
     @Test
@@ -1056,12 +1061,13 @@ public class TestCommonSubqueriesExtractor
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25), rowType, BIGINT);
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
                 new PlanSignature(
-                        combine(aggregationKey(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01"))), "filters=(\"[nationkey:bigint]\" > BIGINT '10')"),
+                        aggregationKey(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01"))),
                         Optional.of(ImmutableList.of(NAME_ID, REGIONKEY_ID)),
                         cacheColumnIds,
                         cacheColumnsTypes),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        REGIONKEY_ID, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 5L), greaterThan(BIGINT, 10L)), false)))));
+                        REGIONKEY_ID, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 5L), greaterThan(BIGINT, 10L)), false),
+                        NATIONKEY_ID, Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, 10L)), false)))));
     }
 
     @Test
@@ -1335,7 +1341,12 @@ public class TestCommonSubqueriesExtractor
         assertThat(extractExpressions(subqueryA.getCommonSubplan()).stream()
                 .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream()))
                 .isEmpty();
-        assertThat(subqueryA.getDynamicFilterColumnMapping()).isEmpty();
+
+        CacheColumnId column1 = new CacheColumnId("[cache_column1]");
+        CacheColumnId column2 = new CacheColumnId("[cache_column2]");
+        assertThat(subqueryA.getCommonColumnHandles()).containsExactly(
+                entry(column1, HANDLE_1),
+                entry(column2, HANDLE_2));
 
         // assert that common subplan for subquery B has dynamic filter preserved
         assertThat(extractExpressions(subqueryB.getCommonSubplan()).stream()
@@ -1344,8 +1355,7 @@ public class TestCommonSubqueriesExtractor
                 .containsExactly(new Descriptor(
                         new DynamicFilterId("subquery_b_dynamic_id"),
                         expression("subquery_b_column1")));
-        assertThat(subqueryB.getDynamicFilterColumnMapping()).containsExactly(
-                new SimpleEntry<>(new CacheColumnId("[cache_column1]"), HANDLE_1));
+        assertThat(subqueryB.getCommonColumnHandles()).isEqualTo(subqueryA.getCommonColumnHandles());
 
         // common DF is true since subqueryA doesn't have DF
         assertThat(subqueryA.getCommonDynamicFilterDisjuncts()).isEqualTo(TRUE_LITERAL);
@@ -1365,7 +1375,7 @@ public class TestCommonSubqueriesExtractor
 
         // make sure plan signatures are same
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(subqueryB.getCommonSubplanSignature());
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(expression("\"[cache_column1]\" * 10")), new CacheColumnId("[cache_column1]"));
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(expression("\"[cache_column1]\" * 10")), column1);
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(new PlanSignature(
                 combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=(((\"[cache_column1]\" % 4) = BIGINT '0') OR ((\"[cache_column2]\" % 2) = BIGINT '0'))"),
@@ -1927,12 +1937,12 @@ public class TestCommonSubqueriesExtractor
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
                 new PlanSignature(
-                        combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=(\"[cache_column1]\" < BIGINT '42')"),
+                        scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")),
                         Optional.empty(),
                         cacheColumnIds,
                         cacheColumnsTypes),
-                // predicate domain for "cache_column1 < BIGINT '42'" cannot be derived since cache_column1 is not projected
-                TupleDomain.all()));
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        new CacheColumnId("[cache_column1]"), Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 5L), lessThan(BIGINT, 42L)), false)))));
     }
 
     private BuiltinFunctionCallBuilder getFunctionCallBuilder(String name, ExpressionWithType... arguments)

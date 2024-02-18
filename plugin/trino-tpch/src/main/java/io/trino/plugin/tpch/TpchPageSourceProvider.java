@@ -59,4 +59,15 @@ public class TpchPageSourceProvider
         // tpch connector doesn't support unenforced (effective) predicates
         return TupleDomain.all();
     }
+
+    @Override
+    public TupleDomain<ColumnHandle> prunePredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        // tpch connector doesn't support pruning of predicates
+        return predicate;
+    }
 }

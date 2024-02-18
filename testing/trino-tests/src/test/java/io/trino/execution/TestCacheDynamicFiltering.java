@@ -299,6 +299,16 @@ public class TestCacheDynamicFiltering
                 {
                     return dynamicFilter;
                 }
+
+                @Override
+                public TupleDomain<ColumnHandle> prunePredicate(
+                        ConnectorSession session,
+                        ConnectorSplit split,
+                        ConnectorTableHandle table,
+                        TupleDomain<ColumnHandle> predicate)
+                {
+                    return predicate;
+                }
             };
         }
 

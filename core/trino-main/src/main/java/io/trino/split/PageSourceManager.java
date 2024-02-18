@@ -95,4 +95,17 @@ public class PageSourceManager
         }
         return dynamicRowFilteringPageSourceProvider.getUnenforcedPredicate(provider, session, connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), dynamicFilter);
     }
+
+    @Override
+    public TupleDomain<ColumnHandle> prunePredicate(
+            Session session,
+            Split split,
+            TableHandle table,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        CatalogHandle catalogHandle = split.getCatalogHandle();
+        ConnectorPageSourceProvider provider = pageSourceProvider.getService(catalogHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+        return provider.prunePredicate(connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), predicate);
+    }
 }

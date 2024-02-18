@@ -108,7 +108,7 @@ public class CacheCommonSubqueries
                                     idAllocator.getNextId(),
                                     adaptation.getCommonSubplanSignature(),
                                     adaptation.getCommonDynamicFilterDisjuncts(),
-                                    adaptation.getDynamicFilterColumnMapping(),
+                                    adaptation.getCommonColumnHandles(),
                                     adaptation.getCommonSubplan().getOutputSymbols()),
                             idAllocator);
 

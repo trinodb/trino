@@ -119,6 +119,9 @@ public class TestCacheCommonSubqueries
                         ImmutableList.of(BIGINT, BIGINT)),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         NATIONKEY_COLUMN_ID, Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 5L), greaterThan(BIGINT, 10L)), false))));
+        Map<CacheColumnId, ColumnHandle> columnHandles = ImmutableMap.of(
+                NATIONKEY_COLUMN_ID, new TpchColumnHandle("nationkey", BIGINT),
+                REGIONKEY_COLUMN_ID, new TpchColumnHandle("regionkey", BIGINT));
         assertPlan("""
                         SELECT * FROM
                         (SELECT regionkey FROM nation WHERE nationkey > 10)
@@ -141,7 +144,7 @@ public class TestCacheCommonSubqueries
                                 // load data from cache alternative
                                 strictProject(ImmutableMap.of("REGIONKEY_A", expression("REGIONKEY_A")),
                                         filter("NATIONKEY_A > BIGINT '10'",
-                                                loadCachedDataPlanNode(signature, "REGIONKEY_A", "NATIONKEY_A")))),
+                                                loadCachedDataPlanNode(signature, columnHandles, "REGIONKEY_A", "NATIONKEY_A")))),
                         chooseAlternativeNode(
                                 // original subplan
                                 strictProject(ImmutableMap.of("REGIONKEY_B", expression("REGIONKEY_B")),
@@ -157,7 +160,7 @@ public class TestCacheCommonSubqueries
                                 // load data from cache alternative
                                 strictProject(ImmutableMap.of("REGIONKEY_B", expression("REGIONKEY_B")),
                                         filter("NATIONKEY_B < BIGINT '5'",
-                                                loadCachedDataPlanNode(signature, "REGIONKEY_B", "NATIONKEY_B")))))));
+                                                loadCachedDataPlanNode(signature, columnHandles, "REGIONKEY_B", "NATIONKEY_B")))))));
     }
 
     @Test
@@ -198,7 +201,6 @@ public class TestCacheCommonSubqueries
                                 strictProject(ImmutableMap.of("NATIONKEY", expression("NATIONKEY")),
                                         loadCachedDataPlanNode(
                                                 signature,
-                                                ImmutableMap.of(NATIONKEY_COLUMN_ID, new TpchColumnHandle("nationkey", BIGINT)),
                                                 dfDisjuncts -> dfDisjuncts.size() == 1,
                                                 "NATIONKEY", "REGIONKEY"))),
                         anyTree(
@@ -228,7 +230,7 @@ public class TestCacheCommonSubqueries
                         cacheColumnIds,
                         cacheColumnTypes),
                 TupleDomain.all());
-        Map<CacheColumnId, ColumnHandle> dynamicFilteringMapping = ImmutableMap.of(
+        Map<CacheColumnId, ColumnHandle> columnHandles = ImmutableMap.of(
                 NATIONKEY_COLUMN_ID, new TpchColumnHandle("nationkey", BIGINT),
                 REGIONKEY_COLUMN_ID, new TpchColumnHandle("regionkey", BIGINT));
         assertPlan("""
@@ -242,14 +244,14 @@ public class TestCacheCommonSubqueries
                                         anyTree(tableScan("nation")),
                                         anyTree(cacheDataPlanNode(
                                                 anyTree(tableScan("nation")))),
-                                        anyTree(loadCachedDataPlanNode(signature, dynamicFilteringMapping, dfDisjuncts -> dfDisjuncts.size() == 2, "NATIONKEY", "REGIONKEY"))),
+                                        anyTree(loadCachedDataPlanNode(signature, columnHandles, dfDisjuncts -> dfDisjuncts.size() == 2, "NATIONKEY", "REGIONKEY"))),
                                 anyTree(node(ValuesNode.class))),
                         node(JoinNode.class,
                                 chooseAlternativeNode(
                                         anyTree(tableScan("nation")),
                                         anyTree(cacheDataPlanNode(
                                                 anyTree(tableScan("nation")))),
-                                        anyTree(loadCachedDataPlanNode(signature, dynamicFilteringMapping, dfDisjuncts -> dfDisjuncts.size() == 2, "NATIONKEY", "REGIONKEY"))),
+                                        anyTree(loadCachedDataPlanNode(signature, columnHandles, dfDisjuncts -> dfDisjuncts.size() == 2, "NATIONKEY", "REGIONKEY"))),
                                 anyTree(node(ValuesNode.class))))));
     }
 

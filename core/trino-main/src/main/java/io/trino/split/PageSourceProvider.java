@@ -40,4 +40,13 @@ public interface PageSourceProvider
     {
         throw new UnsupportedOperationException();
     }
+
+    default TupleDomain<ColumnHandle> prunePredicate(
+            Session session,
+            Split split,
+            TableHandle table,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

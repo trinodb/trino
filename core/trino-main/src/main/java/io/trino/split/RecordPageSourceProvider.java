@@ -61,4 +61,15 @@ public class RecordPageSourceProvider
         // record page source doesn't support dynamic predicates
         return TupleDomain.all();
     }
+
+    @Override
+    public TupleDomain<ColumnHandle> prunePredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        // record page source doesn't support pruning of predicates
+        return predicate;
+    }
 }
