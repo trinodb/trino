@@ -74,7 +74,7 @@ public class TestTpchCacheSubqueriesTest
     @Override
     @ParameterizedTest
     @MethodSource("isDynamicRowFilteringEnabled")
-    public void testSimplifyAndPrunePredicate(boolean isDynamicRowFilteringEnabled)
+    public void testGetUnenforcedPredicateAndPrunePredicate(boolean isDynamicRowFilteringEnabled)
     {
         abort("tpch does not support for partitioned tables");
     }

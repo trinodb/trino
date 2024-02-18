@@ -396,9 +396,9 @@ public abstract class BaseCacheSubqueriesTest
 
     @ParameterizedTest
     @MethodSource("isDynamicRowFilteringEnabled")
-    public void testSimplifyAndPrunePredicate(boolean isDynamicRowFilteringEnabled)
+    public void testGetUnenforcedPredicateAndPrunePredicate(boolean isDynamicRowFilteringEnabled)
     {
-        String tableName = "simplify_and_prune_orders_part_" + isDynamicRowFilteringEnabled;
+        String tableName = "get_unenforced_predicate_is_prune_and_prune_orders_part_" + isDynamicRowFilteringEnabled;
         createPartitionedTableAsSelect(tableName, ImmutableList.of("orderpriority"), "select orderkey, orderdate, '9876' as orderpriority from orders");
         DistributedQueryRunner runner = getDistributedQueryRunner();
         Session session = withDynamicRowFiltering(
@@ -430,7 +430,7 @@ public abstract class BaseCacheSubqueriesTest
                     DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider = new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(new TypeOperators()));
                     VarcharType type = VarcharType.createVarcharType(4);
 
-                    // simplifyPredicate and prunePredicate should return none if predicate is exclusive on partition column
+                    // getUnenforcedPredicate and prunePredicate should return none if predicate is exclusive on partition column
                     ConnectorSession connectorSession = transactionSession.toConnectorSession(coordinator.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, catalog).orElseThrow());
                     Domain nonPartitionDomain = Domain.multipleValues(type, Streams.concat(LongStream.range(0, 9_000), LongStream.of(9_999))
                             .boxed()
@@ -442,7 +442,7 @@ public abstract class BaseCacheSubqueriesTest
                             handle.get().getConnectorHandle(),
                             TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, nonPartitionDomain))))
                             .matches(TupleDomain::isNone);
-                    assertThat(simplifyPredicate(
+                    assertThat(getUnenforcedPredicateIsPrune(
                             dynamicRowFilteringPageSourceProvider,
                             pageSourceProvider,
                             isDynamicRowFilteringEnabled,
@@ -453,7 +453,7 @@ public abstract class BaseCacheSubqueriesTest
                             TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, nonPartitionDomain))))
                             .matches(TupleDomain::isNone);
 
-                    // simplifyPredicate and prunePredicate should prune prefilled column that matches given predicate fully
+                    // getUnenforcedPredicate and prunePredicate should prune prefilled column that matches given predicate fully
                     Domain partitionDomain = Domain.singleValue(type, Slices.utf8Slice("9876"));
                     assertThat(pageSourceProvider.prunePredicate(
                             connectorSession,
@@ -461,7 +461,7 @@ public abstract class BaseCacheSubqueriesTest
                             handle.get().getConnectorHandle(),
                             TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, partitionDomain))))
                             .matches(TupleDomain::isAll);
-                    assertThat(simplifyPredicate(
+                    assertThat(getUnenforcedPredicateIsPrune(
                             dynamicRowFilteringPageSourceProvider,
                             pageSourceProvider,
                             isDynamicRowFilteringEnabled,
@@ -472,7 +472,7 @@ public abstract class BaseCacheSubqueriesTest
                             TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, partitionDomain))))
                             .matches(TupleDomain::isAll);
 
-                    // prunePredicate should not prune or simplify data column
+                    // prunePredicate should not prune or simplify data column if there was no predicate on data column
                     Domain dataDomain = Domain.multipleValues(BIGINT, LongStream.range(0, 10_000)
                             .boxed()
                             .collect(toImmutableList()));
@@ -482,8 +482,8 @@ public abstract class BaseCacheSubqueriesTest
                             handle.get().getConnectorHandle(),
                             TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain))))
                             .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain)));
-                    if (isDynamicRowFilteringEnabled || simplifyIsPrune()) {
-                        // simplifyPredicate should not prune or simplify data column
+                    if (isDynamicRowFilteringEnabled || getUnenforcedPredicateIsPrune()) {
+                        // getUnenforcedPredicate should not prune or simplify data column
                         assertThat(dynamicRowFilteringPageSourceProvider.getUnenforcedPredicate(
                                 pageSourceProvider,
                                 session,
@@ -494,7 +494,7 @@ public abstract class BaseCacheSubqueriesTest
                                 .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain)));
                     }
                     else {
-                        // simplifyPredicate should not prune but simplify data column
+                        // getUnenforcedPredicate should not prune but simplify data column
                         assertThat(pageSourceProvider.getUnenforcedPredicate(
                                 connectorSession,
                                 split.getConnectorSplit(),
@@ -524,7 +524,7 @@ public abstract class BaseCacheSubqueriesTest
         return pageSourceProvider;
     }
 
-    private TupleDomain<ColumnHandle> simplifyPredicate(
+    private TupleDomain<ColumnHandle> getUnenforcedPredicateIsPrune(
             DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider,
             ConnectorPageSourceProvider pageSourceProvider,
             boolean isDynamicRowFilteringEnabled,
@@ -554,7 +554,7 @@ public abstract class BaseCacheSubqueriesTest
                 });
     }
 
-    protected boolean simplifyIsPrune()
+    protected boolean getUnenforcedPredicateIsPrune()
     {
         return false;
     }
