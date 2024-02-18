@@ -236,12 +236,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/phoenix5">
-        <artifact id="${project.groupId}:trino-phoenix5:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/pinot">
         <artifact id="${project.groupId}:trino-pinot:zip:${project.version}">
             <unpack />
