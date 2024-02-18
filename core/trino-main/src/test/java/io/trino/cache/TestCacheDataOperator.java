@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.cache;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -19,13 +19,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.cache.CacheConfig;
-import io.trino.cache.CacheDataOperator;
-import io.trino.cache.CacheDriverContext;
-import io.trino.cache.CacheDriverFactory;
-import io.trino.cache.CacheManagerRegistry;
-import io.trino.cache.CacheMetrics;
-import io.trino.cache.CacheStats;
 import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.execution.ScheduledSplit;
 import io.trino.memory.LocalMemoryManager;
@@ -34,6 +27,12 @@ import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.Driver;
+import io.trino.operator.DriverContext;
+import io.trino.operator.DriverFactory;
+import io.trino.operator.Operator;
+import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.cache.CacheColumnId;
