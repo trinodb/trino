@@ -169,7 +169,7 @@ public class TestDeltaPageSourceProvider
 
     private static DeltaLakeSplit prepareSplit(TupleDomain<ColumnHandle> statisticsPredicate, Map<String, Optional<String>> partitioningKeys)
     {
-        return new  DeltaLakeSplit(
+        return new DeltaLakeSplit(
                 "",
                 0,
                 0,

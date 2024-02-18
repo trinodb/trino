@@ -507,7 +507,7 @@ public class TestCommonSubqueriesExtractor
                         .rankingType(ROW_NUMBER)
                         .maxRankingPerPartition(1)
                         .partial(true),
-                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")));
+                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")));
         assertTpchPlan(symbolAllocator, topNRanking.getCommonSubplan(), commonSubplan);
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
 
@@ -518,19 +518,20 @@ public class TestCommonSubqueriesExtractor
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25), BIGINT);
         assertThat(topNRanking.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
                 new PlanSignature(
-                topNRankingKey(
-                        scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
-                        ImmutableList.of(NAME_ID, NATIONKEY_ID),
-                        ImmutableMap.of(REGIONKEY_ID, DESC_NULLS_LAST),
-                        ROW_NUMBER, 1),
-                Optional.empty(),
-                cacheColumnIds,
-                cacheColumnsTypes),
+                        topNRankingKey(
+                                scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
+                                ImmutableList.of(NAME_ID, NATIONKEY_ID),
+                                ImmutableMap.of(REGIONKEY_ID, DESC_NULLS_LAST),
+                                ROW_NUMBER, 1),
+                        Optional.empty(),
+                        cacheColumnIds,
+                        cacheColumnsTypes),
                 TupleDomain.all()));
     }
 
     @Test
-    public void testCacheTopNRankingRowUnionWithSwappedPartitionBy() {
+    public void testCacheTopNRankingRowUnionWithSwappedPartitionBy()
+    {
         CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
                         (SELECT *
                         FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY nationkey, name ORDER BY regionkey DESC) update_rank
@@ -557,7 +558,7 @@ public class TestCommonSubqueriesExtractor
                         .maxRankingPerPartition(1)
                         .partial(true),
                 filter("(REGIONKEY < BIGINT '10')",
-                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
+                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
         assertTpchPlan(symbolAllocator, topNA.getCommonSubplan(), commonSubplan);
         assertTpchPlan(symbolAllocator, topNB.getCommonSubplan(), commonSubplan);
 
@@ -585,14 +586,14 @@ public class TestCommonSubqueriesExtractor
     public void testTopNRankingRowWithWithNonPullableConjuncts()
     {
         @Language("SQL") String query = """
-                        (SELECT *
-                        FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY nationkey ORDER BY regionkey DESC) update_rank
-                        FROM nation WHERE regionkey < 11) AS t
-                        WHERE t.update_rank = 1)
-                        UNION ALL (SELECT *
-                        FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY nationkey ORDER BY regionkey DESC) update_rank
-                        FROM nation WHERE regionkey < 10) AS t
-                        WHERE t.update_rank = 1)""";
+                (SELECT *
+                FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY nationkey ORDER BY regionkey DESC) update_rank
+                FROM nation WHERE regionkey < 11) AS t
+                WHERE t.update_rank = 1)
+                UNION ALL (SELECT *
+                FROM (SELECT nationkey, ROW_NUMBER () OVER (PARTITION BY nationkey ORDER BY regionkey DESC) update_rank
+                FROM nation WHERE regionkey < 10) AS t
+                WHERE t.update_rank = 1)""";
         CommonSubqueries commonSubqueries = extractTpchCommonSubqueries(query, true, true, false, false);
         Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
         // common subplans has higher priority than aggregations
@@ -614,7 +615,7 @@ public class TestCommonSubqueriesExtractor
                         .maxRankingPerPartition(1)
                         .partial(true),
                 filter("(REGIONKEY < BIGINT '10')",
-                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey","REGIONKEY", "regionkey"))));
+                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey"))));
         PlanMatchPattern commonSubplanB = topNRanking(pattern -> pattern.specification(
                                 ImmutableList.of("NATIONKEY"),
                                 ImmutableList.of("REGIONKEY"),
@@ -623,7 +624,7 @@ public class TestCommonSubqueriesExtractor
                         .maxRankingPerPartition(1)
                         .partial(true),
                 filter("(REGIONKEY < BIGINT '11')",
-                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey","REGIONKEY", "regionkey"))));
+                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey"))));
         assertTpchPlan(symbolAllocator, topNRankingB.getCommonSubplan(), commonSubplanA);
         assertTpchPlan(symbolAllocator, topNRankingA.getCommonSubplan(), commonSubplanB);
         assertThat(topNRankingA.getCommonSubplanSignature()).isNotEqualTo(topNRankingB.getCommonSubplanSignature());
@@ -682,7 +683,6 @@ public class TestCommonSubqueriesExtractor
         assertThat(planAdaptations).noneSatisfy((node, adaptation) ->
                 assertThat(node).isInstanceOf(TopNNode.class));
     }
-
 
     @Test
     public void testMultipleCacheTopN()
