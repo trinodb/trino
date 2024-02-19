@@ -26,7 +26,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLTransientException;
 
-import static io.trino.plugin.jdbc.LazyConnectionFactory.FactoryDecorator.LAZY_CONNECTION_PRIORITY;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
@@ -91,7 +90,6 @@ public class RetryingConnectionFactory
     public static class FactoryDecorator
             implements Decorator<ConnectionFactory>
     {
-        public static final int RETRYING_PRIORITY = LAZY_CONNECTION_PRIORITY + 1;
         private final RetryStrategy strategy;
 
         @Inject
@@ -103,7 +101,7 @@ public class RetryingConnectionFactory
         @Override
         public int priority()
         {
-            return RETRYING_PRIORITY;
+            return RETRYING_CONNECTION_FACTORY_PRIORITY;
         }
 
         @Override

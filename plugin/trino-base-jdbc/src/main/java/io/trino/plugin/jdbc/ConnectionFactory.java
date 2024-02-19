@@ -23,6 +23,18 @@ import java.sql.SQLException;
 public interface ConnectionFactory
         extends AutoCloseable
 {
+    /**
+     * Order in which connection factories will wrap around each other
+     * Lowest priority is the outermost wrapping.
+     * Gaps in the numbering allows for injecting custom behaviour
+     * in between the default ones provided by base-jdbc.
+     * **/
+    int STATISTICS_CONNECTION_FACTORY_PRIORITY = 1;
+    int LAZY_CONNECTION_FACTORY_PRIORITY = 101;
+    int RETRYING_CONNECTION_FACTORY_PRIORITY = 201;
+    int REUSABLE_CONNECTION_FACTORY_PRIORITY = 301;
+    int KEEP_ALIVE_CONNECTION_FACTORY_PRIORITY = 401;
+
     Connection openConnection(ConnectorSession session)
             throws SQLException;
 

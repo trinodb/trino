@@ -24,7 +24,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory.FactoryDecorator.STATISTICS_PRIORITY;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -99,12 +98,10 @@ public final class LazyConnectionFactory
     public static class FactoryDecorator
             implements Decorator<ConnectionFactory>
     {
-        public static final int LAZY_CONNECTION_PRIORITY = STATISTICS_PRIORITY + 1;
-
         @Override
         public int priority()
         {
-            return LAZY_CONNECTION_PRIORITY;
+            return LAZY_CONNECTION_FACTORY_PRIORITY;
         }
 
         @Override

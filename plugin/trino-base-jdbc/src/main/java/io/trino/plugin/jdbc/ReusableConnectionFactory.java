@@ -30,7 +30,6 @@ import java.time.Duration;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.RemovalCause.EXPLICIT;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.trino.plugin.jdbc.RetryingConnectionFactory.FactoryDecorator.RETRYING_PRIORITY;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -211,7 +210,6 @@ public final class ReusableConnectionFactory
     public static class FactoryDecorator
             implements Decorator<ConnectionFactory>
     {
-        public static final int REUSABLE_PRIORITY = RETRYING_PRIORITY + 1;
         private final DelegatingListener listener;
 
         public FactoryDecorator(DelegatingListener listener)
@@ -222,7 +220,7 @@ public final class ReusableConnectionFactory
         @Override
         public int priority()
         {
-            return REUSABLE_PRIORITY;
+            return REUSABLE_CONNECTION_FACTORY_PRIORITY;
         }
 
         @Override

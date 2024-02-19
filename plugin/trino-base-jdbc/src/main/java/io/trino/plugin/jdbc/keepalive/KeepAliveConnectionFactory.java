@@ -27,7 +27,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.trino.plugin.jdbc.ReusableConnectionFactory.FactoryDecorator.REUSABLE_PRIORITY;
 import static java.util.Objects.requireNonNull;
 
 public class KeepAliveConnectionFactory
@@ -60,7 +59,6 @@ public class KeepAliveConnectionFactory
     public static class FactoryDecorator
             implements Decorator<ConnectionFactory>
     {
-        public static final int KEEP_ALIVE_PRIORITY = REUSABLE_PRIORITY + 1;
         private final Duration interval;
 
         @Inject
@@ -72,7 +70,7 @@ public class KeepAliveConnectionFactory
         @Override
         public int priority()
         {
-            return KEEP_ALIVE_PRIORITY;
+            return KEEP_ALIVE_CONNECTION_FACTORY_PRIORITY;
         }
 
         @Override

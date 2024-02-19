@@ -79,7 +79,6 @@ public class StatisticsAwareConnectionFactory
     public static class FactoryDecorator
             implements Decorator<ConnectionFactory>
     {
-        public static final int STATISTICS_PRIORITY = 1;
         private final ConnectionFactoryStats stats;
 
         @Inject
@@ -92,7 +91,7 @@ public class StatisticsAwareConnectionFactory
         public int priority()
         {
             // Lowest priority wraps around the raw instance
-            return STATISTICS_PRIORITY;
+            return STATISTICS_CONNECTION_FACTORY_PRIORITY;
         }
 
         @Override
