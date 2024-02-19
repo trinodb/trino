@@ -14,8 +14,6 @@
 package io.trino.plugin.memory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
@@ -37,10 +35,10 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
-import static com.google.common.hash.Hashing.combineOrdered;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.plugin.memory.MemoryCacheManager.canonicalizePlanSignature;
 import static java.lang.Math.floorMod;
@@ -158,13 +156,13 @@ public class ConcurrentCacheManager
             implements SplitCache
     {
         private final PlanSignature signature;
-        private final HashCode signatureHash;
+        private final int signatureHash;
         private final AtomicReferenceArray<SplitCache> splitCaches = new AtomicReferenceArray<>(CACHE_MANAGERS_COUNT);
 
         public ConcurrentSplitCache(PlanSignature signature)
         {
             this.signature = requireNonNull(signature, "signature is null");
-            this.signatureHash = HashCode.fromInt(canonicalizePlanSignature(signature).hashCode());
+            this.signatureHash = canonicalizePlanSignature(signature).hashCode();
         }
 
         @Override
@@ -218,7 +216,7 @@ public class ConcurrentCacheManager
     @VisibleForTesting
     MemoryCacheManager getCacheManager(PlanSignature signature, CacheSplitId splitId)
     {
-        HashCode signatureHash = HashCode.fromInt(canonicalizePlanSignature(signature).hashCode());
+        int signatureHash = canonicalizePlanSignature(signature).hashCode();
         return cacheManagers[getCacheManagerIndex(signatureHash, splitId)];
     }
 
@@ -228,9 +226,9 @@ public class ConcurrentCacheManager
         return cacheManagers;
     }
 
-    private static int getCacheManagerIndex(HashCode signatureHash, CacheSplitId splitId)
+    private static int getCacheManagerIndex(int signatureHash, CacheSplitId splitId)
     {
-        return floorMod(combineOrdered(ImmutableList.of(signatureHash, HashCode.fromInt(splitId.hashCode()))).asInt(), CACHE_MANAGERS_COUNT);
+        return floorMod(Objects.hash(signatureHash, splitId.hashCode()), CACHE_MANAGERS_COUNT);
     }
 
     private class CacheMemoryReservationHandler
