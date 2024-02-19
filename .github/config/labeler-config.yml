@@ -36,5 +36,8 @@ release-notes:
   - docs/src/main/sphinx/release/**
   - docs/src/main/sphinx/release.rst
 
+salesforce:
+  - plugin/*salesforce/**
+
 ui:
   - core/trino-main/src/main/resources/webapp/**
