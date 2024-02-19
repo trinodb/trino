@@ -260,6 +260,7 @@ public class StarburstOracleClient
     @Override
     protected Optional<TopNFunction> topNFunction()
     {
+        verify(super.topNFunction().isEmpty(), "Super implementation changed");
         // NOTE: The syntax used here is supported since Oracle 12c (older releases are not supported by Oracle)
         return Optional.of(TopNFunction.sqlStandard(this::quoted));
     }
