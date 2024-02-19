@@ -108,6 +108,7 @@ public final class HiveBlockEncodingSerde
 
             // look up the encoding factory
             BlockEncoding blockEncoding = blockEncodings.get(encodingName);
+            checkArgument(blockEncoding != null, "Cannot write block %s with encoding %s", block, encodingName);
 
             // see if a replacement block should be written instead
             Optional<Block> replacementBlock = blockEncoding.replacementBlockForWrite(block);
