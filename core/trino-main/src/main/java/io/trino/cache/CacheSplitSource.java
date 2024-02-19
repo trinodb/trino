@@ -16,12 +16,8 @@ package io.trino.cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.node.NodeInfo;
-import io.trino.connector.ConnectorAwareNodeManager;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
-import io.trino.spi.NodeManager;
 import io.trino.spi.cache.CacheManager;
-import io.trino.spi.cache.CacheManager.PreferredAddressProvider;
 import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.CatalogHandle;
@@ -33,6 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.plugin.memory.MemoryCacheManager.canonicalizePlanSignature;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -44,21 +41,22 @@ public class CacheSplitSource
 {
     private final ConnectorSplitManager splitManager;
     private final SplitSource delegate;
-    private final PreferredAddressProvider addressProvider;
+    private final ConsistentHashingAddressProvider addressProvider;
+    private final String canonicalSignature;
 
     public CacheSplitSource(
             PlanSignature signature,
             ConnectorSplitManager splitManager,
             SplitSource delegate,
-            InternalNodeManager nodeManager,
-            CacheManagerRegistry cacheManagerRegistry,
+            ConnectorAwareAddressProvider connectorAwareAddressProvider,
             NodeInfo nodeInfo,
             boolean schedulerIncludeCoordinator)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
-        NodeManager connectorNodeManager = new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), delegate.getCatalogHandle(), schedulerIncludeCoordinator);
-        this.addressProvider = cacheManagerRegistry.getCacheManager().getPreferredAddressProvider(signature, connectorNodeManager);
+        this.addressProvider = connectorAwareAddressProvider.getAddressProvider(nodeInfo, delegate.getCatalogHandle(), schedulerIncludeCoordinator);
+        addressProvider.refreshHashRingIfNeeded();
+        this.canonicalSignature = canonicalizePlanSignature(signature).toString();
     }
 
     @Override
@@ -96,7 +94,7 @@ public class CacheSplitSource
                                 split.getConnectorSplit(),
                                 splitId,
                                 Optional.of(false),
-                                Optional.of(ImmutableList.of(addressProvider.getPreferredAddress(splitId.get()))),
+                                Optional.of(ImmutableList.of(addressProvider.getPreferredAddress(canonicalSignature + splitId))),
                                 split.getFailoverHappened()));
             }
         }

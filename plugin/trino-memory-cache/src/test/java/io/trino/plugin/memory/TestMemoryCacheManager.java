@@ -15,7 +15,6 @@ package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.client.NodeVersion;
 import io.trino.plugin.memory.MemoryCacheManager.Channel;
 import io.trino.plugin.memory.MemoryCacheManager.SplitKey;
 import io.trino.spi.Page;
@@ -23,7 +22,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.cache.CacheColumnId;
-import io.trino.spi.cache.CacheManager.PreferredAddressProvider;
 import io.trino.spi.cache.CacheManager.SplitCache;
 import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.cache.PlanSignature;
@@ -38,8 +36,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -469,33 +465,6 @@ public class TestMemoryCacheManager
         assertThat(anotherCache.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isEmpty();
         assertThat(cacheForSecondSignature.loadPages(SPLIT1, TupleDomain.all(), TupleDomain.all())).isPresent();
         anotherCache.close();
-    }
-
-    @Test
-    public void testAddressProvider()
-            throws URISyntaxException
-    {
-        TestingNodeManager nodeManager = new TestingNodeManager();
-        nodeManager.addNode(new InternalNode("node1", new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
-        nodeManager.addNode(new InternalNode("node2", new URI("http://127.0.0.2/"), NodeVersion.UNKNOWN, false));
-        nodeManager.addNode(new InternalNode("node3", new URI("http://127.0.0.3/"), NodeVersion.UNKNOWN, false));
-        nodeManager.addNode(new InternalNode("node4", new URI("http://127.0.0.4/"), NodeVersion.UNKNOWN, false));
-
-        PlanSignature signature1 = createPlanSignature("signature1", COLUMN1);
-        PlanSignature signature2 = createPlanSignature("signature2", COLUMN1);
-        PlanSignature signature3 = createPlanSignature("signature1", COLUMN2);
-        PreferredAddressProvider addressProvider1 = cacheManager.getPreferredAddressProvider(signature1, nodeManager);
-        PreferredAddressProvider addressProvider2 = cacheManager.getPreferredAddressProvider(signature2, nodeManager);
-        PreferredAddressProvider addressProvider3 = cacheManager.getPreferredAddressProvider(signature3, nodeManager);
-
-        // assert that both different signature or split id affects preferred address
-        assertThat(addressProvider1.getPreferredAddress(SPLIT1)).isNotEqualTo(addressProvider1.getPreferredAddress(SPLIT2));
-        assertThat(addressProvider2.getPreferredAddress(SPLIT1)).isNotEqualTo(addressProvider2.getPreferredAddress(SPLIT2));
-        assertThat(addressProvider1.getPreferredAddress(SPLIT1)).isNotEqualTo(addressProvider2.getPreferredAddress(SPLIT1));
-
-        // make sure that columns don't affect preferred address
-        assertThat(addressProvider1.getPreferredAddress(SPLIT1)).isEqualTo(addressProvider3.getPreferredAddress(SPLIT1));
-        assertThat(addressProvider1.getPreferredAddress(SPLIT2)).isEqualTo(addressProvider3.getPreferredAddress(SPLIT2));
     }
 
     static long getChannelRetainedSizeInBytes(Block block)

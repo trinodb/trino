@@ -20,7 +20,6 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
-import io.trino.spi.NodeManager;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.cache.CacheManager;
 import io.trino.spi.cache.CacheManagerContext;
@@ -132,12 +131,6 @@ public class TestCacheManagerRegistry
 
         @Override
         public SplitCache getSplitCache(PlanSignature signature)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public PreferredAddressProvider getPreferredAddressProvider(PlanSignature signature, NodeManager nodeManager)
         {
             throw new UnsupportedOperationException();
         }

@@ -21,7 +21,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryReservationHandler;
-import io.trino.spi.NodeManager;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheManager;
 import io.trino.spi.cache.CacheManagerContext;
@@ -107,13 +106,6 @@ public class ConcurrentCacheManager
     public SplitCache getSplitCache(PlanSignature signature)
     {
         return new ConcurrentSplitCache(signature);
-    }
-
-    @Override
-    public PreferredAddressProvider getPreferredAddressProvider(PlanSignature signature, NodeManager nodeManager)
-    {
-        // any cache manager is suitable for providing preferred addresses
-        return cacheManagers[0].getPreferredAddressProvider(signature, nodeManager);
     }
 
     @Override

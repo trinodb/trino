@@ -20,10 +20,9 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
-import io.trino.cache.CacheManagerRegistry;
 import io.trino.cache.CacheSplitSource;
+import io.trino.cache.ConnectorAwareAddressProvider;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.TableHandle;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.ColumnHandle;
@@ -101,8 +100,7 @@ public class SplitSourceFactory
     private final SplitManager splitManager;
     private final PlannerContext plannerContext;
     private final DynamicFilterService dynamicFilterService;
-    private final InternalNodeManager internalNodeManager;
-    private final CacheManagerRegistry cacheManagerRegistry;
+    private final ConnectorAwareAddressProvider connectorAwareAddressProvider;
     private final NodeInfo nodeInfo;
     private final boolean schedulerIncludeCoordinator;
     private final IrTypeAnalyzer typeAnalyzer;
@@ -112,8 +110,7 @@ public class SplitSourceFactory
             SplitManager splitManager,
             PlannerContext plannerContext,
             DynamicFilterService dynamicFilterService,
-            InternalNodeManager internalNodeManager,
-            CacheManagerRegistry cacheManagerRegistry,
+            ConnectorAwareAddressProvider connectorAwareAddressProvider,
             NodeInfo nodeInfo,
             NodeSchedulerConfig nodeSchedulerConfig,
             IrTypeAnalyzer typeAnalyzer)
@@ -121,8 +118,7 @@ public class SplitSourceFactory
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.plannerContext = requireNonNull(plannerContext, "metadata is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
-        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
-        this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
+        this.connectorAwareAddressProvider = requireNonNull(connectorAwareAddressProvider, "connectorAwareAddressProvider is null");
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.schedulerIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -376,8 +372,7 @@ public class SplitSourceFactory
                                 loadCachedDataNode.getPlanSignature().signature(),
                                 splitManager.getConnectorSplitManager(originalTableScan),
                                 splitSource,
-                                internalNodeManager,
-                                cacheManagerRegistry,
+                                connectorAwareAddressProvider,
                                 nodeInfo,
                                 schedulerIncludeCoordinator));
             }

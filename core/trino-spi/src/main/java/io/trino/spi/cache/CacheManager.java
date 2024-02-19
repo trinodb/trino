@@ -31,12 +31,11 @@ public interface CacheManager
      */
     SplitCache getSplitCache(PlanSignature signature);
 
-    /**
-     * @return {@link PreferredAddressProvider} for a given {@link PlanSignature}.
-     * {@link PreferredAddressProvider} can be used to return a preferred worker
-     * on which split should be processed in order to improve cache hit ratio.
-     */
-    PreferredAddressProvider getPreferredAddressProvider(PlanSignature signature, NodeManager nodeManager);
+    @Deprecated
+    default PreferredAddressProvider getPreferredAddressProvider(PlanSignature signature, NodeManager nodeManager)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Triggers a memory revoke. {@link CacheManager} should revoke
@@ -76,6 +75,7 @@ public interface CacheManager
         Optional<ConnectorPageSink> storePages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate);
     }
 
+    @Deprecated
     interface PreferredAddressProvider
     {
         HostAddress getPreferredAddress(CacheSplitId splitId);

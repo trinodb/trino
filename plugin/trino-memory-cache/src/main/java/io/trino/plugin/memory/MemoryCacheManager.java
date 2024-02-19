@@ -14,17 +14,12 @@
 package io.trino.plugin.memory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
-import com.google.common.hash.HashCode;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
-import io.trino.spi.HostAddress;
-import io.trino.spi.Node;
-import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.cache.CacheColumnId;
@@ -57,16 +52,12 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
-import static com.google.common.hash.Hashing.combineOrdered;
-import static com.google.common.hash.Hashing.consistentHash;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * {@link CacheManager} implementation that caches split pages in revocable memory.
@@ -92,7 +83,6 @@ public class MemoryCacheManager
     // based on SizeOf.estimatedSizeOf(java.util.Map<K,V>, java.util.function.ToLongFunction<K>, java.util.function.ToLongFunction<V>)
     static final int MAP_ENTRY_SIZE = instanceSize(AbstractMap.SimpleEntry.class);
 
-    private static final long WORKER_NODES_CACHE_TIMEOUT_SECS = 10;
     private static final int MAP_SIZE_LIMIT = 1_000_000_000;
     static final int MAX_CACHED_CHANNELS_PER_COLUMN = 20;
 
@@ -131,12 +121,6 @@ public class MemoryCacheManager
     public SplitCache getSplitCache(PlanSignature signature)
     {
         return new MemorySplitCache(allocateSignatureId(signature));
-    }
-
-    @Override
-    public PreferredAddressProvider getPreferredAddressProvider(PlanSignature signature, NodeManager nodeManager)
-    {
-        return new MemoryPreferredAddressProvider(signature, nodeManager);
     }
 
     @Override
@@ -666,32 +650,6 @@ public class MemoryCacheManager
             checkState(!finished);
             abortStoreChannels(signatureIds, predicateIds, channels);
             finished = true;
-        }
-    }
-
-    private static class MemoryPreferredAddressProvider
-            implements PreferredAddressProvider
-    {
-        private final HashCode signatureHash;
-        private final Supplier<List<Node>> nodesSupplier;
-
-        public MemoryPreferredAddressProvider(PlanSignature signature, NodeManager nodeManager)
-        {
-            signatureHash = HashCode.fromInt(canonicalizePlanSignature(signature).hashCode());
-            nodesSupplier = Suppliers.memoizeWithExpiration(
-                    () -> nodeManager.getWorkerNodes()
-                            .stream()
-                            .sorted(comparing(Node::getHost))
-                            .collect(toImmutableList()),
-                    WORKER_NODES_CACHE_TIMEOUT_SECS,
-                    SECONDS);
-        }
-
-        @Override
-        public HostAddress getPreferredAddress(CacheSplitId splitId)
-        {
-            List<Node> nodes = nodesSupplier.get();
-            return nodes.get(consistentHash(combineOrdered(ImmutableList.of(signatureHash, HashCode.fromInt(splitId.hashCode()))), nodes.size())).getHostAndPort();
         }
     }
 
