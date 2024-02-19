@@ -10,8 +10,6 @@
 package com.starburstdata.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.plugin.testing.SessionMutator;
-import io.trino.Session;
 import io.trino.plugin.sqlserver.TestSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
@@ -24,8 +22,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestStarburstSqlServerConnectorTest
         extends TestSqlServerConnectorTest
 {
-    private final SessionMutator sessionMutator = new SessionMutator(super::getSession);
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -53,11 +49,5 @@ public class TestStarburstSqlServerConnectorTest
     {
         assertThat(e)
                 .hasMessageContaining("was deadlocked on lock resources");
-    }
-
-    @Override
-    protected Session getSession()
-    {
-        return sessionMutator.getSession();
     }
 }

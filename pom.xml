@@ -128,7 +128,6 @@
         <module>plugin/trino-tpch</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
-        <module>testing/starburst-testing</module>
         <module>testing/starburst-trino-testing</module>
         <module>testing/trino-benchmark-queries</module>
         <module>testing/trino-benchto-benchmarks</module>
@@ -1016,12 +1015,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>starburst-plugin-toolkit</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>starburst-testing</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
