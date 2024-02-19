@@ -169,14 +169,14 @@ public class TestHiveCacheIds
                         TupleDomain.all(),
                         TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, singleValue(INTEGER, 2L))))));
 
-        // effective predicate should be part of table id
+        // effective predicate should not be part of table id
         assertThat(metadata.getCacheTableId(createHiveTableHandle(
                 "schema",
                 "table",
                 ImmutableList.of(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, singleValue(INTEGER, 1L))),
                 TupleDomain.all())))
-                .isNotEqualTo(metadata.getCacheTableId(createHiveTableHandle(
+                .isEqualTo(metadata.getCacheTableId(createHiveTableHandle(
                         "schema",
                         "table",
                         ImmutableList.of(),

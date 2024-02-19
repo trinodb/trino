@@ -107,7 +107,7 @@ public class TestHivePageSourceProvider
     }
 
     @Test
-    public void testSimplifyCompactsData()
+    public void testGetUnenforcedPredicateCompactsData()
     {
         assertThat(pageSourceProvider.getUnenforcedPredicate(
                 SESSION,
@@ -120,8 +120,15 @@ public class TestHivePageSourceProvider
     }
 
     @Test
-    public void testSimplifyConsidersEffectivePredicate()
+    public void testGetUnenforcedPredicateConsidersEffectivePredicate()
     {
+        assertThat(pageSourceProvider.getUnenforcedPredicate(
+                SESSION,
+                HIVE_SPLIT,
+                HIVE_TABLE_HANDLE,
+                TupleDomain.all()))
+                .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(DATA_COLUMN, DATA_DOMAIN)));
+
         assertThat(pageSourceProvider.getUnenforcedPredicate(
                 SESSION,
                 HIVE_SPLIT,
@@ -144,7 +151,7 @@ public class TestHivePageSourceProvider
     }
 
     @Test
-    public void testSimplifyPrunesPartitionColumn()
+    public void testGetUnenforcedPredicatePrunesPartitionColumn()
     {
         assertThat(pageSourceProvider.getUnenforcedPredicate(
                 SESSION,
@@ -164,7 +171,7 @@ public class TestHivePageSourceProvider
     }
 
     @Test
-    public void testSimplifySkipsBucket()
+    public void testGetUnenforcedPredicateSkipsBucket()
     {
         Domain bucketDomain = Domain.create(ValueSet.of(INTEGER, 1L), false);
         TupleDomain<ColumnHandle> bucketTupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(

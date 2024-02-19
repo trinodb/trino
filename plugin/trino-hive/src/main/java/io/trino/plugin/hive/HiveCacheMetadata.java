@@ -25,9 +25,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.cache.CacheUtils.normalizeTupleDomain;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static java.util.Objects.requireNonNull;
@@ -63,17 +61,14 @@ public class HiveCacheMetadata
         // Ensure cache id generation is revisited whenever handle classes change.
         // Only fields that are sent to worker matter for CacheTableId.
         // This constructor is used as JSON deserializer on worker nodes.
-        Set<HiveColumnHandle> partitionColumns = hiveTableHandle.getPartitionColumns().stream()
-                .collect(toImmutableSet());
         hiveTableHandle = new HiveTableHandle(
                 hiveTableHandle.getSchemaName(),
                 hiveTableHandle.getTableName(),
                 // columns can be skipped from table id as they are obtained separately
                 ImmutableList.of(),
                 ImmutableList.of(),
-                // skip domains for partition columns as splits are entirely embedded within partitions
-                hiveTableHandle.getCompactEffectivePredicate()
-                        .filter((handle, domain) -> !partitionColumns.contains(handle)),
+                // compactEffectivePredicate is returned as part of ConnectorPageSourceProvider#getUnenforcedPredicate
+                TupleDomain.all(),
                 // enforced constraint is only enforced on partition columns, therefore it can be skipped
                 TupleDomain.all(),
                 hiveTableHandle.getBucketHandle(),
