@@ -29,8 +29,6 @@ import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import org.apache.ignite.IgniteJdbcThinDriver;
 
-import java.util.Properties;
-
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
@@ -53,11 +51,8 @@ public class IgniteClientModule
     @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
-        return new DriverConnectionFactory(
-                new IgniteJdbcThinDriver(),
-                config.getConnectionUrl(),
-                new Properties(),
-                credentialProvider,
-                openTelemetry);
+        return DriverConnectionFactory.builder(new IgniteJdbcThinDriver(), config.getConnectionUrl(), credentialProvider)
+                .setOpenTelemetry(openTelemetry)
+                .build();
     }
 }
