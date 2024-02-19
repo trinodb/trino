@@ -17,7 +17,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.JdbcClient;
-import io.trino.plugin.jdbc.JdbcDynamicFilteringSplitManager;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
@@ -53,7 +52,6 @@ public class StarburstOracleClientModule
     protected void setup(Binder binder)
     {
         newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setBinding().to(OracleSplitManager.class).in(SINGLETON);
-        newOptionalBinder(binder, ConnectorSplitManager.class).setBinding().to(JdbcDynamicFilteringSplitManager.class).in(SINGLETON);
 
         newOptionalBinder(binder, Key.get(JdbcClient.class, ForBaseJdbc.class))
                 .setDefault()
