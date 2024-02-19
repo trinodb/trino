@@ -158,9 +158,9 @@ public class KuduMetadata
                 .build();
     }
 
-    private ConnectorTableMetadata getTableMetadata(ConnectorSession connectorSesssion, KuduTableHandle tableHandle)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession connectorSession, KuduTableHandle tableHandle)
     {
-        KuduTable table = tableHandle.getTable(connectorSesssion, clientSession);
+        KuduTable table = tableHandle.getTable(connectorSession, clientSession);
         Schema schema = table.getSchema();
         // Kudu returns empty string as a table comment by default
         Optional<String> tableComment = Optional.ofNullable(emptyToNull(table.getComment()));
@@ -170,7 +170,7 @@ public class KuduMetadata
                 .map(this::getColumnMetadata)
                 .collect(toImmutableList());
 
-        Map<String, Object> properties = clientSession.getTableProperties(connectorSesssion, tableHandle);
+        Map<String, Object> properties = clientSession.getTableProperties(connectorSession, tableHandle);
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columnsMetaList, properties, tableComment);
     }
 
