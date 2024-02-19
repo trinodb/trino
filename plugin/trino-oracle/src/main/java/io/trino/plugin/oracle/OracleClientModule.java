@@ -79,12 +79,10 @@ public class OracleClientModule
                     openTelemetry);
         }
 
-        return new DriverConnectionFactory(
-                new OracleDriver(),
-                config.getConnectionUrl(),
-                connectionProperties,
-                credentialProvider,
-                openTelemetry);
+        return DriverConnectionFactory.builder(new OracleDriver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(connectionProperties)
+                .setOpenTelemetry(openTelemetry)
+                .build();
     }
 
     public static class OracleRetryStrategy

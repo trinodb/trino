@@ -167,12 +167,13 @@ public class PhoenixClientModule
             throws SQLException
     {
         return new ConfiguringConnectionFactory(
-                new DriverConnectionFactory(
-                        PhoenixDriver.INSTANCE, // Note: for some reason new PhoenixDriver won't work.
-                        config.getConnectionUrl(),
-                        getConnectionProperties(config),
-                        new EmptyCredentialProvider(),
-                        openTelemetry),
+                DriverConnectionFactory.builder(
+                                PhoenixDriver.INSTANCE, // Note: for some reason new PhoenixDriver won't work.
+                                config.getConnectionUrl(),
+                                new EmptyCredentialProvider())
+                        .setConnectionProperties(getConnectionProperties(config))
+                        .setOpenTelemetry(openTelemetry)
+                        .build(),
                 connection -> {
                     // Per JDBC spec, a Driver is expected to have new connections in auto-commit mode.
                     // This seems not to be true for PhoenixDriver, so we need to be explicit here.
