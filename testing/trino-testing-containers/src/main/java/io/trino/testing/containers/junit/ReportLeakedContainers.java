@@ -20,6 +20,7 @@ import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestPlan;
 import org.testcontainers.DockerClientFactory;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -58,6 +59,21 @@ public final class ReportLeakedContainers
                 log.info("ReportLeakedContainers disabled");
                 return;
             }
+
+            try {
+                if (ignoredIds.isEmpty()) {
+                    Field instanceField = DockerClientFactory.class.getDeclaredField("instance");
+                    instanceField.setAccessible(true);
+                    if (instanceField.get(null) == null) {
+                        log.info("DockerClientFactory not initialized, so there should be no leaked containers, skipping the check");
+                        return;
+                    }
+                }
+            }
+            catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+
             log.info("Checking for leaked containers");
 
             @SuppressWarnings("resource") // Throws when close is attempted, as this is a global instance.
