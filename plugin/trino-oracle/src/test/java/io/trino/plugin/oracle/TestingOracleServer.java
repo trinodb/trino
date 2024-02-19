@@ -18,7 +18,6 @@ import com.google.common.io.Files;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
-import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
@@ -127,10 +126,8 @@ public class TestingOracleServer
 
     private ConnectionFactory getConnectionFactory(String connectionUrl, String username, String password)
     {
-        StatisticsAwareConnectionFactory connectionFactory = new StatisticsAwareConnectionFactory(new DriverConnectionFactory(
-                new OracleDriver(),
-                new BaseJdbcConfig().setConnectionUrl(connectionUrl),
-                StaticCredentialProvider.of(username, password)));
+        StatisticsAwareConnectionFactory connectionFactory = new StatisticsAwareConnectionFactory(
+                DriverConnectionFactory.builder(new OracleDriver(), connectionUrl, StaticCredentialProvider.of(username, password)).build());
         return new RetryingConnectionFactory(connectionFactory, new DefaultRetryStrategy());
     }
 
