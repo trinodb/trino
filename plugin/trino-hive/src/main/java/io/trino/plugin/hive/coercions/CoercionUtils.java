@@ -74,6 +74,7 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarc
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createIntegerNumberToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
+import static io.trino.plugin.hive.coercions.VarcharToIntegralNumericCoercers.createVarcharToIntegerNumberCoercer;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
@@ -107,7 +108,7 @@ public final class CoercionUtils
             return Optional.of(new IntegerNumberToVarcharCoercer<>(fromType, toVarcharType));
         }
         if (fromType instanceof VarcharType fromVarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
-            return Optional.of(new VarcharToIntegerNumberCoercer<>(fromVarcharType, toType));
+            return Optional.of(createVarcharToIntegerNumberCoercer(fromVarcharType, toType, coercionContext.isOrcFile));
         }
         if (fromType instanceof VarcharType fromVarcharType && toHiveType.equals(HIVE_BOOLEAN)) {
             return Optional.of(createVarcharToBooleanCoercer(fromVarcharType, coercionContext.isOrcFile()));

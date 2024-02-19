@@ -152,6 +152,14 @@ public abstract class BaseTestHiveCoercion
                 "long_decimal_to_varchar",
                 "short_decimal_to_bounded_varchar",
                 "long_decimal_to_bounded_varchar",
+                "varchar_to_tinyint",
+                "string_to_tinyint",
+                "varchar_to_smallint",
+                "string_to_smallint",
+                "varchar_to_integer",
+                "string_to_integer",
+                "varchar_to_bigint",
+                "string_to_bigint",
                 "varchar_to_bigger_varchar",
                 "varchar_to_smaller_varchar",
                 "varchar_to_date",
@@ -263,6 +271,14 @@ public abstract class BaseTestHiveCoercion
                         "  DECIMAL '12345678.123456123456', " +
                         "  DECIMAL '12345.12345', " +
                         "  DECIMAL '12345678.123456123456', " +
+                        "  '-127', " +
+                        "  '2147483647', " +
+                        "  '-32768', " +
+                        "  '2147483647', " +
+                        "  '-2147483648', " +
+                        "  '2147483647', " +
+                        "  '0', " +
+                        "  '1234567890123', " +
                         "  'abc', " +
                         "  'abc', " +
                         "  '2023-09-28', " +
@@ -346,6 +362,14 @@ public abstract class BaseTestHiveCoercion
                         "  DECIMAL '-12345678.123456123456', " +
                         "  DECIMAL '-12345.12345', " +
                         "  DECIMAL '-12345678.123456123456', " +
+                        "  '1270', " +
+                        "  '123e+1', " +
+                        "  '327680', " +
+                        "  '123e+1', " +
+                        "  '21474836480', " +
+                        "  '123e+1', " +
+                        "  '-9.223372e+18', " +
+                        "  'Hello', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '2023-09-27', " +
@@ -384,21 +408,25 @@ public abstract class BaseTestHiveCoercion
         String hiveValueForCaseChangeField;
         String coercedNaN = "NaN";
         Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
-        Map<String, List<Object>> varcharToBooleanCoercionValues = ImmutableMap.of(
+        Map<String, List<Object>> fromVarcharCoercions = ImmutableMap.of(
                 "string_to_boolean", ImmutableList.of(true, false),
                 "special_string_to_boolean", ImmutableList.of(true, false),
                 "numeric_string_to_boolean", ImmutableList.of(true, true),
-                "varchar_to_boolean", ImmutableList.of(false, false));
+                "varchar_to_boolean", ImmutableList.of(false, false),
+                "varchar_to_tinyint", ImmutableList.of(-127, -10),
+                "varchar_to_smallint", ImmutableList.of(-32768, 0));
         if (Stream.of("rctext", "textfile", "sequencefile").anyMatch(isFormat)) {
             hiveValueForCaseChangeField = "\"lower2uppercase\":2";
         }
         else if (isFormat.test("orc")) {
             hiveValueForCaseChangeField = "\"LOWER2UPPERCASE\":null";
-            varcharToBooleanCoercionValues = ImmutableMap.of(
+            fromVarcharCoercions = ImmutableMap.of(
                     "string_to_boolean", Arrays.asList(null, null),
                     "special_string_to_boolean", Arrays.asList(null, null),
                     "numeric_string_to_boolean", ImmutableList.of(true, false),
-                    "varchar_to_boolean", Arrays.asList(null, null));
+                    "varchar_to_boolean", Arrays.asList(null, null),
+                    "varchar_to_tinyint", Arrays.asList(-127, null),
+                    "varchar_to_smallint", Arrays.asList(-32768, null));
         }
         else {
             hiveValueForCaseChangeField = "\"LOWER2UPPERCASE\":2";
@@ -467,7 +495,7 @@ public abstract class BaseTestHiveCoercion
                 .put("boolean_to_varchar", ImmutableList.of(
                         "TRUE",
                         "FALSE"))
-                .putAll(varcharToBooleanCoercionValues)
+                .putAll(fromVarcharCoercions)
                 .put("tinyint_to_smallint", ImmutableList.of(
                         -1,
                         1))
@@ -594,6 +622,12 @@ public abstract class BaseTestHiveCoercion
                 .put("long_decimal_to_bounded_varchar", ImmutableList.of(
                         "12345678.123456123456",
                         "-12345678.123456123456"))
+                .put("string_to_tinyint", Arrays.asList(null, null))
+                .put("string_to_smallint", Arrays.asList(null, null))
+                .put("string_to_integer", Arrays.asList(null, null))
+                .put("varchar_to_integer", Arrays.asList(-2147483648, null))
+                .put("varchar_to_bigint", Arrays.asList(0, null))
+                .put("string_to_bigint", Arrays.asList(1234567890123L, null))
                 .put("varchar_to_bigger_varchar", ImmutableList.of(
                         "abc",
                         "\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0"))
@@ -1124,6 +1158,14 @@ public abstract class BaseTestHiveCoercion
                 row("long_decimal_to_varchar", "varchar"),
                 row("short_decimal_to_bounded_varchar", "varchar(30)"),
                 row("long_decimal_to_bounded_varchar", "varchar(30)"),
+                row("varchar_to_tinyint", "tinyint"),
+                row("string_to_tinyint", "tinyint"),
+                row("varchar_to_smallint", "smallint"),
+                row("string_to_smallint", "smallint"),
+                row("varchar_to_integer", "integer"),
+                row("string_to_integer", "integer"),
+                row("varchar_to_bigint", "bigint"),
+                row("string_to_bigint", "bigint"),
                 row("varchar_to_bigger_varchar", "varchar(4)"),
                 row("varchar_to_smaller_varchar", "varchar(2)"),
                 row("varchar_to_date", "date"),
@@ -1223,6 +1265,14 @@ public abstract class BaseTestHiveCoercion
                 .put("long_decimal_to_varchar", VARCHAR)
                 .put("short_decimal_to_bounded_varchar", VARCHAR)
                 .put("long_decimal_to_bounded_varchar", VARCHAR)
+                .put("varchar_to_tinyint", TINYINT)
+                .put("string_to_tinyint", TINYINT)
+                .put("varchar_to_smallint", SMALLINT)
+                .put("string_to_smallint", SMALLINT)
+                .put("varchar_to_integer", INTEGER)
+                .put("string_to_integer", INTEGER)
+                .put("varchar_to_bigint", BIGINT)
+                .put("string_to_bigint", BIGINT)
                 .put("varchar_to_bigger_varchar", VARCHAR)
                 .put("varchar_to_smaller_varchar", VARCHAR)
                 .put("varchar_to_date", DATE)
@@ -1322,6 +1372,14 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_varchar long_decimal_to_varchar string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN short_decimal_to_bounded_varchar short_decimal_to_bounded_varchar varchar(30)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_bounded_varchar long_decimal_to_bounded_varchar varchar(30)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_tinyint varchar_to_tinyint tinyint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_tinyint string_to_tinyint tinyint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smallint varchar_to_smallint smallint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_smallint string_to_smallint smallint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_integer varchar_to_integer integer", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_integer string_to_integer integer", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigint varchar_to_bigint bigint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_bigint string_to_bigint bigint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_varchar varchar_to_bigger_varchar varchar(4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_varchar varchar_to_smaller_varchar varchar(2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_date varchar_to_date date", tableName));
