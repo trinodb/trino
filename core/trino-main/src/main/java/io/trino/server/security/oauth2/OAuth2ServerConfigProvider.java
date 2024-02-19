@@ -31,7 +31,6 @@ public interface OAuth2ServerConfigProvider
             requireNonNull(tokenUrl, "tokenUrl is null");
             requireNonNull(jwksUrl, "jwksUrl is null");
             requireNonNull(userinfoUrl, "userinfoUrl is null");
-            requireNonNull(endSessionUrl, "endSessionUrl is null");
         }
     }
 }
