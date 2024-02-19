@@ -72,7 +72,6 @@ import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
@@ -185,7 +184,6 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
-import static java.nio.file.Files.writeString;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -7874,10 +7872,26 @@ public abstract class BaseHiveConnectorTest
             throws Exception
     {
         String tableName = "test_create_avro_table_with_schema_url";
-        File schemaFile = createAvroSchemaFile();
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        String schema = """
+                {
+                    "namespace": "io.trino.test",
+                    "name": "camelCase",
+                    "type": "record",
+                    "fields": [
+                       { "name":"stringCol", "type":"string" },
+                       { "name":"a", "type":"int" }
+                    ]
+                }""";
+        Location schemaFile = tempDir.appendPath("avro_camelCamelCase_col.avsc");
+        try (OutputStream out = fileSystem.newOutputFile(schemaFile).create()) {
+            out.write(schema.getBytes(UTF_8));
+        }
 
-        String createTableSql = getAvroCreateTableSql(tableName, schemaFile.getAbsolutePath());
-        String expectedShowCreateTable = getAvroCreateTableSql(tableName, schemaFile.getPath());
+        String createTableSql = getAvroCreateTableSql(tableName, schemaFile);
+        String expectedShowCreateTable = getAvroCreateTableSql(tableName, schemaFile);
 
         assertUpdate(createTableSql);
 
@@ -7887,7 +7901,7 @@ public abstract class BaseHiveConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
-            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
+            fileSystem.deleteDirectory(tempDir);
         }
     }
 
@@ -7896,7 +7910,23 @@ public abstract class BaseHiveConnectorTest
             throws Exception
     {
         String tableName = "test_create_avro_table_with_camelcase_schema_url_" + randomNameSuffix();
-        File schemaFile = createAvroCamelCaseSchemaFile();
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        String schema = """
+                {
+                    "namespace": "io.trino.test",
+                    "name": "camelCase",
+                    "type": "record",
+                    "fields": [
+                       { "name":"stringCol", "type":"string" },
+                       { "name":"a", "type":"int" }
+                    ]
+                }""";
+        Location schemaFile = tempDir.appendPath("avro_camelCamelCase_col.avsc");
+        try (OutputStream out = fileSystem.newOutputFile(schemaFile).create()) {
+            out.write(schema.getBytes(UTF_8));
+        }
 
         String createTableSql = format("CREATE TABLE %s.%s.%s (\n" +
                         "   stringCol varchar,\n" +
@@ -7918,7 +7948,7 @@ public abstract class BaseHiveConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
-            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
+            fileSystem.deleteDirectory(tempDir);
         }
     }
 
@@ -7927,114 +7957,9 @@ public abstract class BaseHiveConnectorTest
             throws Exception
     {
         String tableName = "test_create_avro_table_with_nested_camelcase_schema_url_" + randomNameSuffix();
-        File schemaFile = createAvroNestedCamelCaseSchemaFile();
-
-        String createTableSql = format("CREATE TABLE %s.%s.%s (\n" +
-                        "   nestedRow ROW(stringCol varchar, intCol int)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                tableName,
-                schemaFile);
-
-        assertUpdate(createTableSql);
-        try {
-            assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW('hi', 1))", 1);
-            assertQuery("SELECT nestedRow.stringCol FROM " + tableName, "SELECT 'hi'");
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
-        }
-    }
-
-    @Test
-    public void testAlterAvroTableWithSchemaUrl()
-            throws Exception
-    {
-        testAlterAvroTableWithSchemaUrl(true, true, true);
-    }
-
-    protected void testAlterAvroTableWithSchemaUrl(boolean renameColumn, boolean addColumn, boolean dropColumn)
-            throws Exception
-    {
-        String tableName = "test_alter_avro_table_with_schema_url";
-        File schemaFile = createAvroSchemaFile();
-
-        assertUpdate(getAvroCreateTableSql(tableName, schemaFile.getAbsolutePath()));
-
-        try {
-            if (renameColumn) {
-                assertQueryFails(format("ALTER TABLE %s RENAME COLUMN dummy_col TO new_dummy_col", tableName), "ALTER TABLE not supported when Avro schema url is set");
-            }
-            if (addColumn) {
-                assertQueryFails(format("ALTER TABLE %s ADD COLUMN new_dummy_col VARCHAR", tableName), "ALTER TABLE not supported when Avro schema url is set");
-            }
-            if (dropColumn) {
-                assertQueryFails(format("ALTER TABLE %s DROP COLUMN dummy_col", tableName), "ALTER TABLE not supported when Avro schema url is set");
-            }
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
-        }
-    }
-
-    private String getAvroCreateTableSql(String tableName, String schemaFile)
-    {
-        return format("CREATE TABLE %s.%s.%s (\n" +
-                        "   dummy_col varchar,\n" +
-                        "   another_dummy_col varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                tableName,
-                schemaFile);
-    }
-
-    private static File createAvroSchemaFile()
-            throws Exception
-    {
-        File schemaFile = File.createTempFile("avro_single_column-", ".avsc");
-        String schema = "{\n" +
-                "  \"namespace\": \"io.trino.test\",\n" +
-                "  \"name\": \"single_column\",\n" +
-                "  \"type\": \"record\",\n" +
-                "  \"fields\": [\n" +
-                "    { \"name\":\"string_col\", \"type\":\"string\" }\n" +
-                "]}";
-        writeString(schemaFile.toPath(), schema);
-        return schemaFile;
-    }
-
-    private static File createAvroCamelCaseSchemaFile()
-            throws Exception
-    {
-        File schemaFile = File.createTempFile("avro_camelCamelCase_col-", ".avsc");
-        String schema = "{\n" +
-                "  \"namespace\": \"io.trino.test\",\n" +
-                "  \"name\": \"camelCase\",\n" +
-                "  \"type\": \"record\",\n" +
-                "  \"fields\": [\n" +
-                "    { \"name\":\"stringCol\", \"type\":\"string\" },\n" +
-                "    { \"name\":\"a\", \"type\":\"int\" }\n" +
-                "]}";
-        writeString(schemaFile.toPath(), schema);
-        return schemaFile;
-    }
-
-    private static File createAvroNestedCamelCaseSchemaFile()
-            throws Exception
-    {
-        File schemaFile = File.createTempFile("avro_camelCamelCase_col-", ".avsc");
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
         String schema = """
                 {
                     "namespace": "io.trino.test",
@@ -8055,8 +7980,95 @@ public abstract class BaseHiveConnectorTest
                         }
                     ]
                  }""";
-        writeString(schemaFile.toPath(), schema);
-        return schemaFile;
+        Location schemaFile = tempDir.appendPath("avro_camelCamelCase_col.avsc");
+        try (OutputStream out = fileSystem.newOutputFile(schemaFile).create()) {
+            out.write(schema.getBytes(UTF_8));
+        }
+
+        String createTableSql = format("CREATE TABLE %s.%s.%s (\n" +
+                        "   nestedRow ROW(stringCol varchar, intCol int)\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   avro_schema_url = '%s',\n" +
+                        "   format = 'AVRO'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                schemaFile);
+
+        assertUpdate(createTableSql);
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW('hi', 1))", 1);
+            assertQuery("SELECT nestedRow.stringCol FROM " + tableName, "SELECT 'hi'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            fileSystem.deleteDirectory(tempDir);
+        }
+    }
+
+    @Test
+    public void testAlterAvroTableWithSchemaUrl()
+            throws Exception
+    {
+        testAlterAvroTableWithSchemaUrl(true, true, true);
+    }
+
+    protected void testAlterAvroTableWithSchemaUrl(boolean renameColumn, boolean addColumn, boolean dropColumn)
+            throws Exception
+    {
+        String tableName = "test_alter_avro_table_with_schema_url";
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        String schema = """
+                {
+                     "namespace": "io.trino.test",
+                     "name": "single_column",
+                     "type": "record",
+                     "fields": [
+                        { "name": "string_col", "type":"string" }
+                     ]
+                }""";
+        Location schemaFile = tempDir.appendPath("avro_single_column.avsc");
+        try (OutputStream out = fileSystem.newOutputFile(schemaFile).create()) {
+            out.write(schema.getBytes(UTF_8));
+        }
+
+        assertUpdate(getAvroCreateTableSql(tableName, schemaFile));
+
+        try {
+            if (renameColumn) {
+                assertQueryFails(format("ALTER TABLE %s RENAME COLUMN dummy_col TO new_dummy_col", tableName), "ALTER TABLE not supported when Avro schema url is set");
+            }
+            if (addColumn) {
+                assertQueryFails(format("ALTER TABLE %s ADD COLUMN new_dummy_col VARCHAR", tableName), "ALTER TABLE not supported when Avro schema url is set");
+            }
+            if (dropColumn) {
+                assertQueryFails(format("ALTER TABLE %s DROP COLUMN dummy_col", tableName), "ALTER TABLE not supported when Avro schema url is set");
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            fileSystem.deleteDirectory(tempDir);
+        }
+    }
+
+    private String getAvroCreateTableSql(String tableName, Location schemaFile)
+    {
+        return format("CREATE TABLE %s.%s.%s (\n" +
+                        "   dummy_col varchar,\n" +
+                        "   another_dummy_col varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   avro_schema_url = '%s',\n" +
+                        "   format = 'AVRO'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                schemaFile);
     }
 
     @Test
