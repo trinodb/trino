@@ -41,7 +41,6 @@
         <module>docs</module>
         <module>lib/starburst-ci-cd</module>
         <module>lib/starburst-license</module>
-        <module>lib/starburst-plugin-toolkit</module>
         <module>lib/trino-array</module>
         <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>
@@ -1009,12 +1008,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>starburst-license</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>starburst-plugin-toolkit</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

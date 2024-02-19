@@ -491,7 +491,6 @@ jobs:
             !:starburst-dynamodb,
             !:starburst-license,
             !:starburst-oracle,
-            !:starburst-plugin-toolkit,
             !:starburst-salesforce,
             !:starburst-sap-hana,
             !:starburst-snowflake,
@@ -601,7 +600,6 @@ jobs:
                 - plugin/trino-thrift
             - modules:
                 - lib/starburst-ci-cd
-                - lib/starburst-plugin-toolkit
             - modules:
                 - lib/trino-orc
                 - lib/trino-parquet

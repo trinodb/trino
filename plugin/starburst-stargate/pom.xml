@@ -45,11 +45,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>starburst-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
         </dependency>
 

@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.trino.plugin.toolkit;
+package com.starburstdata.trino.plugin.stargate;
 
 import com.google.common.base.Joiner;
 import io.trino.jdbc.TrinoDriverUri;
