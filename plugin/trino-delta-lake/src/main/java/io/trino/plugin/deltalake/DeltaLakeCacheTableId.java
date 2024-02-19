@@ -15,8 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
-import io.trino.spi.cache.CacheColumnId;
-import io.trino.spi.predicate.TupleDomain;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,20 +23,17 @@ public class DeltaLakeCacheTableId
     private final String schemaName;
     private final String tableName;
     private final String location;
-    private final TupleDomain<CacheColumnId> nonPartitionConstraint;
     private final MetadataEntry metadataEntry;
 
     public DeltaLakeCacheTableId(
             String schemaName,
             String tableName,
             String location,
-            TupleDomain<CacheColumnId> nonPartitionConstraint,
             MetadataEntry metadataEntry)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.location = requireNonNull(location, "location is null");
-        this.nonPartitionConstraint = requireNonNull(nonPartitionConstraint, "nonPartitionConstraint is null");
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
     }
 
@@ -58,12 +53,6 @@ public class DeltaLakeCacheTableId
     public String getLocation()
     {
         return location;
-    }
-
-    @JsonProperty
-    public TupleDomain<CacheColumnId> getNonPartitionConstraint()
-    {
-        return nonPartitionConstraint;
     }
 
     @JsonProperty

@@ -196,9 +196,9 @@ public class TestDeltaLakeCacheIds
         assertThat(metadata.getCacheTableId(createDeltaLakeTableHandle(createMetadataEntry("id", schema), ImmutableSet.of(partitionColumn), Optional.empty(), Optional.empty())))
                 .isEqualTo(metadata.getCacheTableId(createDeltaLakeTableHandle(createMetadataEntry("id", schema), ImmutableSet.of(), Optional.empty(), Optional.empty())));
 
-        // nonPartitionConstraint should be part of table id
+        // nonPartitionConstraint should not be part of table id
         assertThat(metadata.getCacheTableId(createDeltaLakeTableHandle(TupleDomain.all(), TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, singleValue(BIGINT, 1L))))))
-                .isNotEqualTo(metadata.getCacheTableId(createDeltaLakeTableHandle(TupleDomain.all(), TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, singleValue(INTEGER, 2L))))));
+                .isEqualTo(metadata.getCacheTableId(createDeltaLakeTableHandle(TupleDomain.all(), TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, singleValue(INTEGER, 2L))))));
 
         // readVersion predicate should not be part of table id
         assertThat(metadata.getCacheTableId(createDeltaLakeTableHandle("schema", "table", false, "location", 0)))

@@ -23,7 +23,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 
 import java.util.Optional;
 
-import static io.trino.plugin.base.cache.CacheUtils.normalizeTupleDomain;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeCacheMetadata
@@ -75,8 +74,6 @@ public class DeltaLakeCacheMetadata
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getLocation(),
-                normalizeTupleDomain(handle.getNonPartitionConstraint()
-                        .transformKeys(column -> getCacheColumnId(tableHandle, column).orElseThrow())),
                 handle.getMetadataEntry());
         return Optional.of(new CacheTableId(tableIdCodec.toJson(tableId)));
     }

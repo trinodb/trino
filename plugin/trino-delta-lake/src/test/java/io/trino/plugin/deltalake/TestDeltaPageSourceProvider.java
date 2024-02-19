@@ -130,7 +130,7 @@ public class TestDeltaPageSourceProvider
     }
 
     @Test
-    public void testSimplifyPredicate()
+    public void testGetUnenforcedPredicate()
     {
         ColumnHandle regularColumnHandle = prepareColumnHandle("regular", BIGINT, DeltaLakeColumnType.REGULAR);
         MetadataEntry metadataEntry = createMetadataEntry(
@@ -139,29 +139,33 @@ public class TestDeltaPageSourceProvider
                         {"fields":[{"name":"partitionedColumn","type":"long","nullable":false,"metadata":{}}]}"
                         """);
 
-        TupleDomain<ColumnHandle> prunedPredicate = pageSourceProvider.getUnenforcedPredicate(
+        TupleDomain<ColumnHandle> unenforcedPredicate = pageSourceProvider.getUnenforcedPredicate(
+                TEST_SESSION.toConnectorSession(),
+                prepareSplit(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 100L)))), ImmutableMap.of()),
+                createDeltaLakeTableHandle(metadataEntry, TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L)))),
+                TupleDomain.all());
+        assertThat(unenforcedPredicate).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L))));
+
+        unenforcedPredicate = pageSourceProvider.getUnenforcedPredicate(
                 TEST_SESSION.toConnectorSession(),
                 prepareSplit(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 100L)))), ImmutableMap.of()),
                 createDeltaLakeTableHandle(metadataEntry, TupleDomain.all()),
-                TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L, 2L))))
-        );
-        assertThat(prunedPredicate).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L))));
+                TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L, 2L)))));
+        assertThat(unenforcedPredicate).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L))));
 
-        prunedPredicate = pageSourceProvider.getUnenforcedPredicate(
+        unenforcedPredicate = pageSourceProvider.getUnenforcedPredicate(
                 TEST_SESSION.toConnectorSession(),
                 prepareSplit(TupleDomain.all(), ImmutableMap.of()),
                 createDeltaLakeTableHandle(metadataEntry, TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L))))),
-                TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L, 2L))))
-        );
-        assertThat(prunedPredicate).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L))));
+                TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L, 2L)))));
+        assertThat(unenforcedPredicate).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L))));
 
-        prunedPredicate = pageSourceProvider.getUnenforcedPredicate(
+        unenforcedPredicate = pageSourceProvider.getUnenforcedPredicate(
                 TEST_SESSION.toConnectorSession(),
                 prepareSplit(TupleDomain.all(), ImmutableMap.of()),
                 createDeltaLakeTableHandle(metadataEntry, TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L))))),
-                TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L))))
-        );
-        assertThat(prunedPredicate).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L))));
+                TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L)))));
+        assertThat(unenforcedPredicate).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L))));
     }
 
     private static ColumnHandle prepareColumnHandle(String name, Type type, DeltaLakeColumnType columnType)
