@@ -11,12 +11,8 @@ package com.starburstdata.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import com.starburstdata.trino.plugin.license.LicenseManager;
-import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
-import io.trino.plugin.base.aggregation.AggregateFunctionRule;
-import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -24,7 +20,6 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
@@ -35,26 +30,11 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
-import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
-import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
-import io.trino.plugin.jdbc.aggregation.ImplementCount;
-import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
-import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
-import io.trino.plugin.jdbc.aggregation.ImplementCovariancePop;
-import io.trino.plugin.jdbc.aggregation.ImplementCovarianceSamp;
-import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
-import io.trino.plugin.jdbc.aggregation.ImplementStddevPop;
-import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
-import io.trino.plugin.jdbc.aggregation.ImplementSum;
-import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
-import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
-import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.oracle.OracleClient;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -65,9 +45,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
-import io.trino.spi.type.DecimalType;
 import oracle.jdbc.OracleConnection;
-import oracle.jdbc.OracleTypes;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
@@ -87,7 +65,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
-import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -97,12 +74,8 @@ public class StarburstOracleClient
         extends OracleClient
 {
     private static final int DEFAULT_ROW_FETCH_SIZE = 1000;
-    private static final int PRESTO_BIGINT_TYPE = 832_424_001;
 
     private final boolean synonymsEnabled;
-    private final LicenseManager licenseManager;
-    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, ParameterizedExpression> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
 
     @Inject
@@ -119,28 +92,6 @@ public class StarburstOracleClient
     {
         super(config, oracleConfig, connectionFactory, queryBuilder, identifierMapping, queryModifier);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
-        this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
-        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
-                .addStandardRules(this::quoted)
-                .build();
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(PRESTO_BIGINT_TYPE, Optional.of("NUMBER"), Optional.of(0), Optional.of(0), Optional.empty(), Optional.empty());
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
-                this.connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
-                        .add(new ImplementCountAll(bigintTypeHandle))
-                        .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementCountDistinct(bigintTypeHandle, true))
-                        .add(new ImplementMinMax(true))
-                        .add(new ImplementSum(StarburstOracleClient::toTypeHandle))
-                        .add(new ImplementAvgFloatingPoint())
-                        .add(new ImplementAvgDecimal())
-                        .add(new ImplementStddevSamp())
-                        .add(new ImplementStddevPop())
-                        .add(new ImplementVarianceSamp())
-                        .add(new ImplementVariancePop())
-                        .add(new ImplementCovarianceSamp())
-                        .add(new ImplementCovariancePop())
-                        .build());
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         if (jdbcMetadataConfig.isAggregationPushdownEnabled()) {
             licenseManager.checkLicense();
@@ -291,35 +242,6 @@ public class StarburstOracleClient
                 escapeObjectNameForMetadataQuery(remoteTableName.getSchemaName(), escape).orElse(null),
                 escapeObjectNameForMetadataQuery(Optional.ofNullable(remoteTableName.getTableName()), escape).orElse("") + tableNameSuffix,
                 null);
-    }
-
-    @Override
-    public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle type)
-    {
-        if (type.getJdbcType() == PRESTO_BIGINT_TYPE) {
-            // Synthetic column
-            return Optional.of(bigintColumnMapping());
-        }
-
-        Optional<ColumnMapping> mappingToVarchar = getForcedMappingToVarchar(type);
-        if (mappingToVarchar.isPresent()) {
-            return mappingToVarchar;
-        }
-
-        return super.toColumnMapping(session, connection, type);
-    }
-
-    @Override
-    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
-    {
-        licenseManager.checkLicense();
-        // TODO support complex ConnectorExpressions
-        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
-    }
-
-    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
-    {
-        return Optional.of(new JdbcTypeHandle(OracleTypes.NUMBER, Optional.of("NUMBER"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     @Override
