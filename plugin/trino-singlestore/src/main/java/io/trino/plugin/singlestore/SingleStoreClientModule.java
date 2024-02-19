@@ -58,11 +58,9 @@ public class SingleStoreClientModule
         connectionProperties.setProperty("autoReconnect", String.valueOf(singleStoreConfig.isAutoReconnect()));
         connectionProperties.setProperty("connectTimeout", String.valueOf(singleStoreConfig.getConnectionTimeout().toMillis()));
 
-        return new DriverConnectionFactory(
-                new Driver(),
-                config.getConnectionUrl(),
-                connectionProperties,
-                credentialProvider,
-                openTelemetry);
+        return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(connectionProperties)
+                .setOpenTelemetry(openTelemetry)
+                .build();
     }
 }

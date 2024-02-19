@@ -19,7 +19,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.testing.QueryRunner;
@@ -27,7 +26,6 @@ import org.h2.Driver;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
-import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static io.trino.plugin.jdbc.TestingH2JdbcModule.createH2ConnectionUrl;
@@ -44,7 +42,7 @@ public class TestJdbcConnectionCreation
             throws Exception
     {
         String connectionUrl = createH2ConnectionUrl();
-        DriverConnectionFactory delegate = new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new EmptyCredentialProvider(), OpenTelemetry.noop());
+        DriverConnectionFactory delegate = DriverConnectionFactory.builder(new Driver(), connectionUrl, new EmptyCredentialProvider()).build();
         this.connectionFactory = new ConnectionCountingConnectionFactory(delegate);
         return createH2QueryRunner(
                 ImmutableList.of(NATION, REGION),
