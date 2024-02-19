@@ -70,9 +70,7 @@ public class StargateModule
         install(new StargateAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
 
-        @SuppressWarnings("TrinoExperimentalSpi")
-        Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
-        newSetBinder(binder, clazz).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
 
         // Using optional binder for overriding StargateClient in SEP
         newOptionalBinder(binder, Key.get(JdbcClient.class, ForBaseJdbc.class))

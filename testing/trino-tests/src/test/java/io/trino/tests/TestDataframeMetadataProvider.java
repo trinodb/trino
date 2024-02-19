@@ -86,7 +86,6 @@ public class TestDataframeMetadataProvider
     private TablePropertyManager tablePropertyManager;
     private AnalyzePropertyManager analyzePropertyManager;
 
-    @SuppressWarnings("TrinoExperimentalSpi")
     @BeforeAll
     public void setup()
     {

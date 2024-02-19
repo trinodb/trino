@@ -99,13 +99,11 @@ public class StarburstSqlServerClientModule
         install(new CatalogOverridingModule());
         install(new JdbcJoinPushdownSupportModule());
 
-        @SuppressWarnings("TrinoExperimentalSpi")
-        Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
-        newSetBinder(binder, clazz).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
         install(conditionalModule(
                 SqlServerConfig.class,
                 SqlServerConfig::isStoredProcedureTableFunctionEnabled,
-                internalBinder -> newSetBinder(internalBinder, clazz).addBinding().toProvider(Procedure.class).in(Scopes.SINGLETON)));
+                internalBinder -> newSetBinder(internalBinder, ConnectorTableFunction.class).addBinding().toProvider(Procedure.class).in(Scopes.SINGLETON)));
 
         // Using optional binder for overriding ConnectionFactory in Galaxy
         newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForCatalogOverriding.class))

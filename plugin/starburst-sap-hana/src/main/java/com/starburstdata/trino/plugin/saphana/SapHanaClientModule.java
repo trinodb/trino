@@ -46,8 +46,6 @@ public class SapHanaClientModule
                 .to(Key.get(ConnectionFactory.class, SapHanaAuthenticationModule.DefaultSapHanaBinding.class))
                 .in(Scopes.SINGLETON);
 
-        @SuppressWarnings("TrinoExperimentalSpi")
-        Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
-        newSetBinder(binder, clazz).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 }

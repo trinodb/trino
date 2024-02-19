@@ -41,8 +41,7 @@ public class SnowflakeParallelConnector
             ConnectorPageSinkProvider jdbcPageSinkProvider,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
-            // used by the parent connector class
-            @SuppressWarnings("TrinoExperimentalSpi") Set<ConnectorTableFunction> connectorTableFunctions,
+            Set<ConnectorTableFunction> connectorTableFunctions,
             Set<SessionPropertiesProvider> sessionProperties,
             Set<TablePropertiesProvider> tableProperties,
             JdbcTransactionManager transactionManager,

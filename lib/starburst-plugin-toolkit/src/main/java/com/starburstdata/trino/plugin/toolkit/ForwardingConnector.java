@@ -119,14 +119,12 @@ public abstract class ForwardingConnector
         return delegate().getTableProcedures();
     }
 
-    @SuppressWarnings("TrinoExperimentalSpi") // FunctionProvider
     @Override
     public Optional<FunctionProvider> getFunctionProvider()
     {
         return delegate().getFunctionProvider();
     }
 
-    @SuppressWarnings("TrinoExperimentalSpi") // ConnectorTableFunction
     @Override
     public Set<ConnectorTableFunction> getTableFunctions()
     {

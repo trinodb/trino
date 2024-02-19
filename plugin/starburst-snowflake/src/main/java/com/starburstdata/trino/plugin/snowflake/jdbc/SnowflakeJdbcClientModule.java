@@ -131,14 +131,8 @@ public class SnowflakeJdbcClientModule
 
         if (connectorFlavour != DISTRIBUTED) {
             // The distributed connector doesn't use JDBC for query results fetching so query passthrough doesn't work as expected
-            setupTableFunctions(binder);
+            newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(SINGLETON);
         }
-    }
-
-    @SuppressWarnings("TrinoExperimentalSpi") // Allowed, as it was introduced before disallowing experimental SPIs usage
-    private static void setupTableFunctions(Binder binder)
-    {
-        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(SINGLETON);
     }
 
     @Provides
