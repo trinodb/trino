@@ -46,6 +46,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeOperators;
@@ -67,9 +68,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -98,7 +102,9 @@ import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseCacheSubqueriesTest
         extends AbstractTestQueryFramework
@@ -203,6 +209,77 @@ public abstract class BaseCacheSubqueriesTest
         // make sure data was read from cache as data should be cached across queries
         assertThat(getLoadCachedDataOperatorInputPositions(resultWithCache.queryId())).isPositive();
         assertThat(getScanOperatorInputPositions(resultWithCache.queryId())).isZero();
+    }
+
+    @Test
+    public void testSubsequentQueryReadsFromCacheWithPredicateOnDataColumn()
+    {
+        if (!supportsDataColumnPruning()) {
+            abort("Data column pruning is not supported");
+        }
+
+        MaterializedResultWithPlan resultWithCache = executeWithPlan(
+                withCacheEnabled(),
+                "SELECT partkey FROM lineitem WHERE orderkey BETWEEN 0 AND 1000000000");
+
+        // make sure data was cached
+        assertThat(getCacheDataOperatorInputPositions(resultWithCache.queryId())).isPositive();
+
+        resultWithCache = executeWithPlan(
+                withCacheEnabled(),
+                "SELECT partkey FROM lineitem WHERE orderkey BETWEEN 0 AND 1000000001");
+        // make sure data was read from cache because both "orderkey BETWEEN 0 AND 1000000000"
+        // and "orderkey BETWEEN 0 AND 1000000001" should evaluate to TRUE for lineitem splits
+        assertThat(getLoadCachedDataOperatorInputPositions(resultWithCache.queryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(resultWithCache.queryId())).isZero();
+
+        // query with predicate that doesn't evaluate to TRUE for lineitem splits shouldn't read from cache
+        resultWithCache = executeWithPlan(
+                withCacheEnabled(),
+                "SELECT partkey FROM lineitem WHERE orderkey BETWEEN 0 AND 1000");
+        assertThat(getLoadCachedDataOperatorInputPositions(resultWithCache.queryId())).isZero();
+    }
+
+    @Test
+    public void testSubsequentQueryReadsFromCacheWithDynamicFilterOnDataColumn()
+    {
+        if (!supportsDataColumnPruning()) {
+            abort("Data column pruning is not supported");
+        }
+
+        MaterializedResultWithPlan resultWithCache = executeWithPlan(
+                withCacheEnabled(),
+                """
+                        SELECT partkey FROM lineitem l JOIN
+                         (SELECT suppkey, orderkey FROM (VALUES (2, 17125), (3, 60000), (4, 60000)) t(suppkey, orderkey)) o
+                        ON l.suppkey = o.suppkey AND l.orderkey <= o.orderkey
+                        """);
+        // make sure data was cached
+        assertThat(getCacheDataOperatorInputPositions(resultWithCache.queryId())).isPositive();
+        assertThat(getScanSplitsWithDynamicFiltersApplied(resultWithCache.queryId())).isPositive();
+
+        resultWithCache = executeWithPlan(
+                withCacheEnabled(),
+                """
+                        SELECT partkey FROM lineitem l JOIN
+                         (SELECT suppkey, orderkey FROM (VALUES (2, 17125), (3, 60000), (4, 60001)) t(suppkey, orderkey)) o
+                        ON l.suppkey = o.suppkey AND l.orderkey <= o.orderkey
+                        """);
+        // make sure data was read from cache because dynamic filters for "l.orderkey < o.orderkey"
+        // should evaluate to TRUE for both queries since the highest lineitem "orderkey" value is 60000
+        assertThat(getLoadCachedDataOperatorInputPositions(resultWithCache.queryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(resultWithCache.queryId())).isZero();
+
+        // query with dynamic filter that doesn't evaluate to TRUE for lineitem splits shouldn't read from cache
+        resultWithCache = executeWithPlan(
+                withCacheEnabled(),
+                """
+                        SELECT partkey FROM lineitem l JOIN
+                         (SELECT suppkey, orderkey FROM (VALUES (2, 17125), (3, 59999), (4, 59999)) t(suppkey, orderkey)) o
+                        ON l.suppkey = o.suppkey AND l.orderkey <= o.orderkey
+                        """);
+        assertThat(getLoadCachedDataOperatorInputPositions(resultWithCache.queryId())).isZero();
+        assertThat(getScanSplitsWithDynamicFiltersApplied(resultWithCache.queryId())).isPositive();
     }
 
     @ParameterizedTest
@@ -482,6 +559,33 @@ public abstract class BaseCacheSubqueriesTest
                             handle.get().getConnectorHandle(),
                             TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain))))
                             .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain)));
+
+                    if (supportsDataColumnPruning()) {
+                        SplitSource splitSourceWithDfOnDataColumn = coordinator.getSplitManager().getSplits(
+                                transactionSession,
+                                Span.current(),
+                                handle.get(),
+                                getDynamicFilter(TupleDomain.withColumnDomains(ImmutableMap.of(
+                                        dataColumn,
+                                        Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1_000_000L)), false)))),
+                                alwaysTrue());
+                        Split splitWithDfOnDataColumn = getFutureValue(splitSourceWithDfOnDataColumn.getNextBatch(1000)).getSplits().get(0);
+                        // getUnenforcedPredicate and prunePredicate should prune data column if there is dynamic filter on that column
+                        Domain containingRange = Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 60_000L)), false);
+                        assertThat(pageSourceProvider.getUnenforcedPredicate(
+                                connectorSession,
+                                splitWithDfOnDataColumn.getConnectorSplit(),
+                                handle.get().getConnectorHandle(),
+                                TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, containingRange))))
+                                .isEqualTo(TupleDomain.all());
+                        assertThat(pageSourceProvider.prunePredicate(
+                                connectorSession,
+                                splitWithDfOnDataColumn.getConnectorSplit(),
+                                handle.get().getConnectorHandle(),
+                                TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, containingRange))))
+                                .isEqualTo(TupleDomain.all());
+                    }
+
                     if (isDynamicRowFilteringEnabled || getUnenforcedPredicateIsPrune()) {
                         // getUnenforcedPredicate should not prune or simplify data column
                         assertThat(dynamicRowFilteringPageSourceProvider.getUnenforcedPredicate(
@@ -554,6 +658,11 @@ public abstract class BaseCacheSubqueriesTest
                 });
     }
 
+    protected boolean supportsDataColumnPruning()
+    {
+        return true;
+    }
+
     protected boolean getUnenforcedPredicateIsPrune()
     {
         return false;
@@ -594,6 +703,14 @@ public abstract class BaseCacheSubqueriesTest
         return getDistributedQueryRunner().executeWithPlan(session, sql);
     }
 
+    protected Long getScanSplitsWithDynamicFiltersApplied(QueryId queryId)
+    {
+        return getOperatorStats(queryId, TableScanOperator.class.getSimpleName(), ScanFilterAndProjectOperator.class.getSimpleName())
+                .map(OperatorStats::getDynamicFilterSplitsProcessed)
+                .mapToLong(Long::valueOf)
+                .sum();
+    }
+
     protected Long getScanOperatorInputPositions(QueryId queryId)
     {
         return getOperatorInputPositions(queryId, TableScanOperator.class.getSimpleName(), ScanFilterAndProjectOperator.class.getSimpleName());
@@ -611,6 +728,14 @@ public abstract class BaseCacheSubqueriesTest
 
     protected Long getOperatorInputPositions(QueryId queryId, String... operatorType)
     {
+        return getOperatorStats(queryId, operatorType)
+                .map(OperatorStats::getInputPositions)
+                .mapToLong(Long::valueOf)
+                .sum();
+    }
+
+    protected Stream<OperatorStats> getOperatorStats(QueryId queryId, String... operatorType)
+    {
         ImmutableSet<String> operatorTypes = ImmutableSet.copyOf(operatorType);
         return getDistributedQueryRunner().getCoordinator()
                 .getQueryManager()
@@ -618,10 +743,7 @@ public abstract class BaseCacheSubqueriesTest
                 .getQueryStats()
                 .getOperatorSummaries()
                 .stream()
-                .filter(summary -> operatorTypes.contains(summary.getOperatorType()))
-                .map(OperatorStats::getInputPositions)
-                .mapToLong(Long::valueOf)
-                .sum();
+                .filter(summary -> operatorTypes.contains(summary.getOperatorType()));
     }
 
     protected Session withCacheEnabled()
@@ -656,5 +778,48 @@ public abstract class BaseCacheSubqueriesTest
     protected Session withProjectionPushdownEnabled(Session session, boolean projectionPushdownEnabled)
     {
         return session;
+    }
+
+    private static DynamicFilter getDynamicFilter(TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return new DynamicFilter()
+        {
+            @Override
+            public Set<ColumnHandle> getColumnsCovered()
+            {
+                return tupleDomain.getDomains().map(Map::keySet)
+                        .orElseGet(ImmutableSet::of);
+            }
+
+            @Override
+            public CompletableFuture<?> isBlocked()
+            {
+                return completedFuture(null);
+            }
+
+            @Override
+            public boolean isComplete()
+            {
+                return true;
+            }
+
+            @Override
+            public boolean isAwaitable()
+            {
+                return false;
+            }
+
+            @Override
+            public TupleDomain<ColumnHandle> getCurrentPredicate()
+            {
+                return tupleDomain;
+            }
+
+            @Override
+            public OptionalLong getPreferredDynamicFilterTimeout()
+            {
+                return OptionalLong.of(0);
+            }
+        };
     }
 }

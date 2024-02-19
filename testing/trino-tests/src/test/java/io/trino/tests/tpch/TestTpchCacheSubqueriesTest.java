@@ -84,4 +84,10 @@ public class TestTpchCacheSubqueriesTest
     {
         throw new UnsupportedOperationException("tpch does not support for partitioned tables");
     }
+
+    @Override
+    protected boolean supportsDataColumnPruning()
+    {
+        return false;
+    }
 }

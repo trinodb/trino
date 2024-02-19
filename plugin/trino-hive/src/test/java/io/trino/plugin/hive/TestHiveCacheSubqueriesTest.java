@@ -98,4 +98,10 @@ public class TestHiveCacheSubqueriesTest
     {
         return newTransaction().execute(getSession(), transactionSessionConsumer);
     }
+
+    @Override
+    protected boolean supportsDataColumnPruning()
+    {
+        return false;
+    }
 }
