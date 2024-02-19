@@ -80,7 +80,7 @@ public final class StargateQueryRunner
     {
         try {
             queryRunner.installPlugin(new TestingMemoryPlugin());
-            queryRunner.createCatalog("memory", "memory");
+            queryRunner.createCatalog("memory", "testing_memory");
 
             queryRunner.execute("CREATE SCHEMA memory.tiny");
             Session tpchSetupSession = testSessionBuilder()

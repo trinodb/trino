@@ -10,7 +10,6 @@
 package com.starburstdata.trino.plugin.stargate;
 
 import io.trino.plugin.base.ForwardingConnector;
-import io.trino.plugin.base.ForwardingConnectorFactory;
 import io.trino.plugin.memory.MemoryConnectorFactory;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -21,20 +20,18 @@ import java.util.Map;
 import static com.google.common.base.Verify.verify;
 
 public class TestingMemoryConnectorFactory
-        extends ForwardingConnectorFactory
+        implements ConnectorFactory
 {
-    private final ConnectorFactory delegate = new MemoryConnectorFactory();
-
     @Override
-    protected ConnectorFactory delegate()
+    public String getName()
     {
-        return delegate;
+        return "testing_memory";
     }
 
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        Connector delegate = delegate().create(catalogName, config, context);
+        Connector delegate = new MemoryConnectorFactory().create(catalogName, config, context);
         return new ForwardingConnector()
         {
             @Override

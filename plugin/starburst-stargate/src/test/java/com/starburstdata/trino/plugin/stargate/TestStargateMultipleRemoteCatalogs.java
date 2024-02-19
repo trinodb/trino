@@ -35,8 +35,8 @@ public class TestStargateMultipleRemoteCatalogs
     {
         DistributedQueryRunner remoteStarburst = closeAfterClass(createRemoteStarburstQueryRunner(Optional.empty()));
         remoteStarburst.installPlugin(new TestingMemoryPlugin());
-        remoteStarburst.createCatalog("memory1", "memory");
-        remoteStarburst.createCatalog("memory2", "memory");
+        remoteStarburst.createCatalog("memory1", "testing_memory");
+        remoteStarburst.createCatalog("memory2", "testing_memory");
 
         remoteStarburst.execute("CREATE SCHEMA memory1.tiny");
         remoteStarburst.execute("CREATE TABLE memory1.tiny.nation AS SELECT * FROM tpch.tiny.nation");
