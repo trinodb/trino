@@ -44,6 +44,7 @@ env:
   # used by actions/cache to retry the download after this time: https://github.com/actions/cache/blob/main/workarounds.md#cache-segment-restore-timeout
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
   CI_SKIP_SECRETS_PRESENCE_CHECKS: ${{ secrets.CI_SKIP_SECRETS_PRESENCE_CHECKS }}
+  SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
   PTL_TMP_DOWNLOAD_PATH: /tmp/pt_java_downloads
 
 # Cancel previous PR builds.
@@ -292,8 +293,6 @@ jobs:
   test-jdbc-compatibility:
     runs-on: [self-hosted, sep-cicd, gha-fleet-large]
     timeout-minutes: 30
-    env:
-      SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -348,8 +347,6 @@ jobs:
           - config-hdp3
           # TODO: config-apache-hive3
     timeout-minutes: 60
-    env:
-      SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -507,8 +504,6 @@ jobs:
   test-other-modules:
     runs-on: [self-hosted, sep-cicd, gha-fleet-large]
     timeout-minutes: 60
-    env:
-      SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -732,8 +727,6 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
     timeout-minutes: 90
-    env:
-      SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
       - uses: actions/checkout@v4
         with:
