@@ -19,8 +19,6 @@ import io.trino.spi.security.Identity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.ManageTestResources;
-import io.trino.testng.services.ReportOrphanedExecutors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -53,8 +51,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestKillQuery
         extends AbstractTestQueryFramework
 {
-    @ManageTestResources.Suppress(because = "Not a TestNG test class")
-    @ReportOrphanedExecutors.Suppress(because = "Not a TestNG test class")
     private final ExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadsNamed(TestKillQuery.class.getSimpleName()));
 
     @Override
