@@ -64,7 +64,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Trino metadata provider for Accumulo.
- * Responsible for creating/dropping/listing tables, schemas, columns, all sorts of goodness. Heavily leverages {@link AccumuloClient}.
+ * Responsible for creating/dropping/listing tables, schemas, columns, all sorts of goodness. Heavily leverages {@link AccumuloMetadataManager}.
  */
 public class AccumuloMetadata
         implements ConnectorMetadata
@@ -72,20 +72,20 @@ public class AccumuloMetadata
     private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
             new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
 
-    private final AccumuloClient client;
+    private final AccumuloMetadataManager metadataManager;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
     @Inject
-    public AccumuloMetadata(AccumuloClient client)
+    public AccumuloMetadata(AccumuloMetadataManager metadataManager)
     {
-        this.client = requireNonNull(client, "client is null");
+        this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
     }
 
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
-        client.createSchema(schemaName);
+        metadataManager.createSchema(schemaName);
     }
 
     @Override
@@ -94,7 +94,7 @@ public class AccumuloMetadata
         if (cascade) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
         }
-        client.dropSchema(schemaName);
+        metadataManager.dropSchema(schemaName);
     }
 
     @Override
@@ -110,7 +110,7 @@ public class AccumuloMetadata
         checkNoRollback();
 
         SchemaTableName tableName = tableMetadata.getTable();
-        AccumuloTable table = client.createTable(tableMetadata);
+        AccumuloTable table = metadataManager.createTable(tableMetadata);
 
         AccumuloTableHandle handle = new AccumuloTableHandle(
                 tableName.getSchemaName(),
@@ -134,7 +134,7 @@ public class AccumuloMetadata
 
     private void rollbackCreateTable(AccumuloTable table)
     {
-        client.dropTable(table);
+        metadataManager.dropTable(table);
     }
 
     @Override
@@ -143,16 +143,16 @@ public class AccumuloMetadata
         if (tableMetadata.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
         }
-        client.createTable(tableMetadata);
+        metadataManager.createTable(tableMetadata);
     }
 
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
-        AccumuloTable table = client.getTable(handle.toSchemaTableName());
+        AccumuloTable table = metadataManager.getTable(handle.toSchemaTableName());
         if (table != null) {
-            client.dropTable(table);
+            metadataManager.dropTable(table);
         }
     }
 
@@ -160,12 +160,12 @@ public class AccumuloMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle,
             SchemaTableName newTableName)
     {
-        if (client.getTable(newTableName) != null) {
+        if (metadataManager.getTable(newTableName) != null) {
             throw new TrinoException(ACCUMULO_TABLE_EXISTS, "Table " + newTableName + " already exists");
         }
 
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
-        client.renameTable(handle.toSchemaTableName(), newTableName);
+        metadataManager.renameTable(handle.toSchemaTableName(), newTableName);
     }
 
     @Override
@@ -173,23 +173,23 @@ public class AccumuloMetadata
     {
         String viewData = VIEW_CODEC.toJson(definition);
         if (replace) {
-            client.createOrReplaceView(viewName, viewData);
+            metadataManager.createOrReplaceView(viewName, viewData);
         }
         else {
-            client.createView(viewName, viewData);
+            metadataManager.createView(viewName, viewData);
         }
     }
 
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        client.dropView(viewName);
+        metadataManager.dropView(viewName);
     }
 
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        return Optional.ofNullable(client.getView(viewName))
+        return Optional.ofNullable(metadataManager.getView(viewName))
                 .map(view -> VIEW_CODEC.fromJson(view.getData()));
     }
 
@@ -209,13 +209,13 @@ public class AccumuloMetadata
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         if (filterSchema.isPresent()) {
-            for (String view : client.getViewNames(filterSchema.get())) {
+            for (String view : metadataManager.getViewNames(filterSchema.get())) {
                 builder.add(new SchemaTableName(filterSchema.get(), view));
             }
         }
         else {
-            for (String schemaName : client.getSchemaNames()) {
-                for (String view : client.getViewNames(schemaName)) {
+            for (String schemaName : metadataManager.getSchemaNames()) {
+                for (String view : metadataManager.getViewNames(schemaName)) {
                     builder.add(new SchemaTableName(schemaName, view));
                 }
             }
@@ -264,7 +264,7 @@ public class AccumuloMetadata
 
         // Need to validate that SchemaTableName is a table
         if (!this.listViews(session, Optional.of(tableName.getSchemaName())).contains(tableName)) {
-            AccumuloTable table = client.getTable(tableName);
+            AccumuloTable table = metadataManager.getTable(tableName);
             if (table == null) {
                 return null;
             }
@@ -298,7 +298,7 @@ public class AccumuloMetadata
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
 
-        AccumuloTable table = client.getTable(handle.toSchemaTableName());
+        AccumuloTable table = metadataManager.getTable(handle.toSchemaTableName());
         if (table == null) {
             throw new TableNotFoundException(handle.toSchemaTableName());
         }
@@ -321,29 +321,29 @@ public class AccumuloMetadata
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
         AccumuloColumnHandle columnHandle = (AccumuloColumnHandle) source;
-        AccumuloTable table = client.getTable(handle.toSchemaTableName());
+        AccumuloTable table = metadataManager.getTable(handle.toSchemaTableName());
         if (table == null) {
             throw new TableNotFoundException(new SchemaTableName(handle.getSchema(), handle.getTable()));
         }
 
-        client.renameColumn(table, columnHandle.getName(), target);
+        metadataManager.renameColumn(table, columnHandle.getName(), target);
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.copyOf(client.getSchemaNames());
+        return ImmutableList.copyOf(metadataManager.getSchemaNames());
     }
 
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> filterSchema)
     {
         Set<String> schemaNames = filterSchema.<Set<String>>map(ImmutableSet::of)
-                .orElseGet(client::getSchemaNames);
+                .orElseGet(metadataManager::getSchemaNames);
 
         ImmutableSet.Builder<SchemaTableName> builder = ImmutableSet.builder();
         for (String schemaName : schemaNames) {
-            for (String tableName : client.getTableNames(schemaName)) {
+            for (String tableName : metadataManager.getTableNames(schemaName)) {
                 builder.add(new SchemaTableName(schemaName, tableName));
             }
         }
@@ -415,13 +415,13 @@ public class AccumuloMetadata
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
-        if (!client.getSchemaNames().contains(tableName.getSchemaName())) {
+        if (!metadataManager.getSchemaNames().contains(tableName.getSchemaName())) {
             return null;
         }
 
         // Need to validate that SchemaTableName is a table
         if (!this.listViews(Optional.ofNullable(tableName.getSchemaName())).contains(tableName)) {
-            AccumuloTable table = client.getTable(tableName);
+            AccumuloTable table = metadataManager.getTable(tableName);
             if (table == null) {
                 return null;
             }

@@ -53,8 +53,8 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.plugin.accumulo.AccumuloClient.getRangesFromDomain;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static io.trino.plugin.accumulo.AccumuloMetadataManager.getRangesFromDomain;
 import static io.trino.plugin.accumulo.conf.AccumuloSessionProperties.getIndexCardinalityCachePollingDuration;
 import static io.trino.plugin.accumulo.conf.AccumuloSessionProperties.getIndexSmallCardThreshold;
 import static io.trino.plugin.accumulo.conf.AccumuloSessionProperties.getIndexThreshold;
