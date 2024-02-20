@@ -1270,6 +1270,73 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testCustomDateFormat()
+            throws IOException
+    {
+        String indexName = "custom_date_format";
+        @Language("JSON")
+        String mapping = """
+                {
+                  "properties": {
+                    "ts1":{"type": "date", "format": "epoch_millis"},
+                    "ts2":{"type": "date", "format": "epoch_second"},
+                    "ts3":{"type": "date", "format": "strict_date_optional_time"},
+                    "ts4":{"type": "date", "format": "yyyy-MM-dd'T'HH:mm:ss.SSSZZ"},
+                    "ts5":{"type": "date", "format": "yyyy-MM-dd HH:mm:ss"},
+                    "ts6":{"type": "date_nanos", "format": "strict_date_optional_time_nanos"},
+                    "ts7":{"type": "date_nanos", "format": "yyyy-MM-dd HH:mm:ss.SSSSSSSSS"},
+                    "ts8":{"type": "date", "format": "yyyy-MM-dd HH:mm:ss||epoch_second"}
+                  }
+                }
+                """;
+        createIndex(indexName, mapping);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("ts1", 1667820637001L)
+                .put("ts2", 1667820637L)
+                .put("ts3", "2022-11-07T11:30:37.000+0000")
+                .put("ts4", "2022-11-07T19:30:37.001+0800")
+                .put("ts5", "2022-11-07 11:30:37")
+                .put("ts6", "2022-11-07T11:30:37.123456789+0800")
+                .put("ts7", "2022-11-07 11:30:37.123456789")
+                .put("ts8", 1667820637L)
+                .buildOrThrow());
+
+        assertThat(query(
+                "SELECT ts1 FROM custom_date_format"))
+                .matches("VALUES TIMESTAMP '2022-11-07 11:30:37.001'");
+        assertThat(query(
+                "SELECT ts2 FROM custom_date_format"))
+                .matches("VALUES TIMESTAMP '2022-11-07 11:30:37.000'");
+        assertThat(query(
+                "SELECT ts3 FROM custom_date_format"))
+                .matches("VALUES TIMESTAMP '2022-11-07 11:30:37.000'");
+        assertThat(query(
+                "SELECT ts4 FROM custom_date_format"))
+                .matches("VALUES TIMESTAMP '2022-11-07 11:30:37.001'");
+        assertThat(query(
+                "SELECT ts5 FROM custom_date_format"))
+                .matches("VALUES TIMESTAMP '2022-11-07 11:30:37.000'");
+        assertThat(query(
+                "SELECT ts6 FROM custom_date_format"))
+                .matches("VALUES TIMESTAMP '2022-11-07 03:30:37.123456789'");
+        assertThat(query(
+                "SELECT ts7 FROM custom_date_format"))
+                .matches("VALUES TIMESTAMP '2022-11-07 17:30:37.123456789'");
+
+        /* Here index a document with another date format to verify the compatibility because the mapping allows field
+           'ts6' accepts multiple formats.
+        */
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("ts8", "2022-11-07 11:30:37")
+                .buildOrThrow());
+
+        assertThat(query(
+                "SELECT ts8 FROM custom_date_format"))
+                .matches("VALUES (TIMESTAMP  '2022-11-07 11:30:37.000'), (TIMESTAMP '2022-11-07 11:30:37.000')");
+
+    }
+
+    @Test
     public void testTimestamps()
             throws IOException
     {
