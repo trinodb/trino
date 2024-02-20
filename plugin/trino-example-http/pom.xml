@@ -10,7 +10,7 @@
 
     <artifactId>trino-example-http</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Example HTTP Connector</description>
+    <description>Trino - Example HTTP connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

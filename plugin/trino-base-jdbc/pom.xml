@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-base-jdbc</artifactId>
-    <description>Trino - Base JDBC Connector</description>
+    <description>Trino - Base JDBC connector library</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

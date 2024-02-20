@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-grammar</artifactId>
+    <description>Trino - SQL grammar</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

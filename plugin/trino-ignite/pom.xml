@@ -11,7 +11,7 @@
 
     <artifactId>trino-ignite</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Ignite Connector</description>
+    <description>Trino - Ignite connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

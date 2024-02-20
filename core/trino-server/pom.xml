@@ -11,6 +11,7 @@
 
     <artifactId>trino-server</artifactId>
     <packaging>provisio</packaging>
+    <description>Trino - Server package</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

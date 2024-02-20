@@ -11,7 +11,7 @@
 
     <artifactId>trino-opensearch</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - OpenSearch Connector</description>
+    <description>Trino - OpenSearch connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

@@ -11,7 +11,7 @@
 
     <artifactId>trino-local-file</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Local File Connector</description>
+    <description>Trino - Local file connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

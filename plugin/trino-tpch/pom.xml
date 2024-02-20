@@ -10,7 +10,7 @@
 
     <artifactId>trino-tpch</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - TPC-H Connector</description>
+    <description>Trino - TPC-H connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
