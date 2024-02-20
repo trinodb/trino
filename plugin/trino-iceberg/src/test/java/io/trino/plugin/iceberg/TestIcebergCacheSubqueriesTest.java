@@ -152,4 +152,10 @@ public class TestIcebergCacheSubqueriesTest
     {
         return false;
     }
+
+    @Override
+    protected boolean effectivePredicateReturnedPerSplit()
+    {
+        return false;
+    }
 }

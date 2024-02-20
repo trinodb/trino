@@ -43,6 +43,8 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -610,6 +612,74 @@ public abstract class BaseCacheSubqueriesTest
         assertUpdate("drop table " + tableName);
     }
 
+    @Test
+    public void testEffectivePredicateReturnedPerSplit()
+    {
+        if (!effectivePredicateReturnedPerSplit()) {
+            abort("Effective predicate is not returned per split");
+        }
+
+        DistributedQueryRunner runner = getDistributedQueryRunner();
+        transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
+                .singleStatement()
+                .execute(getSession(), transactionSession -> {
+                    TestingTrinoServer coordinator = runner.getCoordinator();
+                    TestingTrinoServer worker = runner.getServers().get(0);
+                    checkState(!worker.isCoordinator());
+                    String catalog = transactionSession.getCatalog().orElseThrow();
+                    String schema = transactionSession.getSchema().orElseThrow();
+                    Metadata metadata = coordinator.getPlannerContext().getMetadata();
+                    TableHandle handle = metadata.getTableHandle(
+                            transactionSession,
+                            new QualifiedObjectName(catalog, schema, "lineitem")).orElseThrow();
+                    ConnectorTableHandle connectorTableHandle = handle.getConnectorHandle();
+                    ColumnHandle orderKeyColumn = metadata.getColumnHandles(transactionSession, handle).get("orderkey");
+
+                    // get table handle with filter applied
+                    TupleDomain<ColumnHandle> effectivePredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
+                            orderKeyColumn, Domain.singleValue(BIGINT, 17125L)));
+                    Optional<ConstraintApplicationResult<TableHandle>> filterResult = metadata.applyFilter(
+                            transactionSession,
+                            handle,
+                            new Constraint(effectivePredicate));
+                    assertThat(filterResult).isPresent();
+                    TableHandle handleWithFilter = filterResult.get().getAlternatives().get(0).handle();
+                    ConnectorTableHandle connectorTableHandleWithFilter = handleWithFilter.getConnectorHandle();
+
+                    // make sure cache table ids are same for both table handles
+                    CacheMetadata cacheMetadata = runner.getCacheMetadata();
+                    assertThat(cacheMetadata.getCacheTableId(transactionSession, handle)).isEqualTo(cacheMetadata.getCacheTableId(transactionSession, handleWithFilter));
+
+                    // make sure effective predicate is propagated as part of split id
+                    SplitSource splitSource = coordinator.getSplitManager().getSplits(transactionSession, Span.current(), handle, DynamicFilter.EMPTY, alwaysTrue());
+                    ConnectorSplit split = getFutureValue(splitSource.getNextBatch(1000)).getSplits().get(0).getConnectorSplit();
+
+                    SplitSource splitSourceWithFilter = coordinator.getSplitManager().getSplits(transactionSession, Span.current(), handleWithFilter, DynamicFilter.EMPTY, alwaysTrue());
+                    ConnectorSplit splitWithFilter = getFutureValue(splitSourceWithFilter.getNextBatch(1000)).getSplits().get(0).getConnectorSplit();
+
+                    ConnectorPageSourceProvider pageSourceProvider = getPageSourceProvider(worker.getConnector(coordinator.getCatalogHandle(catalog)));
+                    ConnectorSession connectorSession = transactionSession.toConnectorSession(metadata.getCatalogHandle(transactionSession, catalog).orElseThrow());
+
+                    // split for original table handle doesn't propagate any effective predicate
+                    assertThat(pageSourceProvider.getUnenforcedPredicate(connectorSession, split, connectorTableHandle, TupleDomain.all()))
+                            .isEqualTo(TupleDomain.all());
+                    // split for filtered table handle should propagate effective predicate
+                    assertThat(pageSourceProvider.getUnenforcedPredicate(connectorSession, splitWithFilter, connectorTableHandleWithFilter, TupleDomain.all()))
+                            .isEqualTo(effectivePredicate);
+
+                    if (supportsDataColumnPruning()) {
+                        // make sure prunePredicate removes predicates that evaluate to ALL for a split
+                        assertThat(pageSourceProvider.prunePredicate(
+                                connectorSession,
+                                splitWithFilter,
+                                connectorTableHandleWithFilter,
+                                TupleDomain.withColumnDomains(ImmutableMap.of(
+                                        orderKeyColumn, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 60_000L)), false)))))
+                                .isEqualTo(TupleDomain.all());
+                    }
+                });
+    }
+
     private ConnectorPageSourceProvider getPageSourceProvider(Connector workerConnector)
     {
         ConnectorPageSourceProvider pageSourceProvider = null;
@@ -656,6 +726,11 @@ public abstract class BaseCacheSubqueriesTest
                     TableHandle tableHandle = metadata.getTableHandle(transactionSession, table).get();
                     return new CacheColumnId("[" + cacheMetadata.getCacheColumnId(transactionSession, tableHandle, metadata.getColumnHandles(transactionSession, tableHandle).get(columnName)).get() + "]");
                 });
+    }
+
+    protected boolean effectivePredicateReturnedPerSplit()
+    {
+        return true;
     }
 
     protected boolean supportsDataColumnPruning()

@@ -90,4 +90,10 @@ public class TestTpchCacheSubqueriesTest
     {
         return false;
     }
+
+    @Override
+    protected boolean effectivePredicateReturnedPerSplit()
+    {
+        return false;
+    }
 }
