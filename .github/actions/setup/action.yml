@@ -47,9 +47,7 @@ runs:
         if: ${{ format('{0}', inputs.cache) == 'true' }}
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.m2/repository
-            /tmp/pt_java_downloads
+          path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
