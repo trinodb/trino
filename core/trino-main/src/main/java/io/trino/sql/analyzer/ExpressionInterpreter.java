@@ -63,9 +63,11 @@ import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ComparisonExpression.Operator;
 import io.trino.sql.tree.CurrentCatalog;
+import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
@@ -84,6 +86,8 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
@@ -1025,35 +1029,53 @@ public class ExpressionInterpreter
         }
 
         @Override
+        protected Object visitCurrentDate(CurrentDate node, Object context)
+        {
+            return functionInvoker.invoke(
+                    plannerContext.getMetadata()
+                            .resolveBuiltinFunction("current_date", ImmutableList.of()),
+                    connectorSession,
+                    ImmutableList.of());
+        }
+
+        @Override
         protected Object visitCurrentTime(CurrentTime node, Object context)
         {
-            return switch (node.getFunction()) {
-                case DATE -> functionInvoker.invoke(
-                        plannerContext.getMetadata()
-                                .resolveBuiltinFunction("current_date", ImmutableList.of()),
-                        connectorSession,
-                        ImmutableList.of());
-                case TIME -> functionInvoker.invoke(
-                        plannerContext.getMetadata()
-                                .resolveBuiltinFunction("$current_time", TypeSignatureProvider.fromTypes(type(node))),
-                        connectorSession,
-                        singletonList(null));
-                case LOCALTIME -> functionInvoker.invoke(
-                        plannerContext.getMetadata()
-                                .resolveBuiltinFunction("$localtime", TypeSignatureProvider.fromTypes(type(node))),
-                        connectorSession,
-                        singletonList(null));
-                case TIMESTAMP -> functionInvoker.invoke(
-                        plannerContext.getMetadata()
-                                .resolveBuiltinFunction("$current_timestamp", TypeSignatureProvider.fromTypes(type(node))),
-                        connectorSession,
-                        singletonList(null));
-                case LOCALTIMESTAMP -> functionInvoker.invoke(
-                        plannerContext.getMetadata()
-                                .resolveBuiltinFunction("$localtimestamp", TypeSignatureProvider.fromTypes(type(node))),
-                        connectorSession,
-                        singletonList(null));
-            };
+            return functionInvoker.invoke(
+                    plannerContext.getMetadata()
+                            .resolveBuiltinFunction("$current_time", TypeSignatureProvider.fromTypes(type(node))),
+                    connectorSession,
+                    singletonList(null));
+        }
+
+        @Override
+        protected Object visitCurrentTimestamp(CurrentTimestamp node, Object context)
+        {
+            return functionInvoker.invoke(
+                    plannerContext.getMetadata()
+                            .resolveBuiltinFunction("$current_timestamp", TypeSignatureProvider.fromTypes(type(node))),
+                    connectorSession,
+                    singletonList(null));
+        }
+
+        @Override
+        protected Object visitLocalTime(LocalTime node, Object context)
+        {
+            return functionInvoker.invoke(
+                    plannerContext.getMetadata()
+                            .resolveBuiltinFunction("$localtime", TypeSignatureProvider.fromTypes(type(node))),
+                    connectorSession,
+                    singletonList(null));
+        }
+
+        @Override
+        protected Object visitLocalTimestamp(LocalTimestamp node, Object context)
+        {
+            return functionInvoker.invoke(
+                    plannerContext.getMetadata()
+                            .resolveBuiltinFunction("$localtimestamp", TypeSignatureProvider.fromTypes(type(node))),
+                    connectorSession,
+                    singletonList(null));
         }
 
         @Override

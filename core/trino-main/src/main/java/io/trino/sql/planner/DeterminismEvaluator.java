@@ -15,10 +15,14 @@ package io.trino.sql.planner;
 
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -72,16 +76,44 @@ public final class DeterminismEvaluator
     {
         requireNonNull(expression, "expression is null");
 
-        AtomicBoolean currentTime = new AtomicBoolean(false);
-        new CurrentTimeVisitor().process(expression, currentTime);
-        return currentTime.get();
+        AtomicBoolean hasTemporalFunction = new AtomicBoolean(false);
+        new TemporalFunctionVisitor().process(expression, hasTemporalFunction);
+        return hasTemporalFunction.get();
     }
 
-    private static class CurrentTimeVisitor
+    private static class TemporalFunctionVisitor
             extends DefaultExpressionTraversalVisitor<AtomicBoolean>
     {
         @Override
+        protected Void visitCurrentDate(CurrentDate node, AtomicBoolean currentTime)
+        {
+            currentTime.set(true);
+            return null;
+        }
+
+        @Override
         protected Void visitCurrentTime(CurrentTime node, AtomicBoolean currentTime)
+        {
+            currentTime.set(true);
+            return null;
+        }
+
+        @Override
+        protected Void visitCurrentTimestamp(CurrentTimestamp node, AtomicBoolean currentTime)
+        {
+            currentTime.set(true);
+            return null;
+        }
+
+        @Override
+        protected Void visitLocalTime(LocalTime node, AtomicBoolean currentTime)
+        {
+            currentTime.set(true);
+            return null;
+        }
+
+        @Override
+        protected Void visitLocalTimestamp(LocalTimestamp node, AtomicBoolean currentTime)
         {
             currentTime.set(true);
             return null;

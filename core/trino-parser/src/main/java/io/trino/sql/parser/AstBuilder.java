@@ -58,9 +58,11 @@ import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.CurrentCatalog;
+import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DataTypeParameter;
@@ -160,6 +162,8 @@ import io.trino.sql.tree.LeaveStatement;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.LoopStatement;
@@ -2345,15 +2349,50 @@ class AstBuilder
     }
 
     @Override
-    public Node visitSpecialDateTimeFunction(SqlBaseParser.SpecialDateTimeFunctionContext context)
+    public Node visitCurrentDate(SqlBaseParser.CurrentDateContext context)
     {
-        CurrentTime.Function function = getDateTimeFunctionType(context.name);
+        return new CurrentDate(getLocation(context));
+    }
 
-        if (context.precision != null) {
-            return new CurrentTime(getLocation(context), function, Integer.parseInt(context.precision.getText()));
+    @Override
+    public Node visitLocalTimestamp(SqlBaseParser.LocalTimestampContext context)
+    {
+        return parsePrecision(context.precision)
+                .map(precision -> new LocalTimestamp(getLocation(context), precision))
+                .orElseGet(() -> new LocalTimestamp(getLocation(context)));
+    }
+
+    @Override
+    public Node visitCurrentTime(SqlBaseParser.CurrentTimeContext context)
+    {
+        return parsePrecision(context.precision)
+                .map(precision -> new CurrentTime(getLocation(context), precision))
+                .orElseGet(() -> new CurrentTime(getLocation(context)));
+    }
+
+    @Override
+    public Node visitLocalTime(SqlBaseParser.LocalTimeContext context)
+    {
+        return parsePrecision(context.precision)
+                .map(precision -> new LocalTime(getLocation(context), precision))
+                .orElseGet(() -> new LocalTime(getLocation(context)));
+    }
+
+    @Override
+    public Node visitCurrentTimestamp(SqlBaseParser.CurrentTimestampContext context)
+    {
+        return parsePrecision(context.precision)
+                .map(precision -> new CurrentTimestamp(getLocation(context), precision))
+                .orElseGet(() -> new CurrentTimestamp(getLocation(context)));
+    }
+
+    private static Optional<Integer> parsePrecision(Token precision)
+    {
+        if (precision == null) {
+            return Optional.empty();
         }
 
-        return new CurrentTime(getLocation(context), function);
+        return Optional.of(Integer.parseInt(precision.getText()));
     }
 
     @Override
@@ -4101,18 +4140,6 @@ class AstBuilder
             case SqlBaseLexer.GT -> ComparisonExpression.Operator.GREATER_THAN;
             case SqlBaseLexer.GTE -> ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
             default -> throw new IllegalArgumentException("Unsupported operator: " + symbol.getText());
-        };
-    }
-
-    private static CurrentTime.Function getDateTimeFunctionType(Token token)
-    {
-        return switch (token.getType()) {
-            case SqlBaseLexer.CURRENT_DATE -> CurrentTime.Function.DATE;
-            case SqlBaseLexer.CURRENT_TIME -> CurrentTime.Function.TIME;
-            case SqlBaseLexer.CURRENT_TIMESTAMP -> CurrentTime.Function.TIMESTAMP;
-            case SqlBaseLexer.LOCALTIME -> CurrentTime.Function.LOCALTIME;
-            case SqlBaseLexer.LOCALTIMESTAMP -> CurrentTime.Function.LOCALTIMESTAMP;
-            default -> throw new IllegalArgumentException("Unsupported special function: " + token.getText());
         };
     }
 

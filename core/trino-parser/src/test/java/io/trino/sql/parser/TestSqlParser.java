@@ -44,7 +44,7 @@ import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
-import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.Delete;
@@ -1255,7 +1255,7 @@ public class TestSqlParser
     {
         NodeLocation location = new NodeLocation(1, 1);
         assertThat(expression("CURRENT_TIMESTAMP"))
-                .isEqualTo(new CurrentTime(location, CurrentTime.Function.TIMESTAMP));
+                .isEqualTo(new CurrentTimestamp(location));
     }
 
     @Test
@@ -2893,7 +2893,7 @@ public class TestSqlParser
                                                         ArithmeticBinaryExpression.Operator.ADD,
                                                         nameReference("qty"),
                                                         nameReference("c", "qty"))),
-                                                new MergeUpdate.Assignment(new Identifier("ts"), new CurrentTime(CurrentTime.Function.TIMESTAMP)))),
+                                                new MergeUpdate.Assignment(new Identifier("ts"), new CurrentTimestamp(location)))),
                                 new MergeDelete(
                                         Optional.of(equal(nameReference("c", "action"), new StringLiteral("del")))),
                                 new MergeInsert(

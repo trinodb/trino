@@ -16,43 +16,20 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
-public final class CurrentTime
+public final class CurrentDate
         extends Expression
 {
-    private final Optional<Integer> precision;
-
-    public CurrentTime(NodeLocation location, int precision)
-    {
-        this(location, Optional.of(precision));
-    }
-
-    public CurrentTime(NodeLocation location)
-    {
-        this(location, Optional.empty());
-    }
-
-    private CurrentTime(NodeLocation location, Optional<Integer> precision)
+    public CurrentDate(NodeLocation location)
     {
         super(Optional.of(location));
-
-        requireNonNull(precision, "precision is null");
-        this.precision = precision;
-    }
-
-    public Optional<Integer> getPrecision()
-    {
-        return precision;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitCurrentTime(this, context);
+        return visitor.visitCurrentDate(this, context);
     }
 
     @Override
@@ -67,27 +44,18 @@ public final class CurrentTime
         if (this == o) {
             return true;
         }
-        if ((o == null) || (getClass() != o.getClass())) {
-            return false;
-        }
-        CurrentTime that = (CurrentTime) o;
-        return Objects.equals(precision, that.precision);
+        return (o != null) && (getClass() == o.getClass());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(precision);
+        return CurrentDate.class.hashCode();
     }
 
     @Override
     public boolean shallowEquals(Node other)
     {
-        if (!sameClass(this, other)) {
-            return false;
-        }
-
-        CurrentTime otherNode = (CurrentTime) other;
-        return Objects.equals(precision, otherNode.precision);
+        return sameClass(this, other);
     }
 }
