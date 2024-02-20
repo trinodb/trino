@@ -20,6 +20,7 @@ import jakarta.validation.constraints.NotEmpty;
 public class AzureAuthOAuthConfig
 {
     private String clientEndpoint;
+    private String tenantId;
     private String clientId;
     private String clientSecret;
 
@@ -34,6 +35,20 @@ public class AzureAuthOAuthConfig
     public AzureAuthOAuthConfig setClientEndpoint(String clientEndpoint)
     {
         this.clientEndpoint = clientEndpoint;
+        return this;
+    }
+
+    @NotEmpty
+    public String getTenantId()
+    {
+        return tenantId;
+    }
+
+    @ConfigSecuritySensitive
+    @Config("azure.oauth.tenant-id")
+    public AzureAuthOAuthConfig setTenantId(String tenantId)
+    {
+        this.tenantId = tenantId;
         return this;
     }
 
