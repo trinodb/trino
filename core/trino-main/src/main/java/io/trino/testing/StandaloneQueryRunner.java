@@ -48,11 +48,13 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static java.util.Objects.requireNonNull;
 
@@ -65,6 +67,8 @@ public final class StandaloneQueryRunner
     private final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final AtomicInteger concurrentQueries = new AtomicInteger();
+    private boolean spansValid = true;
 
     public StandaloneQueryRunner(Session defaultSession)
     {
@@ -94,6 +98,7 @@ public final class StandaloneQueryRunner
     @Override
     public List<SpanData> getSpans()
     {
+        checkState(spansValid, "No valid spans, queries were executing concurrently");
         return spanExporter.getFinishedSpanItems();
     }
 
@@ -114,8 +119,14 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            spanExporter.reset();
-            return trinoClient.execute(session, sql);
+            spansValid = concurrentQueries.incrementAndGet() == 1;
+            try {
+                spanExporter.reset();
+                return trinoClient.execute(session, sql);
+            }
+            finally {
+                concurrentQueries.decrementAndGet();
+            }
         }
         catch (Throwable e) {
             e.addSuppressed(new Exception("SQL: " + sql));
@@ -132,9 +143,15 @@ public final class StandaloneQueryRunner
         // session must be in a transaction registered with the transaction manager in this query runner
         getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
-        spanExporter.reset();
-        Statement statement = server.getInstance(Key.get(SqlParser.class)).createStatement(sql);
-        return server.getQueryExplainer().getLogicalPlan(session, statement, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+        spansValid = concurrentQueries.incrementAndGet() == 1;
+        try {
+            spanExporter.reset();
+            Statement statement = server.getInstance(Key.get(SqlParser.class)).createStatement(sql);
+            return server.getQueryExplainer().getLogicalPlan(session, statement, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+        }
+        finally {
+            concurrentQueries.decrementAndGet();
+        }
     }
 
     @Override
