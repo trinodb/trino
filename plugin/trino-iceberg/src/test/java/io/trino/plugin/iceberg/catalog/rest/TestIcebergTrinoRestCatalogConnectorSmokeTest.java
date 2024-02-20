@@ -21,7 +21,6 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testng.services.ManageTestResources;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -54,7 +53,6 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
 {
     private File warehouseLocation;
 
-    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private Catalog backend;
 
     public TestIcebergTrinoRestCatalogConnectorSmokeTest()

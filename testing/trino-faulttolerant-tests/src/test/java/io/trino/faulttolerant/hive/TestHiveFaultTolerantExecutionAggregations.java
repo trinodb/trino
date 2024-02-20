@@ -18,7 +18,6 @@ import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestFaultTolerantExecutionAggregations;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.ManageTestResources;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
 
@@ -32,7 +31,6 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestHiveFaultTolerantExecutionAggregations
         extends AbstractTestFaultTolerantExecutionAggregations
 {
-    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private MinioStorage minioStorage;
 
     @Override
