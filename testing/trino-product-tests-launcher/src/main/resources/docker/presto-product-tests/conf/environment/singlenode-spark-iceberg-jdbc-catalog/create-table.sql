@@ -16,6 +16,5 @@ CREATE TABLE iceberg_tables (
     table_name VARCHAR(255) NOT NULL,
     metadata_location VARCHAR(5500),
     previous_metadata_location VARCHAR(5500),
-    iceberg_type VARCHAR(100),
     PRIMARY KEY (catalog_name, table_namespace, table_name)
 );
