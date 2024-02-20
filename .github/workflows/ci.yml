@@ -50,12 +50,13 @@ concurrency:
 jobs:
   maven-checks:
     runs-on: ubuntu-latest
+    name: maven-checks ${{ matrix.java-version }}
     strategy:
       fail-fast: false
       matrix:
-        java-version:
-          - 21
-          - 22-ea
+        include:
+          - { java-version: 21, cache: 'true', cleanup-node: 'false' }
+          - { java-version: 22-ea, cache: 'restore', cleanup-node: 'true' }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -67,9 +68,9 @@ jobs:
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
         with:
-          cache: ${{ matrix.java-version == '21' && 'true' || 'restore' }}
+          cache: ${{ matrix.cache }}
           java-version: ${{ matrix.java-version }}
-          cleanup-node: true
+          cleanup-node: ${{ matrix.cleanup-node }}
       - name: Check SPI backward compatibility
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -81,7 +82,7 @@ jobs:
           $MAVEN clean verify -B --strict-checksums -V -T 1C -b smart -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
-        if: steps.cache.outputs.cache-hit != 'true' && matrix.java-version == '21'
+        if: steps.cache.outputs.cache-hit != 'true' && matrix.cache == 'true'
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   artifact-checks:
