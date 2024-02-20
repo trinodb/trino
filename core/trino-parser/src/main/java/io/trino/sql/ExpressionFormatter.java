@@ -30,9 +30,11 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CurrentCatalog;
+import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.DecimalLiteral;
@@ -70,6 +72,8 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
@@ -220,17 +224,51 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitCurrentDate(CurrentDate node, Void context)
+        {
+            return "current_date";
+        }
+
+        @Override
         protected String visitCurrentTime(CurrentTime node, Void context)
         {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(node.getFunction().getName());
+            builder.append("current_time");
+            node.getPrecision().ifPresent(precision -> builder.append('(').append(precision).append(')'));
 
-            if (node.getPrecision() != null) {
-                builder.append('(')
-                        .append(node.getPrecision())
-                        .append(')');
-            }
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitCurrentTimestamp(CurrentTimestamp node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("current_timestamp");
+            node.getPrecision().ifPresent(precision -> builder.append('(').append(precision).append(')'));
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitLocalTime(LocalTime node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("localtime");
+            node.getPrecision().ifPresent(precision -> builder.append('(').append(precision).append(')'));
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitLocalTimestamp(LocalTimestamp node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("localtimestamp");
+            node.getPrecision().ifPresent(precision -> builder.append('(').append(precision).append(')'));
 
             return builder.toString();
         }
