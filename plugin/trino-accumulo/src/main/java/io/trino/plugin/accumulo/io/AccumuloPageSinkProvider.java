@@ -14,7 +14,7 @@
 package io.trino.plugin.accumulo.io;
 
 import com.google.inject.Inject;
-import io.trino.plugin.accumulo.AccumuloClient;
+import io.trino.plugin.accumulo.AccumuloMetadataManager;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.accumulo.model.AccumuloTableHandle;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloPageSinkProvider
         implements ConnectorPageSinkProvider
 {
-    private final AccumuloClient client;
+    private final AccumuloMetadataManager metadataManager;
     private final Connector connector;
     private final String username;
 
@@ -44,9 +44,9 @@ public class AccumuloPageSinkProvider
     public AccumuloPageSinkProvider(
             Connector connector,
             AccumuloConfig config,
-            AccumuloClient client)
+            AccumuloMetadataManager metadataManager)
     {
-        this.client = requireNonNull(client, "client is null");
+        this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.connector = requireNonNull(connector, "connector is null");
         this.username = config.getUsername();
     }
@@ -55,7 +55,7 @@ public class AccumuloPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
     {
         AccumuloTableHandle tableHandle = (AccumuloTableHandle) outputTableHandle;
-        return new AccumuloPageSink(connector, client.getTable(tableHandle.toSchemaTableName()), username);
+        return new AccumuloPageSink(connector, metadataManager.getTable(tableHandle.toSchemaTableName()), username);
     }
 
     @Override
