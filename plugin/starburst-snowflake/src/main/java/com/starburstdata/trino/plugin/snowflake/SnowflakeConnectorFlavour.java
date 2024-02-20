@@ -12,7 +12,6 @@ package com.starburstdata.trino.plugin.snowflake;
 public enum SnowflakeConnectorFlavour
 {
     JDBC("snowflake_jdbc"),
-    DISTRIBUTED("snowflake_distributed"),
     PARALLEL("snowflake_parallel");
 
     private final String name;

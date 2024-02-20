@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.starburstdata.trino.plugin.snowflake.SnowflakeConnectorFlavour.DISTRIBUTED;
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeConnectorFlavour.JDBC;
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeConnectorFlavour.PARALLEL;
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeServer.JDBC_URL;
@@ -51,14 +50,6 @@ public class SnowflakeQueryRunner
     public static final String TEST_SCHEMA = "test_schema_2";
 
     public static final String ALICE_USER = "alice";
-
-    public static Builder distributedBuilder()
-    {
-        return new Builder(DISTRIBUTED.getName())
-                .withConnectorProperties(ImmutableMap.of(
-                        "snowflake.stage-schema", TEST_SCHEMA,
-                        "snowflake.retry-canceled-queries", "true"));
-    }
 
     public static Map<String, String> impersonationDisabled()
     {

@@ -27,35 +27,25 @@ public class TestSnowflakePlugin
     {
         Plugin plugin = new TestingSnowflakePlugin();
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(plugin.getConnectorFactories());
-        assertThat(connectorFactories.size()).isEqualTo(3);
+        assertThat(connectorFactories.size()).isEqualTo(2);
 
         connectorFactories.get(0).create("test",
-                ImmutableMap.of(
-                        "connection-url", "jdbc:snowflake:test",
-                        "snowflake.role", "test",
-                        "snowflake.database", "test",
-                        "snowflake.warehouse", "test"),
-                new TestingConnectorContext())
+                        ImmutableMap.of(
+                                "connection-url", "jdbc:snowflake:test",
+                                "snowflake.role", "test",
+                                "snowflake.database", "test",
+                                "snowflake.warehouse", "test"),
+                        new TestingConnectorContext())
                 .shutdown();
 
         connectorFactories.get(1).create(
-                "test",
-                ImmutableMap.of(
-                        "connection-url", "jdbc:snowflake:test",
-                        "snowflake.database", "test",
-                        "snowflake.stage-schema", "test",
-                        "snowflake.warehouse", "test"),
-                new TestingConnectorContext())
-                .shutdown();
-
-        connectorFactories.get(2).create(
-                "test",
-                ImmutableMap.of(
-                        "connection-url", "jdbc:snowflake:test",
-                        "snowflake.role", "test",
-                        "snowflake.database", "test",
-                        "snowflake.warehouse", "test"),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.of(
+                                "connection-url", "jdbc:snowflake:test",
+                                "snowflake.role", "test",
+                                "snowflake.database", "test",
+                                "snowflake.warehouse", "test"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
@@ -64,28 +54,19 @@ public class TestSnowflakePlugin
     {
         Plugin plugin = new TestingSnowflakePlugin();
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(plugin.getConnectorFactories());
-        assertThat(connectorFactories.size()).isEqualTo(3);
 
-        int created = 0;
         for (ConnectorFactory factory : connectorFactories) {
-            try {
-                factory.create(
-                                "test",
-                                ImmutableMap.of(
-                                        "connection-url", "jdbc:snowflake:test",
-                                        "snowflake.database", "test",
-                                        "snowflake.warehouse", "test",
-                                        "snowflake.proxy.enabled", "true",
-                                        "snowflake.proxy.host", "localhost",
-                                        "snowflake.proxy.port", "9000"),
-                                new TestingConnectorContext())
-                        .shutdown();
-                created++;
-            }
-            catch (Exception e) {
-                assertThat(e).hasMessageContaining("Distributed connector does not support proxy settings");
-            }
+            factory.create(
+                            "test",
+                            ImmutableMap.of(
+                                    "connection-url", "jdbc:snowflake:test",
+                                    "snowflake.database", "test",
+                                    "snowflake.warehouse", "test",
+                                    "snowflake.proxy.enabled", "true",
+                                    "snowflake.proxy.host", "localhost",
+                                    "snowflake.proxy.port", "9000"),
+                            new TestingConnectorContext())
+                    .shutdown();
         }
-        assertThat(created).isEqualTo(2); // parallel and jdbc should succeed while distributed will fail
     }
 }

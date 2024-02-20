@@ -21,8 +21,8 @@ import java.io.IOException;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
-import static com.starburstdata.trino.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
+import static com.starburstdata.trino.plugin.snowflake.SnowflakeQueryRunner.parallelBuilder;
 import static io.trino.tpch.TpchTable.ORDERS;
 
 public class TestSnowflakeDynamicFiltering
@@ -47,7 +47,7 @@ public class TestSnowflakeDynamicFiltering
 
     protected SnowflakeQueryRunner.Builder createBuilder()
     {
-        return distributedBuilder();
+        return parallelBuilder();
     }
 
     // In the distributed SF connector, the page source on worker will accept and use dynamic filter

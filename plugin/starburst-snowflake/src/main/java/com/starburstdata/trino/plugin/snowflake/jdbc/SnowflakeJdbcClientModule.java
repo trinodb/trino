@@ -54,7 +54,6 @@ import java.util.regex.Pattern;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static com.starburstdata.trino.plugin.snowflake.SnowflakeConnectorFlavour.DISTRIBUTED;
 import static com.starburstdata.trino.plugin.snowflake.jdbc.SnowflakeClient.SNOWFLAKE_MAX_LIST_EXPRESSIONS;
 import static com.starburstdata.trino.plugin.snowflake.jdbc.SnowflakeJdbcSessionProperties.WAREHOUSE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -118,10 +117,6 @@ public class SnowflakeJdbcClientModule
         SnowflakeConfig snowflakeConfig = buildConfigObject(SnowflakeConfig.class);
 
         if (snowflakeConfig.isProxyEnabled()) {
-            if (connectorFlavour == DISTRIBUTED) {
-                binder.addError("Distributed connector does not support proxy settings");
-            }
-
             configBinder(binder).bindConfig(SnowflakeProxyConfig.class);
             newOptionalBinder(binder, Key.get(Properties.class, ForSnowflakeConnectionFactory.class))
                     .setBinding()
@@ -129,10 +124,7 @@ public class SnowflakeJdbcClientModule
                     .in(SINGLETON);
         }
 
-        if (connectorFlavour != DISTRIBUTED) {
-            // The distributed connector doesn't use JDBC for query results fetching so query passthrough doesn't work as expected
-            newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(SINGLETON);
-        }
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(SINGLETON);
     }
 
     @Provides

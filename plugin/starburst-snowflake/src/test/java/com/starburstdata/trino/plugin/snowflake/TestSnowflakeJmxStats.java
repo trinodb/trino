@@ -23,8 +23,8 @@ import java.io.IOException;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
-import static com.starburstdata.trino.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
+import static com.starburstdata.trino.plugin.snowflake.SnowflakeQueryRunner.parallelBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -43,7 +43,7 @@ public class TestSnowflakeJmxStats
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return distributedBuilder()
+        return parallelBuilder()
                 .withServer(server)
                 .withDatabase(Optional.of(testDatabase.getName()))
                 .withCatalog(catalogName)

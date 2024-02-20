@@ -10,14 +10,12 @@
 package com.starburstdata.trino.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.trino.plugin.snowflake.distributed.SnowflakeDistributedConnectorFactory;
 import com.starburstdata.trino.plugin.snowflake.jdbc.SnowflakeJdbcClientModule;
 import com.starburstdata.trino.plugin.snowflake.parallel.SnowflakeParallelConnectorFactory;
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
-import static com.starburstdata.trino.plugin.snowflake.SnowflakeConnectorFlavour.DISTRIBUTED;
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeConnectorFlavour.JDBC;
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeConnectorFlavour.PARALLEL;
 
@@ -31,7 +29,6 @@ public class SnowflakePlugin
                 new JdbcConnectorFactory(
                         JDBC.getName(),
                         new SnowflakeJdbcClientModule(JDBC)),
-                new SnowflakeDistributedConnectorFactory(DISTRIBUTED.getName()),
                 new SnowflakeParallelConnectorFactory(PARALLEL.getName()));
     }
 }
