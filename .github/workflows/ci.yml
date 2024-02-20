@@ -1104,6 +1104,7 @@ jobs:
             - suite-clients
             - suite-functions
             - suite-synapse
+            - suite-snowflake
             - suite-tpch
             - suite-tpcds
             - suite-storage-formats-detailed
@@ -1201,6 +1202,8 @@ jobs:
           SYNAPSE_ENDPOINT:
           SYNAPSE_USER:
           SYNAPSE_PASSWORD:
+          SNOWFLAKE_ACCOUNT_NAME:
+          SNOWFLAKE_PASSWORD:
           TESTCONTAINERS_NEVER_PULL: true
         run: |
           # converts filtered YAML file into JSON
@@ -1267,6 +1270,8 @@ jobs:
           SYNAPSE_ENDPOINT: ${{ secrets.SYNAPSE_ENDPOINT }}
           SYNAPSE_USER: ${{ secrets.SYNAPSE_USER }}
           SYNAPSE_PASSWORD: ${{ secrets.SYNAPSE_PASSWORD }}
+          SNOWFLAKE_ACCOUNT_NAME: ${{ secrets.SNOWFLAKE_ACCOUNT_NAME }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
         run: |
