@@ -108,10 +108,10 @@ public final class CoercionUtils
             return Optional.of(new VarcharToIntegerNumberCoercer<>(fromVarcharType, toType));
         }
         if (fromType instanceof VarcharType varcharType && toHiveType.equals(HIVE_DOUBLE)) {
-            return Optional.of(new VarcharToDoubleCoercer(varcharType, coercionContext.treatNaNAsNull()));
+            return Optional.of(new VarcharToDoubleCoercer(varcharType, coercionContext.isOrcFile()));
         }
         if (fromType instanceof VarcharType varcharType && toHiveType.equals(HIVE_FLOAT)) {
-            return Optional.of(new VarcharToFloatCoercer(varcharType, coercionContext.treatNaNAsNull()));
+            return Optional.of(new VarcharToFloatCoercer(varcharType, coercionContext.isOrcFile()));
         }
         if (fromType instanceof VarcharType varcharType && toType instanceof TimestampType timestampType) {
             if (timestampType.isShort()) {
@@ -225,7 +225,7 @@ public final class CoercionUtils
             return Optional.of(new DateToVarcharCoercer(toVarcharType));
         }
         if (fromType == DOUBLE && toType instanceof VarcharType toVarcharType) {
-            return Optional.of(new DoubleToVarcharCoercer(toVarcharType, coercionContext.treatNaNAsNull()));
+            return Optional.of(new DoubleToVarcharCoercer(toVarcharType, coercionContext.isOrcFile()));
         }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
             return createCoercerForList(
@@ -508,7 +508,7 @@ public final class CoercionUtils
         }
     }
 
-    public record CoercionContext(HiveTimestampPrecision timestampPrecision, boolean treatNaNAsNull)
+    public record CoercionContext(HiveTimestampPrecision timestampPrecision, boolean isOrcFile)
     {
         public CoercionContext
         {

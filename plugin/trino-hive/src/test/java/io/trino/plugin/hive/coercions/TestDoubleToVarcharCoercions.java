@@ -89,9 +89,9 @@ public class TestDoubleToVarcharCoercions
                 .hasMessageContaining("Varchar representation of NaN exceeds varchar(1) bounds");
     }
 
-    public static void assertCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue, boolean treatNaNAsNull)
+    public static void assertCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue, boolean isOrcFile)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, treatNaNAsNull)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, isOrcFile)).orElseThrow()
                 .apply(nativeValueToBlock(fromType, valueToBeCoerced));
         assertThat(blockToNativeValue(toType, coercedValue))
                 .isEqualTo(expectedValue);
