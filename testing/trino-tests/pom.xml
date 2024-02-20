@@ -414,6 +414,13 @@
             <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>2.1</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

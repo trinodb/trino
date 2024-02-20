@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   path-filters:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     outputs:
       docs: ${{ steps.filter.outputs.docs }}
       other: ${{ steps.filter.outputs.other }}
@@ -45,7 +45,7 @@ jobs:
   docs-checks:
     needs: path-filters
     if: ${{ needs.path-filters.outputs.docs == 'true' && needs.path-filters.outputs.other == 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +69,7 @@ jobs:
   test-docs:
     needs: path-filters
     if: ${{ needs.path-filters.outputs.docs == 'true' && needs.path-filters.outputs.other == 'false' && !contains(github.event.pull_request.labels.*.name, 'release-notes') }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     strategy:
       fail-fast: false
       matrix:

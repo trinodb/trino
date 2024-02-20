@@ -10,7 +10,7 @@ permissions:
 # NOTE: Do not check out/execute code from the PR since a read-write token is present due to pull_request_target
 jobs:
   triage:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     steps:
       - uses: actions/labeler@v4
         with:
