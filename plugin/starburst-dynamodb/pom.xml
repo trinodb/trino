@@ -147,7 +147,7 @@
         <dependency>
             <groupId>com.cdata</groupId>
             <artifactId>dynamodb-jdbc</artifactId>
-            <version>2023-3</version>
+            <version>2024-2</version>
             <scope>runtime</scope>
         </dependency>
 
