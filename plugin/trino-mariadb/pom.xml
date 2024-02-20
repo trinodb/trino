@@ -11,7 +11,7 @@
 
     <artifactId>trino-mariadb</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - MariaDB Connector</description>
+    <description>Trino - MariaDB connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

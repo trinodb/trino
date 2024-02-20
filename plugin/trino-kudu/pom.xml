@@ -10,7 +10,7 @@
 
     <artifactId>trino-kudu</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Kudu Connector</description>
+    <description>Trino - Kudu connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-server-main</artifactId>
+    <description>Trino - Server</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

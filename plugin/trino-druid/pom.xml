@@ -11,7 +11,7 @@
 
     <artifactId>trino-druid</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Druid Jdbc Connector</description>
+    <description>Trino - Druid connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

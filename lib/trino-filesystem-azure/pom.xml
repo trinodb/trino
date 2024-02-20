@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-filesystem-azure</artifactId>
-    <description>Trino Filesystem - Azure</description>
+    <description>Trino - Azure Blob file system support</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

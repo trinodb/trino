@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-product-tests-launcher</artifactId>
+    <description>Trino - Product tests launcher</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

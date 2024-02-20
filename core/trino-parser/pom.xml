@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-parser</artifactId>
+    <description>Trino - Parser</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

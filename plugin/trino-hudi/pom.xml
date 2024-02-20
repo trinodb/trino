@@ -11,7 +11,7 @@
 
     <artifactId>trino-hudi</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Hudi Connector</description>
+    <description>Trino - Hudi connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

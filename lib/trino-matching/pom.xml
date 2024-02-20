@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-matching</artifactId>
+    <description>Trino - AST matching support</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
