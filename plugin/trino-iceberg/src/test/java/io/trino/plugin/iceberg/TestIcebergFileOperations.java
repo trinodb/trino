@@ -183,6 +183,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "OutputFile.createOrOverwrite"))
                         .add(new FileOperation(MANIFEST, "OutputFile.createOrOverwrite"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .add(new FileOperation(STATS, "OutputFile.create"))
                         .build());
     }
@@ -197,6 +198,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
     }
 
@@ -223,6 +225,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), min(icebergManifestPrefetching, numberOfFiles))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), min(icebergManifestPrefetching, numberOfFiles))
                         .build());
 
         assertFileSystemAccesses("EXPLAIN SELECT * FROM test_select_with_limit LIMIT 3",
@@ -231,6 +234,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), numberOfFiles)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), numberOfFiles)
                         .build());
 
         assertFileSystemAccesses("EXPLAIN ANALYZE SELECT * FROM test_select_with_limit LIMIT 3",
@@ -239,6 +243,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), numberOfFiles + min(icebergManifestPrefetching, numberOfFiles))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), numberOfFiles + min(icebergManifestPrefetching, numberOfFiles))
                         .build());
 
         assertUpdate("DROP TABLE test_select_with_limit");
@@ -271,6 +276,7 @@ public class TestIcebergFileOperations
                 ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 2)
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
@@ -283,6 +289,7 @@ public class TestIcebergFileOperations
                 ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 2)
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
@@ -294,6 +301,7 @@ public class TestIcebergFileOperations
                 ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 2)
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
@@ -305,6 +313,7 @@ public class TestIcebergFileOperations
                 ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 2)
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
@@ -319,6 +328,7 @@ public class TestIcebergFileOperations
                 ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 2)
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
@@ -355,6 +365,7 @@ public class TestIcebergFileOperations
                 ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
@@ -367,6 +378,7 @@ public class TestIcebergFileOperations
                 ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
@@ -397,6 +409,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
         assertFileSystemAccesses("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId,
                 ImmutableMultiset.<FileOperation>builder()
@@ -404,6 +417,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 2)
                         .build());
         assertFileSystemAccesses("SELECT * FROM " + tableName,
                 ImmutableMultiset.<FileOperation>builder()
@@ -411,6 +425,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 2)
                         .build());
     }
 
@@ -437,6 +452,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
         assertFileSystemAccesses("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId,
                 ImmutableMultiset.<FileOperation>builder()
@@ -444,6 +460,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 2)
                         .build());
         assertFileSystemAccesses("SELECT * FROM " + tableName,
                 ImmutableMultiset.<FileOperation>builder()
@@ -451,6 +468,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 2)
                         .build());
     }
 
@@ -464,6 +482,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
     }
 
@@ -479,6 +498,7 @@ public class TestIcebergFileOperations
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 4)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 4)
                         .build());
     }
 
@@ -496,6 +516,7 @@ public class TestIcebergFileOperations
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 4)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 4)
                         .build());
     }
 
@@ -510,6 +531,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
     }
 
@@ -524,6 +546,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
     }
 
@@ -540,6 +563,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
     }
 
@@ -554,6 +578,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
     }
 
@@ -570,6 +595,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 2)
                         .build());
 
         // CAST to date and comparison
@@ -579,6 +605,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
 
         // CAST to date and BETWEEN
@@ -588,6 +615,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
 
         // conversion to date as a date function
@@ -597,6 +625,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
+                        .add(new FileOperation(MANIFEST, "InputFile.length"))
                         .build());
 
         assertUpdate("DROP TABLE test_varchar_as_date_predicate");
@@ -622,6 +651,7 @@ public class TestIcebergFileOperations
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 4)
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 4)
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 5)
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.length"), 5)
                         .build());
 
         assertUpdate("DROP TABLE " + tableName);
