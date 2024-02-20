@@ -37,7 +37,7 @@ import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
-// single-threaded AccessTrackingFileSystemFactory is shared mutable state
+// single-threaded as DistributedQueryRunner.spans is shared mutable state
 @Execution(ExecutionMode.SAME_THREAD)
 public class TestIcebergAlluxioCacheFileOperations
         extends AbstractTestQueryFramework
