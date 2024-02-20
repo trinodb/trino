@@ -67,7 +67,7 @@ jobs:
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
         with:
-          cache: 'restore'
+          cache: ${{ matrix.java-version == '21' && 'true' || 'restore' }}
           java-version: ${{ matrix.java-version }}
           cleanup-node: true
       - name: Check SPI backward compatibility
@@ -81,7 +81,7 @@ jobs:
           $MAVEN clean verify -B --strict-checksums -V -T 1C -b smart -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true' && matrix.java-version == '21'
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   artifact-checks:
@@ -119,10 +119,6 @@ jobs:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
         run: core/docker/build.sh
-      - name: Remove Trino from local Maven repo to avoid caching it
-        # Avoid caching artifacts built in this job, cache should only include dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   check-commits-dispatcher:
     runs-on: ubuntu-latest
@@ -960,7 +956,7 @@ jobs:
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
         with:
-          cache: restore
+          cache: 'false'
       - name: Product tests artifact
         uses: actions/download-artifact@v4
         with:
