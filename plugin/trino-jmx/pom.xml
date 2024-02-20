@@ -10,7 +10,7 @@
 
     <artifactId>trino-jmx</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - JMX Connector</description>
+    <description>Trino - JMX connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

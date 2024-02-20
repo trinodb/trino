@@ -10,7 +10,7 @@
 
     <artifactId>trino-mongodb</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - mongodb Connector</description>
+    <description>Trino - MongoDB connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

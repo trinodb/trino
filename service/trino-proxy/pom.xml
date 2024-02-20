@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-proxy</artifactId>
-    <description>Trino - Proxy Service</description>
+    <description>Trino - Proxy service</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

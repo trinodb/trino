@@ -11,7 +11,7 @@
 
     <artifactId>trino-iceberg</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Iceberg Connector</description>
+    <description>Trino - Iceberg connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

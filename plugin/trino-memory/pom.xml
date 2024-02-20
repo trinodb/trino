@@ -11,7 +11,7 @@
 
     <artifactId>trino-memory</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Memory Connector</description>
+    <description>Trino - Memory connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

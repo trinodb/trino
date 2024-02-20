@@ -11,7 +11,7 @@
 
     <artifactId>trino-sqlserver</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - SQL Server Connector</description>
+    <description>Trino - SQL Server connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

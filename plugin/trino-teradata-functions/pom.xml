@@ -10,7 +10,7 @@
 
     <artifactId>trino-teradata-functions</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Teradata's specific functions for Trino</description>
+    <description>Trino - Teradata functions</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

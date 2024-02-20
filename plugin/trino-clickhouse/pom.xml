@@ -11,7 +11,7 @@
 
     <artifactId>trino-clickhouse</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - ClickHouse Connector</description>
+    <description>Trino - ClickHouse connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

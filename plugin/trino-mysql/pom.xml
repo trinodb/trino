@@ -11,7 +11,7 @@
 
     <artifactId>trino-mysql</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - MySQL Connector</description>
+    <description>Trino - MySQL connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

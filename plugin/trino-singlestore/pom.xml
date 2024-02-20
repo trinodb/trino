@@ -11,7 +11,7 @@
 
     <artifactId>trino-singlestore</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - SingleStore Connector</description>
+    <description>Trino - SingleStore connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

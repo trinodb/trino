@@ -11,7 +11,7 @@
 
     <artifactId>trino-resource-group-managers</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Resource Group Configuration Managers</description>
+    <description>Trino - Resource group configuration managers</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

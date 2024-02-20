@@ -10,7 +10,7 @@
 
     <artifactId>trino-geospatial</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Geospatial Plugin</description>
+    <description>Trino - Geospatial support</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

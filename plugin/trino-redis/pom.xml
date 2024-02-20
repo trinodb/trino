@@ -11,7 +11,7 @@
 
     <artifactId>trino-redis</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Redis Connector</description>
+    <description>Trino - Redis connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

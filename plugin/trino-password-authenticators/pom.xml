@@ -11,7 +11,7 @@
 
     <artifactId>trino-password-authenticators</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Password Authenticators</description>
+    <description>Trino - Password authentication</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

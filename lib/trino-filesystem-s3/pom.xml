@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-filesystem-s3</artifactId>
+    <description>Trino - S3 file system support</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

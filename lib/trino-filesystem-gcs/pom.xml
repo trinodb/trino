@@ -11,7 +11,7 @@
 
     <artifactId>trino-filesystem-gcs</artifactId>
     <name>trino-filesystem-gcs</name>
-    <description>Trino Filesystem - GCS</description>
+    <description>Trino - Google Cloud Storage file system support</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

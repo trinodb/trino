@@ -11,7 +11,7 @@
 
     <artifactId>trino-raptor-legacy</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Raptor Legacy Connector</description>
+    <description>Trino - Raptor legacy connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

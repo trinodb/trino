@@ -11,7 +11,7 @@
 
     <artifactId>trino-server-rpm</artifactId>
     <packaging>rpm</packaging>
-    <description>Trino Server RPM package</description>
+    <description>Trino - Server RPM package</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

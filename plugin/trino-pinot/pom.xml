@@ -10,7 +10,7 @@
 
     <artifactId>trino-pinot</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Pinot Connector</description>
+    <description>Trino - Pinot connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

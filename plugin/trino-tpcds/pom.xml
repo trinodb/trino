@@ -10,7 +10,7 @@
 
     <artifactId>trino-tpcds</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - TPC-DS Connector</description>
+    <description>Trino - TPC-DS connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
