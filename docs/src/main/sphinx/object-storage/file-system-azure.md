@@ -72,6 +72,8 @@ Storage:
   - Description
 * - `azure.auth-type`
   - Must be set to `OAUTH`.
+* - `azure.oauth.tenant-id`
+  - Tenant ID for Azure authentication.
 * - `azure.oauth.endpoint`
   - The endpoint URL for OAuth 2.0 authentication.
 * - `azure.oauth.client-id`
