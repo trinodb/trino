@@ -77,9 +77,9 @@ public class TestVarcharToFloatCoercer
         assertVarcharToFloatCoercion(actualValue, false, expectedValue);
     }
 
-    private static void assertVarcharToFloatCoercion(String actualValue, boolean treatNaNAsNull, Float expectedValue)
+    private static void assertVarcharToFloatCoercion(String actualValue, boolean isOrcFile, Float expectedValue)
     {
-        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(REAL), new CoercionContext(DEFAULT_PRECISION, treatNaNAsNull)).orElseThrow()
+        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(REAL), new CoercionContext(DEFAULT_PRECISION, isOrcFile)).orElseThrow()
                 .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(actualValue)));
         Float coercedValue = coercedBlock.isNull(0) ? null : REAL.getFloat(coercedBlock, 0);
         assertThat(coercedValue).isEqualTo(expectedValue);

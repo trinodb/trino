@@ -257,9 +257,8 @@ public class HivePageSourceProvider
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, tableBucketNumber, regularAndInterimColumnMappings);
         Optional<BucketValidator> bucketValidator = createBucketValidator(path, bucketValidation, tableBucketNumber, regularAndInterimColumnMappings);
 
-        // Apache Hive reads Double.NaN as null when coerced to varchar for ORC file format
-        boolean treatNaNAsNull = ORC_SERDE_CLASS.equals(getDeserializerClassName(schema));
-        CoercionContext coercionContext = new CoercionContext(getTimestampPrecision(session), treatNaNAsNull);
+        boolean isOrcFile = ORC_SERDE_CLASS.equals(getDeserializerClassName(schema));
+        CoercionContext coercionContext = new CoercionContext(getTimestampPrecision(session), isOrcFile);
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, typeManager, coercionContext);
