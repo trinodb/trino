@@ -45,21 +45,21 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle;
 @TestInstance(Lifecycle.PER_CLASS)
 public class TestCacheFileSystemAccessOperations
 {
-    private TrinoFileSystemFactory trackingFileSystemFactory;
+    private TrinoFileSystemFactory tracingFileSystemFactory;
     private CacheFileSystem fileSystem;
     private final TestingTelemetry telemetry = TestingTelemetry.create("cache-file-system");
 
     @BeforeAll
     void setUp()
     {
-        trackingFileSystemFactory = new TracingFileSystemFactory(telemetry.getTracer(), new MemoryFileSystemFactory());
-        fileSystem = new CacheFileSystem(trackingFileSystemFactory.create(TestingSession.SESSION), new TestingMemoryFileSystemCache(), new DefaultCacheKeyProvider());
+        tracingFileSystemFactory = new TracingFileSystemFactory(telemetry.getTracer(), new MemoryFileSystemFactory());
+        fileSystem = new CacheFileSystem(tracingFileSystemFactory.create(TestingSession.SESSION), new TestingMemoryFileSystemCache(), new DefaultCacheKeyProvider());
     }
 
     @AfterAll
     void tearDown()
     {
-        trackingFileSystemFactory = null;
+        tracingFileSystemFactory = null;
         fileSystem = null;
     }
 
