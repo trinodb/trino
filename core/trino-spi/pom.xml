@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-spi</artifactId>
+    <description>Trino - Service Provider Interface (SPI)</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

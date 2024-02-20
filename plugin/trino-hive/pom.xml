@@ -11,7 +11,7 @@
 
     <artifactId>trino-hive</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Hive Connector</description>
+    <description>Trino - Hive connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

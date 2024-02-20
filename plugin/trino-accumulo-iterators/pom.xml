@@ -11,7 +11,7 @@
 
     <artifactId>trino-accumulo-iterators</artifactId>
     <packaging>jar</packaging>
-    <description>Accumulo Iterators for the Trino Accumulo Connector</description>
+    <description>Trino - Accumulo iterators</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

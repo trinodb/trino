@@ -10,7 +10,7 @@
 
     <artifactId>trino-ml</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Machine Learning Plugin</description>
+    <description>Trino - Machine Learning support</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

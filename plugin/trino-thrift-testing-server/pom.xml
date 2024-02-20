@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-thrift-testing-server</artifactId>
-    <description>Trino - Thrift Testing Server</description>
+    <description>Trino - Thrift testing server</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
