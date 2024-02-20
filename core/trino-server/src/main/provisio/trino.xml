@@ -314,6 +314,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/stargate">
+        <artifact id="${project.groupId}:starburst-stargate:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/synapse">
         <artifact id="${project.groupId}:starburst-synapse:zip:${project.version}">
             <unpack />
