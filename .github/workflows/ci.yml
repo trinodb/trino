@@ -124,6 +124,7 @@ jobs:
           secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
+          cache: ${{ matrix.java-version == '21' && 'true' || 'restore' }}
           java-version: ${{ matrix.java-version }}
       - name: Check SPI backward compatibility
         run: |
@@ -136,7 +137,7 @@ jobs:
           $MAVEN clean verify -B --strict-checksums -V -T 1C -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true' && matrix.java-version == '21'
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   artifact-checks:
@@ -185,10 +186,6 @@ jobs:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
         run: core/docker/build.sh
-      - name: Remove Trino from local Maven repo to avoid caching it
-        # Avoid caching artifacts built in this job, cache should only include dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   check-commits-dispatcher:
     runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
@@ -1288,7 +1285,7 @@ jobs:
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
         with:
-          cache: false
+          cache: 'false'
           download_dependencies: false
       - name: Run ECR login
         uses: ./.github/actions/starburst-setup
