@@ -26,7 +26,6 @@ import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.cache.LoadCachedDataOperator;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.ScanFilterAndProjectOperator;
@@ -490,17 +489,18 @@ public abstract class BaseCacheSubqueriesTest
                     TestingTrinoServer worker = runner.getServers().get(0);
                     checkState(!worker.isCoordinator());
                     String catalog = transactionSession.getCatalog().orElseThrow();
-                    Optional<TableHandle> handle = coordinator.getPlannerContext().getMetadata().getTableHandle(
+                    Metadata metadata = coordinator.getPlannerContext().getMetadata();
+                    TableHandle handle = metadata.getTableHandle(
                             transactionSession,
-                            new QualifiedObjectName(catalog, transactionSession.getSchema().orElseThrow(), tableName));
-                    assertThat(handle).isPresent();
+                            new QualifiedObjectName(catalog, transactionSession.getSchema().orElseThrow(), tableName)).orElseThrow();
+                    ConnectorTableHandle connectorTableHandle = handle.getConnectorHandle();
 
-                    SplitSource splitSource = coordinator.getSplitManager().getSplits(transactionSession, Span.current(), handle.get(), DynamicFilter.EMPTY, alwaysTrue());
-                    Split split = getFutureValue(splitSource.getNextBatch(1000)).getSplits().get(0);
+                    SplitSource splitSource = coordinator.getSplitManager().getSplits(transactionSession, Span.current(), handle, DynamicFilter.EMPTY, alwaysTrue());
+                    ConnectorSplit split = getFutureValue(splitSource.getNextBatch(1000)).getSplits().get(0).getConnectorSplit();
 
-                    ColumnHandle partitionColumn = coordinator.getPlannerContext().getMetadata().getColumnHandles(transactionSession, handle.get()).get("orderpriority");
+                    ColumnHandle partitionColumn = metadata.getColumnHandles(transactionSession, handle).get("orderpriority");
                     assertThat(partitionColumn).isNotNull();
-                    ColumnHandle dataColumn = coordinator.getPlannerContext().getMetadata().getColumnHandles(transactionSession, handle.get()).get("orderkey");
+                    ColumnHandle dataColumn = metadata.getColumnHandles(transactionSession, handle).get("orderkey");
                     assertThat(dataColumn).isNotNull();
 
                     ConnectorPageSourceProvider pageSourceProvider = getPageSourceProvider(worker.getConnector(coordinator.getCatalogHandle(catalog)));
@@ -508,15 +508,15 @@ public abstract class BaseCacheSubqueriesTest
                     VarcharType type = VarcharType.createVarcharType(4);
 
                     // getUnenforcedPredicate and prunePredicate should return none if predicate is exclusive on partition column
-                    ConnectorSession connectorSession = transactionSession.toConnectorSession(coordinator.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, catalog).orElseThrow());
+                    ConnectorSession connectorSession = transactionSession.toConnectorSession(metadata.getCatalogHandle(transactionSession, catalog).orElseThrow());
                     Domain nonPartitionDomain = Domain.multipleValues(type, Streams.concat(LongStream.range(0, 9_000), LongStream.of(9_999))
                             .boxed()
                             .map(value -> Slices.utf8Slice(value.toString()))
                             .collect(toImmutableList()));
                     assertThat(pageSourceProvider.prunePredicate(
                             connectorSession,
-                            split.getConnectorSplit(),
-                            handle.get().getConnectorHandle(),
+                            split,
+                            connectorTableHandle,
                             TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, nonPartitionDomain))))
                             .matches(TupleDomain::isNone);
                     assertThat(getUnenforcedPredicateIsPrune(
@@ -525,8 +525,8 @@ public abstract class BaseCacheSubqueriesTest
                             isDynamicRowFilteringEnabled,
                             session,
                             connectorSession,
-                            split.getConnectorSplit(),
-                            handle.get().getConnectorHandle(),
+                            split,
+                            connectorTableHandle,
                             TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, nonPartitionDomain))))
                             .matches(TupleDomain::isNone);
 
@@ -534,8 +534,8 @@ public abstract class BaseCacheSubqueriesTest
                     Domain partitionDomain = Domain.singleValue(type, Slices.utf8Slice("9876"));
                     assertThat(pageSourceProvider.prunePredicate(
                             connectorSession,
-                            split.getConnectorSplit(),
-                            handle.get().getConnectorHandle(),
+                            split,
+                            connectorTableHandle,
                             TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, partitionDomain))))
                             .matches(TupleDomain::isAll);
                     assertThat(getUnenforcedPredicateIsPrune(
@@ -544,8 +544,8 @@ public abstract class BaseCacheSubqueriesTest
                             isDynamicRowFilteringEnabled,
                             session,
                             connectorSession,
-                            split.getConnectorSplit(),
-                            handle.get().getConnectorHandle(),
+                            split,
+                            connectorTableHandle,
                             TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, partitionDomain))))
                             .matches(TupleDomain::isAll);
 
@@ -555,8 +555,8 @@ public abstract class BaseCacheSubqueriesTest
                             .collect(toImmutableList()));
                     assertThat(pageSourceProvider.prunePredicate(
                             connectorSession,
-                            split.getConnectorSplit(),
-                            handle.get().getConnectorHandle(),
+                            split,
+                            connectorTableHandle,
                             TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain))))
                             .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain)));
 
@@ -564,24 +564,24 @@ public abstract class BaseCacheSubqueriesTest
                         SplitSource splitSourceWithDfOnDataColumn = coordinator.getSplitManager().getSplits(
                                 transactionSession,
                                 Span.current(),
-                                handle.get(),
+                                handle,
                                 getDynamicFilter(TupleDomain.withColumnDomains(ImmutableMap.of(
                                         dataColumn,
                                         Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1_000_000L)), false)))),
                                 alwaysTrue());
-                        Split splitWithDfOnDataColumn = getFutureValue(splitSourceWithDfOnDataColumn.getNextBatch(1000)).getSplits().get(0);
+                        ConnectorSplit splitWithDfOnDataColumn = getFutureValue(splitSourceWithDfOnDataColumn.getNextBatch(1000)).getSplits().get(0).getConnectorSplit();
                         // getUnenforcedPredicate and prunePredicate should prune data column if there is dynamic filter on that column
                         Domain containingRange = Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 60_000L)), false);
                         assertThat(pageSourceProvider.getUnenforcedPredicate(
                                 connectorSession,
-                                splitWithDfOnDataColumn.getConnectorSplit(),
-                                handle.get().getConnectorHandle(),
+                                splitWithDfOnDataColumn,
+                                connectorTableHandle,
                                 TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, containingRange))))
                                 .isEqualTo(TupleDomain.all());
                         assertThat(pageSourceProvider.prunePredicate(
                                 connectorSession,
-                                splitWithDfOnDataColumn.getConnectorSplit(),
-                                handle.get().getConnectorHandle(),
+                                splitWithDfOnDataColumn,
+                                connectorTableHandle,
                                 TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, containingRange))))
                                 .isEqualTo(TupleDomain.all());
                     }
@@ -592,8 +592,8 @@ public abstract class BaseCacheSubqueriesTest
                                 pageSourceProvider,
                                 session,
                                 connectorSession,
-                                split.getConnectorSplit(),
-                                handle.get().getConnectorHandle(),
+                                split,
+                                connectorTableHandle,
                                 TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain))))
                                 .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain)));
                     }
@@ -601,8 +601,8 @@ public abstract class BaseCacheSubqueriesTest
                         // getUnenforcedPredicate should not prune but simplify data column
                         assertThat(pageSourceProvider.getUnenforcedPredicate(
                                 connectorSession,
-                                split.getConnectorSplit(),
-                                handle.get().getConnectorHandle(),
+                                split,
+                                connectorTableHandle,
                                 TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain))))
                                 .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, Domain.create(ValueSet.ofRanges(range(BIGINT, 0L, true, 9_999L, true)), false))));
                     }
