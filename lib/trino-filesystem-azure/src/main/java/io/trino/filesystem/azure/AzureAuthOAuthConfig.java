@@ -22,6 +22,7 @@ public class AzureAuthOAuthConfig
     private String clientEndpoint;
     private String clientId;
     private String clientSecret;
+    private String tenantId;
 
     @NotEmpty
     public String getClientEndpoint()
@@ -62,6 +63,19 @@ public class AzureAuthOAuthConfig
     public AzureAuthOAuthConfig setClientSecret(String clientSecret)
     {
         this.clientSecret = clientSecret;
+        return this;
+    }
+
+    @NotEmpty
+    public String getTenantId()
+    {
+        return tenantId;
+    }
+
+    @Config("azure.oauth.tenant-id")
+    public AzureAuthOAuthConfig setTenantId(String tenantId)
+    {
+        this.tenantId = tenantId;
         return this;
     }
 }
