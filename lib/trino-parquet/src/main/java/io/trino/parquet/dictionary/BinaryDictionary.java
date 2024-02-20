@@ -15,61 +15,46 @@ package io.trino.parquet.dictionary;
 
 import io.airlift.slice.Slice;
 import io.trino.parquet.DictionaryPage;
-import org.apache.parquet.io.api.Binary;
-
-import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndian;
 
 public class BinaryDictionary
         implements Dictionary
 {
-    private final Binary[] content;
+    private final Slice[] content;
 
     public BinaryDictionary(DictionaryPage dictionaryPage)
-            throws IOException
     {
         this(dictionaryPage, null);
     }
 
     public BinaryDictionary(DictionaryPage dictionaryPage, Integer length)
-            throws IOException
     {
-        content = new Binary[dictionaryPage.getDictionarySize()];
+        content = new Slice[dictionaryPage.getDictionarySize()];
 
-        byte[] dictionaryBytes;
-        int offset;
         Slice dictionarySlice = dictionaryPage.getSlice();
-        if (dictionarySlice.hasByteArray()) {
-            dictionaryBytes = dictionarySlice.byteArray();
-            offset = dictionarySlice.byteArrayOffset();
-        }
-        else {
-            dictionaryBytes = dictionarySlice.getBytes();
-            offset = 0;
-        }
 
+        int currentInputOffset = 0;
         if (length == null) {
             for (int i = 0; i < content.length; i++) {
-                int len = readIntLittleEndian(dictionaryBytes, offset);
-                offset += 4;
-                content[i] = Binary.fromReusedByteArray(dictionaryBytes, offset, len);
-                offset += len;
+                int positionLength = dictionarySlice.getInt(currentInputOffset);
+                currentInputOffset += Integer.BYTES;
+                content[i] = dictionarySlice.slice(currentInputOffset, positionLength);
+                currentInputOffset += positionLength;
             }
         }
         else {
             checkArgument(length > 0, "Invalid byte array length: %s", length);
             for (int i = 0; i < content.length; i++) {
-                content[i] = Binary.fromReusedByteArray(dictionaryBytes, offset, length);
-                offset += length;
+                content[i] = dictionarySlice.slice(currentInputOffset, length);
+                currentInputOffset += length;
             }
         }
     }
 
     @Override
-    public Binary decodeToBinary(int id)
+    public Slice decodeToSlice(int id)
     {
         return content[id];
     }

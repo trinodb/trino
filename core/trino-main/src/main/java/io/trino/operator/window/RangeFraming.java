@@ -16,18 +16,17 @@ package io.trino.operator.window;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexComparator;
-import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.WindowFrame;
 
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
-import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.operator.window.FrameInfo.Ordering.ASCENDING;
+import static io.trino.operator.window.FrameInfo.Ordering.DESCENDING;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 
 public class RangeFraming
         implements Framing
@@ -59,7 +58,7 @@ public class RangeFraming
             PagesHashStrategy peerGroupHashStrategy,
             Range initialRange)
     {
-        checkArgument(frameInfo.getType() == WindowFrame.Type.RANGE, "Frame must be of type RANGE, actual: %s", frameInfo.getType());
+        checkArgument(frameInfo.getType() == RANGE, "Frame must be of type RANGE, actual: %s", frameInfo.getType());
 
         this.frameInfo = frameInfo;
         this.partitionStart = partitionStart;
@@ -155,7 +154,7 @@ public class RangeFraming
     private int getFrameStartPreceding(int currentPosition)
     {
         int sortKeyChannel = frameInfo.getSortKeyChannelForStartComparison();
-        SortItem.Ordering ordering = frameInfo.getOrdering().get();
+        FrameInfo.Ordering ordering = frameInfo.getOrdering().get();
 
         int recent = recentRange.getStart();
 
@@ -179,7 +178,7 @@ public class RangeFraming
     private int getFrameStartFollowing(int currentPosition)
     {
         int sortKeyChannel = frameInfo.getSortKeyChannelForStartComparison();
-        SortItem.Ordering ordering = frameInfo.getOrdering().get();
+        FrameInfo.Ordering ordering = frameInfo.getOrdering().get();
 
         int recent = recentRange.getStart();
         int position = recent;
@@ -208,7 +207,7 @@ public class RangeFraming
     private int getFrameEndPreceding(int currentPosition)
     {
         int sortKeyChannel = frameInfo.getSortKeyChannelForEndComparison();
-        SortItem.Ordering ordering = frameInfo.getOrdering().get();
+        FrameInfo.Ordering ordering = frameInfo.getOrdering().get();
 
         int position = recentRange.getEnd();
 
@@ -230,7 +229,7 @@ public class RangeFraming
 
     private int getFrameEndFollowing(int currentPosition)
     {
-        SortItem.Ordering ordering = frameInfo.getOrdering().get();
+        FrameInfo.Ordering ordering = frameInfo.getOrdering().get();
         int sortKeyChannel = frameInfo.getSortKeyChannelForEndComparison();
 
         int recent = recentRange.getEnd();

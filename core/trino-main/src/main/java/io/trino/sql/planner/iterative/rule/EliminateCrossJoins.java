@@ -20,14 +20,15 @@ import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.joins.JoinGraph;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.Expression;
@@ -56,9 +57,9 @@ public class EliminateCrossJoins
 {
     private static final Pattern<JoinNode> PATTERN = join();
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public EliminateCrossJoins(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public EliminateCrossJoins(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -182,7 +183,7 @@ public class EliminateCrossJoins
 
             result = new JoinNode(
                     idAllocator.getNextId(),
-                    JoinNode.Type.INNER,
+                    JoinType.INNER,
                     result,
                     rightNode,
                     criteria.build(),

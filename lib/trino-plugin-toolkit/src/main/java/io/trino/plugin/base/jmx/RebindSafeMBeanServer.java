@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.base.jmx;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.log.Logger;
 
-import javax.annotation.concurrent.ThreadSafe;
 import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.AttributeNotFoundException;

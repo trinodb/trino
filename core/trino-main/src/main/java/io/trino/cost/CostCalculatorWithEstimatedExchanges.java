@@ -14,6 +14,8 @@
 
 package io.trino.cost;
 
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.GroupReference;
@@ -27,12 +29,10 @@ import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.UnionNode;
 
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
-
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.cost.LocalCostEstimate.addPartialComponents;
 import static java.util.Objects.requireNonNull;
 
@@ -207,6 +207,7 @@ public class CostCalculatorWithEstimatedExchanges
             boolean replicated,
             int estimatedSourceDistributedTaskCount)
     {
+        checkArgument(estimatedSourceDistributedTaskCount > 0, "estimatedSourceDistributedTaskCount must be positive: %s", estimatedSourceDistributedTaskCount);
         LocalCostEstimate exchangesCost = calculateJoinExchangeCost(
                 probe,
                 build,

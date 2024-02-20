@@ -17,26 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogServiceProvider;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
-import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.TableFunctionRegistry;
-import io.trino.metadata.TableProceduresPropertyManager;
-import io.trino.metadata.TableProceduresRegistry;
-import io.trino.metadata.TablePropertyManager;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.StatementAnalyzerFactory;
-import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -54,7 +40,6 @@ import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.TypeCoercion;
 
 import java.util.HashSet;
@@ -90,32 +75,19 @@ public class RemoveUnsupportedDynamicFilters
         implements PlanOptimizer
 {
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
     public RemoveUnsupportedDynamicFilters(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         // This is a limited type analyzer for the simple expressions used in dynamic filters
-        this.typeAnalyzer = new TypeAnalyzer(
-                plannerContext,
-                new StatementAnalyzerFactory(
-                        plannerContext,
-                        new SqlParser(),
-                        new AllowAllAccessControl(),
-                        new NoOpTransactionManager(),
-                        user -> ImmutableSet.of(),
-                        new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
-                        new TableFunctionRegistry(CatalogServiceProvider.fail("table functions are not supported in testing analyzer")),
-                        new SessionPropertyManager(),
-                        new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in testing analyzer")),
-                        new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in testing analyzer")),
-                        new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer"))));
+        this.typeAnalyzer = new IrTypeAnalyzer(plannerContext);
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(session, types), ImmutableSet.of());
+        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(context.session(), context.types()), ImmutableSet.of());
         return result.getNode();
     }
 
@@ -363,7 +335,7 @@ public class RemoveUnsupportedDynamicFilters
         private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
         {
             try {
-                plannerContext.getMetadata().getCoercion(session, SATURATED_FLOOR_CAST, fromType, toType);
+                plannerContext.getMetadata().getCoercion(SATURATED_FLOOR_CAST, fromType, toType);
             }
             catch (OperatorNotFoundException e) {
                 return false;

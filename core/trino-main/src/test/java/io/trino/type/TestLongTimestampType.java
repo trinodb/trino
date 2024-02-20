@@ -13,17 +13,19 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type.Range;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongTimestampType
         extends AbstractTestType
@@ -33,7 +35,7 @@ public class TestLongTimestampType
         super(TIMESTAMP_NANOS, SqlTimestamp.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = TIMESTAMP_NANOS.createBlockBuilder(null, 15);
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(1111_123, 123_000));
@@ -47,7 +49,7 @@ public class TestLongTimestampType
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(3333_123, 123_000));
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(3333_123, 123_000));
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(4444_123, 123_000));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -57,32 +59,50 @@ public class TestLongTimestampType
         return new LongTimestamp(timestamp.getEpochMicros() + 1, 0);
     }
 
-    @Override
+    @Test
     public void testRange()
     {
         Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), new LongTimestamp(Long.MIN_VALUE, 0));
-        assertEquals(range.getMax(), new LongTimestamp(Long.MAX_VALUE, 999_000));
+        assertThat(range.getMin()).isEqualTo(new LongTimestamp(Long.MIN_VALUE, 0));
+        assertThat(range.getMax()).isEqualTo(new LongTimestamp(Long.MAX_VALUE, 999_000));
     }
 
-    @Test(dataProvider = "testRangeEveryPrecisionDataProvider")
-    public void testRangeEveryPrecision(int precision, LongTimestamp expectedMax)
+    @Test
+    public void testRangeEveryPrecision()
     {
-        Range range = createTimestampType(precision).getRange().orElseThrow();
-        assertEquals(range.getMin(), new LongTimestamp(Long.MIN_VALUE, 0));
-        assertEquals(range.getMax(), expectedMax);
+        for (MaxPrecision entry : maxPrecisions()) {
+            Range range = createTimestampType(entry.precision()).getRange().orElseThrow();
+            assertThat(range.getMin()).isEqualTo(new LongTimestamp(Long.MIN_VALUE, 0));
+            assertThat(range.getMax()).isEqualTo(entry.expectedMax());
+        }
     }
 
-    @DataProvider
-    public static Object[][] testRangeEveryPrecisionDataProvider()
+    public static List<MaxPrecision> maxPrecisions()
     {
-        return new Object[][] {
-                {7, new LongTimestamp(Long.MAX_VALUE, 900_000)},
-                {8, new LongTimestamp(Long.MAX_VALUE, 990_000)},
-                {9, new LongTimestamp(Long.MAX_VALUE, 999_000)},
-                {10, new LongTimestamp(Long.MAX_VALUE, 999_900)},
-                {11, new LongTimestamp(Long.MAX_VALUE, 999_990)},
-                {12, new LongTimestamp(Long.MAX_VALUE, 999_999)},
-        };
+        return ImmutableList.of(
+                new MaxPrecision(7, new LongTimestamp(Long.MAX_VALUE, 900_000)),
+                new MaxPrecision(8, new LongTimestamp(Long.MAX_VALUE, 990_000)),
+                new MaxPrecision(9, new LongTimestamp(Long.MAX_VALUE, 999_000)),
+                new MaxPrecision(10, new LongTimestamp(Long.MAX_VALUE, 999_900)),
+                new MaxPrecision(11, new LongTimestamp(Long.MAX_VALUE, 999_990)),
+                new MaxPrecision(12, new LongTimestamp(Long.MAX_VALUE, 999_999)));
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    record MaxPrecision(int precision, LongTimestamp expectedMax)
+    {
     }
 }

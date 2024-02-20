@@ -23,7 +23,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -61,8 +61,8 @@ public class TestPushProjectionThroughExchange
 
                     return p.project(
                             Assignments.builder()
-                                    .put(a, a.toSymbolReference())
-                                    .put(b, b.toSymbolReference())
+                                    .putIdentity(a)
+                                    .putIdentity(b)
                                     .build(),
                             p.exchange(e -> e
                                     .addSource(p.values(a, b, c))

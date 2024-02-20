@@ -14,17 +14,13 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.local.LocalInputFile;
 import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
@@ -56,9 +52,6 @@ import java.util.UUID;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.toNativeContainerValue;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
@@ -89,9 +82,8 @@ import static org.apache.parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
 import static org.apache.parquet.hadoop.metadata.ColumnPath.fromDotString;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestBloomFilterStore
 {
@@ -186,20 +178,20 @@ public class TestBloomFilterStore
     {
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterEnabled = generateBloomFilterStore(tempFile, true, typeTestCase.writeValues, typeTestCase.objectInspector);
-            assertTrue(bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).isPresent());
+            assertThat(bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).isPresent()).isTrue();
             BloomFilter bloomFilter = bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).get();
 
             for (Object data : typeTestCase.matchingValues) {
-                assertTrue(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType));
+                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType)).isTrue();
             }
             for (Object data : typeTestCase.nonMatchingValues) {
-                assertFalse(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType));
+                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType)).isFalse();
             }
         }
 
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterNotEnabled = generateBloomFilterStore(tempFile, false, typeTestCase.writeValues, typeTestCase.objectInspector);
-            assertTrue(bloomFilterNotEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).isEmpty());
+            assertThat(bloomFilterNotEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).isEmpty()).isTrue();
         }
     }
 
@@ -213,18 +205,18 @@ public class TestBloomFilterStore
             TupleDomain<ColumnDescriptor> domain = withColumnDomains(singletonMap(columnDescriptor, multipleValues(typeTestCase.sqlType, typeTestCase.matchingValues)));
             TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
             // bloomfilter store has the column, and values match
-            assertTrue(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
             TupleDomain<ColumnDescriptor> domainWithoutMatch = withColumnDomains(singletonMap(columnDescriptor, multipleValues(typeTestCase.sqlType, typeTestCase.nonMatchingValues)));
             TupleDomainParquetPredicate parquetPredicateWithoutMatch = new TupleDomainParquetPredicate(domainWithoutMatch, singletonList(columnDescriptor), UTC);
             // bloomfilter store has the column, but values not match
-            assertFalse(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isFalse();
 
             ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"non_exist_path"}, Types.optional(BINARY).named("Test column"), 0, 0);
             TupleDomain<ColumnDescriptor> domainForColumnWithoutBloomFilter = withColumnDomains(singletonMap(columnDescriptor, multipleValues(typeTestCase.sqlType, typeTestCase.nonMatchingValues)));
             TupleDomainParquetPredicate predicateForColumnWithoutBloomFilter = new TupleDomainParquetPredicate(domainForColumnWithoutBloomFilter, singletonList(columnDescriptor), UTC);
             // bloomfilter store does not have the column
-            assertTrue(predicateForColumnWithoutBloomFilter.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(predicateForColumnWithoutBloomFilter.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
         }
     }
 
@@ -239,19 +231,19 @@ public class TestBloomFilterStore
             TupleDomain<ColumnDescriptor> domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
                     ImmutableList.of(Range.range(INTEGER, 60L, true, 68L, true))), false)));
             TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
-            assertTrue(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
             // case 2, bloomfilter store does not have the column, but ranges exceeded DOMAIN_COMPACTION_THRESHOLD
             domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, 0L, true))), false)));
             parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
-            assertTrue(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
             // case 3, bloomfilter store has the column, and ranges expanded successfully but does not overlap
             domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, -60L, true))), false)));
             parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
-            assertFalse(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isFalse();
         }
     }
 
@@ -267,13 +259,13 @@ public class TestBloomFilterStore
                     ImmutableList.of(Range.range(INTEGER, 60L, true, 68L, true))), false)));
             TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
             // bloomfilter store has the column, and ranges overlap
-            assertTrue(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
             TupleDomain<ColumnDescriptor> domainWithoutMatch = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, -60L, true))), false)));
             // bloomfilter store has the column, but ranges not overlap
             TupleDomainParquetPredicate parquetPredicateWithoutMatch = new TupleDomainParquetPredicate(domainWithoutMatch, singletonList(columnDescriptor), UTC);
-            assertFalse(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isFalse();
         }
     }
 
@@ -288,7 +280,7 @@ public class TestBloomFilterStore
             TupleDomain<ColumnDescriptor> domainWithoutMatch = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, -60L, true))), true)));
             TupleDomainParquetPredicate parquetPredicateWithoutMatch = new TupleDomainParquetPredicate(domainWithoutMatch, singletonList(columnDescriptor), UTC);
-            assertTrue(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
         }
     }
 
@@ -298,7 +290,7 @@ public class TestBloomFilterStore
         List<ObjectInspector> objectInspectors = singletonList(objectInspector);
         List<String> columnNames = ImmutableList.of(COLUMN_NAME);
 
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
+        JobConf jobConf = new JobConf(false);
         jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
         jobConf.setBoolean(BLOOM_FILTER_ENABLED, enableBloomFilter);
 
@@ -313,9 +305,7 @@ public class TestBloomFilterStore
                 false,
                 DateTimeZone.getDefault());
 
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
-        TrinoFileSystem fileSystem = fileSystemFactory.create(getHiveSession(new HiveConfig().setHiveStorageFormat(HiveStorageFormat.PARQUET)));
-        TrinoInputFile inputFile = fileSystem.newInputFile(tempFile.getFile().getPath());
+        TrinoInputFile inputFile = new LocalInputFile(tempFile.getFile());
         TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats());
 
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());

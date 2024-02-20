@@ -3,10 +3,13 @@ description: "Verify checked out commits and setup Java"
 inputs:
   java-version:
     description: "Java version to setup"
-    default: 17
+    default: 21
   cache:
-    description: "Cache Maven repo"
+    description: "Cache Maven repo (true/false/restore)"
     default: true
+  cleanup-node:
+    description: "Clean up node (true/false) to increase free disk space"
+    default: false # Disabled by default as it adds ~4 minutes of test runtime. Should be enabled case by case.
   download_dependencies:
     description: "Download all Maven dependencies so Maven can work in offline mode"
     default: true
@@ -33,15 +36,30 @@ runs:
       - name: Fetch base ref to find merge-base for GIB
         shell: bash
         run: .github/bin/git-fetch-base-ref.sh
-      - uses: actions/setup-java@v3
+      - name: Free additional disk space
+        if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
+        shell: bash
+        run: ./.github/bin/free-disk-space.sh
+      - uses: actions/setup-java@v4
         if: ${{ inputs.java-version != '' }}
         with:
-          distribution: 'zulu'
+          distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: ${{ inputs.java-version }}
-      - name: Cache local Maven repo
+      - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}
-        uses: actions/cache@v3
+        uses: actions/cache@v4
+        with:
+          path: | 
+            ~/.m2/repository
+            /tmp/pt_java_downloads
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Restore local Maven repo
+        id: cache_restore
+        if: ${{ format('{0}', inputs.cache) == 'restore' }}
+        uses: actions/cache/restore@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}

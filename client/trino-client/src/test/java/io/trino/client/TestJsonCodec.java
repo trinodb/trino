@@ -14,14 +14,14 @@
 package io.trino.client;
 
 import com.fasterxml.jackson.core.JsonParseException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 
 import static io.trino.client.JsonCodec.jsonCodec;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestJsonCodec
 {
@@ -32,7 +32,7 @@ public class TestJsonCodec
         JsonCodec<ClientTypeSignature> codec = jsonCodec(ClientTypeSignature.class);
 
         String json = "{\"rawType\":\"bigint\",\"arguments\":[]}";
-        assertEquals(codec.fromJson(json).getRawType(), "bigint");
+        assertThat(codec.fromJson(json).getRawType()).isEqualTo("bigint");
 
         String jsonWithTrailingContent = json + " trailer";
         assertThatThrownBy(() -> codec.fromJson(jsonWithTrailingContent))

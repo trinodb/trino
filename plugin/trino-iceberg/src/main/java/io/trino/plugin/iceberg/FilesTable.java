@@ -15,7 +15,11 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -26,7 +30,9 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
@@ -51,6 +57,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -130,16 +137,16 @@ public class FilesTable
         private final Map<Integer, Type> idToTypeMapping;
         private final List<io.trino.spi.type.Type> types;
         private boolean closed;
-        private final io.trino.spi.type.Type integerToBigintMapType;
-        private final io.trino.spi.type.Type integerToVarcharMapType;
+        private final MapType integerToBigintMapType;
+        private final MapType integerToVarcharMapType;
 
         public PlanFilesIterable(CloseableIterable<FileScanTask> planFiles, Map<Integer, Type> idToTypeMapping, List<io.trino.spi.type.Type> types, TypeManager typeManager)
         {
             this.planFiles = requireNonNull(planFiles, "planFiles is null");
             this.idToTypeMapping = ImmutableMap.copyOf(requireNonNull(idToTypeMapping, "idToTypeMapping is null"));
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-            this.integerToBigintMapType = typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()));
-            this.integerToVarcharMapType = typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()));
+            this.integerToBigintMapType = new MapType(INTEGER, BIGINT, typeManager.getTypeOperators());
+            this.integerToVarcharMapType = new MapType(INTEGER, VARCHAR, typeManager.getTypeOperators());
             addCloseable(planFiles);
         }
 
@@ -197,33 +204,33 @@ public class FilesTable
             columns.add(dataFile.format().name());
             columns.add(dataFile.recordCount());
             columns.add(dataFile.fileSizeInBytes());
-            columns.add(getIntegerBigintMapBlock(dataFile.columnSizes()));
-            columns.add(getIntegerBigintMapBlock(dataFile.valueCounts()));
-            columns.add(getIntegerBigintMapBlock(dataFile.nullValueCounts()));
-            columns.add(getIntegerBigintMapBlock(dataFile.nanValueCounts()));
-            columns.add(getIntegerVarcharMapBlock(dataFile.lowerBounds()));
-            columns.add(getIntegerVarcharMapBlock(dataFile.upperBounds()));
-            columns.add(dataFile.keyMetadata());
-            columns.add(dataFile.splitOffsets());
-            columns.add(dataFile.equalityFieldIds());
+            columns.add(getIntegerBigintSqlMap(dataFile.columnSizes()));
+            columns.add(getIntegerBigintSqlMap(dataFile.valueCounts()));
+            columns.add(getIntegerBigintSqlMap(dataFile.nullValueCounts()));
+            columns.add(getIntegerBigintSqlMap(dataFile.nanValueCounts()));
+            columns.add(getIntegerVarcharSqlMap(dataFile.lowerBounds()));
+            columns.add(getIntegerVarcharSqlMap(dataFile.upperBounds()));
+            columns.add(toVarbinarySlice(dataFile.keyMetadata()));
+            columns.add(toBigintArrayBlock(dataFile.splitOffsets()));
+            columns.add(toIntegerArrayBlock(dataFile.equalityFieldIds()));
             checkArgument(columns.size() == types.size(), "Expected %s types in row, but got %s values", types.size(), columns.size());
             return columns;
         }
 
-        private Object getIntegerBigintMapBlock(Map<Integer, Long> value)
+        private SqlMap getIntegerBigintSqlMap(Map<Integer, Long> value)
         {
             if (value == null) {
                 return null;
             }
-            return toIntegerBigintMapBlock(value);
+            return toIntegerBigintSqlMap(value);
         }
 
-        private Object getIntegerVarcharMapBlock(Map<Integer, ByteBuffer> value)
+        private SqlMap getIntegerVarcharSqlMap(Map<Integer, ByteBuffer> value)
         {
             if (value == null) {
                 return null;
             }
-            return toIntegerVarcharMapBlock(
+            return toIntegerVarcharSqlMap(
                     value.entrySet().stream()
                             .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
                             .collect(toImmutableMap(
@@ -232,28 +239,57 @@ public class FilesTable
                                             idToTypeMapping.get(entry.getKey()), Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
         }
 
-        private Object toIntegerBigintMapBlock(Map<Integer, Long> values)
+        private SqlMap toIntegerBigintSqlMap(Map<Integer, Long> values)
         {
-            BlockBuilder blockBuilder = integerToBigintMapType.createBlockBuilder(null, 1);
-            BlockBuilder singleMapBlockBuilder = blockBuilder.beginBlockEntry();
-            values.forEach((key, value) -> {
-                INTEGER.writeLong(singleMapBlockBuilder, key);
-                BIGINT.writeLong(singleMapBlockBuilder, value);
-            });
-            blockBuilder.closeEntry();
-            return integerToBigintMapType.getObject(blockBuilder, 0);
+            return buildMapValue(
+                    integerToBigintMapType,
+                    values.size(),
+                    (keyBuilder, valueBuilder) -> values.forEach((key, value) -> {
+                        INTEGER.writeLong(keyBuilder, key);
+                        BIGINT.writeLong(valueBuilder, value);
+                    }));
         }
 
-        private Object toIntegerVarcharMapBlock(Map<Integer, String> values)
+        private SqlMap toIntegerVarcharSqlMap(Map<Integer, String> values)
         {
-            BlockBuilder blockBuilder = integerToVarcharMapType.createBlockBuilder(null, 1);
-            BlockBuilder singleMapBlockBuilder = blockBuilder.beginBlockEntry();
-            values.forEach((key, value) -> {
-                INTEGER.writeLong(singleMapBlockBuilder, key);
-                VARCHAR.writeString(singleMapBlockBuilder, value);
-            });
-            blockBuilder.closeEntry();
-            return integerToVarcharMapType.getObject(blockBuilder, 0);
+            return buildMapValue(
+                    integerToVarcharMapType,
+                    values.size(),
+                    (keyBuilder, valueBuilder) -> values.forEach((key, value) -> {
+                        INTEGER.writeLong(keyBuilder, key);
+                        VARCHAR.writeString(valueBuilder, value);
+                    }));
+        }
+
+        @Nullable
+        private static Block toIntegerArrayBlock(List<Integer> values)
+        {
+            if (values == null) {
+                return null;
+            }
+            BlockBuilder builder = INTEGER.createBlockBuilder(null, values.size());
+            values.forEach(value -> INTEGER.writeLong(builder, value));
+            return builder.build();
+        }
+
+        @Nullable
+        private static Block toBigintArrayBlock(List<Long> values)
+        {
+            if (values == null) {
+                return null;
+            }
+            BlockBuilder builder = BIGINT.createBlockBuilder(null, values.size());
+            values.forEach(value -> BIGINT.writeLong(builder, value));
+            return builder.build();
+        }
+
+        @Nullable
+        private static Slice toVarbinarySlice(ByteBuffer value)
+        {
+            if (value == null) {
+                return null;
+            }
+            return Slices.wrappedHeapBuffer(value);
         }
     }
 

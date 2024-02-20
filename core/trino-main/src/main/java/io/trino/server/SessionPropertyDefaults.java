@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.Session;
@@ -24,8 +25,6 @@ import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
 import io.trino.spi.session.SessionConfigurationContext;
 import io.trino.spi.session.SessionPropertyConfigurationManager;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

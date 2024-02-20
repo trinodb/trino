@@ -13,12 +13,10 @@
  */
 package io.trino.plugin.iceberg;
 
-import org.testng.annotations.Test;
-
-import java.util.OptionalInt;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.iceberg.IcebergUtil.parseVersion;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergUtil
@@ -26,22 +24,36 @@ public class TestIcebergUtil
     @Test
     public void testParseVersion()
     {
-        assertEquals(parseVersion("hdfs://hadoop-master:9000/user/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44/metadata/00000-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.of(0));
-        assertEquals(parseVersion("hdfs://hadoop-master:9000/user/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44/metadata/99999-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.of(99999));
-        assertEquals(parseVersion("s3://krvikash-test/test_icerberg_util/orders_93p93eniuw-30fa27a68c734c2bafac881e905351a9/metadata/00010-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.of(10));
-        assertEquals(parseVersion("/var/test/test_icerberg_util/orders_93p93eniuw-30fa27a68c734c2bafac881e905351a9/metadata/00011-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.of(11));
+        assertThat(parseVersion("00000-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json")).isEqualTo(0);
+        assertThat(parseVersion("99999-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json")).isEqualTo(99999);
+        assertThat(parseVersion("00010-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json")).isEqualTo(10);
+        assertThat(parseVersion("00011-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json")).isEqualTo(11);
+        assertThat(parseVersion("v0.metadata.json")).isEqualTo(0);
+        assertThat(parseVersion("v10.metadata.json")).isEqualTo(10);
+        assertThat(parseVersion("v99999.metadata.json")).isEqualTo(99999);
+        assertThat(parseVersion("v0.gz.metadata.json")).isEqualTo(0);
+        assertThat(parseVersion("v0.metadata.json.gz")).isEqualTo(0);
 
-        assertThatThrownBy(() -> parseVersion("00010-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"))
-                .hasMessageMatching(".*Invalid metadata location: .*");
-        assertThatThrownBy(() -> parseVersion("hdfs://hadoop-master:9000/user/hive/warehouse/orders_5_581fad8517934af6be1857a903559d44"))
-                .hasMessageMatching(".*Invalid metadata location: .*");
-        assertThatThrownBy(() -> parseVersion("hdfs://hadoop-master:9000/user/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44/metadata"))
-                .hasMessageMatching(".*Invalid metadata location:.*");
-        assertThatThrownBy(() -> parseVersion("s3://krvikash-test/test_icerberg_util/orders_93p93eniuw-30fa27a68c734c2bafac881e905351a9/metadata/00010_409702ba_4735_4645_8f14_09537cc0b2c8.metadata.json"))
-                .hasMessageMatching(".*Invalid metadata location:.*");
-        assertThatThrownBy(() -> parseVersion("orders_5_581fad8517934af6be1857a903559d44")).hasMessageMatching(".*Invalid metadata location:.*");
+        assertThatThrownBy(() -> parseVersion("hdfs://hadoop-master:9000/user/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44/metadata/00000-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"))
+                .hasMessageMatching("Not a file name: .*");
+        assertThatThrownBy(() -> parseVersion("orders_5_581fad8517934af6be1857a903559d44"))
+                .hasMessageMatching("Invalid metadata file name: .*");
+        assertThatThrownBy(() -> parseVersion("metadata"))
+                .hasMessageMatching("Invalid metadata file name:.*");
+        assertThatThrownBy(() -> parseVersion("00010_409702ba_4735_4645_8f14_09537cc0b2c8.metadata.json"))
+                .hasMessageMatching("Invalid metadata file name:.*");
+        assertThatThrownBy(() -> parseVersion("v10_metadata_json"))
+                .hasMessageMatching("Invalid metadata file name:.*");
+        assertThatThrownBy(() -> parseVersion("v1..gz.metadata.json"))
+                .hasMessageMatching("Invalid metadata file name:.*");
+        assertThatThrownBy(() -> parseVersion("v1.metadata.json.gz."))
+                .hasMessageMatching("Invalid metadata file name:.*");
 
-        assertEquals(parseVersion("hdfs://hadoop-master:9000/user/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44/metadata/00003_409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.empty());
-        assertEquals(parseVersion("/var/test/test_icerberg_util/orders_93p93eniuw-30fa27a68c734c2bafac881e905351a9/metadata/-00010-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.empty());
+        assertThatThrownBy(() -> parseVersion("00003_409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"))
+                .hasMessageMatching("Invalid metadata file name:.*");
+        assertThatThrownBy(() -> parseVersion("-00010-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"))
+                .hasMessageMatching("Invalid metadata file name:.*");
+        assertThatThrownBy(() -> parseVersion("v-10.metadata.json"))
+                .hasMessageMatching("Invalid metadata file name:.*");
     }
 }

@@ -5,12 +5,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-product-tests-launcher</artifactId>
-    <name>trino-product-tests-launcher</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -19,26 +18,64 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-plugin-reader</artifactId>
-            <exclusions>
-                <exclusion>
-                    <!-- trino-main pulls a lot of dependencies pumping jar size, and we only need categories definitions defined in PluginReader class.
-                         Also, we want product-test-launcher to treat Trino as "blackbox" as possible, and having trino-main on classpath is not in line with that.-->
-                    <groupId>io.trino</groupId>
-                    <artifactId>trino-main</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-testing-containers</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-testing-services</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.docker-java</groupId>
+            <artifactId>docker-java-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio-jvm</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>dev.failsafe</groupId>
+            <artifactId>failsafe</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
         </dependency>
 
         <dependency>
@@ -67,59 +104,36 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-reader</artifactId>
+            <exclusions>
+                <exclusion>
+                    <!-- trino-main pulls a lot of dependencies pumping jar size, and we only need categories definitions defined in PluginReader class.
+                         Also, we want product-test-launcher to treat Trino as "blackbox" as possible, and having trino-main on classpath is not in line with that.-->
+                    <groupId>io.trino</groupId>
+                    <artifactId>trino-main</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-product-tests-groups</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.dataformat</groupId>
-            <artifactId>jackson-dataformat-yaml</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.github.docker-java</groupId>
-            <artifactId>docker-java-api</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>dev.failsafe</groupId>
-            <artifactId>failsafe</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>info.picocli</groupId>
-            <artifactId>picocli</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -128,8 +142,72 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.databricks</groupId>
+            <artifactId>databricks-jdbc</artifactId>
+            <version>2.6.36</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-provider</artifactId>
+            <!-- This is under Confluent Community License and we use it under runtime scope only for tests -->
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-types</artifactId>
+            <!-- This is under Confluent Community License and we use it under runtime scope only for tests -->
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-jdbc</artifactId>
+            <version>3.1.3</version>
+            <classifier>standalone</classifier>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -145,8 +223,14 @@
         </dependency>
 
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -154,17 +238,36 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredDependencies>
+                        <dependency>
+                            <groupId>com.databricks</groupId>
+                            <artifactId>databricks-jdbc</artifactId>
+                        </dependency>
+
+                        <dependency>
+                            <groupId>org.apache.hive</groupId>
+                            <artifactId>hive-jdbc</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
+                </configuration>
+            </plugin>
+
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <executions>
                     <execution>
-                        <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
                         </goals>
+                        <phase>package</phase>
                         <configuration>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>executable</shadedClassifierName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
                             <filters>
                                 <filter>
                                     <!-- filter out signature files from signed dependencies -->
@@ -194,10 +297,10 @@
                 <executions>
                     <execution>
                         <id>copy</id>
-                        <phase>package</phase>
                         <goals>
                             <goal>copy</goal>
                         </goals>
+                        <phase>package</phase>
                         <configuration>
                             <skip>false</skip>
                             <artifactItems>
@@ -206,6 +309,27 @@
                                     <artifactId>kafka-protobuf-provider</artifactId>
                                     <type>jar</type>
                                     <outputDirectory>${project.build.directory}</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.confluent</groupId>
+                                    <artifactId>kafka-protobuf-types</artifactId>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.hive</groupId>
+                                    <artifactId>hive-jdbc</artifactId>
+                                    <classifier>standalone</classifier>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                    <destFileName>hive-jdbc.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.databricks</groupId>
+                                    <artifactId>databricks-jdbc</artifactId>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                    <destFileName>databricks-jdbc.jar</destFileName>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
@@ -223,10 +347,10 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <phase>package</phase>
                         <goals>
                             <goal>really-executable-jar</goal>
                         </goals>
+                        <phase>package</phase>
                     </execution>
                 </executions>
             </plugin>

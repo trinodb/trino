@@ -18,10 +18,10 @@ import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 
@@ -76,7 +76,7 @@ public final class TrinoThriftVarchar
     }
 
     @Override
-    public Block toBlock(Type desiredType)
+    public ValueBlock toBlock(Type desiredType)
     {
         checkArgument(desiredType.getClass() == VarcharType.class, "type doesn't match: %s", desiredType);
         return sliceType.toBlock(desiredType);

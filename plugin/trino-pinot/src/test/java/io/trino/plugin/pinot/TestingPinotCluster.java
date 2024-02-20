@@ -56,9 +56,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static org.apache.pinot.common.utils.http.HttpClient.DEFAULT_SOCKET_TIMEOUT_MS;
 import static org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT;
 import static org.testcontainers.utility.DockerImageName.parse;
@@ -66,8 +66,8 @@ import static org.testcontainers.utility.DockerImageName.parse;
 public class TestingPinotCluster
         implements Closeable
 {
-    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:0.11.0";
-    public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.10.0";
+    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:0.12.1";
+    public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.11.0";
 
     private static final String ZOOKEEPER_INTERNAL_HOST = "zookeeper";
     private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
@@ -121,12 +121,13 @@ public class TestingPinotCluster
                 .withExposedPorts(BROKER_PORT);
         closer.register(broker::stop);
 
+        String serverConfig = secured ? "/var/pinot/server/config/pinot-server-secured.conf" : "/var/pinot/server/config/pinot-server.conf";
         server = new GenericContainer<>(parse(pinotImageName))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-server", "/var/pinot/server/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-server-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
-                .withCommand("StartServer", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", "/var/pinot/server/config/pinot-server.conf")
+                .withCommand("StartServer", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", serverConfig)
                 .withNetworkAliases("pinot-server", "localhost")
                 .withExposedPorts(SERVER_PORT, SERVER_ADMIN_PORT, GRPC_PORT);
         closer.register(server::stop);

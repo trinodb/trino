@@ -14,9 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.google.common.collect.ImmutableList;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -25,13 +23,13 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class DeltaLakeDataFileCacheEntry
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DeltaLakeDataFileCacheEntry.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(DeltaLakeDataFileCacheEntry.class);
 
     private final long version;
     private final List<AddFileEntry> activeFiles;

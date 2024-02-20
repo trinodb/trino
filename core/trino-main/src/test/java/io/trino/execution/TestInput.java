@@ -15,13 +15,14 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInput
 {
@@ -32,6 +33,7 @@ public class TestInput
     {
         Input expected = new Input(
                 "connectorId",
+                new CatalogVersion("default"),
                 "schema",
                 "table",
                 Optional.empty(),
@@ -45,6 +47,6 @@ public class TestInput
         String json = codec.toJson(expected);
         Input actual = codec.fromJson(json);
 
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 }

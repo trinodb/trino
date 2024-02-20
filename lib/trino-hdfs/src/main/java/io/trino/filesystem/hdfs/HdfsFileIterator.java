@@ -15,20 +15,23 @@ package io.trino.filesystem.hdfs;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.FileEntry;
-import io.trino.filesystem.FileEntry.BlockLocation;
+import io.trino.filesystem.FileEntry.Block;
 import io.trino.filesystem.FileIterator;
-import org.apache.hadoop.fs.FileSystem;
+import io.trino.filesystem.Location;
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -36,14 +39,14 @@ import static java.util.Objects.requireNonNull;
 class HdfsFileIterator
         implements FileIterator
 {
-    private final String listingPath;
-    private final URI listingUri;
+    private final Location listingLocation;
+    private final Path listingPath;
     private final RemoteIterator<LocatedFileStatus> iterator;
 
-    public HdfsFileIterator(String listingPath, FileSystem fs, RemoteIterator<LocatedFileStatus> iterator)
+    public HdfsFileIterator(Location listingLocation, Path listingPath, RemoteIterator<LocatedFileStatus> iterator)
     {
+        this.listingLocation = requireNonNull(listingLocation, "listingPath is null");
         this.listingPath = requireNonNull(listingPath, "listingPath is null");
-        this.listingUri = new Path(listingPath).makeQualified(fs.getUri(), fs.getWorkingDirectory()).toUri();
         this.iterator = requireNonNull(iterator, "iterator is null");
     }
 
@@ -51,7 +54,22 @@ class HdfsFileIterator
     public boolean hasNext()
             throws IOException
     {
-        return iterator.hasNext();
+        // TODO: remove this workaround for https://issues.apache.org/jira/browse/HADOOP-18662
+        int attempts = 0;
+        while (true) {
+            try {
+                return iterator.hasNext();
+            }
+            catch (FileNotFoundException | RuntimeException e) {
+                if ((e instanceof RuntimeException) && !nullToEmpty(e.getMessage()).contains(": No such file or directory\n")) {
+                    throw new IOException(e);
+                }
+                attempts++;
+                if (attempts > 1000) {
+                    throw e;
+                }
+            }
+        }
     }
 
     @Override
@@ -62,31 +80,36 @@ class HdfsFileIterator
 
         verify(status.isFile(), "iterator returned a non-file: %s", status);
 
-        URI pathUri = status.getPath().toUri();
-        URI relativeUri = listingUri.relativize(pathUri);
-        verify(!relativeUri.equals(pathUri), "cannot relativize [%s] against [%s]", pathUri, listingUri);
-
-        String path = listingPath;
-        if (!relativeUri.getPath().isEmpty()) {
-            if (!path.endsWith("/")) {
-                path += "/";
-            }
-            path += relativeUri.getPath();
+        if (status.getPath().equals(listingPath)) {
+            throw new IOException("Listing location is a file, not a directory: " + listingLocation);
         }
 
-        List<BlockLocation> locations = Stream.of(status.getBlockLocations())
-                .map(HdfsFileIterator::toTrinoBlockLocation)
+        List<Block> blocks = Stream.of(status.getBlockLocations())
+                .map(HdfsFileIterator::toTrinoBlock)
                 .collect(toImmutableList());
 
-        Optional<List<BlockLocation>> blockLocations = locations.isEmpty() ? Optional.empty() : Optional.of(locations);
-
-        return new FileEntry(path, status.getLen(), status.getModificationTime(), blockLocations);
+        return new FileEntry(
+                listedLocation(listingLocation, listingPath, status.getPath()),
+                status.getLen(),
+                Instant.ofEpochMilli(status.getModificationTime()),
+                blocks.isEmpty() ? Optional.empty() : Optional.of(blocks));
     }
 
-    private static BlockLocation toTrinoBlockLocation(org.apache.hadoop.fs.BlockLocation location)
+    static Location listedLocation(Location listingLocation, Path listingPath, Path listedPath)
+    {
+        String root = listingPath.toUri().getPath();
+        String path = listedPath.toUri().getPath();
+
+        verify(path.startsWith(root), "iterator path [%s] not a child of listing path [%s] for location [%s]", path, root, listingLocation);
+
+        int index = root.endsWith("/") ? root.length() : root.length() + 1;
+        return listingLocation.appendPath(path.substring(index));
+    }
+
+    private static Block toTrinoBlock(BlockLocation location)
     {
         try {
-            return new BlockLocation(ImmutableList.copyOf(location.getHosts()), location.getOffset(), location.getLength());
+            return new Block(ImmutableList.copyOf(location.getHosts()), location.getOffset(), location.getLength());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

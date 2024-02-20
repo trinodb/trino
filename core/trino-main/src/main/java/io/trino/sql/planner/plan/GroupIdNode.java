@@ -14,27 +14,25 @@
 package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 
-import javax.annotation.concurrent.Immutable;
-
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.util.MoreLists.listOfListsCopy;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toSet;
 
 @Immutable
 public class GroupIdNode
@@ -77,10 +75,9 @@ public class GroupIdNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.<Symbol>builder()
-                .addAll(groupingSets.stream()
-                        .flatMap(Collection::stream)
-                        .collect(toSet()))
+        Set<Symbol> distinctGroupingSetSymbols = getDistinctGroupingSetSymbols();
+        return ImmutableList.<Symbol>builderWithExpectedSize(distinctGroupingSetSymbols.size() + aggregationArguments.size() + 1)
+                .addAll(distinctGroupingSetSymbols)
                 .addAll(aggregationArguments)
                 .add(groupIdSymbol)
                 .build();
@@ -102,6 +99,14 @@ public class GroupIdNode
     public List<List<Symbol>> getGroupingSets()
     {
         return groupingSets;
+    }
+
+    @JsonIgnore
+    public Set<Symbol> getDistinctGroupingSetSymbols()
+    {
+        return groupingSets.stream()
+                .flatMap(List::stream)
+                .collect(toImmutableSet()); // Produce a stable ordering of grouping set symbols in the output
     }
 
     @JsonProperty
@@ -130,20 +135,19 @@ public class GroupIdNode
 
     public Set<Symbol> getInputSymbols()
     {
-        return ImmutableSet.<Symbol>builder()
-                .addAll(aggregationArguments)
-                .addAll(groupingSets.stream()
-                        .map(set -> set.stream()
-                                .map(groupingColumns::get).collect(Collectors.toList()))
-                        .flatMap(Collection::stream)
-                        .collect(toSet()))
-                .build();
+        Set<Symbol> distinctGroupingSetSymbols = getDistinctGroupingSetSymbols();
+        ImmutableSet.Builder<Symbol> builder = ImmutableSet.builderWithExpectedSize(aggregationArguments.size() + distinctGroupingSetSymbols.size());
+        builder.addAll(aggregationArguments);
+        for (Symbol groupingSetSymbol : distinctGroupingSetSymbols) {
+            builder.add(groupingColumns.get(groupingSetSymbol));
+        }
+        return builder.build();
     }
 
     // returns the common grouping columns in terms of output symbols
     public Set<Symbol> getCommonGroupingColumns()
     {
-        Set<Symbol> intersection = new HashSet<>(groupingSets.get(0));
+        Set<Symbol> intersection = new LinkedHashSet<>(groupingSets.get(0));
         for (int i = 1; i < groupingSets.size(); i++) {
             intersection.retainAll(groupingSets.get(i));
         }

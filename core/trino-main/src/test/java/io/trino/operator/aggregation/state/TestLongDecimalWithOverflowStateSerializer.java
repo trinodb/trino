@@ -13,22 +13,30 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongDecimalWithOverflowStateSerializer
 {
     private static final LongDecimalWithOverflowStateFactory STATE_FACTORY = new LongDecimalWithOverflowStateFactory();
 
-    @Test(dataProvider = "input")
-    public void testSerde(long low, long high, long overflow, int expectedLength)
+    @Test
+    public void testSerde()
+    {
+        testSerde(3, 0, 0, 1);
+        testSerde(3, 5, 0, 2);
+        testSerde(3, 5, 7, 3);
+        testSerde(3, 0, 7, 3);
+        testSerde(0, 0, 0, 1);
+        testSerde(0, 5, 0, 2);
+        testSerde(0, 5, 7, 3);
+        testSerde(0, 0, 7, 3);
+    }
+
+    private void testSerde(long low, long high, long overflow, int expectedLength)
     {
         LongDecimalWithOverflowState state = STATE_FACTORY.createSingleState();
         state.getDecimalArray()[0] = high;
@@ -38,10 +46,10 @@ public class TestLongDecimalWithOverflowStateSerializer
 
         LongDecimalWithOverflowState outState = roundTrip(state, expectedLength);
 
-        assertTrue(outState.isNotNull());
-        assertEquals(outState.getDecimalArray()[0], high);
-        assertEquals(outState.getDecimalArray()[1], low);
-        assertEquals(outState.getOverflow(), overflow);
+        assertThat(outState.isNotNull()).isTrue();
+        assertThat(outState.getDecimalArray()[0]).isEqualTo(high);
+        assertThat(outState.getDecimalArray()[1]).isEqualTo(low);
+        assertThat(outState.getOverflow()).isEqualTo(overflow);
     }
 
     @Test
@@ -52,35 +60,20 @@ public class TestLongDecimalWithOverflowStateSerializer
 
         LongDecimalWithOverflowState outState = roundTrip(state, 0);
 
-        assertFalse(outState.isNotNull());
+        assertThat(outState.isNotNull()).isFalse();
     }
 
     private LongDecimalWithOverflowState roundTrip(LongDecimalWithOverflowState state, int expectedLength)
     {
         LongDecimalWithOverflowStateSerializer serializer = new LongDecimalWithOverflowStateSerializer();
-        BlockBuilder out = new VariableWidthBlockBuilder(null, 1, 0);
+        VariableWidthBlockBuilder out = new VariableWidthBlockBuilder(null, 1, 0);
 
         serializer.serialize(state, out);
 
-        Block serialized = out.build();
-        assertEquals(serialized.getSliceLength(0), expectedLength * Long.BYTES);
+        VariableWidthBlock serialized = out.buildValueBlock();
+        assertThat(serialized.getSliceLength(0)).isEqualTo(expectedLength * Long.BYTES);
         LongDecimalWithOverflowState outState = STATE_FACTORY.createSingleState();
         serializer.deserialize(serialized, 0, outState);
         return outState;
-    }
-
-    @DataProvider
-    public Object[][] input()
-    {
-        return new Object[][] {
-                {3, 0, 0, 1},
-                {3, 5, 0, 2},
-                {3, 5, 7, 3},
-                {3, 0, 7, 3},
-                {0, 0, 0, 1},
-                {0, 5, 0, 2},
-                {0, 5, 7, 3},
-                {0, 0, 7, 3}
-        };
     }
 }

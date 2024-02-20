@@ -21,8 +21,7 @@ import io.trino.operator.join.DefaultPageJoiner.SavedRow;
 import io.trino.operator.join.PageJoiner.PageJoinerFactory;
 import io.trino.spi.Page;
 import io.trino.spiller.PartitioningSpillerFactory;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;

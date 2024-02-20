@@ -20,6 +20,9 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
@@ -32,16 +35,11 @@ import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.spi.connector.CatalogHandle;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
-
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -211,8 +209,9 @@ public final class DiscoveryNodeManager
     private synchronized void refreshNodesInternal()
     {
         // This is a deny-list.
+        Set<ServiceDescriptor> failed = failureDetector.getFailed();
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
-                .filter(service -> !failureDetector.getFailed().contains(service))
+                .filter(service -> !failed.contains(service))
                 .collect(toImmutableSet());
 
         ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSet.builder();
@@ -388,11 +387,7 @@ public final class DiscoveryNodeManager
     {
         String url = descriptor.getProperties().get(httpsRequired ? "https" : "http");
         if (url != null) {
-            try {
-                return new URI(url);
-            }
-            catch (URISyntaxException ignored) {
-            }
+            return URI.create(url);
         }
         return null;
     }

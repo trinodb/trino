@@ -16,11 +16,10 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.Symbol;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
@@ -100,14 +99,6 @@ class PreferredProperties
     {
         return builder()
                 .global(Global.distributed(PartitioningProperties.partitioned(columns)))
-                .local(localProperties)
-                .build();
-    }
-
-    public static PreferredProperties undistributedWithLocal(List<? extends LocalProperty<Symbol>> localProperties)
-    {
-        return builder()
-                .global(Global.undistributed())
                 .local(localProperties)
                 .build();
     }

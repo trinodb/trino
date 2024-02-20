@@ -21,12 +21,15 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestFailureFunction
 {
     private QueryAssertions assertions;
@@ -48,7 +51,7 @@ public class TestFailureFunction
     public void testFailure()
     {
         String failure = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(new RuntimeException("fail me")).toFailureInfo());
-        assertTrinoExceptionThrownBy(() -> assertions.function("fail", "json_parse('" + failure + "')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("fail", "json_parse('" + failure + "')")::evaluate)
                 .hasErrorCode(GENERIC_USER_ERROR)
                 .hasMessage("fail me");
     }

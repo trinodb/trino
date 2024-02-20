@@ -35,8 +35,8 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -53,7 +53,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -101,18 +100,16 @@ public class TestTableScanNodePartitioning
     public static final ColumnHandle COLUMN_HANDLE_B = new MockConnectorColumnHandle(COLUMN_B, VARCHAR);
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TEST_SCHEMA)
                 .setSystemProperty(TASK_CONCURRENCY, "2"); // force parallel plan even on test nodes with single CPU
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
-                .withNodeCountForStats(10)
-                .build();
-        queryRunner.createCatalog(TEST_CATALOG_NAME, createMockFactory(), ImmutableMap.of());
-        return queryRunner;
+        PlanTester planTester = PlanTester.create(sessionBuilder.build(), 10);
+        planTester.createCatalog(TEST_CATALOG_NAME, createMockFactory(), ImmutableMap.of());
+        return planTester;
     }
 
     @Test
@@ -152,9 +149,8 @@ public class TestTableScanNodePartitioning
                 anyTree(
                         aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("COUNT_PART"))), FINAL,
                                 exchange(LOCAL, REPARTITION,
-                                        project(
-                                                aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
-                                                        tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b"))))))));
+                                        aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
+                                                tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b")))))));
         SubPlan subPlan = subplan(query, OPTIMIZED_AND_VALIDATED, false, session);
         assertThat(subPlan.getAllFragments()).hasSize(1);
         assertThat(subPlan.getAllFragments().get(0).getPartitioning().getConnectorHandle()).isEqualTo(expectedPartitioning);
@@ -168,9 +164,8 @@ public class TestTableScanNodePartitioning
                         aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("COUNT_PART"))), FINAL,
                                 exchange(LOCAL, REPARTITION,
                                         exchange(REMOTE, REPARTITION,
-                                                project(
-                                                        aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
-                                                                tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b")))))))));
+                                                aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
+                                                        tableScan(table, ImmutableMap.of("A", "column_a", "B", "column_b"))))))));
         SubPlan subPlan = subplan(query, OPTIMIZED_AND_VALIDATED, false, session);
         assertThat(subPlan.getAllFragments()).hasSize(2);
         assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(SOURCE_DISTRIBUTION.getConnectorHandle());
@@ -190,7 +185,6 @@ public class TestTableScanNodePartitioning
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(PARTITIONING_HANDLE, ImmutableList.of(COLUMN_HANDLE_A))),
                                 Optional.empty(),
-                                Optional.empty(),
                                 ImmutableList.of());
                     }
                     if (tableName.equals(SINGLE_BUCKET_TABLE)) {
@@ -198,14 +192,12 @@ public class TestTableScanNodePartitioning
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(SINGLE_BUCKET_HANDLE, ImmutableList.of(COLUMN_HANDLE_A))),
                                 Optional.empty(),
-                                Optional.empty(),
                                 ImmutableList.of());
                     }
                     if (tableName.equals(FIXED_PARTITIONED_TABLE)) {
                         return new ConnectorTableProperties(
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(FIXED_PARTITIONING_HANDLE, ImmutableList.of(COLUMN_HANDLE_A))),
-                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of());
                     }

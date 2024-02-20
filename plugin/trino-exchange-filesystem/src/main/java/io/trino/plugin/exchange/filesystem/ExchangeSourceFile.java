@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.exchange.filesystem;
 
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.exchange.ExchangeId;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 

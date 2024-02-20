@@ -14,17 +14,17 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Execute;
+import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Statement;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +32,6 @@ import java.util.Optional;
 import static io.trino.execution.ParameterExtractor.getParameterCount;
 import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.util.StatementUtils.getQueryType;
@@ -52,7 +51,7 @@ public class QueryPreparer
     public PreparedQuery prepareQuery(Session session, String query)
             throws ParsingException, TrinoException
     {
-        Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
+        Statement wrappedStatement = sqlParser.createStatement(query);
         return prepareQuery(session, wrappedStatement);
     }
 
@@ -61,23 +60,32 @@ public class QueryPreparer
     {
         Statement statement = wrappedStatement;
         Optional<String> prepareSql = Optional.empty();
-        if (statement instanceof Execute) {
-            prepareSql = Optional.of(session.getPreparedStatementFromExecute((Execute) statement));
-            statement = sqlParser.createStatement(prepareSql.get(), createParsingOptions(session));
+        if (statement instanceof Execute executeStatement) {
+            prepareSql = Optional.of(session.getPreparedStatementFromExecute(executeStatement));
+            statement = sqlParser.createStatement(prepareSql.get());
         }
-
-        if (statement instanceof ExplainAnalyze) {
-            Statement innerStatement = ((ExplainAnalyze) statement).getStatement();
+        else if (statement instanceof ExecuteImmediate executeImmediateStatement) {
+            statement = sqlParser.createStatement(
+                    executeImmediateStatement.getStatement().getValue(),
+                    executeImmediateStatement.getStatement().getLocation().orElseThrow(() -> new ParsingException("Missing location for embedded statement")));
+        }
+        else if (statement instanceof ExplainAnalyze explainAnalyzeStatement) {
+            Statement innerStatement = explainAnalyzeStatement.getStatement();
             Optional<QueryType> innerQueryType = getQueryType(innerStatement);
             if (innerQueryType.isEmpty() || innerQueryType.get() == QueryType.DATA_DEFINITION) {
                 throw new TrinoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
             }
         }
+
         List<Expression> parameters = ImmutableList.of();
-        if (wrappedStatement instanceof Execute) {
-            parameters = ((Execute) wrappedStatement).getParameters();
+        if (wrappedStatement instanceof Execute executeStatement) {
+            parameters = executeStatement.getParameters();
+        }
+        else if (wrappedStatement instanceof ExecuteImmediate executeImmediateStatement) {
+            parameters = executeImmediateStatement.getParameters();
         }
         validateParameters(statement, parameters);
+
         return new PreparedQuery(statement, parameters, prepareSql);
     }
 

@@ -21,7 +21,7 @@ import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -39,7 +39,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPlanMatchingFramework
@@ -274,7 +274,7 @@ public class TestPlanMatchingFramework
 
     private Session noJoinReordering()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .build();

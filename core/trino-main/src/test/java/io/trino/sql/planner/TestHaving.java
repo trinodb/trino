@@ -14,7 +14,7 @@
 package io.trino.sql.planner;
 
 import io.trino.sql.planner.assertions.BasePlanTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

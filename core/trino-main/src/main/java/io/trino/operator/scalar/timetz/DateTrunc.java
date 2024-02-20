@@ -71,7 +71,7 @@ public final class DateTrunc
             case "hour":
                 return picos / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
             default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
         }
     }
 }

@@ -15,14 +15,13 @@ package io.trino.client.auth.external;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.client.ClientException;
+import jakarta.annotation.Nullable;
 import okhttp3.Authenticator;
 import okhttp3.Challenge;
 import okhttp3.Interceptor;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.Route;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.URI;

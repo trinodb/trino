@@ -27,6 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class RaptorBucketFunction
         implements BucketFunction
@@ -83,12 +84,12 @@ public class RaptorBucketFunction
 
     private static HashFunction intHashFunction()
     {
-        return (block, position) -> XxHash64.hash(INTEGER.getLong(block, position));
+        return (block, position) -> XxHash64.hash(INTEGER.getInt(block, position));
     }
 
     private static HashFunction varcharHashFunction()
     {
-        return (block, position) -> XxHash64.hash(block.getSlice(position, 0, block.getSliceLength(position)));
+        return (block, position) -> XxHash64.hash(VARCHAR.getSlice(block, position));
     }
 
     private interface HashFunction

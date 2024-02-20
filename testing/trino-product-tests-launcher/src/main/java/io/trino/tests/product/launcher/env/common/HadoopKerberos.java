@@ -14,12 +14,11 @@
 package io.trino.tests.product.launcher.env.common;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -70,6 +69,7 @@ public class HadoopKerberos
             container
                     .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
                     .withCopyFileToContainer(forHostPath(configDir.getPath("config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("krb5.conf")), "/etc/krb5.conf")
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("create_kerberos_credential_cache_files.sh")),
                             "/docker/presto-init.d/create_kerberos_credentials.sh");

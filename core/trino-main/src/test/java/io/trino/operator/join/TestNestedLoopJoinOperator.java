@@ -27,9 +27,11 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -46,23 +48,25 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestNestedLoopJoinOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
@@ -479,13 +483,15 @@ public class TestNestedLoopJoinOperator
         Page probePage = new Page(45);
 
         NestedLoopOutputIterator resultPageBuilder = NestedLoopJoinOperator.createNestedLoopOutputIterator(probePage, buildPage, new int[0], new int[0]);
-        assertTrue(resultPageBuilder.hasNext(), "There should be at least one page.");
+        assertThat(resultPageBuilder.hasNext())
+                .describedAs("There should be at least one page.")
+                .isTrue();
 
         long result = 0;
         while (resultPageBuilder.hasNext()) {
             result += resultPageBuilder.next().getPositionCount();
         }
-        assertEquals(result, 4500);
+        assertThat(result).isEqualTo(4500);
 
         // force the product to be bigger than Integer.MAX_VALUE
         buildPage = new Page(Integer.MAX_VALUE - 10);
@@ -495,7 +501,7 @@ public class TestNestedLoopJoinOperator
         while (resultPageBuilder.hasNext()) {
             result += resultPageBuilder.next().getPositionCount();
         }
-        assertEquals((Integer.MAX_VALUE - 10) * 45L, result);
+        assertThat((Integer.MAX_VALUE - 10) * 45L).isEqualTo(result);
     }
 
     private TaskContext createTaskContext()

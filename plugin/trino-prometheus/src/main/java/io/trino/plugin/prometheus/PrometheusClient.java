@@ -16,21 +16,20 @@ package io.trino.plugin.prometheus;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.Nullable;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
-
-import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -164,18 +163,15 @@ public class PrometheusClient
     public byte[] fetchUri(URI uri)
     {
         Request.Builder requestBuilder = new Request.Builder().url(uri.toString());
-        Response response;
-        try {
-            response = httpClient.newCall(requestBuilder.build()).execute();
+        try (Response response = httpClient.newCall(requestBuilder.build()).execute()) {
             if (response.isSuccessful() && response.body() != null) {
                 return response.body().bytes();
             }
+            throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + " " + response.message());
         }
         catch (IOException e) {
             throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Error reading metrics", e);
         }
-
-        throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + " " + response.message());
     }
 
     private Optional<String> getBearerAuthInfoFromFile(Optional<File> bearerTokenFile)

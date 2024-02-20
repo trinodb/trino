@@ -25,16 +25,20 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.file.Path;
 
-import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 /**
  * Tests metadata operations on a schema which has a mix of Hive and Iceberg tables.
@@ -42,6 +46,8 @@ import static java.lang.String.format;
  * Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  */
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestSharedGlueMetastore
         extends BaseSharedMetastoreTest
 {
@@ -64,7 +70,7 @@ public class TestSharedGlueMetastore
                 .setSchema(schema)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -87,22 +93,22 @@ public class TestSharedGlueMetastore
                         "hive.metastore.glue.default-warehouse-dir", dataDirectory.toString(),
                         "iceberg.hive-catalog-name", "hive"));
 
-        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory.toString());
-        queryRunner.installPlugin(new TestingHivePlugin(glueMetastore));
+        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory);
+        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), glueMetastore));
         queryRunner.createCatalog(HIVE_CATALOG, "hive");
         queryRunner.createCatalog(
                 "hive_with_redirections",
                 "hive",
                 ImmutableMap.of("hive.iceberg-catalog-name", "iceberg"));
 
-        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + dataDirectory.toString() + "')");
+        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + dataDirectory.toUri() + "')");
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, icebergSession, ImmutableList.of(TpchTable.NATION));
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, hiveSession, ImmutableList.of(TpchTable.REGION));
 
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
     {
         try {
@@ -124,7 +130,7 @@ public class TestSharedGlueMetastore
                 "   location = '%s'\n" +
                 ")";
 
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory);
+        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
     }
 
     @Override
@@ -134,6 +140,6 @@ public class TestSharedGlueMetastore
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";
-        return format(expectedIcebergCreateSchema, catalogName, schema, dataDirectory, schema);
+        return format(expectedIcebergCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
     }
 }

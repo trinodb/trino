@@ -13,15 +13,15 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type.Range;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestSmallintType
         extends AbstractTestType
@@ -31,7 +31,7 @@ public class TestSmallintType
         super(SMALLINT, Short.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = SMALLINT.createBlockBuilder(null, 15);
         SMALLINT.writeLong(blockBuilder, 1111);
@@ -45,7 +45,7 @@ public class TestSmallintType
         SMALLINT.writeLong(blockBuilder, 3333);
         SMALLINT.writeLong(blockBuilder, 3333);
         SMALLINT.writeLong(blockBuilder, 4444);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -54,15 +54,15 @@ public class TestSmallintType
         return ((Long) value) + 1;
     }
 
-    @Override
+    @Test
     public void testRange()
     {
         Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), (long) Short.MIN_VALUE);
-        assertEquals(range.getMax(), (long) Short.MAX_VALUE);
+        assertThat(range.getMin()).isEqualTo((long) Short.MIN_VALUE);
+        assertThat(range.getMax()).isEqualTo((long) Short.MAX_VALUE);
     }
 
-    @Override
+    @Test
     public void testPreviousValue()
     {
         long minValue = Short.MIN_VALUE;
@@ -82,7 +82,7 @@ public class TestSmallintType
                 .isEqualTo(Optional.of(maxValue - 1));
     }
 
-    @Override
+    @Test
     public void testNextValue()
     {
         long minValue = Short.MIN_VALUE;

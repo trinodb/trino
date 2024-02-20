@@ -18,7 +18,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
@@ -35,7 +35,7 @@ public class TestGeoSpatialQueries
     {
         Session session = testSessionBuilder().build();
         // Distributed runner exercises the client protocol as well.
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .build();
         try {
             queryRunner.installPlugin(new GeoPlugin());

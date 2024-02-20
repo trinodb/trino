@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.metastore.cache;
 
 import com.google.common.util.concurrent.SettableFuture;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -22,7 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestReentrantBoundedExecutor
 {
@@ -53,7 +53,7 @@ public class TestReentrantBoundedExecutor
             reentrantExecutor.execute(() -> secondFuture.set(null));
             secondFuture.get();
 
-            assertEquals(callCounter.get(), 2);
+            assertThat(callCounter.get()).isEqualTo(2);
         }
         finally {
             executor.shutdownNow();

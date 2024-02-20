@@ -51,7 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -75,7 +74,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_DDL;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
@@ -84,7 +83,6 @@ import static io.trino.spi.type.Chars.padSpaces;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 
 public final class MetastoreUtil
 {
@@ -92,27 +90,25 @@ public final class MetastoreUtil
 
     private MetastoreUtil() {}
 
-    public static Properties getHiveSchema(Table table)
+    public static Map<String, String> getHiveSchema(Table table)
     {
         // Mimics function in Hive: MetaStoreUtils.getTableMetadata(Table)
         return getHiveSchema(
                 table.getStorage(),
                 Optional.empty(),
                 table.getDataColumns(),
-                table.getDataColumns(),
                 table.getParameters(),
                 table.getDatabaseName(),
                 table.getTableName(),
                 table.getPartitionColumns());
     }
 
-    public static Properties getHiveSchema(Partition partition, Table table)
+    public static Map<String, String> getHiveSchema(Partition partition, Table table)
     {
         // Mimics function in Hive: MetaStoreUtils.getSchema(Partition, Table)
         return getHiveSchema(
                 partition.getStorage(),
                 Optional.of(table.getStorage()),
-                partition.getColumns(),
                 table.getDataColumns(),
                 table.getParameters(),
                 table.getDatabaseName(),
@@ -120,10 +116,9 @@ public final class MetastoreUtil
                 table.getPartitionColumns());
     }
 
-    private static Properties getHiveSchema(
+    private static Map<String, String> getHiveSchema(
             Storage sd,
             Optional<Storage> tableSd,
-            List<Column> dataColumns,
             List<Column> tableDataColumns,
             Map<String, String> parameters,
             String databaseName,
@@ -133,33 +128,33 @@ public final class MetastoreUtil
         // Mimics function in Hive:
         // MetaStoreUtils.getSchema(StorageDescriptor, StorageDescriptor, Map<String, String>, String, String, List<FieldSchema>)
 
-        Properties schema = new Properties();
+        ImmutableMap.Builder<String, String> schema = ImmutableMap.builder();
 
-        schema.setProperty(FILE_INPUT_FORMAT, sd.getStorageFormat().getInputFormat());
-        schema.setProperty(FILE_OUTPUT_FORMAT, sd.getStorageFormat().getOutputFormat());
+        schema.put(FILE_INPUT_FORMAT, sd.getStorageFormat().getInputFormat());
+        schema.put(FILE_OUTPUT_FORMAT, sd.getStorageFormat().getOutputFormat());
 
-        schema.setProperty(META_TABLE_NAME, databaseName + "." + tableName);
-        schema.setProperty(META_TABLE_LOCATION, sd.getLocation());
+        schema.put(META_TABLE_NAME, databaseName + "." + tableName);
+        schema.put(META_TABLE_LOCATION, sd.getLocation());
 
         if (sd.getBucketProperty().isPresent()) {
-            schema.setProperty(BUCKET_FIELD_NAME, Joiner.on(",").join(sd.getBucketProperty().get().getBucketedBy()));
-            schema.setProperty(BUCKET_COUNT, Integer.toString(sd.getBucketProperty().get().getBucketCount()));
+            schema.put(BUCKET_FIELD_NAME, Joiner.on(",").join(sd.getBucketProperty().get().getBucketedBy()));
+            schema.put(BUCKET_COUNT, Integer.toString(sd.getBucketProperty().get().getBucketCount()));
         }
         else {
-            schema.setProperty(BUCKET_COUNT, "0");
+            schema.put(BUCKET_COUNT, "0");
         }
 
         for (Map.Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
-            schema.setProperty(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
+            schema.put(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
 
         if (sd.getStorageFormat().getSerde().equals(AVRO_SERDE_CLASS) && tableSd.isPresent()) {
             for (Map.Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
-                schema.setProperty(param.getKey(), nullToEmpty(param.getValue()));
+                schema.put(param.getKey(), nullToEmpty(param.getValue()));
             }
         }
 
-        schema.setProperty(SERIALIZATION_LIB, sd.getStorageFormat().getSerde());
+        schema.put(SERIALIZATION_LIB, sd.getStorageFormat().getSerde());
 
         StringBuilder columnNameBuilder = new StringBuilder();
         StringBuilder columnTypeBuilder = new StringBuilder();
@@ -178,11 +173,9 @@ public final class MetastoreUtil
         }
         String columnNames = columnNameBuilder.toString();
         String columnTypes = columnTypeBuilder.toString();
-        schema.setProperty(META_TABLE_COLUMNS, columnNames);
-        schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes);
-        schema.setProperty("columns.comments", columnCommentBuilder.toString());
-
-        schema.setProperty(SERIALIZATION_DDL, toThriftDdl(tableName, dataColumns));
+        schema.put(META_TABLE_COLUMNS, columnNames);
+        schema.put(META_TABLE_COLUMN_TYPES, columnTypes);
+        schema.put(LIST_COLUMN_COMMENTS, columnCommentBuilder.toString());
 
         StringBuilder partString = new StringBuilder();
         String partStringSep = "";
@@ -199,20 +192,20 @@ public final class MetastoreUtil
             }
         }
         if (partString.length() > 0) {
-            schema.setProperty(META_TABLE_PARTITION_COLUMNS, partString.toString());
-            schema.setProperty(META_TABLE_PARTITION_COLUMN_TYPES, partTypesString.toString());
+            schema.put(META_TABLE_PARTITION_COLUMNS, partString.toString());
+            schema.put(META_TABLE_PARTITION_COLUMN_TYPES, partTypesString.toString());
         }
 
         if (parameters != null) {
             for (Map.Entry<String, String> entry : parameters.entrySet()) {
                 // add non-null parameters to the schema
                 if (entry.getValue() != null) {
-                    schema.setProperty(entry.getKey(), entry.getValue());
+                    schema.put(entry.getKey(), entry.getValue());
                 }
             }
         }
 
-        return schema;
+        return schema.buildKeepingLast();
     }
 
     public static ProtectMode getProtectMode(Partition partition)
@@ -258,30 +251,6 @@ public final class MetastoreUtil
             return table.getStorage().getLocation();
         }
         return partition.get().getStorage().getLocation();
-    }
-
-    private static String toThriftDdl(String structName, List<Column> columns)
-    {
-        // Mimics function in Hive:
-        // MetaStoreUtils.getDDLFromFieldSchema(String, List<FieldSchema>)
-        StringBuilder ddl = new StringBuilder();
-        ddl.append("struct ");
-        ddl.append(structName);
-        ddl.append(" { ");
-        boolean first = true;
-        for (Column column : columns) {
-            if (first) {
-                first = false;
-            }
-            else {
-                ddl.append(", ");
-            }
-            ddl.append(typeToThriftType(column.getType().getHiveTypeName().toString()));
-            ddl.append(' ');
-            ddl.append(column.getName());
-        }
-        ddl.append("}");
-        return ddl.toString();
     }
 
     private static ProtectMode getProtectMode(Map<String, String> parameters)

@@ -18,7 +18,6 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.operator.GroupByHash;
-import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.Work;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -26,7 +25,6 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
@@ -34,10 +32,8 @@ import it.unimi.dsi.fastutil.ints.IntListIterator;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.GroupByHash.createGroupByHash;
@@ -57,43 +53,40 @@ public class UnloadedIndexKeyRecordSet
             Set<Integer> channelsForDistinct,
             List<Type> types,
             List<UpdateRequest> requests,
-            JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            JoinCompiler joinCompiler)
     {
         requireNonNull(existingSnapshot, "existingSnapshot is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         requireNonNull(requests, "requests is null");
 
         int[] distinctChannels = Ints.toArray(channelsForDistinct);
-        int[] normalizedDistinctChannels = new int[distinctChannels.length];
         List<Type> distinctChannelTypes = new ArrayList<>(distinctChannels.length);
         for (int i = 0; i < distinctChannels.length; i++) {
-            normalizedDistinctChannels[i] = i;
             distinctChannelTypes.add(types.get(distinctChannels[i]));
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, joinCompiler, blockTypeOperators, NOOP);
+        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, false, 10_000, joinCompiler, NOOP);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
 
             // Move through the positions while advancing the cursors in lockstep
-            Work<GroupByIdBlock> work = groupByHash.getGroupIds(page.getColumns(distinctChannels));
+            Work<int[]> work = groupByHash.getGroupIds(page.getColumns(distinctChannels));
             boolean done = work.process();
             // TODO: this class does not yield wrt memory limit; enable it
             verify(done);
-            GroupByIdBlock groupIds = work.getResult();
+            int[] groupIds = work.getResult();
             int positionCount = page.getBlock(0).getPositionCount();
-            long nextDistinctId = -1;
-            checkArgument(groupIds.getGroupCount() <= Integer.MAX_VALUE);
-            IntList positions = new IntArrayList((int) groupIds.getGroupCount());
+            int nextDistinctId = -1;
+            int groupCount = groupByHash.getGroupCount();
+            IntList positions = new IntArrayList(groupCount);
             for (int position = 0; position < positionCount; position++) {
                 // We are reading ahead in the cursors, so we need to filter any nulls since they cannot join
                 if (!containsNullValue(position, page)) {
                     // Only include the key if it is not already in the index
                     if (existingSnapshot.getJoinPosition(position, page) == UNLOADED_INDEX_KEY) {
                         // Only add the position if we have not seen this tuple before (based on the distinct channels)
-                        long groupId = groupIds.getGroupId(position);
+                        int groupId = groupIds[position];
                         if (nextDistinctId < groupId) {
                             nextDistinctId = groupId;
                             positions.add(position);

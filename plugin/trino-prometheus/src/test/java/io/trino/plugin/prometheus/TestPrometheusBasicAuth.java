@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusQueryRunner;

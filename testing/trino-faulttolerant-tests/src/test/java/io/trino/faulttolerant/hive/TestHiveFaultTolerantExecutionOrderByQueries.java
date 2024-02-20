@@ -18,8 +18,8 @@ import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestFaultTolerantExecutionOrderByQueries;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -49,7 +49,7 @@ public class TestHiveFaultTolerantExecutionOrderByQueries
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
             throws Exception
     {

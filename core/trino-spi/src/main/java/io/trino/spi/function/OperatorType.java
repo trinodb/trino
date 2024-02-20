@@ -38,7 +38,9 @@ public enum OperatorType
     SATURATED_FLOOR_CAST("SATURATED FLOOR CAST", 1),
     IS_DISTINCT_FROM("IS DISTINCT FROM", 2),
     XX_HASH_64("XX HASH 64", 1),
-    INDETERMINATE("INDETERMINATE", 1);
+    INDETERMINATE("INDETERMINATE", 1),
+    READ_VALUE("READ VALUE", 1),
+    /**/;
 
     private final String operator;
     private final int argumentCount;

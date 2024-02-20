@@ -65,23 +65,27 @@ public class TextLineReaderFactory
     {
         InputStream inputStream = inputFile.newStream();
         try {
-            Optional<Codec> codec = getExtension(inputFile.location())
-                    .flatMap(CompressionKind::createCodecFromExtension);
+            Optional<Codec> codec = CompressionKind.forFile(inputFile.location().fileName())
+                    .map(CompressionKind::createCodec);
+            LineReader lineReader;
             if (codec.isPresent()) {
-                checkArgument(start == 0 && length == inputFile.length(), "Compressed files are not splittable");
-                // for compressed input, we do not know the length of the uncompressed text
-                length = Long.MAX_VALUE;
-                inputStream = codec.get().createStreamDecompressor(inputStream);
+                checkArgument(start == 0, "Compressed files are not splittable");
+                lineReader = TextLineReader.createCompressedReader(inputStream, fileBufferSize, codec.get());
+            }
+            else {
+                lineReader = TextLineReader.createUncompressedReader(inputStream, fileBufferSize, start, length);
             }
 
-            LineReader lineReader = new TextLineReader(inputStream, fileBufferSize, start, length);
-
-            //  Only skip header rows when the split is at the beginning of the file
             if (headerCount > 0) {
-                skipHeader(lineReader, headerCount);
+                checkArgument(start == 0 || headerCount == 1, "file cannot be split when there is more than one header row");
+                // header is only skipped at the beginning of the file
+                if (start == 0) {
+                    skipHeader(lineReader, headerCount);
+                }
             }
 
             if (footerCount > 0) {
+                checkArgument(start == 0, "file cannot be split when there are footer rows");
                 lineReader = new FooterAwareLineReader(lineReader, footerCount, this::createLineBuffer);
             }
             return lineReader;
@@ -102,14 +106,5 @@ public class TextLineReaderFactory
                 return;
             }
         }
-    }
-
-    private static Optional<String> getExtension(String location)
-    {
-        int position = location.lastIndexOf('.');
-        if (position < 0) {
-            return Optional.empty();
-        }
-        return Optional.of(location.substring(position));
     }
 }

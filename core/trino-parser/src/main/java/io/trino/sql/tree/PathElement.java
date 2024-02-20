@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class PathElement
@@ -98,7 +97,7 @@ public final class PathElement
     public String toString()
     {
         if (catalog.isPresent()) {
-            return format("%s.%s", catalog.get(), schema);
+            return catalog.get() + "." + schema;
         }
         return schema.toString();
     }

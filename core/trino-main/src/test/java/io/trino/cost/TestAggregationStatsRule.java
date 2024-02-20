@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.Consumer;
 
@@ -63,13 +63,15 @@ public class TestAggregationStatsRule
         Consumer<PlanNodeStatsAssertion> outputRowsCountAndZStatsAreNotFullyCalculated = check -> check
                 .outputRowsCountUnknown()
                 .symbolStats("z", symbolStatsAssertion -> symbolStatsAssertion
-                        .unknownRange()
+                        .lowValue(10)
+                        .highValue(15)
                         .distinctValuesCountUnknown()
                         .nullsFractionUnknown())
                 .symbolStats("y", symbolStatsAssertion -> symbolStatsAssertion
-                        .unknownRange()
-                        .nullsFractionUnknown()
-                        .distinctValuesCountUnknown());
+                        .lowValue(0)
+                        .highValue(3)
+                        .distinctValuesCount(3)
+                        .nullsFraction(0));
 
         testAggregation(
                 SymbolStatsEstimate.builder()

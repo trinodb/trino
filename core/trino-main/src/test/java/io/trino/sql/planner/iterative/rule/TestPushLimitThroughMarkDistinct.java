@@ -18,7 +18,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;

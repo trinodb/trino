@@ -14,8 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.client.Warning;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.aggregation.state.LongAndDoubleState;
@@ -34,21 +32,27 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.WindowFunctionSignature;
 import io.trino.spi.type.StandardTypes;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.execution.TestQueryRunnerUtil.createQueryRunner;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDeprecatedFunctionWarning
 {
     private static final WarningCode DEPRECATED_FUNCTION_WARNING_CODE = StandardWarningCode.DEPRECATED_FUNCTION.toWarningCode();
@@ -56,11 +60,11 @@ public class TestDeprecatedFunctionWarning
 
     private QueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
-        queryRunner = createQueryRunner(ImmutableMap.of());
+        queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
         ImmutableList.of(
                 TestScalaFunction.class,
                 TestDeprecatedParametericScalaFunction.class,
@@ -73,7 +77,7 @@ public class TestDeprecatedFunctionWarning
         queryRunner.installPlugin(new DeprecatedFunctionsPlugin());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         queryRunner.close();
@@ -101,11 +105,7 @@ public class TestDeprecatedFunctionWarning
     public void testDeprecatedDescription()
     {
         String sql = "SELECT deprecated_scalar()";
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
-        List<Warning> warnings = queryRunner.execute(session, sql).getWarnings();
+        List<Warning> warnings = queryRunner.execute(sql).getWarnings();
         if (warnings.size() != 1 || !warnings.get(0).getMessage().contains(EXPECTED_WARNING_MSG)) {
             fail("Expected warning: " + EXPECTED_WARNING_MSG);
         }
@@ -163,11 +163,7 @@ public class TestDeprecatedFunctionWarning
 
     private static void assertPlannerWarnings(QueryRunner queryRunner, @Language("SQL") String sql, List<WarningCode> expectedWarnings)
     {
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
-        Set<Integer> warnings = queryRunner.execute(session, sql).getWarnings().stream()
+        Set<Integer> warnings = queryRunner.execute(sql).getWarnings().stream()
                 .map(Warning::getWarningCode)
                 .map(Warning.Code::getCode)
                 .collect(toImmutableSet());

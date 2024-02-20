@@ -1,23 +1,44 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-redshift</artifactId>
-    <description>Trino - Redshift Connector</description>
     <packaging>trino-plugin</packaging>
+    <description>Trino - Redshift Connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.amazon.redshift</groupId>
+            <artifactId>redshift-jdbc42</artifactId>
+            <version>2.1.0.26</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
@@ -34,37 +55,52 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>configuration</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.amazon.redshift</groupId>
-            <artifactId>redshift-jdbc42</artifactId>
-            <version>2.1.0.9</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.jdbi</groupId>
             <artifactId>jdbi3-core</artifactId>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>dev.failsafe</groupId>
+            <artifactId>failsafe</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
@@ -78,40 +114,33 @@
         </dependency>
 
         <dependency>
-            <groupId>dev.failsafe</groupId>
-            <artifactId>failsafe</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- Trino SPI -->
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
-            <scope>provided</scope>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
-            <scope>provided</scope>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -154,20 +183,20 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -187,9 +216,59 @@
                             <excludes>
                                 <exclude>**/TestRedshiftAutomaticJoinPushdown.java</exclude>
                                 <exclude>**/TestRedshiftConnectorTest.java</exclude>
+                                <exclude>**/TestRedshiftConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestRedshiftTableStatisticsReader.java</exclude>
                                 <exclude>**/TestRedshiftTypeMapping.java</exclude>
+                                <exclude>**/Test*FailureRecoveryTest.java</exclude>
+                                <exclude>**/Test*FailureRecoverySmokeTest.java</exclude>
                             </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>cloud-tests</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <!-- Run only the smoke tests of the connector on the CI environment due to unpredictable -->
+                                <!-- locations of GitHub runners which can lead to increased client latency on the -->
+                                <!-- JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
+                                <include>**/TestRedshiftConnectorSmokeTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>fte-tests</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <!-- Failure recovery tests spend most of the time waiting for a retry -->
+                            <threadCount>4</threadCount>
+                            <includes>
+                                <!-- Run only the smoke tests of the connector for the fault-tolerant execution functionality -->
+                                <!-- on the CI environment due to unpredictable locations of GitHub runners which can lead -->
+                                <!-- to increased client latency on the JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
+                                <include>**/Test*FailureRecoverySmokeTest.java</include>
+                            </includes>
                         </configuration>
                     </plugin>
                 </plugins>

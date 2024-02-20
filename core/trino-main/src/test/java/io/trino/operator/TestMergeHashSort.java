@@ -16,27 +16,25 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.type.TypeOperators;
-import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.WorkProcessorAssertion.assertFinishes;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMergeHashSort
 {
-    private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+    private final TypeOperators typeOperators = new TypeOperators();
 
     @Test
     public void testBinaryMergeIteratorOverEmptyPage()
     {
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
 
-        WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext(), blockTypeOperators).merge(
+        WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext(), typeOperators).merge(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(ImmutableList.of(emptyPage).iterator()).stream()
@@ -53,7 +51,7 @@ public class TestMergeHashSort
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
         Page page = rowPagesBuilder(BIGINT).row(42).build().get(0);
 
-        WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext(), blockTypeOperators).merge(
+        WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext(), typeOperators).merge(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(ImmutableList.of(emptyPage, page).iterator()).stream()
@@ -61,11 +59,11 @@ public class TestMergeHashSort
                         .collect(toImmutableList()),
                 new DriverYieldSignal());
 
-        assertTrue(mergedPage.process());
+        assertThat(mergedPage.process()).isTrue();
         Page actualPage = mergedPage.getResult();
-        assertEquals(actualPage.getPositionCount(), 1);
-        assertEquals(actualPage.getChannelCount(), 1);
-        assertEquals(actualPage.getBlock(0).getLong(0, 0), 42);
+        assertThat(actualPage.getPositionCount()).isEqualTo(1);
+        assertThat(actualPage.getChannelCount()).isEqualTo(1);
+        assertThat(BIGINT.getLong(actualPage.getBlock(0), 0)).isEqualTo(42);
 
         assertFinishes(mergedPage);
     }
@@ -76,7 +74,7 @@ public class TestMergeHashSort
         Page emptyPage = new Page(0, BIGINT.createFixedSizeBlockBuilder(0).build());
         Page page = rowPagesBuilder(BIGINT).row(42).build().get(0);
 
-        WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext(), blockTypeOperators).merge(
+        WorkProcessor<Page> mergedPage = new MergeHashSort(newSimpleAggregatedMemoryContext(), typeOperators).merge(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(ImmutableList.of(emptyPage, page).iterator()).stream()
@@ -84,11 +82,11 @@ public class TestMergeHashSort
                         .collect(toImmutableList()),
                 new DriverYieldSignal());
 
-        assertTrue(mergedPage.process());
+        assertThat(mergedPage.process()).isTrue();
         Page actualPage = mergedPage.getResult();
-        assertEquals(actualPage.getPositionCount(), 1);
-        assertEquals(actualPage.getChannelCount(), 1);
-        assertEquals(actualPage.getBlock(0).getLong(0, 0), 42);
+        assertThat(actualPage.getPositionCount()).isEqualTo(1);
+        assertThat(actualPage.getChannelCount()).isEqualTo(1);
+        assertThat(BIGINT.getLong(actualPage.getBlock(0), 0)).isEqualTo(42);
 
         assertFinishes(mergedPage);
     }
@@ -103,7 +101,7 @@ public class TestMergeHashSort
                 .row(60)
                 .build().get(0);
 
-        WorkProcessor<Page> mergedPages = new MergeHashSort(newSimpleAggregatedMemoryContext(), blockTypeOperators).merge(
+        WorkProcessor<Page> mergedPages = new MergeHashSort(newSimpleAggregatedMemoryContext(), typeOperators).merge(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(ImmutableList.of(page).iterator()).stream()
@@ -111,13 +109,13 @@ public class TestMergeHashSort
                         .collect(toImmutableList()),
                 new DriverYieldSignal());
 
-        assertTrue(mergedPages.process());
+        assertThat(mergedPages.process()).isTrue();
         Page resultPage = mergedPages.getResult();
-        assertEquals(resultPage.getPositionCount(), 4);
-        assertEquals(resultPage.getBlock(0).getLong(0, 0), 42);
-        assertEquals(resultPage.getBlock(0).getLong(1, 0), 42);
-        assertEquals(resultPage.getBlock(0).getLong(2, 0), 52);
-        assertEquals(resultPage.getBlock(0).getLong(3, 0), 60);
+        assertThat(resultPage.getPositionCount()).isEqualTo(4);
+        assertThat(BIGINT.getLong(resultPage.getBlock(0), 0)).isEqualTo(42);
+        assertThat(BIGINT.getLong(resultPage.getBlock(0), 1)).isEqualTo(42);
+        assertThat(BIGINT.getLong(resultPage.getBlock(0), 2)).isEqualTo(52);
+        assertThat(BIGINT.getLong(resultPage.getBlock(0), 3)).isEqualTo(60);
 
         assertFinishes(mergedPages);
     }

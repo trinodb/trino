@@ -53,6 +53,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.intType;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 
@@ -144,8 +145,23 @@ public class ParquetSchemaConverter
         if (BOOLEAN.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.BOOLEAN, repetition).named(name);
         }
-        if (INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
-            return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition).named(name);
+        // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#signed-integers
+        // INT(32, true) and INT(64, true) are implied by the int32 and int64 primitive types if no other annotation is present.
+        // Implementations may use these annotations to produce smaller in-memory representations when reading data.
+        if (TINYINT.equals(type)) {
+            return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition)
+                    .as(intType(8, true))
+                    .named(name);
+        }
+        if (SMALLINT.equals(type)) {
+            return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition)
+                    .as(intType(16, true))
+                    .named(name);
+        }
+        if (INTEGER.equals(type)) {
+            return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition)
+                    .as(intType(32, true))
+                    .named(name);
         }
         if (type instanceof DecimalType decimalType) {
             // Apache Hive version 3 or lower does not support reading decimals encoded as INT32/INT64
@@ -170,7 +186,9 @@ public class ParquetSchemaConverter
             return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition).as(LogicalTypeAnnotation.dateType()).named(name);
         }
         if (BIGINT.equals(type)) {
-            return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).named(name);
+            return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition)
+                    .as(intType(64, true))
+                    .named(name);
         }
 
         if (type instanceof TimestampType timestampType) {

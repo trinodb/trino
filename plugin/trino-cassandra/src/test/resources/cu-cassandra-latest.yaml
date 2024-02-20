@@ -22,7 +22,6 @@ concurrent_counter_writes: 2
 concurrent_materialized_view_writes: 2
 
 listen_address: 127.0.0.1
-native_transport_port: 9142
 rpc_address: localhost
 broadcast_rpc_address: localhost
 

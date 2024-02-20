@@ -21,6 +21,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,8 +37,10 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestMapTransformKeysFunction
 {
     private QueryAssertions assertions;
@@ -134,42 +137,42 @@ public class TestMapTransformKeysFunction
         assertTrinoExceptionThrownBy(() -> assertions.expression("transform_keys(a, (k, v) -> k % 3)")
                 .binding("a", "map(ARRAY[1, 2, 3, 4], ARRAY['a', 'b', 'c', 'd'])")
                 .evaluate())
-                .hasMessage("Duplicate keys (1) are not allowed");
+                .hasMessage("Duplicate map keys (1) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("transform_keys(a, (k, v) -> k % 2 = 0)")
                 .binding("a", "map(ARRAY[1, 2, 3], ARRAY['a', 'b', 'c'])")
                 .evaluate())
-                .hasMessage("Duplicate keys (false) are not allowed");
+                .hasMessage("Duplicate map keys (false) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("transform_keys(a, (k, v) -> k - floor(k))")
                 .binding("a", "map(ARRAY[1.5E0, 2.5E0, 3.5E0], ARRAY['a', 'b', 'c'])")
                 .evaluate())
-                .hasMessage("Duplicate keys (0.5) are not allowed");
+                .hasMessage("Duplicate map keys (0.5) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("transform_keys(a, (k, v) -> v)")
                 .binding("a", "map(ARRAY[1, 2, 3, 4], ARRAY['a', 'b', 'c', 'b'])")
                 .evaluate())
-                .hasMessage("Duplicate keys (b) are not allowed");
+                .hasMessage("Duplicate map keys (b) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("transform_keys(a, (k, v) -> substr(k, 1, 3))")
                 .binding("a", "map(ARRAY['abc1', 'cba2', 'abc3'], ARRAY[1, 2, 3])")
                 .evaluate())
-                .hasMessage("Duplicate keys (abc) are not allowed");
+                .hasMessage("Duplicate map keys (abc) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("transform_keys(a, (k, v) -> array_sort(k || v))")
                 .binding("a", "map(ARRAY[ARRAY[1], ARRAY[2]], ARRAY[2, 1])")
                 .evaluate())
-                .hasMessage("Duplicate keys ([1, 2]) are not allowed");
+                .hasMessage("Duplicate map keys ([1, 2]) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("transform_keys(a, (k, v) -> DATE '2001-08-22')")
                 .binding("a", "map(ARRAY[1, 2], ARRAY[null, null])")
                 .evaluate())
-                .hasMessage("Duplicate keys (2001-08-22) are not allowed");
+                .hasMessage("Duplicate map keys (2001-08-22) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("transform_keys(a, (k, v) -> TIMESTAMP '2001-08-22 03:04:05.321')")
                 .binding("a", "map(ARRAY[1, 2], ARRAY[null, null])")
                 .evaluate())
-                .hasMessage("Duplicate keys (2001-08-22 03:04:05.321) are not allowed");
+                .hasMessage("Duplicate map keys (2001-08-22 03:04:05.321) are not allowed");
     }
 
     @Test

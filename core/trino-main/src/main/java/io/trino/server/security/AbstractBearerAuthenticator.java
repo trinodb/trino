@@ -15,8 +15,7 @@ package io.trino.server.security;
 
 import io.jsonwebtoken.JwtException;
 import io.trino.spi.security.Identity;
-
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.util.List;
 import java.util.Optional;

@@ -36,8 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class NullsDecoder
         implements FlatDefinitionLevelDecoder
 {
-    private final SimpleSliceInputStream input;
-
+    private SimpleSliceInputStream input;
     // Encoding type if decoding stopped in the middle of the group
     private boolean isRle;
     // Values left to decode in the current group
@@ -49,7 +48,8 @@ public class NullsDecoder
     // Number of bits already read in the current byte while reading bit-packed values
     private int bitPackedValueOffset;
 
-    public NullsDecoder(Slice input)
+    @Override
+    public void init(Slice input)
     {
         this.input = new SimpleSliceInputStream(requireNonNull(input, "input is null"));
     }

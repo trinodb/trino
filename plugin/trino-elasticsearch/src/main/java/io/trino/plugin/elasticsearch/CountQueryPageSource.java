@@ -27,6 +27,7 @@ class CountQueryPageSource
     // This implementation of the page source is used whenever a query doesn't reference any columns
     // from the ES table. We need to limit the number of rows per page in case there are projections
     // in the query that can cause page sizes to explode. For example: SELECT rand() FROM some_table
+    // TODO (https://github.com/trinodb/trino/issues/16824) allow connector to return pages of arbitrary row count and handle this gracefully in engine
     private static final int BATCH_SIZE = 10000;
 
     private final long readTimeNanos;

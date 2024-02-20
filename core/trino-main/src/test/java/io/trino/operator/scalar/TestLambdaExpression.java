@@ -24,6 +24,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
@@ -39,8 +40,10 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static io.trino.util.StructuralTestUtil.mapType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestLambdaExpression
 {
     private QueryAssertions assertions;
@@ -296,22 +299,22 @@ public class TestLambdaExpression
     @Test
     public void testFunctionParameter()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.expression("count(x -> x)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("count(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>) for function count. Expected: count(), count(t) T");
-        assertTrinoExceptionThrownBy(() -> assertions.expression("max(x -> x)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("max(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:12: Unexpected parameters (<function>) for function max. Expected: max(t) T:orderable, max(e, bigint) E:orderable");
-        assertTrinoExceptionThrownBy(() -> assertions.expression("sqrt(x -> x)").evaluate())
+                .hasMessage("line 1:12: Unexpected parameters (<function>) for function max. Expected: max(e, bigint) E:orderable, max(t) T:orderable");
+        assertTrinoExceptionThrownBy(assertions.expression("sqrt(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>) for function sqrt. Expected: sqrt(double)");
-        assertTrinoExceptionThrownBy(() -> assertions.expression("sqrt(x -> x, 123, x -> x)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("sqrt(x -> x, 123, x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>, integer, <function>) for function sqrt. Expected: sqrt(double)");
-        assertTrinoExceptionThrownBy(() -> assertions.expression("pow(x -> x, 123)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("pow(x -> x, 123)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>, integer) for function pow. Expected: pow(double, double)");
-        assertTrinoExceptionThrownBy(() -> assertions.expression("pow(123, x -> x)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("pow(123, x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (integer, <function>) for function pow. Expected: pow(double, double)");
     }

@@ -15,18 +15,17 @@ package io.trino.operator.unnest;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
-import org.openjdk.jol.info.ClassLayout;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.unnest.UnnestOperator.ensureCapacity;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayUnnester
         implements Unnester
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ArrayUnnester.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ArrayUnnester.class);
 
     private final UnnestBlockBuilder blockBuilder = new UnnestBlockBuilder();
     private int[] arrayLengths = new int[0];
@@ -62,8 +61,8 @@ public class ArrayUnnester
     @Override
     public Block[] buildOutputBlocks(int[] outputEntriesPerPosition, int startPosition, int inputBatchSize, int outputRowCount)
     {
-        int unnestedLength = columnarArray.getOffset(startPosition + inputBatchSize) - columnarArray.getOffset(startPosition);
-        boolean nullRequired = unnestedLength < outputRowCount;
+        int unnestLength = columnarArray.getOffset(startPosition + inputBatchSize) - columnarArray.getOffset(startPosition);
+        boolean nullRequired = unnestLength < outputRowCount;
 
         Block[] outputBlocks = new Block[1];
         if (nullRequired) {

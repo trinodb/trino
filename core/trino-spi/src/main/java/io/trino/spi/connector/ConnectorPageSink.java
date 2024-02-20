@@ -62,6 +62,14 @@ public interface ConnectorPageSink
     CompletableFuture<?> appendPage(Page page);
 
     /**
+     * Closes the idle partition writers that have not received any data since the last time this
+     * method is called. This method is called periodically based on some
+     * data written threshold by the TableWriterOperator. It is needed to avoid high memory
+     * usage due to stale partitions kept in memory during partitioned writes.
+     */
+    default void closeIdleWriters() {}
+
+    /**
      * Notifies the connector that no more pages will be appended and returns
      * connector-specific information that will be sent to the coordinator to
      * complete the write operation. This method may be called immediately

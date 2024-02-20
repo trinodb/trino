@@ -73,7 +73,7 @@ public class TestFlakyAnnotationVerifier
     private static class TestNotTestMethodWithFlaky
     {
         @Flaky(issue = "Blah", match = "Blah")
-        @ReportUnannotatedMethods.Suppress
+        @ReportBadTestAnnotations.Suppress
         public void test() {}
     }
 

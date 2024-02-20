@@ -16,7 +16,7 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.google.common.base.VerifyException;
-import io.trino.execution.scheduler.FaultTolerantPartitioningScheme;
+import io.trino.execution.scheduler.faulttolerant.FaultTolerantPartitioningScheme;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
@@ -43,7 +43,6 @@ import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_DELETE_OPERATION_
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class MergePartitioningHandle
@@ -200,20 +199,20 @@ public final class MergePartitioningHandle
             this.updateFunction = requireNonNull(updateFunction, "updateFunction is null");
             this.insertColumns = requireNonNull(insertColumns, "insertColumns is null");
             this.updateColumns = requireNonNull(updateColumns, "updateColumns is null");
-            checkArgument(insertFunction.getPartitionCount() == updateFunction.getPartitionCount(), "partition counts must match");
+            checkArgument(insertFunction.partitionCount() == updateFunction.partitionCount(), "partition counts must match");
         }
 
         @Override
-        public int getPartitionCount()
+        public int partitionCount()
         {
-            return insertFunction.getPartitionCount();
+            return insertFunction.partitionCount();
         }
 
         @Override
         public int getPartition(Page page, int position)
         {
             Block operationBlock = page.getBlock(0);
-            int operation = toIntExact(TINYINT.getLong(operationBlock, position));
+            byte operation = TINYINT.getByte(operationBlock, position);
             return switch (operation) {
                 case INSERT_OPERATION_NUMBER, UPDATE_INSERT_OPERATION_NUMBER -> insertFunction.getPartition(page.getColumns(insertColumns), position);
                 case UPDATE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> updateFunction.getPartition(page.getColumns(updateColumns), position);

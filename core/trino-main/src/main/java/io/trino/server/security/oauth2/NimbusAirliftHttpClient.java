@@ -14,6 +14,7 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableMultimap;
+import com.google.inject.Inject;
 import com.nimbusds.jose.util.Resource;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
@@ -24,9 +25,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.ResponseHandlerUtils;
 import io.airlift.http.client.StringResponseHandler;
-
-import javax.inject.Inject;
-import javax.ws.rs.core.UriBuilder;
+import jakarta.ws.rs.core.UriBuilder;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -82,10 +81,10 @@ public class NimbusAirliftHttpClient
 
         UriBuilder url = UriBuilder.fromUri(httpRequest.getURI());
         if (method.equals(GET) || method.equals(DELETE)) {
-            httpRequest.getQueryParameters().forEach((key, value) -> url.queryParam(key, value.toArray()));
+            httpRequest.getQueryStringParameters().forEach((key, value) -> url.queryParam(key, value.toArray()));
         }
 
-        url.fragment(httpRequest.getFragment());
+        url.fragment(httpRequest.getURL().getRef());
 
         request.setUri(url.build());
 
@@ -94,9 +93,9 @@ public class NimbusAirliftHttpClient
         request.addHeaders(headers.build());
 
         if (method.equals(POST) || method.equals(PUT)) {
-            String query = httpRequest.getQuery();
+            String query = httpRequest.getBody();
             if (query != null) {
-                request.setBodyGenerator(createStaticBodyGenerator(httpRequest.getQuery(), UTF_8));
+                request.setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
             }
         }
         return httpClient.execute(request.build(), new NimbusResponseHandler<>(parser));
@@ -125,7 +124,7 @@ public class NimbusAirliftHttpClient
             StringResponseHandler.StringResponse stringResponse = handler.handle(request, response);
             HTTPResponse nimbusResponse = new HTTPResponse(response.getStatusCode());
             response.getHeaders().asMap().forEach((name, values) -> nimbusResponse.setHeader(name.toString(), values.toArray(new String[0])));
-            nimbusResponse.setContent(stringResponse.getBody());
+            nimbusResponse.setBody(stringResponse.getBody());
             try {
                 return parser.parse(nimbusResponse);
             }

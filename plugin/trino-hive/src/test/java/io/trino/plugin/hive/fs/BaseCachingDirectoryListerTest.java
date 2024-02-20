@@ -14,59 +14,47 @@
 package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static java.lang.String.format;
-import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
+public abstract class BaseCachingDirectoryListerTest
         extends AbstractTestQueryFramework
 {
-    private C directoryLister;
-    private FileHiveMetastore fileHiveMetastore;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createQueryRunner(ImmutableMap.of("hive.allow-register-partition-procedure", "true"));
-    }
+    private CachingDirectoryLister directoryLister;
+    private HiveMetastore metastore;
 
     protected QueryRunner createQueryRunner(Map<String, String> properties)
             throws Exception
     {
-        Path temporaryMetastoreDirectory = createTempDirectory(null);
-        closeAfterClass(() -> deleteRecursively(temporaryMetastoreDirectory, ALLOW_INSECURE));
-        directoryLister = createDirectoryLister();
-        return HiveQueryRunner.builder()
+        QueryRunner queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(properties)
-                .setMetastore(distributedQueryRunner -> fileHiveMetastore = createTestingFileHiveMetastore(temporaryMetastoreDirectory.toFile()))
-                .setDirectoryLister(directoryLister)
                 .build();
+
+        directoryLister = getConnectorService(queryRunner, CachingDirectoryLister.class);
+
+        metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
+
+        return queryRunner;
     }
-
-    protected abstract C createDirectoryLister();
-
-    protected abstract boolean isCached(C directoryLister, org.apache.hadoop.fs.Path path);
 
     @Test
     public void testCacheInvalidationIsAppliedSpecificallyOnTheNonPartitionedTableBeingChanged()
@@ -75,14 +63,14 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertUpdate("INSERT INTO partial_cache_invalidation_table1 VALUES (1), (2), (3)", 3);
         // The listing for the invalidate_non_partitioned_table1 should be in the directory cache after this call
         assertQuery("SELECT sum(col1) FROM partial_cache_invalidation_table1", "VALUES (6)");
-        org.apache.hadoop.fs.Path cachedTable1Location = getTableLocation(TPCH_SCHEMA, "partial_cache_invalidation_table1");
+        String cachedTable1Location = getTableLocation(TPCH_SCHEMA, "partial_cache_invalidation_table1");
         assertThat(isCached(cachedTable1Location)).isTrue();
 
         assertUpdate("CREATE TABLE partial_cache_invalidation_table2 (col1 int) WITH (format = 'ORC')");
         assertUpdate("INSERT INTO partial_cache_invalidation_table2 VALUES (11), (12)", 2);
         // The listing for the invalidate_non_partitioned_table2 should be in the directory cache after this call
         assertQuery("SELECT sum(col1) FROM partial_cache_invalidation_table2", "VALUES (23)");
-        org.apache.hadoop.fs.Path cachedTable2Location = getTableLocation(TPCH_SCHEMA, "partial_cache_invalidation_table2");
+        String cachedTable2Location = getTableLocation(TPCH_SCHEMA, "partial_cache_invalidation_table2");
         assertThat(isCached(cachedTable2Location)).isTrue();
 
         assertUpdate("INSERT INTO partial_cache_invalidation_table1 VALUES (4), (5)", 2);
@@ -104,14 +92,14 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertUpdate("INSERT INTO full_cache_invalidation_non_partitioned_table VALUES (1), (2), (3)", 3);
         // The listing for the invalidate_non_partitioned_table1 should be in the directory cache after this call
         assertQuery("SELECT sum(col1) FROM full_cache_invalidation_non_partitioned_table", "VALUES (6)");
-        org.apache.hadoop.fs.Path nonPartitionedTableLocation = getTableLocation(TPCH_SCHEMA, "full_cache_invalidation_non_partitioned_table");
+        String nonPartitionedTableLocation = getTableLocation(TPCH_SCHEMA, "full_cache_invalidation_non_partitioned_table");
         assertThat(isCached(nonPartitionedTableLocation)).isTrue();
 
         assertUpdate("CREATE TABLE full_cache_invalidation_partitioned_table (col1 int, col2 varchar) WITH (format = 'ORC', partitioned_by = ARRAY['col2'])");
         assertUpdate("INSERT INTO full_cache_invalidation_partitioned_table VALUES (1, 'group1'), (2, 'group1'), (3, 'group2'), (4, 'group2')", 4);
         assertQuery("SELECT col2, sum(col1) FROM full_cache_invalidation_partitioned_table GROUP BY col2", "VALUES ('group1', 3), ('group2', 7)");
-        org.apache.hadoop.fs.Path partitionedTableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "full_cache_invalidation_partitioned_table", ImmutableList.of("group1"));
-        org.apache.hadoop.fs.Path partitionedTableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "full_cache_invalidation_partitioned_table", ImmutableList.of("group2"));
+        String partitionedTableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "full_cache_invalidation_partitioned_table", ImmutableList.of("group1"));
+        String partitionedTableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "full_cache_invalidation_partitioned_table", ImmutableList.of("group2"));
         assertThat(isCached(partitionedTableGroup1PartitionLocation)).isTrue();
         assertThat(isCached(partitionedTableGroup2PartitionLocation)).isTrue();
 
@@ -139,14 +127,14 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertUpdate("INSERT INTO partition_path_cache_invalidation_non_partitioned_table VALUES (1), (2), (3)", 3);
         // The listing for the invalidate_non_partitioned_table1 should be in the directory cache after this call
         assertQuery("SELECT sum(col1) FROM partition_path_cache_invalidation_non_partitioned_table", "VALUES (6)");
-        org.apache.hadoop.fs.Path nonPartitionedTableLocation = getTableLocation(TPCH_SCHEMA, "partition_path_cache_invalidation_non_partitioned_table");
+        String nonPartitionedTableLocation = getTableLocation(TPCH_SCHEMA, "partition_path_cache_invalidation_non_partitioned_table");
         assertThat(isCached(nonPartitionedTableLocation)).isTrue();
 
         assertUpdate("CREATE TABLE partition_path_cache_invalidation_partitioned_table (col1 int, col2 varchar) WITH (format = 'ORC', partitioned_by = ARRAY['col2'])");
         assertUpdate("INSERT INTO partition_path_cache_invalidation_partitioned_table VALUES (1, 'group1'), (2, 'group1'), (3, 'group2'), (4, 'group2')", 4);
         assertQuery("SELECT col2, sum(col1) FROM partition_path_cache_invalidation_partitioned_table GROUP BY col2", "VALUES ('group1', 3), ('group2', 7)");
-        org.apache.hadoop.fs.Path partitionedTableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "partition_path_cache_invalidation_partitioned_table", ImmutableList.of("group1"));
-        org.apache.hadoop.fs.Path partitionedTableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "partition_path_cache_invalidation_partitioned_table", ImmutableList.of("group2"));
+        String partitionedTableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "partition_path_cache_invalidation_partitioned_table", ImmutableList.of("group1"));
+        String partitionedTableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "partition_path_cache_invalidation_partitioned_table", ImmutableList.of("group2"));
         assertThat(isCached(partitionedTableGroup1PartitionLocation)).isTrue();
         assertThat(isCached(partitionedTableGroup2PartitionLocation)).isTrue();
 
@@ -186,8 +174,8 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertUpdate("INSERT INTO insert_into_partitioned_table VALUES (1, 'group1'), (2, 'group1'), (3, 'group2'), (4, 'group2')", 4);
         // The listing for the table partitions should be in the directory cache after this call
         assertQuery("SELECT col2, sum(col1) FROM insert_into_partitioned_table GROUP BY col2", "VALUES ('group1', 3), ('group2', 7)");
-        org.apache.hadoop.fs.Path tableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "insert_into_partitioned_table", ImmutableList.of("group1"));
-        org.apache.hadoop.fs.Path tableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "insert_into_partitioned_table", ImmutableList.of("group2"));
+        String tableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "insert_into_partitioned_table", ImmutableList.of("group1"));
+        String tableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "insert_into_partitioned_table", ImmutableList.of("group2"));
         assertThat(isCached(tableGroup1PartitionLocation)).isTrue();
         assertThat(isCached(tableGroup2PartitionLocation)).isTrue();
 
@@ -207,9 +195,9 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertUpdate("INSERT INTO delete_from_partitioned_table VALUES (1, 'group1'), (2, 'group1'), (3, 'group2'), (4, 'group2'), (5, 'group3')", 5);
         // The listing for the table partitions should be in the directory cache after this call
         assertQuery("SELECT col2, sum(col1) FROM delete_from_partitioned_table GROUP BY col2", "VALUES ('group1', 3), ('group2', 7), ('group3', 5)");
-        org.apache.hadoop.fs.Path tableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("group1"));
-        org.apache.hadoop.fs.Path tableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("group2"));
-        org.apache.hadoop.fs.Path tableGroup3PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("group3"));
+        String tableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("group1"));
+        String tableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("group2"));
+        String tableGroup3PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("group3"));
         assertThat(isCached(tableGroup1PartitionLocation)).isTrue();
         assertThat(isCached(tableGroup2PartitionLocation)).isTrue();
         assertUpdate("DELETE FROM delete_from_partitioned_table WHERE col2 = 'group1' OR col2 = 'group2'");
@@ -229,10 +217,10 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertUpdate("INSERT INTO delete_from_partitioned_table VALUES (1000, DATE '2022-02-01', 'US'), (2000, DATE '2022-02-01', 'US'), (4000, DATE '2022-02-02', 'US'), (1500, DATE '2022-02-01', 'AT'), (2500, DATE '2022-02-02', 'AT')", 5);
         // The listing for the table partitions should be in the directory cache after this call
         assertQuery("SELECT day, country, sum(clicks) FROM delete_from_partitioned_table GROUP BY day, country", "VALUES (DATE '2022-02-01', 'US', 3000), (DATE '2022-02-02', 'US', 4000), (DATE '2022-02-01', 'AT', 1500), (DATE '2022-02-02', 'AT', 2500)");
-        org.apache.hadoop.fs.Path table20220201UsPartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("2022-02-01", "US"));
-        org.apache.hadoop.fs.Path table20220202UsPartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("2022-02-02", "US"));
-        org.apache.hadoop.fs.Path table20220201AtPartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("2022-02-01", "AT"));
-        org.apache.hadoop.fs.Path table20220202AtPartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("2022-02-02", "AT"));
+        String table20220201UsPartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("2022-02-01", "US"));
+        String table20220202UsPartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("2022-02-02", "US"));
+        String table20220201AtPartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("2022-02-01", "AT"));
+        String table20220202AtPartitionLocation = getPartitionLocation(TPCH_SCHEMA, "delete_from_partitioned_table", ImmutableList.of("2022-02-02", "AT"));
         assertThat(isCached(table20220201UsPartitionLocation)).isTrue();
         assertThat(isCached(table20220202UsPartitionLocation)).isTrue();
         assertThat(isCached(table20220201AtPartitionLocation)).isTrue();
@@ -258,13 +246,13 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertUpdate("INSERT INTO register_unregister_partition_table VALUES (1, 'group1'), (2, 'group1'), (3, 'group2'), (4, 'group2')", 4);
         // The listing for the table partitions should be in the directory cache after this call
         assertQuery("SELECT col2, sum(col1) FROM register_unregister_partition_table GROUP BY col2", "VALUES ('group1', 3), ('group2', 7)");
-        org.apache.hadoop.fs.Path tableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "register_unregister_partition_table", ImmutableList.of("group1"));
-        org.apache.hadoop.fs.Path tableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "register_unregister_partition_table", ImmutableList.of("group2"));
+        String tableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "register_unregister_partition_table", ImmutableList.of("group1"));
+        String tableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "register_unregister_partition_table", ImmutableList.of("group2"));
         assertThat(isCached(tableGroup1PartitionLocation)).isTrue();
         assertThat(isCached(tableGroup2PartitionLocation)).isTrue();
 
         List<MaterializedRow> paths = getQueryRunner().execute(getSession(), "SELECT \"$path\" FROM register_unregister_partition_table WHERE col2 = 'group1' LIMIT 1").toTestTypes().getMaterializedRows();
-        String group1PartitionPath = new org.apache.hadoop.fs.Path((String) paths.get(0).getField(0)).getParent().toString();
+        String group1PartitionPath = Location.of((String) paths.get(0).getField(0)).parentDirectory().toString();
 
         assertUpdate(format("CALL system.unregister_partition('%s', '%s', ARRAY['col2'], ARRAY['group1'])", TPCH_SCHEMA, "register_unregister_partition_table"));
         // Unregistering the partition in the table should invalidate the cached listing of all the partitions belonging to the table.
@@ -290,7 +278,7 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertUpdate("INSERT INTO table_to_be_renamed VALUES (1), (2), (3)", 3);
         // The listing for the table should be in the directory cache after this call
         assertQuery("SELECT sum(col1) FROM table_to_be_renamed", "VALUES (6)");
-        org.apache.hadoop.fs.Path tableLocation = getTableLocation(TPCH_SCHEMA, "table_to_be_renamed");
+        String tableLocation = getTableLocation(TPCH_SCHEMA, "table_to_be_renamed");
         assertThat(isCached(tableLocation)).isTrue();
         assertUpdate("ALTER TABLE table_to_be_renamed RENAME TO table_renamed");
         // Altering the table should invalidate the cached listing of the files belonging to the table.
@@ -306,7 +294,7 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertUpdate("INSERT INTO table_to_be_dropped VALUES (1), (2), (3)", 3);
         // The listing for the table should be in the directory cache after this call
         assertQuery("SELECT sum(col1) FROM table_to_be_dropped", "VALUES (6)");
-        org.apache.hadoop.fs.Path tableLocation = getTableLocation(TPCH_SCHEMA, "table_to_be_dropped");
+        String tableLocation = getTableLocation(TPCH_SCHEMA, "table_to_be_dropped");
         assertThat(isCached(tableLocation)).isTrue();
         assertUpdate("DROP TABLE table_to_be_dropped");
         // Dropping the table should invalidate the cached listing of the files belonging to the table.
@@ -320,9 +308,9 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
         assertUpdate("INSERT INTO drop_partitioned_table VALUES (1, 'group1'), (2, 'group1'), (3, 'group2'), (4, 'group2'), (5, 'group3')", 5);
         // The listing for the table partitions should be in the directory cache after this call
         assertQuery("SELECT col2, sum(col1) FROM drop_partitioned_table GROUP BY col2", "VALUES ('group1', 3), ('group2', 7), ('group3', 5)");
-        org.apache.hadoop.fs.Path tableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "drop_partitioned_table", ImmutableList.of("group1"));
-        org.apache.hadoop.fs.Path tableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "drop_partitioned_table", ImmutableList.of("group2"));
-        org.apache.hadoop.fs.Path tableGroup3PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "drop_partitioned_table", ImmutableList.of("group3"));
+        String tableGroup1PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "drop_partitioned_table", ImmutableList.of("group1"));
+        String tableGroup2PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "drop_partitioned_table", ImmutableList.of("group2"));
+        String tableGroup3PartitionLocation = getPartitionLocation(TPCH_SCHEMA, "drop_partitioned_table", ImmutableList.of("group3"));
         assertThat(isCached(tableGroup1PartitionLocation)).isTrue();
         assertThat(isCached(tableGroup2PartitionLocation)).isTrue();
         assertThat(isCached(tableGroup3PartitionLocation)).isTrue();
@@ -334,40 +322,38 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
 
     protected Optional<Table> getTable(String schemaName, String tableName)
     {
-        return fileHiveMetastore.getTable(schemaName, tableName);
+        return metastore.getTable(schemaName, tableName);
     }
 
     protected void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        fileHiveMetastore.createTable(table, principalPrivileges);
+        metastore.createTable(table, principalPrivileges);
     }
 
     protected void dropTable(String schemaName, String tableName, boolean deleteData)
     {
-        fileHiveMetastore.dropTable(schemaName, tableName, deleteData);
+        metastore.dropTable(schemaName, tableName, deleteData);
     }
 
-    protected org.apache.hadoop.fs.Path getTableLocation(String schemaName, String tableName)
+    protected String getTableLocation(String schemaName, String tableName)
     {
         return getTable(schemaName, tableName)
                 .map(table -> table.getStorage().getLocation())
-                .map(tableLocation -> new org.apache.hadoop.fs.Path(tableLocation))
                 .orElseThrow(() -> new NoSuchElementException(format("The table %s.%s could not be found", schemaName, tableName)));
     }
 
-    protected org.apache.hadoop.fs.Path getPartitionLocation(String schemaName, String tableName, List<String> partitionValues)
+    protected String getPartitionLocation(String schemaName, String tableName, List<String> partitionValues)
     {
         Table table = getTable(schemaName, tableName)
                 .orElseThrow(() -> new NoSuchElementException(format("The table %s.%s could not be found", schemaName, tableName)));
 
-        return fileHiveMetastore.getPartition(table, partitionValues)
+        return metastore.getPartition(table, partitionValues)
                 .map(partition -> partition.getStorage().getLocation())
-                .map(partitionLocation -> new org.apache.hadoop.fs.Path(partitionLocation))
                 .orElseThrow(() -> new NoSuchElementException(format("The partition %s from the table %s.%s could not be found", partitionValues, schemaName, tableName)));
     }
 
-    protected boolean isCached(org.apache.hadoop.fs.Path path)
+    protected boolean isCached(String path)
     {
-        return isCached(directoryLister, path);
+        return directoryLister.isCached(Location.of(path));
     }
 }

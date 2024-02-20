@@ -18,9 +18,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ColumnarRow;
-import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
@@ -31,6 +29,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.column.statistics.DoubleStatistics;
 import org.apache.parquet.column.statistics.FloatStatistics;
@@ -39,8 +38,6 @@ import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
-
-import javax.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -59,7 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -146,18 +143,15 @@ public class DeltaLakeParquetStatisticsUtils
         if (type instanceof RowType rowType) {
             Map<?, ?> values = (Map<?, ?>) jsonValue;
             List<Type> fieldTypes = rowType.getTypeParameters();
-            BlockBuilder blockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
-            BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-            for (int i = 0; i < values.size(); ++i) {
-                Type fieldType = fieldTypes.get(i);
-                String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
-                Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
-                writeNativeValue(fieldType, singleRowBlockWriter, fieldValue);
-            }
-            checkState(values.isEmpty(), "All fields must be converted into Trino value: %s", values);
-
-            blockBuilder.closeEntry();
-            return blockBuilder.build();
+            return buildRowValue(rowType, fields -> {
+                for (int i = 0; i < values.size(); ++i) {
+                    Type fieldType = fieldTypes.get(i);
+                    String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
+                    Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
+                    writeNativeValue(fieldType, fields.get(i), fieldValue);
+                }
+                checkState(values.isEmpty(), "All fields must be converted into Trino value: %s", values);
+            });
         }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);
@@ -177,7 +171,7 @@ public class DeltaLakeParquetStatisticsUtils
     }
 
     @Nullable
-    private static Object toJsonValue(Type type, @Nullable Object value)
+    public static Object toJsonValue(Type type, @Nullable Object value)
     {
         if (value == null) {
             return null;
@@ -210,11 +204,12 @@ public class DeltaLakeParquetStatisticsUtils
             return ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC));
         }
         if (type instanceof RowType rowType) {
-            Block rowBlock = (Block) value;
+            SqlRow row = (SqlRow) value;
+            int rawIndex = row.getRawIndex();
             ImmutableMap.Builder<String, Object> fieldValues = ImmutableMap.builder();
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+            for (int i = 0; i < row.getFieldCount(); i++) {
                 RowType.Field field = rowType.getFields().get(i);
-                Object fieldValue = readNativeValue(field.getType(), rowBlock.getChildren().get(i), i);
+                Object fieldValue = readNativeValue(field.getType(), row.getRawFieldBlock(i), rawIndex);
                 Object jsonValue = toJsonValue(field.getType(), fieldValue);
                 if (jsonValue != null) {
                     fieldValues.put(field.getName().orElseThrow(), jsonValue);
@@ -250,31 +245,35 @@ public class DeltaLakeParquetStatisticsUtils
     public static Map<String, Object> toNullCounts(Map<String, Type> columnTypeMapping, Map<String, Object> values)
     {
         ImmutableMap.Builder<String, Object> nullCounts = ImmutableMap.builderWithExpectedSize(values.size());
-        for (Map.Entry<String, Object> value : values.entrySet()) {
-            Type type = columnTypeMapping.get(value.getKey());
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            Type type = columnTypeMapping.get(entry.getKey());
             requireNonNull(type, "type is null");
-            nullCounts.put(value.getKey(), toNullCount(type, value.getValue()));
+            Object value = entry.getValue();
+            if (type instanceof RowType rowType) {
+                value = toNullCount(rowType, (SqlRow) value);
+            }
+            nullCounts.put(entry.getKey(), value);
         }
         return nullCounts.buildOrThrow();
     }
 
-    private static Object toNullCount(Type type, Object value)
+    private static ImmutableMap<String, Object> toNullCount(RowType rowType, SqlRow row)
     {
-        if (type instanceof RowType rowType) {
-            ColumnarRow row = toColumnarRow((Block) value);
-            ImmutableMap.Builder<String, Object> nullCounts = ImmutableMap.builderWithExpectedSize(row.getPositionCount());
-            for (int i = 0; i < row.getPositionCount(); i++) {
-                RowType.Field field = rowType.getFields().get(i);
-                if (field.getType() instanceof RowType) {
-                    nullCounts.put(field.getName().orElseThrow(), toNullCount(field.getType(), row.getField(i)));
-                }
-                else {
-                    nullCounts.put(field.getName().orElseThrow(), BIGINT.getLong(row.getField(i), 0));
-                }
+        List<RowType.Field> fields = rowType.getFields();
+        ImmutableMap.Builder<String, Object> nullCounts = ImmutableMap.builderWithExpectedSize(fields.size());
+        for (int i = 0; i < fields.size(); i++) {
+            RowType.Field field = fields.get(i);
+            Block fieldBlock = row.getRawFieldBlock(i);
+            int fieldBlockIndex = row.getRawIndex();
+            String fieldName = field.getName().orElseThrow();
+            if (field.getType() instanceof RowType fieldRowType) {
+                nullCounts.put(fieldName, toNullCount(fieldRowType, fieldRowType.getObject(fieldBlock, fieldBlockIndex)));
             }
-            return nullCounts.buildOrThrow();
+            else {
+                nullCounts.put(fieldName, BIGINT.getLong(fieldBlock, fieldBlockIndex));
+            }
         }
-        return value;
+        return nullCounts.buildOrThrow();
     }
 
     private static Optional<Object> getMin(Type type, Statistics<?> statistics)

@@ -13,7 +13,7 @@
  */
 package io.trino.sql.jsonpath.tree;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public abstract class JsonPathTreeVisitor<R, C>
 {
@@ -80,6 +80,11 @@ public abstract class JsonPathTreeVisitor<R, C>
     protected R visitDatetimeMethod(DatetimeMethod node, C context)
     {
         return visitMethod(node, context);
+    }
+
+    protected R visitDescendantMemberAccessor(DescendantMemberAccessor node, C context)
+    {
+        return visitAccessor(node, context);
     }
 
     protected R visitDisjunctionPredicate(DisjunctionPredicate node, C context)

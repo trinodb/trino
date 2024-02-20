@@ -30,9 +30,8 @@ public final class JsonStringToRowCast
 
     private JsonStringToRowCast()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder(JSON_STRING_TO_ROW_NAME)
                 .signature(Signature.builder()
-                        .name(JSON_STRING_TO_ROW_NAME)
                         .variadicTypeParameter("T", "row")
                         .returnType(new TypeSignature("T"))
                         .argumentType(VARCHAR)

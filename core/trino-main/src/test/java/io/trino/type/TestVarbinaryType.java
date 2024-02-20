@@ -15,11 +15,13 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.SqlVarbinary;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestVarbinaryType
         extends AbstractTestType
@@ -29,7 +31,7 @@ public class TestVarbinaryType
         super(VARBINARY, SqlVarbinary.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 15);
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("apple"));
@@ -43,12 +45,33 @@ public class TestVarbinaryType
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("cherry"));
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("cherry"));
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("date"));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
         return Slices.utf8Slice(((Slice) value).toStringUtf8() + "_");
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

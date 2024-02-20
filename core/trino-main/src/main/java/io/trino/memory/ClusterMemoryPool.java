@@ -14,13 +14,12 @@
 package io.trino.memory;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryAllocation;
 import io.trino.spi.memory.MemoryPoolInfo;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.HashMap;

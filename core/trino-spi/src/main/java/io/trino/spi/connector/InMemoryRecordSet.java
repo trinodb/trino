@@ -16,6 +16,8 @@ package io.trino.spi.connector;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -23,6 +25,7 @@ import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -32,6 +35,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static io.trino.spi.connector.Preconditions.checkArgument;
+import static io.trino.spi.connector.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -41,7 +46,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryRecordSet
@@ -230,6 +234,9 @@ public class InMemoryRecordSet
                     checkArgument(value instanceof Integer || value instanceof Long,
                             "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
                 }
+                else if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && !timestampWithTimeZoneType.isShort()) {
+                    checkArgument(value instanceof LongTimestampWithTimeZone, "Expected value %s to be an instance of LongTimestampWithTimeZone, but is a %s", i, value.getClass().getSimpleName());
+                }
                 else if (DOUBLE.equals(type)) {
                     checkArgument(value instanceof Double, "Expected value %s to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
                 }
@@ -273,20 +280,6 @@ public class InMemoryRecordSet
         }
     }
 
-    private static void checkArgument(boolean test, String message, Object... args)
-    {
-        if (!test) {
-            throw new IllegalArgumentException(format(message, args));
-        }
-    }
-
-    private static void checkState(boolean test, String message)
-    {
-        if (!test) {
-            throw new IllegalStateException(message);
-        }
-    }
-
     private static long sizeOf(List<?> record)
     {
         long completedBytes = 0;
@@ -308,6 +301,12 @@ public class InMemoryRecordSet
             }
             else if (value instanceof Block) {
                 completedBytes += ((Block) value).getSizeInBytes();
+            }
+            else if (value instanceof SqlMap map) {
+                completedBytes += map.getSizeInBytes();
+            }
+            else if (value instanceof SqlRow row) {
+                completedBytes += row.getSizeInBytes();
             }
             else if (value instanceof Slice) {
                 completedBytes += ((Slice) value).length();

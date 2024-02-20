@@ -31,15 +31,24 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.type.TypeManager;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.Objects.requireNonNull;
 
 public class KafkaConnectorModule
         extends AbstractConfigurationAwareModule
 {
+    private final TypeManager typeManager;
+
+    public KafkaConnectorModule(TypeManager typeManager)
+    {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+    }
+
     @Override
     public void setup(Binder binder)
     {
@@ -58,7 +67,7 @@ public class KafkaConnectorModule
 
         configBinder(binder).bindConfig(KafkaConfig.class);
         bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule());
-        bindTopicSchemaProviderModule(ConfluentSchemaRegistryTableDescriptionSupplier.NAME, new ConfluentModule());
+        bindTopicSchemaProviderModule(ConfluentSchemaRegistryTableDescriptionSupplier.NAME, new ConfluentModule(typeManager));
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(KafkaSessionProperties.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
     }

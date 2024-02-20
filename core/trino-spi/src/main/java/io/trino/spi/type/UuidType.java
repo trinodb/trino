@@ -19,19 +19,28 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.Int128ArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.FlatFixed;
+import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 import java.util.UUID;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Long.reverseBytes;
@@ -47,12 +56,13 @@ public class UuidType
         implements FixedWidthType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(UuidType.class, lookup(), Slice.class);
+    private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
     public static final UuidType UUID = new UuidType();
 
     private UuidType()
     {
-        super(new TypeSignature(StandardTypes.UUID), Slice.class);
+        super(new TypeSignature(StandardTypes.UUID), Slice.class, Int128ArrayBlock.class);
     }
 
     @Override
@@ -112,8 +122,10 @@ public class UuidType
         if (block.isNull(position)) {
             return null;
         }
-        long high = reverseBytes(block.getLong(position, 0));
-        long low = reverseBytes(block.getLong(position, SIZE_OF_LONG));
+        Int128ArrayBlock valueBlock = (Int128ArrayBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        long high = reverseBytes(valueBlock.getInt128High(valuePosition));
+        long low = reverseBytes(valueBlock.getInt128Low(valuePosition));
         return new UUID(high, low).toString();
     }
 
@@ -124,9 +136,9 @@ public class UuidType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0));
-            blockBuilder.writeLong(block.getLong(position, SIZE_OF_LONG));
-            blockBuilder.closeEntry();
+            Int128ArrayBlock valueBlock = (Int128ArrayBlock) block.getUnderlyingValueBlock();
+            int valuePosition = block.getUnderlyingValuePosition(position);
+            ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(valueBlock.getInt128High(valuePosition), valueBlock.getInt128Low(valuePosition));
         }
     }
 
@@ -142,24 +154,29 @@ public class UuidType
         if (length != INT128_BYTES) {
             throw new IllegalStateException("Expected entry size to be exactly " + INT128_BYTES + " but was " + length);
         }
-        blockBuilder.writeLong(value.getLong(offset));
-        blockBuilder.writeLong(value.getLong(offset + SIZE_OF_LONG));
-        blockBuilder.closeEntry();
+        ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
+                value.getLong(offset),
+                value.getLong(offset + SIZE_OF_LONG));
     }
 
     @Override
     public final Slice getSlice(Block block, int position)
     {
-        return Slices.wrappedLongArray(
-                block.getLong(position, 0),
-                block.getLong(position, SIZE_OF_LONG));
+        return read((Int128ArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
+    }
+
+    @Override
+    public int getFlatFixedSize()
+    {
+        return INT128_BYTES;
     }
 
     public static Slice javaUuidToTrinoUuid(UUID uuid)
     {
-        return Slices.wrappedLongArray(
-                reverseBytes(uuid.getMostSignificantBits()),
-                reverseBytes(uuid.getLeastSignificantBits()));
+        Slice value = Slices.allocate(INT128_BYTES);
+        value.setLong(0, reverseBytes(uuid.getMostSignificantBits()));
+        value.setLong(SIZE_OF_LONG, reverseBytes(uuid.getLeastSignificantBits()));
+        return value;
     }
 
     public static UUID trinoUuidToJavaUuid(Slice uuid)
@@ -170,6 +187,47 @@ public class UuidType
         return new UUID(
                 reverseBytes(uuid.getLong(0)),
                 reverseBytes(uuid.getLong(SIZE_OF_LONG)));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static Slice read(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
+    {
+        Slice value = Slices.allocate(INT128_BYTES);
+        value.setLong(0, block.getInt128High(position));
+        value.setLong(SIZE_OF_LONG, block.getInt128Low(position));
+        return value;
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static Slice readFlat(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+    {
+        return wrappedBuffer(fixedSizeSlice, fixedSizeOffset, INT128_BYTES);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeFlat(
+            Slice sourceSlice,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        sourceSlice.getBytes(0, fixedSizeSlice, fixedSizeOffset, INT128_BYTES);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void readFlatToBlock(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            BlockBuilder blockBuilder)
+    {
+        ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset),
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
     }
 
     @ScalarOperator(EQUAL)
@@ -183,13 +241,13 @@ public class UuidType
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean equalOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
-                leftBlock.getLong(leftPosition, 0),
-                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
-                rightBlock.getLong(rightPosition, 0),
-                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+                leftBlock.getInt128High(leftPosition),
+                leftBlock.getInt128Low(leftPosition),
+                rightBlock.getInt128High(rightPosition),
+                rightBlock.getInt128Low(rightPosition));
     }
 
     private static boolean equal(long leftLow, long leftHigh, long rightLow, long rightHigh)
@@ -204,9 +262,9 @@ public class UuidType
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    private static long xxHash64Operator(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
     {
-        return xxHash64(block.getLong(position, 0), block.getLong(position, SIZE_OF_LONG));
+        return xxHash64(block.getInt128High(position), block.getInt128Low(position));
     }
 
     private static long xxHash64(long low, long high)
@@ -225,13 +283,13 @@ public class UuidType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static long comparisonOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return compareLittleEndian(
-                leftBlock.getLong(leftPosition, 0),
-                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
-                rightBlock.getLong(rightPosition, 0),
-                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+                leftBlock.getInt128High(leftPosition),
+                leftBlock.getInt128Low(leftPosition),
+                rightBlock.getInt128High(rightPosition),
+                rightBlock.getInt128Low(rightPosition));
     }
 
     private static int compareLittleEndian(long leftLow64le, long leftHigh64le, long rightLow64le, long rightHigh64le)

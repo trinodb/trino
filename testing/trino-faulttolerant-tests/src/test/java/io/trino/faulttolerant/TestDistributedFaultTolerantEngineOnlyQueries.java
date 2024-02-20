@@ -16,16 +16,18 @@ package io.trino.faulttolerant;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.memory.MemoryQueryRunner;
 import io.trino.testing.AbstractDistributedEngineOnlyQueries;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestDistributedFaultTolerantEngineOnlyQueries
         extends AbstractDistributedEngineOnlyQueries
@@ -38,7 +40,7 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
                 .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
                 .buildOrThrow();
 
-        DistributedQueryRunner queryRunner = MemoryQueryRunner.builder()
+        QueryRunner queryRunner = MemoryQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
@@ -53,6 +55,8 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
                     .withSessionProperties(TEST_CATALOG_PROPERTIES)
                     .build()));
             queryRunner.createCatalog(TESTING_CATALOG, "mock");
+            queryRunner.installPlugin(new BlackHolePlugin());
+            queryRunner.createCatalog("blackhole", "blackhole");
         }
         catch (RuntimeException e) {
             throw closeAllSuppress(e, queryRunner);
@@ -61,16 +65,41 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
     }
 
     @Override
-    @Test(enabled = false)
+    @Test
+    @Disabled
     public void testExplainAnalyzeVerbose()
     {
         // Spooling exchange does not prove output buffer utilization histogram
     }
 
+    @Test
     @Override
-    @Test(enabled = false)
+    @Disabled
     public void testSelectiveLimit()
     {
         // FTE mode does not terminate query when limit is reached
+    }
+
+    @Test
+    public void testIssue18383()
+    {
+        String tableName = "test_issue_18383_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id VARCHAR)");
+
+        assertQueryReturnsEmptyResult(
+                """
+                        WITH
+                        t1 AS (
+                            SELECT NULL AS address_id FROM %s i1
+                                INNER JOIN %s i2 ON i1.id = i2.id),
+                        t2 AS (
+                            SELECT id AS address_id FROM %s
+                            UNION
+                            SELECT * FROM t1)
+                        SELECT * FROM t2
+                            INNER JOIN %s i ON i.id = t2.address_id
+                        """.formatted(tableName, tableName, tableName, tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 }

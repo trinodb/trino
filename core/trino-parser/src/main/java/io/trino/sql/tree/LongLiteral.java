@@ -22,7 +22,8 @@ import static java.util.Objects.requireNonNull;
 public class LongLiteral
         extends Literal
 {
-    private final long value;
+    private final String value;
+    private final long parsedValue;
 
     public LongLiteral(String value)
     {
@@ -39,16 +40,22 @@ public class LongLiteral
         super(location);
         requireNonNull(value, "value is null");
         try {
-            this.value = Long.parseLong(value);
+            this.value = value;
+            this.parsedValue = parse(value);
         }
         catch (NumberFormatException e) {
             throw new ParsingException("Invalid numeric literal: " + value);
         }
     }
 
-    public long getValue()
+    public String getValue()
     {
         return value;
+    }
+
+    public long getParsedValue()
+    {
+        return parsedValue;
     }
 
     @Override
@@ -69,7 +76,7 @@ public class LongLiteral
 
         LongLiteral that = (LongLiteral) o;
 
-        if (value != that.value) {
+        if (parsedValue != that.parsedValue) {
             return false;
         }
 
@@ -79,7 +86,7 @@ public class LongLiteral
     @Override
     public int hashCode()
     {
-        return (int) (value ^ (value >>> 32));
+        return (int) (parsedValue ^ (parsedValue >>> 32));
     }
 
     @Override
@@ -89,6 +96,24 @@ public class LongLiteral
             return false;
         }
 
-        return value == ((LongLiteral) other).value;
+        return parsedValue == ((LongLiteral) other).parsedValue;
+    }
+
+    private static long parse(String value)
+    {
+        value = value.replace("_", "");
+
+        if (value.startsWith("0x") || value.startsWith("0X")) {
+            return Long.parseLong(value.substring(2), 16);
+        }
+        else if (value.startsWith("0b") || value.startsWith("0B")) {
+            return Long.parseLong(value.substring(2), 2);
+        }
+        else if (value.startsWith("0o") || value.startsWith("0O")) {
+            return Long.parseLong(value.substring(2), 8);
+        }
+        else {
+            return Long.parseLong(value);
+        }
     }
 }

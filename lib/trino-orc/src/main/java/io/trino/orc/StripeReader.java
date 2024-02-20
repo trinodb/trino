@@ -407,16 +407,9 @@ public class StripeReader
         HashMap<OrcColumnId, List<BloomFilter>> bloomFilters = new HashMap<>();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             Stream stream = entry.getValue();
-            if (stream.getStreamKind() == BLOOM_FILTER_UTF8) {
+            if (stream.getStreamKind() == BLOOM_FILTER_UTF8 || stream.getStreamKind() == BLOOM_FILTER && !bloomFilters.containsKey(stream.getColumnId())) {
                 OrcInputStream inputStream = new OrcInputStream(streamsData.get(entry.getKey()));
                 bloomFilters.put(stream.getColumnId(), metadataReader.readBloomFilterIndexes(inputStream));
-            }
-        }
-        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
-            Stream stream = entry.getValue();
-            if (stream.getStreamKind() == BLOOM_FILTER && !bloomFilters.containsKey(stream.getColumnId())) {
-                OrcInputStream inputStream = new OrcInputStream(streamsData.get(entry.getKey()));
-                bloomFilters.put(entry.getKey().getColumnId(), metadataReader.readBloomFilterIndexes(inputStream));
             }
         }
         return ImmutableMap.copyOf(bloomFilters);

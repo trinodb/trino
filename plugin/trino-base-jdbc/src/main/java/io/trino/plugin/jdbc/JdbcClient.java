@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -26,10 +28,10 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -37,6 +39,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -57,6 +60,8 @@ public interface JdbcClient
 
     JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery);
 
+    JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery);
+
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
     Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle);
@@ -68,6 +73,11 @@ public interface JdbcClient
 
     WriteMapping toWriteMapping(ConnectorSession session, Type type);
 
+    default Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return Optional.empty();
+    }
+
     default boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         return true;
@@ -78,14 +88,19 @@ public interface JdbcClient
         return Optional.empty();
     }
 
-    default Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    default Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
     }
 
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle);
 
+    ConnectorSplitSource getSplits(ConnectorSession session, JdbcProcedureHandle procedureHandle);
+
     Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
+            throws SQLException;
+
+    Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcProcedureHandle procedureHandle)
             throws SQLException;
 
     default void abortReadConnection(Connection connection, ResultSet resultSet)
@@ -99,12 +114,26 @@ public interface JdbcClient
             JdbcTableHandle table,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions);
+            Map<String, ParameterizedExpression> columnExpressions);
 
     PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException;
 
+    CallableStatement buildProcedure(ConnectorSession session, Connection connection, JdbcSplit split, JdbcProcedureHandle procedureHandle)
+            throws SQLException;
+
     Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
+            JoinStatistics statistics);
+
+    @Deprecated
+    Optional<PreparedQuery> legacyImplementJoin(
             ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
@@ -149,6 +178,8 @@ public interface JdbcClient
 
     void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type);
 
+    void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column);
+
     void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName);
 
     default void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> properties)
@@ -177,23 +208,14 @@ public interface JdbcClient
     Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException;
 
-    PreparedStatement getPreparedStatement(Connection connection, String sql)
+    PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException;
 
-    /**
-     * @deprecated Use {@link #getTableStatistics(ConnectorSession, JdbcTableHandle)}
-     */
-    @Deprecated
-    TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain);
-
-    default TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
-    {
-        return getTableStatistics(session, handle, TupleDomain.all());
-    }
+    TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle);
 
     void createSchema(ConnectorSession session, String schemaName);
 
-    void dropSchema(ConnectorSession session, String schemaName);
+    void dropSchema(ConnectorSession session, String schemaName, boolean cascade);
 
     void renameSchema(ConnectorSession session, String schemaName, String newSchemaName);
 
@@ -216,4 +238,13 @@ public interface JdbcClient
     OptionalLong delete(ConnectorSession session, JdbcTableHandle handle);
 
     void truncateTable(ConnectorSession session, JdbcTableHandle handle);
+
+    OptionalLong update(ConnectorSession session, JdbcTableHandle handle);
+
+    OptionalInt getMaxWriteParallelism(ConnectorSession session);
+
+    default OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        return OptionalInt.empty();
+    }
 }

@@ -19,7 +19,7 @@ import com.google.common.primitives.Primitives;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
@@ -136,8 +136,13 @@ public class TestStatsNormalizer
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10000000000L)
                 .addSymbolStatistics(symbol, symbolStats).build();
-
         assertNormalized(estimate, TypeProvider.copyOf(ImmutableMap.of(symbol, type)))
+                .symbolStats(symbol, symbolAssert -> symbolAssert.distinctValuesCount(expectedNormalizedNdv));
+
+        // also verify symbol stats normalization without row count
+        PlanNodeStatsEstimate estimateWithoutRowCount = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(symbol, symbolStats).build();
+        assertNormalized(estimateWithoutRowCount, TypeProvider.copyOf(ImmutableMap.of(symbol, type)))
                 .symbolStats(symbol, symbolAssert -> symbolAssert.distinctValuesCount(expectedNormalizedNdv));
     }
 

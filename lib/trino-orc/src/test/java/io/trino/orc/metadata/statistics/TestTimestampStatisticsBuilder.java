@@ -17,15 +17,13 @@ import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.TIMESTAMP;
 import static io.trino.orc.metadata.statistics.TimestampStatistics.TIMESTAMP_VALUE_BYTES;
 import static java.lang.Long.MAX_VALUE;
 import static java.lang.Long.MIN_VALUE;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTimestampStatisticsBuilder
         extends AbstractStatisticsBuilderTest<TimestampStatisticsBuilder, Long>
@@ -73,10 +71,10 @@ public class TestTimestampStatisticsBuilder
         statisticsBuilder.addValue(1011L);
         statisticsBuilder.addValue(4242L);
         BloomFilter bloomFilter = statisticsBuilder.buildColumnStatistics().getBloomFilter();
-        assertNotNull(bloomFilter);
-        assertTrue(bloomFilter.testLong(314L));
-        assertTrue(bloomFilter.testLong(1011L));
-        assertTrue(bloomFilter.testLong(4242L));
-        assertFalse(bloomFilter.testLong(100L));
+        assertThat(bloomFilter).isNotNull();
+        assertThat(bloomFilter.testLong(314L)).isTrue();
+        assertThat(bloomFilter.testLong(1011L)).isTrue();
+        assertThat(bloomFilter.testLong(4242L)).isTrue();
+        assertThat(bloomFilter.testLong(100L)).isFalse();
     }
 }

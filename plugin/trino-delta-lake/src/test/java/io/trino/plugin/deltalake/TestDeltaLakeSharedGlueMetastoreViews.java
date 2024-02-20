@@ -15,7 +15,9 @@ package io.trino.plugin.deltalake;
 
 import io.trino.plugin.hive.metastore.HiveMetastore;
 
-import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
+import java.nio.file.Path;
+
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 
 /**
  * Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
@@ -25,7 +27,7 @@ public class TestDeltaLakeSharedGlueMetastoreViews
         extends BaseDeltaLakeSharedMetastoreViewsTest
 {
     @Override
-    protected HiveMetastore createTestMetastore(String dataDirectory)
+    protected HiveMetastore createTestMetastore(Path dataDirectory)
     {
         return createTestingGlueHiveMetastore(dataDirectory);
     }

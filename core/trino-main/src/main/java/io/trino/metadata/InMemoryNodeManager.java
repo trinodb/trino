@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.client.NodeVersion;
 import io.trino.spi.connector.CatalogHandle;
 
@@ -25,6 +26,7 @@ import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 public class InMemoryNodeManager
         implements InternalNodeManager
 {
@@ -59,7 +61,7 @@ public class InMemoryNodeManager
     {
         switch (state) {
             case ACTIVE:
-                return allNodes;
+                return ImmutableSet.copyOf(allNodes);
             case INACTIVE:
             case SHUTTING_DOWN:
                 return ImmutableSet.of();
@@ -70,20 +72,20 @@ public class InMemoryNodeManager
     @Override
     public Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle)
     {
-        return allNodes;
+        return ImmutableSet.copyOf(allNodes);
     }
 
     @Override
     public NodesSnapshot getActiveNodesSnapshot()
     {
-        return new NodesSnapshot(allNodes, Optional.empty());
+        return new NodesSnapshot(ImmutableSet.copyOf(allNodes), Optional.empty());
     }
 
     @Override
     public AllNodes getAllNodes()
     {
         return new AllNodes(
-                allNodes,
+                ImmutableSet.copyOf(allNodes),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(CURRENT_NODE));

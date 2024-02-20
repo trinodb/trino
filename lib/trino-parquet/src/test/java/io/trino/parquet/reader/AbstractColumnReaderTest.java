@@ -23,15 +23,15 @@ import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetEncoding;
-import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.TestingColumnReader.ColumnReaderFormat;
 import io.trino.parquet.reader.TestingColumnReader.DataPageVersion;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.AbstractVariableWidthType;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
@@ -42,8 +42,6 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.apache.parquet.schema.Types.PrimitiveBuilder;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
@@ -58,11 +56,12 @@ import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
+import static io.trino.parquet.reader.AbstractColumnReader.shouldProduceDictionaryForType;
 import static io.trino.parquet.reader.TestingColumnReader.DataPageVersion.V1;
 import static io.trino.parquet.reader.TestingColumnReader.getDictionaryPage;
+import static io.trino.parquet.reader.TestingRowRanges.toRowRange;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
-import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRange;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -87,7 +86,7 @@ public abstract class AbstractColumnReaderTest
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         assertThat(actual.mayHaveNull()).isFalse();
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
         }
         format.assertBlock(values, actual);
@@ -110,7 +109,7 @@ public abstract class AbstractColumnReaderTest
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         assertThat(actual.mayHaveNull()).isTrue();
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
         }
         format.assertBlock(values, actual);
@@ -132,7 +131,7 @@ public abstract class AbstractColumnReaderTest
         reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
             assertThat(actual.mayHaveNull()).isTrue();
         }
@@ -155,7 +154,7 @@ public abstract class AbstractColumnReaderTest
         reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage, true), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
             assertThat(actual.mayHaveNull()).isFalse();
         }
@@ -205,7 +204,7 @@ public abstract class AbstractColumnReaderTest
         reader.prepareNextRead(2);
         Block block2 = reader.readPrimitive().getBlock();
 
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(block1).isInstanceOf(DictionaryBlock.class);
             assertThat(block2).isInstanceOf(DictionaryBlock.class);
 
@@ -216,6 +215,13 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values2, block2);
     }
 
+//    @Test
+//    public <T> void testReadNoNullX()
+//            throws IOException
+//    {
+//        testReadNoNull(DataPageVersion.V2,
+//                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestamp(3)));
+//    }
     @Test(dataProvider = "readersWithPageVersions", dataProviderClass = TestingColumnReader.class)
     public <T> void testReadNoNull(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
@@ -353,7 +359,7 @@ public abstract class AbstractColumnReaderTest
         Block actual2 = readBlock(reader, 3);
         Block actual3 = readBlock(reader, 4);
 
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(actual1).isInstanceOf(DictionaryBlock.class);
             assertThat(actual2).isInstanceOf(DictionaryBlock.class);
             assertThat(actual3).isInstanceOf(DictionaryBlock.class);
@@ -532,7 +538,8 @@ public abstract class AbstractColumnReaderTest
         // Create reader
         PrimitiveField field = createField(format, true);
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-        ColumnReader reader = ColumnReaderFactory.create(field, UTC, memoryContext, new ParquetReaderOptions().withBatchColumnReaders(true));
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC);
+        ColumnReader reader = columnReaderFactory.create(field, memoryContext);
         // Write data
         DictionaryValuesWriter dictionaryWriter = format.getDictionaryWriter();
         format.write(dictionaryWriter, new Integer[] {1, 2, 3});
@@ -680,6 +687,7 @@ public abstract class AbstractColumnReaderTest
             pagesBuilder.add(dictionaryPage);
         }
         return new PageReader(
+                new ParquetDataSourceId("test"),
                 UNCOMPRESSED,
                 pagesBuilder.addAll(dataPages).build().iterator(),
                 dataPages.stream()

@@ -15,10 +15,9 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.sql.tree.QualifiedName;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -75,14 +74,16 @@ public class BenchmarkGroupedTypedHistogram
 
         private final Random random = new Random();
         private Page[] pages;
-        private GroupByIdBlock[] groupByIdBlocks;
+        private int[] groupCounts;
+        private int[][] groupByIdBlocks;
         private GroupedAggregator groupedAggregator;
 
         @Setup
         public void setUp()
         {
             pages = new Page[numGroups];
-            groupByIdBlocks = new GroupByIdBlock[numGroups];
+            groupCounts = new int[numGroups];
+            groupByIdBlocks = new int[numGroups][];
 
             for (int j = 0; j < numGroups; j++) {
                 List<String> valueList = new ArrayList<>();
@@ -104,9 +105,10 @@ public class BenchmarkGroupedTypedHistogram
 
                 Block block = createStringsBlock(valueList);
                 Page page = new Page(block);
-                GroupByIdBlock groupByIdBlock = AggregationTestUtils.createGroupByIdBlock(j, page.getPositionCount());
+                int[] groupByIdBlock = AggregationTestUtils.createGroupByIdBlock(j, page.getPositionCount());
 
                 pages[j] = page;
+                groupCounts[j] = j;
                 groupByIdBlocks[j] = groupByIdBlock;
             }
 
@@ -122,9 +124,10 @@ public class BenchmarkGroupedTypedHistogram
         GroupedAggregator groupedAggregator = data.groupedAggregator;
 
         for (int i = 0; i < data.numGroups; i++) {
-            GroupByIdBlock groupByIdBlock = data.groupByIdBlocks[i];
+            int groupCount = data.groupCounts[i];
+            int[] groupByIdBlock = data.groupByIdBlocks[i];
             Page page = data.pages[i];
-            groupedAggregator.processPage(groupByIdBlock, page);
+            groupedAggregator.processPage(groupCount, groupByIdBlock, page);
         }
 
         return groupedAggregator;
@@ -133,7 +136,15 @@ public class BenchmarkGroupedTypedHistogram
     private static TestingAggregationFunction getInternalAggregationFunctionVarChar()
     {
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-        return functionResolution.getAggregateFunction(QualifiedName.of("histogram"), fromTypes(VARCHAR));
+        return functionResolution.getAggregateFunction("histogram", fromTypes(VARCHAR));
+    }
+
+    @Test
+    public void test()
+    {
+        Data data = new Data();
+        data.setUp();
+        testSharedGroupWithLargeBlocksRunner(data);
     }
 
     public static void main(String[] args)

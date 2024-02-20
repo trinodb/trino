@@ -14,7 +14,8 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.kafka.schema.ContentSchemaReader;
+import com.google.inject.Inject;
+import io.trino.plugin.kafka.schema.ContentSchemaProvider;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -28,8 +29,6 @@ import io.trino.spi.connector.FixedSplitSource;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -45,16 +44,16 @@ public class KafkaSplitManager
 {
     private final KafkaConsumerFactory consumerFactory;
     private final KafkaFilterManager kafkaFilterManager;
-    private final ContentSchemaReader contentSchemaReader;
+    private final ContentSchemaProvider contentSchemaProvider;
     private final int messagesPerSplit;
 
     @Inject
-    public KafkaSplitManager(KafkaConsumerFactory consumerFactory, KafkaConfig kafkaConfig, KafkaFilterManager kafkaFilterManager, ContentSchemaReader contentSchemaReader)
+    public KafkaSplitManager(KafkaConsumerFactory consumerFactory, KafkaConfig kafkaConfig, KafkaFilterManager kafkaFilterManager, ContentSchemaProvider contentSchemaProvider)
     {
         this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
         this.messagesPerSplit = kafkaConfig.getMessagesPerSplit();
         this.kafkaFilterManager = requireNonNull(kafkaFilterManager, "kafkaFilterManager is null");
-        this.contentSchemaReader = requireNonNull(contentSchemaReader, "contentSchemaReader is null");
+        this.contentSchemaProvider = requireNonNull(contentSchemaProvider, "contentSchemaProvider is null");
     }
 
     @Override
@@ -82,8 +81,8 @@ public class KafkaSplitManager
             partitionEndOffsets = kafkaFilteringResult.getPartitionEndOffsets();
 
             ImmutableList.Builder<KafkaSplit> splits = ImmutableList.builder();
-            Optional<String> keyDataSchemaContents = contentSchemaReader.readKeyContentSchema(kafkaTableHandle);
-            Optional<String> messageDataSchemaContents = contentSchemaReader.readValueContentSchema(kafkaTableHandle);
+            Optional<String> keyDataSchemaContents = contentSchemaProvider.getKey(kafkaTableHandle);
+            Optional<String> messageDataSchemaContents = contentSchemaProvider.getMessage(kafkaTableHandle);
 
             for (PartitionInfo partitionInfo : partitionInfos) {
                 TopicPartition topicPartition = toTopicPartition(partitionInfo);

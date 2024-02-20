@@ -30,12 +30,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.operator.scalar.AbstractTestFunctions.asMap;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -61,6 +61,7 @@ import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.MoreMaps.asMap;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -68,8 +69,10 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestMapOperators
 {
     private QueryAssertions assertions;
@@ -153,23 +156,23 @@ public class TestMapOperators
                         sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0),
                         100.0));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map", "ARRAY[1]", "ARRAY[2, 4]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map", "ARRAY[1]", "ARRAY[2, 4]")::evaluate)
                 .hasMessage("Key and value arrays must be the same length");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map", "ARRAY[1, 2, 3, 2]", "ARRAY[4, 5, 6, 7]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map", "ARRAY[1, 2, 3, 2]", "ARRAY[4, 5, 6, 7]")::evaluate)
                 .hasMessage("Duplicate map keys (2) are not allowed");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map", "ARRAY[ARRAY[1, 2], ARRAY[1, 3], ARRAY[1, 2]]", "ARRAY[1, 2, 3]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map", "ARRAY[ARRAY[1, 2], ARRAY[1, 3], ARRAY[1, 2]]", "ARRAY[1, 2, 3]")::evaluate)
                 .hasMessage("Duplicate map keys ([1, 2]) are not allowed");
 
         assertThat(assertions.function("map", "ARRAY[ARRAY[1]]", "ARRAY[2]"))
                 .hasType(mapType(new ArrayType(INTEGER), INTEGER))
                 .isEqualTo(ImmutableMap.of(ImmutableList.of(1), 2));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map", "ARRAY[NULL]", "ARRAY[2]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map", "ARRAY[NULL]", "ARRAY[2]")::evaluate)
                 .hasMessage("map key cannot be null");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map", "ARRAY[ARRAY[NULL]]", "ARRAY[2]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map", "ARRAY[ARRAY[NULL]]", "ARRAY[2]")::evaluate)
                 .hasMessage("map key cannot be indeterminate: [null]");
     }
 
@@ -278,9 +281,7 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1e-323,1e308,nan()], ARRAY[-323,308,null])"))
                 .hasType(JSON)
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? "{\"1.0E308\":308,\"9.9E-324\":-323,\"NaN\":null}"
-                        : "{\"1.0E-323\":-323,\"1.0E308\":308,\"NaN\":null}");
+                .isEqualTo("{\"1.0E308\":308,\"9.9E-324\":-323,\"NaN\":null}");
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[DECIMAL '3.14', DECIMAL '0.01'], ARRAY[0.14, null])"))
@@ -331,9 +332,7 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3, 5, 8, 13, 21], ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null])"))
                 .hasType(JSON)
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? "{\"1\":3.14,\"13\":\"-Infinity\",\"2\":9.9E-324,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}"
-                        : "{\"1\":3.14,\"13\":\"-Infinity\",\"2\":1.0E-323,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}");
+                .isEqualTo("{\"1\":3.14,\"13\":\"-Infinity\",\"2\":9.9E-324,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}");
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2], ARRAY[DECIMAL '3.14', null])"))
@@ -689,12 +688,12 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '{\"1\":1, \"01\": 2}'").evaluate())
-                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate keys are not allowed\n{\"01\":2,\"1\":1}")
+                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate map keys are not allowed\n{\"01\":2,\"1\":1}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(MAP(BIGINT, BIGINT)))")
                 .binding("a", "JSON '[{\"1\":1, \"01\": 2}]'").evaluate())
-                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate keys are not allowed\n[{\"01\":2,\"1\":1}]")
+                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate map keys are not allowed\n[{\"01\":2,\"1\":1}]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         // some other key/value type combinations
@@ -841,13 +840,13 @@ public class TestMapOperators
                 .binding("a", "map(ARRAY['puppies'], ARRAY[null])"))
                 .isNull(UNKNOWN);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map", "ARRAY[CAST(null as bigint)]", "ARRAY[1]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map", "ARRAY[CAST(null as bigint)]", "ARRAY[1]")::evaluate)
                 .hasMessage("map key cannot be null");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map", "ARRAY[CAST(null as bigint)]", "ARRAY[CAST(null as bigint)]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map", "ARRAY[CAST(null as bigint)]", "ARRAY[CAST(null as bigint)]")::evaluate)
                 .hasMessage("map key cannot be null");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map", "ARRAY[1,null]", "ARRAY[null,2]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map", "ARRAY[1,null]", "ARRAY[null,2]")::evaluate)
                 .hasMessage("map key cannot be null");
 
         assertThat(assertions.expression("a[3]")
@@ -1324,6 +1323,9 @@ public class TestMapOperators
     @Test
     public void testDistinctFrom()
     {
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1], ARRAY[0])", "MAP(ARRAY[1], ARRAY[NULL])"))
+                .isEqualTo(true);
+
         assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS MAP(INTEGER, VARCHAR))", "CAST(NULL AS MAP(INTEGER, VARCHAR))"))
                 .isEqualTo(false);
 
@@ -1661,31 +1663,31 @@ public class TestMapOperators
                 .isEqualTo(expectedNullValueMap);
 
         // invalid invocation
-        assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[('a', 1), ('a', 2)]").evaluate())
-                .hasMessage("Duplicate keys (a) are not allowed");
+        assertTrinoExceptionThrownBy(assertions.function("map_from_entries", "ARRAY[('a', 1), ('a', 2)]")::evaluate)
+                .hasMessage("Duplicate map keys (a) are not allowed");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(1, 1), (1, 2)]").evaluate())
-                .hasMessage("Duplicate keys (1) are not allowed");
+        assertTrinoExceptionThrownBy(assertions.function("map_from_entries", "ARRAY[(1, 1), (1, 2)]")::evaluate)
+                .hasMessage("Duplicate map keys (1) are not allowed");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(1.0, 1), (1.0, 2)]").evaluate())
-                .hasMessage("Duplicate keys (1.0) are not allowed");
+        assertTrinoExceptionThrownBy(assertions.function("map_from_entries", "ARRAY[(1.0, 1), (1.0, 2)]")::evaluate)
+                .hasMessage("Duplicate map keys (1.0) are not allowed");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(ARRAY[1, 2], 1), (ARRAY[1, 2], 2)]").evaluate())
-                .hasMessage("Duplicate keys ([1, 2]) are not allowed");
+        assertTrinoExceptionThrownBy(assertions.function("map_from_entries", "ARRAY[(ARRAY[1, 2], 1), (ARRAY[1, 2], 2)]")::evaluate)
+                .hasMessage("Duplicate map keys ([1, 2]) are not allowed");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(MAP(ARRAY[1], ARRAY[2]), 1), (MAP(ARRAY[1], ARRAY[2]), 2)]").evaluate())
-                .hasMessage("Duplicate keys ({1=2}) are not allowed");
+        assertTrinoExceptionThrownBy(assertions.function("map_from_entries", "ARRAY[(MAP(ARRAY[1], ARRAY[2]), 1), (MAP(ARRAY[1], ARRAY[2]), 2)]")::evaluate)
+                .hasMessage("Duplicate map keys ({1=2}) are not allowed");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(NaN(), 1), (NaN(), 2)]").evaluate())
-                .hasMessage("Duplicate keys (NaN) are not allowed");
+        assertTrinoExceptionThrownBy(assertions.function("map_from_entries", "ARRAY[(NaN(), 1), (NaN(), 2)]")::evaluate)
+                .hasMessage("Duplicate map keys (NaN) are not allowed");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(null, 1), (null, 2)]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map_from_entries", "ARRAY[(null, 1), (null, 2)]")::evaluate)
                 .hasMessage("map key cannot be null");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[null]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map_from_entries", "ARRAY[null]")::evaluate)
                 .hasMessage("map entry cannot be null");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(1, 2), null]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("map_from_entries", "ARRAY[(1, 2), null]")::evaluate)
                 .hasMessage("map entry cannot be null");
     }
 
@@ -1728,13 +1730,13 @@ public class TestMapOperators
                 .isEqualTo(ImmutableMap.of(Double.NaN, ImmutableList.of(1, 2)));
 
         // invalid invocation
-        assertTrinoExceptionThrownBy(() -> assertions.function("multimap_from_entries", "ARRAY[(null, 1), (null, 2)]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("multimap_from_entries", "ARRAY[(null, 1), (null, 2)]")::evaluate)
                 .hasMessage("map key cannot be null");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("multimap_from_entries", "ARRAY[null]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("multimap_from_entries", "ARRAY[null]")::evaluate)
                 .hasMessage("map entry cannot be null");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("multimap_from_entries", "ARRAY[(1, 2), null]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("multimap_from_entries", "ARRAY[(1, 2), null]")::evaluate)
                 .hasMessage("map entry cannot be null");
     }
 

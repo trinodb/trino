@@ -13,17 +13,15 @@
  */
 package io.trino.spi.type;
 
-import org.openjdk.jol.info.ClassLayout;
-
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.Timestamps.formatTimestamp;
-import static java.lang.Math.toIntExact;
 
 public final class LongTimestamp
         implements Comparable<LongTimestamp>
 {
-    public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LongTimestamp.class).instanceSize());
+    public static final int INSTANCE_SIZE = instanceSize(LongTimestamp.class);
 
     private static final int PICOSECONDS_PER_MICROSECOND = 1_000_000;
 

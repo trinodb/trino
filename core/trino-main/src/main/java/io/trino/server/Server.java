@@ -38,6 +38,7 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
+import io.airlift.tracing.TracingModule;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogManagerConfig;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
@@ -62,7 +63,7 @@ import io.trino.server.security.ServerSecurityModule;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManagerModule;
-import io.trino.version.EmbedVersion;
+import io.trino.util.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.IOException;
@@ -112,6 +113,7 @@ public class Server
                 new JmxOpenMetricsModule(),
                 new LogJmxModule(),
                 new TraceTokenModule(),
+                new TracingModule("trino", trinoVersion),
                 new EventModule(),
                 new JsonEventModule(),
                 new ServerSecurityModule(),

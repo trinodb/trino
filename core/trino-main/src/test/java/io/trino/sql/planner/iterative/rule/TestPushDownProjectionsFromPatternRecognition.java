@@ -21,9 +21,8 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -36,7 +35,7 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 public class TestPushDownProjectionsFromPatternRecognition
         extends BaseRuleTest
 {
-    private static final QualifiedName MAX_BY = createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(BIGINT, BIGINT)).toQualifiedName();
+    private static final QualifiedName MAX_BY = createTestMetadataManager().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT)).toQualifiedName();
 
     @Test
     public void testNoAggregations()

@@ -17,11 +17,10 @@ import io.airlift.slice.SizeOf;
 import io.airlift.stats.TDigest;
 import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class TDigestAndPercentileArrayStateFactory
@@ -43,7 +42,7 @@ public class TDigestAndPercentileArrayStateFactory
             extends AbstractGroupedAccumulatorState
             implements TDigestAndPercentileArrayState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedTDigestAndPercentileArrayState.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(GroupedTDigestAndPercentileArrayState.class);
         private final ObjectBigArray<TDigest> digests = new ObjectBigArray<>();
         private final ObjectBigArray<List<Double>> percentilesArray = new ObjectBigArray<>();
         private long size;
@@ -95,7 +94,7 @@ public class TDigestAndPercentileArrayStateFactory
     public static class SingleTDigestAndPercentileArrayState
             implements TDigestAndPercentileArrayState
     {
-        public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleTDigestAndPercentileArrayState.class).instanceSize());
+        public static final int INSTANCE_SIZE = instanceSize(SingleTDigestAndPercentileArrayState.class);
         private TDigest digest;
         private List<Double> percentiles;
 

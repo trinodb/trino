@@ -14,7 +14,7 @@
 package io.trino.plugin.deltalake.expression;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.trino.spi.TrinoException;
+import org.antlr.v4.runtime.ANTLRErrorListener;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -22,16 +22,14 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
-import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public final class SparkExpressionParser
 {
-    private static final BaseErrorListener ERROR_LISTENER = new BaseErrorListener()
+    private static final ANTLRErrorListener ERROR_LISTENER = new BaseErrorListener()
     {
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
@@ -44,13 +42,8 @@ public final class SparkExpressionParser
 
     public static String toTrinoExpression(String sparkExpression)
     {
-        try {
-            SparkExpression expression = createExpression(sparkExpression);
-            return SparkExpressionConverter.toTrinoExpression(expression);
-        }
-        catch (ParsingException e) {
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported Spark expression: " + sparkExpression, e);
-        }
+        SparkExpression expression = createExpression(sparkExpression);
+        return SparkExpressionConverter.toTrinoExpression(expression);
     }
 
     @VisibleForTesting
@@ -67,7 +60,7 @@ public final class SparkExpressionParser
     private static Object invokeParser(String input, Function<SparkExpressionBaseParser, ParserRuleContext> parseFunction)
     {
         try {
-            SparkExpressionBaseLexer lexer = new SparkExpressionBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(input)));
+            SparkExpressionBaseLexer lexer = new SparkExpressionBaseLexer(CharStreams.fromString(input));
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
             SparkExpressionBaseParser parser = new SparkExpressionBaseParser(tokenStream);
 
@@ -83,7 +76,7 @@ public final class SparkExpressionParser
                 parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
                 tree = parseFunction.apply(parser);
             }
-            catch (ParseCancellationException ex) {
+            catch (ParsingException ex) {
                 // if we fail, parse with LL mode
                 tokenStream.seek(0); // rewind input stream
                 parser.reset();
@@ -94,7 +87,7 @@ public final class SparkExpressionParser
             return new SparkExpressionBuilder().visit(tree);
         }
         catch (StackOverflowError e) {
-            throw new IllegalArgumentException("expression is too large (stack overflow while parsing)");
+            throw new ParsingException("expression is too large (stack overflow while parsing)");
         }
     }
 }

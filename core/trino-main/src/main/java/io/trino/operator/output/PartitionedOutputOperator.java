@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,6 +61,7 @@ public class PartitionedOutputOperator
         private final Optional<Slice> exchangeEncryptionKey;
         private final AggregatedMemoryContext memoryContext;
         private final int pagePartitionerPoolSize;
+        private final Optional<SkewedPartitionRebalancer> skewedPartitionRebalancer;
 
         public PartitionedOutputFactory(
                 PartitionFunction partitionFunction,
@@ -72,7 +74,8 @@ public class PartitionedOutputOperator
                 PositionsAppenderFactory positionsAppenderFactory,
                 Optional<Slice> exchangeEncryptionKey,
                 AggregatedMemoryContext memoryContext,
-                int pagePartitionerPoolSize)
+                int pagePartitionerPoolSize,
+                Optional<SkewedPartitionRebalancer> skewedPartitionRebalancer)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
@@ -85,6 +88,7 @@ public class PartitionedOutputOperator
             this.exchangeEncryptionKey = requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
             this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
             this.pagePartitionerPoolSize = pagePartitionerPoolSize;
+            this.skewedPartitionRebalancer = requireNonNull(skewedPartitionRebalancer, "skewedPartitionRebalancer is null");
         }
 
         @Override
@@ -111,7 +115,8 @@ public class PartitionedOutputOperator
                     positionsAppenderFactory,
                     exchangeEncryptionKey,
                     memoryContext,
-                    pagePartitionerPoolSize);
+                    pagePartitionerPoolSize,
+                    skewedPartitionRebalancer);
         }
     }
 
@@ -134,6 +139,7 @@ public class PartitionedOutputOperator
         private final Optional<Slice> exchangeEncryptionKey;
         private final AggregatedMemoryContext memoryContext;
         private final int pagePartitionerPoolSize;
+        private final Optional<SkewedPartitionRebalancer> skewedPartitionRebalancer;
         private final PagePartitionerPool pagePartitionerPool;
 
         public PartitionedOutputOperatorFactory(
@@ -152,7 +158,8 @@ public class PartitionedOutputOperator
                 PositionsAppenderFactory positionsAppenderFactory,
                 Optional<Slice> exchangeEncryptionKey,
                 AggregatedMemoryContext memoryContext,
-                int pagePartitionerPoolSize)
+                int pagePartitionerPoolSize,
+                Optional<SkewedPartitionRebalancer> skewedPartitionRebalancer)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -170,21 +177,33 @@ public class PartitionedOutputOperator
             this.exchangeEncryptionKey = requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
             this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
             this.pagePartitionerPoolSize = pagePartitionerPoolSize;
+            this.skewedPartitionRebalancer = requireNonNull(skewedPartitionRebalancer, "skewedPartitionRebalancer is null");
             this.pagePartitionerPool = new PagePartitionerPool(
                     pagePartitionerPoolSize,
-                    () -> new PagePartitioner(
-                            partitionFunction,
-                            partitionChannels,
-                            partitionConstants,
-                            replicatesAnyRow,
-                            nullChannel,
-                            outputBuffer,
-                            serdeFactory,
-                            sourceTypes,
-                            maxMemory,
-                            positionsAppenderFactory,
-                            exchangeEncryptionKey,
-                            memoryContext));
+                    () -> {
+                        boolean partitionProcessRleAndDictionaryBlocks = true;
+                        PartitionFunction function = partitionFunction;
+                        if (skewedPartitionRebalancer.isPresent()) {
+                            function = new SkewedPartitionFunction(partitionFunction, skewedPartitionRebalancer.get());
+                            // Partition flattened Rle and Dictionary blocks since if they are scaled then we want to
+                            // round-robin the entire block to increase the writing parallelism across tasks/workers.
+                            partitionProcessRleAndDictionaryBlocks = false;
+                        }
+                        return new PagePartitioner(
+                                function,
+                                partitionChannels,
+                                partitionConstants,
+                                replicatesAnyRow,
+                                nullChannel,
+                                outputBuffer,
+                                serdeFactory,
+                                sourceTypes,
+                                maxMemory,
+                                positionsAppenderFactory,
+                                exchangeEncryptionKey,
+                                memoryContext,
+                                partitionProcessRleAndDictionaryBlocks);
+                    });
         }
 
         @Override
@@ -195,7 +214,8 @@ public class PartitionedOutputOperator
                     operatorContext,
                     pagePreprocessor,
                     outputBuffer,
-                    pagePartitionerPool);
+                    pagePartitionerPool,
+                    skewedPartitionRebalancer);
         }
 
         @Override
@@ -223,14 +243,16 @@ public class PartitionedOutputOperator
                     positionsAppenderFactory,
                     exchangeEncryptionKey,
                     memoryContext,
-                    pagePartitionerPoolSize);
+                    pagePartitionerPoolSize,
+                    skewedPartitionRebalancer);
         }
     }
 
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitionerPool pagePartitionerPool;
-    private final PagePartitioner partitionFunction;
+    private final PagePartitioner pagePartitioner;
+    private final Optional<SkewedPartitionRebalancer> skewedPartitionRebalancer;
     // outputBuffer is used only to block the operator from finishing if the outputBuffer is full
     private final OutputBuffer outputBuffer;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
@@ -240,14 +262,16 @@ public class PartitionedOutputOperator
             OperatorContext operatorContext,
             Function<Page, Page> pagePreprocessor,
             OutputBuffer outputBuffer,
-            PagePartitionerPool pagePartitionerPool)
+            PagePartitionerPool pagePartitionerPool,
+            Optional<SkewedPartitionRebalancer> skewedPartitionRebalancer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         this.pagePartitionerPool = requireNonNull(pagePartitionerPool, "pagePartitionerPool is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
-        this.partitionFunction = requireNonNull(pagePartitionerPool.poll(), "partitionFunction is null");
-        this.partitionFunction.setupOperator(operatorContext);
+        this.pagePartitioner = requireNonNull(pagePartitionerPool.poll(), "pagePartitioner is null");
+        this.skewedPartitionRebalancer = requireNonNull(skewedPartitionRebalancer, "skewedPartitionRebalancer is null");
+        operatorContext.setInfoSupplier(new PartitionedOutputInfoSupplier(outputBuffer));
     }
 
     @Override
@@ -260,7 +284,8 @@ public class PartitionedOutputOperator
     public void finish()
     {
         if (!finished) {
-            pagePartitionerPool.release(partitionFunction);
+            pagePartitioner.prepareForRelease(operatorContext);
+            pagePartitionerPool.release(pagePartitioner);
             finished = true;
         }
     }
@@ -309,7 +334,22 @@ public class PartitionedOutputOperator
         }
 
         page = pagePreprocessor.apply(page);
-        partitionFunction.partitionPage(page);
+        pagePartitioner.partitionPage(page, operatorContext);
+
+        // Rebalance skewed partitions in the case of scale writer hash partitioning
+        if (skewedPartitionRebalancer.isPresent()) {
+            SkewedPartitionRebalancer rebalancer = skewedPartitionRebalancer.get();
+
+            // Update data processed and partitionRowCount state
+            rebalancer.addDataProcessed(page.getSizeInBytes());
+            ((SkewedPartitionFunction) pagePartitioner.getPartitionFunction()).flushPartitionRowCountToRebalancer();
+
+            // Rebalance only when output buffer is full. This resembles that the downstream writing stage is slow, and
+            // we could rebalance partitions to increase the concurrency at downstream stage.
+            if (!outputBuffer.isFull().isDone()) {
+                rebalancer.rebalance();
+            }
+        }
     }
 
     @Override
@@ -318,34 +358,34 @@ public class PartitionedOutputOperator
         return null;
     }
 
+    public static class PartitionedOutputInfoSupplier
+            implements Supplier<PartitionedOutputInfo>
+    {
+        private final OutputBuffer outputBuffer;
+
+        PartitionedOutputInfoSupplier(OutputBuffer outputBuffer)
+        {
+            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+        }
+
+        @Override
+        public PartitionedOutputInfo get()
+        {
+            // note that outputBuffer.getPeakMemoryUsage() will produce peak across many operators
+            // this is suboptimal but hard to fix properly
+            return new PartitionedOutputInfo(outputBuffer.getPeakMemoryUsage());
+        }
+    }
+
     public static class PartitionedOutputInfo
             implements Mergeable<PartitionedOutputInfo>, OperatorInfo
     {
-        private final long rowsAdded;
-        private final long pagesAdded;
         private final long outputBufferPeakMemoryUsage;
 
         @JsonCreator
-        public PartitionedOutputInfo(
-                @JsonProperty("rowsAdded") long rowsAdded,
-                @JsonProperty("pagesAdded") long pagesAdded,
-                @JsonProperty("outputBufferPeakMemoryUsage") long outputBufferPeakMemoryUsage)
+        public PartitionedOutputInfo(@JsonProperty("outputBufferPeakMemoryUsage") long outputBufferPeakMemoryUsage)
         {
-            this.rowsAdded = rowsAdded;
-            this.pagesAdded = pagesAdded;
             this.outputBufferPeakMemoryUsage = outputBufferPeakMemoryUsage;
-        }
-
-        @JsonProperty
-        public long getRowsAdded()
-        {
-            return rowsAdded;
-        }
-
-        @JsonProperty
-        public long getPagesAdded()
-        {
-            return pagesAdded;
         }
 
         @JsonProperty
@@ -357,10 +397,7 @@ public class PartitionedOutputOperator
         @Override
         public PartitionedOutputInfo mergeWith(PartitionedOutputInfo other)
         {
-            return new PartitionedOutputInfo(
-                    rowsAdded + other.rowsAdded,
-                    pagesAdded + other.pagesAdded,
-                    Math.max(outputBufferPeakMemoryUsage, other.outputBufferPeakMemoryUsage));
+            return new PartitionedOutputInfo(Math.max(outputBufferPeakMemoryUsage, other.outputBufferPeakMemoryUsage));
         }
 
         @Override
@@ -373,8 +410,6 @@ public class PartitionedOutputOperator
         public String toString()
         {
             return toStringHelper(this)
-                    .add("rowsAdded", rowsAdded)
-                    .add("pagesAdded", pagesAdded)
                     .add("outputBufferPeakMemoryUsage", outputBufferPeakMemoryUsage)
                     .toString();
         }

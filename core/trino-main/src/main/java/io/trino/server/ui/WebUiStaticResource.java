@@ -14,14 +14,13 @@
 package io.trino.server.ui;
 
 import io.trino.server.security.ResourceSecurity;
-
-import javax.servlet.ServletContext;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Response;
+import jakarta.servlet.ServletContext;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.Response;
 
 import java.io.IOException;
 import java.net.URI;
@@ -30,14 +29,13 @@ import java.net.URL;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
-import static javax.ws.rs.core.Response.Status.NOT_FOUND;
+import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("")
 public class WebUiStaticResource
 {
     @ResourceSecurity(PUBLIC)
     @GET
-    @Path("/")
     public Response getRoot()
     {
         return Response.seeOther(URI.create("/ui/")).build();

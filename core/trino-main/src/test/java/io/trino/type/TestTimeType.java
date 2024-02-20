@@ -13,11 +13,13 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.SqlTime;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTimeType
         extends AbstractTestType
@@ -27,7 +29,7 @@ public class TestTimeType
         super(TIME_MILLIS, SqlTime.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = TIME_MILLIS.createBlockBuilder(null, 15);
         TIME_MILLIS.writeLong(blockBuilder, 1_111_000_000_000L);
@@ -41,12 +43,33 @@ public class TestTimeType
         TIME_MILLIS.writeLong(blockBuilder, 3_333_000_000_000L);
         TIME_MILLIS.writeLong(blockBuilder, 3_333_000_000_000L);
         TIME_MILLIS.writeLong(blockBuilder, 4_444_000_000_000L);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
         return ((Long) value) + 1;
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

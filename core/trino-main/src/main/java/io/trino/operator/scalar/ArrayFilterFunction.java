@@ -14,7 +14,6 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -39,7 +38,8 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") LongToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
+        int[] positions = new int[positionCount];
+        int length = 0;
         for (int position = 0; position < positionCount; position++) {
             Long input = null;
             if (!arrayBlock.isNull(position)) {
@@ -47,11 +47,13 @@ public final class ArrayFilterFunction
             }
 
             Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
-            }
+            positions[length] = position;
+            length += TRUE.equals(keep) ? 1 : 0;
         }
-        return resultBuilder.build();
+        if (positions.length == length) {
+            return arrayBlock;
+        }
+        return arrayBlock.copyPositions(positions, 0, length);
     }
 
     @TypeParameter("T")
@@ -63,7 +65,8 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") DoubleToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
+        int[] positions = new int[positionCount];
+        int length = 0;
         for (int position = 0; position < positionCount; position++) {
             Double input = null;
             if (!arrayBlock.isNull(position)) {
@@ -71,11 +74,13 @@ public final class ArrayFilterFunction
             }
 
             Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
-            }
+            positions[length] = position;
+            length += TRUE.equals(keep) ? 1 : 0;
         }
-        return resultBuilder.build();
+        if (positions.length == length) {
+            return arrayBlock;
+        }
+        return arrayBlock.copyPositions(positions, 0, length);
     }
 
     @TypeParameter("T")
@@ -87,7 +92,8 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") BooleanToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
+        int[] positions = new int[positionCount];
+        int length = 0;
         for (int position = 0; position < positionCount; position++) {
             Boolean input = null;
             if (!arrayBlock.isNull(position)) {
@@ -95,11 +101,13 @@ public final class ArrayFilterFunction
             }
 
             Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
-            }
+            positions[length] = position;
+            length += TRUE.equals(keep) ? 1 : 0;
         }
-        return resultBuilder.build();
+        if (positions.length == length) {
+            return arrayBlock;
+        }
+        return arrayBlock.copyPositions(positions, 0, length);
     }
 
     @TypeParameter("T")
@@ -111,7 +119,8 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") ObjectToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
+        int[] positions = new int[positionCount];
+        int length = 0;
         for (int position = 0; position < positionCount; position++) {
             Object input = null;
             if (!arrayBlock.isNull(position)) {
@@ -119,10 +128,12 @@ public final class ArrayFilterFunction
             }
 
             Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
-            }
+            positions[length] = position;
+            length += TRUE.equals(keep) ? 1 : 0;
         }
-        return resultBuilder.build();
+        if (positions.length == length) {
+            return arrayBlock;
+        }
+        return arrayBlock.copyPositions(positions, 0, length);
     }
 }

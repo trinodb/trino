@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.FormatMethod;
 import com.sun.management.UnixOperatingSystemMXBean;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -24,6 +25,8 @@ import java.lang.Runtime.Version;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.OptionalLong;
@@ -48,6 +51,7 @@ final class TrinoSystemRequirements
         verifyUsingG1Gc();
         verifyFileDescriptor();
         verifySlice();
+        verifyUtf8();
     }
 
     private static void verify64BitJvm()
@@ -74,9 +78,6 @@ final class TrinoSystemRequirements
             if (!ImmutableSet.of("amd64", "aarch64", "ppc64le").contains(osArch)) {
                 failRequirement("Trino requires amd64, aarch64, or ppc64le on Linux (found %s)", osArch);
             }
-            if ("aarch64".equals(osArch)) {
-                warnRequirement("Support for the ARM architecture is experimental");
-            }
             else if ("ppc64le".equals(osArch)) {
                 warnRequirement("Support for the POWER architecture is experimental");
             }
@@ -93,7 +94,7 @@ final class TrinoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        Version required = Version.parse("17.0.3");
+        Version required = Version.parse("21.0.1");
 
         if (Runtime.version().compareTo(required) < 0) {
             failRequirement("Trino requires Java %s at minimum (found %s)", required, Runtime.version());
@@ -153,6 +154,14 @@ final class TrinoSystemRequirements
         }
     }
 
+    private static void verifyUtf8()
+    {
+        Charset defaultCharset = Charset.defaultCharset();
+        if (!defaultCharset.equals(StandardCharsets.UTF_8)) {
+            failRequirement("Trino requires that the default charset is UTF-8 (found %s). This can be set with the JVM command line option -Dfile.encoding=UTF-8", defaultCharset.name());
+        }
+    }
+
     /**
      * Perform a sanity check to make sure that the year is reasonably current, to guard against
      * issues in third party libraries.
@@ -165,12 +174,14 @@ final class TrinoSystemRequirements
         }
     }
 
+    @FormatMethod
     private static void failRequirement(String format, Object... args)
     {
         System.err.println("ERROR: " + format(format, args));
         System.exit(100);
     }
 
+    @FormatMethod
     private static void warnRequirement(String format, Object... args)
     {
         System.err.println("WARNING: " + format(format, args));

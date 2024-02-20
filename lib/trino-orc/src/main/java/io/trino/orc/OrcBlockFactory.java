@@ -40,9 +40,14 @@ public class OrcBlockFactory
         currentPageId++;
     }
 
-    public Block createBlock(int positionCount, OrcBlockReader reader, boolean nested)
+    public LazyBlock createBlock(int positionCount, OrcBlockReader reader, boolean nested)
     {
-        return new LazyBlock(positionCount, new OrcBlockLoader(reader, nested && !nestedLazy));
+        return new LazyBlock(positionCount, createLazyBlockLoader(reader, nested));
+    }
+
+    public LazyBlockLoader createLazyBlockLoader(OrcBlockReader reader, boolean nested)
+    {
+        return new OrcBlockLoader(reader, nested && !nestedLazy);
     }
 
     public interface OrcBlockReader

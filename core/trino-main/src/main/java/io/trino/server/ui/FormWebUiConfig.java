@@ -14,9 +14,9 @@
 package io.trino.server.ui;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
@@ -34,6 +34,7 @@ public class FormWebUiConfig
     }
 
     @Config("web-ui.shared-secret")
+    @ConfigSecuritySensitive
     public FormWebUiConfig setSharedSecret(String sharedSecret)
     {
         this.sharedSecret = Optional.ofNullable(sharedSecret);

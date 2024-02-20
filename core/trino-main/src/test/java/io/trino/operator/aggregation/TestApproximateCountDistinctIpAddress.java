@@ -16,8 +16,6 @@ package io.trino.operator.aggregation;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.Type;
 
-import java.util.concurrent.ThreadLocalRandom;
-
 import static io.trino.type.IpAddressType.IPADDRESS;
 
 public class TestApproximateCountDistinctIpAddress
@@ -32,8 +30,6 @@ public class TestApproximateCountDistinctIpAddress
     @Override
     protected Object randomValue()
     {
-        byte[] bytes = new byte[16];
-        ThreadLocalRandom.current().nextBytes(bytes);
-        return Slices.wrappedBuffer(bytes);
+        return Slices.random(16);
     }
 }

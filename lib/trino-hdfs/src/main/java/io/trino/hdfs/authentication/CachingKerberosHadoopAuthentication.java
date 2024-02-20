@@ -13,11 +13,13 @@
  */
 package io.trino.hdfs.authentication;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
+
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
@@ -30,22 +32,40 @@ public class CachingKerberosHadoopAuthentication
 {
     private final KerberosHadoopAuthentication delegate;
 
-    @GuardedBy("this")
-    private UserGroupInformation userGroupInformation;
+    private final UserGroupInformation userGroupInformation;
     @GuardedBy("this")
     private long nextRefreshTime;
 
     public CachingKerberosHadoopAuthentication(KerberosHadoopAuthentication delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.userGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
+        nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
     }
 
     @Override
     public synchronized UserGroupInformation getUserGroupInformation()
     {
-        if (nextRefreshTime < System.currentTimeMillis() || userGroupInformation == null) {
-            userGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
-            nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
+        if (nextRefreshTime < System.currentTimeMillis()) {
+            Subject existingSubject = getSubject(userGroupInformation);
+            UserGroupInformation newUserGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
+            Subject newSubject = getSubject(newUserGroupInformation);
+
+            // We modify the existing UGI's credentials in-place instead of returning new UGI because some parts of Hadoop code reuse UGI (e.g. DFSClient)
+            // We also need to clear the old credentials because JDK assumes that the first credential is the TGT which is not always true
+            existingSubject.getPrincipals().addAll(newSubject.getPrincipals());
+            Set<Object> privateCredentials = existingSubject.getPrivateCredentials();
+            synchronized (privateCredentials) {
+                privateCredentials.clear();
+                privateCredentials.addAll(newSubject.getPrivateCredentials());
+            }
+
+            Set<Object> publicCredentials = existingSubject.getPublicCredentials();
+            synchronized (publicCredentials) {
+                publicCredentials.clear();
+                publicCredentials.addAll(newSubject.getPublicCredentials());
+            }
+            nextRefreshTime = calculateNextRefreshTime(newUserGroupInformation);
         }
         return userGroupInformation;
     }

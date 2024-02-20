@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.google.common.net.InetAddresses;
 import com.google.inject.Key;
 import com.nimbusds.oauth2.sdk.GrantType;
 import io.airlift.http.server.HttpServerConfig;
@@ -26,11 +27,17 @@ import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
+import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiModule;
+import io.trino.testing.ResourcePresence;
 import io.trino.util.AutoCloseableCloser;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.core.HttpHeaders;
 import okhttp3.Credentials;
 import okhttp3.FormBody;
 import okhttp3.HttpUrl;
@@ -48,12 +55,8 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.utility.MountableFile;
 
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.core.HttpHeaders;
-
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -61,10 +64,10 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
+import static jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
-import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 public class TestingHydraIdentityProvider
         implements AutoCloseable
@@ -133,6 +136,7 @@ public class TestingHydraIdentityProvider
                 .withEnv("SERVE_TLS_KEY_PATH", "/tmp/certs/localhost.pem")
                 .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/localhost.pem")
                 .withEnv("TTL_ACCESS_TOKEN", ttlAccessToken.getSeconds() + "s")
+                .withEnv("TTL_ID_TOKEN", ttlAccessToken.getSeconds() + "s")
                 .withEnv("STRATEGIES_ACCESS_TOKEN", useJwt ? "jwt" : null)
                 .withEnv("LOG_LEAK_SENSITIVE_VALUES", "true")
                 .withCommand("serve", "all")
@@ -159,7 +163,8 @@ public class TestingHydraIdentityProvider
             String clientSecret,
             TokenEndpointAuthMethod tokenEndpointAuthMethod,
             List<String> audiences,
-            String callbackUrl)
+            String callbackUrl,
+            String logoutCallbackUrl)
     {
         createHydraContainer()
                 .withCommand("clients", "create",
@@ -172,7 +177,8 @@ public class TestingHydraIdentityProvider
                         "--response-types", "token,code,id_token",
                         "--scope", "openid,offline",
                         "--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue(),
-                        "--callbacks", callbackUrl)
+                        "--callbacks", callbackUrl,
+                        "--post-logout-callbacks", logoutCallbackUrl)
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
     }
@@ -219,7 +225,9 @@ public class TestingHydraIdentityProvider
     private TestingHttpServer createTestingLoginAndConsentServer()
             throws IOException
     {
-        NodeInfo nodeInfo = new NodeInfo("test");
+        NodeInfo nodeInfo = new NodeInfo(new NodeConfig()
+                .setEnvironment("test")
+                .setNodeInternalAddress(InetAddresses.toAddrString(InetAddress.getLocalHost())));
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
         return new TestingHttpServer(httpServerInfo, nodeInfo, config, new AcceptAllLoginsAndConsentsServlet(), ImmutableMap.of());
@@ -343,7 +351,8 @@ public class TestingHydraIdentityProvider
                     "trino-secret",
                     CLIENT_SECRET_BASIC,
                     ImmutableList.of("https://localhost:8443/ui"),
-                    "https://localhost:8443/oauth2/callback");
+                    "https://localhost:8443/oauth2/callback",
+                    "https://localhost:8443/ui/logout/logout.html");
             ImmutableMap.Builder<String, String> config = ImmutableMap.<String, String>builder()
                     .put("web-ui.enabled", "true")
                     .put("web-ui.authentication.type", "oauth2")
@@ -367,6 +376,12 @@ public class TestingHydraIdentityProvider
                 Thread.sleep(Long.MAX_VALUE);
             }
         }
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return hydraContainer.getContainerId() != null || databaseContainer.getContainerId() != null || migrationContainer.getContainerId() != null;
     }
 
     public static void main(String[] args)

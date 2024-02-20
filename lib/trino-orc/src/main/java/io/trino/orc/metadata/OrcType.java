@@ -13,7 +13,6 @@
  */
 package io.trino.orc.metadata;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
@@ -291,7 +290,6 @@ public class OrcType
         return createRootOrcType(fieldNames, fieldTypes, Optional.empty());
     }
 
-    @VisibleForTesting
     public static ColumnMetadata<OrcType> createRootOrcType(List<String> fieldNames, List<Type> fieldTypes, Optional<Function<Type, Optional<OrcType>>> additionalTypeMapping)
     {
         return new ColumnMetadata<>(createOrcRowType(0, fieldNames, fieldTypes, additionalTypeMapping));

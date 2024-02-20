@@ -15,11 +15,14 @@ package io.trino.orc.reader;
 
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.Type;
 
 import java.util.function.Predicate;
 
 import static java.lang.Math.max;
+import static java.util.Objects.requireNonNull;
 
 final class ReaderUtils
 {
@@ -146,5 +149,42 @@ final class ReaderUtils
             vector[i] = vector[i - 1] + currentLength;
             currentLength = nextLength;
         }
+    }
+
+    static Block toNotNullSupressedBlock(int positionCount, boolean[] rowIsNull, Block fieldBlock)
+    {
+        requireNonNull(rowIsNull, "rowIsNull is null");
+        requireNonNull(fieldBlock, "fieldBlock is null");
+
+        // find an existing position in the block that is null
+        int nullIndex = -1;
+        if (fieldBlock.mayHaveNull()) {
+            for (int position = 0; position < fieldBlock.getPositionCount(); position++) {
+                if (fieldBlock.isNull(position)) {
+                    nullIndex = position;
+                    break;
+                }
+            }
+        }
+        // if there are no null positions, append a null to the end of the block
+        if (nullIndex == -1) {
+            fieldBlock = fieldBlock.getLoadedBlock();
+            nullIndex = fieldBlock.getPositionCount();
+            fieldBlock = fieldBlock.copyWithAppendedNull();
+        }
+
+        // create a dictionary that maps null positions to the null index
+        int[] dictionaryIds = new int[positionCount];
+        int nullSuppressedPosition = 0;
+        for (int position = 0; position < positionCount; position++) {
+            if (rowIsNull[position]) {
+                dictionaryIds[position] = nullIndex;
+            }
+            else {
+                dictionaryIds[position] = nullSuppressedPosition;
+                nullSuppressedPosition++;
+            }
+        }
+        return DictionaryBlock.create(positionCount, fieldBlock, dictionaryIds);
     }
 }

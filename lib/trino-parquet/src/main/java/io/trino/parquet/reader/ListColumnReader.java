@@ -14,9 +14,12 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.Field;
-import io.trino.parquet.ParquetTypeUtils;
-import it.unimi.dsi.fastutil.booleans.BooleanList;
-import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+
+import java.util.Optional;
+
+import static io.trino.parquet.ParquetTypeUtils.isOptionalFieldValueNull;
 
 public final class ListColumnReader
 {
@@ -29,32 +32,52 @@ public final class ListColumnReader
      * 3) Collection is defined but empty
      * 4) Collection is defined and not empty. In this case offset value is increased by the number of elements in that collection
      */
-    public static void calculateCollectionOffsets(Field field, IntList offsets, BooleanList collectionIsNull, int[] definitionLevels, int[] repetitionLevels)
+    public static BlockPositions calculateCollectionOffsets(Field field, int[] definitionLevels, int[] repetitionLevels)
     {
         int maxDefinitionLevel = field.getDefinitionLevel();
         int maxElementRepetitionLevel = field.getRepetitionLevel() + 1;
         boolean required = field.isRequired();
         int offset = 0;
+        IntArrayList offsets = new IntArrayList();
         offsets.add(offset);
+        if (required) {
+            for (int i = 0; i < definitionLevels.length; i = getNextCollectionStartIndex(repetitionLevels, maxElementRepetitionLevel, i)) {
+                if (definitionLevels[i] == maxDefinitionLevel) {
+                    // Collection is defined but empty
+                    offsets.add(offset);
+                }
+                else if (definitionLevels[i] > maxDefinitionLevel) {
+                    // Collection is defined and not empty
+                    offset += getCollectionSize(repetitionLevels, maxElementRepetitionLevel, i + 1);
+                    offsets.add(offset);
+                }
+            }
+            return new BlockPositions(Optional.empty(), offsets.toIntArray());
+        }
+
+        BooleanArrayList collectionIsNull = new BooleanArrayList();
+        int nullValuesCount = 0;
         for (int i = 0; i < definitionLevels.length; i = getNextCollectionStartIndex(repetitionLevels, maxElementRepetitionLevel, i)) {
-            if (ParquetTypeUtils.isValueNull(required, definitionLevels[i], maxDefinitionLevel)) {
-                // Collection is null
-                collectionIsNull.add(true);
-                offsets.add(offset);
-            }
-            else if (definitionLevels[i] == maxDefinitionLevel) {
-                // Collection is defined but empty
-                collectionIsNull.add(false);
-                offsets.add(offset);
-            }
-            else if (definitionLevels[i] > maxDefinitionLevel) {
-                // Collection is defined and not empty
-                collectionIsNull.add(false);
-                offset += getCollectionSize(repetitionLevels, maxElementRepetitionLevel, i + 1);
+            if (definitionLevels[i] >= maxDefinitionLevel - 1) {
+                boolean isNull = isOptionalFieldValueNull(definitionLevels[i], maxDefinitionLevel);
+                collectionIsNull.add(isNull);
+                nullValuesCount += isNull ? 1 : 0;
+                // definitionLevels[i] == maxDefinitionLevel - 1 => Collection is null
+                // definitionLevels[i] == maxDefinitionLevel     => Collection is defined but empty
+                if (definitionLevels[i] > maxDefinitionLevel) {
+                    // Collection is defined and not empty
+                    offset += getCollectionSize(repetitionLevels, maxElementRepetitionLevel, i + 1);
+                }
                 offsets.add(offset);
             }
         }
+        if (nullValuesCount == 0) {
+            return new BlockPositions(Optional.empty(), offsets.toIntArray());
+        }
+        return new BlockPositions(Optional.of(collectionIsNull.elements()), offsets.toIntArray());
     }
+
+    public record BlockPositions(Optional<boolean[]> isNull, int[] offsets) {}
 
     private static int getNextCollectionStartIndex(int[] repetitionLevels, int maxRepetitionLevel, int elementIndex)
     {

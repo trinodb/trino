@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -28,8 +29,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -73,18 +72,19 @@ public class DropColumnTask
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
-        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+        if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isTableExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
             return immediateVoidFuture();
         }
-        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+        TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
         // Use getParts method because the column name should be lowercase
         String column = statement.getField().getParts().get(0);
 
-        accessControl.checkCanDropColumn(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(tableName));
+        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
+        accessControl.checkCanDropColumn(session.toSecurityContext(), qualifiedTableName);
 
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
         if (columnHandle == null) {
@@ -107,7 +107,7 @@ public class DropColumnTask
                     .filter(info -> !info.isHidden()).count() <= 1) {
                 throw semanticException(NOT_SUPPORTED, statement, "Cannot drop the only column in a table");
             }
-            metadata.dropColumn(session, tableHandle, columnHandle);
+            metadata.dropColumn(session, tableHandle, qualifiedTableName.asCatalogSchemaTableName(), columnHandle);
         }
         else {
             RowType containingType = null;

@@ -23,8 +23,7 @@ import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -48,7 +47,7 @@ public class TestPushdownFilterIntoWindow
 
     private void assertEliminateFilter(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(rankingFunctionName, fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rankSymbol = p.symbol("rank_1");
@@ -76,7 +75,7 @@ public class TestPushdownFilterIntoWindow
 
     private void assertKeepFilter(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(rankingFunctionName, fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -133,7 +132,7 @@ public class TestPushdownFilterIntoWindow
 
     private void assertNoUpperBound(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(rankingFunctionName, fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");

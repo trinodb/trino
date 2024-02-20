@@ -14,13 +14,15 @@
 package io.trino.hive.formats.rcfile;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hive.formats.DataSeekableInputStream;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.ReadWriteUtils;
+import io.trino.hive.formats.TrinoDataInputStream;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.ValueDecompressor;
@@ -73,10 +75,10 @@ public class RcFileReader
 
     private static final String COLUMN_COUNT_METADATA_KEY = "hive.io.rcfile.column.number";
 
-    private final String location;
+    private final Location location;
     private final long fileSize;
     private final Map<Integer, Type> readColumns;
-    private final DataSeekableInputStream input;
+    private final TrinoDataInputStream input;
     private final long length;
 
     private final byte version;
@@ -131,112 +133,119 @@ public class RcFileReader
         this.location = inputFile.location();
         this.fileSize = inputFile.length();
         this.readColumns = ImmutableMap.copyOf(requireNonNull(readColumns, "readColumns is null"));
-        this.input = new DataSeekableInputStream(inputFile.newStream());
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> WriteChecksumBuilder.createWriteChecksumBuilder(readColumns));
 
         verify(offset >= 0, "offset is negative");
-        verify(offset < inputFile.length(), "offset is greater than data size");
+        verify(offset < fileSize, "offset is greater than data size");
         verify(length >= 1, "length must be at least 1");
         this.length = length;
         this.end = offset + length;
         verify(end <= fileSize, "offset plus length is greater than data size");
 
-        // read header
-        Slice magic = input.readSlice(RCFILE_MAGIC.length());
-        boolean compressed;
-        if (RCFILE_MAGIC.equals(magic)) {
-            version = input.readByte();
-            verify(version <= CURRENT_VERSION, "RCFile version %s not supported: %s", version, inputFile.location());
-            validateWrite(validation -> validation.getVersion() == version, "Unexpected file version");
-            compressed = input.readBoolean();
-        }
-        else if (SEQUENCE_FILE_MAGIC.equals(magic)) {
-            validateWrite(validation -> false, "Expected file to start with RCFile magic");
-
-            // first version of RCFile used magic SEQ with version 6
-            byte sequenceFileVersion = input.readByte();
-            verify(sequenceFileVersion == SEQUENCE_FILE_VERSION, "File %s is a SequenceFile not an RCFile", inputFile.location());
-
-            // this is the first version of RCFile
-            this.version = FIRST_VERSION;
-
-            Slice keyClassName = readLengthPrefixedString(input);
-            Slice valueClassName = readLengthPrefixedString(input);
-            verify(RCFILE_KEY_BUFFER_NAME.equals(keyClassName) && RCFILE_VALUE_BUFFER_NAME.equals(valueClassName), "File %s is a SequenceFile not an RCFile", inputFile);
-            compressed = input.readBoolean();
-
-            // RC file is never block compressed
-            if (input.readBoolean()) {
-                throw corrupt("File %s is a SequenceFile not an RCFile", inputFile.location());
-            }
-        }
-        else {
-            throw corrupt("File %s is not an RCFile", inputFile.location());
-        }
-
-        // setup the compression codec
-        if (compressed) {
-            String codecClassName = readLengthPrefixedString(input).toStringUtf8();
-            CompressionKind compressionKind = CompressionKind.fromHadoopClassName(codecClassName);
-            checkArgument(compressionKind != LZOP, "LZOP cannot be use with RCFile.  LZO compression can be used, but LZ4 is preferred.");
-            Codec codecFromHadoopClassName = compressionKind.createCodec();
-            validateWrite(validation -> validation.getCodecClassName().equals(Optional.of(codecClassName)), "Unexpected compression codec");
-            this.decompressor = codecFromHadoopClassName.createValueDecompressor();
-        }
-        else {
-            validateWrite(validation -> validation.getCodecClassName().equals(Optional.empty()), "Expected file to be compressed");
-            this.decompressor = null;
-        }
-
-        // read metadata
-        int metadataEntries = Integer.reverseBytes(input.readInt());
-        verify(metadataEntries >= 0, "Invalid metadata entry count %s in RCFile %s", metadataEntries, inputFile.location());
-        verify(metadataEntries <= MAX_METADATA_ENTRIES, "Too many metadata entries (%s) in RCFile %s", metadataEntries, inputFile.location());
-        ImmutableMap.Builder<String, String> metadataBuilder = ImmutableMap.builder();
-        for (int i = 0; i < metadataEntries; i++) {
-            metadataBuilder.put(readLengthPrefixedString(input).toStringUtf8(), readLengthPrefixedString(input).toStringUtf8());
-        }
-        metadata = metadataBuilder.buildOrThrow();
-        validateWrite(validation -> validation.getMetadata().equals(metadata), "Unexpected metadata");
-
-        // get column count from metadata
-        String columnCountString = metadata.get(COLUMN_COUNT_METADATA_KEY);
-        verify(columnCountString != null, "Column count not specified in metadata RCFile %s", inputFile.location());
+        this.input = new TrinoDataInputStream(inputFile.newStream());
         try {
-            columnCount = Integer.parseInt(columnCountString);
-        }
-        catch (NumberFormatException e) {
-            throw corrupt("Invalid column count %s in RCFile %s", columnCountString, inputFile.location());
-        }
+            // read header
+            Slice magic = input.readSlice(RCFILE_MAGIC.length());
+            boolean compressed;
+            if (RCFILE_MAGIC.equals(magic)) {
+                version = input.readByte();
+                verify(version <= CURRENT_VERSION, "RCFile version %s not supported: %s", version, inputFile.location());
+                validateWrite(validation -> validation.getVersion() == version, "Unexpected file version");
+                compressed = input.readBoolean();
+            }
+            else if (SEQUENCE_FILE_MAGIC.equals(magic)) {
+                validateWrite(validation -> false, "Expected file to start with RCFile magic");
 
-        // initialize columns
-        verify(columnCount <= MAX_COLUMN_COUNT, "Too many columns (%s) in RCFile %s", columnCountString, inputFile.location());
-        columns = new Column[columnCount];
-        for (Entry<Integer, Type> entry : readColumns.entrySet()) {
-            if (entry.getKey() < columnCount) {
-                ColumnEncoding columnEncoding = encoding.getEncoding(entry.getValue());
-                columns[entry.getKey()] = new Column(columnEncoding, decompressor);
+                // first version of RCFile used magic SEQ with version 6
+                byte sequenceFileVersion = input.readByte();
+                verify(sequenceFileVersion == SEQUENCE_FILE_VERSION, "File %s is a SequenceFile not an RCFile", inputFile.location());
+
+                // this is the first version of RCFile
+                this.version = FIRST_VERSION;
+
+                Slice keyClassName = readLengthPrefixedString(input);
+                Slice valueClassName = readLengthPrefixedString(input);
+                verify(RCFILE_KEY_BUFFER_NAME.equals(keyClassName) && RCFILE_VALUE_BUFFER_NAME.equals(valueClassName), "File %s is a SequenceFile not an RCFile", inputFile);
+                compressed = input.readBoolean();
+
+                // RC file is never block compressed
+                if (input.readBoolean()) {
+                    throw corrupt("File %s is a SequenceFile not an RCFile", inputFile.location());
+                }
+            }
+            else {
+                throw corrupt("File %s is not an RCFile", inputFile.location());
+            }
+
+            // setup the compression codec
+            if (compressed) {
+                String codecClassName = readLengthPrefixedString(input).toStringUtf8();
+                CompressionKind compressionKind = CompressionKind.fromHadoopClassName(codecClassName);
+                checkArgument(compressionKind != LZOP, "LZOP cannot be use with RCFile.  LZO compression can be used, but LZ4 is preferred.");
+                Codec codecFromHadoopClassName = compressionKind.createCodec();
+                validateWrite(validation -> validation.getCodecClassName().equals(Optional.of(codecClassName)), "Unexpected compression codec");
+                this.decompressor = codecFromHadoopClassName.createValueDecompressor();
+            }
+            else {
+                validateWrite(validation -> validation.getCodecClassName().equals(Optional.empty()), "Expected file to be compressed");
+                this.decompressor = null;
+            }
+
+            // read metadata
+            int metadataEntries = Integer.reverseBytes(input.readInt());
+            verify(metadataEntries >= 0, "Invalid metadata entry count %s in RCFile %s", metadataEntries, inputFile.location());
+            verify(metadataEntries <= MAX_METADATA_ENTRIES, "Too many metadata entries (%s) in RCFile %s", metadataEntries, inputFile.location());
+            ImmutableMap.Builder<String, String> metadataBuilder = ImmutableMap.builder();
+            for (int i = 0; i < metadataEntries; i++) {
+                metadataBuilder.put(readLengthPrefixedString(input).toStringUtf8(), readLengthPrefixedString(input).toStringUtf8());
+            }
+            metadata = metadataBuilder.buildOrThrow();
+            validateWrite(validation -> validation.getMetadata().equals(metadata), "Unexpected metadata");
+
+            // get column count from metadata
+            String columnCountString = metadata.get(COLUMN_COUNT_METADATA_KEY);
+            verify(columnCountString != null, "Column count not specified in metadata RCFile %s", inputFile.location());
+            try {
+                columnCount = Integer.parseInt(columnCountString);
+            }
+            catch (NumberFormatException e) {
+                throw corrupt("Invalid column count %s in RCFile %s", columnCountString, inputFile.location());
+            }
+
+            // initialize columns
+            verify(columnCount <= MAX_COLUMN_COUNT, "Too many columns (%s) in RCFile %s", columnCountString, inputFile.location());
+            columns = new Column[columnCount];
+            for (Entry<Integer, Type> entry : readColumns.entrySet()) {
+                if (entry.getKey() < columnCount) {
+                    ColumnEncoding columnEncoding = encoding.getEncoding(entry.getValue());
+                    columns[entry.getKey()] = new Column(columnEncoding, decompressor);
+                }
+            }
+
+            // read sync bytes
+            syncFirst = input.readLong();
+            validateWrite(validation -> validation.getSyncFirst() == syncFirst, "Unexpected sync sequence");
+            syncSecond = input.readLong();
+            validateWrite(validation -> validation.getSyncSecond() == syncSecond, "Unexpected sync sequence");
+
+            // seek to first sync point within the specified region, unless the region starts at the beginning
+            // of the file.  In that case, the reader owns all row groups up to the first sync point.
+            if (offset != 0) {
+                // if the specified file region does not contain the start of a sync sequence, this call will close the reader
+                long startOfSyncSequence = ReadWriteUtils.findFirstSyncPosition(inputFile, offset, length, syncFirst, syncSecond);
+                if (startOfSyncSequence < 0) {
+                    closeQuietly();
+                    return;
+                }
+                input.seek(startOfSyncSequence);
             }
         }
-
-        // read sync bytes
-        syncFirst = input.readLong();
-        validateWrite(validation -> validation.getSyncFirst() == syncFirst, "Unexpected sync sequence");
-        syncSecond = input.readLong();
-        validateWrite(validation -> validation.getSyncSecond() == syncSecond, "Unexpected sync sequence");
-
-        // seek to first sync point within the specified region, unless the region starts at the beginning
-        // of the file.  In that case, the reader owns all row groups up to the first sync point.
-        if (offset != 0) {
-            // if the specified file region does not contain the start of a sync sequence, this call will close the reader
-            long startOfSyncSequence = ReadWriteUtils.findFirstSyncPosition(inputFile, offset, length, syncFirst, syncSecond);
-            if (startOfSyncSequence < 0) {
-                closeQuietly();
-                return;
+        catch (Throwable throwable) {
+            try (input) {
+                throw throwable;
             }
-            input.seek(startOfSyncSequence);
         }
     }
 
@@ -294,14 +303,7 @@ public class RcFileReader
         rowGroupPosition = 0;
         rowGroupRowCount = 0;
         currentChunkRowCount = 0;
-        try {
-            input.close();
-        }
-        finally {
-            if (decompressor != null) {
-                decompressor.close();
-            }
-        }
+        input.close();
         if (writeChecksumBuilder.isPresent()) {
             WriteChecksum actualChecksum = writeChecksumBuilder.get().build();
             validateWrite(validation -> validation.getChecksum().getTotalRowCount() == actualChecksum.getTotalRowCount(), "Invalid row count");
@@ -445,7 +447,7 @@ public class RcFileReader
         return columns[columnIndex].readBlock(rowGroupPosition, currentChunkRowCount);
     }
 
-    public String getFileLocation()
+    public Location getFileLocation()
     {
         return location;
     }
@@ -459,7 +461,7 @@ public class RcFileReader
         }
     }
 
-    private Slice readLengthPrefixedString(DataSeekableInputStream in)
+    private Slice readLengthPrefixedString(TrinoDataInputStream in)
             throws IOException
     {
         int length = toIntExact(ReadWriteUtils.readVInt(in));
@@ -467,6 +469,7 @@ public class RcFileReader
         return in.readSlice(length);
     }
 
+    @FormatMethod
     private void verify(boolean expression, String messageFormat, Object... args)
             throws FileCorruptionException
     {
@@ -475,12 +478,15 @@ public class RcFileReader
         }
     }
 
+    @FormatMethod
     private FileCorruptionException corrupt(String messageFormat, Object... args)
     {
         closeQuietly();
         return new FileCorruptionException(messageFormat, args);
     }
 
+    @SuppressWarnings("FormatStringAnnotation")
+    @FormatMethod
     private void validateWrite(Predicate<RcFileWriteValidation> test, String messageFormat, Object... args)
             throws FileCorruptionException
     {
@@ -632,7 +638,7 @@ public class RcFileReader
                 if (lastValueLength == -1) {
                     throw new FileCorruptionException("First column value length is negative");
                 }
-                runLength = (~valueLength) - 1;
+                runLength = ~valueLength - 1;
                 return lastValueLength;
             }
 

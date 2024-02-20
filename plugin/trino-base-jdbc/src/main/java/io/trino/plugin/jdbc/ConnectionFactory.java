@@ -14,8 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PreDestroy;
 
 import java.sql.Connection;
 import java.sql.SQLException;

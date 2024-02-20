@@ -13,11 +13,10 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BROADCAST_PARTITION_ID;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;

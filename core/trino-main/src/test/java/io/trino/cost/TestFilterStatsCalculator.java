@@ -16,26 +16,29 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TestingTransactionManager;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.transaction.TransactionManager;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.Consumer;
 
 import static io.trino.SystemSessionProperties.FILTER_CONJUNCTION_INDEPENDENCE_FACTOR;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -43,118 +46,102 @@ import static java.lang.String.format;
 
 public class TestFilterStatsCalculator
 {
+    private static final TestingTransactionManager TRANSACTION_MANAGER = new TestingTransactionManager();
+    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
+            .withTransactionManager(TRANSACTION_MANAGER)
+            .build();
     private static final VarcharType MEDIUM_VARCHAR_TYPE = VarcharType.createVarcharType(100);
 
-    private SymbolStatsEstimate xStats;
-    private SymbolStatsEstimate yStats;
-    private SymbolStatsEstimate zStats;
-    private SymbolStatsEstimate leftOpenStats;
-    private SymbolStatsEstimate rightOpenStats;
-    private SymbolStatsEstimate unknownRangeStats;
-    private SymbolStatsEstimate emptyRangeStats;
-    private SymbolStatsEstimate mediumVarcharStats;
-    private FilterStatsCalculator statsCalculator;
-    private PlanNodeStatsEstimate standardInputStatistics;
-    private PlanNodeStatsEstimate zeroStatistics;
-    private TypeProvider standardTypes;
-    private Session session;
-
-    @BeforeClass
-    public void setUp()
-    {
-        xStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(40.0)
-                .setLowValue(-10.0)
-                .setHighValue(10.0)
-                .setNullsFraction(0.25)
-                .build();
-        yStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(20.0)
-                .setLowValue(0.0)
-                .setHighValue(5.0)
-                .setNullsFraction(0.5)
-                .build();
-        zStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(5.0)
-                .setLowValue(-100.0)
-                .setHighValue(100.0)
-                .setNullsFraction(0.1)
-                .build();
-        leftOpenStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(15.0)
-                .setNullsFraction(0.1)
-                .build();
-        rightOpenStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(-15.0)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.1)
-                .build();
-        unknownRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.1)
-                .build();
-        emptyRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(0.0)
-                .setDistinctValuesCount(0.0)
-                .setLowValue(NaN)
-                .setHighValue(NaN)
-                .setNullsFraction(NaN)
-                .build();
-        mediumVarcharStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(85.0)
-                .setDistinctValuesCount(165)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.34)
-                .build();
-        standardInputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("x"), xStats)
-                .addSymbolStatistics(new Symbol("y"), yStats)
-                .addSymbolStatistics(new Symbol("z"), zStats)
-                .addSymbolStatistics(new Symbol("leftOpen"), leftOpenStats)
-                .addSymbolStatistics(new Symbol("rightOpen"), rightOpenStats)
-                .addSymbolStatistics(new Symbol("unknownRange"), unknownRangeStats)
-                .addSymbolStatistics(new Symbol("emptyRange"), emptyRangeStats)
-                .addSymbolStatistics(new Symbol("mediumVarchar"), mediumVarcharStats)
-                .setOutputRowCount(1000.0)
-                .build();
-        zeroStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("leftOpen"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("rightOpen"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("unknownRange"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("emptyRange"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("mediumVarchar"), SymbolStatsEstimate.zero())
-                .setOutputRowCount(0)
-                .build();
-
-        standardTypes = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-                .put(new Symbol("x"), DoubleType.DOUBLE)
-                .put(new Symbol("y"), DoubleType.DOUBLE)
-                .put(new Symbol("z"), DoubleType.DOUBLE)
-                .put(new Symbol("leftOpen"), DoubleType.DOUBLE)
-                .put(new Symbol("rightOpen"), DoubleType.DOUBLE)
-                .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
-                .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
-                .put(new Symbol("mediumVarchar"), MEDIUM_VARCHAR_TYPE)
-                .buildOrThrow());
-
-        session = testSessionBuilder().build();
-        statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
-    }
+    private final SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(40.0)
+            .setLowValue(-10.0)
+            .setHighValue(10.0)
+            .setNullsFraction(0.25)
+            .build();
+    private final SymbolStatsEstimate yStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(20.0)
+            .setLowValue(0.0)
+            .setHighValue(5.0)
+            .setNullsFraction(0.5)
+            .build();
+    private final SymbolStatsEstimate zStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(5.0)
+            .setLowValue(-100.0)
+            .setHighValue(100.0)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate leftOpenStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(15.0)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate rightOpenStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(-15.0)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate unknownRangeStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate emptyRangeStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(0.0)
+            .setDistinctValuesCount(0.0)
+            .setLowValue(NaN)
+            .setHighValue(NaN)
+            .setNullsFraction(NaN)
+            .build();
+    private final SymbolStatsEstimate mediumVarcharStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(85.0)
+            .setDistinctValuesCount(165)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.34)
+            .build();
+    private final FilterStatsCalculator statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer(), new IrTypeAnalyzer(PLANNER_CONTEXT));
+    private final PlanNodeStatsEstimate standardInputStatistics = PlanNodeStatsEstimate.builder()
+            .addSymbolStatistics(new Symbol("x"), xStats)
+            .addSymbolStatistics(new Symbol("y"), yStats)
+            .addSymbolStatistics(new Symbol("z"), zStats)
+            .addSymbolStatistics(new Symbol("leftOpen"), leftOpenStats)
+            .addSymbolStatistics(new Symbol("rightOpen"), rightOpenStats)
+            .addSymbolStatistics(new Symbol("unknownRange"), unknownRangeStats)
+            .addSymbolStatistics(new Symbol("emptyRange"), emptyRangeStats)
+            .addSymbolStatistics(new Symbol("mediumVarchar"), mediumVarcharStats)
+            .setOutputRowCount(1000.0)
+            .build();
+    private final PlanNodeStatsEstimate zeroStatistics = PlanNodeStatsEstimate.builder()
+            .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("leftOpen"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("rightOpen"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("unknownRange"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("emptyRange"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("mediumVarchar"), SymbolStatsEstimate.zero())
+            .setOutputRowCount(0)
+            .build();
+    private final TypeProvider standardTypes = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol("x"), DoubleType.DOUBLE)
+            .put(new Symbol("y"), DoubleType.DOUBLE)
+            .put(new Symbol("z"), DoubleType.DOUBLE)
+            .put(new Symbol("leftOpen"), DoubleType.DOUBLE)
+            .put(new Symbol("rightOpen"), DoubleType.DOUBLE)
+            .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
+            .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
+            .put(new Symbol("mediumVarchar"), MEDIUM_VARCHAR_TYPE)
+            .buildOrThrow());
+    private final Session session = testSessionBuilder().build();
 
     @Test
     public void testBooleanLiteralStats()
@@ -371,7 +358,7 @@ public class TestFilterStatsCalculator
         assertExpression(
                 "(x BETWEEN -5 AND 5) AND y > 1",
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
-                .outputRowsCount(filterSelectivityX * (Math.pow(inequalityFilterSelectivityY, 0.5)) * inputRowCount)
+                .outputRowsCount(filterSelectivityX * Math.pow(inequalityFilterSelectivityY, 0.5) * inputRowCount)
                 .symbolStats("x", symbolAssertX)
                 .symbolStats("y", symbolAssertY);
 
@@ -410,7 +397,7 @@ public class TestFilterStatsCalculator
         assertExpression(
                 "x > 0 AND (y < 1 OR y > 2)",
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
-                .outputRowsCount(filterSelectivityX * (Math.pow(inequalityFilterSelectivityY, 0.5)) * inputRowCount)
+                .outputRowsCount(filterSelectivityX * Math.pow(inequalityFilterSelectivityY, 0.5) * inputRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
                         .lowValue(0.0)
                         .highValue(10.0)
@@ -608,8 +595,20 @@ public class TestFilterStatsCalculator
                                 .highValue(100.0)
                                 .nullsFraction(0.0));
 
+        // Expression as value. CAST from DOUBLE to DECIMAL(7,2)
+        // Produces row count estimate without updating symbol stats
+        assertExpression("CAST(x AS DECIMAL(7,2)) BETWEEN CAST(DECIMAL '-2.50' AS DECIMAL(7, 2)) AND CAST(DECIMAL '2.50' AS DECIMAL(7, 2))")
+                .outputRowsCount(219.726563)
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(xStats.getDistinctValuesCount())
+                                .lowValue(xStats.getLowValue())
+                                .highValue(xStats.getHighValue())
+                                .nullsFraction(xStats.getNullsFraction()));
+
         assertExpression("'a' IN ('a', 'b')").equalTo(standardInputStatistics);
+        assertExpression("'a' IN ('a', 'b', NULL)").equalTo(standardInputStatistics);
         assertExpression("'a' IN ('b', 'c')").outputRowsCount(0);
+        assertExpression("'a' IN ('b', 'c', NULL)").outputRowsCount(0);
         assertExpression("CAST('b' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))").equalTo(standardInputStatistics);
         assertExpression("CAST('c' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))").outputRowsCount(0);
     }
@@ -685,6 +684,15 @@ public class TestFilterStatsCalculator
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
 
+        // Multiple values some including NULL
+        assertExpression("x IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0, CAST(NULL AS double))")
+                .outputRowsCount(56.25)
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(3.0)
+                                .lowValue(1.5)
+                                .highValue(7.5)
+                                .nullsFraction(0.0));
+
         // Multiple values in unknown range
         assertExpression("unknownRange IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0)")
                 .outputRowsCount(90.0)
@@ -738,17 +746,19 @@ public class TestFilterStatsCalculator
 
     private PlanNodeStatsAssertion assertExpression(String expression, PlanNodeStatsEstimate inputStatistics)
     {
-        return assertExpression(planExpression(PLANNER_CONTEXT, session, standardTypes, expression(expression)), session, inputStatistics);
+        return assertExpression(planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, session, standardTypes, expression(expression)), session, inputStatistics);
     }
 
     private PlanNodeStatsAssertion assertExpression(String expression, Session session)
     {
-        return assertExpression(planExpression(PLANNER_CONTEXT, session, standardTypes, expression(expression)), session, standardInputStatistics);
+        return assertExpression(planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, session, standardTypes, expression(expression)), session, standardInputStatistics);
     }
 
     private PlanNodeStatsAssertion assertExpression(Expression expression, Session session, PlanNodeStatsEstimate inputStatistics)
     {
-        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        TransactionManager transactionManager = new TestingTransactionManager();
+        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
+        return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
                     return PlanNodeStatsAssertion.assertThat(statsCalculator.filterStats(

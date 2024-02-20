@@ -16,8 +16,7 @@ package io.trino.spi.procedure;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.HashSet;
@@ -100,14 +99,12 @@ public class Procedure
     @Override
     public String toString()
     {
-        return new StringBuilder()
-                .append(schema).append('.').append(name)
-                .append('(')
-                .append(arguments.stream()
+        return schema + '.' + name +
+                '(' +
+                arguments.stream()
                         .map(Object::toString)
-                        .collect(joining(", ")))
-                .append(')')
-                .toString();
+                        .collect(joining(", ")) +
+                ')';
     }
 
     public static class Argument

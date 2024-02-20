@@ -32,6 +32,7 @@ import io.trino.parquet.writer.valuewriter.TimestampMillisValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampNanosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMicrosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMillisValueWriter;
+import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import io.trino.parquet.writer.valuewriter.UuidValueWriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
@@ -89,9 +90,11 @@ final class ParquetWriters
             Map<List<String>, Type> trinoTypes,
             ParquetProperties parquetProperties,
             CompressionCodec compressionCodec,
+            int pageValueCountLimit,
             Optional<DateTimeZone> parquetTimeZone)
     {
-        WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, compressionCodec, parquetTimeZone);
+        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(parquetProperties);
+        WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, valuesWriterFactory, compressionCodec, pageValueCountLimit, parquetTimeZone);
         ParquetTypeVisitor.visit(messageType, writeBuilder);
         return writeBuilder.build();
     }
@@ -102,7 +105,9 @@ final class ParquetWriters
         private final MessageType type;
         private final Map<List<String>, Type> trinoTypes;
         private final ParquetProperties parquetProperties;
+        private final TrinoValuesWriterFactory valuesWriterFactory;
         private final CompressionCodec compressionCodec;
+        private final int pageValueCountLimit;
         private final Optional<DateTimeZone> parquetTimeZone;
         private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
 
@@ -110,13 +115,17 @@ final class ParquetWriters
                 MessageType messageType,
                 Map<List<String>, Type> trinoTypes,
                 ParquetProperties parquetProperties,
+                TrinoValuesWriterFactory valuesWriterFactory,
                 CompressionCodec compressionCodec,
+                int pageValueCountLimit,
                 Optional<DateTimeZone> parquetTimeZone)
         {
             this.type = requireNonNull(messageType, "messageType is null");
             this.trinoTypes = requireNonNull(trinoTypes, "trinoTypes is null");
             this.parquetProperties = requireNonNull(parquetProperties, "parquetProperties is null");
+            this.valuesWriterFactory = requireNonNull(valuesWriterFactory, "valuesWriterFactory is null");
             this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+            this.pageValueCountLimit = pageValueCountLimit;
             this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
         }
 
@@ -168,11 +177,12 @@ final class ParquetWriters
             Type trinoType = requireNonNull(trinoTypes.get(ImmutableList.copyOf(path)), "Trino type is null");
             return new PrimitiveColumnWriter(
                     columnDescriptor,
-                    getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
+                    getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
                     parquetProperties.newDefinitionLevelWriter(columnDescriptor),
                     parquetProperties.newRepetitionLevelWriter(columnDescriptor),
                     compressionCodec,
-                    parquetProperties.getPageSizeThreshold());
+                    parquetProperties.getPageSizeThreshold(),
+                    pageValueCountLimit);
         }
 
         private String[] currentPath()

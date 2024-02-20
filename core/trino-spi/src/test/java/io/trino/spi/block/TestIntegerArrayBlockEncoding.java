@@ -31,7 +31,7 @@ public class TestIntegerArrayBlockEncoding
     @Override
     protected void write(BlockBuilder blockBuilder, Integer value)
     {
-        blockBuilder.writeInt(value);
+        ((IntArrayBlockBuilder) blockBuilder).writeInt(value);
     }
 
     @Override

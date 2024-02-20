@@ -14,16 +14,15 @@
 package io.trino.hdfs;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Set;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hdfs.ConfigurationUtils.copy;
 import static io.trino.hdfs.ConfigurationUtils.getInitialConfiguration;
+import static io.trino.hdfs.ConfigurationUtils.newEmptyConfiguration;
 import static java.util.Objects.requireNonNull;
 
 public class DynamicHdfsConfiguration

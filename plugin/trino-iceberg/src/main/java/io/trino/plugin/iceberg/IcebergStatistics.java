@@ -15,16 +15,15 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;

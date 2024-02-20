@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -32,9 +33,10 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.SqlTime;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -88,9 +90,9 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestDefaultJdbcQueryBuilder
 {
     private static final JdbcNamedRelationHandle TEST_TABLE = new JdbcNamedRelationHandle(new SchemaTableName(
@@ -108,7 +110,7 @@ public class TestDefaultJdbcQueryBuilder
 
     private List<JdbcColumnHandle> columns;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws SQLException
     {
@@ -178,7 +180,7 @@ public class TestDefaultJdbcQueryBuilder
         }
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws Exception
     {
@@ -192,48 +194,48 @@ public class TestDefaultJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(columns.get(0), Domain.create(SortedRangeSet.copyOf(BIGINT,
-                        ImmutableList.of(
-                                Range.equal(BIGINT, 128L),
-                                Range.equal(BIGINT, 180L),
-                                Range.equal(BIGINT, 233L),
-                                Range.lessThan(BIGINT, 25L),
-                                Range.range(BIGINT, 66L, true, 96L, true),
-                                Range.greaterThan(BIGINT, 192L))),
+                                ImmutableList.of(
+                                        Range.equal(BIGINT, 128L),
+                                        Range.equal(BIGINT, 180L),
+                                        Range.equal(BIGINT, 233L),
+                                        Range.lessThan(BIGINT, 25L),
+                                        Range.range(BIGINT, 66L, true, 96L, true),
+                                        Range.greaterThan(BIGINT, 192L))),
                         false))
                 .put(columns.get(1), Domain.create(SortedRangeSet.copyOf(DOUBLE,
-                        ImmutableList.of(
-                                Range.equal(DOUBLE, 200011.0),
-                                Range.equal(DOUBLE, 200014.0),
-                                Range.equal(DOUBLE, 200017.0),
-                                Range.equal(DOUBLE, 200116.5),
-                                Range.range(DOUBLE, 200030.0, true, 200036.0, true),
-                                Range.range(DOUBLE, 200048.0, true, 200099.0, true))),
+                                ImmutableList.of(
+                                        Range.equal(DOUBLE, 200011.0),
+                                        Range.equal(DOUBLE, 200014.0),
+                                        Range.equal(DOUBLE, 200017.0),
+                                        Range.equal(DOUBLE, 200116.5),
+                                        Range.range(DOUBLE, 200030.0, true, 200036.0, true),
+                                        Range.range(DOUBLE, 200048.0, true, 200099.0, true))),
                         false))
                 .put(columns.get(7), Domain.create(SortedRangeSet.copyOf(TINYINT,
-                        ImmutableList.of(
-                                Range.range(TINYINT, 60L, true, 70L, false),
-                                Range.range(TINYINT, 52L, true, 55L, false))),
+                                ImmutableList.of(
+                                        Range.range(TINYINT, 60L, true, 70L, false),
+                                        Range.range(TINYINT, 52L, true, 55L, false))),
                         false))
                 .put(columns.get(8), Domain.create(SortedRangeSet.copyOf(SMALLINT,
-                        ImmutableList.of(
-                                Range.range(SMALLINT, -75L, true, -68L, true),
-                                Range.range(SMALLINT, -200L, true, -100L, false))),
+                                ImmutableList.of(
+                                        Range.range(SMALLINT, -75L, true, -68L, true),
+                                        Range.range(SMALLINT, -200L, true, -100L, false))),
                         false))
                 .put(columns.get(9), Domain.create(SortedRangeSet.copyOf(INTEGER,
-                        ImmutableList.of(
-                                Range.equal(INTEGER, 80L),
-                                Range.equal(INTEGER, 96L),
-                                Range.lessThan(INTEGER, 0L))),
+                                ImmutableList.of(
+                                        Range.equal(INTEGER, 80L),
+                                        Range.equal(INTEGER, 96L),
+                                        Range.lessThan(INTEGER, 0L))),
                         false))
                 .put(columns.get(2), Domain.create(SortedRangeSet.copyOf(BOOLEAN,
-                        ImmutableList.of(Range.equal(BOOLEAN, true))),
+                                ImmutableList.of(Range.equal(BOOLEAN, true))),
                         false))
                 .buildOrThrow());
 
         Connection connection = database.getConnection();
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
@@ -250,7 +252,7 @@ public class TestDefaultJdbcQueryBuilder
                     builder.add((Long) resultSet.getObject("col_0"));
                 }
             }
-            assertEquals(builder.build(), ImmutableSet.of(68L, 180L, 196L));
+            assertThat(builder.build()).containsOnly(68L, 180L, 196L);
         }
     }
 
@@ -284,7 +286,7 @@ public class TestDefaultJdbcQueryBuilder
                 Map.of(),
                 tupleDomain,
                 Optional.empty());
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(3))) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_3\", \"col_9\" " +
                     "FROM \"test_table\" " +
@@ -297,7 +299,7 @@ public class TestDefaultJdbcQueryBuilder
                     builder.add((Long) resultSet.getObject("col_0"));
                 }
             }
-            assertEquals(builder.build(), LongStream.range(980, 1000).boxed().collect(toImmutableList()));
+            assertThat(builder.build()).containsExactlyElementsOf(LongStream.range(980, 1000).boxed().collect(toImmutableList()));
         }
     }
 
@@ -307,16 +309,16 @@ public class TestDefaultJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(10), Domain.create(SortedRangeSet.copyOf(REAL,
-                        ImmutableList.of(
-                                Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
-                                Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
-                                Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
+                                ImmutableList.of(
+                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
+                                        Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
+                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
                         false)));
 
         Connection connection = database.getConnection();
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
@@ -330,8 +332,8 @@ public class TestDefaultJdbcQueryBuilder
                     floatBuilder.add((Float) resultSet.getObject("col_10"));
                 }
             }
-            assertEquals(longBuilder.build(), ImmutableSet.of(0L, 14L));
-            assertEquals(floatBuilder.build(), ImmutableSet.of(100.0f, 114.0f));
+            assertThat(longBuilder.build()).containsOnly(0L, 14L);
+            assertThat(floatBuilder.build()).containsOnly(100.0f, 114.0f);
         }
     }
 
@@ -341,16 +343,16 @@ public class TestDefaultJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(3), Domain.create(SortedRangeSet.copyOf(VARCHAR,
-                        ImmutableList.of(
-                                Range.range(VARCHAR, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
-                                Range.equal(VARCHAR, utf8Slice("test_str_180")),
-                                Range.equal(VARCHAR, utf8Slice("test_str_196")))),
+                                ImmutableList.of(
+                                        Range.range(VARCHAR, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
+                                        Range.equal(VARCHAR, utf8Slice("test_str_180")),
+                                        Range.equal(VARCHAR, utf8Slice("test_str_196")))),
                         false)));
 
         Connection connection = database.getConnection();
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
@@ -362,7 +364,7 @@ public class TestDefaultJdbcQueryBuilder
                     builder.add((String) resultSet.getObject("col_3"));
                 }
             }
-            assertEquals(builder.build(), ImmutableSet.of("test_str_700", "test_str_701", "test_str_180", "test_str_196"));
+            assertThat(builder.build()).containsOnly("test_str_700", "test_str_701", "test_str_180", "test_str_196");
 
             assertContains(preparedStatement.toString(), "\"col_3\" >= ?");
             assertContains(preparedStatement.toString(), "\"col_3\" < ?");
@@ -377,16 +379,16 @@ public class TestDefaultJdbcQueryBuilder
         CharType charType = CharType.createCharType(0);
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(11), Domain.create(SortedRangeSet.copyOf(charType,
-                        ImmutableList.of(
-                                Range.range(charType, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
-                                Range.equal(charType, utf8Slice("test_str_180")),
-                                Range.equal(charType, utf8Slice("test_str_196")))),
+                                ImmutableList.of(
+                                        Range.range(charType, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
+                                        Range.equal(charType, utf8Slice("test_str_180")),
+                                        Range.equal(charType, utf8Slice("test_str_196")))),
                         false)));
 
         Connection connection = database.getConnection();
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
@@ -417,22 +419,22 @@ public class TestDefaultJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(4), Domain.create(SortedRangeSet.copyOf(DATE,
-                        ImmutableList.of(
-                                Range.range(DATE, toDays(2016, 6, 7), true, toDays(2016, 6, 17), false),
-                                Range.equal(DATE, toDays(2016, 6, 3)),
-                                Range.equal(DATE, toDays(2016, 10, 21)))),
+                                ImmutableList.of(
+                                        Range.range(DATE, toDays(2016, 6, 7), true, toDays(2016, 6, 17), false),
+                                        Range.equal(DATE, toDays(2016, 6, 3)),
+                                        Range.equal(DATE, toDays(2016, 10, 21)))),
                         false),
                 columns.get(5), Domain.create(SortedRangeSet.copyOf(TIME_MILLIS,
-                        ImmutableList.of(
-                                Range.range(TIME_MILLIS, toTimeRepresentation(6, 12, 23), false, toTimeRepresentation(8, 23, 37), true),
-                                Range.equal(TIME_MILLIS, toTimeRepresentation(2, 3, 4)),
-                                Range.equal(TIME_MILLIS, toTimeRepresentation(20, 23, 37)))),
+                                ImmutableList.of(
+                                        Range.range(TIME_MILLIS, toTimeRepresentation(6, 12, 23), false, toTimeRepresentation(8, 23, 37), true),
+                                        Range.equal(TIME_MILLIS, toTimeRepresentation(2, 3, 4)),
+                                        Range.equal(TIME_MILLIS, toTimeRepresentation(20, 23, 37)))),
                         false)));
 
         Connection connection = database.getConnection();
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
@@ -446,8 +448,14 @@ public class TestDefaultJdbcQueryBuilder
                     timeBuilder.add((Time) resultSet.getObject("col_5"));
                 }
             }
-            assertEquals(dateBuilder.build(), ImmutableSet.of(toDate(2016, 6, 7), toDate(2016, 6, 13), toDate(2016, 10, 21)));
-            assertEquals(timeBuilder.build(), ImmutableSet.of(toTime(8, 23, 37), toTime(20, 23, 37)));
+            assertThat(dateBuilder.build()).containsOnly(
+                    toDate(2016, 6, 7),
+                    toDate(2016, 6, 13),
+                    toDate(2016, 10, 21));
+
+            assertThat(timeBuilder.build()).containsOnly(
+                    toTime(8, 23, 37),
+                    toTime(20, 23, 37));
 
             assertContains(preparedStatement.toString(), "\"col_4\" >= ?");
             assertContains(preparedStatement.toString(), "\"col_4\" < ?");
@@ -464,16 +472,16 @@ public class TestDefaultJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP_MILLIS,
-                        ImmutableList.of(
-                                Range.equal(TIMESTAMP_MILLIS, toTrinoTimestamp(2016, 6, 3, 0, 23, 37)),
-                                Range.equal(TIMESTAMP_MILLIS, toTrinoTimestamp(2016, 10, 19, 16, 23, 37)),
-                                Range.range(TIMESTAMP_MILLIS, toTrinoTimestamp(2016, 6, 7, 8, 23, 37), false, toTrinoTimestamp(2016, 6, 9, 12, 23, 37), true))),
+                                ImmutableList.of(
+                                        Range.equal(TIMESTAMP_MILLIS, toTrinoTimestamp(2016, 6, 3, 0, 23, 37)),
+                                        Range.equal(TIMESTAMP_MILLIS, toTrinoTimestamp(2016, 10, 19, 16, 23, 37)),
+                                        Range.range(TIMESTAMP_MILLIS, toTrinoTimestamp(2016, 6, 7, 8, 23, 37), false, toTrinoTimestamp(2016, 6, 9, 12, 23, 37), true))),
                         false)));
 
         Connection connection = database.getConnection();
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
@@ -485,11 +493,11 @@ public class TestDefaultJdbcQueryBuilder
                     builder.add((Timestamp) resultSet.getObject("col_6"));
                 }
             }
-            assertEquals(builder.build(), ImmutableSet.of(
+            assertThat(builder.build()).containsOnly(
                     toTimestamp(2016, 6, 3, 0, 23, 37),
                     toTimestamp(2016, 6, 8, 10, 23, 37),
                     toTimestamp(2016, 6, 9, 12, 23, 37),
-                    toTimestamp(2016, 10, 19, 16, 23, 37)));
+                    toTimestamp(2016, 10, 19, 16, 23, 37));
 
             assertContains(preparedStatement.toString(), "\"col_6\" > ?");
             assertContains(preparedStatement.toString(), "\"col_6\" <= ?");
@@ -509,11 +517,44 @@ public class TestDefaultJdbcQueryBuilder
                 connection,
                 JoinType.INNER,
                 new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
+                ImmutableMap.of(columns.get(2), "name1", columns.get(7), "lcol7"),
+                new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
+                ImmutableMap.of(columns.get(3), "name2", columns.get(8), "rcol8"),
+                List.of(new ParameterizedExpression("\"lcol7\" = \"rcol8\"", List.of())));
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("""
+                    SELECT * FROM \
+                    (SELECT "col_2" AS "name1", "col_7" AS "lcol7" FROM (SELECT * FROM "test_table") l) l \
+                    INNER JOIN \
+                    (SELECT "col_3" AS "name2", "col_8" AS "rcol8" FROM (SELECT * FROM "test_table") r) r \
+                    ON ("lcol7" = "rcol8")""");
+            long count = 0;
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    count++;
+                }
+            }
+            assertThat(count).isEqualTo(8);
+        }
+    }
+
+    @Test
+    public void testBuildJoinSqlLegacy()
+            throws SQLException
+    {
+        Connection connection = database.getConnection();
+
+        PreparedQuery preparedQuery = queryBuilder.legacyPrepareJoinQuery(
+                jdbcClient,
+                SESSION,
+                connection,
+                JoinType.INNER,
+                new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
                 new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
                 List.of(new JdbcJoinCondition(columns.get(7), JoinCondition.Operator.EQUAL, columns.get(8))),
                 Map.of(columns.get(2), "name1"),
                 Map.of(columns.get(3), "name2"));
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT l.\"col_2\" AS \"name1\", r.\"col_3\" AS \"name2\" FROM " +
                     "(SELECT * FROM \"test_table\") l " +
@@ -526,7 +567,7 @@ public class TestDefaultJdbcQueryBuilder
                     count++;
                 }
             }
-            assertEquals(count, 8);
+            assertThat(count).isEqualTo(8);
         }
     }
 
@@ -539,7 +580,7 @@ public class TestDefaultJdbcQueryBuilder
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), TupleDomain.all(), Optional.empty());
         preparedQuery = preparedQuery.transformQuery(function);
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
@@ -551,7 +592,7 @@ public class TestDefaultJdbcQueryBuilder
                     count++;
                 }
             }
-            assertEquals(count, 10);
+            assertThat(count).isEqualTo(10);
         }
     }
 
@@ -566,14 +607,14 @@ public class TestDefaultJdbcQueryBuilder
         Connection connection = database.getConnection();
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
                     "WHERE \"col_1\" IS NULL");
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                assertEquals(resultSet.next(), false);
+                assertThat(resultSet.next()).isFalse();
             }
         }
     }
@@ -599,10 +640,10 @@ public class TestDefaultJdbcQueryBuilder
                 TEST_TABLE,
                 Optional.of(ImmutableList.of(ImmutableList.of(this.columns.get(2)))),
                 projectedColumns,
-                Map.of("s", "sum(\"col_0\")"),
+                Map.of("s", new ParameterizedExpression("sum(\"col_0\")", List.of())),
                 TupleDomain.all(),
                 Optional.empty());
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_2\", sum(\"col_0\") AS \"s\" " +
                     "FROM \"test_table\" " +
@@ -642,10 +683,10 @@ public class TestDefaultJdbcQueryBuilder
                 TEST_TABLE,
                 Optional.of(ImmutableList.of(ImmutableList.of(this.columns.get(2)))),
                 projectedColumns,
-                Map.of("s", "sum(\"col_0\")"),
+                Map.of("s", new ParameterizedExpression("sum(\"col_0\")", List.of())),
                 tupleDomain,
                 Optional.empty());
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_2\", sum(\"col_0\") AS \"s\" " +
                     "FROM \"test_table\" " +

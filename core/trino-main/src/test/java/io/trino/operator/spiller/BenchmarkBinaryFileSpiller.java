@@ -15,6 +15,7 @@ package io.trino.operator.spiller;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.trino.execution.buffer.CompressionCodec;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -95,8 +96,8 @@ public class BenchmarkBinaryFileSpiller
         @Param("10")
         private int pagesCount = 10;
 
-        @Param("false")
-        private boolean compressionEnabled;
+        @Param("NONE")
+        private CompressionCodec compressionCodec;
 
         @Param("true")
         private boolean encryptionEnabled;
@@ -117,7 +118,7 @@ public class BenchmarkBinaryFileSpiller
                     spillerStats,
                     ImmutableList.of(SPILL_PATH),
                     1.0,
-                    compressionEnabled,
+                    compressionCodec,
                     encryptionEnabled);
             spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
             pages = createInputPages();

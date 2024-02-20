@@ -22,7 +22,7 @@ public interface SchemaEmulation
 {
     void createSchema(KuduClientWrapper client, String schemaName);
 
-    void dropSchema(KuduClientWrapper client, String schemaName);
+    void dropSchema(KuduClientWrapper client, String schemaName, boolean cascade);
 
     boolean existsSchema(KuduClientWrapper client, String schemaName);
 

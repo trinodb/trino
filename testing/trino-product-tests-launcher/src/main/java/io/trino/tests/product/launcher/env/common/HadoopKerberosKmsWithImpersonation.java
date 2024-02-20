@@ -14,11 +14,10 @@
 package io.trino.tests.product.launcher.env.common;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -47,7 +46,7 @@ public class HadoopKerberosKmsWithImpersonation
                 HADOOP,
                 container ->
                         container
-                                .withCopyFileToContainer(forHostPath(configDir.getPath("kms-acls.xml")), "/etc/hadoop-kms/conf/kms-acls.xml")
+                                .withCopyFileToContainer(forHostPath(configDir.getPath("kms-acls.xml")), "/opt/hadoop/etc/kms-acls.xml")
                                 .withCopyFileToContainer(forHostPath(configDir.getPath("hiveserver2-site.xml")), "/etc/hive/conf/hiveserver2-site.xml"));
     }
 

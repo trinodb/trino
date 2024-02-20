@@ -19,7 +19,7 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.toByteArray;

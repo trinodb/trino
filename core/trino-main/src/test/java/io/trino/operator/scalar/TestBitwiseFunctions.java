@@ -18,12 +18,15 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestBitwiseFunctions
 {
     private QueryAssertions assertions;
@@ -87,10 +90,10 @@ public class TestBitwiseFunctions
         assertThat(assertions.function("bit_count", Long.toString(Integer.MIN_VALUE), "32"))
                 .isEqualTo(1L);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", Long.toString(Integer.MAX_VALUE + 1L), "32").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bit_count", Long.toString(Integer.MAX_VALUE + 1L), "32")::evaluate)
                 .hasMessage("Number must be representable with the bits specified. 2147483648 cannot be represented with 32 bits");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", Long.toString(Integer.MIN_VALUE - 1L), "32").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bit_count", Long.toString(Integer.MIN_VALUE - 1L), "32")::evaluate)
                 .hasMessage("Number must be representable with the bits specified. -2147483649 cannot be represented with 32 bits");
 
         assertThat(assertions.function("bit_count", "1152921504598458367", "62"))
@@ -105,19 +108,19 @@ public class TestBitwiseFunctions
         assertThat(assertions.function("bit_count", "-1", "26"))
                 .isEqualTo(26L);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", "1152921504598458367", "60").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bit_count", "1152921504598458367", "60")::evaluate)
                 .hasMessage("Number must be representable with the bits specified. 1152921504598458367 cannot be represented with 60 bits");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", "33554132", "25").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bit_count", "33554132", "25")::evaluate)
                 .hasMessage("Number must be representable with the bits specified. 33554132 cannot be represented with 25 bits");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", "0", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bit_count", "0", "-1")::evaluate)
                 .hasMessage("Bits specified in bit_count must be between 2 and 64, got -1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", "0", "1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bit_count", "0", "1")::evaluate)
                 .hasMessage("Bits specified in bit_count must be between 2 and 64, got 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bit_count", "0", "65").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bit_count", "0", "65")::evaluate)
                 .hasMessage("Bits specified in bit_count must be between 2 and 64, got 65");
     }
 

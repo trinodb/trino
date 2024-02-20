@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -27,6 +28,7 @@ import io.trino.sql.planner.optimizations.joins.JoinGraph;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -34,7 +36,7 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -43,7 +45,6 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -52,15 +53,12 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.rule.EliminateCrossJoins.getJoinOrder;
 import static io.trino.sql.planner.iterative.rule.EliminateCrossJoins.isOriginalOrder;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
 public class TestEliminateCrossJoins
         extends BaseRuleTest
 {
@@ -102,15 +100,15 @@ public class TestEliminateCrossJoins
     {
         tester().assertThat(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
-                .on(crossJoinAndJoin(JoinNode.Type.LEFT))
+                .on(crossJoinAndJoin(JoinType.LEFT))
                 .doesNotFire();
     }
 
     @Test
     public void testIsOriginalOrder()
     {
-        assertTrue(isOriginalOrder(ImmutableList.of(0, 1, 2, 3, 4)));
-        assertFalse(isOriginalOrder(ImmutableList.of(0, 2, 1, 3, 4)));
+        assertThat(isOriginalOrder(ImmutableList.of(0, 1, 2, 3, 4))).isTrue();
+        assertThat(isOriginalOrder(ImmutableList.of(0, 2, 1, 3, 4))).isFalse();
     }
 
     @Test
@@ -127,11 +125,9 @@ public class TestEliminateCrossJoins
                         "a", "c",
                         "b", "c");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, new IrTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
-        assertEquals(
-                getJoinOrder(joinGraph),
-                ImmutableList.of(0, 2, 1));
+        assertThat(getJoinOrder(joinGraph)).isEqualTo(ImmutableList.of(0, 2, 1));
     }
 
     @Test
@@ -159,11 +155,9 @@ public class TestEliminateCrossJoins
 
         PlanNode plan = joinNode(leftPlan, rightPlan);
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, new IrTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
-        assertEquals(
-                getJoinOrder(joinGraph),
-                ImmutableList.of(0, 2, 1, 3, 5, 4));
+        assertThat(getJoinOrder(joinGraph)).isEqualTo(ImmutableList.of(0, 2, 1, 3, 5, 4));
     }
 
     @Test
@@ -181,11 +175,9 @@ public class TestEliminateCrossJoins
                         "b1", "c1",
                         "b2", "c2");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, new IrTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
-        assertEquals(
-                getJoinOrder(joinGraph),
-                ImmutableList.of(0, 2, 1));
+        assertThat(getJoinOrder(joinGraph)).isEqualTo(ImmutableList.of(0, 2, 1));
     }
 
     @Test
@@ -202,11 +194,9 @@ public class TestEliminateCrossJoins
                         values("c"),
                         "b", "c");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, new IrTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
-        assertEquals(
-                getJoinOrder(joinGraph),
-                ImmutableList.of(0, 1, 2));
+        assertThat(getJoinOrder(joinGraph)).isEqualTo(ImmutableList.of(0, 1, 2));
     }
 
     @Test
@@ -222,11 +212,9 @@ public class TestEliminateCrossJoins
                         values("c"),
                         "b", "c");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, new IrTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
-        assertEquals(
-                getJoinOrder(joinGraph),
-                ImmutableList.of(0, 1, 2));
+        assertThat(getJoinOrder(joinGraph)).isEqualTo(ImmutableList.of(0, 1, 2));
     }
 
     @Test
@@ -311,10 +299,10 @@ public class TestEliminateCrossJoins
                         "a2", "c",
                         "b", "c");
 
-        assertEquals(JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty()).size(), 2);
+        assertThat(JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, new IrTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty()).size()).isEqualTo(2);
     }
 
-    private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)
+    private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinType secondJoinType)
     {
         return p -> {
             Symbol axSymbol = p.symbol("axSymbol");
@@ -354,7 +342,7 @@ public class TestEliminateCrossJoins
 
         return new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 left,
                 right,
                 criteria.build(),

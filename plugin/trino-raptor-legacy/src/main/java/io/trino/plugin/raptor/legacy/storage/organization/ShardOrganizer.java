@@ -13,15 +13,14 @@
  */
 package io.trino.plugin.raptor.legacy.storage.organization;
 
+import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Set;
 import java.util.UUID;

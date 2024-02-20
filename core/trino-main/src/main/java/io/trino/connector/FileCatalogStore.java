@@ -18,13 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -49,6 +48,8 @@ import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.CATALOG_STORE_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
+import static java.nio.file.Files.createDirectories;
+import static java.nio.file.Files.deleteIfExists;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Objects.requireNonNull;
 
@@ -66,7 +67,7 @@ public final class FileCatalogStore
     {
         requireNonNull(config, "config is null");
         readOnly = config.isReadOnly();
-        catalogsDirectory = config.getCatalogConfigurationDir();
+        catalogsDirectory = config.getCatalogConfigurationDir().getAbsoluteFile();
         List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
 
         for (File file : listCatalogFiles(catalogsDirectory)) {
@@ -108,6 +109,7 @@ public final class FileCatalogStore
 
         try {
             File temporary = new File(file.getPath() + ".tmp");
+            createDirectories(temporary.getParentFile().toPath());
             try (FileOutputStream out = new FileOutputStream(temporary)) {
                 properties.store(out, null);
                 out.flush();
@@ -128,7 +130,12 @@ public final class FileCatalogStore
     {
         checkModifiable();
         catalogs.remove(catalogName);
-        toFile(catalogName).delete();
+        try {
+            deleteIfExists(toFile(catalogName).toPath());
+        }
+        catch (IOException e) {
+            log.warn(e, "Could not remove catalog properties for %s", catalogName);
+        }
     }
 
     private void checkModifiable()

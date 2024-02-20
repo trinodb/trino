@@ -14,7 +14,7 @@
 package io.trino.plugin.kudu;
 
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +54,14 @@ public abstract class BaseKuduWithDisabledInferSchemaConnectorSmokeTest
     public void testCreateSchema()
     {
         assertThatThrownBy(super::testCreateSchema)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
+    @Test
+    @Override
+    public void testCreateSchemaWithNonLowercaseOwnerName()
+    {
+        assertThatThrownBy(super::testCreateSchemaWithNonLowercaseOwnerName)
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 

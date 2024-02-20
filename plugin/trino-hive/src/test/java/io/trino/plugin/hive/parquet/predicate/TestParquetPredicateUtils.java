@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -28,7 +29,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -47,8 +48,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetPredicateUtils
 {
@@ -63,8 +63,9 @@ public class TestParquetPredicateUtils
                         new GroupType(REPEATED, "bag", new PrimitiveType(OPTIONAL, INT32, "array_element"))));
 
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true);
-        assertTrue(tupleDomain.isAll());
+
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, false).isAll()).isTrue();
     }
 
     @Test
@@ -83,12 +84,19 @@ public class TestParquetPredicateUtils
                                 new GroupType(OPTIONAL, "array_element", new PrimitiveType(OPTIONAL, INT32, "a")))));
 
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true);
-        assertTrue(tupleDomain.isAll());
+
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, false).isAll()).isTrue();
     }
 
     @Test
     public void testParquetTupleDomainPrimitive()
+    {
+        testParquetTupleDomainPrimitive(true);
+        testParquetTupleDomainPrimitive(false);
+    }
+
+    private void testParquetTupleDomainPrimitive(boolean useColumnNames)
     {
         HiveColumnHandle columnHandle = createBaseColumn("my_primitive", 0, HiveType.valueOf("bigint"), BIGINT, REGULAR, Optional.empty());
         Domain singleValueDomain = Domain.singleValue(BIGINT, 123L);
@@ -97,15 +105,15 @@ public class TestParquetPredicateUtils
         MessageType fileSchema = new MessageType("hive_schema", new PrimitiveType(OPTIONAL, INT64, "my_primitive"));
 
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true);
+        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, useColumnNames);
 
-        assertEquals(tupleDomain.getDomains().get().size(), 1);
+        assertThat(tupleDomain.getDomains().get().size()).isEqualTo(1);
         ColumnDescriptor descriptor = tupleDomain.getDomains().get().keySet().iterator().next();
-        assertEquals(descriptor.getPath().length, 1);
-        assertEquals(descriptor.getPath()[0], "my_primitive");
+        assertThat(descriptor.getPath().length).isEqualTo(1);
+        assertThat(descriptor.getPath()[0]).isEqualTo("my_primitive");
 
         Domain predicateDomain = Iterables.getOnlyElement(tupleDomain.getDomains().get().values());
-        assertEquals(predicateDomain, singleValueDomain);
+        assertThat(predicateDomain).isEqualTo(singleValueDomain);
     }
 
     @Test
@@ -121,10 +129,134 @@ public class TestParquetPredicateUtils
         MessageType fileSchema = new MessageType("hive_schema",
                 new GroupType(OPTIONAL, "my_struct",
                         new PrimitiveType(OPTIONAL, INT32, "a"),
+                        new PrimitiveType(OPTIONAL, INT32, "b"),
+                        new PrimitiveType(OPTIONAL, INT32, "c")));
+        Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, false).isAll()).isTrue();
+    }
+
+    @Test
+    public void testParquetTupleDomainStructWithPrimitiveColumnPredicate()
+    {
+        testParquetTupleDomainStructWithPrimitiveColumnPredicate(true);
+        testParquetTupleDomainStructWithPrimitiveColumnPredicate(false);
+    }
+
+    private void testParquetTupleDomainStructWithPrimitiveColumnPredicate(boolean useColumNames)
+    {
+        RowType baseType = rowType(
+                RowType.field("a", INTEGER),
+                RowType.field("b", INTEGER),
+                RowType.field("c", INTEGER));
+
+        HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
+                ImmutableList.of(1),
+                ImmutableList.of("b"),
+                HiveType.HIVE_INT,
+                INTEGER);
+
+        HiveColumnHandle projectedColumn = new HiveColumnHandle(
+                "row_field",
+                0,
+                HiveType.toHiveType(baseType),
+                baseType,
+                Optional.of(columnProjectionInfo),
+                REGULAR,
+                Optional.empty());
+
+        Domain predicateDomain = Domain.singleValue(INTEGER, 123L);
+        TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));
+
+        MessageType fileSchema = new MessageType("hive_schema",
+                new GroupType(OPTIONAL, "row_field",
+                        new PrimitiveType(OPTIONAL, INT32, "a"),
+                        new PrimitiveType(OPTIONAL, INT32, "b"),
+                        new PrimitiveType(OPTIONAL, INT32, "c")));
+        Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+        TupleDomain<ColumnDescriptor> calculatedTupleDomain = getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, useColumNames);
+        assertThat(calculatedTupleDomain.getDomains().get().size()).isEqualTo(1);
+        ColumnDescriptor selectedColumnDescriptor = descriptorsByPath.get(ImmutableList.of("row_field", "b"));
+        assertThat(calculatedTupleDomain.getDomains().get()).containsEntry(selectedColumnDescriptor, predicateDomain);
+    }
+
+    @Test
+    public void testParquetTupleDomainStructWithComplexColumnPredicate()
+    {
+        RowType c1Type = rowType(
+                RowType.field("c1", INTEGER),
+                RowType.field("c2", INTEGER));
+        RowType baseType = rowType(
+                RowType.field("a", INTEGER),
+                RowType.field("b", INTEGER),
+                RowType.field("c", c1Type));
+
+        HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
+                ImmutableList.of(2),
+                ImmutableList.of("C"),
+                HiveType.toHiveType(c1Type),
+                c1Type);
+
+        HiveColumnHandle projectedColumn = new HiveColumnHandle(
+                "row_field",
+                0,
+                HiveType.toHiveType(baseType),
+                baseType,
+                Optional.of(columnProjectionInfo),
+                REGULAR,
+                Optional.empty());
+
+        Domain predicateDomain = Domain.onlyNull(c1Type);
+        TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));
+
+        MessageType fileSchema = new MessageType("hive_schema",
+                new GroupType(OPTIONAL, "row_field",
+                        new PrimitiveType(OPTIONAL, INT32, "a"),
+                        new PrimitiveType(OPTIONAL, INT32, "b"),
+                        new GroupType(OPTIONAL,
+                                "c",
+                                new PrimitiveType(OPTIONAL, INT32, "c1"),
+                                new PrimitiveType(OPTIONAL, INT32, "c2"))));
+        Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
+        // skip looking up predicates for complex types as Parquet only stores stats for primitives
+        assertThat(getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, false).isAll()).isTrue();
+    }
+
+    @Test
+    public void testParquetTupleDomainStructWithMissingPrimitiveColumn()
+    {
+        RowType baseType = rowType(
+                RowType.field("a", INTEGER),
+                RowType.field("b", INTEGER),
+                RowType.field("non_exist", INTEGER));
+
+        HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
+                ImmutableList.of(2),
+                ImmutableList.of("non_exist"),
+                HiveType.HIVE_INT,
+                INTEGER);
+
+        HiveColumnHandle projectedColumn = new HiveColumnHandle(
+                "row_field",
+                0,
+                HiveType.toHiveType(baseType),
+                baseType,
+                Optional.of(columnProjectionInfo),
+                REGULAR,
+                Optional.empty());
+
+        Domain predicateDomain = Domain.singleValue(INTEGER, 123L);
+        TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));
+
+        MessageType fileSchema = new MessageType("hive_schema",
+                new GroupType(OPTIONAL, "row_field",
+                        new PrimitiveType(OPTIONAL, INT32, "a"),
                         new PrimitiveType(OPTIONAL, INT32, "b")));
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true);
-        assertTrue(tupleDomain.isAll());
+        assertThat(getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, false).isAll()).isTrue();
     }
 
     @Test
@@ -143,7 +275,7 @@ public class TestParquetPredicateUtils
                                 new PrimitiveType(OPTIONAL, INT32, "value"))));
 
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true);
-        assertTrue(tupleDomain.isAll());
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, false).isAll()).isTrue();
     }
 }

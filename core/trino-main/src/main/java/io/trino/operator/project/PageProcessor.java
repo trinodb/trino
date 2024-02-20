@@ -14,6 +14,7 @@
 package io.trino.operator.project;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.array.ReferenceCountMap;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverYieldSignal;
@@ -27,8 +28,6 @@ import io.trino.spi.block.DictionaryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.gen.ExpressionProfiler;
 
-import javax.annotation.concurrent.NotThreadSafe;
-
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -41,7 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
 import static io.trino.operator.WorkProcessor.ProcessState.yielded;
@@ -53,8 +51,8 @@ import static java.util.Objects.requireNonNull;
 public class PageProcessor
 {
     public static final int MAX_BATCH_SIZE = 8 * 1024;
-    static final int MAX_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
-    static final int MIN_PAGE_SIZE_IN_BYTES = 1024 * 1024;
+    static final int MAX_PAGE_SIZE_IN_BYTES = 16 * 1024 * 1024;
+    static final int MIN_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
 
     private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
@@ -97,13 +95,7 @@ public class PageProcessor
     @VisibleForTesting
     public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
     {
-        return process(session, yieldSignal, memoryContext, page, false);
-    }
-
-    @VisibleForTesting
-    Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page, boolean avoidPageMaterialization)
-    {
-        WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, new PageProcessorMetrics(), page, avoidPageMaterialization);
+        WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, new PageProcessorMetrics(), page);
         return processor.yieldingIterator();
     }
 
@@ -112,8 +104,7 @@ public class PageProcessor
             DriverYieldSignal yieldSignal,
             LocalMemoryContext memoryContext,
             PageProcessorMetrics metrics,
-            Page page,
-            boolean avoidPageMaterialization)
+            Page page)
     {
         // limit the scope of the dictionary ids to just one page
         dictionarySourceIdFunction.reset();
@@ -137,7 +128,7 @@ public class PageProcessor
             }
 
             if (selectedPositions.size() != page.getPositionCount()) {
-                return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions, avoidPageMaterialization));
+                return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions));
             }
         }
         else if (projections.isEmpty()) {
@@ -145,7 +136,7 @@ public class PageProcessor
             return WorkProcessor.of(new Page(page.getPositionCount()));
         }
 
-        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, positionsRange(0, page.getPositionCount()), avoidPageMaterialization));
+        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, positionsRange(0, page.getPositionCount())));
     }
 
     private class ProjectSelectedPositions
@@ -155,7 +146,6 @@ public class PageProcessor
         private final DriverYieldSignal yieldSignal;
         private final LocalMemoryContext memoryContext;
         private final PageProcessorMetrics metrics;
-        private final boolean avoidPageMaterialization;
 
         private Page page;
         private final Block[] previouslyComputedResults;
@@ -167,17 +157,13 @@ public class PageProcessor
         private int lastComputeBatchSize;
         private Work<Block> pageProjectWork;
 
-        private int outputPagePositions = -1;
-        private long outputPageSizeInBytes;
-
         private ProjectSelectedPositions(
                 ConnectorSession session,
                 DriverYieldSignal yieldSignal,
                 LocalMemoryContext memoryContext,
                 PageProcessorMetrics metrics,
                 Page page,
-                SelectedPositions selectedPositions,
-                boolean avoidPageMaterialization)
+                SelectedPositions selectedPositions)
         {
             checkArgument(!selectedPositions.isEmpty(), "selectedPositions is empty");
 
@@ -186,7 +172,6 @@ public class PageProcessor
             this.metrics = metrics;
             this.page = page;
             this.memoryContext = memoryContext;
-            this.avoidPageMaterialization = avoidPageMaterialization;
             this.selectedPositions = selectedPositions;
             this.previouslyComputedResults = new Block[projections.size()];
         }
@@ -194,11 +179,6 @@ public class PageProcessor
         @Override
         public ProcessState<Page> process()
         {
-            if (avoidPageMaterialization && outputPagePositions != -1) {
-                updateBatchSize(outputPagePositions, outputPageSizeInBytes);
-                outputPagePositions = -1;
-            }
-
             int batchSize;
             while (true) {
                 if (selectedPositions.isEmpty()) {
@@ -236,19 +216,7 @@ public class PageProcessor
 
                 verify(result.isSuccess());
                 Page resultPage = result.getPage();
-
-                if (!avoidPageMaterialization) {
-                    updateBatchSize(resultPage.getPositionCount(), resultPage.getSizeInBytes());
-                }
-                else {
-                    // This is executed within WorkProcessorOperator context.
-                    // Therefore it is guaranteed that:
-                    // 1. produced Page is accessed by single thread
-                    // 2. lazy Page can be materialized only before fetching next page from PageProcessor
-                    outputPagePositions = resultPage.getPositionCount();
-                    outputPageSizeInBytes = 0;
-                    recordMaterializedBytes(resultPage, sizeInBytes -> outputPageSizeInBytes += sizeInBytes);
-                }
+                updateBatchSize(resultPage.getPositionCount(), resultPage.getSizeInBytes());
 
                 // remove batch from selectedPositions and previouslyComputedResults
                 selectedPositions = selectedPositions.subRange(batchSize, selectedPositions.size());
@@ -323,7 +291,7 @@ public class PageProcessor
         {
             Block[] blocks = new Block[projections.size()];
 
-            int pageSize = 0;
+            long pageSize = 0;
             SelectedPositions positionsBatch = selectedPositions.subRange(0, batchSize);
             for (int i = 0; i < projections.size(); i++) {
                 if (yieldSignal.isSet()) {
@@ -357,10 +325,8 @@ public class PageProcessor
                     blocks[i] = previouslyComputedResults[i];
                 }
 
-                if (!avoidPageMaterialization) {
-                    blocks[i] = blocks[i].getLoadedBlock();
-                    pageSize += blocks[i].getSizeInBytes();
-                }
+                blocks[i] = blocks[i].getLoadedBlock();
+                pageSize += blocks[i].getSizeInBytes();
             }
             return ProcessBatchResult.processBatchSuccess(new Page(positionsBatch.size(), blocks));
         }

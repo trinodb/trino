@@ -13,47 +13,37 @@
  */
 package io.trino.operator;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
+import io.trino.spi.type.TypeOperators;
 
-import java.util.List;
-import java.util.Optional;
-
-import static io.trino.operator.GroupByHash.createGroupByHash;
-import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class ChannelSet
 {
-    private final GroupByHash hash;
-    private final boolean containsNull;
-    private final int[] hashChannels;
+    private final FlatSet set;
 
-    public ChannelSet(GroupByHash hash, boolean containsNull, int[] hashChannels)
+    private ChannelSet(FlatSet set)
     {
-        this.hash = hash;
-        this.containsNull = containsNull;
-        this.hashChannels = hashChannels;
-    }
-
-    public Type getType()
-    {
-        return hash.getTypes().get(0);
+        this.set = set;
     }
 
     public long getEstimatedSizeInBytes()
     {
-        return hash.getEstimatedSize();
+        return set.getEstimatedSize();
     }
 
     public int size()
     {
-        return hash.getGroupCount();
+        return set.size();
     }
 
     public boolean isEmpty()
@@ -63,79 +53,67 @@ public class ChannelSet
 
     public boolean containsNull()
     {
-        return containsNull;
+        return set.containsNull();
     }
 
-    public boolean contains(int position, Page page)
+    public boolean contains(Block valueBlock, int position)
     {
-        return hash.contains(position, page, hashChannels);
+        return set.contains(valueBlock, position);
     }
 
-    public boolean contains(int position, Page page, long rawHash)
+    public boolean contains(Block valueBlock, int position, long rawHash)
     {
-        return hash.contains(position, page, hashChannels, rawHash);
+        return set.contains(valueBlock, position, rawHash);
     }
 
     public static class ChannelSetBuilder
     {
-        private static final int[] HASH_CHANNELS = {0};
+        private final LocalMemoryContext memoryContext;
+        private final FlatSet set;
 
-        private final GroupByHash hash;
-        private final Page nullBlockPage;
-        private final OperatorContext operatorContext;
-        private final LocalMemoryContext localMemoryContext;
-
-        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
+        public ChannelSetBuilder(Type type, TypeOperators typeOperators, LocalMemoryContext memoryContext)
         {
-            List<Type> types = ImmutableList.of(type);
-            this.hash = createGroupByHash(
-                    operatorContext.getSession(),
-                    types,
-                    HASH_CHANNELS,
-                    hashChannel,
-                    expectedPositions,
-                    joinCompiler,
-                    blockTypeOperators,
-                    this::updateMemoryReservation);
-            this.nullBlockPage = new Page(type.createBlockBuilder(null, 1, UNKNOWN.getFixedSize()).appendNull().build());
-            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-            this.localMemoryContext = operatorContext.localUserMemoryContext();
+            set = new FlatSet(
+                    type,
+                    typeOperators.getReadValueOperator(type, simpleConvention(FLAT_RETURN, BLOCK_POSITION_NOT_NULL)),
+                    typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, FLAT)),
+                    typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL)),
+                    typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)));
+            this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+            this.memoryContext.setBytes(set.getEstimatedSize());
         }
 
         public ChannelSet build()
         {
-            return new ChannelSet(hash, hash.contains(0, nullBlockPage, HASH_CHANNELS), HASH_CHANNELS);
+            return new ChannelSet(set);
         }
 
-        public long getEstimatedSize()
+        public void addAll(Block valueBlock, Block hashBlock)
         {
-            return hash.getEstimatedSize();
-        }
+            if (valueBlock.getPositionCount() == 0) {
+                return;
+            }
 
-        public int size()
-        {
-            return hash.getGroupCount();
-        }
+            if (valueBlock instanceof RunLengthEncodedBlock rleBlock) {
+                if (hashBlock != null) {
+                    set.add(rleBlock.getValue(), 0, BIGINT.getLong(hashBlock, 0));
+                }
+                else {
+                    set.add(rleBlock.getValue(), 0);
+                }
+            }
+            else if (hashBlock != null) {
+                for (int position = 0; position < valueBlock.getPositionCount(); position++) {
+                    set.add(valueBlock, position, BIGINT.getLong(hashBlock, position));
+                }
+            }
+            else {
+                for (int position = 0; position < valueBlock.getPositionCount(); position++) {
+                    set.add(valueBlock, position);
+                }
+            }
 
-        public Work<?> addPage(Page page)
-        {
-            // Just add the page to the pending work, which will be processed later.
-            return hash.addPage(page);
-        }
-
-        public boolean updateMemoryReservation()
-        {
-            // If memory is not available, once we return, this operator will be blocked until memory is available.
-            localMemoryContext.setBytes(hash.getEstimatedSize());
-
-            // If memory is not available, inform the caller that we cannot proceed for allocation.
-            return operatorContext.isWaitingForMemory().isDone();
-        }
-
-        @VisibleForTesting
-        public int getCapacity()
-        {
-            return hash.getCapacity();
+            memoryContext.setBytes(set.getEstimatedSize());
         }
     }
 }

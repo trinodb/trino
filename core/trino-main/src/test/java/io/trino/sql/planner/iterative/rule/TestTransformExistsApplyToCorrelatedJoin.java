@@ -17,9 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -40,7 +41,6 @@ public class TestTransformExistsApplyToCorrelatedJoin
         tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
-
         tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p ->
                         p.correlatedJoin(
@@ -56,7 +56,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
         tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p ->
                         p.apply(
-                                Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
+                                ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
                                 ImmutableList.of(),
                                 p.values(),
                                 p.values()))
@@ -75,7 +75,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
         tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p ->
                         p.apply(
-                                Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
+                                ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
                                 ImmutableList.of(p.symbol("corr")),
                                 p.values(p.symbol("corr")),
                                 p.project(Assignments.of(),

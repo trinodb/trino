@@ -16,7 +16,6 @@ package io.trino.parquet.reader;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetEncoding;
-import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.spi.block.Block;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -54,11 +53,8 @@ public class TestNestedColumnReader
                         descriptor.getMaxRepetitionLevel(),
                         descriptor.getMaxDefinitionLevel()),
                 field.getId());
-        ColumnReader columnReader = ColumnReaderFactory.create(
-                tesingField,
-                UTC,
-                newSimpleAggregatedMemoryContext(),
-                new ParquetReaderOptions().withBatchColumnReaders(true).withBatchNestedColumnReaders(true));
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC);
+        ColumnReader columnReader = columnReaderFactory.create(tesingField, newSimpleAggregatedMemoryContext());
         assertThat(columnReader).isInstanceOf(NestedColumnReader.class);
         return columnReader;
     }

@@ -15,10 +15,12 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUnboundedVarcharType
         extends AbstractTestType
@@ -28,7 +30,7 @@ public class TestUnboundedVarcharType
         super(VARCHAR, String.class, createTestBlock());
     }
 
-    private static Block createTestBlock()
+    private static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 15);
         VARCHAR.writeString(blockBuilder, "apple");
@@ -42,12 +44,33 @@ public class TestUnboundedVarcharType
         VARCHAR.writeString(blockBuilder, "cherry");
         VARCHAR.writeString(blockBuilder, "cherry");
         VARCHAR.writeString(blockBuilder, "date");
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
         return Slices.utf8Slice(((Slice) value).toStringUtf8() + "_");
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

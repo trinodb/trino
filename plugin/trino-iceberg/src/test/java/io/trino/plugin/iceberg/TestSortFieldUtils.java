@@ -19,12 +19,12 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.types.Types;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.Consumer;
 
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSortFieldUtils
@@ -100,8 +100,8 @@ public class TestSortFieldUtils
 
     private static void assertParse(@Language("SQL") String value, SortOrder expected)
     {
-        assertEquals(expected.fields().size(), 1);
-        assertEquals(parseField(value), expected);
+        assertThat(expected.fields().size()).isEqualTo(1);
+        assertThat(parseField(value)).isEqualTo(expected);
     }
 
     private static void assertDoesNotParse(@Language("SQL") String value)

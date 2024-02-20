@@ -15,7 +15,9 @@ package io.trino.plugin.thrift;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.drift.client.DriftClient;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.thrift.api.TrinoThriftHostAddress;
 import io.trino.plugin.thrift.api.TrinoThriftId;
 import io.trino.plugin.thrift.api.TrinoThriftNullableColumnSet;
@@ -35,9 +37,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
-
-import javax.annotation.concurrent.NotThreadSafe;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

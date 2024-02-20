@@ -22,6 +22,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
@@ -166,11 +167,29 @@ public class BenchmarkPageProcessor
 
         private static boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
         {
-            return !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0 &&
-                    !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
+            return !shipDateBlock.isNull(position) && greaterThanOrEqual(shipDateBlock, position, MIN_SHIP_DATE) &&
+                    !shipDateBlock.isNull(position) && lessThan(shipDateBlock, position, MAX_SHIP_DATE) &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
                     !quantityBlock.isNull(position) && DOUBLE.getDouble(quantityBlock, position) < 24;
+        }
+
+        private static boolean lessThan(Block left, int leftPosition, Slice right)
+        {
+            VariableWidthBlock leftBlock = (VariableWidthBlock) left.getUnderlyingValueBlock();
+            Slice leftSlice = leftBlock.getRawSlice();
+            int leftOffset = leftBlock.getRawSliceOffset(leftPosition);
+            int leftLength = leftBlock.getSliceLength(leftPosition);
+            return leftSlice.compareTo(leftOffset, leftLength, right, 0, right.length()) < 0;
+        }
+
+        private static boolean greaterThanOrEqual(Block left, int leftPosition, Slice right)
+        {
+            VariableWidthBlock leftBlock = (VariableWidthBlock) left.getUnderlyingValueBlock();
+            Slice leftSlice = leftBlock.getRawSlice();
+            int leftOffset = leftBlock.getRawSliceOffset(leftPosition);
+            int leftLength = leftBlock.getSliceLength(leftPosition);
+            return leftSlice.compareTo(leftOffset, leftLength, right, 0, right.length()) >= 0;
         }
     }
 

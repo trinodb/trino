@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system;
 
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.FullConnectorSession;
 import io.trino.dispatcher.DispatchManager;
@@ -35,8 +36,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.type.ArrayType;
 import org.joda.time.DateTime;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

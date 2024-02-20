@@ -15,8 +15,7 @@
 package io.trino.server.security.oauth2;
 
 import io.trino.server.security.oauth2.OAuth2Client.Response;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Date;
 import java.util.Optional;
@@ -31,13 +30,13 @@ public interface TokenPairSerializer
         @Override
         public TokenPair deserialize(String token)
         {
-            return TokenPair.accessToken(token);
+            return TokenPair.withAccessToken(token);
         }
 
         @Override
         public String serialize(TokenPair tokenPair)
         {
-            return tokenPair.getAccessToken();
+            return tokenPair.accessToken();
         }
     };
 
@@ -45,20 +44,16 @@ public interface TokenPairSerializer
 
     String serialize(TokenPair tokenPair);
 
-    class TokenPair
+    record TokenPair(String accessToken, Date expiration, Optional<String> refreshToken)
     {
-        private final String accessToken;
-        private final Date expiration;
-        private final Optional<String> refreshToken;
-
-        private TokenPair(String accessToken, Date expiration, Optional<String> refreshToken)
+        public TokenPair
         {
-            this.accessToken = requireNonNull(accessToken, "accessToken is nul");
-            this.expiration = requireNonNull(expiration, "expiration is null");
-            this.refreshToken = requireNonNull(refreshToken, "refreshToken is null");
+            requireNonNull(accessToken, "accessToken is nul");
+            requireNonNull(expiration, "expiration is null");
+            requireNonNull(refreshToken, "refreshToken is null");
         }
 
-        public static TokenPair accessToken(String accessToken)
+        public static TokenPair withAccessToken(String accessToken)
         {
             return new TokenPair(accessToken, new Date(MAX_VALUE), Optional.empty());
         }
@@ -69,24 +64,9 @@ public interface TokenPairSerializer
             return new TokenPair(tokens.getAccessToken(), Date.from(tokens.getExpiration()), tokens.getRefreshToken());
         }
 
-        public static TokenPair accessAndRefreshTokens(String accessToken, Date expiration, @Nullable String refreshToken)
+        public static TokenPair withAccessAndRefreshTokens(String accessToken, Date expiration, @Nullable String refreshToken)
         {
             return new TokenPair(accessToken, expiration, Optional.ofNullable(refreshToken));
-        }
-
-        public String getAccessToken()
-        {
-            return accessToken;
-        }
-
-        public Date getExpiration()
-        {
-            return expiration;
-        }
-
-        public Optional<String> getRefreshToken()
-        {
-            return refreshToken;
         }
     }
 }

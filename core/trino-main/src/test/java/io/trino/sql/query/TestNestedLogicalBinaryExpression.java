@@ -15,39 +15,41 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 /**
  * Regression test for https://github.com/trinodb/trino/issues/9250
  */
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestNestedLogicalBinaryExpression
 {
-    private QueryAssertions assertions;
+    private final QueryAssertions assertions;
 
-    @BeforeAll
-    public void init()
+    public TestNestedLogicalBinaryExpression()
     {
         Session session = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        LocalQueryRunner runner = LocalQueryRunner.builder(session)
-                .build();
-
-        runner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(1), ImmutableMap.of());
+        QueryRunner runner = new StandaloneQueryRunner(session);
+        runner.installPlugin(new TpchPlugin());
+        runner.createCatalog(TEST_CATALOG_NAME, "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
         assertions = new QueryAssertions(runner);
     }
@@ -56,7 +58,6 @@ public class TestNestedLogicalBinaryExpression
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test

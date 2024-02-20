@@ -26,11 +26,10 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.PartitionField;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
-
-import javax.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -163,7 +162,7 @@ public final class PartitionTransforms
 
     private static ColumnTransform identity(Type type)
     {
-        return new ColumnTransform(type, false, true, Function.identity(), ValueTransform.identity(type));
+        return new ColumnTransform(type, false, true, false, Function.identity(), ValueTransform.identity(type));
     }
 
     @VisibleForTesting
@@ -172,6 +171,7 @@ public final class PartitionTransforms
         Hasher hasher = getBucketingHash(type);
         return new ColumnTransform(
                 INTEGER,
+                false,
                 false,
                 false,
                 block -> bucketBlock(block, count, hasher),
@@ -230,6 +230,7 @@ public final class PartitionTransforms
                 INTEGER,
                 false,
                 true,
+                true,
                 block -> transformBlock(DATE, INTEGER, block, transform),
                 ValueTransform.from(DATE, transform));
     }
@@ -240,6 +241,7 @@ public final class PartitionTransforms
         return new ColumnTransform(
                 INTEGER,
                 false,
+                true,
                 true,
                 block -> transformBlock(DATE, INTEGER, block, transform),
                 ValueTransform.from(DATE, transform));
@@ -252,6 +254,7 @@ public final class PartitionTransforms
                 INTEGER,
                 false,
                 true,
+                true,
                 block -> transformBlock(DATE, INTEGER, block, transform),
                 ValueTransform.from(DATE, transform));
     }
@@ -262,6 +265,7 @@ public final class PartitionTransforms
         return new ColumnTransform(
                 INTEGER,
                 false,
+                true,
                 true,
                 block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
                 ValueTransform.from(TIMESTAMP_MICROS, transform));
@@ -274,6 +278,7 @@ public final class PartitionTransforms
                 INTEGER,
                 false,
                 true,
+                true,
                 block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
                 ValueTransform.from(TIMESTAMP_MICROS, transform));
     }
@@ -284,6 +289,7 @@ public final class PartitionTransforms
         return new ColumnTransform(
                 INTEGER,
                 false,
+                true,
                 true,
                 block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
                 ValueTransform.from(TIMESTAMP_MICROS, transform));
@@ -296,6 +302,7 @@ public final class PartitionTransforms
                 INTEGER,
                 false,
                 true,
+                true,
                 block -> transformBlock(TIMESTAMP_MICROS, INTEGER, block, transform),
                 ValueTransform.from(TIMESTAMP_MICROS, transform));
     }
@@ -306,6 +313,7 @@ public final class PartitionTransforms
         return new ColumnTransform(
                 INTEGER,
                 false,
+                true,
                 true,
                 block -> extractTimestampWithTimeZone(block, transform),
                 ValueTransform.fromTimestampTzTransform(transform));
@@ -318,6 +326,7 @@ public final class PartitionTransforms
                 INTEGER,
                 false,
                 true,
+                true,
                 block -> extractTimestampWithTimeZone(block, transform),
                 ValueTransform.fromTimestampTzTransform(transform));
     }
@@ -329,6 +338,7 @@ public final class PartitionTransforms
                 INTEGER,
                 false,
                 true,
+                true,
                 block -> extractTimestampWithTimeZone(block, transform),
                 ValueTransform.fromTimestampTzTransform(transform));
     }
@@ -339,6 +349,7 @@ public final class PartitionTransforms
         return new ColumnTransform(
                 INTEGER,
                 false,
+                true,
                 true,
                 block -> extractTimestampWithTimeZone(block, transform),
                 ValueTransform.fromTimestampTzTransform(transform));
@@ -360,7 +371,7 @@ public final class PartitionTransforms
 
     private static int hashInteger(Block block, int position)
     {
-        return bucketHash(INTEGER.getLong(block, position));
+        return bucketHash(INTEGER.getInt(block, position));
     }
 
     private static int hashBigint(Block block, int position)
@@ -388,7 +399,7 @@ public final class PartitionTransforms
 
     private static int hashDate(Block block, int position)
     {
-        return bucketHash(DATE.getLong(block, position));
+        return bucketHash(DATE.getInt(block, position));
     }
 
     private static int hashTime(Block block, int position)
@@ -453,6 +464,7 @@ public final class PartitionTransforms
                 INTEGER,
                 false,
                 true,
+                false,
                 block -> truncateInteger(block, width),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -477,7 +489,7 @@ public final class PartitionTransforms
 
     private static long truncateInteger(Block block, int position, int width)
     {
-        long value = INTEGER.getLong(block, position);
+        long value = INTEGER.getInt(block, position);
         return value - ((value % width) + width) % width;
     }
 
@@ -487,6 +499,7 @@ public final class PartitionTransforms
                 BIGINT,
                 false,
                 true,
+                false,
                 block -> truncateBigint(block, width),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -522,6 +535,7 @@ public final class PartitionTransforms
                 type,
                 false,
                 true,
+                false,
                 block -> truncateShortDecimal(decimal, block, unscaledWidth),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -559,6 +573,7 @@ public final class PartitionTransforms
                 type,
                 false,
                 true,
+                false,
                 block -> truncateLongDecimal(decimal, block, unscaledWidth),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -606,6 +621,7 @@ public final class PartitionTransforms
                 VARCHAR,
                 false,
                 true,
+                false,
                 block -> truncateVarchar(block, width),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -647,6 +663,7 @@ public final class PartitionTransforms
                 VARBINARY,
                 false,
                 true,
+                false,
                 block -> truncateVarbinary(block, width),
                 (block, position) -> {
                     if (block.isNull(position)) {
@@ -685,6 +702,7 @@ public final class PartitionTransforms
                 type,
                 true,
                 true,
+                false,
                 block -> RunLengthEncodedBlock.create(nullBlock, block.getPositionCount()),
                 (block, position) -> null);
     }
@@ -739,14 +757,16 @@ public final class PartitionTransforms
         private final Type type;
         private final boolean preservesNonNull;
         private final boolean monotonic;
+        private final boolean temporal;
         private final Function<Block, Block> blockTransform;
         private final ValueTransform valueTransform;
 
-        public ColumnTransform(Type type, boolean preservesNonNull, boolean monotonic, Function<Block, Block> blockTransform, ValueTransform valueTransform)
+        public ColumnTransform(Type type, boolean preservesNonNull, boolean monotonic, boolean temporal, Function<Block, Block> blockTransform, ValueTransform valueTransform)
         {
             this.type = requireNonNull(type, "type is null");
             this.preservesNonNull = preservesNonNull;
             this.monotonic = monotonic;
+            this.temporal = temporal;
             this.blockTransform = requireNonNull(blockTransform, "transform is null");
             this.valueTransform = requireNonNull(valueTransform, "valueTransform is null");
         }
@@ -767,6 +787,11 @@ public final class PartitionTransforms
         public boolean isMonotonic()
         {
             return monotonic;
+        }
+
+        public boolean isTemporal()
+        {
+            return temporal;
         }
 
         public Function<Block, Block> getBlockTransform()

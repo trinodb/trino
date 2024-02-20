@@ -13,30 +13,47 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.local.LocalFileSystemFactory;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.iceberg.InternalIcebergConnectorFactory.createConnector;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.iceberg.IcebergConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
 public class TestingIcebergConnectorFactory
         implements ConnectorFactory
 {
     private final Optional<Module> icebergCatalogModule;
-    private final Optional<TrinoFileSystemFactory> fileSystemFactory;
     private final Module module;
 
-    public TestingIcebergConnectorFactory(Optional<Module> icebergCatalogModule, Optional<TrinoFileSystemFactory> fileSystemFactory, Module module)
+    public TestingIcebergConnectorFactory(Path localFileSystemRootPath)
     {
+        this(localFileSystemRootPath, Optional.empty());
+    }
+
+    @Deprecated
+    public TestingIcebergConnectorFactory(
+            Path localFileSystemRootPath,
+            Optional<Module> icebergCatalogModule)
+    {
+        localFileSystemRootPath.toFile().mkdirs();
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.module = requireNonNull(module, "module is null");
+        this.module = binder -> {
+            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+            configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
+        };
     }
 
     @Override
@@ -48,6 +65,12 @@ public class TestingIcebergConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, module, icebergCatalogModule, fileSystemFactory);
+        if (!config.containsKey("iceberg.catalog.type")) {
+            config = ImmutableMap.<String, String>builder()
+                    .putAll(config)
+                    .put("iceberg.catalog.type", "TESTING_FILE_METASTORE")
+                    .buildOrThrow();
+        }
+        return createConnector(catalogName, config, context, module, icebergCatalogModule);
     }
 }

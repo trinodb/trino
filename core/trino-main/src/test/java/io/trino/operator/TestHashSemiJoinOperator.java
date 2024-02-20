@@ -25,11 +25,11 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
-import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -38,11 +38,8 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
-import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -50,48 +47,43 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestHashSemiJoinOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private TaskContext taskContext;
     private TypeOperators typeOperators;
-    private BlockTypeOperators blockTypeOperators;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
         taskContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION);
         typeOperators = new TypeOperators();
-        blockTypeOperators = new BlockTypeOperators(typeOperators);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
     }
 
-    @DataProvider(name = "hashEnabledValues")
-    public static Object[][] hashEnabledValuesProvider()
+    @Test
+    public void testSemiJoin()
     {
-        return new Object[][] {{true}, {false}};
+        testSemiJoin(true);
+        testSemiJoin(false);
     }
 
-    @DataProvider
-    public Object[][] dataType()
-    {
-        return new Object[][] {{VARCHAR}, {BIGINT}};
-    }
-
-    @Test(dataProvider = "hashEnabledValues")
-    public void testSemiJoin(boolean hashEnabled)
+    private void testSemiJoin(boolean hashEnabled)
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
@@ -115,7 +107,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -155,8 +147,14 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "hashEnabledValues")
-    public void testSemiJoinOnVarcharType(boolean hashEnabled)
+    @Test
+    public void testSemiJoinOnVarcharType()
+    {
+        testSemiJoinOnVarcharType(true);
+        testSemiJoinOnVarcharType(false);
+    }
+
+    private void testSemiJoinOnVarcharType(boolean hashEnabled)
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
@@ -180,7 +178,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -220,38 +218,14 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "dataType")
-    public void testSemiJoinMemoryReservationYield(Type type)
+    @Test
+    public void testBuildSideNulls()
     {
-        // We only need the first column so we are creating the pages with hashEnabled false
-        List<Page> input = createPagesWithDistinctHashKeys(type, 5_000, 500);
-
-        // create the operator
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
-                1,
-                new PlanNodeId("test"),
-                type,
-                0,
-                Optional.of(1),
-                10,
-                new JoinCompiler(typeOperators),
-                blockTypeOperators);
-
-        // run test
-        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(
-                input,
-                type,
-                setBuilderOperatorFactory,
-                operator -> ((SetBuilderOperator) operator).getCapacity(),
-                450_000);
-
-        assertGreaterThanOrEqual(result.getYieldCount(), 4);
-        assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 19);
-        assertEquals(result.getOutput().stream().mapToInt(Page::getPositionCount).sum(), 0);
+        testBuildSideNulls(true);
+        testBuildSideNulls(false);
     }
 
-    @Test(dataProvider = "hashEnabledValues")
-    public void testBuildSideNulls(boolean hashEnabled)
+    private void testBuildSideNulls(boolean hashEnabled)
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
@@ -275,7 +249,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -309,8 +283,14 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "hashEnabledValues")
-    public void testProbeSideNulls(boolean hashEnabled)
+    @Test
+    public void testProbeSideNulls()
+    {
+        testProbeSideNulls(true);
+        testProbeSideNulls(false);
+    }
+
+    private void testProbeSideNulls(boolean hashEnabled)
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
@@ -331,7 +311,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -368,8 +348,14 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "hashEnabledValues")
-    public void testProbeAndBuildNulls(boolean hashEnabled)
+    @Test
+    public void testProbeAndBuildNulls()
+    {
+        testProbeAndBuildNulls(true);
+        testProbeAndBuildNulls(false);
+    }
+
+    private void testProbeAndBuildNulls(boolean hashEnabled)
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
@@ -391,7 +377,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -428,8 +414,19 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of.*")
-    public void testMemoryLimit(boolean hashEnabled)
+    @Test
+    public void testMemoryLimit()
+    {
+        assertThatThrownBy(() -> testMemoryLimit(true))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of.*");
+
+        assertThatThrownBy(() -> testMemoryLimit(false))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of.*");
+    }
+
+    private void testMemoryLimit(boolean hashEnabled)
     {
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(100))
                 .addPipelineContext(0, true, true, false)
@@ -449,7 +446,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);

@@ -13,44 +13,100 @@
  */
 package io.trino.plugin.iceberg;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergTableName
 {
     @Test
-    public void testFrom()
+    public void testParse()
     {
-        assertFrom("abc", "abc", TableType.DATA);
-        assertFrom("abc$data", "abc", TableType.DATA);
-        assertFrom("abc$history", "abc", TableType.HISTORY);
-        assertFrom("abc$snapshots", "abc", TableType.SNAPSHOTS);
+        assertParseNameAndType("abc", "abc", TableType.DATA);
+        assertParseNameAndType("abc$history", "abc", TableType.HISTORY);
+        assertParseNameAndType("abc$snapshots", "abc", TableType.SNAPSHOTS);
 
-        assertInvalid("abc@123", "Invalid Iceberg table name: abc@123");
-        assertInvalid("abc@xyz", "Invalid Iceberg table name: abc@xyz");
-        assertInvalid("abc$what", "Invalid Iceberg table name (unknown type 'what'): abc$what");
-        assertInvalid("abc@123$data@456", "Invalid Iceberg table name: abc@123$data@456");
-        assertInvalid("abc@123$snapshots", "Invalid Iceberg table name: abc@123$snapshots");
-        assertInvalid("abc$snapshots@456", "Invalid Iceberg table name: abc$snapshots@456");
-        assertInvalid("xyz$data@456", "Invalid Iceberg table name: xyz$data@456");
-        assertInvalid("abc$partitions@456", "Invalid Iceberg table name: abc$partitions@456");
-        assertInvalid("abc$manifests@456", "Invalid Iceberg table name: abc$manifests@456");
+        assertInvalid("abc$data");
+        assertInvalid("abc@123");
+        assertInvalid("abc@xyz");
+        assertInvalid("abc$what");
+        assertInvalid("abc@123$data@456");
+        assertInvalid("abc@123$snapshots");
+        assertInvalid("abc$snapshots@456");
+        assertInvalid("xyz$data@456");
+        assertInvalid("abc$partitions@456");
+        assertInvalid("abc$manifests@456");
     }
 
-    private static void assertInvalid(String inputName, String message)
+    @Test
+    public void testIsDataTable()
     {
-        assertTrinoExceptionThrownBy(() -> IcebergTableName.from(inputName))
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage(message);
+        assertThat(IcebergTableName.isDataTable("abc")).isTrue();
+
+        assertThatThrownBy(() -> IcebergTableName.isDataTable("abc$data"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid Iceberg table name: abc$data");
+
+        assertThat(IcebergTableName.isDataTable("abc$history")).isFalse();
+
+        assertThatThrownBy(() -> IcebergTableName.isDataTable("abc$invalid"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid Iceberg table name: abc$invalid");
     }
 
-    private static void assertFrom(String inputName, String tableName, TableType tableType)
+    @Test
+    public void testTableNameFrom()
     {
-        IcebergTableName name = IcebergTableName.from(inputName);
-        assertEquals(name.getTableName(), tableName);
-        assertEquals(name.getTableType(), tableType);
+        assertThat(IcebergTableName.tableNameFrom("abc")).isEqualTo("abc");
+
+        assertThatThrownBy(() -> IcebergTableName.tableNameFrom("abc$data"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid Iceberg table name: abc$data");
+
+        assertThat(IcebergTableName.tableNameFrom("abc$history")).isEqualTo("abc");
+
+        assertThatThrownBy(() -> IcebergTableName.tableNameFrom("abc$invalid"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid Iceberg table name: abc$invalid");
+    }
+
+    @Test
+    public void testTableTypeFrom()
+    {
+        assertThat(IcebergTableName.tableTypeFrom("abc")).isEqualTo(TableType.DATA);
+
+        assertThatThrownBy(() -> IcebergTableName.tableTypeFrom("abc$data"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid Iceberg table name: abc$data");
+
+        assertThat(IcebergTableName.tableTypeFrom("abc$history")).isEqualTo(TableType.HISTORY);
+
+        assertThatThrownBy(() -> IcebergTableName.tableTypeFrom("abc$invalid"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid Iceberg table name: abc$invalid");
+    }
+
+    @Test
+    public void testTableNameWithType()
+    {
+        assertThat(IcebergTableName.tableNameWithType("abc", TableType.DATA)).isEqualTo("abc$data");
+        assertThat(IcebergTableName.tableNameWithType("abc", TableType.HISTORY)).isEqualTo("abc$history");
+    }
+
+    private static void assertInvalid(String inputName)
+    {
+        assertThat(IcebergTableName.isIcebergTableName(inputName)).isFalse();
+
+        assertThatThrownBy(() -> IcebergTableName.tableTypeFrom(inputName))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid Iceberg table name: " + inputName);
+    }
+
+    private static void assertParseNameAndType(String inputName, String tableName, TableType tableType)
+    {
+        assertThat(IcebergTableName.isIcebergTableName(inputName)).isTrue();
+        assertThat(IcebergTableName.tableNameFrom(inputName)).isEqualTo(tableName);
+        assertThat(IcebergTableName.tableTypeFrom(inputName)).isEqualTo(tableType);
     }
 }

@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hive.util.AsyncQueue.BorrowResult;
@@ -75,7 +76,6 @@ class HiveSplitSource
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final AtomicInteger remainingInitialSplits;
-    private final AtomicLong numberOfProcessedSplits;
 
     private final HiveSplitLoader splitLoader;
     private final AtomicReference<State> stateReference;
@@ -85,6 +85,7 @@ class HiveSplitSource
     private final CounterStat highMemorySplitSourceCounter;
     private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
     private final HiveSplitWeightProvider splitWeightProvider;
+    private final CachingHostAddressProvider cachingHostAddressProvider;
 
     private final boolean recordScannedFiles;
     private final ImmutableList.Builder<Object> scannedFilePaths = ImmutableList.builder();
@@ -99,6 +100,7 @@ class HiveSplitSource
             HiveSplitLoader splitLoader,
             AtomicReference<State> stateReference,
             CounterStat highMemorySplitSourceCounter,
+            CachingHostAddressProvider cachingHostAddressProvider,
             boolean recordScannedFiles)
     {
         requireNonNull(session, "session is null");
@@ -114,8 +116,8 @@ class HiveSplitSource
         this.maxSplitSize = getMaxSplitSize(session);
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
-        this.numberOfProcessedSplits = new AtomicLong(0);
         this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
+        this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
         this.recordScannedFiles = recordScannedFiles;
     }
 
@@ -130,6 +132,7 @@ class HiveSplitSource
             HiveSplitLoader splitLoader,
             Executor executor,
             CounterStat highMemorySplitSourceCounter,
+            CachingHostAddressProvider cachingHostAddressProvider,
             boolean recordScannedFiles)
     {
         AtomicReference<State> stateReference = new AtomicReference<>(State.initial());
@@ -170,6 +173,7 @@ class HiveSplitSource
                 splitLoader,
                 stateReference,
                 highMemorySplitSourceCounter,
+                cachingHostAddressProvider,
                 recordScannedFiles);
     }
 
@@ -299,8 +303,6 @@ class HiveSplitSource
                 }
 
                 resultBuilder.add(new HiveSplit(
-                        databaseName,
-                        tableName,
                         internalSplit.getPartitionName(),
                         internalSplit.getPath(),
                         internalSplit.getStart(),
@@ -309,17 +311,14 @@ class HiveSplitSource
                         internalSplit.getFileModifiedTime(),
                         internalSplit.getSchema(),
                         internalSplit.getPartitionKeys(),
-                        block.getAddresses(),
+                        cachingHostAddressProvider.getHosts(internalSplit.getPath(), block.getAddresses()),
                         internalSplit.getReadBucketNumber(),
                         internalSplit.getTableBucketNumber(),
-                        internalSplit.getStatementId(),
                         internalSplit.isForceLocalScheduling(),
-                        internalSplit.getTableToPartitionMapping(),
+                        internalSplit.getHiveColumnCoercions(),
                         internalSplit.getBucketConversion(),
                         internalSplit.getBucketValidation(),
-                        internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getAcidInfo(),
-                        numberOfProcessedSplits.getAndIncrement(),
                         splitWeightProvider.weightForSplitSizeInBytes(splitBytes)));
 
                 internalSplit.increaseStart(splitBytes);

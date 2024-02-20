@@ -21,14 +21,14 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.tree.ComparisonExpression;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;

@@ -14,8 +14,8 @@
 package io.trino.tests.product.sqlserver;
 
 import io.airlift.log.Logger;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
@@ -28,10 +28,9 @@ import java.sql.Timestamp;
 
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TestGroups.SQL_SERVER;
+import static io.trino.tests.product.TestGroups.SQLSERVER;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.trino.tests.product.sqlserver.SqlServerDataTypesTableDefinition.SQLSERVER_ALL_TYPES;
 import static io.trino.tests.product.sqlserver.SqlServerTpchTableDefinitions.NATION;
@@ -50,6 +49,7 @@ import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.VARCHAR;
 import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSelect
         extends ProductTest
@@ -70,8 +70,8 @@ public class TestSelect
     private static final String CREATE_TABLE_AS_SELECT = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CTAS_TABLE_NAME);
     private static final String ALL_TYPES_TABLE_NAME = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, SQLSERVER_ALL_TYPES.getName());
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void dropTestTables()
     {
         try {
@@ -82,14 +82,14 @@ public class TestSelect
         }
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testSelectNation()
     {
         QueryResult queryResult = onTrino().executeQuery("SELECT n_nationkey, n_name, n_regionkey, n_comment FROM " + NATION_TABLE_NAME);
         assertThat(queryResult).matches(PRESTO_NATION_RESULT);
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testNationSelfInnerJoin()
     {
         String sql = format(
@@ -109,7 +109,7 @@ public class TestSelect
                 row("CANADA", 3));
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testNationJoinRegion()
     {
         String sql = format(
@@ -123,7 +123,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row("CANADA", "AMERICA"));
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testAllDatatypes()
     {
         QueryResult queryResult = onTrino().executeQuery("SELECT * FROM " + ALL_TYPES_TABLE_NAME);
@@ -192,7 +192,7 @@ public class TestSelect
                         row(nCopies(19, null).toArray()));
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
         onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", CREATE_TABLE_AS_SELECT, NATION_TABLE_NAME));

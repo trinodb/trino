@@ -27,9 +27,7 @@ import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -103,8 +101,7 @@ public class TestRedshiftTypeMapping
     private final LocalDate dayOfMidnightGapInVilnius = LocalDate.of(1983, 4, 1);
     private final LocalDate dayAfterMidnightSetBackInVilnius = LocalDate.of(1983, 10, 1);
 
-    @BeforeClass
-    public void checkRanges()
+    public TestRedshiftTypeMapping()
     {
         // Timestamps
         checkIsGap(jvmZone, timeGapInJvmZone);
@@ -250,7 +247,7 @@ public class TestRedshiftTypeMapping
         try (TestTable table = testTable("check_multibyte_char", "(c char(32))")) {
             assertThatThrownBy(() -> getRedshiftExecutor()
                     .execute(format("INSERT INTO %s VALUES ('\u968a')", table.getName())))
-                    .getCause()
+                    .cause()
                     .isInstanceOf(SQLException.class)
                     .hasMessageContaining("CHAR string contains invalid ASCII character");
         }
@@ -373,8 +370,17 @@ public class TestRedshiftTypeMapping
                 "Unsupported column type: json");
     }
 
-    @Test(dataProvider = "datetime_test_parameters")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(jvmZone);
+        testDate(vilnius);
+        testDate(kathmandu);
+        testDate(testZone);
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -403,8 +409,17 @@ public class TestRedshiftTypeMapping
                 .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_date"));
     }
 
-    @Test(dataProvider = "datetime_test_parameters")
-    public void testTime(ZoneId sessionZone)
+    @Test
+    public void testTime()
+    {
+        testTime(UTC);
+        testTime(jvmZone);
+        testTime(vilnius);
+        testTime(kathmandu);
+        testTime(testZone);
+    }
+
+    private void testTime(ZoneId sessionZone)
     {
         // Redshift gets bizarre errors if you try to insert after
         // specifying precision for a time column.
@@ -437,8 +452,17 @@ public class TestRedshiftTypeMapping
                 .addRoundTrip(inputType, "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'");
     }
 
-    @Test(dataProvider = "datetime_test_parameters")
-    public void testTimestamp(ZoneId sessionZone)
+    @Test
+    public void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        testTimestamp(vilnius);
+        testTimestamp(kathmandu);
+        testTimestamp(testZone);
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -476,8 +500,17 @@ public class TestRedshiftTypeMapping
                 .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.999999'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:00.999999'");
     }
 
-    @Test(dataProvider = "datetime_test_parameters")
-    public void testTimestampWithTimeZone(ZoneId sessionZone)
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        testTimestampWithTimeZone(UTC);
+        testTimestampWithTimeZone(jvmZone);
+        testTimestampWithTimeZone(vilnius);
+        testTimestampWithTimeZone(kathmandu);
+        testTimestampWithTimeZone(testZone);
+    }
+
+    private void testTimestampWithTimeZone(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -625,21 +658,9 @@ public class TestRedshiftTypeMapping
 
         // The max timestamp with time zone value in Redshift is larger than Trino
         try (TestTable table = new TestTable(getRedshiftExecutor(), TEST_SCHEMA + ".timestamp_tz_max", "(ts timestamptz)", ImmutableList.of("TIMESTAMP '294276-12-31 23:59:59' AT TIME ZONE 'UTC'"))) {
-            assertThatThrownBy(() -> query("SELECT * FROM " + table.getName()))
-                    .hasMessage("Millis overflow: 9224318015999000");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .failure().hasMessage("Millis overflow: 9224318015999000");
         }
-    }
-
-    @DataProvider(name = "datetime_test_parameters")
-    public Object[][] dataProviderForDatetimeTests()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                {vilnius},
-                {kathmandu},
-                {testZone},
-        };
     }
 
     @Test
@@ -815,7 +836,7 @@ public class TestRedshiftTypeMapping
     }
 
     @Test
-    public static void checkIllegalRedshiftTimePrecision()
+    public void checkIllegalRedshiftTimePrecision()
     {
         assertRedshiftCreateFails(
                 "check_redshift_time_precision_error",
@@ -824,7 +845,7 @@ public class TestRedshiftTypeMapping
     }
 
     @Test
-    public static void checkIllegalRedshiftTimestampPrecision()
+    public void checkIllegalRedshiftTimestampPrecision()
     {
         assertRedshiftCreateFails(
                 "check_redshift_timestamp_precision_error",
@@ -842,7 +863,7 @@ public class TestRedshiftTypeMapping
         try {
             assertThatThrownBy(() -> getRedshiftExecutor()
                     .execute(format("CREATE TABLE %s %s", tableName, tableBody)))
-                    .getCause()
+                    .cause()
                     .as("Redshift create fails for %s %s", tableName, tableBody)
                     .isInstanceOf(SQLException.class)
                     .hasMessage(message);

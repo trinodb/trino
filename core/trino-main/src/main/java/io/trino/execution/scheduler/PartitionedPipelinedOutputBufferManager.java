@@ -14,11 +14,10 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.sql.planner.PartitioningHandle;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;

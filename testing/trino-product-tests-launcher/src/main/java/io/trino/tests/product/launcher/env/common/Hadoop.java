@@ -13,14 +13,13 @@
  */
 package io.trino.tests.product.launcher.env.common;
 
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-
-import javax.inject.Inject;
 
 import java.time.Duration;
 
@@ -82,6 +81,8 @@ public final class Hadoop
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/hadoop-health-check.sh")), CONTAINER_HEALTH_D + "hadoop-health-check.sh")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hadoop-run.sh")), "/usr/local/hadoop-run.sh")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/apply-config-overrides.sh")), CONTAINER_HADOOP_INIT_D + "00-apply-config-overrides.sh")
+                // When hive performs implicit coercion to/from timestamp for ORC files, it depends on timezone of the HiveServer
+                .withEnv("TZ", "UTC")
                 .withCommand("/usr/local/hadoop-run.sh")
                 .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive", "/var/log/container-health.log")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
@@ -96,12 +97,10 @@ public final class Hadoop
         portBinder.exposePort(container, 8088);
         portBinder.exposePort(container, 9000);
         portBinder.exposePort(container, 9083); // Metastore Thrift
-        portBinder.exposePort(container, 9864); // DataNode Web UI since Hadoop 3
-        portBinder.exposePort(container, 9870); // NameNode Web UI since Hadoop 3
+        portBinder.exposePort(container, 9864); // DataNode Web UI
+        portBinder.exposePort(container, 9870); // NameNode Web UI
         portBinder.exposePort(container, 10000); // HiveServer2
         portBinder.exposePort(container, 19888);
-        portBinder.exposePort(container, 50070); // NameNode Web UI prior to Hadoop 3
-        portBinder.exposePort(container, 50075); // DataNode Web UI prior to Hadoop 3
 
         return container;
     }

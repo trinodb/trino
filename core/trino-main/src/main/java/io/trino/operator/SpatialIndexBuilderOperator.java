@@ -199,7 +199,7 @@ public class SpatialIndexBuilderOperator
 
         index.addPage(page);
 
-        if (!localUserMemoryContext.trySetBytes((index.getEstimatedSize().toBytes()))) {
+        if (!localUserMemoryContext.trySetBytes(index.getEstimatedSize().toBytes())) {
             index.compact();
             localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
         }

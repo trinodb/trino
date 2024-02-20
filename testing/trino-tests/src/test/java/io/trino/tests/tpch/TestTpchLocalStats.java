@@ -16,16 +16,19 @@ package io.trino.tests.tpch;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.tpch.ColumnNaming;
-import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.statistics.StatisticsAssertion;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
-import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.statistics.MetricComparisonStrategies.absoluteError;
@@ -37,32 +40,35 @@ import static io.trino.testing.statistics.Metrics.distinctValuesCount;
 import static io.trino.testing.statistics.Metrics.highValue;
 import static io.trino.testing.statistics.Metrics.lowValue;
 import static io.trino.testing.statistics.Metrics.nullsFraction;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTpchLocalStats
 {
     private StatisticsAssertion statisticsAssertion;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         Session defaultSession = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
-                // We are not able to calculate stats for PARTIAL aggregations
-                .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false")
                 // Stats for non-EXPLAIN queries are not collected by default
                 .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true")
                 .build();
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(defaultSession);
-        queryRunner.createCatalog(
-                "tpch",
-                new TpchConnectorFactory(1),
-                ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()));
+        QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.<String, String>builder()
+                .put(TPCH_SPLITS_PER_NODE, "1")
+                .put(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name())
+                .buildOrThrow());
         statisticsAssertion = new StatisticsAssertion(queryRunner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         statisticsAssertion.close();

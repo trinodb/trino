@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.base.authentication;
 
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.base.authentication.KerberosConfiguration.Builder.getServerPrincipal;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,22 +22,14 @@ public class TestKerberosConfiguration
 {
     private static final String HOST_NAME = "host_name";
 
-    @Test(dataProvider = "kerberosPrincipalPattern")
-    public void testHostnameSubstitution(String actual, String expected)
+    @Test
+    public void testHostnameSubstitution()
     {
-        assertThat(getServerPrincipal(actual, HOST_NAME)).isEqualTo(expected);
-    }
-
-    @DataProvider(name = "kerberosPrincipalPattern")
-    public Object[][] kerberosPrincipalPattern()
-    {
-        return new Object[][] {
-                {"server/_HOST@REALM.COM", "server/host_name@REALM.COM"},
-                {"server/_HOST", "server/host_name"},
-                {"server/trino-worker@REALM.COM", "server/trino-worker@REALM.COM"},
-                {"server/trino-worker", "server/trino-worker"},
-                {"SERVER_HOST/_HOST@REALM.COM", "SERVER_HOST/host_name@REALM.COM"},
-                {"SERVER_HOST/_HOST", "SERVER_HOST/host_name"},
-        };
+        assertThat(getServerPrincipal("server/_HOST@REALM.COM", HOST_NAME)).isEqualTo("server/host_name@REALM.COM");
+        assertThat(getServerPrincipal("server/_HOST", HOST_NAME)).isEqualTo("server/host_name");
+        assertThat(getServerPrincipal("server/trino-worker@REALM.COM", HOST_NAME)).isEqualTo("server/trino-worker@REALM.COM");
+        assertThat(getServerPrincipal("server/trino-worker", HOST_NAME)).isEqualTo("server/trino-worker");
+        assertThat(getServerPrincipal("SERVER_HOST/_HOST@REALM.COM", HOST_NAME)).isEqualTo("SERVER_HOST/host_name@REALM.COM");
+        assertThat(getServerPrincipal("SERVER_HOST/_HOST", HOST_NAME)).isEqualTo("SERVER_HOST/host_name");
     }
 }

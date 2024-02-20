@@ -14,8 +14,7 @@
 package io.trino.orc.stream;
 
 import io.trino.orc.checkpoint.StreamCheckpoint;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 

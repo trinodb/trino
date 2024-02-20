@@ -16,24 +16,23 @@ package io.trino.plugin.hive.orc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.local.LocalInputFile;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.ql.io.AcidOutputFormat;
 import org.apache.hadoop.hive.ql.io.BucketCodec;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcDeleteDeltaPageSource
 {
@@ -42,7 +41,7 @@ public class TestOrcDeleteDeltaPageSource
             throws Exception
     {
         File deleteDeltaFile = new File(Resources.getResource("fullacid_delete_delta_test/delete_delta_0000004_0000004_0000/bucket_00000").toURI());
-        TrinoInputFile inputFile = HDFS_FILE_SYSTEM_FACTORY.create(ConnectorIdentity.ofUser("test")).newInputFile(deleteDeltaFile.toURI().toString());
+        TrinoInputFile inputFile = new LocalInputFile(deleteDeltaFile);
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
                 new OrcReaderOptions(),
                 new FileFormatDataSourceStats());
@@ -50,9 +49,9 @@ public class TestOrcDeleteDeltaPageSource
         ConnectorPageSource pageSource = pageSourceFactory.createPageSource(inputFile).orElseThrow();
         MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, INTEGER, BIGINT));
 
-        assertEquals(materializedRows.getRowCount(), 1);
+        assertThat(materializedRows.getRowCount()).isEqualTo(1);
 
-        AcidOutputFormat.Options bucketOptions = new AcidOutputFormat.Options(newEmptyConfiguration()).bucket(0);
-        assertEquals(materializedRows.getMaterializedRows().get(0), new MaterializedRow(5, 2L, BucketCodec.V1.encode(bucketOptions), 0L));
+        AcidOutputFormat.Options bucketOptions = new AcidOutputFormat.Options(new Configuration(false)).bucket(0);
+        assertThat(materializedRows.getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(5, 2L, BucketCodec.V1.encode(bucketOptions), 0L));
     }
 }

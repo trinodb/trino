@@ -21,8 +21,7 @@ import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.List;

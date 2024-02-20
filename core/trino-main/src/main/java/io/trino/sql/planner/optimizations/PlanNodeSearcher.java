@@ -109,16 +109,6 @@ public class PlanNodeSearcher
         return Optional.empty();
     }
 
-    public <T extends PlanNode> Optional<T> findSingle()
-    {
-        List<T> all = findAll();
-        return switch (all.size()) {
-            case 0 -> Optional.empty();
-            case 1 -> Optional.of(all.get(0));
-            default -> throw new IllegalStateException("Multiple nodes found");
-        };
-    }
-
     /**
      * Return a list of matching nodes ordered as in pre-order traversal of the plan tree.
      */
@@ -132,15 +122,6 @@ public class PlanNodeSearcher
     public <T extends PlanNode> T findOnlyElement()
     {
         return getOnlyElement(findAll());
-    }
-
-    public <T extends PlanNode> T findOnlyElement(T defaultValue)
-    {
-        List<T> all = findAll();
-        if (all.size() == 0) {
-            return defaultValue;
-        }
-        return getOnlyElement(all);
     }
 
     private <T extends PlanNode> void findAllRecursive(PlanNode node, ImmutableList.Builder<T> nodes)

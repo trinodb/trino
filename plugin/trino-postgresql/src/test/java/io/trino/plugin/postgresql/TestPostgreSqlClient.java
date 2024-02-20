@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.postgresql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
@@ -24,57 +26,56 @@ import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcMetadataSessionProperties;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.QueryParameter;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.testing.DataProviders.toDataProvider;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertTrue;
 
 public class TestPostgreSqlClient
 {
@@ -120,7 +121,10 @@ public class TestPostgreSqlClient
 
     private static final ConnectorSession SESSION = TestingConnectorSession
             .builder()
-            .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
+            .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()
+                    .addAll(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
+                    .addAll(new PostgreSqlSessionProperties(new PostgreSqlConfig()).getSessionProperties())
+                    .build())
             .build();
 
     @Test
@@ -191,7 +195,13 @@ public class TestPostgreSqlClient
         testImplementAggregation(
                 new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), true, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.empty());  // distinct not supported
+                Optional.of("sum(DISTINCT \"c_bigint\")"));
+
+        // sum(DISTINCT double)
+        testImplementAggregation(
+                new AggregateFunction("sum", DOUBLE, List.of(bigintVariable), List.of(), true, Optional.empty()),
+                Map.of(bigintVariable.getName(), DOUBLE_COLUMN),
+                Optional.of("sum(DISTINCT \"c_double\")"));
 
         // sum(bigint) FILTER (WHERE ...)
         testImplementAggregation(
@@ -208,239 +218,235 @@ public class TestPostgreSqlClient
         }
         else {
             assertThat(result).isPresent();
-            assertEquals(result.get().getExpression(), expectedExpression.get());
+            assertThat(result.get().getExpression()).isEqualTo(expectedExpression.get());
             Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toColumnMapping(SESSION, null, result.get().getJdbcTypeHandle());
-            assertTrue(columnMapping.isPresent(), "No mapping for: " + result.get().getJdbcTypeHandle());
-            assertEquals(columnMapping.get().getType(), aggregateFunction.getOutputType());
+            assertThat(columnMapping.isPresent())
+                    .describedAs("No mapping for: " + result.get().getJdbcTypeHandle())
+                    .isTrue();
+            assertThat(columnMapping.get().getType()).isEqualTo(aggregateFunction.getOutputType());
         }
     }
 
     @Test
     public void testConvertOr()
     {
-        assertThat(JDBC_CLIENT.convertPredicate(
-                SESSION,
-                translateToConnectorExpression(
-                        new LogicalExpression(
-                                LogicalExpression.Operator.OR,
-                                List.of(
-                                        new ComparisonExpression(
-                                                ComparisonExpression.Operator.EQUAL,
-                                                new SymbolReference("c_bigint_symbol"),
-                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
-                                        new ComparisonExpression(
-                                                ComparisonExpression.Operator.EQUAL,
-                                                new SymbolReference("c_bigint_symbol_2"),
-                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 415L, BIGINT)))),
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
+                        translateToConnectorExpression(
+                                new LogicalExpression(
+                                        LogicalExpression.Operator.OR,
+                                        List.of(
+                                                new ComparisonExpression(
+                                                        ComparisonExpression.Operator.EQUAL,
+                                                        new SymbolReference("c_bigint_symbol"),
+                                                        LITERAL_ENCODER.toExpression(42L, BIGINT)),
+                                                new ComparisonExpression(
+                                                        ComparisonExpression.Operator.EQUAL,
+                                                        new SymbolReference("c_bigint_symbol_2"),
+                                                        LITERAL_ENCODER.toExpression(415L, BIGINT)))),
+                                Map.of(
+                                        "c_bigint_symbol", BIGINT,
+                                        "c_bigint_symbol_2", BIGINT)),
                         Map.of(
-                                "c_bigint_symbol", BIGINT,
-                                "c_bigint_symbol_2", BIGINT)),
-                Map.of(
-                        "c_bigint_symbol", BIGINT_COLUMN,
-                        "c_bigint_symbol_2", BIGINT_COLUMN)))
-                .hasValue("((\"c_bigint\") = (42)) OR ((\"c_bigint\") = (415))");
+                                "c_bigint_symbol", BIGINT_COLUMN,
+                                "c_bigint_symbol_2", BIGINT_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("((\"c_bigint\") = (?)) OR ((\"c_bigint\") = (?))");
+        assertThat(converted.parameters()).isEqualTo(List.of(
+                new QueryParameter(BIGINT, Optional.of(42L)),
+                new QueryParameter(BIGINT, Optional.of(415L))));
     }
 
     @Test
     public void testConvertOrWithAnd()
     {
-        assertThat(JDBC_CLIENT.convertPredicate(
-                SESSION,
-                translateToConnectorExpression(
-                        new LogicalExpression(
-                                LogicalExpression.Operator.OR,
-                                List.of(
-                                        new ComparisonExpression(
-                                                ComparisonExpression.Operator.EQUAL,
-                                                new SymbolReference("c_bigint_symbol"),
-                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
-                                        new LogicalExpression(
-                                                LogicalExpression.Operator.AND,
-                                                List.of(
-                                                        new ComparisonExpression(
-                                                                ComparisonExpression.Operator.EQUAL,
-                                                                new SymbolReference("c_bigint_symbol"),
-                                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 43L, BIGINT)),
-                                                        new ComparisonExpression(
-                                                                ComparisonExpression.Operator.EQUAL,
-                                                                new SymbolReference("c_bigint_symbol_2"),
-                                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 44L, BIGINT)))))),
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
+                        translateToConnectorExpression(
+                                new LogicalExpression(
+                                        LogicalExpression.Operator.OR,
+                                        List.of(
+                                                new ComparisonExpression(
+                                                        ComparisonExpression.Operator.EQUAL,
+                                                        new SymbolReference("c_bigint_symbol"),
+                                                        LITERAL_ENCODER.toExpression(42L, BIGINT)),
+                                                new LogicalExpression(
+                                                        LogicalExpression.Operator.AND,
+                                                        List.of(
+                                                                new ComparisonExpression(
+                                                                        ComparisonExpression.Operator.EQUAL,
+                                                                        new SymbolReference("c_bigint_symbol"),
+                                                                        LITERAL_ENCODER.toExpression(43L, BIGINT)),
+                                                                new ComparisonExpression(
+                                                                        ComparisonExpression.Operator.EQUAL,
+                                                                        new SymbolReference("c_bigint_symbol_2"),
+                                                                        LITERAL_ENCODER.toExpression(44L, BIGINT)))))),
+                                Map.of(
+                                        "c_bigint_symbol", BIGINT,
+                                        "c_bigint_symbol_2", BIGINT)),
                         Map.of(
-                                "c_bigint_symbol", BIGINT,
-                                "c_bigint_symbol_2", BIGINT)),
-                Map.of(
-                        "c_bigint_symbol", BIGINT_COLUMN,
-                        "c_bigint_symbol_2", BIGINT_COLUMN)))
-                .hasValue("((\"c_bigint\") = (42)) OR (((\"c_bigint\") = (43)) AND ((\"c_bigint\") = (44)))");
+                                "c_bigint_symbol", BIGINT_COLUMN,
+                                "c_bigint_symbol_2", BIGINT_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("((\"c_bigint\") = (?)) OR (((\"c_bigint\") = (?)) AND ((\"c_bigint\") = (?)))");
+        assertThat(converted.parameters()).isEqualTo(List.of(
+                new QueryParameter(BIGINT, Optional.of(42L)),
+                new QueryParameter(BIGINT, Optional.of(43L)),
+                new QueryParameter(BIGINT, Optional.of(44L))));
     }
 
-    @Test(dataProvider = "testConvertComparisonDataProvider")
-    public void testConvertComparison(ComparisonExpression.Operator operator)
+    @Test
+    public void testConvertComparison()
     {
-        Optional<String> converted = JDBC_CLIENT.convertPredicate(
-                SESSION,
-                translateToConnectorExpression(
-                        new ComparisonExpression(
-                                operator,
-                                new SymbolReference("c_bigint_symbol"),
-                                LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
-                        Map.of("c_bigint_symbol", BIGINT)),
-                Map.of("c_bigint_symbol", BIGINT_COLUMN));
+        for (ComparisonExpression.Operator operator : ComparisonExpression.Operator.values()) {
+            Optional<ParameterizedExpression> converted = JDBC_CLIENT.convertPredicate(
+                    SESSION,
+                    translateToConnectorExpression(
+                            new ComparisonExpression(
+                                    operator,
+                                    new SymbolReference("c_bigint_symbol"),
+                                    LITERAL_ENCODER.toExpression(42L, BIGINT)),
+                            Map.of("c_bigint_symbol", BIGINT)),
+                    Map.of("c_bigint_symbol", BIGINT_COLUMN));
 
-        switch (operator) {
-            case EQUAL:
-            case NOT_EQUAL:
-                assertThat(converted).hasValue(format("(\"c_bigint\") %s (42)", operator.getValue()));
-                return;
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-            case IS_DISTINCT_FROM:
-                // Not supported yet, even for bigint
-                assertThat(converted).isEmpty();
-                return;
+            switch (operator) {
+                case EQUAL:
+                case NOT_EQUAL:
+                    assertThat(converted).isPresent();
+                    assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
+                    assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
+                    return;
+                case LESS_THAN:
+                case LESS_THAN_OR_EQUAL:
+                case GREATER_THAN:
+                case GREATER_THAN_OR_EQUAL:
+                case IS_DISTINCT_FROM:
+                    // Not supported yet, even for bigint
+                    assertThat(converted).isEmpty();
+                    return;
+            }
+            throw new UnsupportedOperationException("Unsupported operator: " + operator);
         }
-        throw new UnsupportedOperationException("Unsupported operator: " + operator);
     }
 
-    @DataProvider
-    public static Object[][] testConvertComparisonDataProvider()
+    @Test
+    public void testConvertArithmeticBinary()
     {
-        return Stream.of(ComparisonExpression.Operator.values())
-                .collect(toDataProvider());
-    }
+        for (ArithmeticBinaryExpression.Operator operator : ArithmeticBinaryExpression.Operator.values()) {
+            ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                            SESSION,
+                            translateToConnectorExpression(
+                                    new ArithmeticBinaryExpression(
+                                            operator,
+                                            new SymbolReference("c_bigint_symbol"),
+                                            LITERAL_ENCODER.toExpression(42L, BIGINT)),
+                                    Map.of("c_bigint_symbol", BIGINT)),
+                            Map.of("c_bigint_symbol", BIGINT_COLUMN))
+                    .orElseThrow();
 
-    @Test(dataProvider = "testConvertArithmeticBinaryDataProvider")
-    public void testConvertArithmeticBinary(ArithmeticBinaryExpression.Operator operator)
-    {
-        Optional<String> converted = JDBC_CLIENT.convertPredicate(
-                SESSION,
-                translateToConnectorExpression(
-                        new ArithmeticBinaryExpression(
-                                operator,
-                                new SymbolReference("c_bigint_symbol"),
-                                LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
-                        Map.of("c_bigint_symbol", BIGINT)),
-                Map.of("c_bigint_symbol", BIGINT_COLUMN));
-
-        assertThat(converted).hasValue(format("(\"c_bigint\") %s (42)", operator.getValue()));
-    }
-
-    @DataProvider
-    public static Object[][] testConvertArithmeticBinaryDataProvider()
-    {
-        return Stream.of(ArithmeticBinaryExpression.Operator.values())
-                .collect(toDataProvider());
+            assertThat(converted.expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
+            assertThat(converted.parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
+        }
     }
 
     @Test
     public void testConvertArithmeticUnaryMinus()
     {
-        Optional<String> converted = JDBC_CLIENT.convertPredicate(
-                SESSION,
-                translateToConnectorExpression(
-                        new ArithmeticUnaryExpression(
-                                ArithmeticUnaryExpression.Sign.MINUS,
-                                new SymbolReference("c_bigint_symbol")),
-                        Map.of("c_bigint_symbol", BIGINT)),
-                Map.of("c_bigint_symbol", BIGINT_COLUMN));
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
+                        translateToConnectorExpression(
+                                new ArithmeticUnaryExpression(
+                                        ArithmeticUnaryExpression.Sign.MINUS,
+                                        new SymbolReference("c_bigint_symbol")),
+                                Map.of("c_bigint_symbol", BIGINT)),
+                        Map.of("c_bigint_symbol", BIGINT_COLUMN))
+                .orElseThrow();
 
-        assertThat(converted).hasValue("-(\"c_bigint\")");
-    }
-
-    @Test
-    public void testConvertLike()
-    {
-        // c_varchar LIKE '%pattern%'
-        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
-                translateToConnectorExpression(
-                        new LikePredicate(
-                                new SymbolReference("c_varchar_symbol"),
-                                new StringLiteral("%pattern%"),
-                                Optional.empty()),
-                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
-                Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
-                .hasValue("(\"c_varchar\") LIKE ('%pattern%')");
-
-        // c_varchar LIKE '%pattern\%' ESCAPE '\'
-        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
-                translateToConnectorExpression(
-                        new LikePredicate(
-                                new SymbolReference("c_varchar"),
-                                new StringLiteral("%pattern\\%"),
-                                new StringLiteral("\\")),
-                        Map.of("c_varchar", VARCHAR_COLUMN.getColumnType())),
-                Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN)))
-                .hasValue("(\"c_varchar\") LIKE ('%pattern\\%') ESCAPE ('\\')");
+        assertThat(converted.expression()).isEqualTo("-(\"c_bigint\")");
+        assertThat(converted.parameters()).isEqualTo(List.of());
     }
 
     @Test
     public void testConvertIsNull()
     {
         // c_varchar IS NULL
-        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
-                translateToConnectorExpression(
-                        new IsNullPredicate(
-                                new SymbolReference("c_varchar_symbol")),
-                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
-                Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
-                .hasValue("(\"c_varchar\") IS NULL");
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+                        translateToConnectorExpression(
+                                new IsNullPredicate(
+                                        new SymbolReference("c_varchar_symbol")),
+                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IS NULL");
+        assertThat(converted.parameters()).isEqualTo(List.of());
     }
 
     @Test
     public void testConvertIsNotNull()
     {
         // c_varchar IS NOT NULL
-        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
-                translateToConnectorExpression(
-                        new IsNotNullPredicate(
-                                new SymbolReference("c_varchar_symbol")),
-                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
-                Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
-                .hasValue("(\"c_varchar\") IS NOT NULL");
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+                        translateToConnectorExpression(
+                                new IsNotNullPredicate(
+                                        new SymbolReference("c_varchar_symbol")),
+                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IS NOT NULL");
+        assertThat(converted.parameters()).isEqualTo(List.of());
     }
 
     @Test
     public void testConvertNullIf()
     {
         // nullif(a_varchar, b_varchar)
-        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
-                translateToConnectorExpression(
-                        new NullIfExpression(
-                                new SymbolReference("a_varchar_symbol"),
-                                new SymbolReference("b_varchar_symbol")),
-                        ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN.getColumnType(), "b_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
-                ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN)))
-                .hasValue("NULLIF((\"c_varchar\"), (\"c_varchar\"))");
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+                        translateToConnectorExpression(
+                                new NullIfExpression(
+                                        new SymbolReference("a_varchar_symbol"),
+                                        new SymbolReference("b_varchar_symbol")),
+                                ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN.getColumnType(), "b_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                        ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("NULLIF((\"c_varchar\"), (\"c_varchar\"))");
+        assertThat(converted.parameters()).isEqualTo(List.of());
     }
 
     @Test
     public void testConvertNotExpression()
     {
         // NOT(expression)
-        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
-                translateToConnectorExpression(
-                        new NotExpression(
-                                new IsNotNullPredicate(
-                                        new SymbolReference("c_varchar_symbol"))),
-                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
-                Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
-                .hasValue("NOT ((\"c_varchar\") IS NOT NULL)");
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+                        translateToConnectorExpression(
+                                new NotExpression(
+                                        new IsNotNullPredicate(
+                                                new SymbolReference("c_varchar_symbol"))),
+                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("NOT ((\"c_varchar\") IS NOT NULL)");
+        assertThat(converted.parameters()).isEqualTo(List.of());
     }
 
     @Test
     public void testConvertIn()
     {
-        assertThat(JDBC_CLIENT.convertPredicate(
-                SESSION,
-                translateToConnectorExpression(
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
+                        translateToConnectorExpression(
                                 new InPredicate(
                                         new SymbolReference("c_varchar"),
-                                        new InListExpression(List.of(new StringLiteral("value1"), new StringLiteral("value2"), new SymbolReference("c_varchar2")))),
+                                        new InListExpression(List.of(
+                                                new Cast(new StringLiteral("value1"), toSqlType(VARCHAR_COLUMN.getColumnType())),
+                                                new Cast(new StringLiteral("value2"), toSqlType(VARCHAR_COLUMN.getColumnType())),
+                                                new SymbolReference("c_varchar2")))),
                                 Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
-                Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2)))
-                .hasValue("(\"c_varchar\") IN ('value1', 'value2', \"c_varchar2\")");
+                        Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IN (?, ?, \"c_varchar2\")");
+        assertThat(converted.parameters()).isEqualTo(List.of(
+                new QueryParameter(createVarcharType(10), Optional.of(utf8Slice("value1"))),
+                new QueryParameter(createVarcharType(10), Optional.of(utf8Slice("value2")))));
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
@@ -451,7 +457,7 @@ public class TestPostgreSqlClient
                         TypeProvider.viewOf(symbolTypes.entrySet().stream()
                                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Entry::getValue))),
                         PLANNER_CONTEXT,
-                        createTestingTypeAnalyzer(PLANNER_CONTEXT))
+                        new IrTypeAnalyzer(PLANNER_CONTEXT))
                 .orElseThrow();
     }
 }

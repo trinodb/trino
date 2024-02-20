@@ -15,6 +15,7 @@ package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.decoder.dummy.DummyRowDecoder;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
@@ -35,8 +36,6 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ComputedStatistics;
-
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -253,7 +252,7 @@ public class KafkaMetadata
                 handle.getColumns(),
                 newDomain);
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), constraint.getExpression(), false));
     }
 
     private KafkaTopicDescription getRequiredTopicDescription(ConnectorSession session, SchemaTableName schemaTableName)

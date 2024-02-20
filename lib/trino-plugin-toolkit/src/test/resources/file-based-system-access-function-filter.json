@@ -1,0 +1,50 @@
+{
+    "catalogs": [
+        {
+            "allow": true
+        }
+    ],
+    "schemas": [
+        {
+            "schema": "restricted",
+            "owner": false
+        },
+        {
+            "role": "admin",
+            "owner": true
+        },
+        {
+            "user": "alice",
+            "schema": "aliceschema",
+            "owner": true
+        }
+    ],
+    "functions": [
+        {
+            "schema": "(restricted|secret)",
+            "privileges": []
+        },
+        {
+            "user": "admin",
+            "schema": ".*",
+            "privileges": ["EXECUTE"]
+        },
+        {
+            "user": "alice",
+            "schema": "aliceschema",
+            "privileges": ["EXECUTE"]
+        },
+        {
+            "user": "bob",
+            "schema": "bobschema",
+            "function": "bob.*",
+            "privileges": ["EXECUTE"]
+        },
+        {
+            "user": "bob",
+            "schema": "aliceschema",
+            "function": "bobfunction",
+            "privileges": ["EXECUTE"]
+        }
+    ]
+}

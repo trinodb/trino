@@ -14,12 +14,11 @@
 package io.trino.plugin.session.db;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.session.AbstractSessionPropertyManager;
 import io.trino.plugin.session.SessionMatchSpec;
 import io.trino.spi.session.SessionConfigurationContext;
 import io.trino.spi.session.SessionPropertyConfigurationManager;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

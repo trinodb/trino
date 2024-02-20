@@ -15,8 +15,8 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.Test;
+import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
@@ -26,28 +26,13 @@ public class TestDeltaLakeSystemTables
         extends AbstractTestQueryFramework
 {
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return createDeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 ImmutableMap.of(),
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
-    }
-
-    @Test
-    public void testDataTable()
-    {
-        try {
-            assertUpdate("CREATE TABLE test_data_table (_bigint BIGINT)");
-            assertUpdate("INSERT INTO test_data_table VALUES 1, 2, 3", 3);
-
-            assertQuery("SELECT * FROM test_data_table", "VALUES 1, 2, 3");
-            assertQuery("SELECT * FROM \"test_data_table$data\"", "VALUES 1, 2, 3");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS test_data_table");
-        }
     }
 
     @Test
@@ -93,7 +78,7 @@ public class TestDeltaLakeSystemTables
                     .matches("""
                             VALUES
                                 (BIGINT '5', VARCHAR 'OPTIMIZE', BIGINT '4', VARCHAR 'WriteSerializable', true),
-                                (BIGINT '4', VARCHAR 'MERGE', BIGINT '3', VARCHAR 'WriteSerializable', true),
+                                (BIGINT '4', VARCHAR 'DELETE', BIGINT '3', VARCHAR 'WriteSerializable', true),
                                 (BIGINT '3', VARCHAR 'MERGE', BIGINT '2', VARCHAR 'WriteSerializable', true),
                                 (BIGINT '2', VARCHAR 'WRITE', BIGINT '1', VARCHAR 'WriteSerializable', true),
                                 (BIGINT '1', VARCHAR 'WRITE', BIGINT '0', VARCHAR 'WriteSerializable', true),
@@ -103,6 +88,19 @@ public class TestDeltaLakeSystemTables
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_simple_table");
             assertUpdate("DROP TABLE IF EXISTS test_checkpoint_table");
+        }
+    }
+
+    @Test
+    public void testPropertiesTable()
+    {
+        String tableName = "test_simple_properties_table";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT) WITH (change_data_feed_enabled = true, checkpoint_interval = 5)");
+            assertQuery("SELECT * FROM \"" + tableName + "$properties\"", "VALUES ('delta.enableChangeDataFeed', 'true'), ('delta.checkpointInterval', '5'), ('delta.minReaderVersion', '1'), ('delta.minWriterVersion', '4')");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 }

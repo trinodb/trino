@@ -13,9 +13,10 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -28,7 +29,6 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.util.concurrent.ThreadLocalRandom;
@@ -81,13 +81,13 @@ public class BenchmarkArrayHashCodeOperator
 
         private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
         {
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < arraySize; i++) {
-                    addElement(arrayType.getElementType(), ThreadLocalRandom.current(), entryBuilder);
-                }
-                blockBuilder.closeEntry();
+                blockBuilder.buildEntry(elementBuilder -> {
+                    for (int i = 0; i < arraySize; i++) {
+                        addElement(arrayType.getElementType(), ThreadLocalRandom.current(), elementBuilder);
+                    }
+                });
             }
             return blockBuilder.build();
         }

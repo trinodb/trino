@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NamedClientTypeSignature
@@ -73,7 +72,7 @@ public class NamedClientTypeSignature
     public String toString()
     {
         if (fieldName.isPresent()) {
-            return format("%s %s", fieldName.get(), typeSignature);
+            return fieldName.get() + " " + typeSignature;
         }
         return typeSignature.toString();
     }

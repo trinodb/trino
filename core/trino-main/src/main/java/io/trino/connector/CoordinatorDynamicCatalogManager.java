@@ -15,6 +15,9 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
@@ -24,11 +27,7 @@ import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
-
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
+import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -51,7 +50,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metadata.Catalog.failedCatalog;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.lang.String.format;
@@ -167,6 +166,7 @@ public class CoordinatorDynamicCatalogManager
         return Optional.ofNullable(activeCatalogs.get(catalogName));
     }
 
+    @Override
     public Set<CatalogHandle> getActiveCatalogs()
     {
         return activeCatalogs.values().stream()
@@ -319,7 +319,7 @@ public class CoordinatorDynamicCatalogManager
         }
 
         if (!removed && !exists) {
-            throw new TrinoException(NOT_FOUND, format("Catalog '%s' does not exist", catalogName));
+            throw new TrinoException(CATALOG_NOT_FOUND, format("Catalog '%s' not found", catalogName));
         }
         // Do not shut down the catalog, because there may still be running queries using this catalog.
         // Catalog shutdown logic will be added later.

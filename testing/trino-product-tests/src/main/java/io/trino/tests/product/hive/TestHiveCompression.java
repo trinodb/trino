@@ -20,7 +20,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.ORDERS;
 import static io.trino.tests.product.TestGroups.HIVE_COMPRESSION;
@@ -80,18 +79,7 @@ public class TestHiveCompression
     @Test(groups = HIVE_COMPRESSION)
     public void testSnappyCompressedParquetTableCreatedInTrino()
     {
-        testSnappyCompressedParquetTableCreatedInTrino(false);
-    }
-
-    @Test(groups = HIVE_COMPRESSION)
-    public void testSnappyCompressedParquetTableCreatedInTrinoWithNativeWriter()
-    {
-        testSnappyCompressedParquetTableCreatedInTrino(true);
-    }
-
-    private void testSnappyCompressedParquetTableCreatedInTrino(boolean optimizedParquetWriter)
-    {
-        String tableName = "table_trino_parquet_snappy" + (optimizedParquetWriter ? "_native_writer" : "");
+        String tableName = "table_trino_parquet_snappy";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onTrino().executeQuery(format(
                 "CREATE TABLE %s (" +
@@ -102,7 +90,6 @@ public class TestHiveCompression
 
         String catalog = (String) onTrino().executeQuery("SELECT CURRENT_CATALOG").getOnlyValue();
         onTrino().executeQuery("SET SESSION " + catalog + ".compression_codec = 'SNAPPY'");
-        onTrino().executeQuery("SET SESSION " + catalog + ".parquet_optimized_writer_enabled = " + optimizedParquetWriter);
         onTrino().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsExactlyInOrder(row(1, "test data"));

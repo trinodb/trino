@@ -138,7 +138,7 @@ public final class BingTile
                 digit++;
             }
             if ((this.y & mask) != 0) {
-                digit += 2;
+                digit += (char) 2;
             }
             quadKey[this.zoomLevel - i] = digit;
         }

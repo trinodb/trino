@@ -99,7 +99,9 @@ import io.trino.operator.scalar.ArrayElementAtFunction;
 import io.trino.operator.scalar.ArrayExceptFunction;
 import io.trino.operator.scalar.ArrayFilterFunction;
 import io.trino.operator.scalar.ArrayFunctions;
+import io.trino.operator.scalar.ArrayHistogramFunction;
 import io.trino.operator.scalar.ArrayIntersectFunction;
+import io.trino.operator.scalar.ArrayJoin;
 import io.trino.operator.scalar.ArrayMaxFunction;
 import io.trino.operator.scalar.ArrayMinFunction;
 import io.trino.operator.scalar.ArrayNgramsFunction;
@@ -133,6 +135,7 @@ import io.trino.operator.scalar.GenericHashCodeOperator;
 import io.trino.operator.scalar.GenericIndeterminateOperator;
 import io.trino.operator.scalar.GenericLessThanOperator;
 import io.trino.operator.scalar.GenericLessThanOrEqualOperator;
+import io.trino.operator.scalar.GenericReadValueOperator;
 import io.trino.operator.scalar.GenericXxHash64Operator;
 import io.trino.operator.scalar.HmacFunctions;
 import io.trino.operator.scalar.HyperLogLogFunctions;
@@ -275,8 +278,6 @@ import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG
 import static io.trino.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.trino.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
-import static io.trino.operator.scalar.ArrayJoin.ARRAY_JOIN;
-import static io.trino.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
 import static io.trino.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION;
 import static io.trino.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static io.trino.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
@@ -515,7 +516,7 @@ public final class SystemFunctionBundle
                 .scalar(DynamicFilters.NullableFunction.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
-                .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
+                .scalars(ArrayJoin.class)
                 .scalar(ArrayToArrayCast.class)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(MAP_ELEMENT_AT)
@@ -568,6 +569,7 @@ public final class SystemFunctionBundle
                 .functions(MAP_FILTER_FUNCTION, new MapTransformKeysFunction(blockTypeOperators), MAP_TRANSFORM_VALUES_FUNCTION)
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
+                .function(new GenericReadValueOperator(typeOperators))
                 .function(new GenericEqualOperator(typeOperators))
                 .function(new GenericHashCodeOperator(typeOperators))
                 .function(new GenericXxHash64Operator(typeOperators))
@@ -584,7 +586,8 @@ public final class SystemFunctionBundle
                 .scalars(SetDigestOperators.class)
                 .scalars(WilsonInterval.class)
                 .aggregates(BigintApproximateMostFrequent.class)
-                .aggregates(VarcharApproximateMostFrequent.class);
+                .aggregates(VarcharApproximateMostFrequent.class)
+                .scalar(ArrayHistogramFunction.class);
 
         // timestamp operators and functions
         builder

@@ -67,7 +67,7 @@ public final class ReadWriteUtils
         return value < -120 || (value >= -112 && value < 0);
     }
 
-    public static long readVInt(DataSeekableInputStream in)
+    public static long readVInt(TrinoDataInputStream in)
             throws IOException
     {
         byte firstByte = in.readByte();
@@ -327,6 +327,8 @@ public final class ReadWriteUtils
         if (indexEnd < 0) {
             return length;
         }
-        return indexEnd - offset;
+        // end index could run over length because of large code points (e.g., 4-byte code points)
+        // or within length because of small code points (e.g., 1-byte code points)
+        return min(indexEnd - offset, length);
     }
 }

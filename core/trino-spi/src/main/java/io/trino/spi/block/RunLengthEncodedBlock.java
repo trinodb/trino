@@ -13,30 +13,25 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
+import jakarta.annotation.Nullable;
 
-import javax.annotation.Nullable;
-
-import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
-public class RunLengthEncodedBlock
+public final class RunLengthEncodedBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RunLengthEncodedBlock.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(RunLengthEncodedBlock.class);
 
     public static Block create(Type type, Object value, int positionCount)
     {
@@ -60,13 +55,30 @@ public class RunLengthEncodedBlock
         if (positionCount == 1) {
             return value;
         }
-        return new RunLengthEncodedBlock(value, positionCount);
+
+        if (value instanceof ValueBlock valueBlock) {
+            return new RunLengthEncodedBlock(valueBlock, positionCount);
+        }
+
+        // if the value is lazy be careful to not materialize it
+        if (value instanceof LazyBlock lazyBlock) {
+            return new LazyBlock(positionCount, () -> create(lazyBlock.getBlock(), positionCount));
+        }
+
+        // unwrap the value
+        ValueBlock valueBlock = value.getUnderlyingValueBlock();
+        int valuePosition = value.getUnderlyingValuePosition(0);
+        if (valueBlock.getPositionCount() == 1 && valuePosition == 0) {
+            return new RunLengthEncodedBlock(valueBlock, positionCount);
+        }
+
+        return new RunLengthEncodedBlock(valueBlock.getRegion(valuePosition, 1), positionCount);
     }
 
-    private final Block value;
+    private final ValueBlock value;
     private final int positionCount;
 
-    private RunLengthEncodedBlock(Block value, int positionCount)
+    private RunLengthEncodedBlock(ValueBlock value, int positionCount)
     {
         requireNonNull(value, "value is null");
         if (positionCount < 0) {
@@ -76,40 +88,17 @@ public class RunLengthEncodedBlock
             throw new IllegalArgumentException("positionCount must be at least 2");
         }
 
-        // do not nest an RLE or Dictionary in an RLE
-        if (value instanceof RunLengthEncodedBlock block) {
-            this.value = block.getValue();
-        }
-        else if (value instanceof DictionaryBlock block) {
-            Block dictionary = block.getDictionary();
-            int id = block.getId(0);
-            if (dictionary.getPositionCount() == 1 && id == 0) {
-                this.value = dictionary;
-            }
-            else {
-                this.value = dictionary.getRegion(id, 1);
-            }
-        }
-        else {
-            this.value = value;
-        }
-
+        this.value = value;
         this.positionCount = positionCount;
     }
 
-    @Override
-    public final List<Block> getChildren()
-    {
-        return singletonList(value);
-    }
-
-    public Block getValue()
+    public ValueBlock getValue()
     {
         return value;
     }
 
     /**
-     * Positions count will always be at least 2
+     * Position count will always be at least 2
      */
     @Override
     public int getPositionCount()
@@ -207,98 +196,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int getSliceLength(int position)
-    {
-        checkReadablePosition(this, position);
-        return value.getSliceLength(0);
-    }
-
-    @Override
-    public byte getByte(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        return value.getByte(0, offset);
-    }
-
-    @Override
-    public short getShort(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        return value.getShort(0, offset);
-    }
-
-    @Override
-    public int getInt(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        return value.getInt(0, offset);
-    }
-
-    @Override
-    public long getLong(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        return value.getLong(0, offset);
-    }
-
-    @Override
-    public Slice getSlice(int position, int offset, int length)
-    {
-        checkReadablePosition(this, position);
-        return value.getSlice(0, offset, length);
-    }
-
-    @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        checkReadablePosition(this, position);
-        return value.getObject(0, clazz);
-    }
-
-    @Override
-    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        checkReadablePosition(this, position);
-        return value.bytesEqual(0, offset, otherSlice, otherOffset, length);
-    }
-
-    @Override
-    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        checkReadablePosition(this, position);
-        return value.bytesCompare(0, offset, length, otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(this, position);
-        value.writeBytesTo(0, offset, length, blockBuilder);
-    }
-
-    @Override
-    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        checkReadablePosition(this, position);
-        return value.equals(0, offset, otherBlock, otherPosition, otherOffset, length);
-    }
-
-    @Override
-    public long hash(int position, int offset, int length)
-    {
-        checkReadablePosition(this, position);
-        return value.hash(0, offset, length);
-    }
-
-    @Override
-    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
-    {
-        checkReadablePosition(this, leftPosition);
-        return value.compareTo(0, leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
-    }
-
-    @Override
-    public Block getSingleValueBlock(int position)
+    public ValueBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
         return value;
@@ -324,7 +222,7 @@ public class RunLengthEncodedBlock
             return create(value, positionCount + 1);
         }
 
-        Block dictionary = value.copyWithAppendedNull();
+        ValueBlock dictionary = value.copyWithAppendedNull();
         int[] ids = new int[positionCount + 1];
         ids[positionCount] = 1;
         return DictionaryBlock.create(ids.length, dictionary, ids);
@@ -355,5 +253,17 @@ public class RunLengthEncodedBlock
             return this;
         }
         return create(loadedValueBlock, positionCount);
+    }
+
+    @Override
+    public ValueBlock getUnderlyingValueBlock()
+    {
+        return value;
+    }
+
+    @Override
+    public int getUnderlyingValuePosition(int position)
+    {
+        return 0;
     }
 }

@@ -153,7 +153,7 @@ public final class CompressedOrcChunkLoader
 
         // is this a read larger than the buffer
         if (size > dataReader.getMaxBufferSize()) {
-            throw new OrcCorruptionException(dataReader.getOrcDataSourceId(), "Requested read size (%s bytes) is greater than max buffer size (%s bytes", size, dataReader.getMaxBufferSize());
+            throw new OrcCorruptionException(dataReader.getOrcDataSourceId(), "Requested read size (%s bytes) is greater than max buffer size (%s bytes)", size, dataReader.getMaxBufferSize());
         }
 
         // is this a read past the end of the stream

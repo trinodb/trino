@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.base.classloader;
 
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorPageSink;
-
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -67,6 +66,14 @@ public class ClassLoaderSafeConnectorPageSink
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.appendPage(page);
+        }
+    }
+
+    @Override
+    public void closeIdleWriters()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.closeIdleWriters();
         }
     }
 

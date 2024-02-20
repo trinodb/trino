@@ -20,7 +20,7 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.GenericLiteral;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.MERGE_PROJECT_WITH_VALUES;
@@ -36,7 +36,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestDereferencePushDown
         extends BasePlanTest
@@ -132,9 +132,9 @@ public class TestDereferencePushDown
                         "SELECT msg.x AS x, ROW_NUMBER() OVER (PARTITION BY msg.y) AS rn " +
                         "FROM t ",
                 anyTree(
-                        project(values(
+                        values(
                                 ImmutableList.of("x", "y"),
-                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))));
+                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0"))))));
 
         assertPlanWithSession(
                 "WITH t(msg1, msg2, msg3, msg4, msg5) AS (VALUES " +
@@ -160,7 +160,7 @@ public class TestDereferencePushDown
                         "   MIN(msg3) OVER (PARTITION BY msg1 ORDER BY msg2) AS msg6," +
                         "   MIN(msg4.x) OVER (PARTITION BY msg1 ORDER BY msg2) AS bigint_msg4 " +
                         "FROM t",
-                Session.builder(this.getQueryRunner().getDefaultSession())
+                Session.builder(this.getPlanTester().getDefaultSession())
                         .setSystemProperty(MERGE_PROJECT_WITH_VALUES, "false")
                         .build(),
                 true,
@@ -183,7 +183,7 @@ public class TestDereferencePushDown
                         "FROM t " +
                         "WHERE " +
                         "msg.x IN (SELECT msg.z FROM t)",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                         .build(),
                 anyTree(
@@ -191,7 +191,7 @@ public class TestDereferencePushDown
                                 project(
                                         ImmutableMap.of("a_y", expression("msg[2]")),
                                         values(ImmutableList.of("msg", "a_x"), ImmutableList.of())),
-                                project(values(ImmutableList.of("b_z"), ImmutableList.of())))));
+                                values(ImmutableList.of("b_z"), ImmutableList.of()))));
     }
 
     @Test

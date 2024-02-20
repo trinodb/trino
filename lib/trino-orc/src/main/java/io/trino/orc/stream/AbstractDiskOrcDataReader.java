@@ -17,8 +17,7 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.orc.OrcDataSourceId;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 

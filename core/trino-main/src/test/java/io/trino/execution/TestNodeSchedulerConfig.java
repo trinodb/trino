@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -35,15 +35,14 @@ public class TestNodeSchedulerConfig
         assertRecordedDefaults(recordDefaults(NodeSchedulerConfig.class)
                 .setNodeSchedulerPolicy(UNIFORM.name())
                 .setMinCandidates(10)
-                .setMaxSplitsPerNode(100)
-                .setMinPendingSplitsPerTask(10)
+                .setMaxSplitsPerNode(256)
+                .setMinPendingSplitsPerTask(16)
                 .setMaxAdjustedPendingSplitsWeightPerTask(2000)
                 .setMaxUnacknowledgedSplitsPerTask(2000)
                 .setIncludeCoordinator(true)
                 .setSplitsBalancingPolicy(NodeSchedulerConfig.SplitsBalancingPolicy.STAGE)
                 .setOptimizedLocalScheduling(true)
-                .setAllowedNoMatchingNodePeriod(new Duration(2, MINUTES))
-                .setNodeAllocatorType("bin_packing"));
+                .setAllowedNoMatchingNodePeriod(new Duration(2, MINUTES)));
     }
 
     @Test
@@ -60,7 +59,6 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.splits-balancing-policy", "node")
                 .put("node-scheduler.optimized-local-scheduling", "false")
                 .put("node-scheduler.allowed-no-matching-node-period", "1m")
-                .put("node-scheduler.allocator-type", "fixed_count")
                 .buildOrThrow();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
@@ -73,8 +71,7 @@ public class TestNodeSchedulerConfig
                 .setMinCandidates(11)
                 .setSplitsBalancingPolicy(NODE)
                 .setOptimizedLocalScheduling(false)
-                .setAllowedNoMatchingNodePeriod(new Duration(1, MINUTES))
-                .setNodeAllocatorType("fixed_count");
+                .setAllowedNoMatchingNodePeriod(new Duration(1, MINUTES));
 
         assertFullMapping(properties, expected);
     }

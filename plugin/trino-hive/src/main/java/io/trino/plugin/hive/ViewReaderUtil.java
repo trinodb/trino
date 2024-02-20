@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.coral.common.HiveMetastoreClient;
 import com.linkedin.coral.hive.hive2rel.HiveToRelConverter;
 import com.linkedin.coral.trino.rel2trino.RelToTrinoConverter;
@@ -49,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.linkedin.coral.trino.rel2trino.functions.TrinoKeywordsConverter.quoteWordIfNotQuoted;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
+import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveSessionProperties.isHiveViewsLegacyTranslation;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
@@ -79,9 +81,10 @@ public final class ViewReaderUtil
             TypeManager typeManager,
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> tableRedirectionResolver,
             MetadataProvider metadataProvider,
-            boolean runHiveViewRunAsInvoker)
+            boolean runHiveViewRunAsInvoker,
+            HiveTimestampPrecision hiveViewsTimestampPrecision)
     {
-        if (isPrestoView(table)) {
+        if (isTrinoView(table)) {
             return new PrestoViewReader();
         }
         if (isHiveViewsLegacyTranslation(session)) {
@@ -91,7 +94,8 @@ public final class ViewReaderUtil
         return new HiveViewReader(
                 new CoralSemiTransactionalHiveMSCAdapter(metastore, coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
                 typeManager,
-                runHiveViewRunAsInvoker);
+                runHiveViewRunAsInvoker,
+                hiveViewsTimestampPrecision);
     }
 
     private static CoralTableRedirectionResolver coralTableRedirectionResolver(
@@ -106,7 +110,7 @@ public final class ViewReaderUtil
                             format("%s is redirected to %s, but that relation cannot be found", schemaTableName, target)));
             List<Column> columns = tableSchema.getColumns().stream()
                     .filter(columnSchema -> !columnSchema.isHidden())
-                    .map(columnSchema -> new Column(columnSchema.getName(), toHiveType(columnSchema.getType()), Optional.empty() /* comment */))
+                    .map(columnSchema -> new Column(columnSchema.getName(), toHiveType(columnSchema.getType()), Optional.empty() /* comment */, Map.of()))
                     .collect(toImmutableList());
             Table table = Table.builder()
                     .setDatabaseName(schemaTableName.getSchemaName())
@@ -128,35 +132,59 @@ public final class ViewReaderUtil
     private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
             new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
 
-    public static boolean isPrestoView(Table table)
+    /**
+     * Returns true if table represents a Hive view, Trino/Presto view, materialized view or anything
+     * else that gets registered using table type "VIRTUAL_VIEW".
+     * Note: this method returns false for a table that represents Hive's own materialized view
+     * ("MATERIALIZED_VIEW" table type). Hive own's materialized views are currently treated as ordinary
+     * tables by Trino.
+     */
+    public static boolean isSomeKindOfAView(Table table)
     {
-        return isPrestoView(table.getParameters());
+        return table.getTableType().equals(VIRTUAL_VIEW.name());
     }
 
-    public static boolean isPrestoView(Map<String, String> tableParameters)
+    public static boolean isHiveView(Table table)
     {
-        return "true".equals(tableParameters.get(PRESTO_VIEW_FLAG));
+        return table.getTableType().equals(VIRTUAL_VIEW.name()) &&
+                !table.getParameters().containsKey(PRESTO_VIEW_FLAG);
     }
 
-    public static boolean isHiveOrPrestoView(Table table)
+    /**
+     * Returns true when the table represents a "Trino view" (AKA "presto view").
+     * Returns false for Hive views or Trino materialized views.
+     */
+    public static boolean isTrinoView(Table table)
     {
-        return isHiveOrPrestoView(table.getTableType());
+        return isTrinoView(table.getTableType(), table.getParameters());
     }
 
-    public static boolean isHiveOrPrestoView(String tableType)
+    /**
+     * Returns true when the table represents a "Trino view" (AKA "presto view").
+     * Returns false for Hive views or Trino materialized views.
+     */
+    public static boolean isTrinoView(String tableType, Map<String, String> tableParameters)
     {
-        return tableType.equals(VIRTUAL_VIEW.name());
+        // A Trino view can be recognized by table type "VIRTUAL_VIEW" and table parameters presto_view="true" and comment="Presto View" since their first implementation see
+        // https://github.com/trinodb/trino/blame/38bd0dff736024f3ae01dbbe7d1db5bd1d50c43e/presto-hive/src/main/java/com/facebook/presto/hive/HiveMetadata.java#L902.
+        return tableType.equals(VIRTUAL_VIEW.name()) &&
+                "true".equals(tableParameters.get(PRESTO_VIEW_FLAG)) &&
+                PRESTO_VIEW_COMMENT.equalsIgnoreCase(tableParameters.get(TABLE_COMMENT));
+    }
+
+    public static boolean isTrinoMaterializedView(Table table)
+    {
+        return isTrinoMaterializedView(table.getTableType(), table.getParameters());
     }
 
     public static boolean isTrinoMaterializedView(String tableType, Map<String, String> tableParameters)
     {
-        return isHiveOrPrestoView(tableType) && isPrestoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
-    }
-
-    public static boolean canDecodeView(Table table)
-    {
-        // we can decode Hive or Presto view
-        return table.getTableType().equals(VIRTUAL_VIEW.name());
+        // A Trino materialized view can be recognized by table type "VIRTUAL_VIEW" and table parameters presto_view="true" and comment="Presto Materialized View"
+        // since their first implementation see
+        // https://github.com/trinodb/trino/blame/ff4a1e31fb9cb49f1b960abfc16ad469e7126a64/plugin/trino-iceberg/src/main/java/io/trino/plugin/iceberg/IcebergMetadata.java#L898
+        return tableType.equals(VIRTUAL_VIEW.name()) &&
+                "true".equals(tableParameters.get(PRESTO_VIEW_FLAG)) &&
+                ICEBERG_MATERIALIZED_VIEW_COMMENT.equalsIgnoreCase(tableParameters.get(TABLE_COMMENT));
     }
 
     public static String encodeViewData(ConnectorViewDefinition definition)
@@ -198,12 +226,14 @@ public final class ViewReaderUtil
         private final HiveMetastoreClient metastoreClient;
         private final TypeManager typeManager;
         private final boolean hiveViewsRunAsInvoker;
+        private final HiveTimestampPrecision hiveViewsTimestampPrecision;
 
-        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager, boolean hiveViewsRunAsInvoker)
+        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager, boolean hiveViewsRunAsInvoker, HiveTimestampPrecision hiveViewsTimestampPrecision)
         {
             this.metastoreClient = requireNonNull(hiveMetastoreClient, "hiveMetastoreClient is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
+            this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
         }
 
         @Override
@@ -212,13 +242,13 @@ public final class ViewReaderUtil
             try {
                 HiveToRelConverter hiveToRelConverter = new HiveToRelConverter(metastoreClient);
                 RelNode rel = hiveToRelConverter.convertView(table.getDatabaseName(), table.getTableName());
-                RelToTrinoConverter relToTrino = new RelToTrinoConverter();
+                RelToTrinoConverter relToTrino = new RelToTrinoConverter(metastoreClient);
                 String trinoSql = relToTrino.convert(rel);
                 RelDataType rowType = rel.getRowType();
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
                                 field.getName(),
-                                typeManager.fromSqlType(getTypeString(field.getType())).getTypeId(),
+                                typeManager.fromSqlType(getTypeString(field.getType(), hiveViewsTimestampPrecision)).getTypeId(),
                                 Optional.empty()))
                         .collect(toImmutableList());
                 return new ConnectorViewDefinition(
@@ -228,9 +258,10 @@ public final class ViewReaderUtil
                         columns,
                         Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
                         Optional.empty(), // will be filled in later by HiveMetadata
-                        hiveViewsRunAsInvoker);
+                        hiveViewsRunAsInvoker,
+                        ImmutableList.of());
             }
-            catch (RuntimeException e) {
+            catch (Throwable e) {
                 throw new TrinoException(HIVE_VIEW_TRANSLATION_ERROR,
                         format("Failed to translate Hive view '%s': %s",
                                 table.getSchemaTableName(),
@@ -241,7 +272,7 @@ public final class ViewReaderUtil
 
         // Calcite does not provide correct type strings for non-primitive types.
         // We add custom code here to make it work. Goal is for calcite/coral to handle this
-        private static String getTypeString(RelDataType type)
+        private static String getTypeString(RelDataType type, HiveTimestampPrecision timestampPrecision)
         {
             switch (type.getSqlTypeName()) {
                 case ROW: {
@@ -250,7 +281,7 @@ public final class ViewReaderUtil
                     // We add the Coral function here to parse data types successfully.
                     // Goal is to use data type mapping instead of translating to strings
                     return type.getFieldList().stream()
-                            .map(field -> quoteWordIfNotQuoted(field.getName().toLowerCase(Locale.ENGLISH)) + " " + getTypeString(field.getType()))
+                            .map(field -> quoteWordIfNotQuoted(field.getName().toLowerCase(Locale.ENGLISH)) + " " + getTypeString(field.getType(), timestampPrecision))
                             .collect(joining(",", "row(", ")"));
                 }
                 case CHAR:
@@ -263,14 +294,16 @@ public final class ViewReaderUtil
                 case MAP: {
                     RelDataType keyType = type.getKeyType();
                     RelDataType valueType = type.getValueType();
-                    return "map(" + getTypeString(keyType) + "," + getTypeString(valueType) + ")";
+                    return "map(" + getTypeString(keyType, timestampPrecision) + "," + getTypeString(valueType, timestampPrecision) + ")";
                 }
                 case ARRAY: {
-                    return "array(" + getTypeString(type.getComponentType()) + ")";
+                    return "array(" + getTypeString(type.getComponentType(), timestampPrecision) + ")";
                 }
                 case DECIMAL: {
                     return "decimal(" + type.getPrecision() + "," + type.getScale() + ")";
                 }
+                case TIMESTAMP:
+                    return "timestamp(" + timestampPrecision.getPrecision() + ")";
                 default:
                     return type.getSqlTypeName().toString();
             }

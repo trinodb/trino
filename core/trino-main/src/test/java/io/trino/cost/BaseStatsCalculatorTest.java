@@ -13,20 +13,28 @@
  */
 package io.trino.cost;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.testing.TestingSession.testSession;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
+
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class BaseStatsCalculatorTest
 {
     private StatsCalculatorTester tester;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
-        tester = new StatsCalculatorTester();
+        tester = new StatsCalculatorTester(testSession());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         tester.close();

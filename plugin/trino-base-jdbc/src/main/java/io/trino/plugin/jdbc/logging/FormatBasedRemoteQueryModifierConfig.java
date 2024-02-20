@@ -15,22 +15,13 @@ package io.trino.plugin.jdbc.logging;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.trino.plugin.jdbc.logging.FormatBasedRemoteQueryModifier.PredefinedValue;
+import io.trino.plugin.base.logging.SessionInterpolatedValues;
+import jakarta.validation.constraints.AssertTrue;
 
-import javax.validation.constraints.AssertTrue;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.regex.MatchResult;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static java.util.stream.Collectors.joining;
+import static io.trino.plugin.base.logging.FormatInterpolator.hasValidPlaceholders;
 
 public class FormatBasedRemoteQueryModifierConfig
 {
-    private static final List<String> PREDEFINED_MATCHES = Arrays.stream(PredefinedValue.values()).map(PredefinedValue::getMatchCase).toList();
-    private static final Pattern VALIDATION_PATTERN = Pattern.compile("[\\w ,=]|" + String.join("|", PREDEFINED_MATCHES));
     private String format = "";
 
     @Config("query.comment-format")
@@ -49,10 +40,6 @@ public class FormatBasedRemoteQueryModifierConfig
     @AssertTrue(message = "Incorrect format it may consist of only letters, digits, underscores, commas, spaces, equal signs and predefined values")
     boolean isFormatValid()
     {
-        Matcher matcher = VALIDATION_PATTERN.matcher(format);
-        return matcher.results()
-                .map(MatchResult::group)
-                .collect(joining())
-                .equals(format);
+        return hasValidPlaceholders(format, SessionInterpolatedValues.values());
     }
 }

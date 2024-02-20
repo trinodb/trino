@@ -13,8 +13,10 @@
  */
 package io.trino.operator.scalar;
 
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
@@ -22,6 +24,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -41,8 +44,8 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.BlockBuilderAppender.createBlockBuilderAppender;
-import static io.trino.util.JsonUtil.JSON_FACTORY;
 import static io.trino.util.JsonUtil.canCastFromJson;
+import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static io.trino.util.Reflection.methodHandle;
@@ -54,11 +57,17 @@ public class JsonToRowCast
     public static final JsonToRowCast JSON_TO_ROW = new JsonToRowCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
 
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+
+    static {
+        // Changes factory. Necessary for JsonParser.readValueAsTree to work.
+        new ObjectMapper(JSON_FACTORY);
+    }
+
     private JsonToRowCast()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .operatorType(CAST)
                         .typeVariableConstraint(
                                 // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for json to row cast
                                 TypeVariableConstraint.builder("T")
@@ -88,7 +97,7 @@ public class JsonToRowCast
     }
 
     @UsedByGeneratedCode
-    public static Block toRow(
+    public static SqlRow toRow(
             RowType rowType,
             BlockBuilderAppender rowAppender,
             ConnectorSession connectorSession,
@@ -100,12 +109,13 @@ public class JsonToRowCast
                 return null;
             }
 
-            BlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
-            rowAppender.append(jsonParser, rowBlockBuilder);
+            BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
+            rowAppender.append(jsonParser, blockBuilder);
             if (jsonParser.nextToken() != null) {
                 throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
             }
-            return rowType.getObject(rowBlockBuilder, 0);
+            Block block = blockBuilder.build();
+            return rowType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);

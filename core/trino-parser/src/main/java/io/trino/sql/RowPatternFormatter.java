@@ -29,7 +29,6 @@ import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.ZeroOrMoreQuantifier;
 import io.trino.sql.tree.ZeroOrOneQuantifier;
 
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 public final class RowPatternFormatter
@@ -53,7 +52,7 @@ public final class RowPatternFormatter
         @Override
         protected String visitRowPattern(RowPattern node, Void context)
         {
-            throw new UnsupportedOperationException(format("not yet implemented: %s.visit%s", getClass().getName(), node.getClass().getSimpleName()));
+            throw new UnsupportedOperationException("not yet implemented: %s.visit%s".formatted(getClass().getName(), node.getClass().getSimpleName()));
         }
 
         @Override
@@ -101,14 +100,10 @@ public final class RowPatternFormatter
         @Override
         protected String visitAnchorPattern(AnchorPattern node, Void context)
         {
-            switch (node.getType()) {
-                case PARTITION_START:
-                    return "^";
-                case PARTITION_END:
-                    return "$";
-                default:
-                    throw new IllegalStateException("unexpected anchor pattern type: " + node.getType());
-            }
+            return switch (node.getType()) {
+                case PARTITION_START -> "^";
+                case PARTITION_END -> "$";
+            };
         }
 
         @Override

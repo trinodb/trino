@@ -15,6 +15,7 @@ package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+import org.testcontainers.utility.DockerImageName;
 
 import java.sql.Timestamp;
 import java.util.Map;
@@ -30,7 +31,7 @@ public class TestDatastaxConnectorSmokeTest
             throws Exception
     {
         CassandraServer server = closeAfterClass(new CassandraServer(
-                "datastax/dse-server:6.8.25",
+                DockerImageName.parse("datastax/dse-server:6.8.25").asCompatibleSubstituteFor("cassandra"),
                 Map.of(
                         "DS_LICENSE", "accept",
                         "DC", "datacenter1"),

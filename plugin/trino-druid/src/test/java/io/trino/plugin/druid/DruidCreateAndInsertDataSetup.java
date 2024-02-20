@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -75,7 +76,7 @@ public class DruidCreateAndInsertDataSetup
         String dataFilePath = format("%s/%s.tsv", druidServer.getHostWorkingDirectory(), testTable.getName());
         writeTsvFile(dataFilePath, inputs);
 
-        this.druidServer.ingestData(testTable.getName(), builder.build(), dataFilePath);
+        this.druidServer.ingestData(testTable.getName(), Optional.empty(), builder.build(), dataFilePath);
     }
 
     private TimestampSpec getTimestampSpec(List<ColumnSetup> inputs)

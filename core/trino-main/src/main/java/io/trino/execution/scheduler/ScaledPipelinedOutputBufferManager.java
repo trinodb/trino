@@ -13,10 +13,9 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
 

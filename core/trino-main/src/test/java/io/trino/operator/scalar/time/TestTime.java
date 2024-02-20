@@ -22,19 +22,22 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTime
 {
     protected QueryAssertions assertions;
@@ -107,20 +110,20 @@ public class TestTime
                 .hasType(createTimeType(12))
                 .isEqualTo(time(12, 12, 34, 56, 123_456_789_123L));
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:34:56.1234567891234'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '12:34:56.1234567891234'")::evaluate)
                 .hasMessage("line 1:12: TIME precision must be in range [0, 12]: 13");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '25:00:00'").evaluate())
-                .hasMessage("line 1:12: '25:00:00' is not a valid time literal");
+        assertThatThrownBy(assertions.expression("TIME '25:00:00'")::evaluate)
+                .hasMessage("line 1:12: '25:00:00' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:65:00'").evaluate())
-                .hasMessage("line 1:12: '12:65:00' is not a valid time literal");
+        assertThatThrownBy(assertions.expression("TIME '12:65:00'")::evaluate)
+                .hasMessage("line 1:12: '12:65:00' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:00:65'").evaluate())
-                .hasMessage("line 1:12: '12:00:65' is not a valid time literal");
+        assertThatThrownBy(assertions.expression("TIME '12:00:65'")::evaluate)
+                .hasMessage("line 1:12: '12:00:65' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME 'xxx'").evaluate())
-                .hasMessage("line 1:12: 'xxx' is not a valid time literal");
+        assertThatThrownBy(assertions.expression("TIME 'xxx'")::evaluate)
+                .hasMessage("line 1:12: 'xxx' is not a valid TIME literal");
     }
 
     @Test
@@ -433,8 +436,9 @@ public class TestTime
     public void testLocalTime()
     {
         // round down
+        ZoneId sessionZoneId = assertions.getDefaultSession().getTimeZoneKey().getZoneId();
         Session session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, sessionZoneId).toInstant().toString())
                 .build();
 
         assertThat(assertions.expression("localtime(0)", session)).matches("TIME '12:34:56'");
@@ -453,7 +457,7 @@ public class TestTime
 
         // round up
         session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 555555555, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 555555555, sessionZoneId).toInstant().toString())
                 .build();
 
         assertThat(assertions.expression("localtime(0)", session)).matches("TIME '12:34:57'");
@@ -472,7 +476,7 @@ public class TestTime
 
         // round up at the boundary
         session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 23, 59, 59, 999999999, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 23, 59, 59, 999999999, sessionZoneId).toInstant().toString())
                 .build();
 
         assertThat(assertions.expression("localtime(0)", session)).matches("TIME '00:00:00'");
@@ -804,7 +808,7 @@ public class TestTime
     public void testCastToTimestamp()
     {
         Session session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId()).toInstant().toString())
                 .build();
 
         // source = target
@@ -1100,7 +1104,7 @@ public class TestTime
     public void testCastToTimestampWithTimeZone()
     {
         Session session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId()).toInstant().toString())
                 .build();
 
         // source = target
@@ -1464,31 +1468,31 @@ public class TestTime
         assertThat(assertions.expression("CAST('23:59:59.999999999999' AS TIME(11))")).matches("TIME '00:00:00.00000000000'");
 
         // > 12 digits of precision
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(0))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(0))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(1))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(1))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(2))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(2))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(3))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(3))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(4))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(4))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(5))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(5))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(6))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(6))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(7))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(7))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(8))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(8))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(9))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(9))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(10))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(10))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(11))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(11))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
-        assertThatThrownBy(() -> assertions.expression("CAST('12:34:56.1111111111111' AS TIME(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('12:34:56.1111111111111' AS TIME(12))")::evaluate)
                 .hasMessage("Value cannot be cast to time: 12:34:56.1111111111111");
     }
 
@@ -1960,7 +1964,7 @@ public class TestTime
     {
         Session session = assertions.sessionBuilder()
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Pacific/Apia"))
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 0, 0, 0, ZoneId.of("Pacific/Apia"))))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 0, 0, 0, ZoneId.of("Pacific/Apia")).toInstant().toString())
                 .build();
 
         assertThat(assertions.expression("TIME '12:34:56' AT TIME ZONE '+08:35'", session)).matches("TIME '08:09:56+08:35'");

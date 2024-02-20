@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import io.airlift.http.client.HttpClient;
@@ -23,14 +24,14 @@ import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.testing.TestingTrinoServer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
-
-import javax.inject.Qualifier;
-import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.Path;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.Path;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -45,18 +46,21 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestGenerateTokenFilter
 {
     private JettyHttpClient httpClient;
     private TestingTrinoServer server;
     private GenerateTraceTokenRequestFilter filter;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         server = TestingTrinoServer.builder()
@@ -66,12 +70,12 @@ public class TestGenerateTokenFilter
 
         // extract the filter
         List<HttpRequestFilter> filters = httpClient.getRequestFilters();
-        assertEquals(filters.size(), 3);
-        assertInstanceOf(filters.get(2), GenerateTraceTokenRequestFilter.class);
-        filter = (GenerateTraceTokenRequestFilter) filters.get(2);
+        assertThat(filters.size()).isEqualTo(2);
+        assertInstanceOf(filters.get(1), GenerateTraceTokenRequestFilter.class);
+        filter = (GenerateTraceTokenRequestFilter) filters.get(1);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
@@ -85,13 +89,13 @@ public class TestGenerateTokenFilter
     {
         Request request = prepareGet().setUri(server.getBaseUrl().resolve("/testing/echo_token")).build();
         StringResponse response = httpClient.execute(request, createStringResponseHandler());
-        assertEquals(response.getStatusCode(), SC_OK);
-        assertEquals(response.getBody(), filter.getLastToken());
+        assertThat(response.getStatusCode()).isEqualTo(SC_OK);
+        assertThat(response.getBody()).isEqualTo(filter.getLastToken());
     }
 
     @Retention(RUNTIME)
     @Target(ElementType.PARAMETER)
-    @Qualifier
+    @BindingAnnotation
     private @interface GenerateTokenFilterTest {}
 
     @Path("/testing")

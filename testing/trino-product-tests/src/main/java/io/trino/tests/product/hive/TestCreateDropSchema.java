@@ -31,7 +31,7 @@ public class TestCreateDropSchema
     @Inject
     private HdfsClient hdfsClient;
 
-    @javax.inject.Inject
+    @Inject
     @Named("databases.hive.warehouse_directory_path")
     private String warehouseDirectory;
 

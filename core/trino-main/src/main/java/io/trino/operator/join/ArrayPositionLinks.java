@@ -13,23 +13,21 @@
  */
 package io.trino.operator.join;
 
-import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.Page;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class ArrayPositionLinks
         implements PositionLinks
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ArrayPositionLinks.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ArrayPositionLinks.class);
 
     public static class FactoryBuilder
             implements PositionLinks.FactoryBuilder
@@ -65,7 +63,11 @@ public final class ArrayPositionLinks
                 @Override
                 public long checksum()
                 {
-                    return XxHash64.hash(Slices.wrappedIntArray(positionLinks));
+                    long hash = 0;
+                    for (int positionLink : positionLinks) {
+                        hash = XxHash64.hash(hash, positionLink);
+                    }
+                    return hash;
                 }
             };
         }

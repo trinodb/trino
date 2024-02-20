@@ -13,8 +13,10 @@
  */
 package io.trino.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.client.ProtocolHeaders;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -39,6 +41,7 @@ public class SessionContext
 
     private final Optional<Identity> authenticatedIdentity;
     private final Identity identity;
+    private final Identity originalIdentity;
     private final SelectedRole selectedRole;
 
     private final Optional<String> source;
@@ -67,6 +70,7 @@ public class SessionContext
             Optional<String> path,
             Optional<Identity> authenticatedIdentity,
             Identity identity,
+            Identity originalIdentity,
             SelectedRole selectedRole,
             Optional<String> source,
             Optional<String> traceToken,
@@ -90,6 +94,7 @@ public class SessionContext
         this.path = requireNonNull(path, "path is null");
         this.authenticatedIdentity = requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
         this.identity = requireNonNull(identity, "identity is null");
+        this.originalIdentity = requireNonNull(originalIdentity, "originalIdentity is null");
         this.selectedRole = requireNonNull(selectedRole, "selectedRole is null");
         this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
@@ -123,6 +128,11 @@ public class SessionContext
     public Identity getIdentity()
     {
         return identity;
+    }
+
+    public Identity getOriginalIdentity()
+    {
+        return originalIdentity;
     }
 
     public SelectedRole getSelectedRole()
@@ -218,5 +228,48 @@ public class SessionContext
     public Optional<String> getTraceToken()
     {
         return traceToken;
+    }
+
+    @VisibleForTesting
+    public static SessionContext fromSession(Session session)
+    {
+        requireNonNull(session, "session is null");
+
+        Set<String> enabledRoles = session.getIdentity().getEnabledRoles();
+        SelectedRole selectedRole;
+        if (enabledRoles.isEmpty()) {
+            selectedRole = new SelectedRole(SelectedRole.Type.NONE, Optional.empty());
+        }
+        else if (enabledRoles.size() == 1) {
+            selectedRole = new SelectedRole(SelectedRole.Type.ROLE, Optional.of(enabledRoles.iterator().next()));
+        }
+        else {
+            selectedRole = new SelectedRole(SelectedRole.Type.ALL, Optional.empty());
+        }
+
+        return new SessionContext(
+                session.getProtocolHeaders(),
+                session.getCatalog(),
+                session.getSchema(),
+                Optional.of(session.getPath().getRawPath()),
+                Optional.empty(),
+                session.getIdentity(),
+                session.getOriginalIdentity(),
+                selectedRole,
+                session.getSource(),
+                session.getTraceToken(),
+                session.getUserAgent(),
+                session.getRemoteUserAddress(),
+                Optional.of(session.getTimeZoneKey().getId()),
+                Optional.of(session.getLocale().getLanguage()),
+                session.getClientTags(),
+                session.getClientCapabilities(),
+                session.getResourceEstimates(),
+                session.getSystemProperties(),
+                session.getCatalogProperties(),
+                session.getPreparedStatements(),
+                session.getTransactionId(),
+                session.isClientTransactionSupport(),
+                session.getClientInfo());
     }
 }

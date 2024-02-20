@@ -14,43 +14,37 @@
 package io.trino.sql.query;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestAggregation
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
     public void testQuantifiedComparison()
     {
-        assertThatThrownBy(() -> assertions.query("SELECT v > ALL (VALUES 1) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
-                .hasMessageContaining("must be an aggregate expression or appear in GROUP BY clause");
+        assertThat(assertions.query("SELECT v > ALL (VALUES 1) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
+                .failure().hasMessageContaining("must be an aggregate expression or appear in GROUP BY clause");
 
-        assertThatThrownBy(() -> assertions.query("SELECT v > ANY (VALUES 1) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
-                .hasMessageContaining("must be an aggregate expression or appear in GROUP BY clause");
+        assertThat(assertions.query("SELECT v > ANY (VALUES 1) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
+                .failure().hasMessageContaining("must be an aggregate expression or appear in GROUP BY clause");
 
-        assertThatThrownBy(() -> assertions.query("SELECT v > SOME (VALUES 1) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
-                .hasMessageContaining("must be an aggregate expression or appear in GROUP BY clause");
+        assertThat(assertions.query("SELECT v > SOME (VALUES 1) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
+                .failure().hasMessageContaining("must be an aggregate expression or appear in GROUP BY clause");
 
         assertThat(assertions.query("SELECT count_if(v > ALL (VALUES 0, 1)) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
                 .matches("VALUES BIGINT '1'");
@@ -58,7 +52,7 @@ public class TestAggregation
         assertThat(assertions.query("SELECT count_if(v > ANY (VALUES 0, 1)) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
                 .matches("VALUES BIGINT '2'");
 
-        assertThatThrownBy(() -> assertions.query("SELECT 1 > ALL (VALUES k) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
-                .hasMessageContaining("line 1:17: Given correlated subquery is not supported");
+        assertThat(assertions.query("SELECT 1 > ALL (VALUES k) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
+                .failure().hasMessageContaining("line 1:17: Given correlated subquery is not supported");
     }
 }

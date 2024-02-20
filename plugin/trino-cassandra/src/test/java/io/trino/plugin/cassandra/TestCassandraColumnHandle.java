@@ -19,18 +19,16 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.type.Type;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraColumnHandle
 {
-    private JsonCodec<CassandraColumnHandle> codec;
+    private final JsonCodec<CassandraColumnHandle> codec;
 
-    @BeforeClass
-    public void setup()
+    public TestCassandraColumnHandle()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
@@ -45,11 +43,11 @@ public class TestCassandraColumnHandle
         String json = codec.toJson(expected);
         CassandraColumnHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getName(), expected.getName());
-        assertEquals(actual.getOrdinalPosition(), expected.getOrdinalPosition());
-        assertEquals(actual.getCassandraType(), expected.getCassandraType());
-        assertEquals(actual.isPartitionKey(), expected.isPartitionKey());
-        assertEquals(actual.isClusteringKey(), expected.isClusteringKey());
+        assertThat(actual.getName()).isEqualTo(expected.getName());
+        assertThat(actual.getOrdinalPosition()).isEqualTo(expected.getOrdinalPosition());
+        assertThat(actual.getCassandraType()).isEqualTo(expected.getCassandraType());
+        assertThat(actual.isPartitionKey()).isEqualTo(expected.isPartitionKey());
+        assertThat(actual.isClusteringKey()).isEqualTo(expected.isClusteringKey());
     }
 
     @Test
@@ -67,10 +65,10 @@ public class TestCassandraColumnHandle
         String json = codec.toJson(expected);
         CassandraColumnHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getName(), expected.getName());
-        assertEquals(actual.getOrdinalPosition(), expected.getOrdinalPosition());
-        assertEquals(actual.getCassandraType(), expected.getCassandraType());
-        assertEquals(actual.isPartitionKey(), expected.isPartitionKey());
-        assertEquals(actual.isClusteringKey(), expected.isClusteringKey());
+        assertThat(actual.getName()).isEqualTo(expected.getName());
+        assertThat(actual.getOrdinalPosition()).isEqualTo(expected.getOrdinalPosition());
+        assertThat(actual.getCassandraType()).isEqualTo(expected.getCassandraType());
+        assertThat(actual.isPartitionKey()).isEqualTo(expected.isPartitionKey());
+        assertThat(actual.isClusteringKey()).isEqualTo(expected.isClusteringKey());
     }
 }

@@ -14,6 +14,8 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.connector.CatalogFactory;
 import io.trino.eventlistener.EventListenerManager;
@@ -33,7 +35,6 @@ import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.Plugin;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.classloader.ThreadContextClassLoader;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.exchange.ExchangeManagerFactory;
@@ -47,16 +48,12 @@ import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
-
 import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -72,6 +69,8 @@ public class PluginManager
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
             .add("org.openjdk.jol.")
+            .add("io.opentelemetry.api.")
+            .add("io.opentelemetry.context.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
@@ -167,18 +166,18 @@ public class PluginManager
 
         for (Plugin plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
-            installPlugin(plugin, pluginClassLoader::duplicate);
+            installPlugin(plugin);
         }
     }
 
     @Override
-    public void installPlugin(Plugin plugin, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
+    public void installPlugin(Plugin plugin)
     {
-        installPluginInternal(plugin, duplicatePluginClassLoaderFactory);
+        installPluginInternal(plugin);
         typeRegistry.verifyTypes();
     }
 
-    private void installPluginInternal(Plugin plugin, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
+    private void installPluginInternal(Plugin plugin)
     {
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
@@ -197,7 +196,7 @@ public class PluginManager
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
-            this.connectorFactory.addConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory);
+            this.connectorFactory.addConnectorFactory(connectorFactory);
         }
 
         Set<Class<?>> functions = plugin.getFunctions();

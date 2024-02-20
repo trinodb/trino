@@ -16,13 +16,12 @@ package io.trino.server;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.QueryStats;
 import io.trino.operator.BlockedReason;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.OptionalDouble;
 import java.util.Set;
@@ -71,6 +70,7 @@ public class BasicQueryStats
     private final Set<BlockedReason> blockedReasons;
 
     private final OptionalDouble progressPercentage;
+    private final OptionalDouble runningPercentage;
 
     @JsonCreator
     public BasicQueryStats(
@@ -99,7 +99,8 @@ public class BasicQueryStats
             @JsonProperty("failedScheduledTime") Duration failedScheduledTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
-            @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
+            @JsonProperty("progressPercentage") OptionalDouble progressPercentage,
+            @JsonProperty("runningPercentage") OptionalDouble runningPercentage)
     {
         this.createTime = createTime;
         this.endTime = endTime;
@@ -139,6 +140,7 @@ public class BasicQueryStats
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
+        this.runningPercentage = requireNonNull(runningPercentage, "runningPercentage is null");
     }
 
     public BasicQueryStats(QueryStats queryStats)
@@ -168,7 +170,8 @@ public class BasicQueryStats
                 queryStats.getFailedScheduledTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
-                queryStats.getProgressPercentage());
+                queryStats.getProgressPercentage(),
+                queryStats.getRunningPercentage());
     }
 
     public static BasicQueryStats immediateFailureQueryStats()
@@ -200,6 +203,7 @@ public class BasicQueryStats
                 new Duration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
+                OptionalDouble.empty(),
                 OptionalDouble.empty());
     }
 
@@ -357,5 +361,11 @@ public class BasicQueryStats
     public OptionalDouble getProgressPercentage()
     {
         return progressPercentage;
+    }
+
+    @JsonProperty
+    public OptionalDouble getRunningPercentage()
+    {
+        return runningPercentage;
     }
 }

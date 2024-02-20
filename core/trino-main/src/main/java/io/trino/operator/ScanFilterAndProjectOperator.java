@@ -26,7 +26,6 @@ import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.operator.WorkProcessor.TransformationState;
-import io.trino.operator.WorkProcessorSourceOperatorAdapter.AdapterWorkProcessorSourceOperatorFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.CursorProcessorOutput;
 import io.trino.operator.project.PageProcessor;
@@ -45,8 +44,7 @@ import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -97,8 +95,7 @@ public class ScanFilterAndProjectOperator
             DynamicFilter dynamicFilter,
             Iterable<Type> types,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount,
-            boolean avoidPageMaterialization)
+            int minOutputPageRowCount)
     {
         pages = splits.flatTransform(
                 new SplitToPages(
@@ -113,8 +110,7 @@ public class ScanFilterAndProjectOperator
                         types,
                         memoryTrackingContext.aggregateUserMemoryContext(),
                         minOutputPageSize,
-                        minOutputPageRowCount,
-                        avoidPageMaterialization));
+                        minOutputPageRowCount));
     }
 
     @Override
@@ -209,7 +205,6 @@ public class ScanFilterAndProjectOperator
         final LocalMemoryContext outputMemoryContext;
         final DataSize minOutputPageSize;
         final int minOutputPageRowCount;
-        final boolean avoidPageMaterialization;
 
         SplitToPages(
                 Session session,
@@ -223,8 +218,7 @@ public class ScanFilterAndProjectOperator
                 Iterable<Type> types,
                 AggregatedMemoryContext aggregatedMemoryContext,
                 DataSize minOutputPageSize,
-                int minOutputPageRowCount,
-                boolean avoidPageMaterialization)
+                int minOutputPageRowCount)
         {
             this.session = requireNonNull(session, "session is null");
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
@@ -241,7 +235,6 @@ public class ScanFilterAndProjectOperator
             this.outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
-            this.avoidPageMaterialization = avoidPageMaterialization;
         }
 
         @Override
@@ -293,8 +286,7 @@ public class ScanFilterAndProjectOperator
                             yieldSignal,
                             outputMemoryContext,
                             pageProcessorMetrics,
-                            page,
-                            avoidPageMaterialization))
+                            page))
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                     .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
@@ -413,7 +405,7 @@ public class ScanFilterAndProjectOperator
     }
 
     public static class ScanFilterAndProjectOperatorFactory
-            implements SourceOperatorFactory, AdapterWorkProcessorSourceOperatorFactory
+            implements SourceOperatorFactory, WorkProcessorSourceOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -491,33 +483,13 @@ public class ScanFilterAndProjectOperator
 
         @Override
         public WorkProcessorSourceOperator create(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)
-        {
-            return create(session, memoryTrackingContext, yieldSignal, splits, true);
-        }
-
-        @Override
-        public WorkProcessorSourceOperator createAdapterOperator(
-                Session session,
-                MemoryTrackingContext memoryTrackingContext,
-                DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> splits)
-        {
-            return create(session, memoryTrackingContext, yieldSignal, splits, false);
-        }
-
-        private ScanFilterAndProjectOperator create(
-                Session session,
-                MemoryTrackingContext memoryTrackingContext,
-                DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> splits,
-                boolean avoidPageMaterialization)
         {
             return new ScanFilterAndProjectOperator(
-                    session,
+                    operatorContext.getSession(),
                     memoryTrackingContext,
                     yieldSignal,
                     splits,
@@ -529,8 +501,7 @@ public class ScanFilterAndProjectOperator
                     dynamicFilter,
                     types,
                     minOutputPageSize,
-                    minOutputPageRowCount,
-                    avoidPageMaterialization);
+                    minOutputPageRowCount);
         }
 
         @Override

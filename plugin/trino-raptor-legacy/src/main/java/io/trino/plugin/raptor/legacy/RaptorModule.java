@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.plugin.raptor.legacy.metadata.Distribution;
 import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
@@ -30,8 +31,6 @@ import io.trino.spi.type.TypeManager;
 import org.jdbi.v3.core.ConnectionFactory;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.inject.Singleton;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;

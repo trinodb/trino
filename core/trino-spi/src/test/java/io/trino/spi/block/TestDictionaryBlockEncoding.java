@@ -14,12 +14,11 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDictionaryBlockEncoding
 {
@@ -40,13 +39,7 @@ public class TestDictionaryBlockEncoding
         DictionaryBlock dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
-        assertTrue(actualBlock instanceof DictionaryBlock);
-        DictionaryBlock actualDictionaryBlock = (DictionaryBlock) actualBlock;
-        assertBlockEquals(VARCHAR, actualDictionaryBlock.getDictionary(), dictionary);
-        for (int position = 0; position < actualDictionaryBlock.getPositionCount(); position++) {
-            assertEquals(actualDictionaryBlock.getId(position), ids[position]);
-        }
-        assertEquals(actualDictionaryBlock.getDictionarySourceId(), dictionaryBlock.getDictionarySourceId());
+        assertBlockEquals(VARCHAR, actualBlock, dictionaryBlock);
     }
 
     @Test
@@ -56,7 +49,6 @@ public class TestDictionaryBlockEncoding
         DictionaryBlock dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
-        assertTrue(actualBlock instanceof DictionaryBlock);
         assertBlockEquals(VARCHAR, actualBlock, dictionary.getPositions(ids, 0, 4));
     }
 
@@ -67,7 +59,7 @@ public class TestDictionaryBlockEncoding
         DictionaryBlock dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
-        assertTrue(actualBlock instanceof VariableWidthBlock);
+        assertThat(actualBlock).isInstanceOf(VariableWidthBlock.class);
         assertBlockEquals(VARCHAR, actualBlock, dictionary.getPositions(ids, 0, 3));
     }
 
@@ -78,7 +70,7 @@ public class TestDictionaryBlockEncoding
         DictionaryBlock dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
-        assertTrue(actualBlock instanceof VariableWidthBlock);
+        assertThat(actualBlock).isInstanceOf(VariableWidthBlock.class);
         assertBlockEquals(VARCHAR, actualBlock, dictionary.getPositions(ids, 0, 4));
     }
 

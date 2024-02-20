@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -33,7 +33,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 
 public class TestTransformCorrelatedGlobalAggregationWithProjection
         extends BaseRuleTest

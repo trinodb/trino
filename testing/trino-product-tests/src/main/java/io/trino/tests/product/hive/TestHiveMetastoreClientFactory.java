@@ -34,6 +34,7 @@ public final class TestHiveMetastoreClientFactory
             Optional.empty(),
             Optional.empty(),
             new Duration(10, SECONDS),
+            new Duration(10, SECONDS),
             new NoHiveMetastoreAuthentication(),
             "localhost");
 

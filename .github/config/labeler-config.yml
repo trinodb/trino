@@ -3,9 +3,10 @@
   - lib/trino-orc/**
   - lib/trino-parquet/**
   - lib/trino-hive-formats/**
-  - plugin/trino-hive-hadoop2/**
   - plugin/trino-hive/**
   - testing/trino-product-tests/**
+  - lib/trino-filesystem/**
+  - lib/trino-filesystem-*/**
 
 jdbc:
   - client/trino-jdbc/**
@@ -18,7 +19,6 @@ delta-lake:
 
 hive:
   - plugin/trino-hive/**
-  - plugin/trino-hive-hadoop2/**
 
 hudi:
   - plugin/trino-hudi/**

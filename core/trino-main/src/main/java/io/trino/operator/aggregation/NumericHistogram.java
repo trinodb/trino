@@ -20,7 +20,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import it.unimi.dsi.fastutil.Arrays;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -29,13 +28,13 @@ import java.util.PriorityQueue;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class NumericHistogram
 {
     private static final byte FORMAT_TAG = 0;
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(NumericHistogram.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(NumericHistogram.class);
 
     private final int maxBuckets;
     private final double[] values;
@@ -72,8 +71,8 @@ public class NumericHistogram
         values = new double[maxBuckets + buffer];
         weights = new double[maxBuckets + buffer];
 
-        input.readBytes(Slices.wrappedDoubleArray(values), nextIndex * SizeOf.SIZE_OF_DOUBLE);
-        input.readBytes(Slices.wrappedDoubleArray(weights), nextIndex * SizeOf.SIZE_OF_DOUBLE);
+        input.readDoubles(values, 0, nextIndex);
+        input.readDoubles(weights, 0, nextIndex);
     }
 
     public Slice serialize()
@@ -91,8 +90,8 @@ public class NumericHistogram
                 .appendByte(FORMAT_TAG)
                 .appendInt(maxBuckets)
                 .appendInt(nextIndex)
-                .appendBytes(Slices.wrappedDoubleArray(values, 0, nextIndex))
-                .appendBytes(Slices.wrappedDoubleArray(weights, 0, nextIndex))
+                .appendDoubles(values, 0, nextIndex)
+                .appendDoubles(weights, 0, nextIndex)
                 .getUnderlyingSlice();
     }
 
@@ -324,6 +323,7 @@ public class NumericHistogram
             this(id, value, weight, null, right);
         }
 
+        @SuppressWarnings("ArgumentSelectionDefectChecker")
         private Entry(int id, double value, double weight, Entry left, Entry right)
         {
             this.id = id;

@@ -21,13 +21,14 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +46,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestTransformCorrelatedScalarSubquery
@@ -186,6 +189,9 @@ public class TestTransformCorrelatedScalarSubquery
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
+                        // make sure INNER correlated join is transformed to LEFT join if subplan could produce 0 rows
+                        INNER,
+                        TRUE_LITERAL,
                         p.enforceSingleRow(
                                 p.filter(
                                         PlanBuilder.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
@@ -196,7 +202,8 @@ public class TestTransformCorrelatedScalarSubquery
                                 values("corr"),
                                 filter(
                                         "1 = a",
-                                        values("a"))));
+                                        values("a")))
+                                .with(CorrelatedJoinNode.class, join -> join.getType() == LEFT));
     }
 
     private Expression ensureScalarSubquery()
@@ -205,7 +212,7 @@ public class TestTransformCorrelatedScalarSubquery
                 new SymbolReference("is_distinct"),
                 ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                 Optional.of(new Cast(
-                        failFunction(tester().getMetadata(), tester().getSession(), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
+                        failFunction(tester().getMetadata(), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                         toSqlType(BOOLEAN))));
     }
 }

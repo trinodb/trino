@@ -5,11 +5,10 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
     </parent>
 
     <artifactId>trino-docs</artifactId>
-    <name>trino-docs</name>
     <packaging>pom</packaging>
 
     <properties>
@@ -23,12 +22,16 @@
                     <groupId>com.mycila</groupId>
                     <artifactId>license-maven-plugin</artifactId>
                     <configuration>
-                        <excludes combine.children="append">
-                            <exclude>**/*.conf</exclude>
-                            <exclude>**/*.css</exclude>
-                            <exclude>**/*.js</exclude>
-                            <exclude>**/*.fragment</exclude>
-                        </excludes>
+                        <licenseSets>
+                            <licenseSet>
+                                <excludes combine.children="append">
+                                    <exclude>**/*.conf</exclude>
+                                    <exclude>**/*.css</exclude>
+                                    <exclude>**/*.js</exclude>
+                                    <exclude>**/*.fragment</exclude>
+                                </excludes>
+                            </licenseSet>
+                        </licenseSets>
                     </configuration>
                 </plugin>
             </plugins>
@@ -38,12 +41,19 @@
             <plugin>
                 <groupId>io.airlift.drift</groupId>
                 <artifactId>drift-maven-plugin</artifactId>
+                <dependencies>
+                    <dependency>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-thrift-api</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
-                        <phase>validate</phase>
                         <goals>
                             <goal>generate-thrift-idl</goal>
                         </goals>
+                        <phase>validate</phase>
                         <configuration>
                             <outputFile>${project.build.directory}/TrinoThriftService.thrift</outputFile>
                             <classes>
@@ -53,39 +63,43 @@
                         </configuration>
                     </execution>
                 </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>io.trino</groupId>
-                        <artifactId>trino-thrift-api</artifactId>
-                        <version>${project.version}</version>
-                    </dependency>
-                </dependencies>
             </plugin>
 
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
+                <configuration>
+                    <includeProjectDependencies>false</includeProjectDependencies>
+                    <includePluginDependencies>true</includePluginDependencies>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-parser</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <id>validate-reserved</id>
-                        <phase>validate</phase>
                         <goals>
                             <goal>java</goal>
                         </goals>
+                        <phase>validate</phase>
                         <configuration>
                             <mainClass>io.trino.sql.ReservedIdentifiers</mainClass>
                             <arguments>
                                 <argument>validateDocs</argument>
-                                <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>
+                                <argument>${project.basedir}/src/main/sphinx/language/reserved.md</argument>
                             </arguments>
                         </configuration>
                     </execution>
                     <execution>
                         <id>validate-thrift-idl</id>
-                        <phase>validate</phase>
                         <goals>
                             <goal>exec</goal>
                         </goals>
+                        <phase>validate</phase>
                         <configuration>
                             <executable>diff</executable>
                             <arguments>
@@ -98,26 +112,15 @@
                     </execution>
                     <execution>
                         <id>run-sphinx</id>
-                        <phase>package</phase>
                         <goals>
                             <goal>exec</goal>
                         </goals>
+                        <phase>package</phase>
                         <configuration>
                             <executable>${project.basedir}/build</executable>
                         </configuration>
                     </execution>
                 </executions>
-                <configuration>
-                    <includeProjectDependencies>false</includeProjectDependencies>
-                    <includePluginDependencies>true</includePluginDependencies>
-                </configuration>
-                <dependencies>
-                    <dependency>
-                        <groupId>io.trino</groupId>
-                        <artifactId>trino-parser</artifactId>
-                        <version>${project.version}</version>
-                    </dependency>
-                </dependencies>
             </plugin>
 
             <plugin>
@@ -126,10 +129,10 @@
                 <executions>
                     <execution>
                         <id>docs</id>
-                        <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
+                        <phase>package</phase>
                         <configuration>
                             <appendAssemblyId>false</appendAssemblyId>
                             <descriptors>
@@ -140,10 +143,10 @@
 
                     <execution>
                         <id>sources</id>
-                        <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
+                        <phase>package</phase>
                         <configuration>
                             <descriptors>
                                 <descriptor>src/main/assembly/sources.xml</descriptor>

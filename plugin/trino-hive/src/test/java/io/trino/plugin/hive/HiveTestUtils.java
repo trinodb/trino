@@ -17,24 +17,30 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.hdfs.azure.HiveAzureConfig;
+import io.trino.hdfs.azure.TrinoAzureConfigurationInitializer;
+import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
+import io.trino.hdfs.gcs.HiveGcsConfig;
+import io.trino.hdfs.s3.HiveS3Config;
+import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
-import io.trino.plugin.hive.azure.HiveAzureConfig;
-import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
-import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
-import io.trino.plugin.hive.gcs.HiveGcsConfig;
+import io.trino.plugin.hive.avro.AvroFileWriterFactory;
+import io.trino.plugin.hive.avro.AvroPageSourceFactory;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
 import io.trino.plugin.hive.line.JsonPageSourceFactory;
+import io.trino.plugin.hive.line.OpenXJsonFileWriterFactory;
+import io.trino.plugin.hive.line.OpenXJsonPageSourceFactory;
 import io.trino.plugin.hive.line.RegexFileWriterFactory;
 import io.trino.plugin.hive.line.RegexPageSourceFactory;
 import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
@@ -45,27 +51,19 @@ import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetFileWriterFactory;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
-import io.trino.plugin.hive.rubix.RubixEnabledConfig;
-import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
-import io.trino.plugin.hive.s3select.S3SelectRecordCursorProvider;
-import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
 import io.trino.spi.PageSorter;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.NamedTypeSignature;
@@ -82,9 +80,8 @@ import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.hadoop.hive.common.type.Date;
 
-import java.lang.invoke.MethodHandle;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,10 +89,9 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.block.ArrayValueBuilder.buildArrayValue;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
@@ -124,7 +120,8 @@ public final class HiveTestUtils
             new HdfsConfig(),
             new NoHdfsAuthentication());
 
-    public static final HdfsFileSystemFactory HDFS_FILE_SYSTEM_FACTORY = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+    public static final TrinoHdfsFileSystemStats HDFS_FILE_SYSTEM_STATS = new TrinoHdfsFileSystemStats();
+    public static final HdfsFileSystemFactory HDFS_FILE_SYSTEM_FACTORY = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
@@ -147,13 +144,6 @@ public final class HiveTestUtils
                 .build();
     }
 
-    public static TestingConnectorSession getHiveSession(HiveConfig hiveConfig, ParquetReaderConfig parquetReaderConfig)
-    {
-        return TestingConnectorSession.builder()
-                .setPropertyMetadata(getHiveSessionProperties(hiveConfig, parquetReaderConfig).getSessionProperties())
-                .build();
-    }
-
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig)
     {
         return getHiveSessionProperties(hiveConfig, new OrcReaderConfig());
@@ -161,14 +151,8 @@ public final class HiveTestUtils
 
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig)
     {
-        return getHiveSessionProperties(hiveConfig, new RubixEnabledConfig(), orcReaderConfig);
-    }
-
-    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, RubixEnabledConfig rubixEnabledConfig, OrcReaderConfig orcReaderConfig)
-    {
         return new HiveSessionProperties(
                 hiveConfig,
-                new HiveFormatsConfig(),
                 orcReaderConfig,
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),
@@ -179,68 +163,54 @@ public final class HiveTestUtils
     {
         return new HiveSessionProperties(
                 hiveConfig,
-                new HiveFormatsConfig(),
                 new OrcReaderConfig(),
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),
                 parquetWriterConfig);
     }
 
-    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, ParquetReaderConfig parquetReaderConfig)
-    {
-        return new HiveSessionProperties(
-                hiveConfig,
-                new HiveFormatsConfig(),
-                new OrcReaderConfig(),
-                new OrcWriterConfig(),
-                parquetReaderConfig,
-                new ParquetWriterConfig());
-    }
-
     public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
     {
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
+        return getDefaultHivePageSourceFactories(new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS), hiveConfig);
+    }
+
+    public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(TrinoFileSystemFactory fileSystemFactory, HiveConfig hiveConfig)
+    {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
-                .add(new CsvPageSourceFactory(fileSystemFactory, stats, hiveConfig))
-                .add(new JsonPageSourceFactory(fileSystemFactory, stats, hiveConfig))
-                .add(new RegexPageSourceFactory(fileSystemFactory, stats, hiveConfig))
-                .add(new SimpleTextFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
-                .add(new SimpleSequenceFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
-                .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
+                .add(new CsvPageSourceFactory(fileSystemFactory, hiveConfig))
+                .add(new JsonPageSourceFactory(fileSystemFactory, hiveConfig))
+                .add(new OpenXJsonPageSourceFactory(fileSystemFactory, hiveConfig))
+                .add(new RegexPageSourceFactory(fileSystemFactory, hiveConfig))
+                .add(new SimpleTextFilePageSourceFactory(fileSystemFactory, hiveConfig))
+                .add(new SimpleSequenceFilePageSourceFactory(fileSystemFactory, hiveConfig))
+                .add(new AvroPageSourceFactory(fileSystemFactory))
+                .add(new RcFilePageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
                 .build();
     }
 
-    public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProviders(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
-    {
-        return ImmutableSet.of(new S3SelectRecordCursorProvider(hdfsEnvironment, new TrinoS3ClientFactory(hiveConfig)));
-    }
-
     public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
+        return getDefaultHiveFileWriterFactories(hiveConfig, new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS));
+    }
+
+    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, TrinoFileSystemFactory fileSystemFactory)
+    {
         NodeVersion nodeVersion = new NodeVersion("test_version");
         return ImmutableSet.<HiveFileWriterFactory>builder()
                 .add(new CsvFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new JsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new RegexFileWriterFactory())
+                .add(new OpenXJsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new SimpleTextFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new SimpleSequenceFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion))
-                .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, nodeVersion, hiveConfig))
-                .add(getDefaultOrcFileWriterFactory(hdfsEnvironment))
+                .add(new AvroFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion))
+                .add(new RcFileFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion, hiveConfig))
+                .add(new OrcFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion, new FileFormatDataSourceStats(), new OrcWriterConfig()))
+                .add(new ParquetFileWriterFactory(fileSystemFactory, nodeVersion, TESTING_TYPE_MANAGER, hiveConfig, new FileFormatDataSourceStats()))
                 .build();
-    }
-
-    private static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HdfsEnvironment hdfsEnvironment)
-    {
-        return new OrcFileWriterFactory(
-                new HdfsFileSystemFactory(hdfsEnvironment),
-                TESTING_TYPE_MANAGER,
-                new NodeVersion("test_version"),
-                new FileFormatDataSourceStats(),
-                new OrcWriterConfig());
     }
 
     public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
@@ -250,11 +220,6 @@ public final class HiveTestUtils
             types.add(((HiveColumnHandle) columnHandle).getType());
         }
         return types.build();
-    }
-
-    public static HiveRecordCursorProvider createGenericHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment)
-    {
-        return new GenericHiveRecordCursorProvider(hdfsEnvironment, DataSize.of(100, MEGABYTE));
     }
 
     public static MapType mapType(Type keyType, Type valueType)
@@ -280,66 +245,40 @@ public final class HiveTestUtils
                         .collect(toImmutableList()));
     }
 
-    public static Long shortDecimal(String value)
-    {
-        return new BigDecimal(value).unscaledValue().longValueExact();
-    }
-
-    public static Int128 longDecimal(String value)
-    {
-        return Decimals.valueOf(new BigDecimal(value));
-    }
-
-    public static MethodHandle distinctFromOperator(Type type)
-    {
-        return TESTING_TYPE_MANAGER.getTypeOperators().getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG));
-    }
-
-    public static boolean isDistinctFrom(MethodHandle handle, Block left, Block right)
-    {
-        try {
-            return (boolean) handle.invokeExact(left, left == null, right, right == null);
-        }
-        catch (Throwable t) {
-            throw new AssertionError(t);
-        }
-    }
-
     public static Object toNativeContainerValue(Type type, Object hiveValue)
     {
         if (hiveValue == null) {
             return null;
         }
 
-        if (type instanceof ArrayType) {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Object subElement : (Iterable<?>) hiveValue) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
-            }
-            blockBuilder.closeEntry();
-            return type.getObject(blockBuilder, 0);
+        if (type instanceof ArrayType arrayType) {
+            Collection<?> hiveArray = (Collection<?>) hiveValue;
+            return buildArrayValue(arrayType, hiveArray.size(), valueBuilder -> {
+                for (Object subElement : hiveArray) {
+                    appendToBlockBuilder(type.getTypeParameters().get(0), subElement, valueBuilder);
+                }
+            });
         }
-        if (type instanceof RowType) {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            int field = 0;
-            for (Object subElement : (Iterable<?>) hiveValue) {
-                appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
-                field++;
-            }
-            blockBuilder.closeEntry();
-            return type.getObject(blockBuilder, 0);
+        if (type instanceof RowType rowType) {
+            return buildRowValue(rowType, fields -> {
+                int fieldIndex = 0;
+                for (Object subElement : (Iterable<?>) hiveValue) {
+                    appendToBlockBuilder(type.getTypeParameters().get(fieldIndex), subElement, fields.get(fieldIndex));
+                    fieldIndex++;
+                }
+            });
         }
-        if (type instanceof MapType) {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) hiveValue).entrySet()) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
-                appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
-            }
-            blockBuilder.closeEntry();
-            return type.getObject(blockBuilder, 0);
+        if (type instanceof MapType mapType) {
+            Map<?, ?> hiveMap = (Map<?, ?>) hiveValue;
+            return buildMapValue(
+                    mapType,
+                    hiveMap.size(),
+                    (keyBuilder, valueBuilder) -> {
+                        hiveMap.forEach((key, value) -> {
+                            appendToBlockBuilder(mapType.getKeyType(), key, keyBuilder);
+                            appendToBlockBuilder(mapType.getValueType(), value, valueBuilder);
+                        });
+                    });
         }
         if (type instanceof BooleanType) {
             return hiveValue;

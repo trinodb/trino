@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.jdbc.aggregation;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.QueryParameter;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 
@@ -37,7 +40,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
 
 public class ImplementCorr
-        implements AggregateFunctionRule<JdbcExpression, String>
+        implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
 {
     private static final Capture<List<Variable>> ARGUMENTS = newCapture();
 
@@ -53,7 +56,7 @@ public class ImplementCorr
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         List<Variable> arguments = captures.get(ARGUMENTS);
         verify(arguments.size() == 2);
@@ -63,8 +66,14 @@ public class ImplementCorr
         JdbcColumnHandle columnHandle1 = (JdbcColumnHandle) context.getAssignment(argument1.getName());
         verify(aggregateFunction.getOutputType().equals(columnHandle1.getColumnType()));
 
+        ParameterizedExpression rewrittenArgument1 = context.rewriteExpression(argument1).orElseThrow();
+        ParameterizedExpression rewrittenArgument2 = context.rewriteExpression(argument2).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("corr(%s, %s)", context.rewriteExpression(argument1).orElseThrow(), context.rewriteExpression(argument2).orElseThrow()),
+                format("corr(%s, %s)", rewrittenArgument1.expression(), rewrittenArgument2.expression()),
+                ImmutableList.<QueryParameter>builder()
+                        .addAll(rewrittenArgument1.parameters())
+                        .addAll(rewrittenArgument2.parameters())
+                        .build(),
                 columnHandle1.getJdbcTypeHandle()));
     }
 }

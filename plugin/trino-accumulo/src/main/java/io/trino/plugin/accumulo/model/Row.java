@@ -16,10 +16,7 @@ package io.trino.plugin.accumulo.model;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,12 +25,6 @@ public class Row
     private final List<Field> fields = new ArrayList<>();
 
     public Row() {}
-
-    public Row(Row row)
-    {
-        requireNonNull(row, "row is null");
-        fields.addAll(row.fields.stream().map(Field::new).collect(Collectors.toList()));
-    }
 
     public Row addField(Field field)
     {
@@ -54,31 +45,9 @@ public class Row
         return fields.get(i);
     }
 
-    /**
-     * Gets a list of all internal fields. Any changes to this list will affect this row.
-     *
-     * @return List of fields
-     */
-    public List<Field> getFields()
-    {
-        return fields;
-    }
-
     public int length()
     {
         return fields.size();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Arrays.hashCode(fields.toArray());
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        return obj instanceof Row && Objects.equals(this.fields, ((Row) obj).getFields());
     }
 
     @Override

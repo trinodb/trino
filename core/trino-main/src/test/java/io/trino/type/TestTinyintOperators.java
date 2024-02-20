@@ -18,6 +18,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -39,8 +40,10 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTinyintOperators
 {
     private QueryAssertions assertions;
@@ -67,7 +70,7 @@ public class TestTinyintOperators
         assertThat(assertions.expression("TINYINT '17'"))
                 .isEqualTo((byte) 17);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("TINYINT '" + ((long) Byte.MAX_VALUE + 1L) + "'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("TINYINT '" + ((long) Byte.MAX_VALUE + 1L) + "'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
     }
 
@@ -90,7 +93,7 @@ public class TestTinyintOperators
         assertThat(assertions.expression("TINYINT '-17'"))
                 .isEqualTo((byte) -17);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("TINYINT '-" + Byte.MIN_VALUE + "'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("TINYINT '-" + Byte.MIN_VALUE + "'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
     }
 
@@ -109,7 +112,7 @@ public class TestTinyintOperators
         assertThat(assertions.operator(ADD, "TINYINT '17'", "TINYINT '17'"))
                 .isEqualTo((byte) (17 + 17));
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "TINYINT '%s'".formatted(Byte.MAX_VALUE), "TINYINT '1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "TINYINT '%s'".formatted(Byte.MAX_VALUE), "TINYINT '1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("tinyint addition overflow: 127 + 1");
     }
@@ -129,7 +132,7 @@ public class TestTinyintOperators
         assertThat(assertions.operator(SUBTRACT, "TINYINT '17'", "TINYINT '17'"))
                 .isEqualTo((byte) 0);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, "TINYINT '%s'".formatted(Byte.MIN_VALUE), "TINYINT '1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "TINYINT '%s'".formatted(Byte.MIN_VALUE), "TINYINT '1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("tinyint subtraction overflow: -128 - 1");
     }
@@ -149,7 +152,7 @@ public class TestTinyintOperators
         assertThat(assertions.operator(MULTIPLY, "TINYINT '9'", "TINYINT '9'"))
                 .isEqualTo((byte) (9 * 9));
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "TINYINT '%s'".formatted(Byte.MAX_VALUE), "TINYINT '2'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "TINYINT '%s'".formatted(Byte.MAX_VALUE), "TINYINT '2'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("tinyint multiplication overflow: 127 * 2");
     }
@@ -169,7 +172,7 @@ public class TestTinyintOperators
         assertThat(assertions.operator(DIVIDE, "TINYINT '17'", "TINYINT '17'"))
                 .isEqualTo((byte) 1);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "TINYINT '17'", "TINYINT '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "TINYINT '17'", "TINYINT '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -188,7 +191,7 @@ public class TestTinyintOperators
         assertThat(assertions.operator(MODULUS, "TINYINT '17'", "TINYINT '17'"))
                 .isEqualTo((byte) 0);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MODULUS, "TINYINT '17'", "TINYINT '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "TINYINT '17'", "TINYINT '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -204,7 +207,7 @@ public class TestTinyintOperators
         assertThat(assertions.operator(NEGATION, "TINYINT '" + Byte.MAX_VALUE + "'"))
                 .isEqualTo((byte) (Byte.MIN_VALUE + 1));
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(NEGATION, "TINYINT '" + Byte.MIN_VALUE + "'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(NEGATION, "TINYINT '" + Byte.MIN_VALUE + "'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("tinyint negation overflow: -128");
     }

@@ -18,9 +18,10 @@ import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -37,8 +38,9 @@ import static java.net.URI.create;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestHttpTokenPoller
 {
     private static final String TOKEN_PATH = "/v1/authentications/sso/test/token";
@@ -47,7 +49,7 @@ public class TestHttpTokenPoller
     private TokenPoller tokenPoller;
     private MockWebServer server;
 
-    @BeforeMethod(alwaysRun = true)
+    @BeforeEach
     public void setup()
             throws Exception
     {
@@ -59,7 +61,7 @@ public class TestHttpTokenPoller
                 .build());
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws IOException
     {

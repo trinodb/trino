@@ -14,7 +14,6 @@
 package io.trino.plugin.base.util;
 
 import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
@@ -31,13 +30,14 @@ import java.io.OutputStream;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class JsonTypeUtil
 {
-    private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
+    private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
     private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     private JsonTypeUtil() {}

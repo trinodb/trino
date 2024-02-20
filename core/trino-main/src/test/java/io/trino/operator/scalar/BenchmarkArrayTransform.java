@@ -20,8 +20,8 @@ import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
@@ -31,7 +31,6 @@ import io.trino.sql.relational.InputReferenceExpression;
 import io.trino.sql.relational.LambdaDefinitionExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.VariableReferenceExpression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -108,9 +107,7 @@ public class BenchmarkArrayTransform
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
                 projectionsBuilder.add(new CallExpression(
-                        functionResolution.resolveFunction(
-                                QualifiedName.of("transform"),
-                                fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN))),
+                        functionResolution.resolveFunction("transform", fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN))),
                         ImmutableList.of(
                                 new InputReferenceExpression(0, arrayType),
                                 new LambdaDefinitionExpression(
@@ -130,18 +127,18 @@ public class BenchmarkArrayTransform
 
         private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
         {
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < arraySize; i++) {
-                    if (arrayType.getElementType().getJavaType() == long.class) {
-                        arrayType.getElementType().writeLong(entryBuilder, ThreadLocalRandom.current().nextLong());
+                blockBuilder.buildEntry(elementBuilder -> {
+                    for (int i = 0; i < arraySize; i++) {
+                        if (arrayType.getElementType().getJavaType() == long.class) {
+                            arrayType.getElementType().writeLong(elementBuilder, ThreadLocalRandom.current().nextLong());
+                        }
+                        else {
+                            throw new UnsupportedOperationException();
+                        }
                     }
-                    else {
-                        throw new UnsupportedOperationException();
-                    }
-                }
-                blockBuilder.closeEntry();
+                });
             }
             return blockBuilder.build();
         }

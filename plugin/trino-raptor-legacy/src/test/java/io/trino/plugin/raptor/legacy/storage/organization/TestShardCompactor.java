@@ -36,9 +36,11 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -62,13 +64,16 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestShardCompactor
 {
     private static final int MAX_SHARD_ROWS = 1000;
@@ -84,7 +89,7 @@ public class TestShardCompactor
     private Path temporary;
     private Handle dummyHandle;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -95,7 +100,7 @@ public class TestShardCompactor
         compactor = new ShardCompactor(storageManager, READER_OPTIONS, new TypeOperators());
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {
@@ -114,7 +119,7 @@ public class TestShardCompactor
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE, DATE, TIMESTAMP_MILLIS);
 
         List<ShardInfo> inputShards = createShards(storageManager, columnIds, columnTypes, 3);
-        assertEquals(inputShards.size(), 3);
+        assertThat(inputShards.size()).isEqualTo(3);
 
         long totalRows = inputShards.stream()
                 .mapToLong(ShardInfo::getRowCount)
@@ -125,7 +130,7 @@ public class TestShardCompactor
 
         long transactionId = 1;
         List<ShardInfo> outputShards = compactor.compact(transactionId, OptionalInt.empty(), inputUuids, getColumnInfo(columnIds, columnTypes));
-        assertEquals(outputShards.size(), expectedOutputShards);
+        assertThat(outputShards.size()).isEqualTo(expectedOutputShards);
 
         Set<UUID> outputUuids = outputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
         assertShardEqualsIgnoreOrder(inputUuids, outputUuids, columnIds, columnTypes);
@@ -144,7 +149,7 @@ public class TestShardCompactor
                 .collect(toList());
 
         List<ShardInfo> inputShards = createSortedShards(storageManager, columnIds, columnTypes, sortIndexes, sortOrders, 2);
-        assertEquals(inputShards.size(), 2);
+        assertThat(inputShards.size()).isEqualTo(2);
 
         long totalRows = inputShards.stream().mapToLong(ShardInfo::getRowCount).sum();
         long expectedOutputShards = computeExpectedOutputShards(totalRows);
@@ -156,7 +161,7 @@ public class TestShardCompactor
         List<UUID> outputUuids = outputShards.stream()
                 .map(ShardInfo::getShardUuid)
                 .collect(toList());
-        assertEquals(outputShards.size(), expectedOutputShards);
+        assertThat(outputShards.size()).isEqualTo(expectedOutputShards);
 
         assertShardEqualsSorted(inputUuids, outputUuids, columnIds, columnTypes, sortIndexes, sortOrders);
     }
@@ -184,7 +189,7 @@ public class TestShardCompactor
         MaterializedResult inputRowsSorted = sortAndMaterialize(inputPages, columnTypes, sortIndexes, sortOrders, sortTypes);
         MaterializedResult outputRows = extractColumns(getMaterializedRows(outputUuids, columnIds, columnTypes), sortIndexes, sortTypes);
 
-        assertEquals(outputRows, inputRowsSorted);
+        assertThat(outputRows).containsExactlyElementsOf(inputRowsSorted);
     }
 
     private static MaterializedResult extractColumns(MaterializedResult materializedRows, List<Integer> indexes, List<Type> types)

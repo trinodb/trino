@@ -54,10 +54,6 @@ public class StatsNormalizer
 
     private PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Optional<Collection<Symbol>> outputSymbols, TypeProvider types)
     {
-        if (stats.isOutputRowCountUnknown()) {
-            return PlanNodeStatsEstimate.unknown();
-        }
-
         PlanNodeStatsEstimate.Builder normalized = PlanNodeStatsEstimate.buildFrom(stats);
 
         Predicate<Symbol> symbolFilter = outputSymbols
@@ -72,7 +68,10 @@ public class StatsNormalizer
             }
 
             SymbolStatsEstimate symbolStats = stats.getSymbolStatistics(symbol);
-            SymbolStatsEstimate normalizedSymbolStats = stats.getOutputRowCount() == 0 ? SymbolStatsEstimate.zero() : normalizeSymbolStats(symbol, symbolStats, stats, types);
+            SymbolStatsEstimate normalizedSymbolStats = stats.isOutputRowCountUnknown()
+                    ? normalizeSymbolStatsWithoutRowCount(symbol, symbolStats, types)
+                    : normalizeSymbolStats(symbol, symbolStats, stats, types);
+
             if (normalizedSymbolStats.isUnknown()) {
                 normalized.removeSymbolStatistics(symbol);
                 continue;
@@ -86,10 +85,41 @@ public class StatsNormalizer
     }
 
     /**
-     * Calculates consistent stats for a symbol.
+     * Calculates consistent stats for a symbol when row count is unavailable.
+     */
+    private SymbolStatsEstimate normalizeSymbolStatsWithoutRowCount(Symbol symbol, SymbolStatsEstimate symbolStats, TypeProvider types)
+    {
+        if (symbolStats.isUnknown()) {
+            return SymbolStatsEstimate.unknown();
+        }
+        double distinctValuesCount = symbolStats.getDistinctValuesCount();
+
+        if (!isNaN(distinctValuesCount)) {
+            Type type = requireNonNull(types.get(symbol), () -> "type is missing for symbol " + symbol);
+            double maxDistinctValuesByLowHigh = maxDistinctValuesByLowHigh(symbolStats, type);
+            if (distinctValuesCount > maxDistinctValuesByLowHigh) {
+                distinctValuesCount = maxDistinctValuesByLowHigh;
+            }
+        }
+
+        if (distinctValuesCount == 0.0) {
+            return SymbolStatsEstimate.zero();
+        }
+
+        return SymbolStatsEstimate.buildFrom(symbolStats)
+                .setDistinctValuesCount(distinctValuesCount)
+                .build();
+    }
+
+    /**
+     * Calculates consistent stats for a symbol when row count is available.
      */
     private SymbolStatsEstimate normalizeSymbolStats(Symbol symbol, SymbolStatsEstimate symbolStats, PlanNodeStatsEstimate stats, TypeProvider types)
     {
+        if (stats.getOutputRowCount() == 0) {
+            return SymbolStatsEstimate.zero();
+        }
+
         if (symbolStats.isUnknown()) {
             return SymbolStatsEstimate.unknown();
         }

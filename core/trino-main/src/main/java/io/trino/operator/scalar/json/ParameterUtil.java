@@ -15,12 +15,10 @@ package io.trino.operator.scalar.json;
 
 import com.fasterxml.jackson.databind.node.NullNode;
 import io.trino.json.ir.TypedValue;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.Json2016Type;
-
-import java.util.List;
 
 import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
@@ -40,22 +38,22 @@ public final class ParameterUtil
      * - null value without FORMAT option is converted into a JSON null.
      *
      * @param parametersRowType type of the Block containing parameters
-     * @param parametersRow a Block containing parameters
+     * @param parametersRow a row containing parameters
      * @return an array containing the converted values
      */
-    public static Object[] getParametersArray(Type parametersRowType, Block parametersRow)
+    public static Object[] getParametersArray(Type parametersRowType, SqlRow parametersRow)
     {
         if (JSON_NO_PARAMETERS_ROW_TYPE.equals(parametersRowType)) {
             return new Object[] {};
         }
 
         RowType rowType = (RowType) parametersRowType;
-        List<Block> parameterBlocks = parametersRow.getChildren();
+        int rawIndex = parametersRow.getRawIndex();
 
         Object[] array = new Object[rowType.getFields().size()];
         for (int i = 0; i < rowType.getFields().size(); i++) {
             Type type = rowType.getFields().get(i).getType();
-            Object value = readNativeValue(type, parameterBlocks.get(i), 0);
+            Object value = readNativeValue(type, parametersRow.getRawFieldBlock(i), rawIndex);
             if (type.equals(Json2016Type.JSON_2016)) {
                 if (value == null) {
                     array[i] = EMPTY_SEQUENCE; // null as JSON value shall produce an empty sequence

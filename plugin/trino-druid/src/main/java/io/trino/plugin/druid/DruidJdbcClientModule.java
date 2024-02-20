@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -25,7 +26,7 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import org.apache.calcite.avatica.remote.Driver;
 
 import java.util.Properties;
@@ -45,13 +46,14 @@ public class DruidJdbcClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
         Properties connectionProperties = new Properties();
         return new DriverConnectionFactory(
                 new Driver(),
                 config.getConnectionUrl(),
                 connectionProperties,
-                credentialProvider);
+                credentialProvider,
+                openTelemetry);
     }
 }

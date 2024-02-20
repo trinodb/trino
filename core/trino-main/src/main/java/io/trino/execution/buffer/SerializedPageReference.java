@@ -13,9 +13,8 @@
  */
 package io.trino.execution.buffer;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;

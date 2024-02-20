@@ -13,18 +13,15 @@
  */
 package io.trino.tests.product.iceberg;
 
-import io.trino.tempto.BeforeTestWithContext;
+import com.google.inject.Inject;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tests.product.hive.Engine;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import javax.inject.Inject;
-
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,6 +35,7 @@ import static io.trino.tests.product.iceberg.util.IcebergTestUtils.stripNamenode
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests drop table compatibility between Iceberg connector and Spark Iceberg.
@@ -48,7 +46,7 @@ public class TestIcebergSparkDropTableCompatibility
     @Inject
     private HdfsClient hdfsClient;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void useIceberg()
     {
         onTrino().executeQuery("USE iceberg.default");
@@ -87,7 +85,7 @@ public class TestIcebergSparkDropTableCompatibility
 
     private void assertFileExistence(String path, boolean exists, String description)
     {
-        Assertions.assertThat(hdfsClient.exist(path)).as(description).isEqualTo(exists);
+        assertThat(hdfsClient.exist(path)).as(description).isEqualTo(exists);
     }
 
     private static List<String> getDataFilePaths(String icebergTableName)
@@ -99,14 +97,8 @@ public class TestIcebergSparkDropTableCompatibility
     private static String getPath(String uri)
     {
         if (uri.startsWith("hdfs://")) {
-            try {
-                return new URI(uri).getPath();
-            }
-            catch (URISyntaxException e) {
-                throw new RuntimeException("Invalid syntax for the URI: " + uri, e);
-            }
+            return URI.create(uri).getPath();
         }
-
         return uri;
     }
 }

@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -26,14 +25,14 @@ import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class MemorySplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MemorySplit.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(MemorySplit.class);
 
     private final long table;
     private final int totalPartsPerWorker; // how many concurrent reads there will be from one worker

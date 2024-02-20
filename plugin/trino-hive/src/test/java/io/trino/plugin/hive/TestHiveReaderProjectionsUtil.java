@@ -64,7 +64,7 @@ public class TestHiveReaderProjectionsUtil
     {
         checkArgument(column.isBaseColumn(), "base column is expected here");
 
-        if (indices.size() == 0) {
+        if (indices.isEmpty()) {
             return column;
         }
 
@@ -72,7 +72,7 @@ public class TestHiveReaderProjectionsUtil
         List<String> names = baseHiveType.getHiveDereferenceNames(indices);
         HiveType hiveType = baseHiveType.getHiveTypeForDereferences(indices).get();
 
-        HiveColumnProjectionInfo columnProjection = new HiveColumnProjectionInfo(indices, names, hiveType, hiveType.getType(TESTING_TYPE_MANAGER));
+        HiveColumnProjectionInfo columnProjection = new HiveColumnProjectionInfo(indices, names, hiveType, TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature()));
 
         return new HiveColumnHandle(
                 column.getBaseColumnName(),

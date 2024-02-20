@@ -24,14 +24,12 @@ final class PositionsAppenderUtil
     // See java.util.ArrayList for an explanation
     static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
-    private PositionsAppenderUtil()
-    {
-    }
+    private PositionsAppenderUtil() {}
 
     // Copied from io.trino.spi.block.BlockUtil#calculateNewArraySize
     static int calculateNewArraySize(int currentSize)
     {
-        // grow array by 50%
+        // grow the array by 50%
         long newSize = (long) currentSize + (currentSize >> 1);
 
         // verify new size is within reasonable bounds
@@ -60,15 +58,5 @@ final class PositionsAppenderUtil
             newSize = MAX_ARRAY_SIZE;
         }
         return (int) newSize;
-    }
-
-    // Copied from io.trino.spi.block.BlockUtil#calculateBlockResetBytes
-    static int calculateBlockResetBytes(int currentBytes)
-    {
-        long newBytes = (long) ceil(currentBytes * BLOCK_RESET_SKEW);
-        if (newBytes > MAX_ARRAY_SIZE) {
-            return MAX_ARRAY_SIZE;
-        }
-        return (int) newBytes;
     }
 }

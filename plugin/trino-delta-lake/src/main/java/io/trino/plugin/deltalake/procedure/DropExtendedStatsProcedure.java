@@ -13,8 +13,12 @@
  */
 package io.trino.plugin.deltalake.procedure;
 
+import com.google.inject.Inject;
+import com.google.inject.Provider;
+import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
+import io.trino.plugin.deltalake.LocatedTableHandle;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -22,9 +26,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -79,10 +80,14 @@ public class DropExtendedStatsProcedure
 
         SchemaTableName name = new SchemaTableName(schema, table);
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
-        if (metadata.getTableHandle(session, name) == null) {
-            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
+        metadata.beginQuery(session);
+        try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
+            LocatedTableHandle tableHandle = metadata.getTableHandle(session, name);
+            if (tableHandle == null) {
+                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
+            }
+            accessControl.checkCanInsertIntoTable(null, name);
+            statsAccess.deleteExtendedStatistics(session, name, tableHandle.location());
         }
-        accessControl.checkCanInsertIntoTable(null, name);
-        statsAccess.deleteExtendedStatistics(session, metadata.getMetastore().getTableLocation(name, session));
     }
 }

@@ -23,6 +23,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class TestTable
         implements TemporaryRelation
@@ -38,26 +40,27 @@ public class TestTable
 
     public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition, List<String> rowsToInsert)
     {
-        this.sqlExecutor = sqlExecutor;
-        this.name = namePrefix + randomNameSuffix();
-        this.tableDefinition = tableDefinition;
+        this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
+        this.name = requireNonNull(namePrefix, "namePrefix is null") + randomNameSuffix();
+        this.tableDefinition = requireNonNull(tableDefinition, "tableDefinition is null");
         createAndInsert(rowsToInsert);
     }
 
-    public TestTable(SqlExecutor sqlExecutor, String namePrefix)
-    {
-        this.sqlExecutor = sqlExecutor;
-        this.name = namePrefix + randomNameSuffix();
-        this.tableDefinition = null;
-    }
-
-    public void createAndInsert(List<String> rowsToInsert)
+    protected void createAndInsert(List<String> rowsToInsert)
     {
         sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
         try {
-            for (String row : rowsToInsert) {
-                // some databases do not support multi value insert statement
-                sqlExecutor.execute(format("INSERT INTO %s VALUES (%s)", name, row));
+            if (!rowsToInsert.isEmpty()) {
+                if (sqlExecutor.supportsMultiRowInsert()) {
+                    sqlExecutor.execute(format("INSERT INTO %s VALUES %s", name, rowsToInsert.stream()
+                            .map("(%s)"::formatted)
+                            .collect(joining(", "))));
+                }
+                else {
+                    for (String row : rowsToInsert) {
+                        sqlExecutor.execute(format("INSERT INTO %s VALUES (%s)", name, row));
+                    }
+                }
             }
         }
         catch (Exception e) {

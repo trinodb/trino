@@ -15,12 +15,12 @@ package io.trino.plugin.atop;
 
 import io.airlift.json.JsonCodec;
 import io.trino.spi.HostAddress;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAtopSplit
 {
@@ -31,9 +31,9 @@ public class TestAtopSplit
         ZonedDateTime now = ZonedDateTime.now(ZoneId.of("+01:23"));
         AtopSplit split = new AtopSplit(HostAddress.fromParts("localhost", 123), now.toEpochSecond(), now.getZone().getId());
         AtopSplit decoded = codec.fromJson(codec.toJson(split));
-        assertEquals(decoded.getHost(), split.getHost());
-        assertEquals(decoded.getDate(), split.getDate());
-        assertEquals(decoded.getEpochSeconds(), split.getEpochSeconds());
-        assertEquals(decoded.getTimeZoneId(), split.getTimeZoneId());
+        assertThat(decoded.getHost()).isEqualTo(split.getHost());
+        assertThat(decoded.getDate()).isEqualTo(split.getDate());
+        assertThat(decoded.getEpochSeconds()).isEqualTo(split.getEpochSeconds());
+        assertThat(decoded.getTimeZoneId()).isEqualTo(split.getTimeZoneId());
     }
 }

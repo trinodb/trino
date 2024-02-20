@@ -14,57 +14,45 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultiset;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.CountingAccessMetadata;
-import io.trino.metadata.MetadataManager;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TestingSession.testSession;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true) // counting metadata is a shared mutable state
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
-    private LocalQueryRunner localQueryRunner;
-    private CountingAccessMetadata metadata;
+    private QueryRunner queryRunner;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        localQueryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataProvider((systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)
-                        -> new CountingAccessMetadata(new MetadataManager(systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)))
-                .build();
-        metadata = (CountingAccessMetadata) localQueryRunner.getMetadata();
-        localQueryRunner.installPlugin(new TpchPlugin());
-        localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
-        return localQueryRunner;
+        queryRunner = new StandaloneQueryRunner(testSession());
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
+        return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
-        localQueryRunner.close();
-        localQueryRunner = null;
-        metadata = null;
-    }
-
-    @BeforeMethod
-    public void resetCounters()
-    {
-        metadata.resetCounters();
+        queryRunner.close();
+        queryRunner = null;
     }
 
     @Test
@@ -73,10 +61,7 @@ public class TestGetTableStatisticsOperations
         planDistributedQuery("SELECT * " +
                 "FROM tpch.tiny.orders o, tpch.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey");
-        assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 2)
-                        .build());
+        assertThat(getTableStatisticsMethodInvocations()).isEqualTo(2);
     }
 
     @Test
@@ -85,17 +70,22 @@ public class TestGetTableStatisticsOperations
         planDistributedQuery("SELECT * " +
                 "FROM tpch.tiny.customer c, tpch.tiny.orders o, tpch.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
-        assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
-                        .build());
+        assertThat(getTableStatisticsMethodInvocations()).isEqualTo(3);
     }
 
     private void planDistributedQuery(@Language("SQL") String sql)
     {
-        transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getAccessControl())
-                .execute(localQueryRunner.getDefaultSession(), session -> {
-                    localQueryRunner.createPlan(session, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
+        transaction(queryRunner.getTransactionManager(), queryRunner.getPlannerContext().getMetadata(), queryRunner.getAccessControl())
+                .execute(queryRunner.getDefaultSession(), transactionSession -> {
+                    queryRunner.createPlan(transactionSession, sql);
                 });
+    }
+
+    private long getTableStatisticsMethodInvocations()
+    {
+        return queryRunner.getSpans().stream()
+                .map(SpanData::getName)
+                .filter(name -> name.equals("Metadata.getTableStatistics"))
+                .count();
     }
 }

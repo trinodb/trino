@@ -23,7 +23,7 @@ import io.trino.spi.connector.SampleType;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.SampleNode.Type;
 import io.trino.sql.planner.plan.TableScanNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

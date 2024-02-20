@@ -13,15 +13,24 @@
  */
 package io.trino.spi.type;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.FlatFixed;
+import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
+
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -29,6 +38,7 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
@@ -39,10 +49,11 @@ public abstract class AbstractIntType
         implements FixedWidthType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(AbstractIntType.class, lookup(), long.class);
+    private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
     protected AbstractIntType(TypeSignature signature)
     {
-        super(signature, long.class);
+        super(signature, long.class, IntArrayBlock.class);
     }
 
     @Override
@@ -72,23 +83,27 @@ public abstract class AbstractIntType
     @Override
     public final long getLong(Block block, int position)
     {
-        return block.getInt(position, 0);
+        return getInt(block, position);
     }
 
-    @Override
-    public final Slice getSlice(Block block, int position)
+    public final int getInt(Block block, int position)
     {
-        return block.getSlice(position, 0, getFixedSize());
+        return readInt((IntArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         checkValueValid(value);
-        blockBuilder.writeInt((int) value).closeEntry();
+        writeInt(blockBuilder, (int) value);
     }
 
-    protected void checkValueValid(long value)
+    public BlockBuilder writeInt(BlockBuilder blockBuilder, int value)
+    {
+        return ((IntArrayBlockBuilder) blockBuilder).writeInt(value);
+    }
+
+    protected static void checkValueValid(long value)
     {
         if (value > Integer.MAX_VALUE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT", value));
@@ -105,8 +120,14 @@ public abstract class AbstractIntType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeInt(block.getInt(position, 0)).closeEntry();
+            writeInt(blockBuilder, getInt(block, position));
         }
+    }
+
+    @Override
+    public int getFlatFixedSize()
+    {
+        return Integer.BYTES;
     }
 
     @Override
@@ -136,18 +157,51 @@ public abstract class AbstractIntType
         return new IntArrayBlockBuilder(null, positionCount);
     }
 
+    @ScalarOperator(READ_VALUE)
+    private static long read(@BlockPosition IntArrayBlock block, @BlockIndex int position)
+    {
+        return readInt(block, position);
+    }
+
+    private static int readInt(IntArrayBlock block, int position)
+    {
+        return block.getInt(position);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long readFlat(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+    {
+        return (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeFlat(
+            long value,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, (int) value);
+    }
+
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(long left, long right)
     {
         return left == right;
     }
 
+    @SuppressWarnings("UnnecessaryLongToIntConversion")
     @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long value)
     {
         return AbstractLongType.hash((int) value);
     }
 
+    @SuppressWarnings("UnnecessaryLongToIntConversion")
     @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(long value)
     {

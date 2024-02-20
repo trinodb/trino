@@ -16,10 +16,9 @@ package io.trino.plugin.base.security;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import org.testng.annotations.Test;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotNull;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,7 +33,7 @@ import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFileBasedAccessControlConfig
 {
@@ -94,7 +93,7 @@ public class TestFileBasedAccessControlConfig
                 new FileBasedAccessControlConfig()
                     .setRefreshPeriod(Duration.valueOf("1ms")),
                 "configFile",
-                "may not be null",
+                "must not be null",
                 NotNull.class);
 
         assertFailsValidation(
@@ -132,7 +131,7 @@ public class TestFileBasedAccessControlConfig
                 new FileBasedAccessControlConfig()
                         .setRefreshPeriod(Duration.valueOf("1ms")),
                 "configFile",
-                "may not be null",
+                "must not be null",
                 NotNull.class);
 
         assertFailsValidation(
@@ -148,7 +147,7 @@ public class TestFileBasedAccessControlConfig
                         .setConfigFile(securityConfigUrl)
                         .setJsonPointer(null),
                 "jsonPointer",
-                "may not be null",
+                "must not be null",
                 NotNull.class);
 
         assertValidates(
@@ -172,14 +171,14 @@ public class TestFileBasedAccessControlConfig
     {
         FileBasedAccessControlConfig fileBasedAccessControlConfig = new FileBasedAccessControlConfig()
                 .setConfigFile("/etc/access-control");
-        assertEquals(fileBasedAccessControlConfig.isHttp(), false);
+        assertThat(fileBasedAccessControlConfig.isHttp()).isEqualTo(false);
 
         fileBasedAccessControlConfig = new FileBasedAccessControlConfig()
                 .setConfigFile("http://trino.example/config");
-        assertEquals(fileBasedAccessControlConfig.isHttp(), true);
+        assertThat(fileBasedAccessControlConfig.isHttp()).isEqualTo(true);
 
         fileBasedAccessControlConfig = new FileBasedAccessControlConfig()
                 .setConfigFile("https://trino.example/config");
-        assertEquals(fileBasedAccessControlConfig.isHttp(), true);
+        assertThat(fileBasedAccessControlConfig.isHttp()).isEqualTo(true);
     }
 }

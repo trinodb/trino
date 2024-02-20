@@ -1,0 +1,5 @@
+:::{note}
+The query engine does not preserve the order of the results of this
+function. If the passed query contains an ``ORDER BY`` clause, the
+function result may not be ordered as expected.
+:::

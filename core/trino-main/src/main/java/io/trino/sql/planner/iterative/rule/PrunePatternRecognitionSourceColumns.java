@@ -25,7 +25,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static io.trino.sql.planner.plan.Patterns.PatternRecognition.rowsPerMatch;
 import static io.trino.sql.planner.plan.Patterns.patternRecognition;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 
 /**
  * This rule restricts the inputs to PatternRecognitionNode

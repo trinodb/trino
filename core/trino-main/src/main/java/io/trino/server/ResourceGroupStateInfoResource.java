@@ -13,18 +13,17 @@
  */
 package io.trino.server;
 
+import com.google.inject.Inject;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-
-import javax.inject.Inject;
-import javax.ws.rs.Encoded;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.Encoded;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
 
 import java.net.URLDecoder;
 import java.util.Arrays;
@@ -32,9 +31,9 @@ import java.util.Arrays;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
+import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/v1/resourceGroupState")
 public class ResourceGroupStateInfoResource

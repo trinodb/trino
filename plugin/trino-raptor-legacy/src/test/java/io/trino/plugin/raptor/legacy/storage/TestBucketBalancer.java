@@ -32,9 +32,11 @@ import io.trino.spi.Node;
 import io.trino.testing.TestingNodeManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.List;
@@ -50,9 +52,12 @@ import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesW
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.TimeUnit.DAYS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestBucketBalancer
 {
     private static final List<String> AVAILABLE_WORKERS = ImmutableList.of("node1", "node2", "node3", "node4", "node5");
@@ -64,7 +69,7 @@ public class TestBucketBalancer
     private MetadataDao metadataDao;
     private BucketBalancer balancer;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
     {
         dbi = createTestingJdbi();
@@ -81,7 +86,7 @@ public class TestBucketBalancer
         balancer = new BucketBalancer(nodeSupplier, shardManager, true, new Duration(1, DAYS), true, true, "test");
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
     {
         if (dummyHandle != null) {
@@ -187,10 +192,10 @@ public class TestBucketBalancer
 
         assertBalancing(balancer, 1);
 
-        assertEquals(balancer.fetchClusterState().getAssignedBytes().values()
+        assertThat(balancer.fetchClusterState().getAssignedBytes().values()
                 .stream()
                 .distinct()
-                .count(), 1);
+                .count()).isEqualTo(1);
     }
 
     @Test
@@ -237,7 +242,7 @@ public class TestBucketBalancer
     private static void assertBalancing(BucketBalancer balancer, int expectedMoves)
     {
         int actualMoves = balancer.balance();
-        assertEquals(actualMoves, expectedMoves);
+        assertThat(actualMoves).isEqualTo(expectedMoves);
 
         // check that number of buckets per node is within bounds
         ClusterState clusterState = balancer.fetchClusterState();
@@ -255,7 +260,7 @@ public class TestBucketBalancer
         }
 
         // check stability
-        assertEquals(balancer.balance(), 0);
+        assertThat(balancer.balance()).isEqualTo(0);
     }
 
     private long createDistribution(String distributionName, int bucketCount)

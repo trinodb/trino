@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -32,7 +32,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestPushPartialAggregationThroughJoin
         extends BaseRuleTest
@@ -58,9 +58,9 @@ public class TestPushPartialAggregationThroughJoin
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("RIGHT_GROUP_BY"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(
-                        "LEFT_GROUP_BY", PlanMatchPattern.expression("LEFT_GROUP_BY"),
-                        "RIGHT_GROUP_BY", PlanMatchPattern.expression("RIGHT_GROUP_BY"),
-                        "AVG", PlanMatchPattern.expression("AVG")),
+                                "LEFT_GROUP_BY", PlanMatchPattern.expression("LEFT_GROUP_BY"),
+                                "RIGHT_GROUP_BY", PlanMatchPattern.expression("RIGHT_GROUP_BY"),
+                                "AVG", PlanMatchPattern.expression("AVG")),
                         join(INNER, builder -> builder
                                 .equiCriteria("LEFT_EQUI", "RIGHT_EQUI")
                                 .filter("LEFT_NON_EQUI <= RIGHT_NON_EQUI")

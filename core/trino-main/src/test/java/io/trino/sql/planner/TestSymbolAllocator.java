@@ -15,11 +15,11 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.BigintType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSymbolAllocator
 {
@@ -34,6 +34,6 @@ public class TestSymbolAllocator
                 .add(allocator.newSymbol("foo", BigintType.BIGINT))
                 .build();
 
-        assertEquals(symbols.size(), 4);
+        assertThat(symbols.size()).isEqualTo(4);
     }
 }

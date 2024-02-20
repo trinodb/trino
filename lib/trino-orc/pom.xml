@@ -5,12 +5,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-orc</artifactId>
-    <name>trino-orc</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -18,28 +17,14 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-array</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-filesystem</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-memory-context</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.orc</groupId>
-            <artifactId>orc-protobuf</artifactId>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
@@ -68,8 +53,33 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-array</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-memory-context</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.orc</groupId>
+            <artifactId>orc-protobuf</artifactId>
         </dependency>
 
         <dependency>
@@ -78,13 +88,13 @@
         </dependency>
 
         <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
         </dependency>
 
         <dependency>
@@ -93,31 +103,29 @@
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <scope>provided</scope>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 
-        <!-- for testing -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>json</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
@@ -137,26 +145,32 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -169,24 +183,6 @@
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-generator-annprocess</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>jcl-over-slf4j</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-jdk14</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

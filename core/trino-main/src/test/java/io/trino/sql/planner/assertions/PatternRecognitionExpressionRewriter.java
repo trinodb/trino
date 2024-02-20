@@ -15,7 +15,6 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -38,7 +37,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
@@ -49,7 +47,7 @@ public class PatternRecognitionExpressionRewriter
 
     public static ExpressionAndValuePointers rewrite(String definition, Map<IrLabel, Set<IrLabel>> subsets)
     {
-        return rewrite(new SqlParser().createExpression(definition, new ParsingOptions()), subsets);
+        return rewrite(new SqlParser().createExpression(definition), subsets);
     }
 
     public static ExpressionAndValuePointers rewrite(Expression definition, Map<IrLabel, Set<IrLabel>> subsets)
@@ -57,7 +55,7 @@ public class PatternRecognitionExpressionRewriter
         Expression expression = rewriteIdentifiers(definition);
         Map<Symbol, Type> types = extractExpressions(ImmutableList.of(expression), SymbolReference.class).stream()
                 .collect(toImmutableMap(Symbol::from, reference -> BIGINT));
-        return LogicalIndexExtractor.rewrite(expression, subsets, new SymbolAllocator(types), TEST_SESSION, createTestMetadataManager());
+        return LogicalIndexExtractor.rewrite(expression, subsets, new SymbolAllocator(types), createTestMetadataManager());
     }
 
     private static Expression rewriteIdentifiers(Expression expression)

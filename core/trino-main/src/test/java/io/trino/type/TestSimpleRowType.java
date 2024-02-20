@@ -14,23 +14,25 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlockWriter;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimpleRowType
         extends AbstractTestType
 {
-    private static final Type TYPE = RowType.from(ImmutableList.of(
+    private static final RowType TYPE = RowType.from(ImmutableList.of(
             field("a", BIGINT),
             field("b", VARCHAR)));
 
@@ -39,42 +41,57 @@ public class TestSimpleRowType
         super(TYPE, List.class, createTestBlock());
     }
 
-    private static Block createTestBlock()
+    private static ValueBlock createTestBlock()
     {
-        RowBlockBuilder blockBuilder = (RowBlockBuilder) TYPE.createBlockBuilder(null, 3);
+        RowBlockBuilder blockBuilder = TYPE.createBlockBuilder(null, 3);
 
-        SingleRowBlockWriter singleRowBlockWriter;
+        blockBuilder.buildEntry(fieldBuilders -> {
+            BIGINT.writeLong(fieldBuilders.get(0), 1);
+            VARCHAR.writeSlice(fieldBuilders.get(1), utf8Slice("cat"));
+        });
 
-        singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(singleRowBlockWriter, 1);
-        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("cat"));
-        blockBuilder.closeEntry();
+        blockBuilder.buildEntry(fieldBuilders -> {
+            BIGINT.writeLong(fieldBuilders.get(0), 2);
+            VARCHAR.writeSlice(fieldBuilders.get(1), utf8Slice("cats"));
+        });
 
-        singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(singleRowBlockWriter, 2);
-        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("cats"));
-        blockBuilder.closeEntry();
+        blockBuilder.buildEntry(fieldBuilders -> {
+            BIGINT.writeLong(fieldBuilders.get(0), 3);
+            VARCHAR.writeSlice(fieldBuilders.get(1), utf8Slice("dog"));
+        });
 
-        singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(singleRowBlockWriter, 3);
-        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("dog"));
-        blockBuilder.closeEntry();
-
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
-        RowBlockBuilder blockBuilder = (RowBlockBuilder) TYPE.createBlockBuilder(null, 1);
-        SingleRowBlockWriter singleRowBlockWriter;
+        return buildRowValue(TYPE, fieldBuilders -> {
+            SqlRow sqlRow = (SqlRow) value;
+            int rawIndex = sqlRow.getRawIndex();
+            BIGINT.writeLong(fieldBuilders.get(0), BIGINT.getLong(sqlRow.getRawFieldBlock(0), rawIndex) + 1);
+            VARCHAR.writeSlice(fieldBuilders.get(1), VARCHAR.getSlice(sqlRow.getRawFieldBlock(1), rawIndex).slice(0, 1));
+        });
+    }
 
-        Block block = (Block) value;
-        singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(singleRowBlockWriter, block.getSingleValueBlock(0).getLong(0, 0) + 1);
-        VARCHAR.writeSlice(singleRowBlockWriter, block.getSingleValueBlock(1).getSlice(0, 0, 1));
-        blockBuilder.closeEntry();
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
 
-        return TYPE.getObject(blockBuilder.build(), 0);
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

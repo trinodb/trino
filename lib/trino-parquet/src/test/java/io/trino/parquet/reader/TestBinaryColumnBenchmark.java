@@ -16,7 +16,7 @@ package io.trino.parquet.reader;
 import io.trino.parquet.reader.BenchmarkBinaryColumnReader.Encoding;
 import io.trino.parquet.reader.BenchmarkBinaryColumnReader.FieldType;
 import io.trino.parquet.reader.BenchmarkBinaryColumnReader.PositionLength;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 

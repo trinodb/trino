@@ -24,6 +24,7 @@ import io.trino.tempto.fulfillment.table.TableDefinition;
 import io.trino.tempto.fulfillment.table.TableHandle;
 import io.trino.tempto.fulfillment.table.TableInstance;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -32,7 +33,6 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
@@ -45,6 +45,8 @@ import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIV
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.populateDataToHiveTable;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -62,6 +64,7 @@ import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TINYINT;
 import static java.sql.JDBCType.VARBINARY;
 import static java.sql.JDBCType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAllDatatypesFromHiveConnector
         extends HiveProductTest
@@ -348,6 +351,7 @@ public class TestAllDatatypesFromHiveConnector
 
     @Requires(ParquetRequirements.class)
     @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testSelectAllDatatypesParquetFile()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_PARQUET).getNameInDatabase();

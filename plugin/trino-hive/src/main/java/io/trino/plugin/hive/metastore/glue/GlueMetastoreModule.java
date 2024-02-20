@@ -19,15 +19,17 @@ import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
 import io.trino.plugin.hive.AllowHiveTableRename;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 
@@ -35,10 +37,9 @@ import java.util.concurrent.Executor;
 import java.util.function.Predicate;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -49,12 +50,11 @@ public class GlueMetastoreModule
     protected void setup(Binder binder)
     {
         GlueHiveMetastoreConfig glueConfig = buildConfigObject(GlueHiveMetastoreConfig.class);
-        glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> binder
-                .bind(Key.get(RequestHandler2.class, ForGlueHiveMetastore.class))
+        Multibinder<RequestHandler2> requestHandlers = newSetBinder(binder, RequestHandler2.class, ForGlueHiveMetastore.class);
+        glueConfig.getCatalogId().ifPresent(catalogId -> requestHandlers.addBinding().toInstance(new GlueCatalogIdRequestHandler(catalogId)));
+        glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> requestHandlers.addBinding()
                 .toInstance(new ProxyApiRequestHandler(glueProxyApiId)));
-        configBinder(binder).bindConfig(HiveConfig.class);
         binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, Key.get(RequestHandler2.class, ForGlueHiveMetastore.class));
 
         newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))
                 .setDefault().toProvider(DefaultGlueMetastoreTableFilterProvider.class).in(Scopes.SINGLETON);
@@ -69,23 +69,23 @@ public class GlueMetastoreModule
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         binder.bind(Key.get(GlueMetastoreStats.class, ForGlueHiveMetastore.class)).toInstance(new GlueMetastoreStats());
         binder.bind(AWSGlueAsync.class).toProvider(HiveGlueClientProvider.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(GlueHiveMetastoreFactory.class).as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
+        newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
 
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);
 
-        install(conditionalModule(
-                HiveConfig.class,
-                HiveConfig::isTableStatisticsEnabled,
-                getGlueStatisticsModule(DefaultGlueColumnStatisticsProviderFactory.class),
-                getGlueStatisticsModule(DisabledGlueColumnStatisticsProviderFactory.class)));
+        newOptionalBinder(binder, GlueColumnStatisticsProviderFactory.class)
+                .setDefault().to(DefaultGlueColumnStatisticsProviderFactory.class).in(Scopes.SINGLETON);
     }
 
-    private Module getGlueStatisticsModule(Class<? extends GlueColumnStatisticsProviderFactory> statisticsPrividerFactoryClass)
+    @ProvidesIntoSet
+    @Singleton
+    @ForGlueHiveMetastore
+    public RequestHandler2 createRequestHandler(OpenTelemetry openTelemetry)
     {
-        return internalBinder -> newOptionalBinder(internalBinder, GlueColumnStatisticsProviderFactory.class)
-                .setDefault()
-                .to(statisticsPrividerFactoryClass)
-                .in(Scopes.SINGLETON);
+        return AwsSdkTelemetry.builder(openTelemetry)
+                .setCaptureExperimentalSpanAttributes(true)
+                .build()
+                .newRequestHandler();
     }
 
     @Provides

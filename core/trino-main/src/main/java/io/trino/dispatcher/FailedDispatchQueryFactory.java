@@ -13,6 +13,7 @@
  */
 package io.trino.dispatcher;
 
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.event.QueryMonitor;
@@ -20,12 +21,9 @@ import io.trino.execution.LocationFactory;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 
-import javax.inject.Inject;
-
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 
 public class FailedDispatchQueryFactory
@@ -59,7 +57,6 @@ public class FailedDispatchQueryFactory
         BasicQueryInfo queryInfo = failedDispatchQuery.getBasicQueryInfo();
 
         queryMonitor.queryCreatedEvent(queryInfo);
-        queryMonitor.queryImmediateFailureEvent(queryInfo, toFailure(throwable));
 
         return failedDispatchQuery;
     }

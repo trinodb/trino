@@ -14,14 +14,17 @@
 package io.trino.cli;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.google.common.collect.ImmutableList;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 
-import static io.trino.cli.AlignedTablePrinter.formatHexDump;
+import static io.trino.cli.FormatUtils.formatHexDump;
 import static java.util.Objects.requireNonNull;
 
 public class JsonPrinter
@@ -40,7 +43,7 @@ public class JsonPrinter
     public void printRows(List<List<?>> rows, boolean complete)
             throws IOException
     {
-        JsonFactory jsonFactory = new JsonFactory().configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
+        JsonFactory jsonFactory = jsonFactory();
         try (JsonGenerator jsonGenerator = jsonFactory.createGenerator(writer)) {
             jsonGenerator.setRootValueSeparator(null);
             for (List<?> row : rows) {
@@ -69,5 +72,19 @@ public class JsonPrinter
             return formatHexDump((byte[]) o);
         }
         return o;
+    }
+
+    @SuppressModernizer
+    // JsonFactoryBuilder usage is intentional as we don't want to bring additional dependency on plugin-toolkit module
+    private static JsonFactory jsonFactory()
+    {
+        return new JsonFactoryBuilder()
+                .streamReadConstraints(StreamReadConstraints.builder()
+                        .maxNumberLength(Integer.MAX_VALUE)
+                        .maxNestingDepth(Integer.MAX_VALUE)
+                        .maxStringLength(Integer.MAX_VALUE)
+                        .build())
+                .build()
+                .configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
     }
 }

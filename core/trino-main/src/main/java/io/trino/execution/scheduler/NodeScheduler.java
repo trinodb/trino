@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTask;
@@ -27,8 +28,6 @@ import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.CatalogHandle;
-
-import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -108,17 +107,17 @@ public class NodeScheduler
                     .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                     .forEach(chosen::add);
 
-            InetAddress address;
-            try {
-                address = host.toInetAddress();
-            }
-            catch (UnknownHostException e) {
-                // skip hosts that don't resolve
-                continue;
-            }
-
             // consider a split with a host without a port as being accessible by all nodes in that host
             if (!host.hasPort()) {
+                InetAddress address;
+                try {
+                    address = host.toInetAddress();
+                }
+                catch (UnknownHostException e) {
+                    // skip hosts that don't resolve
+                    continue;
+                }
+
                 nodeMap.getNodesByHost().get(address).stream()
                         .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                         .forEach(chosen::add);
@@ -134,17 +133,17 @@ public class NodeScheduler
 
                 chosen.addAll(nodeMap.getNodesByHostAndPort().get(host));
 
-                InetAddress address;
-                try {
-                    address = host.toInetAddress();
-                }
-                catch (UnknownHostException e) {
-                    // skip hosts that don't resolve
-                    continue;
-                }
-
                 // consider a split with a host without a port as being accessible by all nodes in that host
                 if (!host.hasPort()) {
+                    InetAddress address;
+                    try {
+                        address = host.toInetAddress();
+                    }
+                    catch (UnknownHostException e) {
+                        // skip hosts that don't resolve
+                        continue;
+                    }
+
                     chosen.addAll(nodeMap.getNodesByHost().get(address));
                 }
             }

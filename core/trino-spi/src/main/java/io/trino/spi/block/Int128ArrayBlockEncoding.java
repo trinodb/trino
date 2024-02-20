@@ -13,10 +13,8 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -35,32 +33,33 @@ public class Int128ArrayBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        int positionCount = block.getPositionCount();
+        Int128ArrayBlock int128ArrayBlock = (Int128ArrayBlock) block;
+        int positionCount = int128ArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, block);
+        encodeNullsAsBits(sliceOutput, int128ArrayBlock);
 
-        if (!block.mayHaveNull()) {
-            sliceOutput.writeBytes(getValuesSlice(block));
+        if (!int128ArrayBlock.mayHaveNull()) {
+            sliceOutput.writeLongs(int128ArrayBlock.getRawValues(), int128ArrayBlock.getRawOffset() * 2, int128ArrayBlock.getPositionCount() * 2);
         }
         else {
             long[] valuesWithoutNull = new long[positionCount * 2];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = block.getLong(i, 0);
-                valuesWithoutNull[nonNullPositionCount + 1] = block.getLong(i, 8);
-                if (!block.isNull(i)) {
+                valuesWithoutNull[nonNullPositionCount] = int128ArrayBlock.getInt128High(i);
+                valuesWithoutNull[nonNullPositionCount + 1] = int128ArrayBlock.getInt128Low(i);
+                if (!int128ArrayBlock.isNull(i)) {
                     nonNullPositionCount += 2;
                 }
             }
 
             sliceOutput.writeInt(nonNullPositionCount / 2);
-            sliceOutput.writeBytes(Slices.wrappedLongArray(valuesWithoutNull, 0, nonNullPositionCount));
+            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
         }
     }
 
     @Override
-    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
+    public Int128ArrayBlock readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
 
@@ -68,11 +67,11 @@ public class Int128ArrayBlockEncoding
 
         long[] values = new long[positionCount * 2];
         if (valueIsNull == null) {
-            sliceInput.readBytes(Slices.wrappedLongArray(values));
+            sliceInput.readLongs(values);
         }
         else {
             int nonNullPositionCount = sliceInput.readInt();
-            sliceInput.readBytes(Slices.wrappedLongArray(values, 0, nonNullPositionCount * 2));
+            sliceInput.readLongs(values, 0, nonNullPositionCount * 2);
             int position = 2 * (nonNullPositionCount - 1);
             for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
                 System.arraycopy(values, position, values, 2 * i, 2);
@@ -83,17 +82,5 @@ public class Int128ArrayBlockEncoding
         }
 
         return new Int128ArrayBlock(0, positionCount, valueIsNull, values);
-    }
-
-    private Slice getValuesSlice(Block block)
-    {
-        if (block instanceof Int128ArrayBlock) {
-            return ((Int128ArrayBlock) block).getValuesSlice();
-        }
-        if (block instanceof Int128ArrayBlockBuilder) {
-            return ((Int128ArrayBlockBuilder) block).getValuesSlice();
-        }
-
-        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }

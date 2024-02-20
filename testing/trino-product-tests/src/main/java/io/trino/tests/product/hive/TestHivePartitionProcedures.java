@@ -15,7 +15,6 @@ package io.trino.tests.product.hive;
 
 import com.google.inject.Inject;
 import io.trino.tempto.ProductTest;
-import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.HiveDataSource;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
@@ -23,13 +22,12 @@ import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
-import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
@@ -52,10 +50,9 @@ public class TestHivePartitionProcedures
     @Inject
     private HdfsDataSourceWriter hdfsDataSourceWriter;
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterPartition()
-            throws URISyntaxException
     {
         createPartitionedTable(FIRST_TABLE);
 
@@ -71,117 +68,117 @@ public class TestHivePartitionProcedures
         assertThat(hdfsClient.exist(getTablePath(FIRST_TABLE, 1) + "/col=a/")).isTrue();
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterViewTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
         createView(VIEW_TABLE, FIRST_TABLE);
 
-        QueryAssert.assertQueryFailure(() -> dropPartition(VIEW_TABLE, "col", "a"))
+        assertQueryFailure(() -> dropPartition(VIEW_TABLE, "col", "a"))
                 .hasMessageContaining("Table is a view: default." + VIEW_TABLE);
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterMissingTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertQueryFailure(() -> dropPartition("missing_table", "col", "f"))
+        assertQueryFailure(() -> dropPartition("missing_table", "col", "f"))
                 .hasMessageContaining("Table 'default.missing_table' not found");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterUnpartitionedTableShouldFail()
     {
         createUnpartitionedTable(SECOND_TABLE);
 
-        QueryAssert.assertQueryFailure(() -> dropPartition(SECOND_TABLE, "col", "a"))
+        assertQueryFailure(() -> dropPartition(SECOND_TABLE, "col", "a"))
                 .hasMessageContaining("Table is not partitioned: default." + SECOND_TABLE);
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterInvalidPartitionColumnsShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertQueryFailure(() -> dropPartition(FIRST_TABLE, "not_existing_partition_col", "a"))
+        assertQueryFailure(() -> dropPartition(FIRST_TABLE, "not_existing_partition_col", "a"))
                 .hasMessageContaining("Provided partition column names do not match actual partition column names: [col]");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterMissingPartitionShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertQueryFailure(() -> dropPartition(FIRST_TABLE, "col", "f"))
+        assertQueryFailure(() -> dropPartition(FIRST_TABLE, "col", "f"))
                 .hasMessageContaining("Partition 'col=f' does not exist");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionMissingTableShouldFail()
     {
-        QueryAssert.assertQueryFailure(() -> addPartition("missing_table", "col", "f", "/"))
+        assertQueryFailure(() -> addPartition("missing_table", "col", "f", "/"))
                 .hasMessageContaining("Table 'default.missing_table' not found");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterUnpartitionedTableShouldFail()
     {
         createUnpartitionedTable(SECOND_TABLE);
 
-        QueryAssert.assertQueryFailure(() -> addPartition(SECOND_TABLE, "col", "a", "/"))
+        assertQueryFailure(() -> addPartition(SECOND_TABLE, "col", "a", "/"))
                 .hasMessageContaining("Table is not partitioned: default." + SECOND_TABLE);
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterViewTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
         createView(VIEW_TABLE, FIRST_TABLE);
 
-        QueryAssert.assertQueryFailure(() -> addPartition(VIEW_TABLE, "col", "a", "/"))
+        assertQueryFailure(() -> addPartition(VIEW_TABLE, "col", "a", "/"))
                 .hasMessageContaining("Table is a view: default." + VIEW_TABLE);
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionCollisionShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertQueryFailure(() -> addPartition(FIRST_TABLE, "col", "a", "/"))
+        assertQueryFailure(() -> addPartition(FIRST_TABLE, "col", "a", "/"))
                 .hasMessageContaining("Partition [col=a] is already registered");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionInvalidPartitionColumnsShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertQueryFailure(() -> addPartition(FIRST_TABLE, "not_existing_partition_col", "a", "/"))
+        assertQueryFailure(() -> addPartition(FIRST_TABLE, "not_existing_partition_col", "a", "/"))
                 .hasMessageContaining("Provided partition column names do not match actual partition column names: [col]");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionInvalidLocationShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
 
-        QueryAssert.assertQueryFailure(() -> addPartition(FIRST_TABLE, "col", "f", "/some/non/existing/path"))
+        assertQueryFailure(() -> addPartition(FIRST_TABLE, "col", "f", "/some/non/existing/path"))
                 .hasMessageContaining("Partition location does not exist: /some/non/existing/path");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionWithDefaultPartitionLocation()
     {
@@ -199,10 +196,9 @@ public class TestHivePartitionProcedures
         assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("b", "c");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartition()
-            throws URISyntaxException
     {
         createPartitionedTable(FIRST_TABLE);
         createPartitionedTable(SECOND_TABLE);
@@ -220,7 +216,7 @@ public class TestHivePartitionProcedures
         assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("a", "b", "c", "f");
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Test(groups = SMOKE)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionFromAnyLocation()
     {

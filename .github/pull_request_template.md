@@ -12,8 +12,8 @@
 <!-- Mark the appropriate option with an (x). Propose a release note if you can. -->
 ## Release notes
 
-( ) This is not user-visible or docs only and no release notes are required.
-( ) Release notes are required, please propose a release note for me.
+( ) This is not user-visible or is docs only, and no release notes are required.
+( ) Release notes are required. Please propose a release note for me.
 ( ) Release notes are required, with the following suggested text:
 
 ```markdown

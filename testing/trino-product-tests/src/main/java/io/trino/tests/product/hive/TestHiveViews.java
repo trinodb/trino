@@ -19,7 +19,7 @@ import io.trino.tempto.Requires;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
-import org.assertj.core.api.Assertions;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -27,10 +27,11 @@ import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Requires({
@@ -52,7 +53,8 @@ public class TestHiveViews
                 row("a_string", "varchar"));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFailingHiveViewsWithMetadataListing()
     {
         setupBrokenView();
@@ -69,14 +71,8 @@ public class TestHiveViews
         // is used, so Trino's information_schema.views table does not include translated Hive views.
         String withSchemaFilter = "SELECT table_name FROM information_schema.views WHERE table_schema = 'test_list_failing_views'";
         String withNoFilter = "SELECT table_name FROM information_schema.views";
-        if (getHiveVersionMajor() == 3) {
-            assertThat(onTrino().executeQuery(withSchemaFilter)).containsOnly(row("correct_view"));
-            assertThat(onTrino().executeQuery(withNoFilter)).contains(row("correct_view"));
-        }
-        else {
-            assertThat(onTrino().executeQuery(withSchemaFilter)).hasNoRows();
-            Assertions.assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
-        }
+        assertThat(onTrino().executeQuery(withSchemaFilter)).containsOnly(row("correct_view"));
+        assertThat(onTrino().executeQuery(withNoFilter)).contains(row("correct_view"));
 
         // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
         // a different API. so the Hive version does not matter here.
@@ -88,7 +84,7 @@ public class TestHiveViews
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
 
         // Queries on information_schema.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
-        // listed too since HiveMetadata#listTableColumns does not ignore views.
+        // listed too since HiveMetadata#listTableColumns does not ignore Hive views.
         assertThat(onTrino().executeQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'test_list_failing_views'"))
                 .containsOnly(
                         row("correct_view", "n_nationkey"),
@@ -111,14 +107,8 @@ public class TestHiveViews
                 "table_schem = 'test_list_failing_views' AND " +
                 "table_type = 'VIEW'";
         String withNoFilter = "SELECT table_name FROM system.jdbc.tables WHERE table_cat = 'hive' AND table_type = 'VIEW'";
-        if (getHiveVersionMajor() == 3) {
-            assertThat(onTrino().executeQuery(withSchemaFilter)).containsOnly(row("correct_view"), row("failing_view"));
-            assertThat(onTrino().executeQuery(withNoFilter)).contains(row("correct_view"), row("failing_view"));
-        }
-        else {
-            assertThat(onTrino().executeQuery(withSchemaFilter)).hasNoRows();
-            Assertions.assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
-        }
+        assertThat(onTrino().executeQuery(withSchemaFilter)).containsOnly(row("correct_view"), row("failing_view"));
+        assertThat(onTrino().executeQuery(withNoFilter)).contains(row("correct_view"), row("failing_view"));
 
         // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
         // a different API. so the Hive version does not matter here.
@@ -138,7 +128,7 @@ public class TestHiveViews
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
 
         // Queries on system.jdbc.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
-        // listed too since HiveMetadata#listTableColumns does not ignore views.
+        // listed too since HiveMetadata#listTableColumns does not ignore Hive views.
         assertThat(onTrino().executeQuery("SELECT table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views'"))
                 .containsOnly(
                         row("correct_view", "n_nationkey"),
@@ -163,7 +153,8 @@ public class TestHiveViews
         onTrino().executeQuery("DROP TABLE test_list_failing_views.table_dropped");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testLateralViewExplode()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS pageAds");
@@ -198,7 +189,8 @@ public class TestHiveViews
                         row("zero", null)));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testLateralViewExplodeArrayOfStructs()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS pageAdsStructs");
@@ -234,7 +226,8 @@ public class TestHiveViews
                         row("zero", null, null)));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testLateralViewJsonTupleAs()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_json_tuple_table");
@@ -252,7 +245,8 @@ public class TestHiveViews
                 queryAssert -> queryAssert.containsOnly(row(3, "Mateusz", "Gajewski", "true", "1000", null, null)));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFromUtcTimestamp()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_source");
@@ -334,60 +328,32 @@ public class TestHiveViews
                         "1970-01-29 16:00:00.000"));
 
         // check result on Hive
-        if (isObsoleteFromUtcTimestampSemantics()) {
-            // For older hive version we expect different results on Hive side; as from_utc_timestamp semantics changed over time.
-            // Currently view transformation logic always follows new semantics.
-            // Leaving Hive assertions as documentation.
-            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
-                    .containsOnly(row(
-                            "1969-12-31 21:30:00.123",
-                            "1969-12-31 21:30:00.123",
-                            "1969-12-31 21:30:10.123",
-                            "1969-12-31 21:30:10.123",
-                            "1970-01-03 21:30:00.123",
-                            "1970-01-03 21:30:00.123",
-                            "1970-01-30 21:30:00.123",
-                            "1970-01-30 21:30:00.123",
-                            "1970-01-30 21:30:00",
-                            "1970-01-30 21:30:00",
-                            "1970-01-30 21:30:00.123",
-                            "1970-01-30 21:30:00.123",
-                            "1970-01-30 21:30:00.123",
-                            "1970-01-30 21:30:00.123",
-                            "1970-01-30 21:30:00",
-                            "1970-01-30 21:30:00",
-                            "1970-01-30 08:00:00",
-                            "1970-01-30 08:00:00",
-                            "1970-01-29 16:00:00",
-                            "1970-01-29 16:00:00"));
-        }
-        else {
-            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
-                    .containsOnly(row(
-                            "1969-12-31 16:00:00.123",
-                            "1969-12-31 16:00:00.123",
-                            "1969-12-31 16:00:10.123",
-                            "1969-12-31 16:00:10.123",
-                            "1970-01-03 16:00:00.123",
-                            "1970-01-03 16:00:00.123",
-                            "1970-01-30 16:00:00.123",
-                            "1970-01-30 16:00:00.123",
-                            "1970-01-30 16:00:00",
-                            "1970-01-30 16:00:00",
-                            "1970-01-30 16:00:00.123",
-                            "1970-01-30 16:00:00.123",
-                            "1970-01-30 16:00:00.123",
-                            "1970-01-30 16:00:00.123",
-                            "1970-01-30 16:00:00",
-                            "1970-01-30 16:00:00",
-                            "1970-01-30 08:00:00",
-                            "1970-01-30 08:00:00",
-                            "1970-01-29 16:00:00",
-                            "1970-01-29 16:00:00"));
-        }
+        assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
+                .containsOnly(row(
+                        "1969-12-31 16:00:00.123",
+                        "1969-12-31 16:00:00.123",
+                        "1969-12-31 16:00:10.123",
+                        "1969-12-31 16:00:10.123",
+                        "1970-01-03 16:00:00.123",
+                        "1970-01-03 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00",
+                        "1970-01-30 16:00:00",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00.123",
+                        "1970-01-30 16:00:00",
+                        "1970-01-30 16:00:00",
+                        "1970-01-30 08:00:00",
+                        "1970-01-30 08:00:00",
+                        "1970-01-29 16:00:00",
+                        "1970-01-29 16:00:00"));
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFromUtcTimestampInvalidTimeZone()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_invalid_time_zone_source");
@@ -412,7 +378,8 @@ public class TestHiveViews
         onTrino().executeQuery("DROP TABLE test_from_utc_timestamp_invalid_time_zone_source");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedFieldWithReservedKeyNames()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_nested_field_with_reserved_key_names_source");
@@ -445,7 +412,8 @@ public class TestHiveViews
         onHive().executeQuery("DROP TABLE test_nested_field_with_reserved_key_names_source");
     }
 
-    @Test(groups = HIVE_VIEWS)
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFromUtcTimestampCornerCases()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_corner_cases_source");
@@ -475,37 +443,17 @@ public class TestHiveViews
                         row("2128-06-11 01:53:20.001"));
 
         // check result on Hive
-        if (isObsoleteFromUtcTimestampSemantics()) {
-            // For older hive version we expect different results on Hive side; as from_utc_timestamp semantics changed over time.
-            // Currently view transformation logic always follows new semantics.
-            // Leaving Hive assertions as documentation.
-            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
-                    .containsOnly(
-                            row("1811-07-23 12:51:39.999"), // ???
-                            row("1938-04-24 19:43:19.999"),
-                            row("1969-12-31 21:29:59.999"),
-                            row("1969-12-31 21:30:00.001"),
-                            row("2128-06-11 07:38:20.001"));
-        }
-        else {
-            assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
-                    .containsOnly(
-                            row("1811-07-23 07:13:41.999"),
-                            row("1938-04-24 14:13:19.999"),
-                            row("1969-12-31 15:59:59.999"),
-                            row("1969-12-31 16:00:00.001"),
-                            row("2128-06-11 01:53:20.001"));
-        }
+        assertThat(onHive().executeQuery("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
+                .containsOnly(
+                        row("1811-07-23 07:13:41.999"),
+                        row("1938-04-24 14:13:19.999"),
+                        row("1969-12-31 15:59:59.999"),
+                        row("1969-12-31 16:00:00.001"),
+                        row("2128-06-11 01:53:20.001"));
     }
 
-    private boolean isObsoleteFromUtcTimestampSemantics()
-    {
-        // It appears from_utc_timestamp semantics in Hive changes some time on the way. The guess is that it happened
-        // together with change of timestamp semantics at version 3.1.
-        return getHiveVersionMajor() < 3 || (getHiveVersionMajor() == 3 && getHiveVersionMinor() < 1);
-    }
-
-    @Test(groups = HIVE_VIEWS)
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCastTimestampAsDecimal()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS cast_timestamp_as_decimal");
@@ -515,19 +463,37 @@ public class TestHiveViews
         onHive().executeQuery("CREATE VIEW cast_timestamp_as_decimal_view AS SELECT CAST(a_timestamp as DECIMAL(10,0)) a_cast_timestamp FROM cast_timestamp_as_decimal");
 
         String testQuery = "SELECT * FROM cast_timestamp_as_decimal_view";
-        if (getHiveVersionMajor() > 3 || (getHiveVersionMajor() == 3 && getHiveVersionMinor() >= 1)) {
-            assertViewQuery(
-                    testQuery,
-                    queryAssert -> queryAssert.containsOnly(row(new BigDecimal("631282394"))));
-        }
-        else {
-            // For Hive versions older than 3.1 semantics of cast timestamp to decimal is different and it takes into account timezone Hive VM uses.
-            // We cannot replicate the behaviour in Trino, hence test only documents different expected results.
-            assertThat(onTrino().executeQuery(testQuery)).containsOnly(row(new BigDecimal("631282394")));
-            assertThat(onHive().executeQuery(testQuery)).containsOnly(row(new BigDecimal("631261694")));
-        }
+        assertViewQuery(testQuery, queryAssert -> queryAssert.containsOnly(row(new BigDecimal("631282394"))));
 
         onHive().executeQuery("DROP VIEW cast_timestamp_as_decimal_view");
         onHive().executeQuery("DROP TABLE cast_timestamp_as_decimal");
+    }
+
+    @Test
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    public void testUnionBetweenCharAndVarchar()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS union_char_varchar");
+        onHive().executeQuery("CREATE TABLE union_char_varchar (a_char char(1), a_varchar varchar(1024))");
+        onHive().executeQuery("INSERT INTO union_char_varchar VALUES ('a', 'Trino')");
+        onHive().executeQuery("INSERT INTO union_char_varchar VALUES (NULL, NULL)");
+        onHive().executeQuery("DROP VIEW IF EXISTS union_char_varchar_view");
+        onHive().executeQuery("""
+                CREATE VIEW union_char_varchar_view AS
+                SELECT a_char AS col FROM union_char_varchar
+                UNION ALL
+                SELECT a_varchar AS col FROM union_char_varchar
+                """);
+
+        List<QueryAssert.Row> expected = List.of(
+                row("a"),
+                row("Trino"),
+                row((Object) null),
+                row((Object) null));
+        assertThat(onTrino().executeQuery("SELECT * FROM union_char_varchar_view")).containsOnly(expected);
+        assertThat(onHive().executeQuery("SELECT * FROM union_char_varchar_view")).containsOnly(expected);
+
+        onHive().executeQuery("DROP VIEW union_char_varchar_view");
+        onHive().executeQuery("DROP TABLE union_char_varchar");
     }
 }

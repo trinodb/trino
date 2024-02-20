@@ -13,14 +13,11 @@
  */
 package io.trino.plugin.hive.line;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.line.simple.SimpleDeserializerFactory;
 import io.trino.hive.formats.line.text.TextLineReaderFactory;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveSessionProperties;
-
-import javax.inject.Inject;
 
 import static java.lang.Math.toIntExact;
 
@@ -28,12 +25,10 @@ public class SimpleTextFilePageSourceFactory
         extends LinePageSourceFactory
 {
     @Inject
-    public SimpleTextFilePageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, FileFormatDataSourceStats stats, HiveConfig config)
+    public SimpleTextFilePageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig config)
     {
         super(trinoFileSystemFactory,
-                stats,
                 new SimpleDeserializerFactory(),
-                new TextLineReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())),
-                HiveSessionProperties::isTextFileNativeReaderEnabled);
+                new TextLineReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())));
     }
 }

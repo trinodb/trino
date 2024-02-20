@@ -58,6 +58,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -146,6 +147,7 @@ public class BlackHoleMetadata
                         .map(BlackHoleTableHandle::toSchemaTableName)
                         .collect(toList()))
                 .addAll(listViews(session, schemaName))
+                .addAll(listMaterializedViews(session, schemaName))
                 .build().asList();
     }
 
@@ -154,7 +156,7 @@ public class BlackHoleMetadata
     {
         BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
         return blackHoleTableHandle.getColumnHandles().stream()
-                .collect(toImmutableMap(BlackHoleColumnHandle::getName, column -> column));
+                .collect(toImmutableMap(BlackHoleColumnHandle::getName, Function.identity()));
     }
 
     @Override
@@ -350,7 +352,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics) {}
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics) {}
 
     @Override
     public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}
@@ -393,6 +395,21 @@ public class BlackHoleMetadata
     }
 
     @Override
+    public void setViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        ConnectorViewDefinition view = getView(session, viewName).orElseThrow(() -> new ViewNotFoundException(viewName));
+        views.put(viewName, new ConnectorViewDefinition(
+                view.getOriginalSql(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns(),
+                comment,
+                view.getOwner(),
+                view.isRunAsInvoker(),
+                view.getPath()));
+    }
+
+    @Override
     public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
         ConnectorViewDefinition view = getView(session, viewName).orElseThrow(() -> new ViewNotFoundException(viewName));
@@ -405,6 +422,7 @@ public class BlackHoleMetadata
                         .collect(toImmutableList()),
                 view.getComment(),
                 view.getOwner(),
-                view.isRunAsInvoker()));
+                view.isRunAsInvoker(),
+                view.getPath()));
     }
 }

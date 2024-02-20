@@ -40,6 +40,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Optional;
 
+import static com.google.common.base.Strings.repeat;
 import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 import static io.airlift.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
 import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
@@ -60,6 +61,12 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 @Measurement(iterations = 30, time = 500, timeUnit = MILLISECONDS)
 public class BenchmarkLike
 {
+    private static final String LONG_STRING = repeat("a", 100) +
+                                              repeat("b", 100) +
+                                              repeat("a", 100) +
+                                              repeat("b", 100) +
+                                              "the quick brown fox jumps over the lazy dog";
+
     private static final Syntax SYNTAX = new Syntax(
             OP_DOT_ANYCHAR | OP_ASTERISK_ZERO_INF | OP_LINE_ANCHOR,
             0,
@@ -73,51 +80,65 @@ public class BenchmarkLike
                     INEFFECTIVE_META_CHAR,          /* one or more time '+' */
                     INEFFECTIVE_META_CHAR));        /* anychar anytime */
 
+    public enum BenchmarkCase
+    {
+        ANY("%", LONG_STRING),
+        WILDCARD_PREFIX("_%", LONG_STRING),
+        WILDCARD_SUFFIX("%_", LONG_STRING),
+        PREFIX("the%", "the quick brown fox jumps over the lazy dog"),
+        SUFFIX("%dog", "the quick brown fox jumps over the lazy dog"),
+        FIXED_WILDCARD("_____", "abcdef"),
+        SHORT_TOKENS_1("%a%b%a%b%", LONG_STRING),
+        SHORT_TOKENS_2("%the%quick%brown%fox%jumps%over%the%lazy%dog%", LONG_STRING),
+        SHORT_TOKEN("%the%", LONG_STRING),
+        LONG_TOKENS_1("%aaaaaaaaab%bbbbbbbbba%aaaaaaaaab%bbbbbbbbbt%", LONG_STRING),
+        LONG_TOKENS_2("%aaaaaaaaaaaaaaaaaaaaaaaaaa%aaaaaaaaaaaaaaaaaaaaaaaaaathe%", LONG_STRING),
+        LONG_TOKEN_1("%bbbbbbbbbbbbbbbthe%", LONG_STRING),
+        LONG_TOKEN_2("%the quick brown fox%", LONG_STRING),
+        LONG_TOKEN_3("%aaaaaaaxaaaaaa%", LONG_STRING),
+        SHORT_TOKENS_WITH_LONG_SKIP("%the%dog%", LONG_STRING);
+
+        private final String pattern;
+        private final String text;
+
+        BenchmarkCase(String pattern, String text)
+        {
+            this.pattern = pattern;
+            this.text = text;
+        }
+
+        public String pattern()
+        {
+            return pattern;
+        }
+
+        public String text()
+        {
+            return text;
+        }
+    }
+
     @State(Thread)
     public static class Data
     {
-        @Param({
-                "%",
-                "_%",
-                "%_",
-                "abc%",
-                "%abc",
-                "_____",
-                "abc%def%ghi",
-                "%abc%def%",
-                "%a%a%a%a%",
-                "%aaaaaaaaaaaaaaaaaaaaaaaaaa%"
-        })
-        private String pattern;
+        @Param
+        private BenchmarkCase benchmarkCase;
 
         private Slice data;
         private byte[] bytes;
         private JoniRegexp joniPattern;
-        private LikeMatcher dfaMatcher;
-        private LikeMatcher nfaMatcher;
+        private LikeMatcher optimizedMatcher;
+        private LikeMatcher nonOptimizedMatcher;
 
         @Setup
         public void setup()
         {
-            data = Slices.utf8Slice(
-                    switch (pattern) {
-                        case "%" -> "qeroighqeorhgqerhb2eriuyerqiubgierubgleuqrbgilquebriuqebryqebrhqerhqsnajkbcowuhet";
-                        case "_%", "%_" -> "qeroighqeorhgqerhb2eriuyerqiubgierubgleuqrbgilquebriuqebryqebrhqerhqsnajkbcowuhet";
-                        case "abc%" -> "abcqeroighqeorhgqerhb2eriuyerqiubgierubgleuqrbgilquebriuqebryqebrhqerhqsnajkbcowuhet";
-                        case "%abc" -> "qeroighqeorhgqerhb2eriuyerqiubgierubgleuqrbgilquebriuqebryqebrhqerhqsnajkbcowuhetabc";
-                        case "_____" -> "abcde";
-                        case "abc%def%ghi" -> "abc qeroighqeorhgqerhb2eriuyerqiubgier def ubgleuqrbgilquebriuqebryqebrhqerhqsnajkbcowuhet ghi";
-                        case "%abc%def%" -> "fdnbqerbfklerqbgqjerbgkr abc qeroighqeorhgqerhb2eriuyerqiubgier def ubgleuqrbgilquebriuqebryqebrhqerhqsnajkbcowuhet";
-                        case "%a%a%a%a%" -> "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-                        case "%aaaaaaaaaaaaaaaaaaaaaaaaaa%" -> "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-                        default -> throw new IllegalArgumentException("Unknown pattern: " + pattern);
-                    });
+            optimizedMatcher = LikeMatcher.compile(benchmarkCase.pattern(), Optional.empty(), true);
+            nonOptimizedMatcher = LikeMatcher.compile(benchmarkCase.pattern(), Optional.empty(), false);
+            joniPattern = compileJoni(benchmarkCase.pattern(), '0', false);
 
-            dfaMatcher = LikeMatcher.compile(pattern, Optional.empty(), true);
-            nfaMatcher = LikeMatcher.compile(pattern, Optional.empty(), false);
-            joniPattern = compileJoni(Slices.utf8Slice(pattern).toStringUtf8(), '0', false);
-
-            bytes = data.getBytes();
+            bytes = benchmarkCase.text().getBytes(UTF_8);
+            data = Slices.wrappedBuffer(bytes);
         }
     }
 
@@ -128,67 +149,59 @@ public class BenchmarkLike
     }
 
     @Benchmark
-    public boolean matchDfa(Data data)
+    public boolean matchOptimized(Data data)
     {
-        return data.dfaMatcher.match(data.bytes, 0, data.bytes.length);
+        return data.optimizedMatcher.match(data.bytes, 0, data.bytes.length);
     }
 
     @Benchmark
-    public boolean matchNfa(Data data)
+    public boolean matchNonOptimized(Data data)
     {
-        return data.nfaMatcher.match(data.bytes, 0, data.bytes.length);
+        return data.nonOptimizedMatcher.match(data.bytes, 0, data.bytes.length);
     }
 
     @Benchmark
     public JoniRegexp compileJoni(Data data)
     {
-        return compileJoni(data.pattern, (char) 0, false);
+        return compileJoni(data.benchmarkCase.pattern(), (char) 0, false);
     }
 
     @Benchmark
-    public LikeMatcher compileDfa(Data data)
+    public LikeMatcher compileOptimized(Data data)
     {
-        return LikeMatcher.compile(data.pattern, Optional.empty(), true);
+        return LikeMatcher.compile(data.benchmarkCase.pattern(), Optional.empty(), true);
     }
 
     @Benchmark
-    public LikeMatcher compileNfa(Data data)
+    public LikeMatcher compileNonOptimized(Data data)
     {
-        return LikeMatcher.compile(data.pattern, Optional.empty(), false);
+        return LikeMatcher.compile(data.benchmarkCase.pattern(), Optional.empty(), false);
     }
 
     @Benchmark
-    public boolean allJoni(Data data)
+    public boolean dynamicJoni(Data data)
     {
-        return likeVarchar(data.data, compileJoni(Slices.utf8Slice(data.pattern).toStringUtf8(), '0', false));
+        return likeVarchar(data.data, compileJoni(Slices.utf8Slice(data.benchmarkCase.pattern()).toStringUtf8(), '0', false));
     }
 
     @Benchmark
-    public boolean allDfa(Data data)
+    public boolean dynamicOptimized(Data data)
     {
-        return LikeMatcher.compile(data.pattern, Optional.empty(), true)
+        return LikeMatcher.compile(data.benchmarkCase.pattern(), Optional.empty(), true)
                 .match(data.bytes, 0, data.bytes.length);
     }
 
     @Benchmark
-    public boolean allNfa(Data data)
+    public boolean dynamicNonOptimized(Data data)
     {
-        return LikeMatcher.compile(data.pattern, Optional.empty(), false)
+        return LikeMatcher.compile(data.benchmarkCase.pattern(), Optional.empty(), false)
                 .match(data.bytes, 0, data.bytes.length);
     }
 
     public static boolean likeVarchar(Slice value, JoniRegexp pattern)
     {
-        Matcher matcher;
-        int offset;
-        if (value.hasByteArray()) {
-            offset = value.byteArrayOffset();
-            matcher = pattern.regex().matcher(value.byteArray(), offset, offset + value.length());
-        }
-        else {
-            offset = 0;
-            matcher = pattern.matcher(value.getBytes());
-        }
+        int offset = value.byteArrayOffset();
+        Matcher matcher = pattern.regex().matcher(value.byteArray(), offset, offset + value.length());
         return matcher.match(offset, offset + value.length(), Option.NONE) != -1;
     }
 

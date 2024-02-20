@@ -40,6 +40,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
@@ -47,8 +48,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -70,7 +70,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hive.formats.FormatTestUtils.assertColumnValueEquals;
 import static io.trino.hive.formats.FormatTestUtils.createLineBuffer;
 import static io.trino.hive.formats.FormatTestUtils.decodeRecordReaderValue;
@@ -223,7 +222,7 @@ public class TestSimpleFormat
                 () -> {
                     Properties schema = new Properties();
                     schema.putAll(createLazySimpleSerDeProperties(columns, options));
-                    new LazySimpleSerDe().initialize(new JobConf(newEmptyConfiguration()), schema);
+                    new LazySimpleSerDe().initialize(new Configuration(false), schema);
                 })
                 .isInstanceOf(SerDeException.class)
                 .hasMessageContaining("nesting");
@@ -444,6 +443,9 @@ public class TestSimpleFormat
         assertString(type, "tab " + escape + "\t tab", "tab \t tab", options);
         assertString(type, "new " + escape + "\n line", "new \n line", options);
         assertString(type, "carriage " + escape + "\r return", "carriage \r return", options);
+        assertString(type, "escape " + escape + escape + " char", "escape " + escape + " char", options);
+        assertString(type, "double " + escape + escape + escape + escape + " escape", "double " + escape + escape + " escape", options);
+        assertString(type, "simple " + escape + "X char", "simple X char", options);
 
         String allControlCharacters = IntStream.range(0, 32)
                 .mapToObj(i -> i + " " + ((char) i))
@@ -1347,7 +1349,7 @@ public class TestSimpleFormat
         LineSerializer serializer = new SimpleSerializerFactory().create(columns, options.toSchema());
         SliceOutput sliceOutput = new DynamicSliceOutput(1024);
         serializer.write(page, 0, sliceOutput);
-        return Slices.copyOf(sliceOutput.slice());
+        return sliceOutput.slice().copy();
     }
 
     private static void assertValueHive(Type type, String value, Object expectedValue, TextEncodingOptions textEncodingOptions)
@@ -1423,7 +1425,7 @@ public class TestSimpleFormat
         Properties schema = new Properties();
         schema.putAll(createLazySimpleSerDeProperties(columns, textEncodingOptions));
 
-        JobConf configuration = new JobConf(newEmptyConfiguration());
+        Configuration configuration = new Configuration(false);
         LazySimpleSerDe deserializer = new LazySimpleSerDe();
         deserializer.initialize(configuration, schema);
         return deserializer;

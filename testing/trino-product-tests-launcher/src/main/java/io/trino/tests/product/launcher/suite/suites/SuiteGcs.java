@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_GCS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteGcs
@@ -31,7 +33,7 @@ public class SuiteGcs
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeGcs.class)
-                        .withGroups("delta-lake-gcs", "configured-features")
+                        .withGroups(DELTA_LAKE_GCS, CONFIGURED_FEATURES)
                         .build());
     }
 }

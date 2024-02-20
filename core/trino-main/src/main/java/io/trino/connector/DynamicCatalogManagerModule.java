@@ -14,13 +14,12 @@
 package io.trino.connector;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.CatalogManager;
 import io.trino.server.ServerConfig;
-
-import javax.inject.Inject;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 

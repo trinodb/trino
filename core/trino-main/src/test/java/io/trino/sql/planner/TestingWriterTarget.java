@@ -16,7 +16,10 @@ package io.trino.sql.planner;
 
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.planner.plan.TableWriterNode;
+
+import java.util.OptionalInt;
 
 public class TestingWriterTarget
         extends TableWriterNode.WriterTarget
@@ -28,14 +31,20 @@ public class TestingWriterTarget
     }
 
     @Override
-    public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+    public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
     {
         return false;
     }
 
     @Override
-    public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+    public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
     {
-        return false;
+        return OptionalInt.empty();
+    }
+
+    @Override
+    public WriterScalingOptions getWriterScalingOptions(Metadata metadata, Session session)
+    {
+        return WriterScalingOptions.DISABLED;
     }
 }

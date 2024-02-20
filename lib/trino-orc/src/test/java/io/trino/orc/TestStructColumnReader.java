@@ -16,23 +16,26 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.orc.OrcTester.LocalTrinoOutputFile;
+import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.orc.metadata.OrcType;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -49,28 +52,28 @@ import static io.trino.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestStructColumnReader
 {
-    private static final Type TEST_DATA_TYPE = VARCHAR;
-
     private static final String STRUCT_COL_NAME = "struct_col";
 
     private TempFile tempFile;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
             throws IOException
     {
         tempFile = new TempFile();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws IOException
     {
@@ -95,10 +98,10 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertEquals(actual.size(), readerFields.size());
-        assertEquals(actual.get(0), "field_a_value");
-        assertEquals(actual.get(1), "field_b_value");
-        assertEquals(actual.get(2), "field_c_value");
+        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual.get(0)).isEqualTo("field_a_value");
+        assertThat(actual.get(1)).isEqualTo("field_b_value");
+        assertThat(actual.get(2)).isEqualTo("field_c_value");
     }
 
     /**
@@ -118,10 +121,10 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertEquals(actual.size(), readerFields.size());
-        assertEquals(actual.get(0), "fieldAValue");
-        assertEquals(actual.get(1), "fieldBValue");
-        assertEquals(actual.get(2), "fieldCValue");
+        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual.get(0)).isEqualTo("fieldAValue");
+        assertThat(actual.get(1)).isEqualTo("fieldBValue");
+        assertThat(actual.get(2)).isEqualTo("fieldCValue");
     }
 
     /**
@@ -141,25 +144,27 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertEquals(actual.size(), readerFields.size());
-        assertEquals(actual.get(0), "fieldAValue");
-        assertEquals(actual.get(1), "fieldBValue");
-        assertEquals(actual.get(2), "fieldCValue");
+        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual.get(0)).isEqualTo("fieldAValue");
+        assertThat(actual.get(1)).isEqualTo("fieldBValue");
+        assertThat(actual.get(2)).isEqualTo("fieldCValue");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp =
-            "ROW type does not have field names declared: row\\(varchar, varchar, varchar\\)")
+    @Test
     public void testThrowsExceptionWhenFieldNameMissing()
-            throws IOException
     {
-        List<String> readerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
-        List<String> writerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
-        List<String> writerData = new ArrayList<>(Arrays.asList("field_a_value", "field_b_value", "field_c_value"));
-        Type readerType = getTypeNullName(readerFields.size());
-        Type writerType = getType(writerFields);
+        assertThatThrownBy(() -> {
+            List<String> readerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
+            List<String> writerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
+            List<String> writerData = new ArrayList<>(Arrays.asList("field_a_value", "field_b_value", "field_c_value"));
+            Type readerType = getTypeNullName(readerFields.size());
+            Type writerType = getType(writerFields);
 
-        write(tempFile, writerType, writerData);
-        read(tempFile, readerType);
+            write(tempFile, writerType, writerData);
+            read(tempFile, readerType);
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ROW type does not have field names declared: row(varchar, varchar, varchar)");
     }
 
     /**
@@ -181,10 +186,10 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertEquals(actual.size(), readerFields.size());
-        assertEquals(actual.get(0), "field_a_value");
-        assertNull(actual.get(1));
-        assertEquals(actual.get(2), "field_c_value");
+        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual.get(0)).isEqualTo("field_a_value");
+        assertThat(actual.get(1)).isNull();
+        assertThat(actual.get(2)).isEqualTo("field_c_value");
     }
 
     /**
@@ -205,9 +210,9 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertEquals(actual.size(), readerFields.size());
-        assertEquals(actual.get(0), "field_a_value");
-        assertEquals(actual.get(1), "field_c_value");
+        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual.get(0)).isEqualTo("field_a_value");
+        assertThat(actual.get(1)).isEqualTo("field_c_value");
     }
 
     private void write(TempFile tempFile, Type writerType, List<String> data)
@@ -216,7 +221,7 @@ public class TestStructColumnReader
         List<String> columnNames = ImmutableList.of(STRUCT_COL_NAME);
         List<Type> types = ImmutableList.of(writerType);
         OrcWriter writer = new OrcWriter(
-                OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(tempFile.getFile())),
+                OutputStreamOrcDataSink.create(new LocalOutputFile(tempFile.getFile())),
                 columnNames,
                 types,
                 OrcType.createRootOrcType(columnNames, types),
@@ -236,20 +241,17 @@ public class TestStructColumnReader
         Block[] fieldBlocks = new Block[data.size()];
 
         int entries = 10;
-        boolean[] rowIsNull = new boolean[entries];
-        Arrays.fill(rowIsNull, false);
 
-        BlockBuilder blockBuilder = TEST_DATA_TYPE.createBlockBuilder(null, entries);
-        for (int i = 0; i < data.size(); i++) {
-            byte[] bytes = data.get(i).getBytes(UTF_8);
-            for (int j = 0; j < entries; j++) {
-                blockBuilder.writeBytes(Slices.wrappedBuffer(bytes), 0, bytes.length);
-                blockBuilder.closeEntry();
+        VariableWidthBlockBuilder fieldBlockBuilder = VARCHAR.createBlockBuilder(null, entries);
+        for (int fieldId = 0; fieldId < data.size(); fieldId++) {
+            Slice fieldValue = Slices.utf8Slice(data.get(fieldId));
+            for (int rowId = 0; rowId < entries; rowId++) {
+                fieldBlockBuilder.writeEntry(fieldValue);
             }
-            fieldBlocks[i] = blockBuilder.build();
-            blockBuilder = blockBuilder.newBlockBuilderLike(null);
+            fieldBlocks[fieldId] = fieldBlockBuilder.build();
+            fieldBlockBuilder = (VariableWidthBlockBuilder) fieldBlockBuilder.newBlockBuilderLike(null);
         }
-        Block rowBlock = RowBlock.fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), fieldBlocks);
+        Block rowBlock = RowBlock.fromFieldBlocks(entries, fieldBlocks);
         writer.write(new Page(rowBlock));
         writer.close();
     }
@@ -279,7 +281,7 @@ public class TestStructColumnReader
     {
         ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
         for (String fieldName : fieldNames) {
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), TEST_DATA_TYPE.getTypeSignature())));
+            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), VARCHAR.getTypeSignature())));
         }
         return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }
@@ -289,7 +291,7 @@ public class TestStructColumnReader
         ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
 
         for (int i = 0; i < numFields; i++) {
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.empty(), TEST_DATA_TYPE.getTypeSignature())));
+            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.empty(), VARCHAR.getTypeSignature())));
         }
         return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }

@@ -18,7 +18,7 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.ptf.RawQuery;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;

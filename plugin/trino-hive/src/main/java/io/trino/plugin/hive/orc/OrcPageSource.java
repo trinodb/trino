@@ -22,11 +22,10 @@ import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcRecordReader;
-import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
-import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -131,11 +130,6 @@ public class OrcPageSource
     public boolean isFinished()
     {
         return closed;
-    }
-
-    public ColumnMetadata<OrcType> getColumnTypes()
-    {
-        return recordReader.getColumnTypes();
     }
 
     @Override
@@ -272,6 +266,11 @@ public class OrcPageSource
             return new SourceColumn(index);
         }
 
+        static ColumnAdaptation coercedColumn(int index, TypeCoercer<?, ?> typeCoercer)
+        {
+            return new CoercedColumn(sourceColumn(index), typeCoercer);
+        }
+
         static ColumnAdaptation constantColumn(Block singleValueBlock)
         {
             return new ConstantAdaptation(singleValueBlock);
@@ -336,8 +335,7 @@ public class OrcPageSource
         @Override
         public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
-            Block block = sourcePage.getBlock(index);
-            return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, block));
+            return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, sourcePage.getBlock(index)));
         }
 
         @Override
@@ -375,6 +373,36 @@ public class OrcPageSource
         }
     }
 
+    private static class CoercedColumn
+            implements ColumnAdaptation
+    {
+        private final ColumnAdaptation delegate;
+        private final TypeCoercer<?, ?> typeCoercer;
+
+        public CoercedColumn(ColumnAdaptation delegate, TypeCoercer<?, ?> typeCoercer)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.typeCoercer = requireNonNull(typeCoercer, "typeCoercer is null");
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
+        {
+            Block block = delegate.block(sourcePage, maskDeletedRowsFunction, filePosition, startRowId);
+            return new LazyBlock(block.getPositionCount(), () -> typeCoercer.apply(block.getLoadedBlock()));
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("delegate", delegate)
+                    .add("fromType", typeCoercer.getFromType())
+                    .add("toType", typeCoercer.getToType())
+                    .toString();
+        }
+    }
+
     /*
      * The rowId contains the ACID columns - - originalTransaction, rowId, bucket
      */
@@ -387,7 +415,6 @@ public class OrcPageSource
             requireNonNull(page, "page is null");
             return maskDeletedRowsFunction.apply(fromFieldBlocks(
                     page.getPositionCount(),
-                    Optional.empty(),
                     new Block[] {
                             page.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
                             page.getBlock(BUCKET_CHANNEL),
@@ -419,7 +446,6 @@ public class OrcPageSource
             int positionCount = sourcePage.getPositionCount();
             return maskDeletedRowsFunction.apply(fromFieldBlocks(
                     positionCount,
-                    Optional.empty(),
                     new Block[] {
                             RunLengthEncodedBlock.create(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
                             RunLengthEncodedBlock.create(bucketBlock, positionCount),

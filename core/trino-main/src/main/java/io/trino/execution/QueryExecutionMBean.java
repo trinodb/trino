@@ -13,11 +13,10 @@
  */
 package io.trino.execution;
 
+import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -27,7 +26,7 @@ public class QueryExecutionMBean
     private final ThreadPoolExecutorMBean executorMBean;
 
     @Inject
-    public QueryExecutionMBean(@ForQueryExecution ExecutorService executor)
+    public QueryExecutionMBean(@QueryExecutorInternal ExecutorService executor)
     {
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
     }

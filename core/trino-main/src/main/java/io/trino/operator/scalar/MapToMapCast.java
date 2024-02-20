@@ -17,10 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DuplicateMapKeyException;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -40,9 +41,8 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.block.MapHashTables.HashBuildMode.STRICT_NOT_DISTINCT_FROM;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -65,11 +65,11 @@ public final class MapToMapCast
             "mapCast",
             MethodHandle.class,
             MethodHandle.class,
-            Type.class,
+            MapType.class,
             BlockPositionIsDistinctFrom.class,
             BlockPositionHashCode.class,
             ConnectorSession.class,
-            Block.class);
+            SqlMap.class);
 
     private static final MethodHandle CHECK_LONG_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkLongIsNotNull", Long.class);
     private static final MethodHandle CHECK_DOUBLE_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkDoubleIsNotNull", Double.class);
@@ -86,9 +86,8 @@ public final class MapToMapCast
 
     public MapToMapCast(BlockTypeOperators blockTypeOperators)
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .operatorType(CAST)
                         .castableToTypeParameter("FK", new TypeSignature("TK"))
                         .castableToTypeParameter("FV", new TypeSignature("TV"))
                         .typeVariable("TK")
@@ -133,7 +132,7 @@ public final class MapToMapCast
      * The signature of the returned MethodHandle is (Block fromMap, int position, ConnectorSession session, BlockBuilder mapBlockBuilder)void.
      * The processor will get the value from fromMap, cast it and write to toBlock.
      */
-    private MethodHandle buildProcessor(FunctionDependencies functionDependencies, Type fromType, Type toType, boolean isKey)
+    private static MethodHandle buildProcessor(FunctionDependencies functionDependencies, Type fromType, Type toType, boolean isKey)
     {
         // Get block position cast, with optional connector session
         FunctionNullability functionNullability = functionDependencies.getCastNullability(fromType, toType);
@@ -156,7 +155,7 @@ public final class MapToMapCast
         MethodHandle writer = nativeValueWriter(toType);
         writer = permuteArguments(writer, methodType(void.class, writer.type().parameterArray()[1], BlockBuilder.class), 1, 0);
 
-        // ensure cast returns type expected by the writer
+        // ensure cast function returns the type expected by the writer
         cast = cast.asType(methodType(writer.type().parameterType(0), cast.type().parameterArray()));
 
         return foldArguments(dropArguments(writer, 1, cast.type().parameterList()), cast);
@@ -174,7 +173,7 @@ public final class MapToMapCast
      * <li>(Block value)Block
      * </ul>
      */
-    private MethodHandle nullChecker(Class<?> javaType)
+    private static MethodHandle nullChecker(Class<?> javaType)
     {
         if (javaType == Long.class) {
             return CHECK_LONG_IS_NOT_NULL;
@@ -240,24 +239,26 @@ public final class MapToMapCast
     }
 
     @UsedByGeneratedCode
-    public static Block mapCast(
+    public static SqlMap mapCast(
             MethodHandle keyProcessFunction,
             MethodHandle valueProcessFunction,
-            Type targetType,
+            MapType toType,
             BlockPositionIsDistinctFrom keyDistinctOperator,
             BlockPositionHashCode keyHashCode,
             ConnectorSession session,
-            Block fromMap)
+            SqlMap fromMap)
     {
-        checkState(targetType.getTypeParameters().size() == 2, "Expect two type parameters for targetType");
-        Type toKeyType = targetType.getTypeParameters().get(0);
-        TypedSet resultKeys = createDistinctTypedSet(toKeyType, keyDistinctOperator, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
+        int size = fromMap.getSize();
+        int rawOffset = fromMap.getRawOffset();
+        Block rawKeyBlock = fromMap.getRawKeyBlock();
+        Block rawValueBlock = fromMap.getRawValueBlock();
 
         // Cast the keys into a new block
-        BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
-        for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
+        Type toKeyType = toType.getKeyType();
+        BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, size);
+        for (int i = 0; i < size; i++) {
             try {
-                keyProcessFunction.invokeExact(fromMap, i, session, keyBlockBuilder);
+                keyProcessFunction.invokeExact(rawKeyBlock, rawOffset + i, session, keyBlockBuilder);
             }
             catch (Throwable t) {
                 throw internalError(t);
@@ -265,34 +266,32 @@ public final class MapToMapCast
         }
         Block keyBlock = keyBlockBuilder.build();
 
-        BlockBuilder mapBlockBuilder = targetType.createBlockBuilder(null, 1);
-        BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
-        for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
-            if (resultKeys.add(keyBlock, i / 2)) {
-                toKeyType.appendTo(keyBlock, i / 2, blockBuilder);
-                if (fromMap.isNull(i + 1)) {
-                    blockBuilder.appendNull();
-                    continue;
-                }
-
-                try {
-                    valueProcessFunction.invokeExact(fromMap, i + 1, session, blockBuilder);
-                }
-                catch (Throwable t) {
-                    throw internalError(t);
-                }
+        // Cast the values into a new block
+        Type toValueType = toType.getValueType();
+        BlockBuilder valueBlockBuilder = toValueType.createBlockBuilder(null, size);
+        for (int i = 0; i < size; i++) {
+            if (rawValueBlock.isNull(rawOffset + i)) {
+                valueBlockBuilder.appendNull();
+                continue;
             }
-            else {
-                // if there are duplicated keys, fail it!
-                throw new TrinoException(INVALID_CAST_ARGUMENT, "duplicate keys");
+            try {
+                valueProcessFunction.invokeExact(rawValueBlock, rawOffset + i, session, valueBlockBuilder);
+            }
+            catch (Throwable t) {
+                throw internalError(t);
             }
         }
+        Block valueBlock = valueBlockBuilder.build();
 
-        mapBlockBuilder.closeEntry();
-        return (Block) targetType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
+        try {
+            return new SqlMap(toType, STRICT_NOT_DISTINCT_FROM, keyBlock, valueBlock);
+        }
+        catch (DuplicateMapKeyException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "duplicate keys");
+        }
     }
 
-    public static MethodHandle nativeValueWriter(Type type)
+    private static MethodHandle nativeValueWriter(Type type)
     {
         Class<?> javaType = type.getJavaType();
 

@@ -15,11 +15,11 @@ package io.trino.cost;
 
 import com.google.common.collect.Iterables;
 import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -66,15 +66,15 @@ public class SimpleFilterProjectSemiJoinStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, Context context)
     {
-        PlanNode nodeSource = lookup.resolve(node.getSource());
+        PlanNode nodeSource = context.lookup().resolve(node.getSource());
         SemiJoinNode semiJoinNode;
         if (nodeSource instanceof ProjectNode projectNode) {
             if (!projectNode.isIdentity()) {
                 return Optional.empty();
             }
-            PlanNode projectNodeSource = lookup.resolve(projectNode.getSource());
+            PlanNode projectNodeSource = context.lookup().resolve(projectNode.getSource());
             if (!(projectNodeSource instanceof SemiJoinNode)) {
                 return Optional.empty();
             }
@@ -87,7 +87,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
             return Optional.empty();
         }
 
-        return calculate(node, semiJoinNode, sourceStats, session, types);
+        return calculate(node, semiJoinNode, context.statsProvider(), context.session(), context.types());
     }
 
     private Optional<PlanNodeStatsEstimate> calculate(FilterNode filterNode, SemiJoinNode semiJoinNode, StatsProvider statsProvider, Session session, TypeProvider types)

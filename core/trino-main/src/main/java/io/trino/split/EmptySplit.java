@@ -15,21 +15,16 @@ package io.trino.split;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.HostAddress;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
-import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
-
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class EmptySplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(EmptySplit.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(EmptySplit.class);
 
     private final CatalogHandle catalogHandle;
 
@@ -38,18 +33,6 @@ public class EmptySplit
             @JsonProperty("catalogHandle") CatalogHandle catalogHandle)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-    }
-
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
-    public List<HostAddress> getAddresses()
-    {
-        return ImmutableList.of();
     }
 
     @Override

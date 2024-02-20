@@ -18,7 +18,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.sql.planner.rowpattern.ir.IrQuantifier;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -38,7 +38,7 @@ import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.oneOrMore;
 import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.range;
 import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.zeroOrMore;
 import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.zeroOrOne;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRowPatternSerialization
 {
@@ -111,6 +111,6 @@ public class TestRowPatternSerialization
     {
         String json = codec.toJson(object);
         T copy = codec.fromJson(json);
-        assertEquals(copy, object);
+        assertThat(copy).isEqualTo(object);
     }
 }

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.accumulo.conf.AccumuloSessionProperties;
@@ -52,8 +53,6 @@ import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.hadoop.io.Text;
-
-import javax.inject.Inject;
 
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
@@ -115,7 +114,14 @@ public class AccumuloClient
 
         // The default namespace is created in ZooKeeperMetadataManager's constructor
         if (!tableManager.namespaceExists(DEFAULT_SCHEMA)) {
-            tableManager.createNamespace(DEFAULT_SCHEMA);
+            try {
+                tableManager.createNamespace(DEFAULT_SCHEMA);
+            }
+            catch (TrinoException e) {
+                if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode())) {
+                    throw e;
+                }
+            }
         }
     }
 

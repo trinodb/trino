@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,21 +28,19 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryColumnHandle
         implements ColumnHandle
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BigQueryColumnHandle.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BigQueryColumnHandle.class);
 
     private final String name;
     private final Type trinoType;
     private final StandardSQLTypeName bigqueryType;
+    private final boolean isPushdownSupported;
     private final Field.Mode mode;
-    private final Long precision;
-    private final Long scale;
     private final List<BigQueryColumnHandle> subColumns;
     private final String description;
     private final boolean hidden;
@@ -53,9 +50,8 @@ public class BigQueryColumnHandle
             @JsonProperty("name") String name,
             @JsonProperty("trinoType") Type trinoType,
             @JsonProperty("bigqueryType") StandardSQLTypeName bigqueryType,
+            @JsonProperty("isPushdownSupported") boolean isPushdownSupported,
             @JsonProperty("mode") Field.Mode mode,
-            @JsonProperty("precision") Long precision,
-            @JsonProperty("scale") Long scale,
             @JsonProperty("subColumns") List<BigQueryColumnHandle> subColumns,
             @JsonProperty("description") String description,
             @JsonProperty("hidden") boolean hidden)
@@ -63,9 +59,8 @@ public class BigQueryColumnHandle
         this.name = requireNonNull(name, "column name cannot be null");
         this.trinoType = requireNonNull(trinoType, "trinoType is null");
         this.bigqueryType = requireNonNull(bigqueryType, "bigqueryType is null");
+        this.isPushdownSupported = isPushdownSupported;
         this.mode = requireNonNull(mode, "Field mode cannot be null");
-        this.precision = precision;
-        this.scale = scale;
         this.subColumns = ImmutableList.copyOf(requireNonNull(subColumns, "subColumns is null"));
         this.description = description;
         this.hidden = hidden;
@@ -90,21 +85,15 @@ public class BigQueryColumnHandle
     }
 
     @JsonProperty
+    public boolean isPushdownSupported()
+    {
+        return isPushdownSupported;
+    }
+
+    @JsonProperty
     public Field.Mode getMode()
     {
         return mode;
-    }
-
-    @JsonProperty
-    public Long getPrecision()
-    {
-        return precision;
-    }
-
-    @JsonProperty
-    public Long getScale()
-    {
-        return scale;
     }
 
     @JsonProperty
@@ -149,9 +138,8 @@ public class BigQueryColumnHandle
         return Objects.equals(name, that.name) &&
                 Objects.equals(trinoType, that.trinoType) &&
                 Objects.equals(bigqueryType, that.bigqueryType) &&
+                Objects.equals(isPushdownSupported, that.isPushdownSupported) &&
                 Objects.equals(mode, that.mode) &&
-                Objects.equals(precision, that.precision) &&
-                Objects.equals(scale, that.scale) &&
                 Objects.equals(subColumns, that.subColumns) &&
                 Objects.equals(description, that.description);
     }
@@ -159,7 +147,7 @@ public class BigQueryColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, trinoType, bigqueryType, mode, precision, scale, subColumns, description);
+        return Objects.hash(name, trinoType, bigqueryType, isPushdownSupported, mode, subColumns, description);
     }
 
     @Override
@@ -169,9 +157,8 @@ public class BigQueryColumnHandle
                 .add("name", name)
                 .add("trinoType", trinoType)
                 .add("bigqueryType", bigqueryType)
+                .add("isPushdownSupported", isPushdownSupported)
                 .add("mode", mode)
-                .add("precision", precision)
-                .add("scale", scale)
                 .add("subColumns", subColumns)
                 .add("description", description)
                 .toString();
@@ -181,8 +168,6 @@ public class BigQueryColumnHandle
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(name)
-                + sizeOf(precision)
-                + sizeOf(scale)
                 + estimatedSizeOf(subColumns, BigQueryColumnHandle::getRetainedSizeInBytes)
                 + estimatedSizeOf(description);
     }

@@ -29,17 +29,21 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
-import org.openjdk.jol.info.ClassLayout;
+import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -78,12 +82,6 @@ import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
-
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -112,6 +110,7 @@ import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeFutures.translateFailures;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
 import static io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage.CompatibilityMode.GCP;
@@ -120,6 +119,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static software.amazon.awssdk.core.async.AsyncRequestBody.fromByteBufferUnsafe;
 import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_PREFIX;
 import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_SUFFIX;
 
@@ -263,10 +263,10 @@ public class S3FileSystemExchangeStorage
         for (URI dir : directories) {
             ImmutableList.Builder<String> keys = ImmutableList.builder();
             ListenableFuture<List<String>> listObjectsFuture = Futures.transform(
-                    toListenableFuture((listObjectsRecursively(dir)
+                    toListenableFuture(listObjectsRecursively(dir)
                             .subscribe(listObjectsV2Response -> listObjectsV2Response.contents().stream()
                                     .map(S3Object::key)
-                                    .forEach(keys::add)))),
+                                    .forEach(keys::add))),
                     ignored -> keys.build(),
                     directExecutor());
             bucketToListObjectsFuturesBuilder.put(getBucketName(dir), listObjectsFuture);
@@ -309,7 +309,7 @@ public class S3FileSystemExchangeStorage
     {
         ImmutableList.Builder<FileStatus> fileStatuses = ImmutableList.builder();
         return stats.getListFilesRecursively().record(Futures.transform(
-                toListenableFuture((listObjectsRecursively(dir)
+                toListenableFuture(listObjectsRecursively(dir)
                         .subscribe(listObjectsV2Response -> {
                             for (S3Object s3Object : listObjectsV2Response.contents()) {
                                 URI uri;
@@ -321,7 +321,7 @@ public class S3FileSystemExchangeStorage
                                 }
                                 fileStatuses.add(new FileStatus(uri.toString(), s3Object.size()));
                             }
-                        }))),
+                        })),
                 ignored -> fileStatuses.build(),
                 directExecutor()));
     }
@@ -486,7 +486,7 @@ public class S3FileSystemExchangeStorage
     private static class S3ExchangeStorageReader
             implements ExchangeStorageReader
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(S3ExchangeStorageReader.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(S3ExchangeStorageReader.class);
 
         private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;
@@ -665,7 +665,7 @@ public class S3FileSystemExchangeStorage
     private static class S3ExchangeStorageWriter
             implements ExchangeStorageWriter
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(S3ExchangeStorageWriter.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(S3ExchangeStorageWriter.class);
 
         private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;
@@ -712,7 +712,7 @@ public class S3FileSystemExchangeStorage
                         .key(key)
                         .storageClass(storageClass);
                 directUploadFuture = translateFailures(toListenableFuture(s3AsyncClient.putObject(putObjectRequestBuilder.build(),
-                        ByteBufferAsyncRequestBody.fromByteBuffer(slice.toByteBuffer()))));
+                        fromByteBufferUnsafe(slice.toByteBuffer()))));
                 stats.getPutObject().record(directUploadFuture);
                 stats.getPutObjectDataSizeInBytes().add(slice.length());
                 return directUploadFuture;
@@ -804,7 +804,7 @@ public class S3FileSystemExchangeStorage
                     .partNumber(partNumber);
             UploadPartRequest uploadPartRequest = uploadPartRequestBuilder.build();
             stats.getUploadPartDataSizeInBytes().add(slice.length());
-            return stats.getUploadPart().record(Futures.transform(toListenableFuture(s3AsyncClient.uploadPart(uploadPartRequest, ByteBufferAsyncRequestBody.fromByteBuffer(slice.toByteBuffer()))),
+            return stats.getUploadPart().record(Futures.transform(toListenableFuture(s3AsyncClient.uploadPart(uploadPartRequest, fromByteBufferUnsafe(slice.toByteBuffer()))),
                     uploadPartResponse -> CompletedPart.builder().eTag(uploadPartResponse.eTag()).partNumber(partNumber).build(), directExecutor()));
         }
 

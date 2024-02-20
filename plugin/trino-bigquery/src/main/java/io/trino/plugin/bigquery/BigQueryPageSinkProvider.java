@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -21,8 +22,6 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
-import javax.inject.Inject;
-
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -30,10 +29,10 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryPageSinkProvider
         implements ConnectorPageSinkProvider
 {
-    private final BigQueryClientFactory clientFactory;
+    private final BigQueryWriteClientFactory clientFactory;
 
     @Inject
-    public BigQueryPageSinkProvider(BigQueryClientFactory clientFactory)
+    public BigQueryPageSinkProvider(BigQueryWriteClientFactory clientFactory)
     {
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
     }
@@ -43,7 +42,7 @@ public class BigQueryPageSinkProvider
     {
         BigQueryOutputTableHandle handle = (BigQueryOutputTableHandle) outputTableHandle;
         return new BigQueryPageSink(
-                clientFactory.createBigQueryClient(session),
+                clientFactory.create(session),
                 handle.getRemoteTableName(),
                 handle.getColumnNames(),
                 handle.getColumnTypes(),
@@ -57,7 +56,7 @@ public class BigQueryPageSinkProvider
     {
         BigQueryInsertTableHandle handle = (BigQueryInsertTableHandle) insertTableHandle;
         return new BigQueryPageSink(
-                clientFactory.createBigQueryClient(session),
+                clientFactory.create(session),
                 handle.getRemoteTableName(),
                 handle.getColumnNames(),
                 handle.getColumnTypes(),

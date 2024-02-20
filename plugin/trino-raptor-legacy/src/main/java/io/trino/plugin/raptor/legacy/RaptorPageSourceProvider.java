@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy;
 
+import com.google.inject.Inject;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.raptor.legacy.storage.StorageManager;
 import io.trino.plugin.raptor.legacy.util.ConcatPageSource;
@@ -26,8 +27,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-
-import javax.inject.Inject;
 
 import java.util.Iterator;
 import java.util.List;

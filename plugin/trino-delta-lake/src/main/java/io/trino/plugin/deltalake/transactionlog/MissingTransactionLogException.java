@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.Path;
 
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
 import static java.lang.String.format;
@@ -22,7 +21,7 @@ import static java.lang.String.format;
 public class MissingTransactionLogException
         extends TrinoException
 {
-    public MissingTransactionLogException(Path transactionLogPath)
+    public MissingTransactionLogException(String transactionLogPath)
     {
         super(DELTA_LAKE_INVALID_TABLE, format("The transaction log file %s was not found", transactionLogPath));
     }

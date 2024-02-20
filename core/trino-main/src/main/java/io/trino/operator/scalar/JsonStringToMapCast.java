@@ -31,9 +31,8 @@ public final class JsonStringToMapCast
 
     private JsonStringToMapCast()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder(JSON_STRING_TO_MAP_NAME)
                 .signature(Signature.builder()
-                        .name(JSON_STRING_TO_MAP_NAME)
                         .comparableTypeParameter("K")
                         .typeVariable("V")
                         .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))

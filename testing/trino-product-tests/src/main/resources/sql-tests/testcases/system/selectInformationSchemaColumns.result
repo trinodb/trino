@@ -58,6 +58,7 @@ system| metadata| materialized_views| storage_catalog| varchar| YES| null| null|
 system| metadata| materialized_views| storage_schema| varchar| YES| null| null|
 system| metadata| materialized_views| storage_table| varchar| YES| null| null|
 system| metadata| materialized_views| freshness| varchar| YES| null| null|
+system| metadata| materialized_views| last_fresh_time| timestamp(9) with time zone| YES| null| null|
 system| metadata| materialized_views| comment| varchar| YES| null| null|
 system| metadata| materialized_views| definition| varchar| YES| null| null|
 system| metadata| schema_properties| catalog_name| varchar| YES| null| null|

@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -69,21 +70,8 @@ public class LeastWastedEffortTaskLowMemoryKiller
                 continue;
             }
 
-            memoryPool.getTaskMemoryReservations().entrySet().stream()
-                    .map(entry -> new SimpleEntry<>(TaskId.valueOf(entry.getKey()), entry.getValue()))
-                    .filter(entry -> queriesWithTaskRetryPolicy.contains(entry.getKey().getQueryId()))
-                    .max(comparing(entry -> {
-                        TaskId taskId = entry.getKey();
-                        Long memoryUsed = entry.getValue();
-                        long wallTime = 0;
-                        if (taskInfos.containsKey(taskId)) {
-                            TaskStats stats = taskInfos.get(taskId).getStats();
-                            wallTime = stats.getTotalScheduledTime().toMillis() + stats.getTotalBlockedTime().toMillis();
-                        }
-                        wallTime = Math.max(wallTime, MIN_WALL_TIME); // only look at memory consumption for fairly short-lived tasks
-                        return (double) memoryUsed / wallTime;
-                    }))
-                    .map(SimpleEntry::getKey)
+            findBiggestTask(queriesWithTaskRetryPolicy, taskInfos, memoryPool, true) // try just speculative
+                    .or(() -> findBiggestTask(queriesWithTaskRetryPolicy, taskInfos, memoryPool, false)) // fallback to any task
                     .ifPresent(tasksToKillBuilder::add);
         }
         Set<TaskId> tasksToKill = tasksToKillBuilder.build();
@@ -91,5 +79,36 @@ public class LeastWastedEffortTaskLowMemoryKiller
             return Optional.empty();
         }
         return Optional.of(KillTarget.selectedTasks(tasksToKill));
+    }
+
+    private static Optional<TaskId> findBiggestTask(Set<QueryId> queriesWithTaskRetryPolicy, Map<TaskId, TaskInfo> taskInfos, MemoryPoolInfo memoryPool, boolean onlySpeculative)
+    {
+        Stream<SimpleEntry<TaskId, Long>> stream = memoryPool.getTaskMemoryReservations().entrySet().stream()
+                .map(entry -> new SimpleEntry<>(TaskId.valueOf(entry.getKey()), entry.getValue()))
+                .filter(entry -> queriesWithTaskRetryPolicy.contains(entry.getKey().getQueryId()));
+
+        if (onlySpeculative) {
+            stream = stream.filter(entry -> {
+                TaskInfo taskInfo = taskInfos.get(entry.getKey());
+                if (taskInfo == null) {
+                    return false;
+                }
+                return taskInfo.getTaskStatus().isSpeculative();
+            });
+        }
+
+        return stream
+                .max(comparing(entry -> {
+                    TaskId taskId = entry.getKey();
+                    Long memoryUsed = entry.getValue();
+                    long wallTime = 0;
+                    if (taskInfos.containsKey(taskId)) {
+                        TaskStats stats = taskInfos.get(taskId).getStats();
+                        wallTime = stats.getTotalScheduledTime().toMillis() + stats.getTotalBlockedTime().toMillis();
+                    }
+                    wallTime = Math.max(wallTime, MIN_WALL_TIME); // only look at memory consumption for fairly short-lived tasks
+                    return (double) memoryUsed / wallTime;
+                }))
+                .map(SimpleEntry::getKey);
     }
 }

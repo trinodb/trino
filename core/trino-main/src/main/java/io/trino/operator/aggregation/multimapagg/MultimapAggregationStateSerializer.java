@@ -13,67 +13,41 @@
  */
 package io.trino.operator.aggregation.multimapagg;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.RowType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-
-import static io.trino.operator.aggregation.multimapagg.GroupedMultimapAggregationState.KEY_CHANNEL;
-import static io.trino.operator.aggregation.multimapagg.GroupedMultimapAggregationState.VALUE_CHANNEL;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
-import static java.util.Objects.requireNonNull;
 
 public class MultimapAggregationStateSerializer
         implements AccumulatorStateSerializer<MultimapAggregationState>
 {
-    private final Type keyType;
-    private final Type valueType;
-    private final ArrayType arrayType;
+    private final MapType serializedType;
 
-    public MultimapAggregationStateSerializer(@TypeParameter("K") Type keyType, @TypeParameter("V") Type valueType)
+    public MultimapAggregationStateSerializer(@TypeParameter("map(K, Array(V))") Type serializedType)
     {
-        this.keyType = requireNonNull(keyType);
-        this.valueType = requireNonNull(valueType);
-        this.arrayType = new ArrayType(RowType.anonymous(ImmutableList.of(valueType, keyType)));
+        this.serializedType = (MapType) serializedType;
     }
 
     @Override
     public Type getSerializedType()
     {
-        return arrayType;
+        return serializedType;
     }
 
     @Override
     public void serialize(MultimapAggregationState state, BlockBuilder out)
     {
-        if (state.isEmpty()) {
-            out.appendNull();
-            return;
-        }
-        BlockBuilder entryBuilder = out.beginBlockEntry();
-        state.forEach((keyBlock, valueBlock, position) -> {
-            BlockBuilder rowBlockBuilder = entryBuilder.beginBlockEntry();
-            valueType.appendTo(valueBlock, position, rowBlockBuilder);
-            keyType.appendTo(keyBlock, position, rowBlockBuilder);
-            entryBuilder.closeEntry();
-        });
-        out.closeEntry();
+        state.writeAll((MapBlockBuilder) out);
     }
 
     @Override
     public void deserialize(Block block, int index, MultimapAggregationState state)
     {
-        state.reset();
-        ColumnarRow columnarRow = toColumnarRow(arrayType.getObject(block, index));
-        Block keys = columnarRow.getField(KEY_CHANNEL);
-        Block values = columnarRow.getField(VALUE_CHANNEL);
-        for (int i = 0; i < columnarRow.getPositionCount(); i++) {
-            state.add(keys, values, i);
-        }
+        SqlMap sqlMap = serializedType.getObject(block, index);
+        ((SingleMultimapAggregationState) state).setTempSerializedState(sqlMap);
     }
 }

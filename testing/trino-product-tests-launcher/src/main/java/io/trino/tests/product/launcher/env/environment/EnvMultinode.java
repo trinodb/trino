@@ -14,14 +14,13 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
-
-import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
@@ -30,7 +29,6 @@ import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_TIMESTAMP_NANOS;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_ICEBERG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_JVM_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -39,8 +37,6 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class EnvMultinode
         extends EnvironmentProvider
 {
-    public static final String CONTAINER_TRINO_HIVE_ACCESS_CONTROL = CONTAINER_TRINO_ETC + "/catalog/hive.properties";
-
     private final DockerFiles dockerFiles;
     private final DockerFiles.ResourceProvider configDir;
 

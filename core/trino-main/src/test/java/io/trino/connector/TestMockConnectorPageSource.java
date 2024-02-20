@@ -14,7 +14,7 @@
 package io.trino.connector;
 
 import io.trino.spi.connector.ConnectorPageSource;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 

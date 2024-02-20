@@ -19,6 +19,16 @@ public class PlanNodeIdAllocator
 {
     private int nextId;
 
+    public PlanNodeIdAllocator()
+    {
+        this(0);
+    }
+
+    public PlanNodeIdAllocator(int startId)
+    {
+        this.nextId = startId;
+    }
+
     public PlanNodeId getNextId()
     {
         return new PlanNodeId(Integer.toString(nextId++));

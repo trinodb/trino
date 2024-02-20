@@ -15,7 +15,11 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.MustBeClosed;
 import io.airlift.log.Logger;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
+import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
@@ -26,6 +30,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.Metadata;
@@ -35,6 +40,7 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
@@ -42,6 +48,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
@@ -53,6 +60,7 @@ import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
+import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -89,7 +97,6 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Row;
@@ -97,8 +104,10 @@ import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Update;
-import io.trino.type.TypeCoercion;
+import io.trino.tracing.ScopedSpan;
+import io.trino.tracing.TrinoAttributes;
 import io.trino.type.UnknownType;
+import jakarta.annotation.Nonnull;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
@@ -115,8 +124,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Streams.forEachPair;
 import static com.google.common.collect.Streams.zip;
+import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
+import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
@@ -145,6 +158,7 @@ import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -165,24 +179,25 @@ public class LogicalPlanner
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
     private final PlannerContext plannerContext;
-    private final TypeCoercion typeCoercion;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final WarningCollector warningCollector;
+    private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
     public LogicalPlanner(
             Session session,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, typeAnalyzer, statsCalculator, costCalculator, warningCollector);
+        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, typeAnalyzer, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector);
     }
 
     public LogicalPlanner(
@@ -191,10 +206,11 @@ public class LogicalPlanner
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         this.session = requireNonNull(session, "session is null");
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
@@ -202,12 +218,12 @@ public class LogicalPlanner
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata, session);
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, plannerContext, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
     }
 
     public Plan plan(Analysis analysis)
@@ -222,7 +238,10 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics)
     {
-        PlanNode root = planStatement(analysis, analysis.getStatement());
+        PlanNode root;
+        try (var ignored = scopedSpan(plannerContext.getTracer(), "plan")) {
+            root = planStatement(analysis, analysis.getStatement());
+        }
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initial plan:\n%s", PlanPrinter.textLogicalPlan(
@@ -236,43 +255,89 @@ public class LogicalPlanner
                     false));
         }
 
-        planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+        try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-intermediate")) {
+            planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+        }
 
-        TableStatsProvider tableStatsProvider = new CachingTableStatsProvider(metadata, session);
+        CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(metadata, session);
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
-            for (PlanOptimizer optimizer : planOptimizers) {
-                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, tableStatsProvider);
-                requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
-
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(
-                            root,
-                            symbolAllocator.getTypes(),
-                            metadata,
-                            plannerContext.getFunctionManager(),
-                            StatsAndCosts.empty(),
-                            session,
-                            0,
-                            false));
+            try (var ignored = scopedSpan(plannerContext.getTracer(), "optimizer")) {
+                for (PlanOptimizer optimizer : planOptimizers) {
+                    root = runOptimizer(root, tableStatsProvider, optimizer);
                 }
             }
         }
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            planSanityChecker.validateFinalPlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+            try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-final")) {
+                planSanityChecker.validateFinalPlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+            }
         }
 
         TypeProvider types = symbolAllocator.getTypes();
 
-        StatsAndCosts statsAndCosts = StatsAndCosts.empty();
+        TableStatsProvider collectTableStatsProvider;
         if (collectPlanStatistics) {
-            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
-            CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
+            collectTableStatsProvider = tableStatsProvider;
+        }
+        else {
+            // If stats collection was not requested explicitly, then use statistics
+            // that were fetched and cached during planning.
+            Map<TableHandle, TableStatistics> cachedStatistics = tableStatsProvider.getCachedTableStatistics();
+            collectTableStatsProvider = handle -> cachedStatistics.getOrDefault(handle, TableStatistics.empty());
+        }
+
+        StatsAndCosts statsAndCosts;
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, collectTableStatsProvider);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
+        try (var ignored = scopedSpan(plannerContext.getTracer(), "plan-stats")) {
             statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
         }
         return new Plan(root, types, statsAndCosts);
+    }
+
+    @Nonnull
+    private PlanNode runOptimizer(PlanNode root, TableStatsProvider tableStatsProvider, PlanOptimizer optimizer)
+    {
+        PlanNode result;
+        try (var ignored = optimizerSpan(optimizer)) {
+            result = optimizer.optimize(root, new PlanOptimizer.Context(session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider));
+        }
+        if (result == null) {
+            throw new NullPointerException(optimizer.getClass().getName() + " returned a null plan");
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(
+                    result,
+                    symbolAllocator.getTypes(),
+                    metadata,
+                    plannerContext.getFunctionManager(),
+                    StatsAndCosts.empty(),
+                    session,
+                    0,
+                    false));
+        }
+
+        return result;
+    }
+
+    @MustBeClosed
+    private ScopedSpan optimizerSpan(PlanOptimizer optimizer)
+    {
+        if (!Span.fromContext(Context.current()).isRecording()) {
+            return null;
+        }
+        SpanBuilder builder = plannerContext.getTracer().spanBuilder("optimize")
+                .setAttribute(TrinoAttributes.OPTIMIZER_NAME, optimizer.getClass().getSimpleName());
+        if (optimizer instanceof IterativeOptimizer iterative) {
+            builder.setAttribute(TrinoAttributes.OPTIMIZER_RULES, iterative.getRules().stream()
+                    .map(x -> x.getClass().getSimpleName())
+                    .toList());
+        }
+        return scopedSpan(builder.startSpan());
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)
@@ -395,20 +460,47 @@ public class LogicalPlanner
 
         Optional<TableLayout> newTableLayout = create.getLayout();
 
-        List<String> columnNames = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden()) // todo this filter is redundant
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
+        List<Symbol> visibleFieldMappings = visibleFields(plan);
 
         String catalogName = destination.getCatalogName();
         CatalogHandle catalogHandle = metadata.getCatalogHandle(session, catalogName)
-                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, query, "Destination catalog '%s' does not exist", catalogName));
+                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, query, "Destination catalog '%s' not found", catalogName));
+
+        Assignments.Builder assignmentsBuilder = Assignments.builder();
+        ImmutableList.Builder<ColumnMetadata> finalColumnsBuilder = ImmutableList.builder();
+
+        checkState(tableMetadata.getColumns().size() == visibleFieldMappings.size(), "Table and visible field count doesn't match");
+
+        forEachPair(tableMetadata.getColumns().stream(), visibleFieldMappings.stream(), (column, fieldMapping) -> {
+            assignmentsBuilder.put(
+                    symbolAllocator.newSymbol(column.getName(), column.getType()),
+                    coerceOrCastToTableType(fieldMapping, column.getType(), symbolAllocator.getTypes().get(fieldMapping)));
+            finalColumnsBuilder.add(column);
+        });
+
+        List<ColumnMetadata> finalColumns = finalColumnsBuilder.build();
+        Assignments assignments = assignmentsBuilder.build();
+
+        checkState(assignments.size() == finalColumns.size(), "Assignment and column count must match");
+        List<Field> fields = finalColumns.stream()
+                .map(column -> Field.newUnqualified(column.getName(), column.getType()))
+                .collect(toImmutableList());
+
+        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments);
+        Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
+        plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols(), Optional.empty());
+
+        List<String> columnNames = finalColumns.stream()
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
+
         return createTableWriterPlan(
                 analysis,
                 plan.getRoot(),
                 visibleFields(plan),
-                new CreateReference(catalogName, tableMetadata, newTableLayout),
+                new CreateReference(catalogName, tableMetadata, newTableLayout, create.isReplace()),
                 columnNames,
                 newTableLayout,
                 statisticsMetadata);
@@ -429,13 +521,7 @@ public class LogicalPlanner
         RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.empty(), session, ImmutableMap.of());
         RelationPlan plan = planner.process(query, null);
 
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        for (int i = 0; i < plan.getFieldMappings().size(); i++) {
-            if (!plan.getDescriptor().getFieldByIndex(i).isHidden()) {
-                builder.add(plan.getFieldMappings().get(i));
-            }
-        }
-        List<Symbol> visibleFieldMappings = builder.build();
+        List<Symbol> visibleFieldMappings = visibleFields(plan);
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Assignments.Builder assignments = Assignments.builder();
@@ -460,12 +546,7 @@ public class LogicalPlanner
                 Symbol input = visibleFieldMappings.get(index);
                 Type queryType = symbolAllocator.getTypes().get(input);
 
-                if (queryType.equals(tableType) || typeCoercion.isTypeOnlyCoercion(queryType, tableType)) {
-                    expression = input.toSymbolReference();
-                }
-                else {
-                    expression = noTruncationCast(input.toSymbolReference(), queryType, tableType);
-                }
+                expression = coerceOrCastToTableType(input, tableType, queryType);
             }
             if (!column.isNullable()) {
                 expression = new CoalesceExpression(expression, createNullNotAllowedFailExpression(column.getName(), tableType));
@@ -487,7 +568,7 @@ public class LogicalPlanner
         plan = planner.addRowFilters(
                 table,
                 plan,
-                failIfPredicateIsNotMet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match a row filter"),
+                failIfPredicateIsNotMet(metadata, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match a row filter"),
                 node -> {
                     Scope accessControlScope = analysis.getAccessControlScope(table);
                     // hidden fields are not accessible in insert
@@ -540,23 +621,29 @@ public class LogicalPlanner
                 statisticsMetadata);
     }
 
-    private Expression createNullNotAllowedFailExpression(String columnName, Type type)
+    private Expression coerceOrCastToTableType(Symbol fieldMapping, Type tableType, Type queryType)
     {
-        return new Cast(failFunction(metadata, session, CONSTRAINT_VIOLATION, format(
-                "NULL value not allowed for NOT NULL column: %s",
-                columnName)), toSqlType(type));
+        if (queryType.equals(tableType)) {
+            return fieldMapping.toSymbolReference();
+        }
+        return noTruncationCast(fieldMapping.toSymbolReference(), queryType, tableType);
     }
 
-    private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
+    private Expression createNullNotAllowedFailExpression(String columnName, Type type)
     {
-        FunctionCall fail = failFunction(metadata, session, errorCode, errorMessage);
+        return new Cast(failFunction(metadata, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(type));
+    }
+
+    private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
+    {
+        FunctionCall fail = failFunction(metadata, errorCode, errorMessage);
         return predicate -> new IfExpression(predicate, TRUE_LITERAL, new Cast(fail, toSqlType(BOOLEAN)));
     }
 
-    public static FunctionCall failFunction(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
+    public static FunctionCall failFunction(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
     {
-        return FunctionCallBuilder.resolve(session, metadata)
-                .setName(QualifiedName.of("fail"))
+        return BuiltinFunctionCallBuilder.resolve(metadata)
+                .setName("fail")
                 .addArgument(INTEGER, new GenericLiteral("INTEGER", Integer.toString(errorCode.toErrorCode().getCode())))
                 .addArgument(VARCHAR, new GenericLiteral("VARCHAR", errorMessage))
                 .build();
@@ -587,10 +674,14 @@ public class LogicalPlanner
         TableHandle tableHandle = viewAnalysis.getTarget();
         Query query = viewAnalysis.getQuery();
         Optional<TableLayout> newTableLayout = metadata.getInsertLayout(session, viewAnalysis.getTarget());
+        List<String> tableFunctions = analysis.getPolymorphicTableFunctions().stream()
+                .map(polymorphicTableFunction -> polymorphicTableFunction.getNode().getName().toString())
+                .collect(toImmutableList());
         TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(
-                viewAnalysis.getTable(),
+                viewAnalysis.getTable().toString(),
                 tableHandle,
-                new ArrayList<>(analysis.getTables()));
+                ImmutableList.copyOf(analysis.getTables()),
+                tableFunctions);
         return getInsertPlan(analysis, viewAnalysis.getTable(), query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
     }
 
@@ -604,7 +695,12 @@ public class LogicalPlanner
             TableStatisticsMetadata statisticsMetadata)
     {
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
-        Optional<PartitioningScheme> preferredPartitioningScheme = Optional.empty();
+
+        int maxWriterTasks = target.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
+        Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                : Optional.empty();
+
         if (writeTableLayout.isPresent()) {
             List<Symbol> partitionFunctionArguments = new ArrayList<>();
             writeTableLayout.get().getPartitionColumns().stream()
@@ -616,15 +712,20 @@ public class LogicalPlanner
 
             Optional<PartitioningHandle> partitioningHandle = writeTableLayout.get().getPartitioning();
             if (partitioningHandle.isPresent()) {
+                checkState(target.getMaxWriterTasks(plannerContext.getMetadata(), session).isEmpty(), "maxWriterTasks must be empty if partitioning is set by connector");
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
                         outputLayout));
             }
-            else {
+            else if (isUsePreferredWritePartitioning(session)) {
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
-                preferredPartitioningScheme = Optional.of(new PartitioningScheme(
+                partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
-                        outputLayout));
+                        outputLayout,
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        maxWritersNodesCount));
             }
         }
 
@@ -654,7 +755,6 @@ public class LogicalPlanner
                             symbols,
                             columnNames,
                             partitioningScheme,
-                            preferredPartitioningScheme,
                             Optional.of(partialAggregation),
                             Optional.of(result.getDescriptor().map(aggregations.getMappings()::get))),
                     target,
@@ -676,7 +776,6 @@ public class LogicalPlanner
                         symbols,
                         columnNames,
                         partitioningScheme,
-                        preferredPartitioningScheme,
                         Optional.empty(),
                         Optional.empty()),
                 target,
@@ -714,7 +813,7 @@ public class LogicalPlanner
         }
 
         checkState(fromType instanceof VarcharType || fromType instanceof CharType, "inserting non-character value to column of character type");
-        ResolvedFunction spaceTrimmedLength = metadata.resolveFunction(session, QualifiedName.of("$space_trimmed_length"), fromTypes(VARCHAR));
+        ResolvedFunction spaceTrimmedLength = metadata.resolveBuiltinFunction("$space_trimmed_length", fromTypes(VARCHAR));
 
         return new IfExpression(
                 // check if the trimmed value fits in the target type
@@ -728,7 +827,7 @@ public class LogicalPlanner
                                 new GenericLiteral("BIGINT", "0"))),
                 new Cast(expression, toSqlType(toType)),
                 new Cast(
-                        failFunction(metadata, session, INVALID_CAST_ARGUMENT, format(
+                        failFunction(metadata, INVALID_CAST_ARGUMENT, format(
                                 "Cannot truncate non-space characters when casting from %s to %s on INSERT",
                                 fromType.getDisplayName(),
                                 toType.getDisplayName())),
@@ -821,7 +920,7 @@ public class LogicalPlanner
         return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
     }
 
-    private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
+    public static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
     {
         Map<Key, Symbol> allocations = new HashMap<>();
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> result = new LinkedHashMap<>();
@@ -866,7 +965,7 @@ public class LogicalPlanner
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
         PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
         if (statement.getWhere().isPresent()) {
-            SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, typeCoercion, Optional.empty(), session, ImmutableMap.of());
+            SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
             Expression whereExpression = statement.getWhere().get();
             sourcePlanBuilder = subqueryPlanner.handleSubqueries(sourcePlanBuilder, whereExpression, analysis.getSubqueries(statement));
             sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), sourcePlanBuilder.rewrite(whereExpression)));
@@ -880,8 +979,11 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        boolean supportsReportingWrittenBytes = metadata.supportsReportingWrittenBytes(session, tableHandle);
-        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName(), supportsReportingWrittenBytes);
+        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(
+                executeHandle,
+                Optional.empty(),
+                tableName.asSchemaTableName(),
+                metadata.getInsertWriterScalingOptions(session, tableHandle));
 
         Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
 
@@ -889,7 +991,6 @@ public class LogicalPlanner
 
         // todo extract common method to be used here and in createTableWriterPlan()
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
-        Optional<PartitioningScheme> preferredPartitioningScheme = Optional.empty();
         if (layout.isPresent()) {
             List<Symbol> partitionFunctionArguments = new ArrayList<>();
             layout.get().getPartitionColumns().stream()
@@ -901,15 +1002,24 @@ public class LogicalPlanner
 
             Optional<PartitioningHandle> partitioningHandle = layout.get().getPartitioning();
             if (partitioningHandle.isPresent()) {
+                checkState(tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).isEmpty(), "maxWriterTasks must be empty if partitioning is set by connector");
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
                         outputLayout));
             }
-            else {
+            else if (isUsePreferredWritePartitioning(session)) {
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
-                preferredPartitioningScheme = Optional.of(new PartitioningScheme(
+                int maxWriterTasks = tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
+                Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                        ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                        : Optional.empty();
+                partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
-                        outputLayout));
+                        outputLayout,
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        maxWritersNodesCount));
             }
         }
 
@@ -924,8 +1034,7 @@ public class LogicalPlanner
                         symbolAllocator.newSymbol("fragment", VARBINARY),
                         symbols,
                         columnNames,
-                        partitioningScheme,
-                        preferredPartitioningScheme),
+                        partitioningScheme),
                 tableExecuteTarget,
                 symbolAllocator.newSymbol("rows", BIGINT),
                 Optional.empty(),

@@ -15,13 +15,12 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.function.QualifiedFunctionName;
 import io.trino.spi.function.ScalarFunctionImplementation;
-import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -34,6 +33,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -62,7 +62,7 @@ public class InternalFunctionDependencies
         this.specialization = specialization;
         this.types = ImmutableMap.copyOf(typeDependencies);
         this.functions = functionDependencies.stream()
-                .filter(function -> !isOperatorName(function.getSignature().getName()))
+                .filter(function -> !isOperatorName(function.getSignature().getName().getFunctionName()))
                 .collect(toImmutableMap(FunctionKey::new, identity()));
         this.operators = functionDependencies.stream()
                 .filter(InternalFunctionDependencies::isOperator)
@@ -84,7 +84,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public FunctionNullability getFunctionNullability(QualifiedFunctionName name, List<Type> parameterTypes)
+    public FunctionNullability getFunctionNullability(CatalogSchemaFunctionName name, List<Type> parameterTypes)
     {
         FunctionKey functionKey = new FunctionKey(name, toTypeSignatures(parameterTypes));
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -117,7 +117,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public ScalarFunctionImplementation getScalarFunctionImplementation(QualifiedFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunctionImplementation(CatalogSchemaFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention)
     {
         FunctionKey functionKey = new FunctionKey(name, toTypeSignatures(parameterTypes));
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -128,7 +128,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public ScalarFunctionImplementation getScalarFunctionImplementationSignature(QualifiedFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunctionImplementationSignature(CatalogSchemaFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
     {
         FunctionKey functionKey = new FunctionKey(name, parameterTypes);
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -191,31 +191,30 @@ public class InternalFunctionDependencies
 
     private static boolean isOperator(ResolvedFunction function)
     {
-        String name = function.getSignature().getName();
-        return isOperatorName(name) && unmangleOperator(name) != CAST;
+        CatalogSchemaFunctionName name = function.getSignature().getName();
+        return isBuiltinFunctionName(name) && isOperatorName(name.getFunctionName()) && unmangleOperator(name.getFunctionName()) != CAST;
     }
 
     private static boolean isCast(ResolvedFunction function)
     {
-        String name = function.getSignature().getName();
-        return isOperatorName(name) && unmangleOperator(name) == CAST;
+        CatalogSchemaFunctionName name = function.getSignature().getName();
+        return isBuiltinFunctionName(name) && isOperatorName(name.getFunctionName()) && unmangleOperator(name.getFunctionName()) == CAST;
     }
 
     public static final class FunctionKey
     {
-        private final QualifiedFunctionName name;
+        private final CatalogSchemaFunctionName name;
         private final List<TypeSignature> argumentTypes;
 
         private FunctionKey(ResolvedFunction resolvedFunction)
         {
-            Signature signature = resolvedFunction.getSignature().toSignature();
-            name = QualifiedFunctionName.of(signature.getName());
+            name = resolvedFunction.getSignature().getName();
             argumentTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
                     .map(Type::getTypeSignature)
                     .collect(toImmutableList());
         }
 
-        private FunctionKey(QualifiedFunctionName name, List<TypeSignature> argumentTypes)
+        private FunctionKey(CatalogSchemaFunctionName name, List<TypeSignature> argumentTypes)
         {
             this.name = requireNonNull(name, "name is null");
             this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
@@ -257,7 +256,7 @@ public class InternalFunctionDependencies
 
         private OperatorKey(ResolvedFunction resolvedFunction)
         {
-            operatorType = unmangleOperator(resolvedFunction.getSignature().getName());
+            operatorType = unmangleOperator(resolvedFunction.getSignature().getName().getFunctionName());
             argumentTypes = toTypeSignatures(resolvedFunction.getSignature().getArgumentTypes());
         }
 

@@ -15,7 +15,7 @@ package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.ParquetEncoding;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
@@ -138,7 +138,7 @@ public class TestColumnReaderBenchmark
     public void testInt96ColumnReaderBenchmark()
             throws IOException
     {
-        BenchmarkInt96ColumnReader benchmark = new BenchmarkInt96ColumnReader();
+        BenchmarkFixed12ColumnReader benchmark = new BenchmarkFixed12ColumnReader();
         benchmark.setup();
         benchmark.read();
     }

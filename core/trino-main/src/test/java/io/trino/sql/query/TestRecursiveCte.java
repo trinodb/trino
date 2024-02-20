@@ -15,32 +15,26 @@ package io.trino.sql.query;
 
 import io.trino.Session;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SystemSessionProperties.MAX_RECURSION_DEPTH;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestRecursiveCte
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -281,13 +275,13 @@ public class TestRecursiveCte
     @Test
     public void testRecursionDepthLimitExceeded()
     {
-        assertThatThrownBy(() -> assertions.query("WITH RECURSIVE t(n) AS (" +
+        assertThat(assertions.query("WITH RECURSIVE t(n) AS (" +
                 "          SELECT 1" +
                 "          UNION ALL" +
                 "          SELECT * FROM t" +
                 "          )" +
                 "          SELECT * FROM t"))
-                .hasMessage("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", getMaxRecursionDepth(assertions.getDefaultSession()));
+                .failure().hasMessage("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", getMaxRecursionDepth(assertions.getDefaultSession()));
     }
 
     @Test
@@ -327,5 +321,32 @@ public class TestRecursiveCte
                         "        (5, 2, 'derived',    2), " +
                         "        (6, 3, 'derived',    1), " +
                         "        (7, 5, 'derived',    2)");
+    }
+
+    @Test
+    public void testLambda()
+    {
+        assertThat(assertions.query("""
+                WITH RECURSIVE t(list) AS (
+                    SELECT ARRAY[0]
+                    UNION ALL
+                    SELECT list || 0
+                    FROM t
+                    WHERE any_match(list, x -> x = x) AND cardinality(list) < 4)
+                SELECT * FROM t
+                """))
+                .matches("VALUES (ARRAY[0]), (ARRAY[0, 0]), (ARRAY[0, 0, 0]), (ARRAY[0, 0, 0, 0])");
+
+        // lambda contains a symbol other than lambda argument (a)
+        assertThat(assertions.query("""
+                WITH RECURSIVE t(list, a) AS (
+                    SELECT ARRAY[0], 1
+                    UNION ALL
+                    SELECT list || a, a + 1
+                    FROM t
+                    WHERE all_match(list, x -> x < a) AND cardinality(list) < 4)
+                SELECT list FROM t
+                """))
+                .matches("VALUES (ARRAY[0]), (ARRAY[0, 1]), (ARRAY[0, 1, 2]), (ARRAY[0, 1, 2, 3])");
     }
 }

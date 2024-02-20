@@ -16,11 +16,11 @@ package io.trino.plugin.hive.metastore.glue;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.AWSGlueAsync;
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
-
-import java.util.Optional;
+import java.util.Set;
 
 import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static java.util.Objects.requireNonNull;
@@ -31,24 +31,24 @@ public class HiveGlueClientProvider
     private final GlueMetastoreStats stats;
     private final AWSCredentialsProvider credentialsProvider;
     private final GlueHiveMetastoreConfig glueConfig; // TODO do not keep mutable config instance on a field
-    private final Optional<RequestHandler2> requestHandler;
+    private final Set<RequestHandler2> requestHandlers;
 
     @Inject
     public HiveGlueClientProvider(
             @ForGlueHiveMetastore GlueMetastoreStats stats,
             AWSCredentialsProvider credentialsProvider,
-            @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
+            @ForGlueHiveMetastore Set<RequestHandler2> requestHandlers,
             GlueHiveMetastoreConfig glueConfig)
     {
         this.stats = requireNonNull(stats, "stats is null");
         this.credentialsProvider = requireNonNull(credentialsProvider, "credentialsProvider is null");
-        this.requestHandler = requireNonNull(requestHandler, "requestHandler is null");
+        this.requestHandlers = ImmutableSet.copyOf(requireNonNull(requestHandlers, "requestHandlers is null"));
         this.glueConfig = glueConfig;
     }
 
     @Override
     public AWSGlueAsync get()
     {
-        return createAsyncGlueClient(glueConfig, credentialsProvider, requestHandler, stats.newRequestMetricsCollector());
+        return createAsyncGlueClient(glueConfig, credentialsProvider, requestHandlers, stats.newRequestMetricsCollector());
     }
 }

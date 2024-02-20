@@ -25,7 +25,7 @@ import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -70,12 +70,12 @@ public class TestCanonicalize
                                         .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
                                 values("A"))),
                 ImmutableList.of(
-                        new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                        new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
                         new IterativeOptimizer(
-                                getQueryRunner().getPlannerContext(),
+                                getPlanTester().getPlannerContext(),
                                 new RuleStatsRecorder(),
-                                getQueryRunner().getStatsCalculator(),
-                                getQueryRunner().getCostCalculator(),
+                                getPlanTester().getStatsCalculator(),
+                                getPlanTester().getCostCalculator(),
                                 ImmutableSet.of(new RemoveRedundantIdentityProjections()))));
     }
 }

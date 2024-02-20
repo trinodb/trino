@@ -17,4 +17,5 @@ public enum DeltaLakeTableType
 {
     DATA,
     HISTORY,
+    PROPERTIES,
 }

@@ -84,7 +84,8 @@ public class BenchmarkFlatDefinitionLevelDecoder
     public int read()
             throws IOException
     {
-        NullsDecoder decoder = new NullsDecoder(Slices.wrappedBuffer(data));
+        NullsDecoder decoder = new NullsDecoder();
+        decoder.init(Slices.wrappedBuffer(data));
         int nonNullCount = 0;
         for (int i = 0; i < size; i += BATCH_SIZE) {
             nonNullCount += decoder.readNext(output, i, Math.min(BATCH_SIZE, size - i));

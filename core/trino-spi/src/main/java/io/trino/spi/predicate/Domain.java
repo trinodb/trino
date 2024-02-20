@@ -17,14 +17,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +42,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class Domain
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Domain.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(Domain.class);
 
     public static final int DEFAULT_COMPACTION_THRESHOLD = 32;
 

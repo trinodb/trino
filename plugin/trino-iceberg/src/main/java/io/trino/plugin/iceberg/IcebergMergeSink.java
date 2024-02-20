@@ -21,7 +21,8 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
@@ -44,11 +45,9 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -102,18 +101,20 @@ public class IcebergMergeSink
         mergePage.getInsertionsPage().ifPresent(insertPageSink::appendPage);
 
         mergePage.getDeletionsPage().ifPresent(deletions -> {
-            ColumnarRow rowIdRow = toColumnarRow(deletions.getBlock(deletions.getChannelCount() - 1));
-
-            for (int position = 0; position < rowIdRow.getPositionCount(); position++) {
-                Slice filePath = VarcharType.VARCHAR.getSlice(rowIdRow.getField(0), position);
-                long rowPosition = BIGINT.getLong(rowIdRow.getField(1), position);
+            List<Block> fields = RowBlock.getRowFieldsFromBlock(deletions.getBlock(deletions.getChannelCount() - 1));
+            Block fieldPathBlock = fields.get(0);
+            Block rowPositionBlock = fields.get(1);
+            Block partitionSpecIdBlock = fields.get(2);
+            Block partitionDataBlock = fields.get(3);
+            for (int position = 0; position < fieldPathBlock.getPositionCount(); position++) {
+                Slice filePath = VarcharType.VARCHAR.getSlice(fieldPathBlock, position);
+                long rowPosition = BIGINT.getLong(rowPositionBlock, position);
 
                 int index = position;
                 FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, ignored -> {
-                    long fileRecordCount = BIGINT.getLong(rowIdRow.getField(2), index);
-                    int partitionSpecId = toIntExact(INTEGER.getLong(rowIdRow.getField(3), index));
-                    String partitionData = VarcharType.VARCHAR.getSlice(rowIdRow.getField(4), index).toStringUtf8();
-                    return new FileDeletion(partitionSpecId, partitionData, fileRecordCount);
+                    int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, index);
+                    String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, index).toStringUtf8();
+                    return new FileDeletion(partitionSpecId, partitionData);
                 });
 
                 deletion.rowsToDelete().addLong(rowPosition);
@@ -130,8 +131,7 @@ public class IcebergMergeSink
             ConnectorPageSink sink = createPositionDeletePageSink(
                     dataFilePath.toStringUtf8(),
                     partitionsSpecs.get(deletion.partitionSpecId()),
-                    deletion.partitionDataJson(),
-                    deletion.fileRecordCount());
+                    deletion.partitionDataJson());
 
             fragments.addAll(writePositionDeletes(sink, deletion.rowsToDelete()));
         });
@@ -145,7 +145,7 @@ public class IcebergMergeSink
         insertPageSink.abort();
     }
 
-    private ConnectorPageSink createPositionDeletePageSink(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson, long fileRecordCount)
+    private ConnectorPageSink createPositionDeletePageSink(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson)
     {
         Optional<PartitionData> partitionData = Optional.empty();
         if (partitionSpec.isPartitioned()) {
@@ -165,8 +165,7 @@ public class IcebergMergeSink
                 jsonCodec,
                 session,
                 fileFormat,
-                storageProperties,
-                fileRecordCount);
+                storageProperties);
     }
 
     private static Collection<Slice> writePositionDeletes(ConnectorPageSink sink, ImmutableLongBitmapDataProvider rowsToDelete)
@@ -204,14 +203,12 @@ public class IcebergMergeSink
     {
         private final int partitionSpecId;
         private final String partitionDataJson;
-        private final long fileRecordCount;
         private final LongBitmapDataProvider rowsToDelete = new Roaring64Bitmap();
 
-        public FileDeletion(int partitionSpecId, String partitionDataJson, long fileRecordCount)
+        public FileDeletion(int partitionSpecId, String partitionDataJson)
         {
             this.partitionSpecId = partitionSpecId;
             this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
-            this.fileRecordCount = fileRecordCount;
         }
 
         public int partitionSpecId()
@@ -222,11 +219,6 @@ public class IcebergMergeSink
         public String partitionDataJson()
         {
             return partitionDataJson;
-        }
-
-        public long fileRecordCount()
-        {
-            return fileRecordCount;
         }
 
         public LongBitmapDataProvider rowsToDelete()

@@ -16,6 +16,7 @@ package io.trino.plugin.kinesis;
 import com.amazonaws.services.kinesis.model.PutRecordsRequest;
 import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
@@ -24,15 +25,15 @@ import io.trino.plugin.kinesis.util.TestUtils;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.Identity;
-import io.trino.spi.type.BigintType;
-import io.trino.testing.MaterializedResult;
+import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -46,11 +47,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /**
  * Note: this is an integration test that connects to AWS Kinesis.
@@ -59,7 +61,8 @@ import static org.testng.Assert.assertTrue;
  * You may incur AWS charges if you run this test.  You probably want to setup an IAM
  * user for your CI server to use.
  */
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestMinimalFunctionality
 {
     public static final Session SESSION = Session.builder(new SessionPropertyManager())
@@ -71,40 +74,36 @@ public class TestMinimalFunctionality
             .setLocale(ENGLISH)
             .setQueryId(new QueryId("dummy"))
             .build();
+    private final String accessKey;
+    private final String secretKey;
 
-    private EmbeddedKinesisStream embeddedKinesisStream;
+    private final EmbeddedKinesisStream embeddedKinesisStream;
     private String streamName;
-    private StandaloneQueryRunner queryRunner;
+    private QueryRunner queryRunner;
+    private QueryAssertions assertions;
 
-    @Parameters({
-            "kinesis.awsAccessKey",
-            "kinesis.awsSecretKey"
-    })
-    @BeforeClass
-    public void start(String accessKey, String secretKey)
+    public TestMinimalFunctionality()
     {
+        accessKey = System.getProperty("kinesis.awsAccessKey");
+        secretKey = System.getProperty("kinesis.awsSecretKey");
         embeddedKinesisStream = new EmbeddedKinesisStream(TestUtils.noneToBlank(accessKey), TestUtils.noneToBlank(secretKey));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void stop()
     {
         embeddedKinesisStream.close();
-        embeddedKinesisStream = null;
     }
 
-    @Parameters({
-            "kinesis.awsAccessKey",
-            "kinesis.awsSecretKey"
-    })
-    @BeforeMethod
-    public void spinUp(String accessKey, String secretKey)
+    @BeforeEach
+    public void spinUp()
             throws Exception
     {
         streamName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
 
         embeddedKinesisStream.createStream(2, streamName);
         this.queryRunner = new StandaloneQueryRunner(SESSION);
+        assertions = new QueryAssertions(queryRunner);
         Path tempDir = Files.createTempDirectory("tempdir");
         File baseFile = new File("src/test/resources/tableDescriptions/EmptyTable.json");
         File file = new File(tempDir.toAbsolutePath().toString() + "/" + streamName + ".json");
@@ -141,37 +140,29 @@ public class TestMinimalFunctionality
     {
         QualifiedObjectName name = new QualifiedObjectName("kinesis", "default", streamName);
 
-        transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
+        Metadata metadata = queryRunner.getPlannerContext().getMetadata();
+        transaction(queryRunner.getTransactionManager(), metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, session -> {
-                    Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
-                    assertTrue(handle.isPresent());
+                    Optional<TableHandle> handle = metadata.getTableHandle(session, name);
+                    assertThat(handle.isPresent()).isTrue();
                 });
     }
 
     @Test
     public void testStreamHasData()
     {
-        MaterializedResult result = queryRunner.execute("SELECT COUNT(1) FROM " + streamName);
-
-        MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(0L)
-                .build();
-
-        assertEquals(result, expected);
+        assertThat(assertions.query("SELECT COUNT(1) FROM " + streamName))
+                .matches("VALUES 0");
 
         long count = 500L;
         createMessages(streamName, count);
 
-        result = queryRunner.execute("SELECT COUNT(1) FROM " + streamName);
-
-        expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(count)
-                .build();
-        assertEquals(result, expected);
+        assertThat(assertions.query("SELECT COUNT(1) FROM " + streamName))
+                .matches("VALUES %s".formatted(count));
     }
 
-    @AfterMethod
+    @AfterEach
     public void tearDown()
     {
         embeddedKinesisStream.deleteStream(streamName);

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -26,10 +27,6 @@ import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.SkipTo.Position;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
@@ -40,10 +37,10 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -70,7 +67,7 @@ public class PatternRecognitionNode
     private final Optional<Frame> commonBaseFrame;
     private final RowsPerMatch rowsPerMatch;
     private final Optional<IrLabel> skipToLabel;
-    private final Position skipToPosition;
+    private final SkipToPosition skipToPosition;
     private final boolean initial;
     private final IrRowPattern pattern;
     private final Map<IrLabel, Set<IrLabel>> subsets;
@@ -89,7 +86,7 @@ public class PatternRecognitionNode
             @JsonProperty("commonBaseFrame") Optional<Frame> commonBaseFrame,
             @JsonProperty("rowsPerMatch") RowsPerMatch rowsPerMatch,
             @JsonProperty("skipToLabel") Optional<IrLabel> skipToLabel,
-            @JsonProperty("skipToPosition") Position skipToPosition,
+            @JsonProperty("skipToPosition") SkipToPosition skipToPosition,
             @JsonProperty("initial") boolean initial,
             @JsonProperty("pattern") IrRowPattern pattern,
             @JsonProperty("subsets") Map<IrLabel, Set<IrLabel>> subsets,
@@ -236,7 +233,7 @@ public class PatternRecognitionNode
     }
 
     @JsonProperty
-    public Position getSkipToPosition()
+    public SkipToPosition getSkipToPosition()
     {
         return skipToPosition;
     }

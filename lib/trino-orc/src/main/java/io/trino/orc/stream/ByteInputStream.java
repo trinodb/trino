@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 
 public class ByteInputStream
         implements ValueInputStream<ByteStreamCheckpoint>
@@ -98,7 +99,7 @@ public class ByteInputStream
             if (offset == length) {
                 readNextBlock();
             }
-            long consume = min(items, length - offset);
+            int consume = toIntExact(min(items, length - offset));
             offset += consume;
             items -= consume;
         }

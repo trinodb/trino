@@ -14,27 +14,22 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
-import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -48,14 +43,11 @@ import static java.util.Objects.requireNonNull;
 public class BigintGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BigintGroupByHash.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BigintGroupByHash.class);
     private static final int BATCH_SIZE = 1024;
 
     private static final float FILL_RATIO = 0.75f;
-    private static final List<Type> TYPES = ImmutableList.of(BIGINT);
-    private static final List<Type> TYPES_WITH_RAW_HASH = ImmutableList.of(BIGINT, BIGINT);
 
-    private final int hashChannel;
     private final boolean outputRawHash;
 
     private int hashCapacity;
@@ -80,12 +72,10 @@ public class BigintGroupByHash
     private long preallocatedMemoryInBytes;
     private long currentPageSizeInBytes;
 
-    public BigintGroupByHash(int hashChannel, boolean outputRawHash, int expectedSize, UpdateMemory updateMemory)
+    public BigintGroupByHash(boolean outputRawHash, int expectedSize, UpdateMemory updateMemory)
     {
-        checkArgument(hashChannel >= 0, "hashChannel must be at least zero");
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        this.hashChannel = hashChannel;
         this.outputRawHash = outputRawHash;
 
         hashCapacity = arraySize(expectedSize, FILL_RATIO);
@@ -111,12 +101,6 @@ public class BigintGroupByHash
                 sizeOf(values) +
                 sizeOf(valuesByGroupId) +
                 preallocatedMemoryInBytes;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return outputRawHash ? TYPES_WITH_RAW_HASH : TYPES;
     }
 
     @Override
@@ -152,56 +136,30 @@ public class BigintGroupByHash
     public Work<?> addPage(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        Block block = page.getBlock(hashChannel);
-        if (block instanceof RunLengthEncodedBlock) {
-            return new AddRunLengthEncodedPageWork((RunLengthEncodedBlock) block);
+        Block block = page.getBlock(0);
+        if (block instanceof RunLengthEncodedBlock rleBlock) {
+            return new AddRunLengthEncodedPageWork(rleBlock);
         }
-        if (block instanceof DictionaryBlock) {
-            return new AddDictionaryPageWork((DictionaryBlock) block);
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return new AddDictionaryPageWork(dictionaryBlock);
         }
 
         return new AddPageWork(block);
     }
 
     @Override
-    public Work<GroupByIdBlock> getGroupIds(Page page)
+    public Work<int[]> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        Block block = page.getBlock(hashChannel);
-        if (block instanceof RunLengthEncodedBlock) {
-            return new GetRunLengthEncodedGroupIdsWork((RunLengthEncodedBlock) block);
+        Block block = page.getBlock(0);
+        if (block instanceof RunLengthEncodedBlock rleBlock) {
+            return new GetRunLengthEncodedGroupIdsWork(rleBlock);
         }
-        if (block instanceof DictionaryBlock) {
-            return new GetDictionaryGroupIdsWork((DictionaryBlock) block);
-        }
-
-        return new GetGroupIdsWork(page.getBlock(hashChannel));
-    }
-
-    @Override
-    public boolean contains(int position, Page page, int[] hashChannels)
-    {
-        Block block = page.getBlock(hashChannel);
-        if (block.isNull(position)) {
-            return nullGroupId >= 0;
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return new GetDictionaryGroupIdsWork(dictionaryBlock);
         }
 
-        long value = BIGINT.getLong(block, position);
-        int hashPosition = getHashPosition(value, mask);
-
-        // look for an empty slot or a slot containing this key
-        while (true) {
-            int groupId = groupIds[hashPosition];
-            if (groupId == -1) {
-                return false;
-            }
-            if (value == values[hashPosition]) {
-                return true;
-            }
-
-            // increment position and mask to handle wrap around
-            hashPosition = (hashPosition + 1) & mask;
-        }
+        return new GetGroupIdsWork(block);
     }
 
     @Override
@@ -490,9 +448,9 @@ public class BigintGroupByHash
 
     @VisibleForTesting
     class GetGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
-        private final long[] groupIds;
+        private final int[] groupIds;
         private final Block block;
 
         private boolean finished;
@@ -501,7 +459,7 @@ public class BigintGroupByHash
         public GetGroupIdsWork(Block block)
         {
             this.block = requireNonNull(block, "block is null");
-            this.groupIds = new long[block.getPositionCount()];
+            this.groupIds = new int[block.getPositionCount()];
         }
 
         @Override
@@ -532,20 +490,20 @@ public class BigintGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(block.getPositionCount(), Optional.empty(), groupIds));
+            return groupIds;
         }
     }
 
     @VisibleForTesting
     class GetDictionaryGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
-        private final long[] groupIds;
+        private final int[] groupIds;
         private final Block dictionary;
         private final DictionaryBlock block;
 
@@ -558,7 +516,7 @@ public class BigintGroupByHash
             this.dictionary = block.getDictionary();
             updateDictionaryLookBack(dictionary);
 
-            this.groupIds = new long[block.getPositionCount()];
+            this.groupIds = new int[block.getPositionCount()];
         }
 
         @Override
@@ -586,18 +544,18 @@ public class BigintGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(block.getPositionCount(), Optional.empty(), groupIds));
+            return groupIds;
         }
     }
 
     @VisibleForTesting
     class GetRunLengthEncodedGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
         private final RunLengthEncodedBlock block;
 
@@ -632,17 +590,15 @@ public class BigintGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(processFinished);
             checkState(!resultProduced);
             resultProduced = true;
 
-            return new GroupByIdBlock(
-                    nextGroupId,
-                    RunLengthEncodedBlock.create(
-                            BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
-                            block.getPositionCount()));
+            int[] result = new int[block.getPositionCount()];
+            Arrays.fill(result, groupId);
+            return result;
         }
     }
 

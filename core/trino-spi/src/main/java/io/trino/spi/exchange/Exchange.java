@@ -13,18 +13,22 @@
  */
 package io.trino.spi.exchange;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.Experimental;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
 
 @ThreadSafe
-@Experimental(eta = "2023-01-01")
+@Experimental(eta = "2024-03-01")
 public interface Exchange
         extends Closeable
 {
+    enum SourceHandlesDeliveryMode {
+        STANDARD,
+        EAGER
+    }
+
     /**
      * Get id of this exchange
      */
@@ -94,6 +98,23 @@ public interface Exchange
      * worker that is needed to create an {@link ExchangeSource} using {@link ExchangeManager#createSource()}
      */
     ExchangeSourceHandleSource getSourceHandles();
+
+    /**
+     * Change {@link ExchangeSourceHandleSource} delivery mode.
+     * <p>
+     * In {@link SourceHandlesDeliveryMode#STANDARD} mode the handles are delivered at
+     * pace optimized for throughput.
+     * <p>
+     * In {@link SourceHandlesDeliveryMode#EAGER} the handles are delivered as soon as possible even if that would mean
+     * each handle corresponds to smaller amount of data, which may be not optimal from throughput.
+     * <p>
+     * There are no strict constraints regarding when this method can be called. When called, the newly selected delivery mode
+     * will apply to all {@link ExchangeSourceHandleSource} instances already obtained via {@link #getSourceHandles()} method.
+     * As well as to those yet to be obtained.
+     * <p>
+     * Support for this method is optional and best-effort.
+     */
+    default void setSourceHandlesDeliveryMode(SourceHandlesDeliveryMode sourceHandlesDeliveryMode) {}
 
     @Override
     void close();

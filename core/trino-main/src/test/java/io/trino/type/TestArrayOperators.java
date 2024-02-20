@@ -20,8 +20,8 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -30,23 +30,23 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Collections;
 
 import static io.trino.block.BlockSerdeUtil.writeBlock;
-import static io.trino.operator.aggregation.TypedSet.MAX_FUNCTION_MEMORY;
-import static io.trino.operator.scalar.AbstractTestFunctions.asMap;
+import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
@@ -67,6 +67,7 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.MoreMaps.asMap;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -79,9 +80,10 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestArrayOperators
 {
     private QueryAssertions assertions;
@@ -117,16 +119,19 @@ public class TestArrayOperators
         ArrayType arrayType = new ArrayType(BIGINT);
         Block actualBlock = arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 1L, 2L), arrayBlockOf(BIGINT, 3L));
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
+        writeBlock(assertions.getQueryRunner().getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
 
-        BlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(null, 3);
-        arrayType.writeObject(expectedBlockBuilder, BIGINT.createBlockBuilder(null, 2).writeLong(1).writeLong(2).build());
-        arrayType.writeObject(expectedBlockBuilder, BIGINT.createBlockBuilder(null, 1).writeLong(3).build());
+        ArrayBlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(null, 3);
+        expectedBlockBuilder.buildEntry(elementBuilder -> {
+            BIGINT.writeLong(elementBuilder, 1);
+            BIGINT.writeLong(elementBuilder, 2);
+        });
+        expectedBlockBuilder.buildEntry(elementBuilder -> BIGINT.writeLong(elementBuilder, 3));
         Block expectedBlock = expectedBlockBuilder.build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
+        writeBlock(assertions.getQueryRunner().getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
 
-        assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
+        assertThat(actualSliceOutput.slice()).isEqualTo(expectedSliceOutput.slice());
     }
 
     @Test
@@ -260,11 +265,8 @@ public class TestArrayOperators
     public void testArraySize()
     {
         int size = toIntExact(MAX_FUNCTION_MEMORY.toBytes() + 1);
-        assertTrinoExceptionThrownBy(() -> assertions.expression("array_distinct(ARRAY['" +
-                                                                 "x".repeat(size) + "', '" +
-                                                                 "y".repeat(size) + "', '" +
-                                                                 "z".repeat(size) +
-                                                                 "'])").evaluate())
+        assertTrinoExceptionThrownBy(
+                () -> assertions.expression("array_distinct(ARRAY[lpad('', %1$s , 'x'), lpad('', %1$s , 'y'), lpad('', %1$s , 'z')])".formatted(size)).evaluate())
                 .hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
     }
 
@@ -318,9 +320,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null]"))
                 .hasType(JSON)
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? "[3.14,9.9E-324,1.0E308,\"NaN\",\"Infinity\",\"-Infinity\",null]"
-                        : "[3.14,1.0E-323,1.0E308,\"NaN\",\"Infinity\",\"-Infinity\",null]");
+                .isEqualTo("[3.14,9.9E-324,1.0E308,\"NaN\",\"Infinity\",\"-Infinity\",null]");
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[DECIMAL '3.14', null]"))
@@ -948,7 +948,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[ARRAY[1]]")
                 .binding("b", "ARRAY[ARRAY['x']]")
                 .evaluate())
-                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(array(varchar(1)))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
+                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(array(varchar(1)))) for function concat. Expected: concat(E, array(E)) E, concat(array(E)) E, concat(array(E), E) E, concat(char(x), char(y)), concat(varbinary), concat(varchar)");
     }
 
     @Test
@@ -1057,7 +1057,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[ARRAY[1]]")
                 .binding("b", "ARRAY['x']")
                 .evaluate())
-                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(varchar(1))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
+                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(varchar(1))) for function concat. Expected: concat(E, array(E)) E, concat(array(E)) E, concat(array(E), E) E, concat(char(x), char(y)), concat(varbinary), concat(varchar)");
     }
 
     @Test
@@ -1150,10 +1150,10 @@ public class TestArrayOperators
         assertThat(assertions.function("contains", "array[TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789']", "TIMESTAMP '1111-05-10 12:34:56.123456789'"))
                 .isEqualTo(true);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "array[ARRAY[1.1, 2.2], ARRAY[3.3, 4.3]]", "ARRAY[1.1, null]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "array[ARRAY[1.1, 2.2], ARRAY[3.3, 4.3]]", "ARRAY[1.1, null]")::evaluate)
                 .hasErrorCode(NOT_SUPPORTED);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "array[ARRAY[1.1, null], ARRAY[3.3, 4.3]]", "ARRAY[1.1, null]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "array[ARRAY[1.1, null], ARRAY[3.3, 4.3]]", "ARRAY[1.1, null]")::evaluate)
                 .hasErrorCode(NOT_SUPPORTED);
     }
 
@@ -1275,14 +1275,14 @@ public class TestArrayOperators
                 .hasType(VARCHAR)
                 .isEqualTo("1.0E0x2.1E0x3.3E0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("array_join", "ARRAY[ARRAY[1], ARRAY[2]]", "'-'").evaluate())
-                .hasErrorCode(FUNCTION_NOT_FOUND);
+        assertTrinoExceptionThrownBy(assertions.function("array_join", "ARRAY[ARRAY[1], ARRAY[2]]", "'-'")::evaluate)
+                .hasErrorCode(OPERATOR_NOT_FOUND);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("array_join", "ARRAY[MAP(ARRAY[1], ARRAY[2])]", "'-'").evaluate())
-                .hasErrorCode(FUNCTION_NOT_FOUND);
+        assertTrinoExceptionThrownBy(assertions.function("array_join", "ARRAY[MAP(ARRAY[1], ARRAY[2])]", "'-'")::evaluate)
+                .hasErrorCode(OPERATOR_NOT_FOUND);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("array_join", "ARRAY[CAST(row(1, 2) AS row(col0 bigint, col1 bigint))]", "'-'").evaluate())
-                .hasErrorCode(FUNCTION_NOT_FOUND);
+        assertTrinoExceptionThrownBy(assertions.function("array_join", "ARRAY[CAST(row(1, 2) AS row(col0 bigint, col1 bigint))]", "'-'")::evaluate)
+                .hasErrorCode(OPERATOR_NOT_FOUND);
     }
 
     @Test
@@ -1828,10 +1828,10 @@ public class TestArrayOperators
         assertThat(assertions.function("array_position", "ARRAY[TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789']", "TIMESTAMP '1111-05-10 12:34:56.123456789'"))
                 .isEqualTo(2L);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("array_position", "ARRAY[ARRAY[null]]", "ARRAY[1]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("array_position", "ARRAY[ARRAY[null]]", "ARRAY[1]")::evaluate)
                 .hasErrorCode(NOT_SUPPORTED);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("array_position", "ARRAY[ARRAY[null]]", "ARRAY[null]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("array_position", "ARRAY[ARRAY[null]]", "ARRAY[null]")::evaluate)
                 .hasErrorCode(NOT_SUPPORTED);
     }
 
@@ -1992,10 +1992,10 @@ public class TestArrayOperators
     @Test
     public void testElementAt()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("element_at", "ARRAY[]", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("element_at", "ARRAY[]", "0")::evaluate)
                 .hasMessage("SQL array indices start at 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("element_at", "ARRAY[1, 2, 3]", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("element_at", "ARRAY[1, 2, 3]", "0")::evaluate)
                 .hasMessage("SQL array indices start at 1");
 
         assertThat(assertions.function("element_at", "ARRAY[]", "1"))
@@ -2289,7 +2289,7 @@ public class TestArrayOperators
                 .isEqualTo(asList(-1, 0, 1, null, null));
 
         // invalid functions
-        assertTrinoExceptionThrownBy(() -> assertions.function("array_sort", "ARRAY[color('red'), color('blue')]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("array_sort", "ARRAY[color('red'), color('blue')]")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("array_sort(a, (x, y) -> y - x)")
@@ -2515,10 +2515,10 @@ public class TestArrayOperators
         assertThat(assertions.function("slice", "ARRAY[2.330, 1.900, 2.330]", "1", "2"))
                 .matches("ARRAY[2.330, 1.900]");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("slice", "ARRAY[1, 2, 3, 4]", "1", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("slice", "ARRAY[1, 2, 3, 4]", "1", "-1")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("slice", "ARRAY[1, 2, 3, 4]", "0", "1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("slice", "ARRAY[1, 2, 3, 4]", "0", "1")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
@@ -2867,7 +2867,7 @@ public class TestArrayOperators
                 .isEqualTo(ImmutableList.of(asList(123, 456), asList(123, 789)));
 
         assertThat(assertions.function("array_intersect", "ARRAY[ARRAY[123, 456], ARRAY[123, 789]]", "ARRAY[ARRAY[123, 456], ARRAY[123, 456], ARRAY[123, 789]]"))
-                .hasType(new ArrayType(new ArrayType((INTEGER))))
+                .hasType(new ArrayType(new ArrayType(INTEGER)))
                 .isEqualTo(ImmutableList.of(asList(123, 456), asList(123, 789)));
 
         assertThat(assertions.function("array_intersect", "ARRAY[(123, 'abc'), (123, 'cde')]", "ARRAY[(123, 'abc'), (123, 'cde')]"))
@@ -4064,13 +4064,13 @@ public class TestArrayOperators
                         decimal("9876543210.9876543210", createDecimalType(22, 10)),
                         decimal("123123123456.6549876543", createDecimalType(22, 10))));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("array_remove", "ARRAY[ARRAY[CAST(null AS BIGINT)]]", "ARRAY[CAST(1 AS BIGINT)]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("array_remove", "ARRAY[ARRAY[CAST(null AS BIGINT)]]", "ARRAY[CAST(1 AS BIGINT)]")::evaluate)
                 .hasErrorCode(NOT_SUPPORTED);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("array_remove", "ARRAY[ARRAY[CAST(null AS BIGINT)]]", "ARRAY[CAST(null AS BIGINT)]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("array_remove", "ARRAY[ARRAY[CAST(null AS BIGINT)]]", "ARRAY[CAST(null AS BIGINT)]")::evaluate)
                 .hasErrorCode(NOT_SUPPORTED);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("array_remove", "ARRAY[ARRAY[CAST(1 AS BIGINT)]]", "ARRAY[CAST(null AS BIGINT)]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("array_remove", "ARRAY[ARRAY[CAST(1 AS BIGINT)]]", "ARRAY[CAST(null AS BIGINT)]")::evaluate)
                 .hasErrorCode(NOT_SUPPORTED);
     }
 
@@ -4149,16 +4149,16 @@ public class TestArrayOperators
                 .isEqualTo(ImmutableList.of());
 
         // illegal inputs
-        assertTrinoExceptionThrownBy(() -> assertions.function("repeat", "2", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("repeat", "2", "-1")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("repeat", "1", "1000000").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("repeat", "1", "1000000")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("repeat", "'loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongvarchar'", "9999").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("repeat", "'loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongvarchar'", "9999")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("repeat", "array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]", "9999").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("repeat", "array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]", "9999")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
@@ -4302,17 +4302,80 @@ public class TestArrayOperators
                 .hasType(new ArrayType(BIGINT))
                 .isEqualTo(ImmutableList.of(10L, 8L, 6L, 4L, 2L));
 
+        assertThat(assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-9223372036854775807"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(9223372036854775807L, 0L, -9223372036854775807L));
+
+        assertThat(assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-9223372036854775808"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(9223372036854775807L, -1L));
+
+        assertThat(assertions.function("sequence", "-9223372036854775808", "9223372036854775807", "9223372036854775807"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-9223372036854775808L, -1L, 9223372036854775806L));
+
+        assertThat(assertions.function("sequence", "-9223372036854775808", "-2", "9223372036854775807"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-9223372036854775808L));
+
+        // test small range with big steps
+        assertThat(assertions.function("sequence", "-5", "5", "1000"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-5L));
+
+        assertThat(assertions.function("sequence", "-5", "5", "7"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-5L, 2L));
+
+        assertThat(assertions.function("sequence", "-100", "5", "100"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-100L, 0L));
+
         // failure modes
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "2", "-1", "1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "2", "-1", "1")::evaluate)
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-1", "-10", "1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "-1", "-10", "1")::evaluate)
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "1", "1000000").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "1", "1000000")::evaluate)
                 .hasMessage("result of sequence function must not have more than 10000 entries");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "DATE '2000-04-14'", "DATE '2030-04-12'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "DATE '2000-04-14'", "DATE '2030-04-12'")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        // long overflow
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-100")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-1")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "-9223372036854775808", "9223372036854775807", "100")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "-9223372036854775808", "9223372036854775807", "1")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "-9223372036854775808", "0", "100")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "-9223372036854775808", "0", "1")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "9223372036854775807", "0", "-1")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "0", "9223372036854775807", "1")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "0", "-9223372036854775808", "-1")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "-5000", "5000")::evaluate)
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "5000", "-5000", "-1")::evaluate)
                 .hasMessage("result of sequence function must not have more than 10000 entries");
     }
 
@@ -4350,25 +4413,25 @@ public class TestArrayOperators
                 .matches("ARRAY[TIMESTAMP '2016-04-16 01:00:10',TIMESTAMP '2016-04-15 06:00:10',TIMESTAMP '2016-04-14 11:00:10']");
 
         // failure modes
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "DATE '2016-04-12'", "DATE '2016-04-14'", "interval '-1' day").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "DATE '2016-04-12'", "DATE '2016-04-14'", "interval '-1' day")::evaluate)
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "DATE '2016-04-14'", "DATE '2016-04-12'", "interval '1' day").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "DATE '2016-04-14'", "DATE '2016-04-12'", "interval '1' day")::evaluate)
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "DATE '2000-04-14'", "DATE '2030-04-12'", "interval '1' day").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "DATE '2000-04-14'", "DATE '2030-04-12'", "interval '1' day")::evaluate)
                 .hasMessage("result of sequence function must not have more than 10000 entries");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "DATE '2018-01-01'", "DATE '2018-01-04'", "interval '18' hour").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "DATE '2018-01-01'", "DATE '2018-01-04'", "interval '18' hour")::evaluate)
                 .hasMessage("sequence step must be a day interval if start and end values are dates");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "timestamp '2016-04-16 01:00:10'", "timestamp '2016-04-16 01:01:00'", "interval '-20' second").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "timestamp '2016-04-16 01:00:10'", "timestamp '2016-04-16 01:01:00'", "interval '-20' second")::evaluate)
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "timestamp '2016-04-16 01:10:10'", "timestamp '2016-04-16 01:01:00'", "interval '20' second").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "timestamp '2016-04-16 01:10:10'", "timestamp '2016-04-16 01:01:00'", "interval '20' second")::evaluate)
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "timestamp '2016-04-16 01:00:10'", "timestamp '2016-04-16 09:01:00'", "interval '1' second").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "timestamp '2016-04-16 01:00:10'", "timestamp '2016-04-16 09:01:00'", "interval '1' second")::evaluate)
                 .hasMessage("result of sequence function must not have more than 10000 entries");
     }
 
@@ -4406,22 +4469,22 @@ public class TestArrayOperators
                 .matches("ARRAY[TIMESTAMP '2016-04-16 01:01:10', TIMESTAMP '2014-04-16 01:01:10', TIMESTAMP '2012-04-16 01:01:10']");
 
         // failure modes
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "DATE '2016-06-12'", "DATE '2016-04-12'", "interval '1' month").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "DATE '2016-06-12'", "DATE '2016-04-12'", "interval '1' month")::evaluate)
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "DATE '2016-04-12'", "DATE '2016-06-12'", "interval '-1' month").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "DATE '2016-04-12'", "DATE '2016-06-12'", "interval '-1' month")::evaluate)
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "DATE '2000-04-12'", "DATE '3000-06-12'", "interval '1' month").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "DATE '2000-04-12'", "DATE '3000-06-12'", "interval '1' month")::evaluate)
                 .hasMessage("result of sequence function must not have more than 10000 entries");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "timestamp '2016-05-16 01:00:10'", "timestamp '2016-04-16 01:01:00'", "interval '1' month").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "timestamp '2016-05-16 01:00:10'", "timestamp '2016-04-16 01:01:00'", "interval '1' month")::evaluate)
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "timestamp '2016-04-16 01:10:10'", "timestamp '2016-05-16 01:01:00'", "interval '-1' month").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "timestamp '2016-04-16 01:10:10'", "timestamp '2016-05-16 01:01:00'", "interval '-1' month")::evaluate)
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "timestamp '2016-04-16 01:00:10'", "timestamp '3000-04-16 09:01:00'", "interval '1' month").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("sequence", "timestamp '2016-04-16 01:00:10'", "timestamp '3000-04-16 09:01:00'", "interval '1' month")::evaluate)
                 .hasMessage("result of sequence function must not have more than 10000 entries");
     }
 

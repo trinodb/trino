@@ -29,7 +29,7 @@ import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.longs.LongArrays;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -117,7 +117,7 @@ public final class ArraysOverlapFunction
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)

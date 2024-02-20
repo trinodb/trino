@@ -15,6 +15,8 @@ package io.trino.plugin.kafka.encoder.protobuf;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
+import com.google.inject.Inject;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
@@ -22,6 +24,7 @@ import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
 import io.trino.decoder.protobuf.ProtobufRowDecoder;
 import io.trino.plugin.kafka.KafkaTopicFieldDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldGroup;
+import io.trino.plugin.kafka.schema.ProtobufAnySupportConfig;
 import io.trino.plugin.kafka.schema.confluent.SchemaParser;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -30,8 +33,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +48,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -55,13 +58,16 @@ import static java.util.stream.Collectors.joining;
 public class ProtobufSchemaParser
         implements SchemaParser
 {
+    private static final String ANY_TYPE_NAME = "google.protobuf.Any";
     private static final String TIMESTAMP_TYPE_NAME = "google.protobuf.Timestamp";
     private final TypeManager typeManager;
+    private final boolean isProtobufAnySupportEnabled;
 
     @Inject
-    public ProtobufSchemaParser(TypeManager typeManager)
+    public ProtobufSchemaParser(TypeManager typeManager, ProtobufAnySupportConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.isProtobufAnySupportEnabled = requireNonNull(config, "config is null").isProtobufAnySupportEnabled();
     }
 
     @Override
@@ -72,16 +78,47 @@ public class ProtobufSchemaParser
                 ProtobufRowDecoder.NAME,
                 Optional.empty(),
                 Optional.of(subject),
-                protobufSchema.toDescriptor().getFields().stream()
-                        .map(field -> new KafkaTopicFieldDescription(
-                                field.getName(),
-                                getType(field, ImmutableList.of()),
-                                field.getName(),
-                                null,
-                                null,
-                                null,
-                                false))
+                Streams.concat(getFields(protobufSchema.toDescriptor()),
+                                getOneofs(protobufSchema.toDescriptor()))
                         .collect(toImmutableList()));
+    }
+
+    private Stream<KafkaTopicFieldDescription> getFields(Descriptor descriptor)
+    {
+        // Determine oneof fields from the descriptor
+        Set<String> oneofFieldNames = descriptor.getOneofs().stream()
+                .map(Descriptors.OneofDescriptor::getFields)
+                .flatMap(List::stream)
+                .map(FieldDescriptor::getName)
+                .collect(toImmutableSet());
+
+        // Remove all fields that are defined in the oneof definition
+        return descriptor.getFields().stream()
+                .filter(field -> !oneofFieldNames.contains(field.getName()))
+                .map(field -> new KafkaTopicFieldDescription(
+                        field.getName(),
+                        getType(field, ImmutableList.of()),
+                        field.getName(),
+                        null,
+                        null,
+                        null,
+                        false));
+    }
+
+    private Stream<KafkaTopicFieldDescription> getOneofs(Descriptor descriptor)
+    {
+        return descriptor
+                .getOneofs()
+                .stream()
+                .map(oneofDescriptor ->
+                        new KafkaTopicFieldDescription(
+                                oneofDescriptor.getName(),
+                                typeManager.getType(new TypeSignature(JSON)),
+                                oneofDescriptor.getName(),
+                                null,
+                                null,
+                                null,
+                                false));
     }
 
     private Type getType(FieldDescriptor fieldDescriptor, List<FieldAndType> processedMessages)
@@ -109,6 +146,9 @@ public class ProtobufSchemaParser
         Descriptor descriptor = fieldDescriptor.getMessageType();
         if (descriptor.getFullName().equals(TIMESTAMP_TYPE_NAME)) {
             return createTimestampType(6);
+        }
+        else if (isProtobufAnySupportEnabled && descriptor.getFullName().equals(ANY_TYPE_NAME)) {
+            return typeManager.getType(new TypeSignature(JSON));
         }
 
         // We MUST check just the type names since same type can be present with different field names which is also recursive

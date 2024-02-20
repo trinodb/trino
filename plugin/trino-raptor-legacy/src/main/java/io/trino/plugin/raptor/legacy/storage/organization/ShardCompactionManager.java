@@ -16,6 +16,7 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -28,11 +29,9 @@ import io.trino.plugin.raptor.legacy.metadata.TableColumn;
 import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.trino.spi.NodeManager;
 import io.trino.spi.type.Type;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;

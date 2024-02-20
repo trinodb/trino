@@ -14,11 +14,9 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Booleans;
 import io.trino.spi.type.Type;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -40,29 +38,15 @@ public class TestApproximateSetGenericBoolean
         return ThreadLocalRandom.current().nextBoolean();
     }
 
-    @DataProvider(name = "inputSequences")
-    public Object[][] inputSequences()
+    @Test
+    public void testNonEmptyInputs()
     {
-        return new Object[][] {
-                {true},
-                {false},
-                {true, false},
-                {true, true, true},
-                {false, false, false},
-                {true, false, true, false},
-        };
-    }
-
-    @Test(dataProvider = "inputSequences")
-    public void testNonEmptyInputs(boolean... inputSequence)
-    {
-        List<Boolean> values = Booleans.asList(inputSequence);
-        assertCount(values, distinctCount(values));
-    }
-
-    private long distinctCount(List<Boolean> inputSequence)
-    {
-        return ImmutableSet.copyOf(inputSequence).size();
+        assertCount(Booleans.asList(true), 1);
+        assertCount(Booleans.asList(false), 1);
+        assertCount(Booleans.asList(true, false), 2);
+        assertCount(Booleans.asList(true, true, true), 1);
+        assertCount(Booleans.asList(false, false, false), 1);
+        assertCount(Booleans.asList(true, false, true, false), 2);
     }
 
     @Override

@@ -23,7 +23,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class ProcedureJdbcTable
         extends JdbcTable
@@ -31,12 +31,12 @@ public class ProcedureJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "procedures");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("procedure_cat", createUnboundedVarcharType())
-            .column("procedure_schem", createUnboundedVarcharType())
-            .column("procedure_name", createUnboundedVarcharType())
-            .column("remarks", createUnboundedVarcharType())
+            .column("procedure_cat", VARCHAR)
+            .column("procedure_schem", VARCHAR)
+            .column("procedure_name", VARCHAR)
+            .column("remarks", VARCHAR)
             .column("procedure_type", BIGINT)
-            .column("specific_name", createUnboundedVarcharType())
+            .column("specific_name", VARCHAR)
             .build();
 
     @Override

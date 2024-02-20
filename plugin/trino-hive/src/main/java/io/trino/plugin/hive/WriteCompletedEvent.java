@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventField.EventFieldMapping;
 import io.airlift.event.client.EventType;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.time.Instant;
 import java.util.Map;

@@ -15,12 +15,16 @@ package io.trino.plugin.kafka.protobuf;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
+import com.google.protobuf.Any;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Timestamp;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
+import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaProvider;
 import io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
@@ -30,13 +34,17 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.File;
+import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.io.Resources.getResource;
 import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.ENUM;
 import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.STRING;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
@@ -57,9 +65,9 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         extends AbstractTestQueryFramework
 {
@@ -217,20 +225,102 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
 
         assertThat(query(format("SELECT list, map, row FROM %s", toDoubleQuoted(topic))))
                 .matches("""
-                            VALUES (
-                                ARRAY[CAST('Search' AS VARCHAR)],
-                                MAP(CAST(ARRAY['Key1'] AS ARRAY(VARCHAR)), CAST(ARRAY['Value1'] AS ARRAY(VARCHAR))),
-                                CAST(ROW('Trino', 1, 493857959588286460, 3.14159265358979323846, 3.14, True, 'ONE', TIMESTAMP '2020-12-12 15:35:45.923', to_utf8('Trino'))
-                                    AS ROW(
-                                        string_column VARCHAR,
-                                        integer_column INTEGER,
-                                        long_column BIGINT,
-                                        double_column DOUBLE,
-                                        float_column REAL,
-                                        boolean_column BOOLEAN,
-                                        number_column VARCHAR,
-                                        timestamp_column TIMESTAMP(6),
-                                        bytes_column VARBINARY)))""");
+                        VALUES (
+                            ARRAY[CAST('Search' AS VARCHAR)],
+                            MAP(CAST(ARRAY['Key1'] AS ARRAY(VARCHAR)), CAST(ARRAY['Value1'] AS ARRAY(VARCHAR))),
+                            CAST(ROW('Trino', 1, 493857959588286460, 3.14159265358979323846, 3.14, True, 'ONE', TIMESTAMP '2020-12-12 15:35:45.923', to_utf8('Trino'))
+                                AS ROW(
+                                    string_column VARCHAR,
+                                    integer_column INTEGER,
+                                    long_column BIGINT,
+                                    double_column DOUBLE,
+                                    float_column REAL,
+                                    boolean_column BOOLEAN,
+                                    number_column VARCHAR,
+                                    timestamp_column TIMESTAMP(6),
+                                    bytes_column VARBINARY)))""");
+    }
+
+    @Test
+    public void testOneof()
+            throws Exception
+    {
+        String topic = "topic-schema-with-oneof";
+        assertNotExists(topic);
+
+        String stringData = "stringColumnValue1";
+
+        ProtobufSchema schema = (ProtobufSchema) new ProtobufSchemaProvider().parseSchema(Resources.toString(getResource("protobuf/test_oneof.proto"), UTF_8), List.of(), true).get();
+
+        Descriptor descriptor = schema.toDescriptor();
+        DynamicMessage message = DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("stringColumn"), stringData)
+                .build();
+
+        ImmutableList.Builder<ProducerRecord<DynamicMessage, DynamicMessage>> producerRecordBuilder = ImmutableList.builder();
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(0, getKeySchema()), message));
+        List<ProducerRecord<DynamicMessage, DynamicMessage>> messages = producerRecordBuilder.build();
+        testingKafka.sendMessages(messages.stream(), producerProperties());
+        waitUntilTableExists(topic);
+
+        assertThat(query(format("SELECT testOneOfColumn FROM %s", toDoubleQuoted(topic))))
+                .matches("""
+                        VALUES (JSON '{"stringColumn":"%s"}')
+                        """.formatted(stringData));
+    }
+
+    @Test
+    public void testAny()
+            throws Exception
+    {
+        String topic = "topic-schema-with-any";
+        assertNotExists(topic);
+
+        Descriptor structuralDataTypesDescriptor = getDescriptor("structural_datatypes.proto");
+
+        Timestamp timestamp = getTimestamp(sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")));
+        DynamicMessage structuralDataTypeMessage = buildDynamicMessage(
+                structuralDataTypesDescriptor,
+                ImmutableMap.<String, Object>builder()
+                        .put("list", ImmutableList.of("Search"))
+                        .put("map", ImmutableList.of(buildDynamicMessage(
+                                structuralDataTypesDescriptor.findFieldByName("map").getMessageType(),
+                                ImmutableMap.of("key", "Key1", "value", "Value1"))))
+                        .put("row", ImmutableMap.<String, Object>builder()
+                                .put("string_column", "Trino")
+                                .put("integer_column", 1)
+                                .put("long_column", 493857959588286460L)
+                                .put("double_column", 3.14159265358979323846)
+                                .put("float_column", 3.14f)
+                                .put("boolean_column", true)
+                                .put("number_column", structuralDataTypesDescriptor.findEnumTypeByName("Number").findValueByName("ONE"))
+                                .put("timestamp_column", timestamp)
+                                .put("bytes_column", "Trino".getBytes(UTF_8))
+                                .buildOrThrow())
+                        .buildOrThrow());
+
+        ProtobufSchema schema = (ProtobufSchema) new ProtobufSchemaProvider().parseSchema(Resources.toString(getResource("protobuf/test_any.proto"), UTF_8), List.of(), true).get();
+
+        // Get URI of parent directory of the descriptor file
+        // Any.pack concatenates the message type's full name to the given prefix
+        URI anySchemaTypeUrl = new File(Resources.getResource("protobuf/any/structural_datatypes/schema").getFile()).getParentFile().toURI();
+        Descriptor descriptor = schema.toDescriptor();
+        DynamicMessage message = DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("id"), 1)
+                .setField(descriptor.findFieldByName("anyMessage"), Any.pack(structuralDataTypeMessage, anySchemaTypeUrl.toString()))
+                .build();
+
+        ImmutableList.Builder<ProducerRecord<DynamicMessage, DynamicMessage>> producerRecordBuilder = ImmutableList.builder();
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(0, getKeySchema()), message));
+        List<ProducerRecord<DynamicMessage, DynamicMessage>> messages = producerRecordBuilder.build();
+        testingKafka.sendMessages(messages.stream(), producerProperties());
+        waitUntilTableExists(topic);
+
+        URI anySchemaFile = new File(Resources.getResource("protobuf/any/structural_datatypes/schema").getFile()).toURI();
+        assertThat(query(format("SELECT id, anyMessage FROM %s", toDoubleQuoted(topic))))
+                .matches("""
+                        VALUES (1, JSON '{"@type":"%s","list":["Search"],"map":{"Key1":"Value1"},"row":{"booleanColumn":true,"bytesColumn":"VHJpbm8=","doubleColumn":3.141592653589793,"floatColumn":3.14,"integerColumn":1,"longColumn":"493857959588286460","numberColumn":"ONE","stringColumn":"Trino","timestampColumn":"2020-12-12T15:35:45.923Z"}}')
+                        """.formatted(anySchemaFile));
     }
 
     private DynamicMessage buildDynamicMessage(Descriptor descriptor, Map<String, Object> data)
@@ -342,13 +432,13 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                                 .withMaxAttempts(10)
                                 .withDelay(Duration.ofMillis(100))
                                 .build())
-                .run(() -> assertTrue(schemaExists()));
+                .run(() -> assertThat(schemaExists()).isTrue());
         Failsafe.with(
                         RetryPolicy.builder()
                                 .withMaxAttempts(10)
                                 .withDelay(Duration.ofMillis(100))
                                 .build())
-                .run(() -> assertTrue(tableExists(tableName)));
+                .run(() -> assertThat(tableExists(tableName)).isTrue());
     }
 
     private boolean schemaExists()

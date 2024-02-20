@@ -15,14 +15,17 @@ package io.trino.server.remotetask;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.SpanBuilder;
 import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
@@ -30,8 +33,7 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.SpoolingOutputStats;
-
-import javax.annotation.concurrent.GuardedBy;
+import io.trino.operator.RetryPolicy;
 
 import java.net.URI;
 import java.util.Optional;
@@ -42,6 +44,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -50,11 +53,14 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.operator.RetryPolicy.TASK;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TaskInfoFetcher
 {
+    private static final Logger log = Logger.get(TaskInfoFetcher.class);
+
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
@@ -68,6 +74,7 @@ public class TaskInfoFetcher
 
     private final Executor executor;
     private final HttpClient httpClient;
+    private final Supplier<SpanBuilder> spanBuilderFactory;
     private final RequestErrorTracker errorTracker;
 
     private final boolean summarizeTaskInfo;
@@ -75,6 +82,8 @@ public class TaskInfoFetcher
     private final Optional<DataSize> estimatedMemory;
 
     private final AtomicReference<SpoolingOutputStats.Snapshot> spoolingOutputStats = new AtomicReference<>();
+
+    private final RetryPolicy retryPolicy;
 
     @GuardedBy("this")
     private boolean running;
@@ -90,6 +99,7 @@ public class TaskInfoFetcher
             ContinuousTaskStatusFetcher taskStatusFetcher,
             TaskInfo initialTask,
             HttpClient httpClient,
+            Supplier<SpanBuilder> spanBuilderFactory,
             Duration updateInterval,
             JsonCodec<TaskInfo> taskInfoCodec,
             Duration maxErrorDuration,
@@ -98,7 +108,8 @@ public class TaskInfoFetcher
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
-            Optional<DataSize> estimatedMemory)
+            Optional<DataSize> estimatedMemory,
+            RetryPolicy retryPolicy)
     {
         requireNonNull(initialTask, "initialTask is null");
         requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
@@ -118,8 +129,10 @@ public class TaskInfoFetcher
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.spanBuilderFactory = requireNonNull(spanBuilderFactory, "spanBuilderFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.estimatedMemory = requireNonNull(estimatedMemory, "estimatedMemory is null");
+        this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
     }
 
     public TaskInfo getTaskInfo()
@@ -181,14 +194,20 @@ public class TaskInfoFetcher
     private synchronized void scheduleUpdate()
     {
         scheduledFuture = updateScheduledExecutor.scheduleWithFixedDelay(() -> {
-            synchronized (this) {
-                // if the previous request still running, don't schedule a new request
-                if (future != null && !future.isDone()) {
-                    return;
+            try {
+                synchronized (this) {
+                    // if the previous request still running, don't schedule a new request
+                    if (future != null && !future.isDone()) {
+                        return;
+                    }
+                }
+                if (nanosSince(lastUpdateNanos.get()).toMillis() >= updateIntervalMillis) {
+                    sendNextRequest();
                 }
             }
-            if (nanosSince(lastUpdateNanos.get()).toMillis() >= updateIntervalMillis) {
-                sendNextRequest();
+            catch (Throwable e) {
+                // ignore to avoid getting unscheduled
+                log.error(e, "Unexpected error while getting task info");
             }
         }, 0, 100, MILLISECONDS);
     }
@@ -224,6 +243,7 @@ public class TaskInfoFetcher
         Request request = prepareGet()
                 .setUri(uri)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
         errorTracker.startRequest();
@@ -236,9 +256,16 @@ public class TaskInfoFetcher
         TaskStatus localTaskStatus = taskStatusFetcher.getTaskStatus();
         TaskStatus newRemoteTaskStatus = newTaskInfo.getTaskStatus();
 
+        if (!newRemoteTaskStatus.getTaskId().equals(taskId)) {
+            log.debug("Task ID mismatch on remote task status. Member task ID is %s, but remote task ID is %s. This will confuse finalTaskInfo listeners.", taskId, newRemoteTaskStatus.getTaskId());
+        }
+
         if (localTaskStatus.getState().isDone() && newRemoteTaskStatus.getState().isDone() && localTaskStatus.getState() != newRemoteTaskStatus.getState()) {
             // prefer local
             newTaskInfo = newTaskInfo.withTaskStatus(localTaskStatus);
+            if (!localTaskStatus.getTaskId().equals(taskId)) {
+                log.debug("Task ID mismatch on local task status. Member task ID is %s, but status-fetcher ID is %s. This will confuse finalTaskInfo listeners.", taskId, newRemoteTaskStatus.getTaskId());
+            }
         }
 
         if (estimatedMemory.isPresent()) {
@@ -246,7 +273,10 @@ public class TaskInfoFetcher
         }
 
         if (newTaskInfo.getTaskStatus().getState().isDone()) {
-            spoolingOutputStats.compareAndSet(null, newTaskInfo.getOutputBuffers().getSpoolingOutputStats().orElse(null));
+            boolean wasSet = spoolingOutputStats.compareAndSet(null, newTaskInfo.getOutputBuffers().getSpoolingOutputStats().orElse(null));
+            if (retryPolicy == TASK && wasSet && spoolingOutputStats.get() == null) {
+                log.debug("Task %s was updated to null spoolingOutputStats. Future calls to retrieveAndDropSpoolingOutputStats will fail.", taskId);
+            }
             newTaskInfo = newTaskInfo.pruneSpoolingOutputStats();
         }
 
@@ -284,6 +314,9 @@ public class TaskInfoFetcher
                 errorTracker.requestSucceeded();
                 updateTaskInfo(newValue);
             }
+            finally {
+                cleanupRequest();
+            }
         }
 
         @Override
@@ -306,6 +339,9 @@ public class TaskInfoFetcher
                     onFail.accept(e);
                 }
             }
+            finally {
+                cleanupRequest();
+            }
         }
 
         @Override
@@ -314,6 +350,17 @@ public class TaskInfoFetcher
             try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
                 onFail.accept(cause);
             }
+            finally {
+                cleanupRequest();
+            }
+        }
+    }
+
+    private synchronized void cleanupRequest()
+    {
+        if (future != null && future.isDone()) {
+            // remove outstanding reference to JSON response
+            future = null;
         }
     }
 

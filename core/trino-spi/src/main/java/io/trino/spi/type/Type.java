@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.List;
@@ -80,6 +81,11 @@ public interface Type
      * Currently, this can be {@code boolean}, {@code long}, {@code double}, or a non-primitive type.
      */
     Class<?> getJavaType();
+
+    /**
+     * Gets the ValueBlock type used to store values of this type.
+     */
+    Class<? extends ValueBlock> getValueBlockType();
 
     /**
      * For parameterized types returns the list of parameters.
@@ -214,6 +220,31 @@ public interface Type
     {
         return Optional.empty();
     }
+
+    /**
+     * Returns the fixed size of this type when written to a flat buffer.
+     */
+    int getFlatFixedSize();
+
+    /**
+     * Returns true if this type is variable width when written to a flat buffer.
+     */
+    boolean isFlatVariableWidth();
+
+    /**
+     * Returns the variable width size of the value at the specified position when written to a flat buffer.
+     */
+    int getFlatVariableWidthSize(Block block, int position);
+
+    /**
+     * Update the variable width offsets recorded in the value.
+     * This method is called after the value has been moved to a new location, and therefore the offsets
+     * need to be updated.
+     * Returns the length of the variable width data, so container types can update their offsets.
+     *
+     * @return the length of the variable width data
+     */
+    int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset);
 
     final class Range
     {

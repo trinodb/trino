@@ -18,6 +18,7 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
@@ -26,14 +27,12 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.ColumnChunk;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.RowGroup;
-import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.hadoop.metadata.IndexReference;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
@@ -48,17 +47,16 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ColumnStatisticsValidation.ColumnStatistics;
+import static io.trino.parquet.ParquetMetadataConverter.getPrimitive;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.IndexReferenceValidation.fromIndexReference;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetWriteValidation
 {
-    private static final ParquetMetadataConverter METADATA_CONVERTER = new ParquetMetadataConverter();
-
     private final String createdBy;
     private final Optional<String> timeZoneId;
     private final List<ColumnDescriptor> columns;
@@ -127,17 +125,17 @@ public class ParquetWriteValidation
         }
     }
 
-    public void validateBlocksMetadata(ParquetDataSourceId dataSourceId, List<BlockMetaData> blocksMetaData)
+    public void validateBlocksMetadata(ParquetDataSourceId dataSourceId, List<RowGroupInfo> rowGroupInfos)
             throws ParquetCorruptionException
     {
         validateParquet(
-                blocksMetaData.size() == rowGroups.size(),
+                rowGroupInfos.size() == rowGroups.size(),
                 dataSourceId,
                 "Number of row groups %d did not match %d",
-                blocksMetaData.size(),
+                rowGroupInfos.size(),
                 rowGroups.size());
-        for (int rowGroupIndex = 0; rowGroupIndex < blocksMetaData.size(); rowGroupIndex++) {
-            BlockMetaData block = blocksMetaData.get(rowGroupIndex);
+        for (int rowGroupIndex = 0; rowGroupIndex < rowGroupInfos.size(); rowGroupIndex++) {
+            BlockMetaData block = rowGroupInfos.get(rowGroupIndex).blockMetaData();
             RowGroup rowGroup = rowGroups.get(rowGroupIndex);
             validateParquet(
                     block.getRowCount() == rowGroup.getNum_rows(),
@@ -170,7 +168,7 @@ public class ParquetWriteValidation
                         expectedColumnMetadata.getCodec());
 
                 verifyColumnMetadataMatch(
-                        actualColumnMetadata.getPrimitiveType().getPrimitiveTypeName().equals(METADATA_CONVERTER.getPrimitive(expectedColumnMetadata.getType())),
+                        actualColumnMetadata.getPrimitiveType().getPrimitiveTypeName().equals(getPrimitive(expectedColumnMetadata.getType())),
                         "Type",
                         actualColumnMetadata.getPrimitiveType().getPrimitiveTypeName(),
                         actualColumnMetadata.getPath(),
@@ -443,9 +441,9 @@ public class ParquetWriteValidation
 
     public static class ParquetWriteValidationBuilder
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ParquetWriteValidationBuilder.class).instanceSize());
-        private static final int COLUMN_DESCRIPTOR_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ColumnDescriptor.class).instanceSize());
-        private static final int PRIMITIVE_TYPE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PrimitiveType.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(ParquetWriteValidationBuilder.class);
+        private static final int COLUMN_DESCRIPTOR_INSTANCE_SIZE = instanceSize(ColumnDescriptor.class);
+        private static final int PRIMITIVE_TYPE_INSTANCE_SIZE = instanceSize(PrimitiveType.class);
 
         private final List<Type> types;
         private final List<String> columnNames;
@@ -593,10 +591,10 @@ public class ParquetWriteValidation
 
     private static boolean areEncodingsSame(Set<org.apache.parquet.column.Encoding> actual, List<org.apache.parquet.format.Encoding> expected)
     {
-        return actual.equals(expected.stream().map(METADATA_CONVERTER::getEncoding).collect(toImmutableSet()));
+        return actual.equals(expected.stream().map(ParquetMetadataConverter::getEncoding).collect(toImmutableSet()));
     }
 
-    private static boolean areStatisticsSame(org.apache.parquet.column.statistics.Statistics actual, org.apache.parquet.format.Statistics expected)
+    private static boolean areStatisticsSame(org.apache.parquet.column.statistics.Statistics<?> actual, org.apache.parquet.format.Statistics expected)
     {
         Statistics.Builder expectedStatsBuilder = Statistics.getBuilderForReading(actual.type());
         if (expected.isSetNull_count()) {

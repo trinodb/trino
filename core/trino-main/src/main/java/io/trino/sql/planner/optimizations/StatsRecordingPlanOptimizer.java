@@ -13,13 +13,7 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import io.trino.Session;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.planner.OptimizerStatsRecorder;
-import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
 
 import static java.util.Objects.requireNonNull;
@@ -38,24 +32,19 @@ public final class StatsRecordingPlanOptimizer
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         PlanNode result;
         long duration;
         try {
             long start = System.nanoTime();
-            result = delegate.optimize(plan, session, types, symbolAllocator, idAllocator, warningCollector, tableStatsProvider);
+            result = delegate.optimize(plan, context);
             duration = System.nanoTime() - start;
+            context.planOptimizersStatsCollector().recordOptimizer(delegate, duration);
         }
         catch (RuntimeException e) {
             stats.recordFailure(delegate);
+            context.planOptimizersStatsCollector().recordFailure(delegate);
             throw e;
         }
         stats.record(delegate, duration);

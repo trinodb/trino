@@ -24,7 +24,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.testing.MaterializedResult;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -41,9 +41,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMergeSortedPages
 {
@@ -71,7 +69,7 @@ public class TestMergeSortedPages
                 .row(3, 2)
                 .row(4, 1)
                 .build();
-        assertEquals(actual, expected);
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     @Test
@@ -107,7 +105,7 @@ public class TestMergeSortedPages
                 .row(7)
                 .row(8)
                 .build();
-        assertEquals(actual, expected);
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     @Test
@@ -217,7 +215,7 @@ public class TestMergeSortedPages
                 .row(401, 1, 7)
                 .row(402, 1, 6)
                 .build();
-        assertEquals(actual, expected);
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     @Test
@@ -243,7 +241,7 @@ public class TestMergeSortedPages
                                 .build()));
         MaterializedResult expected = resultBuilder(TEST_SESSION, types)
                 .build();
-        assertEquals(actual, expected);
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     @Test
@@ -311,7 +309,7 @@ public class TestMergeSortedPages
                 .row(17.0, "a0", null)
                 .row(16.0, "a1", null)
                 .build();
-        assertEquals(actual, expected);
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     @Test
@@ -334,22 +332,22 @@ public class TestMergeSortedPages
                 yieldSignal);
 
         // yield signal is on
-        assertFalse(mergedPages.process());
+        assertThat(mergedPages.process()).isFalse();
         yieldSignal.resetYieldForTesting();
 
         // page is produced
-        assertTrue(mergedPages.process());
-        assertFalse(mergedPages.isFinished());
+        assertThat(mergedPages.process()).isTrue();
+        assertThat(mergedPages.isFinished()).isFalse();
 
         Page page = mergedPages.getResult();
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
-                .row(1)
-                .build();
-        assertEquals(toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page)), expected);
+        assertThat(toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page)))
+                .containsExactlyElementsOf(resultBuilder(TEST_SESSION, types)
+                        .row(1)
+                        .build());
 
         // merge source finished
-        assertTrue(mergedPages.process());
-        assertTrue(mergedPages.isFinished());
+        assertThat(mergedPages.process()).isTrue();
+        assertThat(mergedPages.isFinished()).isTrue();
     }
 
     @Test
@@ -368,10 +366,10 @@ public class TestMergeSortedPages
                 newSimpleAggregatedMemoryContext().newAggregatedMemoryContext(),
                 yieldSignal);
         // yield signal is on
-        assertFalse(mergedPages.process());
+        assertThat(mergedPages.process()).isFalse();
         // processor finishes computations (yield signal is still on, but previous process() call yielded)
-        assertTrue(mergedPages.process());
-        assertTrue(mergedPages.isFinished());
+        assertThat(mergedPages.process()).isTrue();
+        assertThat(mergedPages.isFinished()).isTrue();
     }
 
     private static MaterializedResult mergeSortedPages(
@@ -393,16 +391,16 @@ public class TestMergeSortedPages
                 memoryContext,
                 new DriverYieldSignal());
 
-        assertTrue(mergedPages.process());
+        assertThat(mergedPages.process()).isTrue();
 
         if (mergedPages.isFinished()) {
             return toMaterializedResult(TEST_SESSION, types, ImmutableList.of());
         }
 
         Page page = mergedPages.getResult();
-        assertTrue(mergedPages.process());
-        assertTrue(mergedPages.isFinished());
-        assertEquals(memoryContext.getBytes(), 0L);
+        assertThat(mergedPages.process()).isTrue();
+        assertThat(mergedPages.isFinished()).isTrue();
+        assertThat(memoryContext.getBytes()).isEqualTo(0L);
 
         return toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page));
     }

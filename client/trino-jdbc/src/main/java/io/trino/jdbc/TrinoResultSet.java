@@ -17,11 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.client.Column;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.sql.SQLException;
 import java.sql.Statement;

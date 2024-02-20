@@ -13,20 +13,17 @@
  */
 package io.trino.plugin.kafka.encoder.csv;
 
-import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoder;
 import io.trino.plugin.kafka.encoder.RowEncoderFactory;
+import io.trino.plugin.kafka.encoder.RowEncoderSpec;
 import io.trino.spi.connector.ConnectorSession;
-
-import java.util.List;
-import java.util.Optional;
 
 public class CsvRowEncoderFactory
         implements RowEncoderFactory
 {
     @Override
-    public RowEncoder create(ConnectorSession session, Optional<String> dataSchema, List<EncoderColumnHandle> columnHandles)
+    public RowEncoder create(ConnectorSession session, RowEncoderSpec rowEncoderSpec)
     {
-        return new CsvRowEncoder(session, columnHandles);
+        return new CsvRowEncoder(session, rowEncoderSpec.columnHandles());
     }
 }

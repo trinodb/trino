@@ -16,7 +16,9 @@ package io.trino.plugin.iceberg;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
@@ -28,20 +30,18 @@ import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.types.Types;
 import org.weakref.jmx.Managed;
-
-import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -53,8 +53,8 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
@@ -70,10 +70,11 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterValid
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBatchSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP;
-import static io.trino.plugin.iceberg.TypeConverter.toOrcType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Double.parseDouble;
@@ -117,7 +118,7 @@ public class IcebergFileWriterFactory
 
     public IcebergFileWriter createDataFileWriter(
             TrinoFileSystem fileSystem,
-            String outputPath,
+            Location outputPath,
             Schema icebergSchema,
             ConnectorSession session,
             IcebergFileFormat fileFormat,
@@ -131,7 +132,7 @@ public class IcebergFileWriterFactory
             case ORC:
                 return createOrcWriter(metricsConfig, fileSystem, outputPath, icebergSchema, session, storageProperties, getOrcStringStatisticsLimit(session));
             case AVRO:
-                return createAvroWriter(new ForwardingFileIo(fileSystem), outputPath, icebergSchema, session);
+                return createAvroWriter(fileSystem, outputPath, icebergSchema, session);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }
@@ -139,7 +140,7 @@ public class IcebergFileWriterFactory
 
     public IcebergFileWriter createPositionDeleteWriter(
             TrinoFileSystem fileSystem,
-            String outputPath,
+            Location outputPath,
             ConnectorSession session,
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties)
@@ -150,7 +151,7 @@ public class IcebergFileWriterFactory
             case ORC:
                 return createOrcWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
             case AVRO:
-                return createAvroWriter(new ForwardingFileIo(fileSystem), outputPath, POSITION_DELETE_SCHEMA, session);
+                return createAvroWriter(fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }
@@ -159,7 +160,7 @@ public class IcebergFileWriterFactory
     private IcebergFileWriter createParquetWriter(
             MetricsConfig metricsConfig,
             TrinoFileSystem fileSystem,
-            String outputPath,
+            Location outputPath,
             Schema icebergSchema,
             ConnectorSession session)
     {
@@ -177,10 +178,12 @@ public class IcebergFileWriterFactory
 
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
+                    .setMaxPageValueCount(getParquetWriterPageValueCount(session))
                     .setMaxBlockSize(getParquetWriterBlockSize(session))
                     .setBatchSize(getParquetWriterBatchSize(session))
                     .build();
 
+            HiveCompressionCodec hiveCompressionCodec = getCompressionCodec(session);
             return new IcebergParquetFileWriter(
                     metricsConfig,
                     outputFile,
@@ -191,10 +194,9 @@ public class IcebergFileWriterFactory
                     makeTypeMap(fileColumnTypes, fileColumnNames),
                     parquetWriterOptions,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
-                    getCompressionCodec(session).getParquetCompressionCodec(),
-                    nodeVersion.toString(),
-                    outputPath,
-                    fileSystem);
+                    hiveCompressionCodec.getParquetCompressionCodec()
+                            .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Compression codec %s not supported for Parquet".formatted(hiveCompressionCodec))),
+                    nodeVersion.toString());
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
@@ -204,7 +206,7 @@ public class IcebergFileWriterFactory
     private IcebergFileWriter createOrcWriter(
             MetricsConfig metricsConfig,
             TrinoFileSystem fileSystem,
-            String outputPath,
+            Location outputPath,
             Schema icebergSchema,
             ConnectorSession session,
             Map<String, String> storageProperties,
@@ -254,8 +256,8 @@ public class IcebergFileWriterFactory
                             .withMaxStringStatisticsLimit(stringStatisticsLimit),
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     ImmutableMap.<String, String>builder()
-                            .put(PRESTO_VERSION_NAME, nodeVersion.toString())
-                            .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                            .put(TRINO_VERSION_NAME, nodeVersion.toString())
+                            .put(TRINO_QUERY_ID_NAME, session.getQueryId())
                             .buildOrThrow(),
                     validationInputFactory,
                     getOrcWriterValidateMode(session),
@@ -269,11 +271,10 @@ public class IcebergFileWriterFactory
     public static OrcWriterOptions withBloomFilterOptions(OrcWriterOptions orcWriterOptions, Map<String, String> storageProperties)
     {
         if (storageProperties.containsKey(ORC_BLOOM_FILTER_COLUMNS_KEY)) {
-            if (!storageProperties.containsKey(ORC_BLOOM_FILTER_FPP_KEY)) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, "FPP for Bloom filter is missing");
-            }
             try {
-                double fpp = parseDouble(storageProperties.get(ORC_BLOOM_FILTER_FPP_KEY));
+                double fpp = storageProperties.containsKey(ORC_BLOOM_FILTER_FPP_KEY)
+                        ? parseDouble(storageProperties.get(ORC_BLOOM_FILTER_FPP_KEY))
+                        : orcWriterOptions.getBloomFilterFpp();
                 return OrcWriterOptions.builderFrom(orcWriterOptions)
                         .setBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(storageProperties.get(ORC_BLOOM_FILTER_COLUMNS_KEY))))
                         .setBloomFilterFpp(fpp)
@@ -287,19 +288,19 @@ public class IcebergFileWriterFactory
     }
 
     private IcebergFileWriter createAvroWriter(
-            FileIO fileIo,
-            String outputPath,
+            TrinoFileSystem fileSystem,
+            Location outputPath,
             Schema icebergSchema,
             ConnectorSession session)
     {
-        Closeable rollbackAction = () -> fileIo.deleteFile(outputPath);
+        Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
         List<Type> columnTypes = icebergSchema.columns().stream()
                 .map(column -> toTrinoType(column.type(), typeManager))
                 .collect(toImmutableList());
 
         return new IcebergAvroFileWriter(
-                fileIo.newOutputFile(outputPath),
+                new ForwardingOutputFile(fileSystem, outputPath),
                 rollbackAction,
                 icebergSchema,
                 columnTypes,

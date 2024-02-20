@@ -34,7 +34,8 @@ public class CompositeRedirectHandler
     }
 
     @Override
-    public void redirectTo(URI uri) throws RedirectException
+    public void redirectTo(URI uri)
+            throws RedirectException
     {
         RedirectException redirectException = new RedirectException("Could not redirect to " + uri);
         for (RedirectHandler handler : handlers) {

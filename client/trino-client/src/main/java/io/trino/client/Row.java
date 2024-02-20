@@ -14,14 +14,12 @@
 package io.trino.client;
 
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -64,7 +62,7 @@ public final class Row
         return fields.stream()
                 .map(field -> {
                     if (field.getName().isPresent()) {
-                        return format("%s=%s", field.getName().get(), field.getValue());
+                        return field.getName().get() + "=" + field.getValue();
                     }
                     return String.valueOf(field.getValue());
                 })

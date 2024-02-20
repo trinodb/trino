@@ -13,14 +13,11 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.trino.spi.type.Type;
 
 import java.util.Optional;
-
-import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -36,6 +33,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = IrConstantJsonSequence.class, name = "jsonsequence"),
         @JsonSubTypes.Type(value = IrContextVariable.class, name = "contextvariable"),
         @JsonSubTypes.Type(value = IrDatetimeMethod.class, name = "datetime"),
+        @JsonSubTypes.Type(value = IrDescendantMemberAccessor.class, name = "descendantmemberaccessor"),
         @JsonSubTypes.Type(value = IrDisjunctionPredicate.class, name = "disjunction"),
         @JsonSubTypes.Type(value = IrDoubleMethod.class, name = "double"),
         @JsonSubTypes.Type(value = IrExistsPredicate.class, name = "exists"),
@@ -55,20 +53,34 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = IrStartsWithPredicate.class, name = "startswith"),
         @JsonSubTypes.Type(value = IrTypeMethod.class, name = "type"),
 })
-public abstract class IrPathNode
+
+public sealed interface IrPathNode
+        permits
+        IrAbsMethod,
+        IrArithmeticBinary,
+        IrArithmeticUnary,
+        IrArrayAccessor,
+        IrCeilingMethod,
+        IrConstantJsonSequence,
+        IrContextVariable,
+        IrDatetimeMethod,
+        IrDescendantMemberAccessor,
+        IrDoubleMethod,
+        IrFilter,
+        IrFloorMethod,
+        IrJsonNull,
+        IrKeyValueMethod,
+        IrLastIndexVariable,
+        IrLiteral,
+        IrMemberAccessor,
+        IrNamedJsonVariable,
+        IrNamedValueVariable,
+        IrPredicate,
+        IrPredicateCurrentItemVariable,
+        IrSizeMethod,
+        IrTypeMethod
 {
-    // `type` is intentionally skipped in equals() and hashCode() methods of all IrPathNodes, so that
-    // those methods consider te node's structure only. `type` is a function of the other properties,
-    // and it might be optionally set or not, depending on when and how the node is created - e.g. either
-    // initially or by some optimization that will be added in the future (like constant folding, tree flattening).
-    private final Optional<Type> type;
-
-    protected IrPathNode(Optional<Type> type)
-    {
-        this.type = requireNonNull(type, "type is null");
-    }
-
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    default <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrPathNode(this, context);
     }
@@ -82,15 +94,8 @@ public abstract class IrPathNode
      * NOTE: Type is not applicable to every IrPathNode. If the IrPathNode produces an empty sequence,
      * a JSON null, or a sequence containing non-literal JSON items, Type cannot be determined.
      */
-    @JsonProperty
-    public final Optional<Type> getType()
+    default Optional<Type> type()
     {
-        return type;
+        return Optional.empty();
     }
-
-    @Override
-    public abstract boolean equals(Object obj);
-
-    @Override
-    public abstract int hashCode();
 }

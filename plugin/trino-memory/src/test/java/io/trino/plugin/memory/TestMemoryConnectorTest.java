@@ -24,16 +24,14 @@ import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metrics;
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 
@@ -42,11 +40,9 @@ import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestMemoryConnectorTest
         extends BaseConnectorTest
@@ -63,10 +59,12 @@ public class TestMemoryConnectorTest
         return createMemoryQueryRunner(
                 // Adjust DF limits to test edge cases
                 ImmutableMap.<String, String>builder()
-                        .put("dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "100")
-                        .put("dynamic-filtering.small-broadcast.range-row-limit-per-driver", "100")
-                        .put("dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100")
-                        .put("dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000")
+                        .put("dynamic-filtering.small.max-distinct-values-per-driver", "100")
+                        .put("dynamic-filtering.small.range-row-limit-per-driver", "100")
+                        .put("dynamic-filtering.large.max-distinct-values-per-driver", "100")
+                        .put("dynamic-filtering.large.range-row-limit-per-driver", "100000")
+                        .put("dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "100")
+                        .put("dynamic-filtering.small-partitioned.range-row-limit-per-driver", "200")
                         .put("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
                         .put("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
                         // disable semi join to inner join rewrite to test semi join operators explicitly
@@ -79,44 +77,33 @@ public class TestMemoryConnectorTest
                         .build());
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_PREDICATE_PUSHDOWN:
-            case SUPPORTS_LIMIT_PUSHDOWN:
-            case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_AGGREGATION_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_VIEW:
-            case SUPPORTS_COMMENT_ON_VIEW_COLUMN:
-                return true;
-
-            case SUPPORTS_CREATE_VIEW:
-                return true;
-
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_ADD_COLUMN,
+                    SUPPORTS_AGGREGATION_PUSHDOWN,
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_DELETE,
+                    SUPPORTS_DEREFERENCE_PUSHDOWN,
+                    SUPPORTS_LIMIT_PUSHDOWN,
+                    SUPPORTS_MERGE,
+                    SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_PREDICATE_PUSHDOWN,
+                    SUPPORTS_RENAME_COLUMN,
+                    SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_UPDATE -> false;
+            case SUPPORTS_CREATE_FUNCTION -> true;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Memory connector does not support column default values");
+        return abort("Memory connector does not support column default values");
     }
 
     @Test
@@ -145,23 +132,20 @@ public class TestMemoryConnectorTest
     }
 
     @Test
-    // TODO (https://github.com/trinodb/trino/issues/8691) fix the test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<(LongCount\\{total=\\[\\d+]}|null)>")
     public void testCustomMetricsScanFilter()
     {
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part WHERE partkey % 1000 > 0");
-        assertThat(metrics.getMetrics().get("rows")).isEqualTo(new LongCount(PART_COUNT));
-        assertThat(metrics.getMetrics().get("started")).isEqualTo(metrics.getMetrics().get("finished"));
+        assertThat(metrics.getMetrics()).containsEntry("rows", new LongCount(PART_COUNT));
+        assertThat(metrics.getMetrics()).containsEntry("started", metrics.getMetrics().get("finished"));
         assertThat(((Count<?>) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<(LongCount\\{total=\\[\\d+]}|null)>")
     public void testCustomMetricsScanOnly()
     {
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part");
-        assertThat(metrics.getMetrics().get("rows")).isEqualTo(new LongCount(PART_COUNT));
-        assertThat(metrics.getMetrics().get("started")).isEqualTo(metrics.getMetrics().get("finished"));
+        assertThat(metrics.getMetrics()).containsEntry("rows", new LongCount(PART_COUNT));
+        assertThat(metrics.getMetrics()).containsEntry("started", metrics.getMetrics().get("finished"));
         assertThat(((Count<?>) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
     }
 
@@ -183,12 +167,12 @@ public class TestMemoryConnectorTest
 
     private Metrics collectCustomMetrics(String sql)
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        MaterializedResultWithQueryId result = runner.executeWithQueryId(getSession(), sql);
+        QueryRunner runner = getQueryRunner();
+        MaterializedResultWithPlan result = runner.executeWithPlan(getSession(), sql);
         return runner
                 .getCoordinator()
                 .getQueryManager()
-                .getFullQueryInfo(result.getQueryId())
+                .getFullQueryInfo(result.queryId())
                 .getQueryStats()
                 .getOperatorSummaries()
                 .stream()
@@ -196,73 +180,83 @@ public class TestMemoryConnectorTest
                 .reduce(Metrics.EMPTY, Metrics::mergeWith);
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testPhysicalInputPositions()
     {
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey " +
                         "AND supplier.name = 'Supplier#000000001'");
-        assertEquals(result.getResult().getRowCount(), 615);
+        assertThat(result.result().getRowCount()).isEqualTo(615);
 
-        OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.getQueryId()).stream()
+        OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.queryId()).stream()
                 .findFirst().orElseThrow(); // there should be two: one for lineitem and one for supplier
-        assertEquals(probeStats.getInputPositions(), 615);
-        assertEquals(probeStats.getPhysicalInputPositions(), LINEITEM_COUNT);
+        assertThat(probeStats.getInputPositions()).isEqualTo(615);
+        assertThat(probeStats.getPhysicalInputPositions()).isEqualTo(LINEITEM_COUNT);
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testJoinDynamicFilteringNone(JoinDistributionType joinDistributionType)
+    @Test
+    @Timeout(30)
+    public void testJoinDynamicFilteringNone()
     {
-        // Probe-side is not scanned at all, due to dynamic filtering:
-        assertDynamicFiltering(
-                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
-                noJoinReordering(joinDistributionType),
-                0,
-                0, ORDERS_COUNT);
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            // Probe-side is not scanned at all, due to dynamic filtering:
+            assertDynamicFiltering(
+                    "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
+                    noJoinReordering(joinDistributionType),
+                    0,
+                    0, ORDERS_COUNT);
+        }
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testJoinLargeBuildSideDynamicFiltering(JoinDistributionType joinDistributionType)
+    @Test
+    @Timeout(30)
+    public void testJoinLargeBuildSideDynamicFiltering()
     {
-        @Language("SQL") String sql = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey and orders.custkey BETWEEN 300 AND 700";
-        int expectedRowCount = 15793;
-        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
-        assertDynamicFiltering(
-                sql,
-                noJoinReordering(joinDistributionType),
-                expectedRowCount,
-                LINEITEM_COUNT, ORDERS_COUNT);
-        // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
-        assertDynamicFiltering(
-                sql,
-                withLargeDynamicFilters(joinDistributionType),
-                expectedRowCount,
-                60139, ORDERS_COUNT);
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            @Language("SQL") String sql = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey and orders.custkey BETWEEN 300 AND 700";
+            int expectedRowCount = 15793;
+            // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
+            assertDynamicFiltering(
+                    sql,
+                    noJoinReordering(joinDistributionType),
+                    expectedRowCount,
+                    LINEITEM_COUNT, ORDERS_COUNT);
+            // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
+            assertDynamicFiltering(
+                    sql,
+                    withLargeDynamicFilters(joinDistributionType),
+                    expectedRowCount,
+                    60139, ORDERS_COUNT);
+        }
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testJoinDynamicFilteringSingleValue(JoinDistributionType joinDistributionType)
+    @Test
+    @Timeout(30)
+    public void testJoinDynamicFilteringSingleValue()
     {
-        assertThat(computeScalar("SELECT orderkey FROM orders WHERE comment = 'nstructions sleep furiously among '")).isEqualTo(1L);
-        assertThat(computeScalar("SELECT COUNT() FROM lineitem WHERE orderkey = 1")).isEqualTo(6L);
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            assertThat(computeScalar("SELECT orderkey FROM orders WHERE comment = 'nstructions sleep furiously among '")).isEqualTo(1L);
+            assertThat(computeScalar("SELECT COUNT() FROM lineitem WHERE orderkey = 1")).isEqualTo(6L);
 
-        assertThat(computeScalar("SELECT partkey FROM part WHERE comment = 'onic deposits'")).isEqualTo(1552L);
-        assertThat(computeScalar("SELECT COUNT() FROM lineitem WHERE partkey = 1552")).isEqualTo(39L);
+            assertThat(computeScalar("SELECT partkey FROM part WHERE comment = 'onic deposits'")).isEqualTo(1552L);
+            assertThat(computeScalar("SELECT COUNT() FROM lineitem WHERE partkey = 1552")).isEqualTo(39L);
 
-        // Join lineitem with a single row of orders
-        assertDynamicFiltering(
-                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.comment = 'nstructions sleep furiously among '",
-                noJoinReordering(joinDistributionType),
-                6,
-                6, ORDERS_COUNT);
+            // Join lineitem with a single row of orders
+            assertDynamicFiltering(
+                    "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.comment = 'nstructions sleep furiously among '",
+                    noJoinReordering(joinDistributionType),
+                    6,
+                    6, ORDERS_COUNT);
 
-        // Join lineitem with a single row of part
-        assertDynamicFiltering(
-                "SELECT l.comment FROM  lineitem l, part p WHERE p.partkey = l.partkey AND p.comment = 'onic deposits'",
-                noJoinReordering(joinDistributionType),
-                39,
-                39, PART_COUNT);
+            // Join lineitem with a single row of part
+            assertDynamicFiltering(
+                    "SELECT l.comment FROM  lineitem l, part p WHERE p.partkey = l.partkey AND p.comment = 'onic deposits'",
+                    noJoinReordering(joinDistributionType),
+                    39,
+                    39, PART_COUNT);
+        }
     }
 
     @Test
@@ -277,81 +271,96 @@ public class TestMemoryConnectorTest
                 6, ORDERS_COUNT);
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testJoinDynamicFilteringBlockProbeSide(JoinDistributionType joinDistributionType)
+    @Test
+    @Timeout(30)
+    public void testJoinDynamicFilteringBlockProbeSide()
     {
-        // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
-        assertDynamicFiltering(
-                "SELECT l.comment" +
-                        " FROM  lineitem l, part p, orders o" +
-                        " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '" +
-                        " AND p.partkey = l.partkey AND p.comment = 'onic deposits'",
-                noJoinReordering(joinDistributionType),
-                1,
-                1, PART_COUNT, ORDERS_COUNT);
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
+            assertDynamicFiltering(
+                    "SELECT l.comment" +
+                            " FROM  lineitem l, part p, orders o" +
+                            " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '" +
+                            " AND p.partkey = l.partkey AND p.comment = 'onic deposits'",
+                    noJoinReordering(joinDistributionType),
+                    1,
+                    1, PART_COUNT, ORDERS_COUNT);
+        }
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testSemiJoinDynamicFilteringNone(JoinDistributionType joinDistributionType)
+    @Test
+    @Timeout(30)
+    public void testSemiJoinDynamicFilteringNone()
     {
-        // Probe-side is not scanned at all, due to dynamic filtering:
-        assertDynamicFiltering(
-                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
-                noJoinReordering(joinDistributionType),
-                0,
-                0, ORDERS_COUNT);
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            // Probe-side is not scanned at all, due to dynamic filtering:
+            assertDynamicFiltering(
+                    "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
+                    noJoinReordering(joinDistributionType),
+                    0,
+                    0, ORDERS_COUNT);
+        }
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testSemiJoinLargeBuildSideDynamicFiltering(JoinDistributionType joinDistributionType)
+    @Test
+    @Timeout(30)
+    public void testSemiJoinLargeBuildSideDynamicFiltering()
     {
-        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
-        @Language("SQL") String sql = "SELECT * FROM lineitem WHERE lineitem.orderkey IN " +
-                "(SELECT orders.orderkey FROM orders WHERE orders.custkey BETWEEN 300 AND 700)";
-        int expectedRowCount = 15793;
-        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
-        assertDynamicFiltering(
-                sql,
-                noJoinReordering(joinDistributionType),
-                expectedRowCount,
-                LINEITEM_COUNT, ORDERS_COUNT);
-        // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
-        assertDynamicFiltering(
-                sql,
-                withLargeDynamicFilters(joinDistributionType),
-                expectedRowCount,
-                60139, ORDERS_COUNT);
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
+            @Language("SQL") String sql = "SELECT * FROM lineitem WHERE lineitem.orderkey IN " +
+                    "(SELECT orders.orderkey FROM orders WHERE orders.custkey BETWEEN 300 AND 700)";
+            int expectedRowCount = 15793;
+            // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
+            assertDynamicFiltering(
+                    sql,
+                    noJoinReordering(joinDistributionType),
+                    expectedRowCount,
+                    LINEITEM_COUNT, ORDERS_COUNT);
+            // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
+            assertDynamicFiltering(
+                    sql,
+                    withLargeDynamicFilters(joinDistributionType),
+                    expectedRowCount,
+                    60139, ORDERS_COUNT);
+        }
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testSemiJoinDynamicFilteringSingleValue(JoinDistributionType joinDistributionType)
+    @Test
+    @Timeout(30)
+    public void testSemiJoinDynamicFilteringSingleValue()
     {
-        // Join lineitem with a single row of orders
-        assertDynamicFiltering(
-                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.comment = 'nstructions sleep furiously among ')",
-                noJoinReordering(joinDistributionType),
-                6,
-                6, ORDERS_COUNT);
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            // Join lineitem with a single row of orders
+            assertDynamicFiltering(
+                    "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.comment = 'nstructions sleep furiously among ')",
+                    noJoinReordering(joinDistributionType),
+                    6,
+                    6, ORDERS_COUNT);
 
-        // Join lineitem with a single row of part
-        assertDynamicFiltering(
-                "SELECT l.comment FROM lineitem l WHERE l.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
-                noJoinReordering(joinDistributionType),
-                39,
-                39, PART_COUNT);
+            // Join lineitem with a single row of part
+            assertDynamicFiltering(
+                    "SELECT l.comment FROM lineitem l WHERE l.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
+                    noJoinReordering(joinDistributionType),
+                    39,
+                    39, PART_COUNT);
+        }
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testSemiJoinDynamicFilteringBlockProbeSide(JoinDistributionType joinDistributionType)
+    @Test
+    @Timeout(30)
+    public void testSemiJoinDynamicFilteringBlockProbeSide()
     {
-        // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
-        assertDynamicFiltering(
-                "SELECT t.comment FROM " +
-                        "(SELECT * FROM lineitem l WHERE l.orderkey IN (SELECT o.orderkey FROM orders o WHERE o.comment = 'nstructions sleep furiously among ')) t " +
-                        "WHERE t.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
-                noJoinReordering(joinDistributionType),
-                1,
-                1, ORDERS_COUNT, PART_COUNT);
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
+            assertDynamicFiltering(
+                    "SELECT t.comment FROM " +
+                            "(SELECT * FROM lineitem l WHERE l.orderkey IN (SELECT o.orderkey FROM orders o WHERE o.comment = 'nstructions sleep furiously among ')) t " +
+                            "WHERE t.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
+                    noJoinReordering(joinDistributionType),
+                    1,
+                    1, ORDERS_COUNT, PART_COUNT);
+        }
     }
 
     @Test
@@ -431,31 +440,34 @@ public class TestMemoryConnectorTest
                 ORDERS_COUNT, CUSTOMER_COUNT);
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testJoinDynamicFilteringMultiJoin(JoinDistributionType joinDistributionType)
+    @Test
+    @Timeout(30)
+    public void testJoinDynamicFilteringMultiJoin()
     {
-        assertUpdate("DROP TABLE IF EXISTS t0");
-        assertUpdate("DROP TABLE IF EXISTS t1");
-        assertUpdate("DROP TABLE IF EXISTS t2");
-        assertUpdate("CREATE TABLE t0 (k0 integer, v0 real)");
-        assertUpdate("CREATE TABLE t1 (k1 integer, v1 real)");
-        assertUpdate("CREATE TABLE t2 (k2 integer, v2 real)");
-        assertUpdate("INSERT INTO t0 VALUES (1, 1.0)", 1);
-        assertUpdate("INSERT INTO t1 VALUES (1, 2.0)", 1);
-        assertUpdate("INSERT INTO t2 VALUES (1, 3.0)", 1);
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            assertUpdate("DROP TABLE IF EXISTS t0");
+            assertUpdate("DROP TABLE IF EXISTS t1");
+            assertUpdate("DROP TABLE IF EXISTS t2");
+            assertUpdate("CREATE TABLE t0 (k0 integer, v0 real)");
+            assertUpdate("CREATE TABLE t1 (k1 integer, v1 real)");
+            assertUpdate("CREATE TABLE t2 (k2 integer, v2 real)");
+            assertUpdate("INSERT INTO t0 VALUES (1, 1.0)", 1);
+            assertUpdate("INSERT INTO t1 VALUES (1, 2.0)", 1);
+            assertUpdate("INSERT INTO t2 VALUES (1, 3.0)", 1);
 
-        assertQuery(
-                noJoinReordering(joinDistributionType),
-                "SELECT k0, k1, k2 FROM t0, t1, t2 WHERE (k0 = k1) AND (k0 = k2) AND (v0 + v1 = v2)",
-                "SELECT 1, 1, 1");
+            assertQuery(
+                    noJoinReordering(joinDistributionType),
+                    "SELECT k0, k1, k2 FROM t0, t1, t2 WHERE (k0 = k1) AND (k0 = k2) AND (v0 + v1 = v2)",
+                    "SELECT 1, 1, 1");
+        }
     }
 
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(session, selectQuery);
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(session, selectQuery);
 
-        assertEquals(result.getResult().getRowCount(), expectedRowCount);
-        assertEquals(getOperatorRowsRead(getDistributedQueryRunner(), result.getQueryId()), Ints.asList(expectedOperatorRowsRead));
+        assertThat(result.result().getRowCount()).isEqualTo(expectedRowCount);
+        assertThat(getOperatorRowsRead(getDistributedQueryRunner(), result.queryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
     }
 
     private Session withLargeDynamicFilters(JoinDistributionType joinDistributionType)
@@ -465,7 +477,7 @@ public class TestMemoryConnectorTest
                 .build();
     }
 
-    private static List<Integer> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
+    private static List<Integer> getOperatorRowsRead(QueryRunner runner, QueryId queryId)
     {
         return getScanOperatorStats(runner, queryId).stream()
                 .map(OperatorStats::getInputPositions)
@@ -473,7 +485,7 @@ public class TestMemoryConnectorTest
                 .collect(toImmutableList());
     }
 
-    private static List<OperatorStats> getScanOperatorStats(DistributedQueryRunner runner, QueryId queryId)
+    private static List<OperatorStats> getScanOperatorStats(QueryRunner runner, QueryId queryId)
     {
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()
@@ -540,11 +552,11 @@ public class TestMemoryConnectorTest
     public void testCreateTableAndViewInNotExistSchema()
     {
         assertQueryFails("CREATE TABLE schema3.test_table3 (x date)", "Schema schema3 not found");
-        assertFalse(getQueryRunner().tableExists(getSession(), "schema3.test_table3"));
+        assertThat(getQueryRunner().tableExists(getSession(), "schema3.test_table3")).isFalse();
         assertQueryFails("CREATE VIEW schema4.test_view4 AS SELECT 123 x", "Schema schema4 not found");
-        assertFalse(getQueryRunner().tableExists(getSession(), "schema4.test_view4"));
+        assertThat(getQueryRunner().tableExists(getSession(), "schema4.test_view4")).isFalse();
         assertQueryFails("CREATE OR REPLACE VIEW schema5.test_view5 AS SELECT 123 x", "Schema schema5 not found");
-        assertFalse(getQueryRunner().tableExists(getSession(), "schema5.test_view5"));
+        assertThat(getQueryRunner().tableExists(getSession(), "schema5.test_view5")).isFalse();
     }
 
     @Test
@@ -560,7 +572,7 @@ public class TestMemoryConnectorTest
 
         assertQuery("SELECT * FROM test_view", query);
 
-        assertTrue(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains("test_view"));
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains("test_view");
 
         assertUpdate("DROP VIEW test_view");
         assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");

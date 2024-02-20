@@ -31,7 +31,7 @@
 
 ## Hive connector
 
-* Add support for [AWS Athena partition projection](partition_projection). ({issue}`11305`)
+* Add support for [AWS Athena partition projection](partition-projection). ({issue}`11305`)
 * Improve optimized Parquet writer performance. ({issue}`13203`, {issue}`13208`)
 * Fix potential failure when creating empty ORC bucket files while using ZSTD
   compression. ({issue}`9775`)

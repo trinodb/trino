@@ -21,7 +21,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;

@@ -30,12 +30,12 @@ import java.util.Optional;
 
 import static io.trino.tempto.Requirements.allOf;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTablePartitioningSelect
         extends ProductTest

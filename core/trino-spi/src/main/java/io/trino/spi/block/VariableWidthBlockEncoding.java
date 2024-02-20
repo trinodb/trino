@@ -38,8 +38,7 @@ public class VariableWidthBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        // The down casts here are safe because it is the block itself the provides this encoding implementation.
-        AbstractVariableWidthBlock variableWidthBlock = (AbstractVariableWidthBlock) block;
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
 
         int positionCount = variableWidthBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
@@ -58,13 +57,13 @@ public class VariableWidthBlockEncoding
 
         sliceOutput
                 .appendInt(nonNullsCount)
-                .writeBytes(Slices.wrappedIntArray(lengths, 0, nonNullsCount));
+                .writeInts(lengths, 0, nonNullsCount);
 
         encodeNullsAsBits(sliceOutput, variableWidthBlock);
 
         sliceOutput
                 .appendInt(totalLength)
-                .writeBytes(variableWidthBlock.getRawSlice(0), variableWidthBlock.getPositionOffset(0), totalLength);
+                .writeBytes(variableWidthBlock.getRawSlice(), variableWidthBlock.getPositionOffset(0), totalLength);
     }
 
     @Override
@@ -80,7 +79,7 @@ public class VariableWidthBlockEncoding
         int[] offsets = new int[positionCount + 1];
         // Read the lengths array into the end of the offsets array, since nonNullsCount <= positionCount
         int lengthIndex = offsets.length - nonNullsCount;
-        sliceInput.readBytes(Slices.wrappedIntArray(offsets, lengthIndex, nonNullsCount));
+        sliceInput.readInts(offsets, lengthIndex, nonNullsCount);
 
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
         // Transform lengths back to offsets

@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.reader.decoders;
 
-import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 
 public final class IntBitUnpackers
@@ -76,200 +75,67 @@ public final class IntBitUnpackers
     private static final class Unpacker1
             implements IntBitUnpacker
     {
-        private static void unpack64(int[] output, int outputOffset, SimpleSliceInputStream input)
+        private static void unpack8(int[] output, int outputOffset, byte[] input, int inputOffset)
         {
-            long v0 = input.readLong();
-            output[outputOffset] = (int) (v0 & 0b1L);
-            output[outputOffset + 1] = (int) ((v0 >>> 1) & 0b1L);
-            output[outputOffset + 2] = (int) ((v0 >>> 2) & 0b1L);
-            output[outputOffset + 3] = (int) ((v0 >>> 3) & 0b1L);
-            output[outputOffset + 4] = (int) ((v0 >>> 4) & 0b1L);
-            output[outputOffset + 5] = (int) ((v0 >>> 5) & 0b1L);
-            output[outputOffset + 6] = (int) ((v0 >>> 6) & 0b1L);
-            output[outputOffset + 7] = (int) ((v0 >>> 7) & 0b1L);
-            output[outputOffset + 8] = (int) ((v0 >>> 8) & 0b1L);
-            output[outputOffset + 9] = (int) ((v0 >>> 9) & 0b1L);
-            output[outputOffset + 10] = (int) ((v0 >>> 10) & 0b1L);
-            output[outputOffset + 11] = (int) ((v0 >>> 11) & 0b1L);
-            output[outputOffset + 12] = (int) ((v0 >>> 12) & 0b1L);
-            output[outputOffset + 13] = (int) ((v0 >>> 13) & 0b1L);
-            output[outputOffset + 14] = (int) ((v0 >>> 14) & 0b1L);
-            output[outputOffset + 15] = (int) ((v0 >>> 15) & 0b1L);
-            output[outputOffset + 16] = (int) ((v0 >>> 16) & 0b1L);
-            output[outputOffset + 17] = (int) ((v0 >>> 17) & 0b1L);
-            output[outputOffset + 18] = (int) ((v0 >>> 18) & 0b1L);
-            output[outputOffset + 19] = (int) ((v0 >>> 19) & 0b1L);
-            output[outputOffset + 20] = (int) ((v0 >>> 20) & 0b1L);
-            output[outputOffset + 21] = (int) ((v0 >>> 21) & 0b1L);
-            output[outputOffset + 22] = (int) ((v0 >>> 22) & 0b1L);
-            output[outputOffset + 23] = (int) ((v0 >>> 23) & 0b1L);
-            output[outputOffset + 24] = (int) ((v0 >>> 24) & 0b1L);
-            output[outputOffset + 25] = (int) ((v0 >>> 25) & 0b1L);
-            output[outputOffset + 26] = (int) ((v0 >>> 26) & 0b1L);
-            output[outputOffset + 27] = (int) ((v0 >>> 27) & 0b1L);
-            output[outputOffset + 28] = (int) ((v0 >>> 28) & 0b1L);
-            output[outputOffset + 29] = (int) ((v0 >>> 29) & 0b1L);
-            output[outputOffset + 30] = (int) ((v0 >>> 30) & 0b1L);
-            output[outputOffset + 31] = (int) ((v0 >>> 31) & 0b1L);
-            output[outputOffset + 32] = (int) ((v0 >>> 32) & 0b1L);
-            output[outputOffset + 33] = (int) ((v0 >>> 33) & 0b1L);
-            output[outputOffset + 34] = (int) ((v0 >>> 34) & 0b1L);
-            output[outputOffset + 35] = (int) ((v0 >>> 35) & 0b1L);
-            output[outputOffset + 36] = (int) ((v0 >>> 36) & 0b1L);
-            output[outputOffset + 37] = (int) ((v0 >>> 37) & 0b1L);
-            output[outputOffset + 38] = (int) ((v0 >>> 38) & 0b1L);
-            output[outputOffset + 39] = (int) ((v0 >>> 39) & 0b1L);
-            output[outputOffset + 40] = (int) ((v0 >>> 40) & 0b1L);
-            output[outputOffset + 41] = (int) ((v0 >>> 41) & 0b1L);
-            output[outputOffset + 42] = (int) ((v0 >>> 42) & 0b1L);
-            output[outputOffset + 43] = (int) ((v0 >>> 43) & 0b1L);
-            output[outputOffset + 44] = (int) ((v0 >>> 44) & 0b1L);
-            output[outputOffset + 45] = (int) ((v0 >>> 45) & 0b1L);
-            output[outputOffset + 46] = (int) ((v0 >>> 46) & 0b1L);
-            output[outputOffset + 47] = (int) ((v0 >>> 47) & 0b1L);
-            output[outputOffset + 48] = (int) ((v0 >>> 48) & 0b1L);
-            output[outputOffset + 49] = (int) ((v0 >>> 49) & 0b1L);
-            output[outputOffset + 50] = (int) ((v0 >>> 50) & 0b1L);
-            output[outputOffset + 51] = (int) ((v0 >>> 51) & 0b1L);
-            output[outputOffset + 52] = (int) ((v0 >>> 52) & 0b1L);
-            output[outputOffset + 53] = (int) ((v0 >>> 53) & 0b1L);
-            output[outputOffset + 54] = (int) ((v0 >>> 54) & 0b1L);
-            output[outputOffset + 55] = (int) ((v0 >>> 55) & 0b1L);
-            output[outputOffset + 56] = (int) ((v0 >>> 56) & 0b1L);
-            output[outputOffset + 57] = (int) ((v0 >>> 57) & 0b1L);
-            output[outputOffset + 58] = (int) ((v0 >>> 58) & 0b1L);
-            output[outputOffset + 59] = (int) ((v0 >>> 59) & 0b1L);
-            output[outputOffset + 60] = (int) ((v0 >>> 60) & 0b1L);
-            output[outputOffset + 61] = (int) ((v0 >>> 61) & 0b1L);
-            output[outputOffset + 62] = (int) ((v0 >>> 62) & 0b1L);
-            output[outputOffset + 63] = (int) ((v0 >>> 63) & 0b1L);
-        }
-
-        private static void unpack8(int[] output, int outputOffset, SimpleSliceInputStream input)
-        {
-            byte v0 = input.readByte();
-            output[outputOffset] = (int) (v0 & 0b1L);
-            output[outputOffset + 1] = (int) ((v0 >>> 1) & 0b1L);
-            output[outputOffset + 2] = (int) ((v0 >>> 2) & 0b1L);
-            output[outputOffset + 3] = (int) ((v0 >>> 3) & 0b1L);
-            output[outputOffset + 4] = (int) ((v0 >>> 4) & 0b1L);
-            output[outputOffset + 5] = (int) ((v0 >>> 5) & 0b1L);
-            output[outputOffset + 6] = (int) ((v0 >>> 6) & 0b1L);
-            output[outputOffset + 7] = (int) ((v0 >>> 7) & 0b1L);
+            byte v0 = input[inputOffset];
+            output[outputOffset] = v0 & 1;
+            output[outputOffset + 1] = (v0 >>> 1) & 1;
+            output[outputOffset + 2] = (v0 >>> 2) & 1;
+            output[outputOffset + 3] = (v0 >>> 3) & 1;
+            output[outputOffset + 4] = (v0 >>> 4) & 1;
+            output[outputOffset + 5] = (v0 >>> 5) & 1;
+            output[outputOffset + 6] = (v0 >>> 6) & 1;
+            output[outputOffset + 7] = (v0 >>> 7) & 1;
         }
 
         @Override
         public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input, int length)
         {
-            while (length >= 64) {
-                unpack64(output, outputOffset, input);
-                outputOffset += 64;
-                length -= 64;
+            byte[] inputArr = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            int inputBytesRead = 0;
+            while (length >= 8) {
+                unpack8(output, outputOffset, inputArr, inputOffset + inputBytesRead);
+                outputOffset += 8;
+                length -= 8;
+                inputBytesRead++;
             }
-            switch (length) {
-                case 56:
-                    unpack8(output, outputOffset, input);
-                    outputOffset += 8;
-                    // fall through
-                case 48:
-                    unpack8(output, outputOffset, input);
-                    outputOffset += 8;
-                    // fall through
-                case 40:
-                    unpack8(output, outputOffset, input);
-                    outputOffset += 8;
-                    // fall through
-                case 32:
-                    unpack8(output, outputOffset, input);
-                    outputOffset += 8;
-                    // fall through
-                case 24:
-                    unpack8(output, outputOffset, input);
-                    outputOffset += 8;
-                    // fall through
-                case 16:
-                    unpack8(output, outputOffset, input);
-                    outputOffset += 8;
-                    // fall through
-                case 8:
-                    unpack8(output, outputOffset, input);
-            }
+            input.skip(inputBytesRead);
         }
     }
 
     private static final class Unpacker2
             implements IntBitUnpacker
     {
-        private static void unpack32(int[] output, int outputOffset, SimpleSliceInputStream input)
+        private static void unpack8(int[] output, int outputOffset, byte[] input, int inputOffset)
         {
-            long v0 = input.readLong();
-            output[outputOffset] = (int) (v0 & 0b11L);
-            output[outputOffset + 1] = (int) ((v0 >>> 2) & 0b11L);
-            output[outputOffset + 2] = (int) ((v0 >>> 4) & 0b11L);
-            output[outputOffset + 3] = (int) ((v0 >>> 6) & 0b11L);
-            output[outputOffset + 4] = (int) ((v0 >>> 8) & 0b11L);
-            output[outputOffset + 5] = (int) ((v0 >>> 10) & 0b11L);
-            output[outputOffset + 6] = (int) ((v0 >>> 12) & 0b11L);
-            output[outputOffset + 7] = (int) ((v0 >>> 14) & 0b11L);
-            output[outputOffset + 8] = (int) ((v0 >>> 16) & 0b11L);
-            output[outputOffset + 9] = (int) ((v0 >>> 18) & 0b11L);
-            output[outputOffset + 10] = (int) ((v0 >>> 20) & 0b11L);
-            output[outputOffset + 11] = (int) ((v0 >>> 22) & 0b11L);
-            output[outputOffset + 12] = (int) ((v0 >>> 24) & 0b11L);
-            output[outputOffset + 13] = (int) ((v0 >>> 26) & 0b11L);
-            output[outputOffset + 14] = (int) ((v0 >>> 28) & 0b11L);
-            output[outputOffset + 15] = (int) ((v0 >>> 30) & 0b11L);
-            output[outputOffset + 16] = (int) ((v0 >>> 32) & 0b11L);
-            output[outputOffset + 17] = (int) ((v0 >>> 34) & 0b11L);
-            output[outputOffset + 18] = (int) ((v0 >>> 36) & 0b11L);
-            output[outputOffset + 19] = (int) ((v0 >>> 38) & 0b11L);
-            output[outputOffset + 20] = (int) ((v0 >>> 40) & 0b11L);
-            output[outputOffset + 21] = (int) ((v0 >>> 42) & 0b11L);
-            output[outputOffset + 22] = (int) ((v0 >>> 44) & 0b11L);
-            output[outputOffset + 23] = (int) ((v0 >>> 46) & 0b11L);
-            output[outputOffset + 24] = (int) ((v0 >>> 48) & 0b11L);
-            output[outputOffset + 25] = (int) ((v0 >>> 50) & 0b11L);
-            output[outputOffset + 26] = (int) ((v0 >>> 52) & 0b11L);
-            output[outputOffset + 27] = (int) ((v0 >>> 54) & 0b11L);
-            output[outputOffset + 28] = (int) ((v0 >>> 56) & 0b11L);
-            output[outputOffset + 29] = (int) ((v0 >>> 58) & 0b11L);
-            output[outputOffset + 30] = (int) ((v0 >>> 60) & 0b11L);
-            output[outputOffset + 31] = (int) ((v0 >>> 62) & 0b11L);
-        }
+            byte v0 = input[inputOffset];
+            byte v1 = input[inputOffset + 1];
 
-        private static void unpack8(int[] output, int outputOffset, SimpleSliceInputStream input)
-        {
-            short v0 = input.readShort();
-            output[outputOffset] = (int) (v0 & 0b11L);
-            output[outputOffset + 1] = (int) ((v0 >>> 2) & 0b11L);
-            output[outputOffset + 2] = (int) ((v0 >>> 4) & 0b11L);
-            output[outputOffset + 3] = (int) ((v0 >>> 6) & 0b11L);
-            output[outputOffset + 4] = (int) ((v0 >>> 8) & 0b11L);
-            output[outputOffset + 5] = (int) ((v0 >>> 10) & 0b11L);
-            output[outputOffset + 6] = (int) ((v0 >>> 12) & 0b11L);
-            output[outputOffset + 7] = (int) ((v0 >>> 14) & 0b11L);
+            output[outputOffset] = v0 & 0b11;
+            output[outputOffset + 1] = (v0 >>> 2) & 0b11;
+            output[outputOffset + 2] = (v0 >>> 4) & 0b11;
+            output[outputOffset + 3] = (v0 >>> 6) & 0b11;
+
+            output[outputOffset + 4] = v1 & 0b11;
+            output[outputOffset + 5] = (v1 >>> 2) & 0b11;
+            output[outputOffset + 6] = (v1 >>> 4) & 0b11;
+            output[outputOffset + 7] = (v1 >>> 6) & 0b11;
         }
 
         @Override
         public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input, int length)
         {
-            while (length >= 32) {
-                unpack32(output, outputOffset, input);
-                outputOffset += 32;
-                length -= 32;
+            byte[] inputArr = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            int inputBytesRead = 0;
+            while (length >= 8) {
+                unpack8(output, outputOffset, inputArr, inputOffset + inputBytesRead);
+                outputOffset += 8;
+                length -= 8;
+                inputBytesRead += 2;
             }
-            switch (length) {
-                case 24:
-                    unpack8(output, outputOffset, input);
-                    outputOffset += 8;
-                    // fall through
-                case 16:
-                    unpack8(output, outputOffset, input);
-                    outputOffset += 8;
-                    // fall through
-                case 8:
-                    unpack8(output, outputOffset, input);
-            }
+            input.skip(inputBytesRead);
         }
     }
 
@@ -403,51 +269,36 @@ public final class IntBitUnpackers
     private static final class Unpacker4
             implements IntBitUnpacker
     {
-        private static void unpack16(int[] output, int outputOffset, SimpleSliceInputStream input)
+        private static void unpack8(int[] output, int outputOffset, byte[] input, int inputOffset)
         {
-            long v0 = input.readLong();
-            output[outputOffset] = (int) (v0 & 0b1111L);
-            output[outputOffset + 1] = (int) ((v0 >>> 4) & 0b1111L);
-            output[outputOffset + 2] = (int) ((v0 >>> 8) & 0b1111L);
-            output[outputOffset + 3] = (int) ((v0 >>> 12) & 0b1111L);
-            output[outputOffset + 4] = (int) ((v0 >>> 16) & 0b1111L);
-            output[outputOffset + 5] = (int) ((v0 >>> 20) & 0b1111L);
-            output[outputOffset + 6] = (int) ((v0 >>> 24) & 0b1111L);
-            output[outputOffset + 7] = (int) ((v0 >>> 28) & 0b1111L);
-            output[outputOffset + 8] = (int) ((v0 >>> 32) & 0b1111L);
-            output[outputOffset + 9] = (int) ((v0 >>> 36) & 0b1111L);
-            output[outputOffset + 10] = (int) ((v0 >>> 40) & 0b1111L);
-            output[outputOffset + 11] = (int) ((v0 >>> 44) & 0b1111L);
-            output[outputOffset + 12] = (int) ((v0 >>> 48) & 0b1111L);
-            output[outputOffset + 13] = (int) ((v0 >>> 52) & 0b1111L);
-            output[outputOffset + 14] = (int) ((v0 >>> 56) & 0b1111L);
-            output[outputOffset + 15] = (int) ((v0 >>> 60) & 0b1111L);
-        }
+            byte v0 = input[inputOffset];
+            byte v1 = input[inputOffset + 1];
+            byte v2 = input[inputOffset + 2];
+            byte v3 = input[inputOffset + 3];
 
-        private static void unpack8(int[] output, int outputOffset, SimpleSliceInputStream input)
-        {
-            int v0 = input.readInt();
-            output[outputOffset] = (int) (v0 & 0b1111L);
-            output[outputOffset + 1] = (int) ((v0 >>> 4) & 0b1111L);
-            output[outputOffset + 2] = (int) ((v0 >>> 8) & 0b1111L);
-            output[outputOffset + 3] = (int) ((v0 >>> 12) & 0b1111L);
-            output[outputOffset + 4] = (int) ((v0 >>> 16) & 0b1111L);
-            output[outputOffset + 5] = (int) ((v0 >>> 20) & 0b1111L);
-            output[outputOffset + 6] = (int) ((v0 >>> 24) & 0b1111L);
-            output[outputOffset + 7] = (int) ((v0 >>> 28) & 0b1111L);
+            output[outputOffset] = v0 & 0b1111;
+            output[outputOffset + 1] = (v0 >>> 4) & 0b1111;
+            output[outputOffset + 2] = v1 & 0b1111;
+            output[outputOffset + 3] = (v1 >>> 4) & 0b1111;
+            output[outputOffset + 4] = v2 & 0b1111;
+            output[outputOffset + 5] = (v2 >>> 4) & 0b1111;
+            output[outputOffset + 6] = v3 & 0b1111;
+            output[outputOffset + 7] = (v3 >>> 4) & 0b1111;
         }
 
         @Override
         public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input, int length)
         {
-            while (length >= 16) {
-                unpack16(output, outputOffset, input);
-                outputOffset += 16;
-                length -= 16;
+            byte[] inputArr = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            int inputBytesRead = 0;
+            while (length >= 8) {
+                unpack8(output, outputOffset, inputArr, inputOffset + inputBytesRead);
+                outputOffset += 8;
+                length -= 8;
+                inputBytesRead += 4;
             }
-            if (length >= 8) {
-                unpack8(output, outputOffset, input);
-            }
+            input.skip(inputBytesRead);
         }
     }
 
@@ -795,27 +646,31 @@ public final class IntBitUnpackers
     private static final class Unpacker8
             implements IntBitUnpacker
     {
-        private static void unpack8(int[] output, int outputOffset, SimpleSliceInputStream input)
+        private static void unpack8(int[] output, int outputOffset, byte[] input, int inputOffset)
         {
-            long v0 = input.readLong();
-            output[outputOffset] = (int) (v0 & 0b11111111L);
-            output[outputOffset + 1] = (int) ((v0 >>> 8) & 0b11111111L);
-            output[outputOffset + 2] = (int) ((v0 >>> 16) & 0b11111111L);
-            output[outputOffset + 3] = (int) ((v0 >>> 24) & 0b11111111L);
-            output[outputOffset + 4] = (int) ((v0 >>> 32) & 0b11111111L);
-            output[outputOffset + 5] = (int) ((v0 >>> 40) & 0b11111111L);
-            output[outputOffset + 6] = (int) ((v0 >>> 48) & 0b11111111L);
-            output[outputOffset + 7] = (int) ((v0 >>> 56) & 0b11111111L);
+            output[outputOffset] = input[inputOffset] & 0b11111111;
+            output[outputOffset + 1] = input[inputOffset + 1] & 0b11111111;
+            output[outputOffset + 2] = input[inputOffset + 2] & 0b11111111;
+            output[outputOffset + 3] = input[inputOffset + 3] & 0b11111111;
+            output[outputOffset + 4] = input[inputOffset + 4] & 0b11111111;
+            output[outputOffset + 5] = input[inputOffset + 5] & 0b11111111;
+            output[outputOffset + 6] = input[inputOffset + 6] & 0b11111111;
+            output[outputOffset + 7] = input[inputOffset + 7] & 0b11111111;
         }
 
         @Override
         public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input, int length)
         {
+            byte[] inputArray = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            int inputBytesRead = 0;
             while (length >= 8) {
-                unpack8(output, outputOffset, input);
+                unpack8(output, outputOffset, inputArray, inputOffset + inputBytesRead);
                 outputOffset += 8;
                 length -= 8;
+                inputBytesRead += 8;
             }
+            input.skip(inputBytesRead);
         }
     }
 
@@ -1508,7 +1363,7 @@ public final class IntBitUnpackers
         @Override
         public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input, int length)
         {
-            input.readBytes(Slices.wrappedIntArray(output, outputOffset, length), 0, length * Integer.BYTES);
+            input.readInts(output, outputOffset, length);
         }
     }
 }

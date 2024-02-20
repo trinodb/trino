@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Injector;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -42,6 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class HudiConnector
         implements Connector
 {
+    private final Injector injector;
     private final LifeCycleManager lifeCycleManager;
     private final HudiTransactionManager transactionManager;
     private final ConnectorSplitManager splitManager;
@@ -52,6 +55,7 @@ public class HudiConnector
     private final List<PropertyMetadata<?>> tableProperties;
 
     public HudiConnector(
+            Injector injector,
             LifeCycleManager lifeCycleManager,
             HudiTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
@@ -61,6 +65,7 @@ public class HudiConnector
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             List<PropertyMetadata<?>> tableProperties)
     {
+        this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -143,5 +148,11 @@ public class HudiConnector
     public final void shutdown()
     {
         lifeCycleManager.stop();
+    }
+
+    @VisibleForTesting
+    public Injector getInjector()
+    {
+        return injector;
     }
 }

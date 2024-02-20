@@ -23,8 +23,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.SymbolReference;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -114,7 +113,13 @@ public class SymbolAllocator
             nameHint = identifier.getValue();
         }
         else if (expression instanceof FunctionCall functionCall) {
-            nameHint = ResolvedFunction.extractFunctionName(functionCall.getName());
+            // symbol allocation can happen during planning, before function calls are rewritten
+            if (ResolvedFunction.isResolved(functionCall.getName())) {
+                nameHint = ResolvedFunction.extractFunctionName(functionCall.getName()).getFunctionName();
+            }
+            else {
+                nameHint = functionCall.getName().getSuffix();
+            }
         }
         else if (expression instanceof SymbolReference symbolReference) {
             nameHint = symbolReference.getName();

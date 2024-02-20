@@ -15,9 +15,10 @@ package io.trino.parquet.reader;
 
 import io.trino.parquet.Field;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
-import it.unimi.dsi.fastutil.booleans.BooleanList;
 
-import static io.trino.parquet.ParquetTypeUtils.isValueNull;
+import java.util.Optional;
+
+import static io.trino.parquet.ParquetTypeUtils.isOptionalFieldValueNull;
 
 public final class StructColumnReader
 {
@@ -29,23 +30,35 @@ public final class StructColumnReader
      * 2) Struct is null
      * 3) Struct is defined and not empty.
      */
-    public static BooleanList calculateStructOffsets(
+    public static RowBlockPositions calculateStructOffsets(
             Field field,
             int[] fieldDefinitionLevels,
             int[] fieldRepetitionLevels)
     {
         int maxDefinitionLevel = field.getDefinitionLevel();
         int maxRepetitionLevel = field.getRepetitionLevel();
-        BooleanList structIsNull = new BooleanArrayList();
         boolean required = field.isRequired();
-        if (fieldDefinitionLevels == null) {
-            return structIsNull;
+        if (required) {
+            int definedValuesCount = 0;
+            for (int i = 0; i < fieldDefinitionLevels.length; i++) {
+                if (fieldRepetitionLevels[i] <= maxRepetitionLevel) {
+                    if (fieldDefinitionLevels[i] >= maxDefinitionLevel) {
+                        // Struct is defined and not empty
+                        definedValuesCount++;
+                    }
+                }
+            }
+            return new RowBlockPositions(Optional.empty(), definedValuesCount);
         }
+
+        int nullValuesCount = 0;
+        BooleanArrayList structIsNull = new BooleanArrayList();
         for (int i = 0; i < fieldDefinitionLevels.length; i++) {
             if (fieldRepetitionLevels[i] <= maxRepetitionLevel) {
-                if (isValueNull(required, fieldDefinitionLevels[i], maxDefinitionLevel)) {
+                if (isOptionalFieldValueNull(fieldDefinitionLevels[i], maxDefinitionLevel)) {
                     // Struct is null
                     structIsNull.add(true);
+                    nullValuesCount++;
                 }
                 else if (fieldDefinitionLevels[i] >= maxDefinitionLevel) {
                     // Struct is defined and not empty
@@ -53,6 +66,11 @@ public final class StructColumnReader
                 }
             }
         }
-        return structIsNull;
+        if (nullValuesCount == 0) {
+            return new RowBlockPositions(Optional.empty(), structIsNull.size());
+        }
+        return new RowBlockPositions(Optional.of(structIsNull.elements()), structIsNull.size());
     }
+
+    public record RowBlockPositions(Optional<boolean[]> isNull, int positionsCount) {}
 }

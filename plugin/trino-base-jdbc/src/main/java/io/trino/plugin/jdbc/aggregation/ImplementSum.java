@@ -20,6 +20,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.DecimalType;
@@ -28,18 +29,19 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.hasFilter;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.hasSortOrder;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Implements {@code sum(x)}
+ * Implements {@code sum([DISTINCT] x)}
  */
 public class ImplementSum
-        implements AggregateFunctionRule<JdbcExpression, String>
+        implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -53,13 +55,15 @@ public class ImplementSum
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
-        return basicAggregation()
+        return Pattern.typeOf(AggregateFunction.class)
+                .with(hasSortOrder().equalTo(false))
+                .with(hasFilter().equalTo(false))
                 .with(functionName().equalTo("sum"))
                 .with(singleArgument().matching(variable().capturedAs(ARGUMENT)));
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
@@ -79,8 +83,11 @@ public class ImplementSum
             return Optional.empty();
         }
 
+        ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
+        String function = aggregateFunction.isDistinct() ? "sum(DISTINCT %s)" : "sum(%s)";
         return Optional.of(new JdbcExpression(
-                format("sum(%s)", context.rewriteExpression(argument).orElseThrow()),
+                format(function, rewrittenArgument.expression()),
+                rewrittenArgument.parameters(),
                 resultTypeHandle));
     }
 }

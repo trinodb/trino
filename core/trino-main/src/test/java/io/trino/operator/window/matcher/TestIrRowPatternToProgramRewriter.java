@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -35,7 +35,7 @@ import static io.trino.sql.planner.rowpattern.Patterns.questionMarkQuantified;
 import static io.trino.sql.planner.rowpattern.Patterns.rangeQuantified;
 import static io.trino.sql.planner.rowpattern.Patterns.starQuantified;
 import static io.trino.sql.planner.rowpattern.Patterns.start;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIrRowPatternToProgramRewriter
 {
@@ -288,6 +288,6 @@ public class TestIrRowPatternToProgramRewriter
     {
         Program program = IrRowPatternToProgramRewriter.rewrite(pattern, LABEL_MAPPING);
 
-        assertEquals(program.getInstructions(), expected);
+        assertThat(program.getInstructions()).isEqualTo(expected);
     }
 }

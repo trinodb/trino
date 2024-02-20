@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -48,8 +49,10 @@ import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJsonOperators
 {
     // Some of the tests in this class are expected to fail when coercion between primitive Trino types changes behavior
@@ -399,19 +402,19 @@ public class TestJsonOperators
                 .hasType(JSON)
                 .isEqualTo("{\"x\":null}");
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '{}{'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON '{}{'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '{} \"a\"'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON '{} \"a\"'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '{}{abc'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON '{}{abc'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '{}abc'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON '{}abc'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON ''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON ''")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
     }
 

@@ -17,8 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.HashSet;
 import java.util.Locale;

@@ -13,6 +13,7 @@
  */
 package io.trino.cost;
 
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.util.MoreMath;
 
 import static java.lang.Double.isNaN;
@@ -24,6 +25,7 @@ public final class EstimateAssertion
 
     private static final double TOLERANCE = 0.0000001;
 
+    @FormatMethod
     public static void assertEstimateEquals(double actual, double expected, String messageFormat, Object... messageObjects)
     {
         if (isNaN(actual) && isNaN(expected)) {

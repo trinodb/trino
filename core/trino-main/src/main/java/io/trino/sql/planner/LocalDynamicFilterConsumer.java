@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -22,8 +23,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -113,16 +112,12 @@ public class LocalDynamicFilterConsumer
             TupleDomain<DynamicFilterId> summary = summaryDomains.poll();
             // summary can be null as another concurrent summary compaction may be running
             if (summary != null) {
-                long originalSize = getRetainedSizeInBytes(summary);
-                if (originalSize > domainSizeLimitInBytes) {
-                    summary = summary.simplify(1);
-                }
-                if (getRetainedSizeInBytes(summary) > domainSizeLimitInBytes) {
-                    summaryDomainsRetainedSizeInBytes.addAndGet(-originalSize);
+                long summarySize = getRetainedSizeInBytes(summary);
+                if (summarySize > domainSizeLimitInBytes) {
+                    summaryDomainsRetainedSizeInBytes.addAndGet(-summarySize);
                     sizeLimitExceeded = true;
                 }
                 else {
-                    summaryDomainsRetainedSizeInBytes.addAndGet(getRetainedSizeInBytes(summary) - originalSize);
                     summaryDomains.add(summary);
                 }
             }
@@ -202,7 +197,13 @@ public class LocalDynamicFilterConsumer
         }
 
         TupleDomain<DynamicFilterId> union = columnWiseUnion(domains);
-        summaryDomainsRetainedSizeInBytes.addAndGet(getRetainedSizeInBytes(union) - domainsRetainedSizeInBytes);
+        long unionSize = getRetainedSizeInBytes(union);
+        // Avoid large unions with domains that exceed size limit
+        if ((summaryDomainsRetainedSizeInBytes.get() - domainsRetainedSizeInBytes + unionSize) > domainSizeLimitInBytes) {
+            union = union.simplify(1);
+            unionSize = getRetainedSizeInBytes(union);
+        }
+        summaryDomainsRetainedSizeInBytes.addAndGet(unionSize - domainsRetainedSizeInBytes);
         long currentSize = summaryDomainsRetainedSizeInBytes.get();
         verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
         summaryDomains.add(union);

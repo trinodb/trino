@@ -13,9 +13,8 @@
  */
 package io.trino.hdfs.authentication;
 
+import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
-
-import javax.inject.Inject;
 
 import static io.trino.hdfs.authentication.UserGroupInformationUtils.executeActionInDoAs;
 import static java.util.Objects.requireNonNull;

@@ -50,9 +50,8 @@ public class LiteralFunction
 
     public LiteralFunction(BlockEncodingSerde blockEncodingSerde)
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder(LITERAL_FUNCTION_NAME)
                 .signature(Signature.builder()
-                        .name(LITERAL_FUNCTION_NAME)
                         .typeVariable("F")
                         .typeVariable("T")
                         .returnType(new TypeSignature("T"))

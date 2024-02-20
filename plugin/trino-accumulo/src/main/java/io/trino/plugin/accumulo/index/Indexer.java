@@ -22,6 +22,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Table;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.accumulo.Types;
 import io.trino.plugin.accumulo.iterators.MaxByteArrayCombiner;
 import io.trino.plugin.accumulo.iterators.MinByteArrayCombiner;
@@ -49,8 +50,6 @@ import org.apache.accumulo.core.iterators.user.SummingCombiner;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.accumulo.core.security.ColumnVisibility;
 import org.apache.hadoop.io.Text;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;

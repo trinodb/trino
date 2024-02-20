@@ -17,9 +17,8 @@ import com.datastax.oss.driver.api.core.metadata.Node;
 import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -152,8 +151,8 @@ public class CassandraTokenSplitManager
 
     public static class TokenSplit
     {
-        private TokenRange tokenRange;
-        private List<String> hosts;
+        private final TokenRange tokenRange;
+        private final List<String> hosts;
 
         public TokenSplit(TokenRange tokenRange, List<String> hosts)
         {

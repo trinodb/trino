@@ -13,101 +13,36 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IrArrayAccessor
-        extends IrAccessor
+public record IrArrayAccessor(IrPathNode base, List<Subscript> subscripts, Optional<Type> type)
+        implements IrPathNode
 {
-    // list of subscripts or empty list for wildcard array accessor
-    private final List<Subscript> subscripts;
-
-    @JsonCreator
-    public IrArrayAccessor(@JsonProperty("base") IrPathNode base, @JsonProperty("subscripts") List<Subscript> subscripts, @JsonProperty("type") Optional<Type> type)
+    public IrArrayAccessor(IrPathNode base, List<Subscript> subscripts, Optional<Type> type)
     {
-        super(base, type);
-        this.subscripts = requireNonNull(subscripts, "subscripts is null");
+        this.type = requireNonNull(type, "type is null");
+        this.base = requireNonNull(base, "array accessor base is null");
+        this.subscripts = ImmutableList.copyOf(subscripts);
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrArrayAccessor(this, context);
     }
 
-    @JsonProperty
-    public List<Subscript> getSubscripts()
+    public record Subscript(IrPathNode from, Optional<IrPathNode> to)
     {
-        return subscripts;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrArrayAccessor other = (IrArrayAccessor) obj;
-        return Objects.equals(this.base, other.base) && Objects.equals(this.subscripts, other.subscripts);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(base, subscripts);
-    }
-
-    public static class Subscript
-    {
-        private final IrPathNode from;
-        private final Optional<IrPathNode> to;
-
-        @JsonCreator
-        public Subscript(@JsonProperty("from") IrPathNode from, @JsonProperty("to") Optional<IrPathNode> to)
+        public Subscript
         {
-            this.from = requireNonNull(from, "from is null");
-            this.to = requireNonNull(to, "to is null");
-        }
-
-        @JsonProperty
-        public IrPathNode getFrom()
-        {
-            return from;
-        }
-
-        @JsonProperty
-        public Optional<IrPathNode> getTo()
-        {
-            return to;
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            Subscript other = (Subscript) obj;
-            return Objects.equals(this.from, other.from) && Objects.equals(this.to, other.to);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(from, to);
+            requireNonNull(from, "from is null");
+            requireNonNull(to, "to is null");
         }
     }
 }

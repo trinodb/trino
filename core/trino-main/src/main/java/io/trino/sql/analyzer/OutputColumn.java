@@ -16,14 +16,14 @@ package io.trino.sql.analyzer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.execution.Column;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -69,5 +69,14 @@ public final class OutputColumn
         OutputColumn entry = (OutputColumn) obj;
         return Objects.equals(column, entry.column) &&
                 Objects.equals(sourceColumns, entry.sourceColumns);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("column", column)
+                .add("sourceColumns", sourceColumns)
+                .toString();
     }
 }

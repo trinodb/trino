@@ -14,13 +14,12 @@
 package io.trino.block;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,8 +29,7 @@ import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.util.Arrays.copyOfRange;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestVariableWidthBlock
         extends AbstractTestBlock
@@ -51,8 +49,8 @@ public class TestVariableWidthBlock
         Block block = createBlockBuilderWithValues(expectedValues).build();
         Block actual = block.copyRegion(10, 10);
         Block expected = createBlockBuilderWithValues(copyOfRange(expectedValues, 10, 20)).build();
-        assertEquals(actual.getPositionCount(), expected.getPositionCount());
-        assertEquals(actual.getSizeInBytes(), expected.getSizeInBytes());
+        assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
+        assertThat(actual.getSizeInBytes()).isEqualTo(expected.getSizeInBytes());
     }
 
     @Test
@@ -73,16 +71,16 @@ public class TestVariableWidthBlock
         BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(null, 0, 0);
 
         BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
         writeValues(expectedValues, blockBuilder);
-        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
-        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
+        assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
         blockBuilder = blockBuilder.newBlockBuilderLike(null);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
     @Test
@@ -104,11 +102,19 @@ public class TestVariableWidthBlock
         long quarter4size = splitQuarter.get(3).getSizeInBytes();
         double expectedQuarterSizeMin = sizeInBytes * 0.2;
         double expectedQuarterSizeMax = sizeInBytes * 0.3;
-        assertTrue(quarter1size > expectedQuarterSizeMin && quarter1size < expectedQuarterSizeMax, format("quarter1size is %s, should be between %s and %s", quarter1size, expectedQuarterSizeMin, expectedQuarterSizeMax));
-        assertTrue(quarter2size > expectedQuarterSizeMin && quarter2size < expectedQuarterSizeMax, format("quarter2size is %s, should be between %s and %s", quarter2size, expectedQuarterSizeMin, expectedQuarterSizeMax));
-        assertTrue(quarter3size > expectedQuarterSizeMin && quarter3size < expectedQuarterSizeMax, format("quarter3size is %s, should be between %s and %s", quarter3size, expectedQuarterSizeMin, expectedQuarterSizeMax));
-        assertTrue(quarter4size > expectedQuarterSizeMin && quarter4size < expectedQuarterSizeMax, format("quarter4size is %s, should be between %s and %s", quarter4size, expectedQuarterSizeMin, expectedQuarterSizeMax));
-        assertEquals(quarter1size + quarter2size + quarter3size + quarter4size, sizeInBytes);
+        assertThat(quarter1size > expectedQuarterSizeMin && quarter1size < expectedQuarterSizeMax)
+                .describedAs(format("quarter1size is %s, should be between %s and %s", quarter1size, expectedQuarterSizeMin, expectedQuarterSizeMax))
+                .isTrue();
+        assertThat(quarter2size > expectedQuarterSizeMin && quarter2size < expectedQuarterSizeMax)
+                .describedAs(format("quarter2size is %s, should be between %s and %s", quarter2size, expectedQuarterSizeMin, expectedQuarterSizeMax))
+                .isTrue();
+        assertThat(quarter3size > expectedQuarterSizeMin && quarter3size < expectedQuarterSizeMax)
+                .describedAs(format("quarter3size is %s, should be between %s and %s", quarter3size, expectedQuarterSizeMin, expectedQuarterSizeMax))
+                .isTrue();
+        assertThat(quarter4size > expectedQuarterSizeMin && quarter4size < expectedQuarterSizeMax)
+                .describedAs(format("quarter4size is %s, should be between %s and %s", quarter4size, expectedQuarterSizeMin, expectedQuarterSizeMax))
+                .isTrue();
+        assertThat(quarter1size + quarter2size + quarter3size + quarter4size).isEqualTo(sizeInBytes);
     }
 
     @Test
@@ -121,24 +127,23 @@ public class TestVariableWidthBlock
     @Test
     public void testCompactBlock()
     {
-        Slice compactSlice = Slices.copyOf(createExpectedValue(16));
-        Slice incompactSlice = Slices.copyOf(createExpectedValue(20)).slice(0, 16);
+        Slice compactSlice = createExpectedValue(16).copy();
+        Slice incompactSlice = createExpectedValue(20).copy().slice(0, 16);
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
         boolean[] valueIsNull = {false, true, false, false, false, false};
 
         testCompactBlock(new VariableWidthBlock(0, EMPTY_SLICE, new int[1], Optional.empty()));
         testCompactBlock(new VariableWidthBlock(valueIsNull.length, compactSlice, offsets, Optional.of(valueIsNull)));
 
-        testIncompactBlock(new VariableWidthBlock(valueIsNull.length - 1, compactSlice, offsets, Optional.of(valueIsNull)));
+        testNotCompactBlock(new VariableWidthBlock(valueIsNull.length - 1, compactSlice, offsets, Optional.of(valueIsNull)));
         // underlying slice is not compact
-        testIncompactBlock(new VariableWidthBlock(valueIsNull.length, incompactSlice, offsets, Optional.of(valueIsNull)));
+        testNotCompactBlock(new VariableWidthBlock(valueIsNull.length, incompactSlice, offsets, Optional.of(valueIsNull)));
     }
 
     private void assertVariableWithValues(Slice[] expectedValues)
     {
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        Block block = createBlockBuilderWithValues(expectedValues).build();
+        assertBlock(block, expectedValues);
     }
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
@@ -154,9 +159,21 @@ public class TestVariableWidthBlock
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
+                ((VariableWidthBlockBuilder) blockBuilder).writeEntry(expectedValue);
             }
         }
         return blockBuilder;
+    }
+
+    @Override
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    {
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
+
+        assertThat(block.isNull(position)).isFalse();
+        assertThat(((VariableWidthBlock) block).getSlice(position)).isEqualTo(expectedValue);
     }
 }

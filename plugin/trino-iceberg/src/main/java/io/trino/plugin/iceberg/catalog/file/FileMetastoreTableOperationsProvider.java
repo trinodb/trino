@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.file;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -20,8 +21,6 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

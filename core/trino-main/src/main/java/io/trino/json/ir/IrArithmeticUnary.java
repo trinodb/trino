@@ -13,64 +13,26 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IrArithmeticUnary
-        extends IrPathNode
+public record IrArithmeticUnary(Sign sign, IrPathNode base, Optional<Type> type)
+        implements IrPathNode
 {
-    private final Sign sign;
-    private final IrPathNode base;
-
-    @JsonCreator
-    public IrArithmeticUnary(@JsonProperty("sign") Sign sign, @JsonProperty("base") IrPathNode base, @JsonProperty("type") Optional<Type> type)
+    public IrArithmeticUnary
     {
-        super(type);
-        this.sign = requireNonNull(sign, "sign is null");
-        this.base = requireNonNull(base, "base is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(sign, "sign is null");
+        requireNonNull(base, "base is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrArithmeticUnary(this, context);
-    }
-
-    @JsonProperty
-    public Sign getSign()
-    {
-        return sign;
-    }
-
-    @JsonProperty
-    public IrPathNode getBase()
-    {
-        return base;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrArithmeticUnary other = (IrArithmeticUnary) obj;
-        return this.sign == other.sign && Objects.equals(this.base, other.base);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(sign, base);
     }
 
     public enum Sign

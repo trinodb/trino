@@ -14,6 +14,7 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
@@ -35,10 +36,12 @@ public final class TestFloatValueDecoders
     @Override
     protected Object[][] tests()
     {
+        PrimitiveField field = createField(FLOAT, OptionalInt.empty(), REAL);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
         return testArgs(
                 new TestType<>(
-                        createField(FLOAT, OptionalInt.empty(), REAL),
-                        ValueDecoders::getRealDecoder,
+                        field,
+                        valueDecoders::getRealDecoder,
                         FloatApacheParquetValueDecoder::new,
                         INT_ADAPTER,
                         (actual, expected) -> assertThat(actual).isEqualTo(expected)),

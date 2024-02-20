@@ -17,7 +17,8 @@ import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,7 +35,8 @@ public class TestMemorySessionProperties
         return TpchQueryRunnerBuilder.builder().setNodeCount(2).build();
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testSessionQueryMemoryPerNodeLimit()
     {
         assertQuery(sql);

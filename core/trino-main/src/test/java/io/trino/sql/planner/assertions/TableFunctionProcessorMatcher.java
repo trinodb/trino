@@ -15,7 +15,6 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
@@ -27,16 +26,14 @@ import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.tree.SymbolReference;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -47,22 +44,32 @@ public class TableFunctionProcessorMatcher
 {
     private final String name;
     private final List<String> properOutputs;
-    private final Set<String> passThroughSymbols;
+    private final List<List<String>> passThroughSymbols;
+    private final List<List<String>> requiredSymbols;
     private final Optional<Map<String, String>> markerSymbols;
     private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
+    private final Optional<String> hashSymbol;
 
     private TableFunctionProcessorMatcher(
             String name,
             List<String> properOutputs,
-            Set<String> passThroughSymbols,
+            List<List<String>> passThroughSymbols,
+            List<List<String>> requiredSymbols,
             Optional<Map<String, String>> markerSymbols,
-            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification)
+            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
+            Optional<String> hashSymbol)
     {
         this.name = requireNonNull(name, "name is null");
         this.properOutputs = ImmutableList.copyOf(properOutputs);
-        this.passThroughSymbols = ImmutableSet.copyOf(passThroughSymbols);
+        this.passThroughSymbols = passThroughSymbols.stream()
+                .map(ImmutableList::copyOf)
+                .collect(toImmutableList());
+        this.requiredSymbols = requiredSymbols.stream()
+                .map(ImmutableList::copyOf)
+                .collect(toImmutableList());
         this.markerSymbols = markerSymbols.map(ImmutableMap::copyOf);
         this.specification = requireNonNull(specification, "specification is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
     }
 
     @Override
@@ -86,16 +93,33 @@ public class TableFunctionProcessorMatcher
             return NO_MATCH;
         }
 
-        Set<SymbolReference> expectedPassThrough = passThroughSymbols.stream()
-                .map(symbolAliases::get)
-                .collect(toImmutableSet());
-        Set<SymbolReference> actualPassThrough = tableFunctionProcessorNode.getPassThroughSpecifications().stream()
+        List<List<SymbolReference>> expectedPassThrough = passThroughSymbols.stream()
+                .map(list -> list.stream()
+                        .map(symbolAliases::get)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+        List<List<SymbolReference>> actualPassThrough = tableFunctionProcessorNode.getPassThroughSpecifications().stream()
                 .map(PassThroughSpecification::columns)
-                .flatMap(Collection::stream)
-                .map(PassThroughColumn::symbol)
-                .map(Symbol::toSymbolReference)
-                .collect(toImmutableSet());
+                .map(list -> list.stream()
+                        .map(PassThroughColumn::symbol)
+                        .map(Symbol::toSymbolReference)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
         if (!expectedPassThrough.equals(actualPassThrough)) {
+            return NO_MATCH;
+        }
+
+        List<List<SymbolReference>> expectedRequired = requiredSymbols.stream()
+                .map(list -> list.stream()
+                        .map(symbolAliases::get)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+        List<List<SymbolReference>> actualRequired = tableFunctionProcessorNode.getRequiredSymbols().stream()
+                .map(list -> list.stream()
+                        .map(Symbol::toSymbolReference)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+        if (!expectedRequired.equals(actualRequired)) {
             return NO_MATCH;
         }
 
@@ -121,6 +145,12 @@ public class TableFunctionProcessorMatcher
             }
         }
 
+        if (hashSymbol.isPresent()) {
+            if (!hashSymbol.map(symbolAliases::get).equals(tableFunctionProcessorNode.getHashSymbol().map(Symbol::toSymbolReference))) {
+                return NO_MATCH;
+            }
+        }
+
         ImmutableMap.Builder<String, SymbolReference> properOutputsMapping = ImmutableMap.builder();
         for (int i = 0; i < properOutputs.size(); i++) {
             properOutputsMapping.put(properOutputs.get(i), tableFunctionProcessorNode.getProperOutputs().get(i).toSymbolReference());
@@ -140,8 +170,10 @@ public class TableFunctionProcessorMatcher
                 .add("name", name)
                 .add("properOutputs", properOutputs)
                 .add("passThroughSymbols", passThroughSymbols)
+                .add("requiredSymbols", requiredSymbols)
                 .add("markerSymbols", markerSymbols)
                 .add("specification", specification)
+                .add("hashSymbol", hashSymbol)
                 .toString();
     }
 
@@ -150,9 +182,11 @@ public class TableFunctionProcessorMatcher
         private final Optional<PlanMatchPattern> source;
         private String name;
         private List<String> properOutputs = ImmutableList.of();
-        private Set<String> passThroughSymbols = ImmutableSet.of();
+        private List<List<String>> passThroughSymbols = ImmutableList.of();
+        private List<List<String>> requiredSymbols = ImmutableList.of();
         private Optional<Map<String, String>> markerSymbols = Optional.empty();
         private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
+        private Optional<String> hashSymbol = Optional.empty();
 
         public Builder()
         {
@@ -176,9 +210,15 @@ public class TableFunctionProcessorMatcher
             return this;
         }
 
-        public Builder passThroughSymbols(Set<String> passThroughSymbols)
+        public Builder passThroughSymbols(List<List<String>> passThroughSymbols)
         {
             this.passThroughSymbols = passThroughSymbols;
+            return this;
+        }
+
+        public Builder requiredSymbols(List<List<String>> requiredSymbols)
+        {
+            this.requiredSymbols = requiredSymbols;
             return this;
         }
 
@@ -194,11 +234,17 @@ public class TableFunctionProcessorMatcher
             return this;
         }
 
+        public Builder hashSymbol(String hashSymbol)
+        {
+            this.hashSymbol = Optional.of(hashSymbol);
+            return this;
+        }
+
         public PlanMatchPattern build()
         {
             PlanMatchPattern[] sources = source.map(sourcePattern -> new PlanMatchPattern[] {sourcePattern}).orElse(new PlanMatchPattern[] {});
             return node(TableFunctionProcessorNode.class, sources)
-                    .with(new TableFunctionProcessorMatcher(name, properOutputs, passThroughSymbols, markerSymbols, specification));
+                    .with(new TableFunctionProcessorMatcher(name, properOutputs, passThroughSymbols, requiredSymbols, markerSymbols, specification, hashSymbol));
         }
     }
 }

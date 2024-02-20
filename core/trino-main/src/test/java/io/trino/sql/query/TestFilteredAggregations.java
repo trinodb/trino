@@ -16,9 +16,8 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.FilterNode;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -26,24 +25,16 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
 
 public class TestFilteredAggregations
         extends BasePlanTest
 {
-    private QueryAssertions assertions;
+    private final QueryAssertions assertions = new QueryAssertions();
 
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -152,10 +143,10 @@ public class TestFilteredAggregations
 
     private void assertPlanContainsNoFilter(String sql)
     {
-        assertFalse(
-                searchFrom(plan(sql, OPTIMIZED).getRoot())
-                        .whereIsInstanceOfAny(FilterNode.class)
-                        .matches(),
-                "Unexpected node for query: " + sql);
+        assertThat(searchFrom(plan(sql, OPTIMIZED).getRoot())
+                .whereIsInstanceOfAny(FilterNode.class)
+                .matches())
+                .describedAs("Unexpected node for query: " + sql)
+                .isFalse();
     }
 }

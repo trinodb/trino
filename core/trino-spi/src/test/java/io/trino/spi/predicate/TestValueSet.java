@@ -15,7 +15,7 @@ package io.trino.spi.predicate;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

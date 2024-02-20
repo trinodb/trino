@@ -17,11 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.math.LongMath;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.BooleanReadFunction;
@@ -65,15 +67,15 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
-import io.trino.plugin.jdbc.expression.RewriteComparison;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.MapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -108,8 +110,6 @@ import org.jdbi.v3.core.Jdbi;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 
-import javax.inject.Inject;
-
 import java.io.IOException;
 import java.sql.Array;
 import java.sql.Connection;
@@ -130,9 +130,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -228,6 +230,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Objects.requireNonNull;
@@ -272,8 +275,8 @@ public class PostgreSqlClient
     private final MapType varcharMapType;
     private final List<String> tableTypes;
     private final boolean statisticsEnabled;
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
     public PostgreSqlClient(
@@ -300,12 +303,19 @@ public class PostgreSqlClient
 
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
+        Predicate<ConnectorSession> pushdownWithCollateEnabled = PostgreSqlSessionProperties::isEnableStringPushdownWithCollate;
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
-                // TODO allow all comparison operators for numeric types
-                .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
                 .add(new RewriteIn())
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
+                .withTypeClass("numeric_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint", "decimal", "real", "double"))
+                .map("$equal(left, right)").to("left = right")
+                .map("$not_equal(left, right)").to("left <> right")
+                .map("$is_distinct_from(left, right)").to("left IS DISTINCT FROM right")
+                .map("$less_than(left: numeric_type, right: numeric_type)").to("left < right")
+                .map("$less_than_or_equal(left: numeric_type, right: numeric_type)").to("left <= right")
+                .map("$greater_than(left: numeric_type, right: numeric_type)").to("left > right")
+                .map("$greater_than_or_equal(left: numeric_type, right: numeric_type)").to("left >= right")
                 .map("$add(left: integer_type, right: integer_type)").to("left + right")
                 .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
                 .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
@@ -318,12 +328,17 @@ public class PostgreSqlClient
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")
                 .map("$nullif(first, second)").to("NULLIF(first, second)")
+                .withTypeClass("collatable_type", ImmutableSet.of("char", "varchar"))
+                .when(pushdownWithCollateEnabled).map("$less_than(left: collatable_type, right: collatable_type)").to("left < right COLLATE \"C\"")
+                .when(pushdownWithCollateEnabled).map("$less_than_or_equal(left: collatable_type, right: collatable_type)").to("left <= right COLLATE \"C\"")
+                .when(pushdownWithCollateEnabled).map("$greater_than(left: collatable_type, right: collatable_type)").to("left > right COLLATE \"C\"")
+                .when(pushdownWithCollateEnabled).map("$greater_than_or_equal(left: collatable_type, right: collatable_type)").to("left >= right COLLATE \"C\"")
                 .build();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementMinMax(false))
                         .add(new ImplementCount(bigintTypeHandle))
@@ -357,10 +372,30 @@ public class PostgreSqlClient
     }
 
     @Override
-    public Optional<String> getTableComment(ResultSet resultSet)
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
-        // Don't return a comment until the connector supports creating tables with comment
-        return Optional.empty();
+        checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
+        ImmutableList.Builder<String> createTableSqlsBuilder = ImmutableList.builder();
+        createTableSqlsBuilder.add(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns)));
+        Optional<String> tableComment = tableMetadata.getComment();
+        if (tableComment.isPresent()) {
+            createTableSqlsBuilder.add(buildTableCommentSql(remoteTableName, tableComment));
+        }
+        return createTableSqlsBuilder.build();
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        execute(session, buildTableCommentSql(handle.asPlainTable().getRemoteTableName(), comment));
+    }
+
+    private String buildTableCommentSql(RemoteTableName remoteTableName, Optional<String> comment)
+    {
+        return format(
+                "COMMENT ON TABLE %s IS %s",
+                quoted(remoteTableName),
+                comment.map(BaseJdbcClient::varcharLiteral).orElse("NULL"));
     }
 
     @Override
@@ -378,13 +413,17 @@ public class PostgreSqlClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
         // fetch-size is ignored when connection is in auto-commit
         connection.setAutoCommit(false);
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(1000);
+        // This is a heuristic, not exact science. A better formula can perhaps be found with measurements.
+        // Column count is not known for non-SELECT queries. Not setting fetch size for these.
+        if (columnCount.isPresent()) {
+            statement.setFetchSize(max(100_000 / columnCount.get(), 1_000));
+        }
         return statement;
     }
 
@@ -637,6 +676,21 @@ public class PostgreSqlClient
     }
 
     @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        if (type instanceof TimeType timeType && timeType.getPrecision() > POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            return Optional.of(createTimeType(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+        }
+        if (type instanceof TimestampType timestampType && timestampType.getPrecision() > POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            return Optional.of(createTimestampType(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+        }
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() > POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            return Optional.of(createTimestampWithTimeZoneType(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type == BOOLEAN) {
@@ -695,29 +749,21 @@ public class PostgreSqlClient
         }
 
         if (type instanceof TimeType timeType) {
-            if (timeType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
-            }
-            return WriteMapping.longMapping(format("time(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), timeWriteFunction(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+            verify(timeType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+            return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
         }
 
         if (type instanceof TimestampType timestampType) {
-            if (timestampType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
-                return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), PostgreSqlClient::shortTimestampWriteFunction);
-            }
-            verify(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION);
-            return WriteMapping.objectMapping(format("timestamp(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction());
+            verify(timestampType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+            return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), PostgreSqlClient::shortTimestampWriteFunction);
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            if (timestampWithTimeZoneType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                String dataType = format("timestamptz(%d)", timestampWithTimeZoneType.getPrecision());
-                if (timestampWithTimeZoneType.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
-                    return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
-                }
-                return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
+            verify(timestampWithTimeZoneType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+            String dataType = format("timestamptz(%d)", timestampWithTimeZoneType.getPrecision());
+            if (timestampWithTimeZoneType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
             }
-            return WriteMapping.objectMapping(format("timestamptz(%d)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWithTimeZoneWriteFunction());
+            return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
         }
         if (type.equals(jsonType)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
@@ -749,7 +795,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
@@ -834,6 +880,7 @@ public class PostgreSqlClient
         checkArgument(handle.isNamedRelation(), "Unable to delete from synthetic table: %s", handle);
         checkArgument(handle.getLimit().isEmpty(), "Unable to delete when limit is set: %s", handle);
         checkArgument(handle.getSortOrder().isEmpty(), "Unable to delete when sort order is set: %s", handle);
+        checkArgument(handle.getUpdateAssignments().isEmpty(), "Unable to delete when update assignments are set: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             PreparedQuery preparedQuery = queryBuilder.prepareDeleteQuery(
@@ -843,7 +890,7 @@ public class PostgreSqlClient
                     handle.getRequiredNamedRelation(),
                     handle.getConstraint(),
                     getAdditionalPredicate(handle.getConstraintExpressions(), Optional.empty()));
-            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
+            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
                 int affectedRowsCount = preparedStatement.executeUpdate();
                 // In getPreparedStatement we set autocommit to false so here we need an explicit commit
                 connection.commit();
@@ -853,6 +900,41 @@ public class PostgreSqlClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        checkArgument(handle.isNamedRelation(), "Unable to update from synthetic table: %s", handle);
+        checkArgument(handle.getLimit().isEmpty(), "Unable to update when limit is set: %s", handle);
+        checkArgument(handle.getSortOrder().isEmpty(), "Unable to update when sort order is set: %s", handle);
+        checkArgument(!handle.getUpdateAssignments().isEmpty(), "Unable to update when update assignments are not set: %s", handle);
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
+            PreparedQuery preparedQuery = queryBuilder.prepareUpdateQuery(
+                    this,
+                    session,
+                    connection,
+                    handle.getRequiredNamedRelation(),
+                    handle.getConstraint(),
+                    getAdditionalPredicate(handle.getConstraintExpressions(), Optional.empty()),
+                    handle.getUpdateAssignments());
+            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
+                int affectedRows = preparedStatement.executeUpdate();
+                // In getPreparedStatement we set autocommit to false so here we need an explicit commit
+                connection.commit();
+                return OptionalLong.of(affectedRows);
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        return getMaxColumnNameLengthFromDatabaseMetaData(session);
     }
 
     @Override
@@ -888,7 +970,10 @@ public class PostgreSqlClient
                 return TableStatistics.empty();
             }
             long rowCount = optionalRowCount.get();
-
+            if (rowCount == -1) {
+                // Table has never yet been vacuumed or analyzed
+                return TableStatistics.empty();
+            }
             TableStatistics.Builder tableStatistics = TableStatistics.builder();
             tableStatistics.setRowCount(Estimate.of(rowCount));
 
@@ -966,6 +1051,30 @@ public class PostgreSqlClient
             ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
+            JoinStatistics statistics)
+    {
+        if (joinType == JoinType.FULL_OUTER) {
+            // FULL JOIN is only supported with merge-joinable or hash-joinable join conditions
+            return Optional.empty();
+        }
+        return implementJoinCostAware(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                statistics,
+                () -> super.implementJoin(session, joinType, leftSource, leftProjections, rightSource, rightProjections, joinConditions, statistics));
+    }
+
+    @Override
+    public Optional<PreparedQuery> legacyImplementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
             PreparedQuery rightSource,
             List<JdbcJoinCondition> joinConditions,
             Map<JdbcColumnHandle, String> rightAssignments,
@@ -982,7 +1091,7 @@ public class PostgreSqlClient
                 leftSource,
                 rightSource,
                 statistics,
-                () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
+                () -> super.legacyImplementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
     }
 
     @Override
@@ -1127,7 +1236,7 @@ public class PostgreSqlClient
 
     private static ObjectWriteFunction longTimestampWriteFunction()
     {
-        return ObjectWriteFunction.of(LongTimestamp.class, ((statement, index, timestamp) -> {
+        return ObjectWriteFunction.of(LongTimestamp.class, (statement, index, timestamp) -> {
             // PostgreSQL supports up to 6 digits of precision
             //noinspection ConstantConditions
             verify(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION == 6);
@@ -1137,7 +1246,7 @@ public class PostgreSqlClient
                 epochMicros++;
             }
             shortTimestampWriteFunction(statement, index, epochMicros);
-        }));
+        });
     }
 
     @Override
@@ -1224,7 +1333,7 @@ public class PostgreSqlClient
 
     private ObjectReadFunction varcharMapReadFunction()
     {
-        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+        return ObjectReadFunction.of(SqlMap.class, (resultSet, columnIndex) -> {
             @SuppressWarnings("unchecked")
             Map<String, String> map = (Map<String, String>) resultSet.getObject(columnIndex);
             BlockBuilder keyBlockBuilder = varcharMapType.getKeyType().createBlockBuilder(null, map.size());
@@ -1241,18 +1350,24 @@ public class PostgreSqlClient
                     varcharMapType.getValueType().writeSlice(valueBlockBuilder, utf8Slice(entry.getValue()));
                 }
             }
-            return varcharMapType.createBlockFromKeyValue(Optional.empty(), new int[] {0, map.size()}, keyBlockBuilder.build(), valueBlockBuilder.build())
-                    .getObject(0, Block.class);
+            MapBlock mapBlock = varcharMapType.createBlockFromKeyValue(Optional.empty(), new int[] {0, map.size()}, keyBlockBuilder.build(), valueBlockBuilder.build());
+            return varcharMapType.getObject(mapBlock, 0);
         });
     }
 
     private ObjectWriteFunction hstoreWriteFunction(ConnectorSession session)
     {
-        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            checkArgument(block instanceof SingleMapBlock, "wrong block type: %s. expected SingleMapBlock", block.getClass().getSimpleName());
+        return ObjectWriteFunction.of(SqlMap.class, (statement, index, sqlMap) -> {
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
+
+            Type keyType = varcharMapType.getKeyType();
+            Type valueType = varcharMapType.getValueType();
+
             Map<Object, Object> map = new HashMap<>();
-            for (int i = 0; i < block.getPositionCount(); i += 2) {
-                map.put(varcharMapType.getKeyType().getObjectValue(session, block, i), varcharMapType.getValueType().getObjectValue(session, block, i + 1));
+            for (int i = 0; i < sqlMap.getSize(); i++) {
+                map.put(keyType.getObjectValue(session, rawKeyBlock, rawOffset + i), valueType.getObjectValue(session, rawValueBlock, rawOffset + i));
             }
             statement.setObject(index, Collections.unmodifiableMap(map));
         });

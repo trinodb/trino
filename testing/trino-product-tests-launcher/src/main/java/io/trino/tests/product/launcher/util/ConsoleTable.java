@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ConsoleTable
 {
-    private ImmutableList.Builder<TableElement> builder = ImmutableList.builder();
+    private final ImmutableList.Builder<TableElement> builder = ImmutableList.builder();
 
     public void addSeparator()
     {
@@ -211,7 +211,7 @@ public class ConsoleTable
                         value = lines.get(col).get(row);
                     }
 
-                    builder.append("|").append(" " + pad(value, columnsWidth[col], alignment) + " ");
+                    builder.append("|").append(" ").append(pad(value, columnsWidth[col], alignment)).append(" ");
                     if (col == columnsWidth.length - 1) {
                         builder.append("|");
                     }

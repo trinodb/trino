@@ -16,8 +16,10 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.Page;
@@ -29,21 +31,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -75,14 +67,22 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.readBigDecimal;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -92,6 +92,8 @@ import static org.apache.iceberg.FileContent.DATA;
 public class IcebergPageSink
         implements ConnectorPageSink
 {
+    private static final Logger LOG = Logger.get(IcebergPageSink.class);
+
     private static final int MAX_PAGE_POSITIONS = 4096;
 
     private final int maxOpenWriters;
@@ -106,12 +108,13 @@ public class IcebergPageSink
     private final MetricsConfig metricsConfig;
     private final PagePartitioner pagePartitioner;
     private final long targetMaxFileSize;
+    private final long idleWriterMinFileSize;
     private final Map<String, String> storageProperties;
     private final List<TrinoSortField> sortOrder;
     private final boolean sortedWritingEnabled;
     private final DataSize sortingFileWriterBufferSize;
     private final Integer sortingFileWriterMaxOpenFiles;
-    private final Path tempDirectory;
+    private final Location tempDirectory;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
     private final List<Type> columnTypes;
@@ -121,6 +124,7 @@ public class IcebergPageSink
     private final List<WriteContext> writers = new ArrayList<>();
     private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final Collection<Slice> commitTasks = new ArrayList<>();
+    private final List<Boolean> activeWriters = new ArrayList<>();
 
     private long writtenBytes;
     private long memoryUsage;
@@ -158,13 +162,13 @@ public class IcebergPageSink
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec));
         this.targetMaxFileSize = IcebergSessionProperties.getTargetMaxFileSize(session);
+        this.idleWriterMinFileSize = IcebergSessionProperties.getIdleWriterMinFileSize(session);
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
         this.sortedWritingEnabled = isSortedWritingEnabled(session);
         this.sortingFileWriterBufferSize = requireNonNull(sortingFileWriterBufferSize, "sortingFileWriterBufferSize is null");
         this.sortingFileWriterMaxOpenFiles = sortingFileWriterMaxOpenFiles;
-        String tempDirectoryPath = locationProvider.newDataLocation("trino-tmp-files");
-        this.tempDirectory = new Path(tempDirectoryPath);
+        this.tempDirectory = Location.of(locationProvider.newDataLocation("trino-tmp-files"));
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.columnTypes = getColumns(outputSchema, typeManager).stream()
@@ -255,13 +259,12 @@ public class IcebergPageSink
 
     private void doAppend(Page page)
     {
-        while (page.getPositionCount() > MAX_PAGE_POSITIONS) {
-            Page chunk = page.getRegion(0, MAX_PAGE_POSITIONS);
-            page = page.getRegion(MAX_PAGE_POSITIONS, page.getPositionCount() - MAX_PAGE_POSITIONS);
+        int writeOffset = 0;
+        while (writeOffset < page.getPositionCount()) {
+            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, MAX_PAGE_POSITIONS));
+            writeOffset += chunk.getPositionCount();
             writePage(chunk);
         }
-
-        writePage(page);
     }
 
     private void writePage(Page page)
@@ -303,7 +306,9 @@ public class IcebergPageSink
                 pageForWriter = pageForWriter.getPositions(positions, 0, positions.length);
             }
 
-            IcebergFileWriter writer = writers.get(index).getWriter();
+            WriteContext writeContext = writers.get(index);
+            verify(writeContext != null, "Expected writer at index %s", index);
+            IcebergFileWriter writer = writeContext.getWriter();
 
             long currentWritten = writer.getWrittenBytes();
             long currentMemory = writer.getMemoryUsage();
@@ -312,6 +317,8 @@ public class IcebergPageSink
 
             writtenBytes += (writer.getWrittenBytes() - currentWritten);
             memoryUsage += (writer.getMemoryUsage() - currentMemory);
+            // Mark this writer as active (i.e. not idle)
+            activeWriters.set(index, true);
         }
     }
 
@@ -326,6 +333,7 @@ public class IcebergPageSink
         // expand writers list to new size
         while (writers.size() <= pagePartitioner.getMaxIndex()) {
             writers.add(null);
+            activeWriters.add(false);
         }
 
         // create missing writers
@@ -348,7 +356,8 @@ public class IcebergPageSink
                     .orElseGet(() -> locationProvider.newDataLocation(fileName));
 
             if (!sortOrder.isEmpty() && sortedWritingEnabled) {
-                Path tempFilePrefix = new Path(tempDirectory, "sorting-file-writer-%s-%s".formatted(session.getQueryId(), randomUUID()));
+                String tempName = "sorting-file-writer-%s-%s".formatted(session.getQueryId(), randomUUID());
+                Location tempFilePrefix = tempDirectory.appendPath(tempName);
                 WriteContext writerContext = createWriter(outputPath, partitionData);
                 IcebergFileWriter sortedFileWriter = new IcebergSortingFileWriter(
                         fileSystem,
@@ -371,14 +380,30 @@ public class IcebergPageSink
             memoryUsage += writer.getWriter().getMemoryUsage();
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
-        verify(!writers.contains(null));
 
         return writerIndexes;
+    }
+
+    @Override
+    public void closeIdleWriters()
+    {
+        for (int writerIndex = 0; writerIndex < writers.size(); writerIndex++) {
+            WriteContext writeContext = writers.get(writerIndex);
+            if (activeWriters.get(writerIndex) || writeContext == null || writeContext.getWriter().getWrittenBytes() <= idleWriterMinFileSize) {
+                activeWriters.set(writerIndex, false);
+                continue;
+            }
+            LOG.debug("Closing writer %s with %s bytes written", writerIndex, writeContext.getWriter().getWrittenBytes());
+            closeWriter(writerIndex);
+        }
     }
 
     private void closeWriter(int writerIndex)
     {
         WriteContext writeContext = writers.get(writerIndex);
+        if (writeContext == null) {
+            return;
+        }
         IcebergFileWriter writer = writeContext.getWriter();
 
         long currentWritten = writer.getWrittenBytes();
@@ -400,8 +425,6 @@ public class IcebergPageSink
                 PartitionSpecParser.toJson(partitionSpec),
                 writeContext.getPartitionData().map(PartitionData::toJson),
                 DATA,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
@@ -411,7 +434,7 @@ public class IcebergPageSink
     {
         IcebergFileWriter writer = fileWriterFactory.createDataFileWriter(
                 fileSystem,
-                outputPath,
+                Location.of(outputPath),
                 outputSchema,
                 session,
                 fileFormat,
@@ -450,41 +473,50 @@ public class IcebergPageSink
         if (block.isNull(position)) {
             return null;
         }
-        if (type instanceof BigintType) {
-            return type.getLong(block, position);
+        if (type.equals(BIGINT)) {
+            return BIGINT.getLong(block, position);
         }
-        if (type instanceof IntegerType || type instanceof SmallintType || type instanceof TinyintType || type instanceof DateType) {
-            return toIntExact(type.getLong(block, position));
+        if (type.equals(TINYINT)) {
+            return (int) TINYINT.getByte(block, position);
         }
-        if (type instanceof BooleanType) {
-            return type.getBoolean(block, position);
+        if (type.equals(SMALLINT)) {
+            return (int) SMALLINT.getShort(block, position);
         }
-        if (type instanceof DecimalType) {
-            return readBigDecimal((DecimalType) type, block, position);
+        if (type.equals(INTEGER)) {
+            return INTEGER.getInt(block, position);
         }
-        if (type instanceof RealType) {
-            return intBitsToFloat(toIntExact(type.getLong(block, position)));
+        if (type.equals(DATE)) {
+            return DATE.getInt(block, position);
         }
-        if (type instanceof DoubleType) {
-            return type.getDouble(block, position);
+        if (type.equals(BOOLEAN)) {
+            return BOOLEAN.getBoolean(block, position);
+        }
+        if (type instanceof DecimalType decimalType) {
+            return readBigDecimal(decimalType, block, position);
+        }
+        if (type.equals(REAL)) {
+            return REAL.getFloat(block, position);
+        }
+        if (type.equals(DOUBLE)) {
+            return DOUBLE.getDouble(block, position);
         }
         if (type.equals(TIME_MICROS)) {
-            return type.getLong(block, position) / PICOSECONDS_PER_MICROSECOND;
+            return TIME_MICROS.getLong(block, position) / PICOSECONDS_PER_MICROSECOND;
         }
         if (type.equals(TIMESTAMP_MICROS)) {
-            return type.getLong(block, position);
+            return TIMESTAMP_MICROS.getLong(block, position);
         }
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
             return timestampTzToMicros(getTimestampTz(block, position));
         }
-        if (type instanceof VarbinaryType) {
-            return type.getSlice(block, position).getBytes();
+        if (type instanceof VarbinaryType varbinaryType) {
+            return varbinaryType.getSlice(block, position).getBytes();
         }
-        if (type instanceof VarcharType) {
-            return type.getSlice(block, position).toStringUtf8();
+        if (type instanceof VarcharType varcharType) {
+            return varcharType.getSlice(block, position).toStringUtf8();
         }
-        if (type instanceof UuidType) {
-            return trinoUuidToJavaUuid(type.getSlice(block, position));
+        if (type.equals(UUID)) {
+            return trinoUuidToJavaUuid(UUID.getSlice(block, position));
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }

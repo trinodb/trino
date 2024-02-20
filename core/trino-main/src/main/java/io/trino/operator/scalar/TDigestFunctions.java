@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.Ordering;
+import com.google.common.primitives.Doubles;
 import io.airlift.stats.TDigest;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -22,10 +23,6 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import java.util.List;
-import java.util.stream.IntStream;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.util.Failures.checkCondition;
@@ -49,13 +46,13 @@ public final class TDigestFunctions
     @SqlType("array(double)")
     public static Block valuesAtQuantiles(@SqlType(StandardTypes.TDIGEST) TDigest input, @SqlType("array(double)") Block percentilesArrayBlock)
     {
-        List<Double> percentiles = IntStream.range(0, percentilesArrayBlock.getPositionCount())
-                .mapToDouble(i -> DOUBLE.getDouble(percentilesArrayBlock, i))
-                .boxed()
-                .collect(toImmutableList());
-        checkCondition(Ordering.natural().isOrdered(percentiles), INVALID_FUNCTION_ARGUMENT, "percentiles must be sorted in increasing order");
+        double[] percentiles = new double[percentilesArrayBlock.getPositionCount()];
+        for (int i = 0; i < percentiles.length; i++) {
+            percentiles[i] = DOUBLE.getDouble(percentilesArrayBlock, i);
+        }
+        checkCondition(Ordering.natural().isOrdered(Doubles.asList(percentiles)), INVALID_FUNCTION_ARGUMENT, "percentiles must be sorted in increasing order");
         BlockBuilder output = DOUBLE.createBlockBuilder(null, percentilesArrayBlock.getPositionCount());
-        List<Double> valuesAtPercentiles = input.valuesAt(percentiles);
+        double[] valuesAtPercentiles = input.valuesAt(percentiles);
         for (Double value : valuesAtPercentiles) {
             DOUBLE.writeDouble(output, value);
         }

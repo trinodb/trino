@@ -13,78 +13,105 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multiset;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.plugin.deltalake.AccessTrackingFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.SchemaTableName;
-import org.apache.hadoop.fs.Path;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.TypeManager;
+import io.trino.testing.TestingConnectorContext;
+import io.trino.testing.TestingTelemetry;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
+import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
+import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.load;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestTableSnapshot
 {
     private final ParquetReaderOptions parquetReaderOptions = new ParquetReaderConfig().toParquetReaderOptions();
     private final int domainCompactionThreshold = 32;
 
     private CheckpointSchemaManager checkpointSchemaManager;
-    private AccessTrackingFileSystemFactory accessTrackingFileSystemFactory;
-    private TrinoFileSystem accessTrackingFileSystem;
-    private Path tableLocation;
+    private TracingFileSystemFactory tracingFileSystemFactory;
+    private TestingTelemetry testingTelemetry = TestingTelemetry.create("test-table-snapshot");
+    private TrinoFileSystem trackingFileSystem;
+    private String tableLocation;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
             throws URISyntaxException
     {
         checkpointSchemaManager = new CheckpointSchemaManager(TESTING_TYPE_MANAGER);
-        URI deltaLogPath = getClass().getClassLoader().getResource("databricks/person").toURI();
-        tableLocation = new Path(deltaLogPath);
+        tableLocation = getClass().getClassLoader().getResource("databricks73/person").toURI().toString();
 
-        accessTrackingFileSystemFactory = new AccessTrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
-        accessTrackingFileSystem = accessTrackingFileSystemFactory.create(SESSION);
+        tracingFileSystemFactory = new TracingFileSystemFactory(testingTelemetry.getTracer(), new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
+        trackingFileSystem = tracingFileSystemFactory.create(SESSION);
     }
 
     @Test
     public void testOnlyReadsTrailingJsonFiles()
-            throws IOException
+            throws Exception
     {
-        Map<String, Integer> expectedFileAccess = new HashMap<>();
-        TableSnapshot tableSnapshot = TableSnapshot.load(
-                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
-        expectedFileAccess.put("_last_checkpoint", 1);
-        expectedFileAccess.put("00000000000000000011.json", 1);
-        expectedFileAccess.put("00000000000000000012.json", 1);
-        expectedFileAccess.put("00000000000000000013.json", 1);
-        expectedFileAccess.put("00000000000000000014.json", 1);
-        assertEquals(accessTrackingFileSystemFactory.getOpenCount(), expectedFileAccess);
+        AtomicReference<TableSnapshot> tableSnapshot = new AtomicReference<>();
+        assertFileSystemAccesses(
+                () -> {
+                    Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
+                    tableSnapshot.set(load(
+                            new SchemaTableName("schema", "person"),
+                            lastCheckpoint,
+                            trackingFileSystem,
+                            tableLocation,
+                            parquetReaderOptions,
+                            true,
+                            domainCompactionThreshold));
+                },
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation("_last_checkpoint", "InputFile.newStream"), 1)
+                        .addCopies(new FileOperation("00000000000000000011.json", "InputFile.newStream"), 1)
+                        .addCopies(new FileOperation("00000000000000000012.json", "InputFile.newStream"), 1)
+                        .addCopies(new FileOperation("00000000000000000013.json", "InputFile.newStream"), 1)
+                        .addCopies(new FileOperation("00000000000000000014.json", "InputFile.newStream"), 1)
+                        .build());
 
-        tableSnapshot.getJsonTransactionLogEntries().forEach(entry -> {});
-        assertEquals(accessTrackingFileSystemFactory.getOpenCount(), expectedFileAccess);
+        assertFileSystemAccesses(
+                () -> {
+                    tableSnapshot.get().getJsonTransactionLogEntries().forEach(entry -> {});
+                },
+                ImmutableMultiset.of());
     }
 
     // TODO: Can't test the FileSystem access here because the DeltaLakePageSourceProvider doesn't use the FileSystem passed into the TableSnapshot. (https://github.com/trinodb/trino/issues/12040)
@@ -92,11 +119,37 @@ public class TestTableSnapshot
     public void readsCheckpointFile()
             throws IOException
     {
-        TableSnapshot tableSnapshot = TableSnapshot.load(
-                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
-        tableSnapshot.setCachedMetadata(Optional.of(new MetadataEntry("id", "name", "description", null, "schema", ImmutableList.of(), ImmutableMap.of(), 0)));
+        Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
+        TableSnapshot tableSnapshot = load(
+                new SchemaTableName("schema", "person"),
+                lastCheckpoint,
+                trackingFileSystem,
+                tableLocation,
+                parquetReaderOptions,
+                true,
+                domainCompactionThreshold);
+        TestingConnectorContext context = new TestingConnectorContext();
+        TypeManager typeManager = context.getTypeManager();
+        TransactionLogAccess transactionLogAccess = new TransactionLogAccess(
+                typeManager,
+                new CheckpointSchemaManager(typeManager),
+                new DeltaLakeConfig(),
+                new FileFormatDataSourceStats(),
+                tracingFileSystemFactory,
+                new ParquetReaderConfig());
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
+        tableSnapshot.setCachedMetadata(Optional.of(metadataEntry));
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
-                SESSION, ImmutableSet.of(ADD), checkpointSchemaManager, TESTING_TYPE_MANAGER, accessTrackingFileSystem, new FileFormatDataSourceStats())) {
+                SESSION,
+                ImmutableSet.of(ADD),
+                checkpointSchemaManager,
+                TESTING_TYPE_MANAGER,
+                trackingFileSystem,
+                new FileFormatDataSourceStats(),
+                Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()))) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(9);
@@ -115,7 +168,8 @@ public class TestTableSnapshot
                                     "\"nullCount\":{\"name\":0,\"married\":0,\"phones\":0,\"address\":{\"street\":0,\"city\":0,\"state\":0,\"zip\":0},\"income\":0}" +
                                     "}"),
                             Optional.empty(),
-                            null));
+                            null,
+                            Optional.empty()));
 
             assertThat(entries).element(7).extracting(DeltaLakeTransactionLogEntry::getAdd).isEqualTo(
                     new AddFileEntry(
@@ -131,12 +185,21 @@ public class TestTableSnapshot
                                     "\"nullCount\":{\"name\":0,\"married\":0,\"phones\":0,\"address\":{\"street\":0,\"city\":0,\"state\":0,\"zip\":0},\"income\":0}" +
                                     "}"),
                             Optional.empty(),
-                            null));
+                            null,
+                            Optional.empty()));
         }
 
         // lets read two entry types in one call; add and protocol
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
-                SESSION, ImmutableSet.of(ADD, PROTOCOL), checkpointSchemaManager, TESTING_TYPE_MANAGER, accessTrackingFileSystem, new FileFormatDataSourceStats())) {
+                SESSION,
+                ImmutableSet.of(ADD, PROTOCOL),
+                checkpointSchemaManager,
+                TESTING_TYPE_MANAGER,
+                trackingFileSystem,
+                new FileFormatDataSourceStats(),
+                Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()))) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(10);
@@ -155,9 +218,10 @@ public class TestTableSnapshot
                                     "\"nullCount\":{\"name\":0,\"married\":0,\"phones\":0,\"address\":{\"street\":0,\"city\":0,\"state\":0,\"zip\":0},\"income\":0}" +
                                     "}"),
                             Optional.empty(),
-                            null));
+                            null,
+                            Optional.empty()));
 
-            assertThat(entries).element(6).extracting(DeltaLakeTransactionLogEntry::getProtocol).isEqualTo(new ProtocolEntry(1, 2));
+            assertThat(entries).element(6).extracting(DeltaLakeTransactionLogEntry::getProtocol).isEqualTo(new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()));
 
             assertThat(entries).element(8).extracting(DeltaLakeTransactionLogEntry::getAdd).isEqualTo(
                     new AddFileEntry(
@@ -173,7 +237,8 @@ public class TestTableSnapshot
                                     "\"nullCount\":{\"name\":0,\"married\":0,\"phones\":0,\"address\":{\"street\":0,\"city\":0,\"state\":0,\"zip\":0},\"income\":0}" +
                                     "}"),
                             Optional.empty(),
-                            null));
+                            null,
+                            Optional.empty()));
         }
     }
 
@@ -181,8 +246,38 @@ public class TestTableSnapshot
     public void testMaxTransactionId()
             throws IOException
     {
-        TableSnapshot tableSnapshot = TableSnapshot.load(
-                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
-        assertEquals(tableSnapshot.getVersion(), 13L);
+        Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
+        TableSnapshot tableSnapshot = load(
+                new SchemaTableName("schema", "person"),
+                lastCheckpoint,
+                trackingFileSystem,
+                tableLocation,
+                parquetReaderOptions,
+                true,
+                domainCompactionThreshold);
+        assertThat(tableSnapshot.getVersion()).isEqualTo(13L);
+    }
+
+    private void assertFileSystemAccesses(TestingTelemetry.CheckedRunnable<?> callback, Multiset<FileOperation> expectedAccesses)
+            throws Exception
+    {
+        assertMultisetsEqual(getOperations(testingTelemetry.captureSpans(callback::run)), expectedAccesses);
+    }
+
+    private Multiset<FileOperation> getOperations(List<SpanData> spans)
+    {
+        return spans.stream()
+                .filter(span -> span.getName().startsWith("InputFile."))
+                .map(span -> new FileOperation(span.getAttributes().get(FILE_LOCATION).replaceFirst(".*/_delta_log/", ""), span.getName()))
+                .collect(toCollection(HashMultiset::create));
+    }
+
+    private record FileOperation(String path, String operationType)
+    {
+        FileOperation
+        {
+            requireNonNull(path, "path is null");
+            requireNonNull(operationType, "operationType is null");
+        }
     }
 }

@@ -5,66 +5,53 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-delta-lake</artifactId>
-    <description>Trino - Delta Lake Connector Plugin</description>
     <packaging>trino-plugin</packaging>
+    <description>Trino - Delta Lake Connector Plugin</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-
-        <!--
-          Project's default for air.test.parallel is 'methods'. By design, 'instances' runs all the methods in the same instance in the same thread,
-          but two methods on two different instances will be running in different threads.
-          As a side effect, it prevents TestNG from initializing multiple test instances upfront, which happens with 'methods'.
-          A potential downside can be long tail single-threaded execution of a single long test class.
-          TODO (https://github.com/trinodb/trino/issues/11294) remove when we upgrade to surefire with https://issues.apache.org/jira/browse/SUREFIRE-1967
-          -->
-        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-collect</artifactId>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-glue</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-filesystem</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hdfs</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-parquet</artifactId>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-plugin-toolkit</artifactId>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hive</groupId>
-            <artifactId>hive-apache</artifactId>
+            <groupId>dev.failsafe</groupId>
+            <artifactId>failsafe</artifactId>
         </dependency>
 
         <dependency>
@@ -113,60 +100,43 @@
         </dependency>
 
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-core</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-cache</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-glue</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-manager</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hive</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.cloud.bigdataoss</groupId>
-            <artifactId>gcs-connector</artifactId>
-            <classifier>shaded</classifier>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parquet</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>dev.failsafe</groupId>
-            <artifactId>failsafe</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -180,6 +150,21 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-column</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-format-structures</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.roaringbitmap</groupId>
             <artifactId>RoaringBitmap</artifactId>
         </dependency>
@@ -189,29 +174,9 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_annotations</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- Trino SPI -->
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -222,8 +187,20 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -233,7 +210,94 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- for testing -->
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-core</artifactId>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.dataformat</groupId>
+                    <artifactId>jackson-dataformat-xml</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-storage-blob</artifactId>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.azure</groupId>
+                    <artifactId>azure-core-http-netty</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.dataformat</groupId>
+                    <artifactId>jackson-dataformat-xml</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-cache-alluxio</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-memory-context</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.alluxio</groupId>
+            <artifactId>alluxio-core-common</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.docker-java</groupId>
+            <artifactId>docker-java-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-client</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange-filesystem</artifactId>
@@ -244,6 +308,26 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange-filesystem</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-cache-alluxio</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hdfs</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -329,44 +413,14 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino.tpch</groupId>
             <artifactId>tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.azure</groupId>
-            <artifactId>azure-core</artifactId>
-            <version>1.25.0</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>jakarta.xml.bind</groupId>
-                    <artifactId>jakarta.xml.bind-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>jakarta.activation</groupId>
-                    <artifactId>jakarta.activation-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.azure</groupId>
-            <artifactId>azure-storage-blob</artifactId>
-            <version>12.14.4</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.docker-java</groupId>
-            <artifactId>docker-java-api</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -377,8 +431,14 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -406,29 +466,12 @@
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>org.basepom.maven</groupId>
-                <artifactId>duplicate-finder-maven-plugin</artifactId>
-                <configuration>
-                    <ignoredResourcePatterns>
-                        <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
-                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
-                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
-                    </ignoredResourcePatterns>
-                </configuration>
-            </plugin>
-
-            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredNonTestScopedDependencies>
@@ -464,6 +507,7 @@
                                 <exclude>**/TestDeltaLakeAdlsStorage.java</exclude>
                                 <exclude>**/TestDeltaLakeAdlsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDeltaLakeGlueMetastore.java</exclude>
+                                <exclude>**/TestDeltaS3AndGlueMetastoreTest.java</exclude>
                                 <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeSharedGlueMetastoreViews.java</exclude>
                                 <exclude>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</exclude>
@@ -482,7 +526,7 @@
         </profile>
 
         <profile>
-	    <!-- Tests which require third party cloud services are separated from the main test profile -->
+            <!-- Tests which require third party cloud services are separated from the main test profile -->
             <id>cloud-tests</id>
             <build>
                 <plugins>
@@ -494,6 +538,7 @@
                                 <include>**/TestDeltaLakeAdlsStorage.java</include>
                                 <include>**/TestDeltaLakeAdlsConnectorSmokeTest.java</include>
                                 <include>**/TestDeltaLakeGlueMetastore.java</include>
+                                <include>**/TestDeltaS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestDeltaLakeCleanUpGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeSharedGlueMetastoreViews.java</include>
                                 <include>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</include>
@@ -502,6 +547,7 @@
                                 <include>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</include>
                                 <include>**/TestDeltaLakeViewsGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeConcurrentModificationGlueMetastore.java</include>
+                                <include>**/TestDeltaLakeGcsConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -519,23 +565,6 @@
                         <configuration>
                             <includes>
                                 <include>**/Test*FailureRecoveryTest.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>gcs-tests</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
-                                <include>**/TestDeltaLakeGcsConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

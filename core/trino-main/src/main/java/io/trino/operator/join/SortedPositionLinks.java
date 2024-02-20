@@ -22,18 +22,17 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -45,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public final class SortedPositionLinks
         implements PositionLinks
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortedPositionLinks.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SortedPositionLinks.class);
 
     public static class FactoryBuilder
             implements PositionLinks.FactoryBuilder

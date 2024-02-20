@@ -16,22 +16,23 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.trino.plugin.hive.util.RetryDriver;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 public class ThriftMetastoreConfig
 {
-    private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
+    private Duration connectTimeout = new Duration(10, TimeUnit.SECONDS);
+    private Duration readTimeout = new Duration(10, TimeUnit.SECONDS);
     private HostAndPort socksProxy;
     private int maxRetries = RetryDriver.DEFAULT_MAX_ATTEMPTS - 1;
     private double backoffScaleFactor = RetryDriver.DEFAULT_SCALE_FACTOR;
@@ -52,17 +53,35 @@ public class ThriftMetastoreConfig
     private String trustStorePassword;
     private boolean assumeCanonicalPartitionKeys;
     private int writeStatisticsThreads = 20;
+    private boolean batchMetadataFetchEnabled = true;
 
     @NotNull
-    public Duration getMetastoreTimeout()
+    public Duration getConnectTimeout()
     {
-        return metastoreTimeout;
+        return connectTimeout;
     }
 
-    @Config("hive.metastore-timeout")
-    public ThriftMetastoreConfig setMetastoreTimeout(Duration metastoreTimeout)
+    @Config("hive.metastore.thrift.client.connect-timeout")
+    @LegacyConfig("hive.metastore-timeout")
+    @ConfigDescription("Socket connect timeout for metastore client")
+    public ThriftMetastoreConfig setConnectTimeout(Duration connectTimeout)
     {
-        this.metastoreTimeout = metastoreTimeout;
+        this.connectTimeout = connectTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getReadTimeout()
+    {
+        return readTimeout;
+    }
+
+    @Config("hive.metastore.thrift.client.read-timeout")
+    @LegacyConfig("hive.metastore-timeout")
+    @ConfigDescription("Socket read timeout for metastore client")
+    public ThriftMetastoreConfig setReadTimeout(Duration readTimeout)
+    {
+        this.readTimeout = readTimeout;
         return this;
     }
 
@@ -262,6 +281,7 @@ public class ThriftMetastoreConfig
 
     @Config("hive.metastore.thrift.client.ssl.key-password")
     @ConfigDescription("Password for the key store")
+    @ConfigSecuritySensitive
     public ThriftMetastoreConfig setKeystorePassword(String keystorePassword)
     {
         this.keystorePassword = keystorePassword;
@@ -289,6 +309,7 @@ public class ThriftMetastoreConfig
 
     @Config("hive.metastore.thrift.client.ssl.trust-certificate-password")
     @ConfigDescription("Password for the trust store")
+    @ConfigSecuritySensitive
     public ThriftMetastoreConfig setTruststorePassword(String trustStorePassword)
     {
         this.trustStorePassword = trustStorePassword;
@@ -324,6 +345,19 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
+        return this;
+    }
+
+    public boolean isBatchMetadataFetchEnabled()
+    {
+        return batchMetadataFetchEnabled;
+    }
+
+    @Config("hive.metastore.thrift.batch-fetch.enabled")
+    @ConfigDescription("Enables fetching tables and views from all schemas in a single request")
+    public ThriftMetastoreConfig setBatchMetadataFetchEnabled(boolean batchMetadataFetchEnabled)
+    {
+        this.batchMetadataFetchEnabled = batchMetadataFetchEnabled;
         return this;
     }
 }

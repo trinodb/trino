@@ -17,26 +17,29 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.ProcedureTester;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingProcedures;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // ProcedureTester is shared mutable state
 public class TestProcedureCall
         extends AbstractTestQueryFramework
 {
@@ -53,10 +56,10 @@ public class TestProcedureCall
         return TpchQueryRunnerBuilder.builder().build();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        QueryRunner queryRunner = getDistributedQueryRunner();
         tester = queryRunner.getCoordinator().getProcedureTester();
         session = testSessionBuilder()
                 .setCatalog(TESTING_CATALOG)
@@ -69,7 +72,7 @@ public class TestProcedureCall
         queryRunner.createCatalog(TESTING_CATALOG, "mock");
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         tester = null;
@@ -201,8 +204,8 @@ public class TestProcedureCall
     {
         tester.reset();
         assertUpdate(sql);
-        assertEquals(tester.getCalledName(), name);
-        assertEquals(tester.getCalledArguments(), list(arguments));
+        assertThat(tester.getCalledName()).isEqualTo(name);
+        assertThat(tester.getCalledArguments()).isEqualTo(list(arguments));
     }
 
     private void assertCallThrows(@Language("SQL") String sql, String name, String message)
@@ -210,8 +213,8 @@ public class TestProcedureCall
         tester.reset();
         assertThatThrownBy(() -> assertUpdate(sql))
                 .isInstanceOfSatisfying(RuntimeException.class, e -> {
-                    assertEquals(tester.getCalledName(), name);
-                    assertEquals(tester.getCalledArguments(), list());
+                    assertThat(tester.getCalledName()).isEqualTo(name);
+                    assertThat(tester.getCalledArguments()).isEqualTo(list());
                 })
                 .hasMessage(message);
     }
@@ -220,7 +223,7 @@ public class TestProcedureCall
     {
         tester.reset();
         assertThatThrownBy(() -> assertUpdate(sql))
-                .isInstanceOfSatisfying(RuntimeException.class, e -> assertFalse(tester.wasCalled()))
+                .isInstanceOfSatisfying(RuntimeException.class, e -> assertThat(tester.wasCalled()).isFalse())
                 .hasMessage(message);
     }
 

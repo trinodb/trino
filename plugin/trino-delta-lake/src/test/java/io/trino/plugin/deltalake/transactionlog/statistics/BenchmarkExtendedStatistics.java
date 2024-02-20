@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake.transactionlog.statistics;
 
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.spi.type.BigintType;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -31,7 +32,6 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
-import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -80,7 +80,7 @@ public class BenchmarkExtendedStatistics
         {
             columns = new ArrayList<>(columnsCount);
             for (int i = 0; i < columnsCount; i++) {
-                columns.add(new DeltaLakeColumnHandle("column_" + i, BigintType.BIGINT, OptionalInt.empty(), "column_" + i, BigintType.BIGINT, REGULAR));
+                columns.add(new DeltaLakeColumnHandle("column_" + i, BigintType.BIGINT, OptionalInt.empty(), "column_" + i, BigintType.BIGINT, REGULAR, Optional.empty()));
             }
 
             fileStatistics = new ArrayList<>(filesCount);
@@ -112,7 +112,7 @@ public class BenchmarkExtendedStatistics
         {
             Map<String, Object> map = new HashMap<>();
             for (DeltaLakeColumnHandle column : columns) {
-                map.put(column.getName(), random.nextLong());
+                map.put(column.getBaseColumnName(), random.nextLong());
             }
             return Optional.of(map);
         }
@@ -127,7 +127,7 @@ public class BenchmarkExtendedStatistics
                 DeltaLakeColumnHandle column = benchmarkData.columns.get(benchmarkData.random.nextInt(benchmarkData.columnsCount));
                 result += (long) statistics.getMaxColumnValue(column).get();
                 result += (long) statistics.getMinColumnValue(column).get();
-                result += statistics.getNullCount(column.getName()).get();
+                result += statistics.getNullCount(column.getBaseColumnName()).get();
             }
         }
         return result;

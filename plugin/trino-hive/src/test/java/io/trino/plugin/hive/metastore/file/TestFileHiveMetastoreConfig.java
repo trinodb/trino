@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -32,6 +32,7 @@ public class TestFileHiveMetastoreConfig
         assertRecordedDefaults(recordDefaults(FileHiveMetastoreConfig.class)
                 .setCatalogDirectory(null)
                 .setVersionCompatibility(NOT_SUPPORTED)
+                .setDisableLocationChecks(false)
                 .setMetastoreUser("presto"));
     }
 
@@ -41,12 +42,14 @@ public class TestFileHiveMetastoreConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.catalog.dir", "some path")
                 .put("hive.metastore.version-compatibility", "UNSAFE_ASSUME_COMPATIBILITY")
+                .put("hive.metastore.disable-location-checks", "true")
                 .put("hive.metastore.user", "some user")
                 .buildOrThrow();
 
         FileHiveMetastoreConfig expected = new FileHiveMetastoreConfig()
                 .setCatalogDirectory("some path")
                 .setVersionCompatibility(UNSAFE_ASSUME_COMPATIBILITY)
+                .setDisableLocationChecks(true)
                 .setMetastoreUser("some user");
 
         assertFullMapping(properties, expected);

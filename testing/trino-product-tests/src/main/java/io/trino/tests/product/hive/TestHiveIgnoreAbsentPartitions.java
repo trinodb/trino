@@ -24,13 +24,13 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -52,7 +52,6 @@ public class TestHiveIgnoreAbsentPartitions
 
     @Test
     public void testIgnoreAbsentPartitions()
-            throws Exception
     {
         String tableNameInDatabase = tablesState.get("test_table").getNameInDatabase();
         String tablePath = getTablePath(tableNameInDatabase, 1);
@@ -74,7 +73,6 @@ public class TestHiveIgnoreAbsentPartitions
 
     @Test
     public void testShouldThrowErrorOnUnpartitionedTableMissingData()
-            throws Exception
     {
         String tableName = "unpartitioned_absent_table_data";
 

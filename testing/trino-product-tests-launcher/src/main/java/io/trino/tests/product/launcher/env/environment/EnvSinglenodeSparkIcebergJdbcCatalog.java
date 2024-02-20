@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -23,15 +24,16 @@ import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
-import javax.inject.Inject;
+import java.io.File;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentDefaults.HADOOP_BASE_IMAGE;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -39,6 +41,8 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class EnvSinglenodeSparkIcebergJdbcCatalog
         extends EnvironmentProvider
 {
+    private static final File HIVE_JDBC_PROVIDER = new File("testing/trino-product-tests-launcher/target/hive-jdbc.jar");
+
     private static final int SPARK_THRIFT_PORT = 10213;
     // Use non-default PostgreSQL port to avoid conflicts with locally installed PostgreSQL if any.
     public static final int POSTGRESQL_PORT = 25432;
@@ -46,7 +50,6 @@ public class EnvSinglenodeSparkIcebergJdbcCatalog
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
     private final String imagesVersion;
-    private final String hadoopImagesVersion;
 
     @Inject
     public EnvSinglenodeSparkIcebergJdbcCatalog(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, EnvironmentConfig config, PortBinder portBinder)
@@ -55,25 +58,16 @@ public class EnvSinglenodeSparkIcebergJdbcCatalog
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = requireNonNull(config, "config is null").getImagesVersion();
-        this.hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
     }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        String dockerImageName = "ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion;
-
         builder.configureContainer(HADOOP, container -> {
-            container.setDockerImageName(dockerImageName);
+            container.setDockerImageName(HADOOP_BASE_IMAGE);
             container.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/apply-hive-config-for-iceberg.sh")),
                     CONTAINER_HADOOP_INIT_D + "/apply-hive-config-for-iceberg.sh");
-        });
-
-        builder.configureContainer(TESTS, dockerContainer -> {
-            dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
-                    CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
 
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg-jdbc-catalog/iceberg.properties")));
@@ -82,6 +76,10 @@ public class EnvSinglenodeSparkIcebergJdbcCatalog
 
         builder.addContainer(createSpark())
                 .containerDependsOn("spark", HADOOP);
+
+        builder.configureContainer(TESTS, dockerContainer -> dockerContainer
+                // Binding instead of copying for avoiding OutOfMemoryError https://github.com/testcontainers/testcontainers-java/issues/2863
+                .withFileSystemBind(HIVE_JDBC_PROVIDER.getParent(), "/docker/jdbc", BindMode.READ_ONLY));
     }
 
     @SuppressWarnings("resource")
@@ -112,6 +110,9 @@ public class EnvSinglenodeSparkIcebergJdbcCatalog
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg-jdbc-catalog/spark-defaults.conf")),
                             "/spark/conf/spark-defaults.conf")
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("common/spark/log4j2.properties")),
+                            "/spark/conf/log4j2.properties")
                     .withCommand(
                             "spark-submit",
                             "--master", "local[*]",

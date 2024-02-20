@@ -298,7 +298,7 @@ public class TupleDomainOrcPredicate
 
     private static <T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<T> rangeStatistics)
     {
-        return createDomain(type, hasNullValue, rangeStatistics, value -> value);
+        return createDomain(type, hasNullValue, rangeStatistics, Function.identity());
     }
 
     private static <F, T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<F> rangeStatistics, Function<F, T> function)

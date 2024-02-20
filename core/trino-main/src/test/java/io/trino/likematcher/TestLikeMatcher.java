@@ -13,7 +13,10 @@
  */
 package io.trino.likematcher;
 
+import com.google.common.base.Strings;
+import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
@@ -80,11 +83,30 @@ public class TestLikeMatcher
         assertTrue(match("%aaaa%bbbb%aaaa%bbbb%aaaa%bbbb%", "aaaabbbbaaaabbbbaaaabbbb"));
         assertTrue(match("%aaaaaaaaaaaaaaaaaaaaaaaaaa%", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
 
+        assertTrue(match("%aab%bba%aab%bba%", "aaaabbbbaaaabbbbaaaa"));
+        assertFalse(match("%aab%bba%aab%bba%", "aaaabbbbaaaabbbbcccc"));
+        assertTrue(match("%abaca%", "abababababacabababa"));
+        assertFalse(match("%bcccccccca%", "bbbbbbbbxax"));
+        assertFalse(match("%bbxxxxxa%", "bbbxxxxaz"));
+        assertFalse(match("%aaaaaaxaaaaaa%", Strings.repeat("a", 20) +
+                                          Strings.repeat("b", 20) +
+                                          Strings.repeat("a", 20) +
+                                          Strings.repeat("b", 20) +
+                                          "the quick brown fox jumps over the lazy dog"));
+
+        assertFalse(match("%abaaa%", "ababaa"));
+
+        assertTrue(match("%paya%", "papaya"));
+        assertTrue(match("%paya%", "papapaya"));
+        assertTrue(match("%paya%", "papapapaya"));
+        assertTrue(match("%paya%", "papapapapaya"));
+        assertTrue(match("%paya%", "papapapapapaya"));
+
         // utf-8
-        LikeMatcher singleOptimized = LikeMatcher.compile("_", Optional.empty(), true);
-        LikeMatcher multipleOptimized = LikeMatcher.compile("_a%b_", Optional.empty(), true); // prefix and suffix with _a and b_ to avoid optimizations
-        LikeMatcher single = LikeMatcher.compile("_", Optional.empty(), false);
-        LikeMatcher multiple = LikeMatcher.compile("_a%b_", Optional.empty(), false); // prefix and suffix with _a and b_ to avoid optimizations
+        LikeMatcher singleOptimized = LikePattern.compile("_", Optional.empty(), true).getMatcher();
+        LikeMatcher multipleOptimized = LikePattern.compile("_a%b_", Optional.empty(), true).getMatcher(); // prefix and suffix with _a and b_ to avoid optimizations
+        LikeMatcher single = LikePattern.compile("_", Optional.empty(), false).getMatcher();
+        LikeMatcher multiple = LikePattern.compile("_a%b_", Optional.empty(), false).getMatcher(); // prefix and suffix with _a and b_ to avoid optimizations
         for (int i = 0; i < Character.MAX_CODE_POINT; i++) {
             assertTrue(singleOptimized.match(Character.toString(i).getBytes(StandardCharsets.UTF_8)));
             assertTrue(single.match(Character.toString(i).getBytes(StandardCharsets.UTF_8)));
@@ -93,6 +115,13 @@ public class TestLikeMatcher
             assertTrue(multipleOptimized.match(value.getBytes(StandardCharsets.UTF_8)));
             assertTrue(multiple.match(value.getBytes(StandardCharsets.UTF_8)));
         }
+    }
+
+    @Test
+    @Timeout(2)
+    public void testExponentialBehavior()
+    {
+        assertTrue(match("%a________________", "xyza1234567890123456"));
     }
 
     @Test

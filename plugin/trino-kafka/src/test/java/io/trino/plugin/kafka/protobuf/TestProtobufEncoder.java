@@ -18,21 +18,26 @@ import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Timestamp;
 import io.airlift.slice.Slices;
-import io.trino.decoder.protobuf.ProtobufDataProviders;
 import io.trino.plugin.kafka.KafkaColumnHandle;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoder;
+import io.trino.plugin.kafka.encoder.RowEncoderSpec;
+import io.trino.plugin.kafka.encoder.protobuf.ProtobufRowEncoder;
 import io.trino.plugin.kafka.encoder.protobuf.ProtobufRowEncoderFactory;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,6 +46,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
 import static io.trino.decoder.protobuf.ProtobufUtils.getFileDescriptor;
 import static io.trino.decoder.protobuf.ProtobufUtils.getProtoFile;
+import static io.trino.plugin.kafka.encoder.KafkaFieldType.MESSAGE;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -57,18 +63,64 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToIntBits;
+import static java.lang.Math.PI;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static org.testng.Assert.assertEquals;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestProtobufEncoder
 {
     private static final ProtobufRowEncoderFactory ENCODER_FACTORY = new ProtobufRowEncoderFactory();
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testAllDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testAllDataTypes()
+            throws Exception
+    {
+        testAllDataTypes(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testAllDataTypes(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testAllDataTypes(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testAllDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         Descriptor descriptor = getDescriptor("all_datatypes.proto");
@@ -106,11 +158,52 @@ public class TestProtobufEncoder
         rowEncoder.appendColumnValue(nativeValueToBlock(createTimestampType(6), sqlTimestamp.getEpochMicros()), 0);
         rowEncoder.appendColumnValue(nativeValueToBlock(VARBINARY, wrappedBuffer(bytesData)), 0);
 
-        assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
+        assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testStructuralDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testStructuralDataTypes()
+            throws Exception
+    {
+        testStructuralDataTypes(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testStructuralDataTypes(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testStructuralDataTypes(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testStructuralDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         Descriptor descriptor = getDescriptor("structural_datatypes.proto");
@@ -157,42 +250,80 @@ public class TestProtobufEncoder
 
         RowEncoder rowEncoder = createRowEncoder("structural_datatypes.proto", columnHandles.subList(0, 3));
 
-        BlockBuilder arrayBlockBuilder = columnHandles.get(0).getType()
+        ArrayBlockBuilder arrayBlockBuilder = (ArrayBlockBuilder) columnHandles.get(0).getType()
                 .createBlockBuilder(null, 1);
-        BlockBuilder singleArrayBlockWriter = arrayBlockBuilder.beginBlockEntry();
-        writeNativeValue(createVarcharType(5), singleArrayBlockWriter, utf8Slice(stringData));
-        arrayBlockBuilder.closeEntry();
+        arrayBlockBuilder.buildEntry(elementBuilder -> writeNativeValue(createVarcharType(5), elementBuilder, utf8Slice(stringData)));
         rowEncoder.appendColumnValue(arrayBlockBuilder.build(), 0);
 
-        BlockBuilder mapBlockBuilder = columnHandles.get(1).getType()
+        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) columnHandles.get(1).getType()
                 .createBlockBuilder(null, 1);
-        BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
-        writeNativeValue(VARCHAR, singleMapBlockWriter, utf8Slice("Key"));
-        writeNativeValue(VARCHAR, singleMapBlockWriter, utf8Slice("Value"));
-        mapBlockBuilder.closeEntry();
+        mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            writeNativeValue(VARCHAR, keyBuilder, utf8Slice("Key"));
+            writeNativeValue(VARCHAR, valueBuilder, utf8Slice("Value"));
+        });
         rowEncoder.appendColumnValue(mapBlockBuilder.build(), 0);
 
-        BlockBuilder rowBlockBuilder = columnHandles.get(2).getType()
+        RowBlockBuilder rowBlockBuilder = (RowBlockBuilder) columnHandles.get(2).getType()
                 .createBlockBuilder(null, 1);
-        BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-        writeNativeValue(VARCHAR, singleRowBlockWriter, Slices.utf8Slice(stringData));
-        writeNativeValue(INTEGER, singleRowBlockWriter, integerData.longValue());
-        writeNativeValue(BIGINT, singleRowBlockWriter, longData);
-        writeNativeValue(DOUBLE, singleRowBlockWriter, doubleData);
-        writeNativeValue(REAL, singleRowBlockWriter, (long) floatToIntBits(floatData));
-        writeNativeValue(BOOLEAN, singleRowBlockWriter, booleanData);
-        writeNativeValue(VARCHAR, singleRowBlockWriter, enumData);
-        writeNativeValue(createTimestampType(6), singleRowBlockWriter, sqlTimestamp.getEpochMicros());
-        writeNativeValue(VARBINARY, singleRowBlockWriter, bytesData);
-
-        rowBlockBuilder.closeEntry();
+        rowBlockBuilder.buildEntry(fieldBuilders -> {
+            writeNativeValue(VARCHAR, fieldBuilders.get(0), utf8Slice(stringData));
+            writeNativeValue(INTEGER, fieldBuilders.get(1), integerData.longValue());
+            writeNativeValue(BIGINT, fieldBuilders.get(2), longData);
+            writeNativeValue(DOUBLE, fieldBuilders.get(3), doubleData);
+            writeNativeValue(REAL, fieldBuilders.get(4), (long) floatToIntBits(floatData));
+            writeNativeValue(BOOLEAN, fieldBuilders.get(5), booleanData);
+            writeNativeValue(VARCHAR, fieldBuilders.get(6), enumData);
+            writeNativeValue(createTimestampType(6), fieldBuilders.get(7), sqlTimestamp.getEpochMicros());
+            writeNativeValue(VARBINARY, fieldBuilders.get(8), bytesData);
+        });
         rowEncoder.appendColumnValue(rowBlockBuilder.build(), 0);
 
-        assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
+        assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testNestedStructuralDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testNestedStructuralDataTypes()
+            throws Exception
+    {
+        testNestedStructuralDataTypes(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testNestedStructuralDataTypes(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testNestedStructuralDataTypes(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testNestedStructuralDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         Descriptor descriptor = getDescriptor("structural_datatypes.proto");
@@ -246,19 +377,18 @@ public class TestProtobufEncoder
 
         RowEncoder rowEncoder = createRowEncoder("structural_datatypes.proto", columnHandles);
 
-        BlockBuilder rowBlockBuilder = rowType
-                .createBlockBuilder(null, 1);
-        BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-        writeNativeValue(VARCHAR, singleRowBlockWriter, Slices.utf8Slice(stringData));
-        writeNativeValue(INTEGER, singleRowBlockWriter, integerData.longValue());
-        writeNativeValue(BIGINT, singleRowBlockWriter, longData);
-        writeNativeValue(DOUBLE, singleRowBlockWriter, doubleData);
-        writeNativeValue(REAL, singleRowBlockWriter, (long) floatToIntBits(floatData));
-        writeNativeValue(BOOLEAN, singleRowBlockWriter, booleanData);
-        writeNativeValue(VARCHAR, singleRowBlockWriter, enumData);
-        writeNativeValue(createTimestampType(6), singleRowBlockWriter, sqlTimestamp.getEpochMicros());
-        writeNativeValue(VARBINARY, singleRowBlockWriter, bytesData);
-        rowBlockBuilder.closeEntry();
+        RowBlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
+        rowBlockBuilder.buildEntry(fieldBuilders -> {
+            writeNativeValue(VARCHAR, fieldBuilders.get(0), Slices.utf8Slice(stringData));
+            writeNativeValue(INTEGER, fieldBuilders.get(1), integerData.longValue());
+            writeNativeValue(BIGINT, fieldBuilders.get(2), longData);
+            writeNativeValue(DOUBLE, fieldBuilders.get(3), doubleData);
+            writeNativeValue(REAL, fieldBuilders.get(4), (long) floatToIntBits(floatData));
+            writeNativeValue(BOOLEAN, fieldBuilders.get(5), booleanData);
+            writeNativeValue(VARCHAR, fieldBuilders.get(6), enumData);
+            writeNativeValue(createTimestampType(6), fieldBuilders.get(7), sqlTimestamp.getEpochMicros());
+            writeNativeValue(VARBINARY, fieldBuilders.get(8), bytesData);
+        });
 
         RowType nestedRowType = (RowType) columnHandles.get(0).getType();
 
@@ -266,7 +396,7 @@ public class TestProtobufEncoder
         BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
         Block mapBlock = mapType.createBlockFromKeyValue(
                 Optional.empty(),
-                new int[]{0, 1},
+                new int[] {0, 1},
                 nativeValueToBlock(VARCHAR, utf8Slice("Key")),
                 rowBlockBuilder.build());
         mapType.appendTo(
@@ -279,24 +409,62 @@ public class TestProtobufEncoder
         Block arrayBlock = fromElementBlock(
                 1,
                 Optional.empty(),
-                new int[]{0, rowBlockBuilder.getPositionCount()},
+                new int[] {0, rowBlockBuilder.getPositionCount()},
                 rowBlockBuilder.build());
         listType.appendTo(arrayBlock, 0, listBlockBuilder);
 
         BlockBuilder nestedBlockBuilder = nestedRowType.createBlockBuilder(null, 1);
-        Block rowBlock = fromFieldBlocks(
-                1,
-                Optional.empty(),
-                new Block[]{listBlockBuilder.build(), mapBlockBuilder.build(), rowBlockBuilder.build()});
+        Block rowBlock = fromFieldBlocks(1, new Block[] {listBlockBuilder.build(), mapBlockBuilder.build(), rowBlockBuilder.build()});
         nestedRowType.appendTo(rowBlock, 0, nestedBlockBuilder);
 
-        rowEncoder.appendColumnValue(nestedBlockBuilder, 0);
+        rowEncoder.appendColumnValue(nestedBlockBuilder.build(), 0);
 
-        assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
+        assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testRowFlattening(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testRowFlattening()
+            throws Exception
+    {
+        testRowFlattening(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testRowFlattening(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testRowFlattening(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testRowFlattening(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         Descriptor descriptor = getDescriptor("structural_datatypes.proto");
@@ -338,7 +506,7 @@ public class TestProtobufEncoder
         rowEncoder.appendColumnValue(nativeValueToBlock(createTimestampType(6), sqlTimestamp.getEpochMicros()), 0);
         rowEncoder.appendColumnValue(nativeValueToBlock(VARBINARY, wrappedBuffer(bytesData)), 0);
 
-        assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
+        assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }
 
     private Timestamp getTimestamp(SqlTimestamp sqlTimestamp)
@@ -352,7 +520,7 @@ public class TestProtobufEncoder
     private RowEncoder createRowEncoder(String fileName, List<EncoderColumnHandle> columns)
             throws Exception
     {
-        return ENCODER_FACTORY.create(TestingConnectorSession.SESSION, Optional.of(getProtoFile("decoder/protobuf/" + fileName)), columns);
+        return ENCODER_FACTORY.create(TestingConnectorSession.SESSION, new RowEncoderSpec(ProtobufRowEncoder.NAME, Optional.of(getProtoFile("decoder/protobuf/" + fileName)), columns, "ignored", MESSAGE));
     }
 
     private Descriptor getDescriptor(String fileName)

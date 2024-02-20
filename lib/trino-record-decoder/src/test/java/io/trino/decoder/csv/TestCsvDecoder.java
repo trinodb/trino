@@ -18,6 +18,7 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -30,19 +31,20 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import org.assertj.core.api.ThrowableAssert;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 
+import static io.trino.decoder.util.DecoderTestUtil.TESTING_SESSION;
 import static io.trino.decoder.util.DecoderTestUtil.checkIsNull;
 import static io.trino.decoder.util.DecoderTestUtil.checkValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestCsvDecoder
 {
@@ -62,12 +64,12 @@ public class TestCsvDecoder
         DecoderTestColumnHandle row7 = new DecoderTestColumnHandle(6, "row7", DoubleType.DOUBLE, "6", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5, row6, row7);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(CsvRowDecoder.NAME, emptyMap(), columns));
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, row1, "ro");
         checkValue(decodedRow, row2, "row2");
@@ -93,12 +95,12 @@ public class TestCsvDecoder
         DecoderTestColumnHandle row8 = new DecoderTestColumnHandle(7, "row8", BooleanType.BOOLEAN, "7", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5, row6, row7, row8);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(CsvRowDecoder.NAME, emptyMap(), columns));
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, row1, true);
         checkValue(decodedRow, row2, false);
@@ -121,12 +123,12 @@ public class TestCsvDecoder
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle(3, "row4", BooleanType.BOOLEAN, "3", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(CsvRowDecoder.NAME, emptyMap(), columns));
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkIsNull(decodedRow, row1);
         checkIsNull(decodedRow, row2);
@@ -147,12 +149,12 @@ public class TestCsvDecoder
         DecoderTestColumnHandle column6 = new DecoderTestColumnHandle(0, "column6", BooleanType.BOOLEAN, "5", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4, column5, column6);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(CsvRowDecoder.NAME, emptyMap(), columns));
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, column1, "ala");
         checkValue(decodedRow, column2, 10);
@@ -231,7 +233,7 @@ public class TestCsvDecoder
 
     private void singleColumnDecoder(Type columnType, String mapping, String dataFormat, String formatHint, boolean keyDecoder, boolean hidden, boolean internal)
     {
-        DECODER_FACTORY.create(emptyMap(), ImmutableSet.of(new DecoderTestColumnHandle(0, "column", columnType, mapping, dataFormat, formatHint, keyDecoder, hidden, internal)));
+        DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(CsvRowDecoder.NAME, emptyMap(), ImmutableSet.of(new DecoderTestColumnHandle(0, "column", columnType, mapping, dataFormat, formatHint, keyDecoder, hidden, internal))));
     }
 
     @Test
@@ -244,7 +246,7 @@ public class TestCsvDecoder
     {
         DecoderTestColumnHandle column = new DecoderTestColumnHandle(0, "column", type, "0", null, null, false, false, false);
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(CsvRowDecoder.NAME, emptyMap(), columns));
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
         return decodedRow.get(column);

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -27,8 +28,10 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestArrayReduceFunction
 {
     private QueryAssertions assertions;
@@ -142,7 +145,7 @@ public class TestArrayReduceFunction
                 .isEqualTo(123456789066666L);
 
         // TODO: Support coercion of return type of lambda
-        assertTrinoExceptionThrownBy(() -> assertions.expression("reduce(ARRAY [1, NULL, 2], 0, (s, x) -> CAST (s + x AS TINYINT), s -> s)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("reduce(ARRAY [1, NULL, 2], 0, (s, x) -> CAST (s + x AS TINYINT), s -> s)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 }

@@ -34,7 +34,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.ByteStreams.readFully;
-import static io.airlift.slice.UnsafeSlice.getIntUnchecked;
 import static io.trino.block.BlockSerdeUtil.readBlock;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
@@ -119,6 +118,11 @@ public final class PagesSerdeUtil
     public static int getSerializedPagePositionCount(Slice serializedPage)
     {
         return serializedPage.getInt(SERIALIZED_PAGE_POSITION_COUNT_OFFSET);
+    }
+
+    public static int getSerializedPageUncompressedSizeInBytes(Slice serializedPage)
+    {
+        return serializedPage.getInt(SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET);
     }
 
     public static boolean isSerializedPageEncrypted(Slice serializedPage)
@@ -212,7 +216,7 @@ public final class PagesSerdeUtil
     {
         checkArgument(headerSlice.length() == SERIALIZED_PAGE_HEADER_SIZE, "headerSlice length should equal to %s", SERIALIZED_PAGE_HEADER_SIZE);
 
-        int compressedSize = getIntUnchecked(headerSlice, SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET);
+        int compressedSize = headerSlice.getIntUnchecked(SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET);
         byte[] outputBuffer = new byte[SERIALIZED_PAGE_HEADER_SIZE + compressedSize];
         headerSlice.getBytes(0, outputBuffer, 0, SERIALIZED_PAGE_HEADER_SIZE);
         readFully(inputStream, outputBuffer, SERIALIZED_PAGE_HEADER_SIZE, compressedSize);

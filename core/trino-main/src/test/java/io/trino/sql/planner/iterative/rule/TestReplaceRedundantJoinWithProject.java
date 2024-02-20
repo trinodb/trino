@@ -17,15 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.NullLiteral;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static java.util.Collections.nCopies;
 
 public class TestReplaceRedundantJoinWithProject

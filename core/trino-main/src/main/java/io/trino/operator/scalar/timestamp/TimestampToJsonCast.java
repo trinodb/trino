@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -32,7 +33,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.type.DateTimes.formatTimestamp;
-import static io.trino.util.JsonUtil.JSON_FACTORY;
+import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -41,6 +42,7 @@ import static java.time.ZoneOffset.UTC;
 public final class TimestampToJsonCast
 {
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
 
     private TimestampToJsonCast() {}
 

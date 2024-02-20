@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Convention;
@@ -30,7 +29,7 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
+import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
@@ -58,26 +57,23 @@ public final class ArrayUnionFunction
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {
-        int leftArrayCount = leftArray.getPositionCount();
-        int rightArrayCount = rightArray.getPositionCount();
-        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftArrayCount + rightArrayCount);
-        TypedSet typedSet = createDistinctTypedSet(
+        BlockSet set = new BlockSet(
                 type,
                 isDistinctOperator,
                 elementHashCode,
-                distinctElementBlockBuilder,
-                leftArrayCount + rightArrayCount,
-                "array_union");
+                leftArray.getPositionCount() + rightArray.getPositionCount());
 
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            typedSet.add(leftArray, i);
+            set.add(leftArray, i);
         }
 
         for (int i = 0; i < rightArray.getPositionCount(); i++) {
-            typedSet.add(rightArray, i);
+            set.add(rightArray, i);
         }
 
-        return distinctElementBlockBuilder.build();
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, set.size());
+        set.getAllWithSizeLimit(blockBuilder, "array_union", MAX_FUNCTION_MEMORY);
+        return blockBuilder.build();
     }
 
     @SqlType("array(bigint)")

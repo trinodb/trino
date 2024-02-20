@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.sql.planner.plan.CorrelatedJoinNode;
-import org.testng.annotations.Test;
+import io.trino.sql.planner.plan.JoinType;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -31,7 +31,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 
 public class TestTransformCorrelatedDistinctAggregationWithoutProjection
         extends BaseRuleTest
@@ -67,7 +67,7 @@ public class TestTransformCorrelatedDistinctAggregationWithoutProjection
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
+                        JoinType.LEFT,
                         PlanBuilder.expression("true"),
                         p.aggregation(innerBuilder -> innerBuilder
                                 .singleGroupingSet(p.symbol("a"))

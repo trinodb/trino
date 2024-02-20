@@ -17,47 +17,89 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.io.WritableUtils;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 
+import static io.trino.hive.formats.ReadWriteUtils.calculateTruncationLength;
 import static io.trino.hive.formats.ReadWriteUtils.computeVIntLength;
-import static org.testng.Assert.assertEquals;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.min;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestReadWriteUtils
 {
+    @Test
+    public void testCalculateTruncationLength()
+    {
+        testCalculateTruncationLength('a');
+        testCalculateTruncationLength(30528);
+        testCalculateTruncationLength(128165);
+    }
+
+    private static void testCalculateTruncationLength(int codePoint)
+    {
+        testCalculateTruncationLength(codePoint, 50, 50, 20);
+        testCalculateTruncationLength(codePoint, 20, 20, 50);
+        testCalculateTruncationLength(codePoint, 100, 50, 20);
+        testCalculateTruncationLength(codePoint, 100, 20, 50);
+    }
+
+    private static void testCalculateTruncationLength(int codePoint, int inputSize, int fieldSize, int truncatedSize)
+    {
+        assertThat(inputSize).isGreaterThanOrEqualTo(fieldSize);
+
+        int[] inputCodePoints = new int[inputSize];
+        Arrays.fill(inputCodePoints, codePoint);
+
+        byte[] inputBytes = new String(inputCodePoints, 0, inputSize).getBytes(UTF_8);
+        assertThat(new String(inputBytes, UTF_8).codePoints().count()).isEqualTo(inputSize);
+
+        byte[] fieldBytes = new String(inputCodePoints, 0, fieldSize).getBytes(UTF_8);
+        assertThat(new String(fieldBytes, UTF_8).codePoints().count()).isEqualTo(fieldSize);
+
+        byte[] expectedBytes = new String(inputCodePoints, 0, min(truncatedSize, fieldSize)).getBytes(UTF_8);
+        assertThat(new String(expectedBytes, UTF_8).codePoints().count()).isEqualTo(min(truncatedSize, fieldSize));
+
+        Slice slice = Slices.wrappedBuffer(inputBytes);
+        assertThat(calculateTruncationLength(createVarcharType(truncatedSize), slice, 0, fieldBytes.length))
+                .isEqualTo(expectedBytes.length);
+    }
+
     @Test
     public void testVIntLength()
     {
         SliceOutput output = Slices.allocate(100).getOutput();
 
-        assertEquals(calculateVintLength(output, Integer.MAX_VALUE), 5);
+        assertThat(calculateVintLength(output, Integer.MAX_VALUE)).isEqualTo(5);
 
-        assertEquals(calculateVintLength(output, 16777216), 5);
-        assertEquals(calculateVintLength(output, 16777215), 4);
+        assertThat(calculateVintLength(output, 16777216)).isEqualTo(5);
+        assertThat(calculateVintLength(output, 16777215)).isEqualTo(4);
 
-        assertEquals(calculateVintLength(output, 65536), 4);
-        assertEquals(calculateVintLength(output, 65535), 3);
+        assertThat(calculateVintLength(output, 65536)).isEqualTo(4);
+        assertThat(calculateVintLength(output, 65535)).isEqualTo(3);
 
-        assertEquals(calculateVintLength(output, 256), 3);
-        assertEquals(calculateVintLength(output, 255), 2);
+        assertThat(calculateVintLength(output, 256)).isEqualTo(3);
+        assertThat(calculateVintLength(output, 255)).isEqualTo(2);
 
-        assertEquals(calculateVintLength(output, 128), 2);
-        assertEquals(calculateVintLength(output, 127), 1);
+        assertThat(calculateVintLength(output, 128)).isEqualTo(2);
+        assertThat(calculateVintLength(output, 127)).isEqualTo(1);
 
-        assertEquals(calculateVintLength(output, -112), 1);
-        assertEquals(calculateVintLength(output, -113), 2);
+        assertThat(calculateVintLength(output, -112)).isEqualTo(1);
+        assertThat(calculateVintLength(output, -113)).isEqualTo(2);
 
-        assertEquals(calculateVintLength(output, -256), 2);
-        assertEquals(calculateVintLength(output, -257), 3);
+        assertThat(calculateVintLength(output, -256)).isEqualTo(2);
+        assertThat(calculateVintLength(output, -257)).isEqualTo(3);
 
-        assertEquals(calculateVintLength(output, -65536), 3);
-        assertEquals(calculateVintLength(output, -65537), 4);
+        assertThat(calculateVintLength(output, -65536)).isEqualTo(3);
+        assertThat(calculateVintLength(output, -65537)).isEqualTo(4);
 
-        assertEquals(calculateVintLength(output, -16777216), 4);
-        assertEquals(calculateVintLength(output, -16777217), 5);
+        assertThat(calculateVintLength(output, -16777216)).isEqualTo(4);
+        assertThat(calculateVintLength(output, -16777217)).isEqualTo(5);
 
-        assertEquals(calculateVintLength(output, Integer.MIN_VALUE), 5);
+        assertThat(calculateVintLength(output, Integer.MIN_VALUE)).isEqualTo(5);
     }
 
     private static int calculateVintLength(SliceOutput output, int value)
@@ -67,7 +109,7 @@ public class TestReadWriteUtils
         ReadWriteUtils.writeVLong(output, value);
         int expectedSize = output.size();
 
-        assertEquals(computeVIntLength(value), expectedSize);
+        assertThat(computeVIntLength(value)).isEqualTo(expectedSize);
         return expectedSize;
     }
 
@@ -102,13 +144,13 @@ public class TestReadWriteUtils
         Slice oldBytes = writeVint(output, value);
 
         long readValueOld = WritableUtils.readVLong(oldBytes.getInput());
-        assertEquals(readValueOld, value);
+        assertThat(readValueOld).isEqualTo(value);
 
         long readValueNew = ReadWriteUtils.readVInt(oldBytes, 0);
-        assertEquals(readValueNew, value);
+        assertThat(readValueNew).isEqualTo(value);
 
         long readValueNewStream = ReadWriteUtils.readVInt(oldBytes.getInput());
-        assertEquals(readValueNewStream, value);
+        assertThat(readValueNewStream).isEqualTo(value);
     }
 
     private static Slice writeVint(SliceOutput output, long value)
@@ -116,25 +158,25 @@ public class TestReadWriteUtils
     {
         output.reset();
         WritableUtils.writeVLong(output, value);
-        Slice vLongOld = Slices.copyOf(output.slice());
+        Slice vLongOld = output.slice().copy();
 
         output.reset();
         ReadWriteUtils.writeVLong(output, value);
-        Slice vLongNew = Slices.copyOf(output.slice());
-        assertEquals(vLongNew, vLongOld);
+        Slice vLongNew = output.slice().copy();
+        assertThat(vLongNew).isEqualTo(vLongOld);
 
         if (value == (int) value) {
             output.reset();
             WritableUtils.writeVInt(output, (int) value);
-            Slice vIntOld = Slices.copyOf(output.slice());
-            assertEquals(vIntOld, vLongOld);
+            Slice vIntOld = output.slice().copy();
+            assertThat(vIntOld).isEqualTo(vLongOld);
 
             output.reset();
             ReadWriteUtils.writeVInt(output, (int) value);
-            Slice vIntNew = Slices.copyOf(output.slice());
-            assertEquals(vIntNew, vLongOld);
+            Slice vIntNew = output.slice().copy();
+            assertThat(vIntNew).isEqualTo(vLongOld);
 
-            assertEquals(computeVIntLength((int) value), vIntNew.length());
+            assertThat(computeVIntLength((int) value)).isEqualTo(vIntNew.length());
         }
         return vLongOld;
     }

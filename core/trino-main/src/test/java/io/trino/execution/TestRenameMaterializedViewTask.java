@@ -20,16 +20,16 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameMaterializedView;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
 public class TestRenameMaterializedViewTask
         extends BaseDataDefinitionTaskTest
 {
@@ -38,7 +38,7 @@ public class TestRenameMaterializedViewTask
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
         QualifiedObjectName newMaterializedViewName = qualifiedObjectName("existing_materialized_view_new");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         getFutureValue(executeRenameMaterializedView(asQualifiedName(materializedViewName), asQualifiedName(newMaterializedViewName)));
         assertThat(metadata.isMaterializedView(testSession, materializedViewName)).isFalse();
@@ -68,7 +68,7 @@ public class TestRenameMaterializedViewTask
     public void testRenameMaterializedViewOnTable()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(asQualifiedName(tableName), qualifiedName("existing_table_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -79,7 +79,7 @@ public class TestRenameMaterializedViewTask
     public void testRenameMaterializedViewOnTableIfExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(asQualifiedName(tableName), qualifiedName("existing_table_new"), true)))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -90,9 +90,9 @@ public class TestRenameMaterializedViewTask
     public void testRenameMaterializedViewTargetTableExists()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(asQualifiedName(materializedViewName), asQualifiedName(tableName))))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
@@ -107,7 +107,7 @@ public class TestRenameMaterializedViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(viewName, qualifiedName("existing_view_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW test-catalog.schema.existing_view RENAME TO ...?", viewName);
+                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW test_catalog.schema.existing_view RENAME TO ...?", viewName);
     }
 
     @Test
@@ -118,14 +118,14 @@ public class TestRenameMaterializedViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(viewName, qualifiedName("existing_view_new"), true)))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW test-catalog.schema.existing_view RENAME TO ...?", viewName);
+                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW test_catalog.schema.existing_view RENAME TO ...?", viewName);
     }
 
     @Test
     public void testRenameMaterializedViewTargetViewExists()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
         QualifiedName viewName = qualifiedName("existing_view");
         metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), false);
 

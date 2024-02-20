@@ -14,6 +14,8 @@
 
 grammar SparkExpressionBase;
 
+options { caseInsensitive = true; }
+
 tokens {
     DELIMITER
 }
@@ -36,15 +38,20 @@ booleanExpression
 // workaround for https://github.com/antlr/antlr4/issues/780
 predicate[ParserRuleContext value]
     : comparisonOperator right=valueExpression          #comparison
+    | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
     ;
 
 valueExpression
     : primaryExpression                                 #valueExpressionDefault
+    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
+    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
+    | left=valueExpression operator=(AMPERSAND | CIRCUMFLEX) right=valueExpression      #arithmeticBinary
     ;
 
 primaryExpression
     : number                                            #numericLiteral
     | booleanValue                                      #booleanLiteral
+    | NULL                                              #nullLiteral
     | string                                            #stringLiteral
     | identifier                                        #columnReference
     ;
@@ -74,9 +81,11 @@ number
     ;
 
 AND: 'AND';
+BETWEEN: 'BETWEEN';
 OR: 'OR';
 FALSE: 'FALSE';
 TRUE: 'TRUE';
+NULL: 'NULL';
 
 EQ: '=';
 NEQ: '<>' | '!=';
@@ -84,8 +93,15 @@ LT: '<';
 LTE: '<=';
 GT: '>';
 GTE: '>=';
+NOT: 'NOT';
 
+PLUS: '+';
 MINUS: '-';
+ASTERISK: '*';
+SLASH: '/';
+PERCENT: '%';
+AMPERSAND: '&';
+CIRCUMFLEX: '^';
 
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''

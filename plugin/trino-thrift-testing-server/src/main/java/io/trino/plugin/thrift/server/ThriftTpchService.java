@@ -42,9 +42,8 @@ import io.trino.spi.type.Type;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchEntity;
 import io.trino.tpch.TpchTable;
-
-import javax.annotation.Nullable;
-import javax.annotation.PreDestroy;
+import jakarta.annotation.Nullable;
+import jakarta.annotation.PreDestroy;
 
 import java.io.Closeable;
 import java.util.ArrayList;

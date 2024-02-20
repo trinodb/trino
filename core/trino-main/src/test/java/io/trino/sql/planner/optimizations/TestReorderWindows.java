@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
@@ -28,13 +30,12 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
 
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -332,24 +333,25 @@ public class TestReorderWindows
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
+        PlannerContext plannerContext = getPlanTester().getPlannerContext();
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
                 new PredicatePushDown(
-                        getQueryRunner().getPlannerContext(),
-                        createTestingTypeAnalyzer(getQueryRunner().getPlannerContext()),
+                        getPlanTester().getPlannerContext(),
+                        new IrTypeAnalyzer(plannerContext),
                         false,
                         false),
                 new IterativeOptimizer(
-                        getQueryRunner().getPlannerContext(),
+                        getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
-                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        getPlanTester().getStatsCalculator(),
+                        getPlanTester().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(1))
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(2))
-                                .addAll(columnPruningRules(getQueryRunner().getMetadata()))
+                                .addAll(columnPruningRules(getPlanTester().getPlannerContext().getMetadata()))
                                 .build()));
         assertPlan(sql, pattern, optimizers);
     }

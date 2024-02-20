@@ -13,8 +13,8 @@
  */
 package io.trino.cli;
 
-import io.trino.sql.parser.SqlBaseLexer;
-import io.trino.sql.parser.StatementSplitter;
+import io.trino.cli.lexer.StatementSplitter;
+import io.trino.grammar.sql.SqlBaseLexer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.TokenSource;
 import org.jline.reader.Highlighter;
@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.cli.Console.STATEMENT_DELIMITERS;
-import static io.trino.sql.ReservedIdentifiers.sqlKeywords;
+import static io.trino.grammar.sql.SqlKeywords.sqlKeywords;
 import static java.util.Locale.ENGLISH;
 import static org.jline.utils.AttributedStyle.BOLD;
 import static org.jline.utils.AttributedStyle.BRIGHT;

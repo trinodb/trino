@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import io.trino.Session;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -29,7 +28,7 @@ public interface WorkProcessorSourceOperatorFactory
     String getOperatorType();
 
     WorkProcessorSourceOperator create(
-            Session session,
+            OperatorContext operatorContext,
             MemoryTrackingContext memoryTrackingContext,
             DriverYieldSignal yieldSignal,
             WorkProcessor<Split> splits);

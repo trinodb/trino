@@ -5,18 +5,28 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-testing-services</artifactId>
-    <name>trino-testing-services</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
@@ -33,24 +43,27 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_annotations</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-engine</artifactId>
+            <!-- it's either on classpath because anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <!-- it's either on classpath because anyway, or not needed at all. Let's not force the dependency on downstream when not needed. -->
             <optional>true</optional>
         </dependency>
 
@@ -66,6 +79,12 @@
             <optional>true</optional>
         </dependency>
 
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- testing -->
         <dependency>
             <groupId>io.trino.tempto</groupId>
@@ -78,20 +97,32 @@
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <resources>
             <resource>
-                <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <directory>src/main/resources</directory>
                 <includes>
                     <include>trino-testing.properties</include>
                 </includes>
             </resource>
             <resource>
-                <directory>src/main/resources</directory>
                 <filtering>false</filtering>
+                <directory>src/main/resources</directory>
                 <excludes>
                     <exclude>trino-testing.properties</exclude>
                 </excludes>
@@ -106,6 +137,19 @@
                         <io.trino.testng.services.FlakyTestRetryAnalyzer.enabled>true</io.trino.testng.services.FlakyTestRetryAnalyzer.enabled>
                     </systemPropertyVariables>
                 </configuration>
+                <dependencies>
+                    <!-- allow both JUnit and TestNG -->
+                    <dependency>
+                        <groupId>org.apache.maven.surefire</groupId>
+                        <artifactId>surefire-junit-platform</artifactId>
+                        <version>${dep.plugin.surefire.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.apache.maven.surefire</groupId>
+                        <artifactId>surefire-testng</artifactId>
+                        <version>${dep.plugin.surefire.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>

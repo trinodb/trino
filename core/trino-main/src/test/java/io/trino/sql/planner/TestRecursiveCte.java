@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
@@ -39,12 +39,12 @@ public class TestRecursiveCte
         extends BasePlanTest
 {
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setSystemProperty("max_recursion_depth", "1");
 
-        return LocalQueryRunner.create(sessionBuilder.build());
+        return PlanTester.create(sessionBuilder.build());
     }
 
     @Test

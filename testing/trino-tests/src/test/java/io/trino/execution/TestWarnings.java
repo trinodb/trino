@@ -14,38 +14,43 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.client.Warning;
 import io.trino.spi.WarningCode;
 import io.trino.testing.QueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.execution.TestQueryRunnerUtil.createQueryRunner;
 import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestWarnings
 {
     private static final int STAGE_COUNT_WARNING_THRESHOLD = 20;
     private QueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
-        queryRunner = createQueryRunner(ImmutableMap.of("query.stage-count-warning-threshold", String.valueOf(STAGE_COUNT_WARNING_THRESHOLD)));
+        queryRunner = TpchQueryRunnerBuilder.builder()
+                .addExtraProperty("query.stage-count-warning-threshold", String.valueOf(STAGE_COUNT_WARNING_THRESHOLD))
+                .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         queryRunner.close();
@@ -63,17 +68,13 @@ public class TestWarnings
                     .append(stageIndex);
         }
         String query = queryBuilder.toString();
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
-        assertWarnings(queryRunner, session, query, ImmutableList.of(TOO_MANY_STAGES.toWarningCode()));
-        assertWarnings(queryRunner, session, noWarningsQuery, ImmutableList.of());
+        assertWarnings(queryRunner, query, ImmutableList.of(TOO_MANY_STAGES.toWarningCode()));
+        assertWarnings(queryRunner, noWarningsQuery, ImmutableList.of());
     }
 
-    private static void assertWarnings(QueryRunner queryRunner, Session session, @Language("SQL") String sql, List<WarningCode> expectedWarnings)
+    private static void assertWarnings(QueryRunner queryRunner, @Language("SQL") String sql, List<WarningCode> expectedWarnings)
     {
-        Set<Integer> warnings = queryRunner.execute(session, sql).getWarnings().stream()
+        Set<Integer> warnings = queryRunner.execute(sql).getWarnings().stream()
                 .map(Warning::getWarningCode)
                 .map(Warning.Code::getCode)
                 .collect(toImmutableSet());

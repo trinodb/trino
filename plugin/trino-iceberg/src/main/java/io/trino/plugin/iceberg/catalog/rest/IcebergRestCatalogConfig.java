@@ -15,8 +15,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.Optional;
@@ -39,6 +38,7 @@ public class IcebergRestCatalogConfig
     private Optional<String> warehouse = Optional.empty();
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
+    private boolean vendedCredentialsEnabled;
 
     @NotNull
     public URI getBaseUri()
@@ -94,6 +94,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setWarehouse(String warehouse)
     {
         this.warehouse = Optional.ofNullable(warehouse);
+        return this;
+    }
+
+    public boolean isVendedCredentialsEnabled()
+    {
+        return vendedCredentialsEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.vended-credentials-enabled")
+    @ConfigDescription("Use credentials provided by the REST backend for file system access")
+    public IcebergRestCatalogConfig setVendedCredentialsEnabled(boolean vendedCredentialsEnabled)
+    {
+        this.vendedCredentialsEnabled = vendedCredentialsEnabled;
         return this;
     }
 }

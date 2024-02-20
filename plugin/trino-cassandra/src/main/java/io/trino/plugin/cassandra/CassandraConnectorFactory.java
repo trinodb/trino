@@ -16,6 +16,7 @@ package io.trino.plugin.cassandra;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -24,7 +25,7 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraConnectorFactory
@@ -40,9 +41,10 @@ public class CassandraConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                binder -> binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry()),
                 new MBeanModule(),
                 new JsonModule(),
                 new CassandraClientModule(context.getTypeManager()),

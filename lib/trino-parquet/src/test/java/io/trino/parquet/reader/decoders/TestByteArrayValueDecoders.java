@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetEncoding;
+import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.flat.BinaryBuffer;
 import io.trino.spi.type.CharType;
@@ -69,33 +70,49 @@ public final class TestByteArrayValueDecoders
     {
         return DataProviders.concat(
                 testArgs(
-                        new TestType<>(
-                                createField(BINARY, OptionalInt.empty(), VARBINARY),
-                                ValueDecoders::getBinaryDecoder,
-                                BinaryApacheParquetValueDecoder::new,
-                                BINARY_ADAPTER,
-                                BINARY_ASSERT),
+                        createVarbinaryTestType(),
                         ENCODINGS,
                         generateUnboundedBinaryInputs()),
                 testArgs(
-                        new TestType<>(
-                                createField(BINARY, OptionalInt.empty(), createUnboundedVarcharType()),
-                                ValueDecoders::getBinaryDecoder,
-                                BinaryApacheParquetValueDecoder::new,
-                                BINARY_ADAPTER,
-                                BINARY_ASSERT),
+                        createUnboundedVarcharTestType(),
                         ENCODINGS,
                         generateUnboundedBinaryInputs()),
                 testArgs(createBoundedVarcharTestType(), ENCODINGS, generateBoundedVarcharInputs()),
                 testArgs(createCharTestType(), ENCODINGS, generateCharInputs()));
     }
 
+    private static TestType<BinaryBuffer> createVarbinaryTestType()
+    {
+        PrimitiveField field = createField(BINARY, OptionalInt.empty(), VARBINARY);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
+        return new TestType<>(
+                createField(BINARY, OptionalInt.empty(), VARBINARY),
+                valueDecoders::getBinaryDecoder,
+                BinaryApacheParquetValueDecoder::new,
+                BINARY_ADAPTER,
+                BINARY_ASSERT);
+    }
+
+    private static TestType<BinaryBuffer> createUnboundedVarcharTestType()
+    {
+        PrimitiveField field = createField(BINARY, OptionalInt.empty(), createUnboundedVarcharType());
+        ValueDecoders valueDecoders = new ValueDecoders(field);
+        return new TestType<>(
+                createField(BINARY, OptionalInt.empty(), createUnboundedVarcharType()),
+                valueDecoders::getBinaryDecoder,
+                BinaryApacheParquetValueDecoder::new,
+                BINARY_ADAPTER,
+                BINARY_ASSERT);
+    }
+
     private static TestType<BinaryBuffer> createBoundedVarcharTestType()
     {
         VarcharType varcharType = createVarcharType(5);
+        PrimitiveField field = createField(BINARY, OptionalInt.empty(), varcharType);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
         return new TestType<>(
-                createField(BINARY, OptionalInt.empty(), varcharType),
-                ValueDecoders::getBoundedVarcharBinaryDecoder,
+                field,
+                valueDecoders::getBoundedVarcharBinaryDecoder,
                 valuesReader -> new BoundedVarcharApacheParquetValueDecoder(valuesReader, varcharType),
                 BINARY_ADAPTER,
                 BINARY_ASSERT);
@@ -104,9 +121,11 @@ public final class TestByteArrayValueDecoders
     private static TestType<BinaryBuffer> createCharTestType()
     {
         CharType charType = createCharType(5);
+        PrimitiveField field = createField(BINARY, OptionalInt.empty(), charType);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
         return new TestType<>(
-                createField(BINARY, OptionalInt.empty(), charType),
-                ValueDecoders::getCharBinaryDecoder,
+                field,
+                valueDecoders::getCharBinaryDecoder,
                 valuesReader -> new CharApacheParquetValueDecoder(valuesReader, charType),
                 BINARY_ADAPTER,
                 BINARY_ASSERT);
@@ -361,38 +380,6 @@ public final class TestByteArrayValueDecoders
                 byte[] value = delegate.readBytes().getBytes();
                 Slice slice = Chars.trimTrailingSpaces(truncateToLength(Slices.wrappedBuffer(value), maxLength));
                 values.add(slice, i + offsetsIndex);
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            delegate.skip(n);
-        }
-    }
-
-    private static final class BinaryApacheParquetValueDecoder
-            implements ValueDecoder<BinaryBuffer>
-    {
-        private final ValuesReader delegate;
-
-        public BinaryApacheParquetValueDecoder(ValuesReader delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            initialize(input, delegate);
-        }
-
-        @Override
-        public void read(BinaryBuffer values, int offsetsIndex, int length)
-        {
-            for (int i = 0; i < length; i++) {
-                byte[] value = delegate.readBytes().getBytes();
-                values.add(value, i + offsetsIndex);
             }
         }
 

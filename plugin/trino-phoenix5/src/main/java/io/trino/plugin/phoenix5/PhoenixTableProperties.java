@@ -14,14 +14,13 @@
 package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.jdbc.TablePropertiesProvider;
 import io.trino.spi.session.PropertyMetadata;
 import org.apache.hadoop.hbase.io.compress.Compression;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.regionserver.BloomType;
 import org.apache.hadoop.util.StringUtils;
-
-import javax.inject.Inject;
 
 import java.util.Arrays;
 import java.util.List;

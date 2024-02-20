@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,6 +31,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -42,6 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -72,9 +76,9 @@ public class DefaultQueryBuilder
             JdbcRelationHandle baseRelation,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions,
+            Map<String, ParameterizedExpression> columnExpressions,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<String> additionalPredicate)
+            Optional<ParameterizedExpression> additionalPredicate)
     {
         if (!tupleDomain.isNone()) {
             Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
@@ -88,11 +92,14 @@ public class DefaultQueryBuilder
         ImmutableList.Builder<String> conjuncts = ImmutableList.builder();
         ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
 
-        String sql = "SELECT " + getProjection(client, columns, columnExpressions);
+        String sql = "SELECT " + getProjection(client, columns, columnExpressions, accumulator::add);
         sql += getFrom(client, baseRelation, accumulator::add);
 
         toConjuncts(client, session, connection, tupleDomain, conjuncts, accumulator::add);
-        additionalPredicate.ifPresent(conjuncts::add);
+        additionalPredicate.ifPresent(predicate -> {
+            conjuncts.add(predicate.expression());
+            accumulator.addAll(predicate.parameters());
+        });
         List<String> clauses = conjuncts.build();
         if (!clauses.isEmpty()) {
             sql += " WHERE " + Joiner.on(" AND ").join(clauses);
@@ -105,6 +112,43 @@ public class DefaultQueryBuilder
 
     @Override
     public PreparedQuery prepareJoinQuery(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions)
+    {
+        // Joins wih no conditions are not pushed down, so it is a same assumption and simplifies the code here
+        verify(!joinConditions.isEmpty(), "joinConditions is empty");
+
+        String query = format(
+                // The subquery aliases (`l` and `r`) are needed by some databases, but are not needed for expressions
+                // The joinConditions and output columns are aliased to use unique names.
+                "SELECT * FROM (SELECT %s FROM (%s) l) l %s (SELECT %s FROM (%s) r) r ON %s",
+                formatProjections(client, leftProjections),
+                leftSource.getQuery(),
+                formatJoinType(joinType),
+                formatProjections(client, rightProjections),
+                rightSource.getQuery(),
+                joinConditions.stream()
+                        .map(ParameterizedExpression::expression)
+                        .collect(joining(") AND (", "(", ")")));
+        List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
+                .addAll(leftSource.getParameters())
+                .addAll(rightSource.getParameters())
+                .addAll(joinConditions.stream()
+                        .flatMap(expression -> expression.parameters().stream())
+                        .iterator())
+                .build();
+        return new PreparedQuery(query, parameters);
+    }
+
+    @Override
+    public PreparedQuery legacyPrepareJoinQuery(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
@@ -150,7 +194,7 @@ public class DefaultQueryBuilder
             Connection connection,
             JdbcNamedRelationHandle baseRelation,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<String> additionalPredicate)
+            Optional<ParameterizedExpression> additionalPredicate)
     {
         String sql = "DELETE FROM " + getRelation(client, baseRelation.getRemoteTableName());
 
@@ -158,7 +202,61 @@ public class DefaultQueryBuilder
         ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
 
         toConjuncts(client, session, connection, tupleDomain, conjuncts, accumulator::add);
-        additionalPredicate.ifPresent(conjuncts::add);
+        additionalPredicate.ifPresent(predicate -> {
+            conjuncts.add(predicate.expression());
+            accumulator.addAll(predicate.parameters());
+        });
+        List<String> clauses = conjuncts.build();
+        if (!clauses.isEmpty()) {
+            sql += " WHERE " + Joiner.on(" AND ").join(clauses);
+        }
+        return new PreparedQuery(sql, accumulator.build());
+    }
+
+    @Override
+    public PreparedQuery prepareUpdateQuery(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            JdbcNamedRelationHandle baseRelation,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<ParameterizedExpression> additionalPredicate,
+            List<JdbcAssignmentItem> assignments)
+    {
+        ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
+
+        String sql = "UPDATE " + getRelation(client, baseRelation.getRemoteTableName()) + " SET ";
+
+        assignments.forEach(entry -> {
+            JdbcColumnHandle columnHandle = entry.column();
+            accumulator.add(
+                    new QueryParameter(
+                            columnHandle.getJdbcTypeHandle(),
+                            columnHandle.getColumnType(),
+                            entry.queryParameter().getValue()));
+        });
+
+        sql += assignments.stream()
+                .map(JdbcAssignmentItem::column)
+                .map(columnHandle -> {
+                    String bindExpression = getWriteFunction(
+                            client,
+                            session,
+                            connection,
+                            columnHandle.getJdbcTypeHandle(),
+                            columnHandle.getColumnType())
+                            .getBindExpression();
+                    return client.quoted(columnHandle.getColumnName()) + " = " + bindExpression;
+                })
+                .collect(joining(", "));
+
+        ImmutableList.Builder<String> conjuncts = ImmutableList.builder();
+
+        toConjuncts(client, session, connection, tupleDomain, conjuncts, accumulator::add);
+        additionalPredicate.ifPresent(predicate -> {
+            conjuncts.add(predicate.expression());
+            accumulator.addAll(predicate.parameters());
+        });
         List<String> clauses = conjuncts.build();
         if (!clauses.isEmpty()) {
             sql += " WHERE " + Joiner.on(" AND ").join(clauses);
@@ -171,18 +269,22 @@ public class DefaultQueryBuilder
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
-            PreparedQuery preparedQuery)
+            PreparedQuery preparedQuery,
+            Optional<Integer> columnCount)
             throws SQLException
     {
         String modifiedQuery = queryModifier.apply(session, preparedQuery.getQuery());
         log.debug("Preparing query: %s", modifiedQuery);
-        PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery);
+        columnCount = columnCount.map(count -> max(count, 1)); // Query builder appends a dummy projection when no columns projected
+        PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery, columnCount);
 
         List<QueryParameter> parameters = preparedQuery.getParameters();
         for (int i = 0; i < parameters.size(); i++) {
             QueryParameter parameter = parameters.get(i);
             int parameterIndex = i + 1;
-            WriteFunction writeFunction = getWriteFunction(client, session, connection, parameter.getJdbcType(), parameter.getType());
+            WriteFunction writeFunction = parameter.getJdbcType()
+                    .map(jdbcType -> getWriteFunction(client, session, connection, jdbcType, parameter.getType()))
+                    .orElseGet(() -> getWriteFunction(client, session, parameter.getType()));
             Class<?> javaType = writeFunction.getJavaType();
             Object value = parameter.getValue()
                     // The value must be present, since DefaultQueryBuilder never creates null parameters. Values coming from Domain's ValueSet are non-null, and
@@ -208,6 +310,13 @@ public class DefaultQueryBuilder
         return statement;
     }
 
+    @Override
+    public CallableStatement callProcedure(JdbcClient client, ConnectorSession session, Connection connection, ProcedureQuery procedureQuery)
+            throws SQLException
+    {
+        return connection.prepareCall(procedureQuery.query());
+    }
+
     protected String formatJoinCondition(JdbcClient client, String leftRelationAlias, String rightRelationAlias, JdbcJoinCondition condition)
     {
         return format(
@@ -222,6 +331,13 @@ public class DefaultQueryBuilder
     protected String buildJoinColumn(JdbcClient client, JdbcColumnHandle columnHandle)
     {
         return client.quoted(columnHandle.getColumnName());
+    }
+
+    protected String formatProjections(JdbcClient client, Map<JdbcColumnHandle, String> projections)
+    {
+        return projections.entrySet().stream()
+                .map(entry -> format("%s AS %s", client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .collect(joining(", "));
     }
 
     protected String formatAssignments(JdbcClient client, String relationAlias, Map<JdbcColumnHandle, String> assignments)
@@ -251,21 +367,24 @@ public class DefaultQueryBuilder
         return client.quoted(remoteTableName);
     }
 
-    protected String getProjection(JdbcClient client, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
+    protected String getProjection(JdbcClient client, List<JdbcColumnHandle> columns, Map<String, ParameterizedExpression> columnExpressions, Consumer<QueryParameter> accumulator)
     {
         if (columns.isEmpty()) {
             return "1 x";
         }
-        return columns.stream()
-                .map(jdbcColumnHandle -> {
-                    String columnAlias = client.quoted(jdbcColumnHandle.getColumnName());
-                    String expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
-                    if (expression == null) {
-                        return columnAlias;
-                    }
-                    return format("%s AS %s", expression, columnAlias);
-                })
-                .collect(joining(", "));
+        List<String> projections = new ArrayList<>();
+        for (JdbcColumnHandle jdbcColumnHandle : columns) {
+            String columnAlias = client.quoted(jdbcColumnHandle.getColumnName());
+            ParameterizedExpression expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
+            if (expression == null) {
+                projections.add(columnAlias);
+            }
+            else {
+                projections.add(format("%s AS %s", expression.expression(), columnAlias));
+                expression.parameters().forEach(accumulator);
+            }
+        }
+        return String.join(", ", projections);
     }
 
     private String getFrom(JdbcClient client, JdbcRelationHandle baseRelation, Consumer<QueryParameter> accumulator)
@@ -424,5 +543,10 @@ public class DefaultQueryBuilder
                 .getWriteFunction();
         verify(writeFunction.getJavaType() == type.getJavaType(), "Java type mismatch: %s, %s", writeFunction, type);
         return writeFunction;
+    }
+
+    private static WriteFunction getWriteFunction(JdbcClient client, ConnectorSession session, Type type)
+    {
+        return client.toWriteMapping(session, type).getWriteFunction();
     }
 }

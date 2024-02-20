@@ -20,6 +20,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -39,8 +40,10 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestMathFunctions
 {
     private static final double[] DOUBLE_VALUES = {123, -123, 123.45, -123.45, 0};
@@ -128,16 +131,16 @@ public class TestMathFunctions
         assertThat(assertions.function("abs", "REAL '-754.1985'"))
                 .isEqualTo(754.1985f);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("abs", "TINYINT '%s'".formatted(Byte.MIN_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("abs", "TINYINT '%s'".formatted(Byte.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("abs", "SMALLINT '%s'".formatted(Short.MIN_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("abs", "SMALLINT '%s'".formatted(Short.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("abs", "INTEGER '%s'".formatted(Integer.MIN_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("abs", "INTEGER '%s'".formatted(Integer.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("abs", "-9223372036854775807 - if(rand() < 10, 1, 1)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("abs", "-9223372036854775807 - if(rand() < 10, 1, 1)")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.function("abs", "DECIMAL '123.45'"))
@@ -1063,6 +1066,9 @@ public class TestMathFunctions
     @Test
     public void testMod()
     {
+        assertThat(assertions.function("mod", "DECIMAL '0.0'", "DECIMAL '2.0'"))
+                .isEqualTo(decimal("0", createDecimalType(1, 1)));
+
         for (int left : intLefts) {
             for (int right : intRights) {
                 assertThat(assertions.function("mod", Integer.toString(left), Integer.toString(right)))
@@ -1171,7 +1177,7 @@ public class TestMathFunctions
         assertThat(assertions.function("mod", "CAST(NULL as DECIMAL(1,0))", "DECIMAL '5.0'"))
                 .isNull(createDecimalType(2, 1));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("mod", "DECIMAL '5.0'", "DECIMAL '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("mod", "DECIMAL '5.0'", "DECIMAL '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -1421,58 +1427,58 @@ public class TestMathFunctions
         assertThat(assertions.expression("random(-3000000000, 5000000000)"))
                 .hasType(BIGINT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("rand", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("rand", "-1")::evaluate)
                 .hasMessage("bound must be positive");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("rand", "-3000000000").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("rand", "-3000000000")::evaluate)
                 .hasMessage("bound must be positive");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "TINYINT '5'", "TINYINT '3'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "TINYINT '5'", "TINYINT '3'")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "TINYINT '5'", "TINYINT '5'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "TINYINT '5'", "TINYINT '5'")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "TINYINT '-5'", "TINYINT '-10'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "TINYINT '-5'", "TINYINT '-10'")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "TINYINT '-5'", "TINYINT '-5'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "TINYINT '-5'", "TINYINT '-5'")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "SMALLINT '30000'", "SMALLINT '10000'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "SMALLINT '30000'", "SMALLINT '10000'")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "SMALLINT '30000'", "SMALLINT '30000'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "SMALLINT '30000'", "SMALLINT '30000'")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "SMALLINT '-30000'", "SMALLINT '-31000'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "SMALLINT '-30000'", "SMALLINT '-31000'")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "SMALLINT '-30000'", "SMALLINT '-30000'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "SMALLINT '-30000'", "SMALLINT '-30000'")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "1000", "500").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "1000", "500")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "500", "500").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "500", "500")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "-500", "-600").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "-500", "-600")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "-500", "-500").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "-500", "-500")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "3000000000", "1000000000").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "3000000000", "1000000000")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "3000000000", "3000000000").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "3000000000", "3000000000")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "-3000000000", "-4000000000").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "-3000000000", "-4000000000")::evaluate)
                 .hasMessage("start value must be less than stop value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("random", "-3000000000", "-3000000000").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("random", "-3000000000", "-3000000000")::evaluate)
                 .hasMessage("start value must be less than stop value");
     }
 
@@ -1658,6 +1664,13 @@ public class TestMathFunctions
         assertThat(assertions.function("round", "DOUBLE '3000.1234567890123456789'", "16"))
                 .isEqualTo(3000.1234567890124);
 
+        // 1.8E292*10^16 is infinity.
+        assertThat(assertions.function("round", "DOUBLE '1.8E292'", "16"))
+                .isEqualTo(1.8E292);
+
+        assertThat(assertions.function("round", "DOUBLE '-1.8E292'", "16"))
+                .isEqualTo(-1.8E292);
+
         assertThat(assertions.function("round", "TINYINT '3'", "TINYINT '1'"))
                 .isEqualTo((byte) 3);
 
@@ -1701,6 +1714,13 @@ public class TestMathFunctions
         // 3000 * 10^16 exceeds Long.MAX_VALUE. Note that value has limited precision even before round is invoked
         assertThat(assertions.function("round", "REAL '3000.1234567890123456789'", "16"))
                 .isEqualTo(3000.1235f);
+
+        // 3.4028235e+38 * 10 ^ 271 is infinity
+        assertThat(assertions.function("round", "REAL '3.4028235e+38'", "271"))
+                .isEqualTo(3.4028235e+38f);
+
+        assertThat(assertions.function("round", "REAL '-3.4028235e+38'", "271"))
+                .isEqualTo(-3.4028235e+38f);
 
         assertThat(assertions.function("round", "3", "1"))
                 .isEqualTo(3);
@@ -1892,43 +1912,43 @@ public class TestMathFunctions
         assertThat(assertions.function("round", "-9223372036854775807", "-18"))
                 .isEqualTo(-9000000000000000000L);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "TINYINT '127'", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "TINYINT '127'", "-1")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "TINYINT '-128'", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "TINYINT '-128'", "-1")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "SMALLINT '32767'", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "SMALLINT '32767'", "-1")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "SMALLINT '32767'", "-3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "SMALLINT '32767'", "-3")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "SMALLINT '-32768'", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "SMALLINT '-32768'", "-1")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "SMALLINT '-32768'", "-3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "SMALLINT '-32768'", "-3")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "2147483647", "-100").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "2147483647", "-100")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "2147483647", "-2147483648").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "2147483647", "-2147483648")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "9223372036854775807", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "9223372036854775807", "-1")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "9223372036854775807", "-3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "9223372036854775807", "-3")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "9223372036854775807", "-19").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "9223372036854775807", "-19")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "-9223372036854775807", "-20").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "-9223372036854775807", "-20")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "-9223372036854775807", "-2147483648").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "-9223372036854775807", "-2147483648")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         // ROUND short DECIMAL -> short DECIMAL
@@ -2281,10 +2301,10 @@ public class TestMathFunctions
         assertThat(assertions.function("round", "DECIMAL '9999999999999999999999999999999999999.9'", "1"))
                 .isEqualTo(decimal("9999999999999999999999999999999999999.9", createDecimalType(38, 1)));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "DECIMAL '9999999999999999999999999999999999999.9'", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "DECIMAL '9999999999999999999999999999999999999.9'", "0")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("round", "DECIMAL '9999999999999999999999999999999999999.9'", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("round", "DECIMAL '9999999999999999999999999999999999999.9'", "-1")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.function("round", "DECIMAL  '1329123201320737513'", "-3"))
@@ -2497,6 +2517,21 @@ public class TestMathFunctions
         }
 
         assertThat(assertions.function("sin", "NULL"))
+                .isNull(DOUBLE);
+    }
+
+    @Test
+    public void testSinh()
+    {
+        for (double doubleValue : DOUBLE_VALUES) {
+            assertThat(assertions.function("sinh", Double.toString(doubleValue)))
+                    .isEqualTo(Math.sinh(doubleValue));
+
+            assertThat(assertions.function("sinh", "REAL '%s'".formatted((float) doubleValue)))
+                    .isEqualTo(Math.sinh((float) doubleValue));
+        }
+
+        assertThat(assertions.function("sinh", "NULL"))
                 .isNull(DOUBLE);
     }
 
@@ -2716,7 +2751,7 @@ public class TestMathFunctions
         assertThat(assertions.function("greatest", nCopies(127, "1E0")))
                 .hasType(DOUBLE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("greatest", nCopies(128, "rand()")).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("greatest", nCopies(128, "rand()"))::evaluate)
                 .hasErrorCode(TOO_MANY_ARGUMENTS)
                 .hasMessage("line 1:8: Too many arguments for function call greatest()");
 
@@ -3231,7 +3266,7 @@ public class TestMathFunctions
         assertThat(assertions.function("to_base", "NULL", "NULL"))
                 .isNull(createVarcharType(64));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("to_base", "255", "1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("to_base", "255", "1")::evaluate)
                 .hasMessage("Radix must be between 2 and 36");
     }
 
@@ -3262,22 +3297,22 @@ public class TestMathFunctions
         assertThat(assertions.function("from_base", "NULL", "NULL"))
                 .isNull(BIGINT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("from_base", "'Z'", "37").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("from_base", "'Z'", "37")::evaluate)
                 .hasMessage("Radix must be between 2 and 36");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("from_base", "'Z'", "35").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("from_base", "'Z'", "35")::evaluate)
                 .hasMessage("Not a valid base-35 number: Z");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("from_base", "'9223372036854775808'", "10").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("from_base", "'9223372036854775808'", "10")::evaluate)
                 .hasMessage("Not a valid base-10 number: 9223372036854775808");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("from_base", "'Z'", "37").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("from_base", "'Z'", "37")::evaluate)
                 .hasMessage("Radix must be between 2 and 36");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("from_base", "'Z'", "35").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("from_base", "'Z'", "35")::evaluate)
                 .hasMessage("Not a valid base-35 number: Z");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("from_base", "'9223372036854775808'", "10").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("from_base", "'9223372036854775808'", "10")::evaluate)
                 .hasMessage("Not a valid base-10 number: 9223372036854775808");
     }
 
@@ -3310,39 +3345,39 @@ public class TestMathFunctions
                 .isEqualTo(5L);
 
         // failure modes
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.14E0", "0", "4", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.14E0", "0", "4", "0")::evaluate)
                 .hasMessage("bucketCount must be greater than 0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.14E0", "0", "4", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.14E0", "0", "4", "-1")::evaluate)
                 .hasMessage("bucketCount must be greater than 0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "nan()", "0", "4", "3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "nan()", "0", "4", "3")::evaluate)
                 .hasMessage("operand must not be NaN");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.14E0", "-1", "-1", "3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.14E0", "-1", "-1", "3")::evaluate)
                 .hasMessage("bounds cannot equal each other");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.14E0", "nan()", "-1", "3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.14E0", "nan()", "-1", "3")::evaluate)
                 .hasMessage("first bound must be finite");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.14E0", "-1", "nan()", "3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.14E0", "-1", "nan()", "3")::evaluate)
                 .hasMessage("second bound must be finite");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.14E0", "infinity()", "-1", "3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.14E0", "infinity()", "-1", "3")::evaluate)
                 .hasMessage("first bound must be finite");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.14E0", "-1", "infinity()", "3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.14E0", "-1", "infinity()", "3")::evaluate)
                 .hasMessage("second bound must be finite");
     }
 
     @Test
     public void testWidthBucketOverflowAscending()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "infinity()", "0", "4", Long.toString(Long.MAX_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "infinity()", "0", "4", Long.toString(Long.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("Bucket for value Infinity is out of range");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "CAST(infinity() as REAL)", "0", "4", Long.toString(Long.MAX_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "CAST(infinity() as REAL)", "0", "4", Long.toString(Long.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("Bucket for value Infinity is out of range");
     }
@@ -3350,11 +3385,11 @@ public class TestMathFunctions
     @Test
     public void testWidthBucketOverflowDescending()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "infinity()", "4", "0", Long.toString(Long.MAX_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "infinity()", "4", "0", Long.toString(Long.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("Bucket for value Infinity is out of range");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "CAST(infinity() as REAL)", "4", "0", Long.toString(Long.MAX_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "CAST(infinity() as REAL)", "4", "0", Long.toString(Long.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("Bucket for value Infinity is out of range");
     }
@@ -3379,23 +3414,23 @@ public class TestMathFunctions
                 .isEqualTo(0L);
 
         // failure modes
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.14E0", "array[]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.14E0", "array[]")::evaluate)
                 .hasMessage("Bins cannot be an empty array");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "nan()", "array[1.0E0, 2.0E0, 3.0E0]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "nan()", "array[1.0E0, 2.0E0, 3.0E0]")::evaluate)
                 .hasMessage("Operand cannot be NaN");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.14E0", "array[0.0E0, infinity()]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.14E0", "array[0.0E0, infinity()]")::evaluate)
                 .hasMessage("Bin value must be finite, got Infinity");
 
         // fail if we aren't sorted
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.145E0", "array[1.0E0, 0.0E0]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.145E0", "array[1.0E0, 0.0E0]")::evaluate)
                 .hasMessage("Bin values are not sorted in ascending order");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.145E0", "array[1.0E0, 0.0E0, -1.0E0]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.145E0", "array[1.0E0, 0.0E0, -1.0E0]")::evaluate)
                 .hasMessage("Bin values are not sorted in ascending order");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("width_bucket", "3.145E0", "array[1.0E0, 0.3E0, 0.0E0, -1.0E0]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "3.145E0", "array[1.0E0, 0.3E0, 0.0E0, -1.0E0]")::evaluate)
                 .hasMessage("Bin values are not sorted in ascending order");
 
         // this is a case that we can't catch because we are using binary search to bisect the bins array
@@ -3410,7 +3445,7 @@ public class TestMathFunctions
                 .isEqualTo(2 * 3 / (Math.sqrt(5) * Math.sqrt(10)));
 
         assertThat(assertions.function("cosine_similarity", "map(ARRAY['a', 'b', 'c'], ARRAY[1.0E0, 2.0E0, -1.0E0])", "map(ARRAY['c', 'b'], ARRAY[1.0E0, 3.0E0])"))
-                .isEqualTo((2 * 3 + (-1) * 1) / (Math.sqrt(1 + 4 + 1) * Math.sqrt(1 + 9)));
+                .isEqualTo((2 * 3 + -1 * 1) / (Math.sqrt(1 + 4 + 1) * Math.sqrt(1 + 9)));
 
         assertThat(assertions.function("cosine_similarity", "map(ARRAY['a', 'b', 'c'], ARRAY[1.0E0, 2.0E0, -1.0E0])", "map(ARRAY['d', 'e'], ARRAY[1.0E0, 3.0E0])"))
                 .isEqualTo(0.0);
@@ -3434,13 +3469,13 @@ public class TestMathFunctions
         assertThat(assertions.function("inverse_normal_cdf", "0.5", "0.25", "0.65"))
                 .isEqualTo(0.59633011660189195);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_normal_cdf", "4", "48", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("inverse_normal_cdf", "4", "48", "0")::evaluate)
                 .hasMessage("p must be 0 > p > 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_normal_cdf", "4", "48", "1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("inverse_normal_cdf", "4", "48", "1")::evaluate)
                 .hasMessage("p must be 0 > p > 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_normal_cdf", "4", "0", "0.4").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("inverse_normal_cdf", "4", "0", "0.4")::evaluate)
                 .hasMessage("sd must be > 0");
     }
 
@@ -3477,10 +3512,10 @@ public class TestMathFunctions
         assertThat(assertions.function("normal_cdf", "0", "1", "nan()"))
                 .isEqualTo(Double.NaN);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("normal_cdf", "0", "0", "0.1985").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("normal_cdf", "0", "0", "0.1985")::evaluate)
                 .hasMessage("standardDeviation must be > 0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("normal_cdf", "0", "nan()", "0.1985").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("normal_cdf", "0", "nan()", "0.1985")::evaluate)
                 .hasMessage("standardDeviation must be > 0");
     }
 
@@ -3499,16 +3534,16 @@ public class TestMathFunctions
         assertThat(assertions.function("inverse_beta_cdf", "3", "3.6", "0.95"))
                 .isEqualTo(0.7600272463100223);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_beta_cdf", "0", "3", "0.5").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("inverse_beta_cdf", "0", "3", "0.5")::evaluate)
                 .hasMessage("a, b must be > 0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_beta_cdf", "3", "0", "0.5").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("inverse_beta_cdf", "3", "0", "0.5")::evaluate)
                 .hasMessage("a, b must be > 0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_beta_cdf", "3", "5", "-0.1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("inverse_beta_cdf", "3", "5", "-0.1")::evaluate)
                 .hasMessage("p must be 0 >= p >= 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_beta_cdf", "3", "5", "1.1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("inverse_beta_cdf", "3", "5", "1.1")::evaluate)
                 .hasMessage("p must be 0 >= p >= 1");
     }
 
@@ -3527,47 +3562,47 @@ public class TestMathFunctions
         assertThat(assertions.function("beta_cdf", "3", "3.6", "0.9"))
                 .isEqualTo(0.9972502881611551);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("beta_cdf", "0", "3", "0.5").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("beta_cdf", "0", "3", "0.5")::evaluate)
                 .hasMessage("a, b must be > 0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("beta_cdf", "3", "0", "0.5").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("beta_cdf", "3", "0", "0.5")::evaluate)
                 .hasMessage("a, b must be > 0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("beta_cdf", "3", "5", "-0.1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("beta_cdf", "3", "5", "-0.1")::evaluate)
                 .hasMessage("value must be 0 >= v >= 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("beta_cdf", "3", "5", "1.1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("beta_cdf", "3", "5", "1.1")::evaluate)
                 .hasMessage("value must be 0 >= v >= 1");
     }
 
     @Test
     public void testWilsonInterval()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("wilson_interval_lower", "-1", "100", "2.575").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("wilson_interval_lower", "-1", "100", "2.575")::evaluate)
                 .hasMessage("number of successes must not be negative");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("wilson_interval_lower", "0", "0", "2.575").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("wilson_interval_lower", "0", "0", "2.575")::evaluate)
                 .hasMessage("number of trials must be positive");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("wilson_interval_lower", "10", "5", "2.575").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("wilson_interval_lower", "10", "5", "2.575")::evaluate)
                 .hasMessage("number of successes must not be larger than number of trials");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("wilson_interval_lower", "0", "100", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("wilson_interval_lower", "0", "100", "-1")::evaluate)
                 .hasMessage("z-score must not be negative");
 
         assertThat(assertions.function("wilson_interval_lower", "1250", "1310", "1.96e0"))
                 .isEqualTo(0.9414883725395894);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("wilson_interval_upper", "-1", "100", "2.575").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("wilson_interval_upper", "-1", "100", "2.575")::evaluate)
                 .hasMessage("number of successes must not be negative");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("wilson_interval_upper", "0", "0", "2.575").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("wilson_interval_upper", "0", "0", "2.575")::evaluate)
                 .hasMessage("number of trials must be positive");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("wilson_interval_upper", "10", "5", "2.575").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("wilson_interval_upper", "10", "5", "2.575")::evaluate)
                 .hasMessage("number of successes must not be larger than number of trials");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("wilson_interval_upper", "0", "100", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("wilson_interval_upper", "0", "100", "-1")::evaluate)
                 .hasMessage("z-score must not be negative");
 
         assertThat(assertions.function("wilson_interval_upper", "1250", "1310", "1.96e0"))

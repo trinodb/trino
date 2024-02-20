@@ -16,12 +16,12 @@ package io.trino.plugin.hive.coercions;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RealType;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static java.lang.Float.intBitsToFloat;
 
 public class FloatToDoubleCoercer
         extends TypeCoercer<RealType, DoubleType>
@@ -32,8 +32,18 @@ public class FloatToDoubleCoercer
     }
 
     @Override
+    public Block apply(Block block)
+    {
+        // data may have already been coerced by the Avro reader
+        if (block instanceof LongArrayBlock) {
+            return block;
+        }
+        return super.apply(block);
+    }
+
+    @Override
     protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
     {
-        DOUBLE.writeDouble(blockBuilder, intBitsToFloat((int) REAL.getLong(block, position)));
+        DOUBLE.writeDouble(blockBuilder, REAL.getFloat(block, position));
     }
 }

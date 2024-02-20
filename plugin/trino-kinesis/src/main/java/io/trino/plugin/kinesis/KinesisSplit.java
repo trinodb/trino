@@ -15,16 +15,11 @@ package io.trino.plugin.kinesis;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
-import org.openjdk.jol.info.ClassLayout;
-
-import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -34,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class KinesisSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(KinesisSplit.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(KinesisSplit.class);
 
     private final String streamName;
     private final String messageDataFormat;
@@ -94,18 +89,6 @@ public class KinesisSplit
     public String getShardId()
     {
         return shardId;
-    }
-
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
-    public List<HostAddress> getAddresses()
-    {
-        return ImmutableList.of();
     }
 
     @Override

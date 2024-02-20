@@ -18,7 +18,7 @@ import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
@@ -55,6 +55,6 @@ public class TestSessionPropertyManagerInTransaction
         // Ensure that the previous statement was successful
         assertQuery(
                 "SHOW SCHEMAS FROM hive",
-                "VALUES('information_schema'),('test'),('tpch'),('tpch_bucketed')");
+                "VALUES('information_schema'),('test'),('tpch')");
     }
 }

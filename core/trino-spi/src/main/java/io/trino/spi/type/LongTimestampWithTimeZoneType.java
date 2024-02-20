@@ -17,13 +17,20 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
-import io.trino.spi.block.Int96ArrayBlockBuilder;
+import io.trino.spi.block.Fixed12Block;
+import io.trino.spi.block.Fixed12BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.FlatFixed;
+import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -31,6 +38,7 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -39,6 +47,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -51,10 +60,12 @@ final class LongTimestampWithTimeZoneType
         extends TimestampWithTimeZoneType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongTimestampWithTimeZoneType.class, lookup(), LongTimestampWithTimeZone.class);
+    private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
+    private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
     public LongTimestampWithTimeZoneType(int precision)
     {
-        super(precision, LongTimestampWithTimeZone.class);
+        super(precision, LongTimestampWithTimeZone.class, Fixed12Block.class);
 
         if (precision < MAX_SHORT_PRECISION + 1 || precision > MAX_PRECISION) {
             throw new IllegalArgumentException(format("Precision must be in the range [%s, %s]", MAX_SHORT_PRECISION + 1, MAX_PRECISION));
@@ -83,7 +94,7 @@ final class LongTimestampWithTimeZoneType
         else {
             maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
         }
-        return new Int96ArrayBlockBuilder(
+        return new Fixed12BlockBuilder(
                 blockBuilderStatus,
                 Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
     }
@@ -97,7 +108,7 @@ final class LongTimestampWithTimeZoneType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new Int96ArrayBlockBuilder(null, positionCount);
+        return new Fixed12BlockBuilder(null, positionCount);
     }
 
     @Override
@@ -107,17 +118,19 @@ final class LongTimestampWithTimeZoneType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(getPackedEpochMillis(block, position));
-            blockBuilder.writeInt(getPicosOfMilli(block, position));
-            blockBuilder.closeEntry();
+            Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+            int valuePosition = block.getUnderlyingValuePosition(position);
+            write(blockBuilder, getPackedEpochMillis(valueBlock, valuePosition), getPicosOfMilli(valueBlock, valuePosition));
         }
     }
 
     @Override
     public Object getObject(Block block, int position)
     {
-        long packedEpochMillis = getPackedEpochMillis(block, position);
-        int picosOfMilli = getPicosOfMilli(block, position);
+        Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        long packedEpochMillis = getPackedEpochMillis(valueBlock, valuePosition);
+        int picosOfMilli = getPicosOfMilli(valueBlock, valuePosition);
 
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(unpackMillisUtc(packedEpochMillis), picosOfMilli, unpackZoneKey(packedEpochMillis));
     }
@@ -127,9 +140,14 @@ final class LongTimestampWithTimeZoneType
     {
         LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
 
-        blockBuilder.writeLong(packDateTimeWithZone(timestamp.getEpochMillis(), timestamp.getTimeZoneKey()));
-        blockBuilder.writeInt(timestamp.getPicosOfMilli());
-        blockBuilder.closeEntry();
+        write(blockBuilder, packDateTimeWithZone(timestamp.getEpochMillis(), timestamp.getTimeZoneKey()), timestamp.getPicosOfMilli());
+    }
+
+    private static void write(BlockBuilder blockBuilder, long packedDateTimeWithZone, int picosOfMilli)
+    {
+        ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
+                packedDateTimeWithZone,
+                picosOfMilli);
     }
 
     @Override
@@ -139,10 +157,18 @@ final class LongTimestampWithTimeZoneType
             return null;
         }
 
-        long packedEpochMillis = getPackedEpochMillis(block, position);
-        int picosOfMilli = getPicosOfMilli(block, position);
+        Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        long packedEpochMillis = getPackedEpochMillis(valueBlock, valuePosition);
+        int picosOfMilli = getPicosOfMilli(valueBlock, valuePosition);
 
         return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(packedEpochMillis), picosOfMilli, unpackZoneKey(packedEpochMillis));
+    }
+
+    @Override
+    public int getFlatFixedSize()
+    {
+        return Long.BYTES + Integer.BYTES;
     }
 
     @Override
@@ -151,7 +177,7 @@ final class LongTimestampWithTimeZoneType
         LongTimestampWithTimeZone timestampWithTimeZone = (LongTimestampWithTimeZone) value;
         long epochMillis = timestampWithTimeZone.getEpochMillis();
         int picosOfMilli = timestampWithTimeZone.getPicosOfMilli();
-        picosOfMilli -= rescale(1, 0, 12 - getPrecision());
+        picosOfMilli -= toIntExact(rescale(1, 0, 12 - getPrecision()));
         if (picosOfMilli < 0) {
             if (epochMillis == Long.MIN_VALUE) {
                 return Optional.empty();
@@ -169,31 +195,79 @@ final class LongTimestampWithTimeZoneType
         LongTimestampWithTimeZone timestampWithTimeZone = (LongTimestampWithTimeZone) value;
         long epochMillis = timestampWithTimeZone.getEpochMillis();
         int picosOfMilli = timestampWithTimeZone.getPicosOfMilli();
-        picosOfMilli += rescale(1, 0, 12 - getPrecision());
+        picosOfMilli += toIntExact(rescale(1, 0, 12 - getPrecision()));
         if (picosOfMilli >= PICOSECONDS_PER_MILLISECOND) {
             if (epochMillis == Long.MAX_VALUE) {
                 return Optional.empty();
             }
-            epochMillis--;
+            epochMillis++;
             picosOfMilli -= PICOSECONDS_PER_MILLISECOND;
         }
         // time zone doesn't matter for ordering
         return Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMilli, UTC_KEY));
     }
 
-    private static long getPackedEpochMillis(Block block, int position)
+    private static long getPackedEpochMillis(Fixed12Block block, int position)
     {
-        return block.getLong(position, 0);
+        return block.getFixed12First(position);
     }
 
-    private static long getEpochMillis(Block block, int position)
+    private static long getEpochMillis(Fixed12Block block, int position)
     {
         return unpackMillisUtc(getPackedEpochMillis(block, position));
     }
 
-    private static int getPicosOfMilli(Block block, int position)
+    private static int getPicosOfMilli(Fixed12Block block, int position)
     {
-        return block.getInt(position, SIZE_OF_LONG);
+        return block.getFixed12Second(position);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static LongTimestampWithTimeZone readFlat(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+    {
+        long packedEpochMillis = (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
+        int picosOfMilli = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Long.BYTES);
+        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(unpackMillisUtc(packedEpochMillis), picosOfMilli, unpackZoneKey(packedEpochMillis));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void readFlatToBlock(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            BlockBuilder blockBuilder)
+    {
+        write(blockBuilder,
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset),
+                (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Long.BYTES));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeFlat(
+            LongTimestampWithTimeZone value,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, packDateTimeWithZone(value.getEpochMillis(), value.getTimeZoneKey()));
+        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, value.getPicosOfMilli());
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeBlockFlat(
+            @BlockPosition Fixed12Block block,
+            @BlockIndex int position,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, getPackedEpochMillis(block, position));
+        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, getPicosOfMilli(block, position));
     }
 
     @ScalarOperator(EQUAL)
@@ -207,7 +281,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean equalOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
                 getEpochMillis(leftBlock, leftPosition),
@@ -229,7 +303,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    private static long xxHash64Operator(@BlockPosition Fixed12Block block, @BlockIndex int position)
     {
         return xxHash64(
                 getEpochMillis(block, position),
@@ -248,7 +322,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static long comparisonOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return comparison(
                 getEpochMillis(leftBlock, leftPosition),
@@ -273,7 +347,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @ScalarOperator(LESS_THAN)
-    private static boolean lessThanOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThan(
                 getEpochMillis(leftBlock, leftPosition),
@@ -295,7 +369,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    private static boolean lessThanOrEqualOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOrEqualOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThanOrEqual(
                 getEpochMillis(leftBlock, leftPosition),

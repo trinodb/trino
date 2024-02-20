@@ -14,65 +14,58 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultiset;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.CountingAccessMetadata;
-import io.trino.metadata.MetadataManager;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Optional;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // Cost-based optimizers' behaviors are affected by the statistics returned by the Connectors. Here is to count the getTableStatistics calls
 // when CBOs work with Iceberg Connector.
-@Test(singleThreaded = true) // counting metadata is a shared mutable state
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestIcebergGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
-    private LocalQueryRunner localQueryRunner;
-    private CountingAccessMetadata metadata;
-    private File metastoreDir;
+    private QueryRunner queryRunner;
+    private Path metastoreDir;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        localQueryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataProvider((systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)
-                        -> new CountingAccessMetadata(new MetadataManager(systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)))
+        queryRunner = DistributedQueryRunner.builder(testSession())
+                .setNodeCount(1)
                 .build();
-        metadata = (CountingAccessMetadata) localQueryRunner.getMetadata();
-        localQueryRunner.installPlugin(new TpchPlugin());
-        localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
-        metastoreDir = Files.createTempDirectory("test_iceberg_get_table_statistics_operations").toFile();
-        HiveMetastore metastore = createTestingFileHiveMetastore(metastoreDir);
-        localQueryRunner.createCatalog(
-                "iceberg",
-                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE),
-                ImmutableMap.of());
+        metastoreDir = Files.createTempDirectory("test_iceberg_get_table_statistics_operations");
+        queryRunner.installPlugin(new TestingIcebergPlugin(metastoreDir));
+        queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.of());
+
+        HiveMetastore metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
+                .getInstance(HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
+
         Database database = Database.builder()
                 .setDatabaseName("tiny")
                 .setOwnerName(Optional.of("public"))
@@ -80,27 +73,11 @@ public class TestIcebergGetTableStatisticsOperations
                 .build();
         metastore.createDatabase(database);
 
-        localQueryRunner.execute("CREATE TABLE iceberg.tiny.orders AS SELECT * FROM tpch.tiny.orders");
-        localQueryRunner.execute("CREATE TABLE iceberg.tiny.lineitem AS SELECT * FROM tpch.tiny.lineitem");
-        localQueryRunner.execute("CREATE TABLE iceberg.tiny.customer AS SELECT * FROM tpch.tiny.customer");
+        queryRunner.execute("CREATE TABLE iceberg.tiny.orders AS SELECT * FROM tpch.tiny.orders");
+        queryRunner.execute("CREATE TABLE iceberg.tiny.lineitem AS SELECT * FROM tpch.tiny.lineitem");
+        queryRunner.execute("CREATE TABLE iceberg.tiny.customer AS SELECT * FROM tpch.tiny.customer");
 
-        return localQueryRunner;
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-            throws IOException
-    {
-        deleteRecursively(metastoreDir.toPath(), ALLOW_INSECURE);
-        localQueryRunner.close();
-        localQueryRunner = null;
-        metadata = null;
-    }
-
-    @BeforeMethod
-    public void resetCounters()
-    {
-        metadata.resetCounters();
+        return queryRunner;
     }
 
     @Test
@@ -109,10 +86,7 @@ public class TestIcebergGetTableStatisticsOperations
         planDistributedQuery("SELECT * " +
                 "FROM iceberg.tiny.orders o, iceberg.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey");
-        assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 2)
-                        .build());
+        assertThat(getTableStatisticsMethodInvocations()).isEqualTo(2);
     }
 
     @Test
@@ -121,17 +95,19 @@ public class TestIcebergGetTableStatisticsOperations
         planDistributedQuery("SELECT * " +
                 "FROM iceberg.tiny.customer c, iceberg.tiny.orders o, iceberg.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
-        assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
-                        .build());
+        assertThat(getTableStatisticsMethodInvocations()).isEqualTo(3);
     }
 
     private void planDistributedQuery(@Language("SQL") String sql)
     {
-        transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getAccessControl())
-                .execute(localQueryRunner.getDefaultSession(), session -> {
-                    localQueryRunner.createPlan(session, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
-                });
+        queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql));
+    }
+
+    private long getTableStatisticsMethodInvocations()
+    {
+        return queryRunner.getSpans().stream()
+                .map(SpanData::getName)
+                .filter(name -> name.equals("Metadata.getTableStatistics"))
+                .count();
     }
 }

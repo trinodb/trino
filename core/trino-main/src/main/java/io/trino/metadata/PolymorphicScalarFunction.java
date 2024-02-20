@@ -144,6 +144,9 @@ class PolymorphicScalarFunction
             }
             methodParameterIndex += argumentConvention.getParameterCount();
         }
+        if (returnConvention == InvocationReturnConvention.BLOCK_BUILDER) {
+            throw new UnsupportedOperationException("BLOCK_BUILDER return convention is not yet supported");
+        }
         return method.getReturnType().equals(getNullAwareContainerType(boundSignature.getReturnType().getJavaType(), returnConvention));
     }
 
@@ -171,13 +174,11 @@ class PolymorphicScalarFunction
 
     private static Class<?> getNullAwareContainerType(Class<?> clazz, InvocationReturnConvention returnConvention)
     {
-        switch (returnConvention) {
-            case NULLABLE_RETURN:
-                return Primitives.wrap(clazz);
-            case FAIL_ON_NULL:
-                return clazz;
-        }
-        throw new UnsupportedOperationException("Unknown return convention: " + returnConvention);
+        return switch (returnConvention) {
+            case NULLABLE_RETURN -> Primitives.wrap(clazz);
+            case DEFAULT_ON_NULL, FAIL_ON_NULL -> clazz;
+            case BLOCK_BUILDER, FLAT_RETURN -> void.class;
+        };
     }
 
     static final class PolymorphicScalarFunctionChoice

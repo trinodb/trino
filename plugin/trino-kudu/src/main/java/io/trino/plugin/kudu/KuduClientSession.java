@@ -22,6 +22,7 @@ import io.trino.plugin.kudu.properties.PartitionDesign;
 import io.trino.plugin.kudu.properties.RangePartition;
 import io.trino.plugin.kudu.properties.RangePartitionDefinition;
 import io.trino.plugin.kudu.schema.SchemaEmulation;
+import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -31,7 +32,6 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.DiscreteValues;
-import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.EquatableValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
@@ -39,6 +39,7 @@ import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
+import jakarta.annotation.PreDestroy;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;
@@ -51,10 +52,9 @@ import org.apache.kudu.client.KuduScanToken;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
+import org.apache.kudu.client.LocatedTablet.Replica;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.PartitionSchema.HashBucketSchema;
-
-import javax.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -68,8 +68,10 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 import static org.apache.kudu.ColumnSchema.ColumnSchemaBuilder;
 import static org.apache.kudu.ColumnSchema.CompressionAlgorithm;
@@ -85,11 +87,13 @@ public class KuduClientSession
     public static final String DEFAULT_SCHEMA = "default";
     private final KuduClientWrapper client;
     private final SchemaEmulation schemaEmulation;
+    private final boolean allowLocalScheduling;
 
-    public KuduClientSession(KuduClientWrapper client, SchemaEmulation schemaEmulation)
+    public KuduClientSession(KuduClientWrapper client, SchemaEmulation schemaEmulation, boolean allowLocalScheduling)
     {
         this.client = client;
         this.schemaEmulation = schemaEmulation;
+        this.allowLocalScheduling = allowLocalScheduling;
     }
 
     public List<String> listSchemaNames()
@@ -256,9 +260,9 @@ public class KuduClientSession
         schemaEmulation.createSchema(client, schemaName);
     }
 
-    public void dropSchema(String schemaName)
+    public void dropSchema(String schemaName, boolean cascade)
     {
-        schemaEmulation.dropSchema(client, schemaName);
+        schemaEmulation.dropSchema(client, schemaName, cascade);
     }
 
     public void dropTable(SchemaTableName schemaTableName)
@@ -305,6 +309,7 @@ public class KuduClientSession
 
             Schema schema = buildSchema(columns);
             CreateTableOptions options = buildCreateTableOptions(schema, properties);
+            tableMetadata.getComment().ifPresent(options::setComment);
             return client.createTable(rawName, schema, options);
         }
         catch (KuduException e) {
@@ -497,10 +502,9 @@ public class KuduClientSession
         }
 
         Schema schema = table.getSchema();
-        for (TupleDomain.ColumnDomain<ColumnHandle> columnDomain : constraintSummary.getColumnDomains().get()) {
-            int position = ((KuduColumnHandle) columnDomain.getColumn()).getOrdinalPosition();
+        constraintSummary.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
+            int position = ((KuduColumnHandle) columnHandle).getOrdinalPosition();
             ColumnSchema columnSchema = schema.getColumnByIndex(position);
-            Domain domain = columnDomain.getDomain();
             verify(!domain.isNone(), "Domain is none");
             if (domain.isAll()) {
                 // no restriction
@@ -554,7 +558,7 @@ public class KuduClientSession
                     throw new IllegalStateException("Unexpected domain: " + domain);
                 }
             }
-        }
+        });
     }
 
     private KuduPredicate createInListPredicate(ColumnSchema columnSchema, DiscreteValues discreteValues)
@@ -614,7 +618,19 @@ public class KuduClientSession
     {
         try {
             byte[] serializedScanToken = token.serialize();
-            return new KuduSplit(tableHandle.getSchemaTableName(), primaryKeyColumnCount, serializedScanToken, bucketNumber);
+            List<HostAddress> addresses = ImmutableList.of();
+            if (allowLocalScheduling) {
+                List<Replica> replicas = token.getTablet().getReplicas();
+                // KuduScanTokenBuilder uses ReplicaSelection.LEADER_ONLY by default, see org.apache.kudu.client.AbstractKuduScannerBuilder,
+                // because use ReplicaSelection.CLOSEST_REPLICA may cause slow queries when tablet followers' data lag behind tablet leaders',
+                // in this condition followers will wait until its data is synchronized with leaders' before returning
+                addresses = replicas.stream()
+                        .filter(replica -> replica.getRole().toLowerCase(ENGLISH).equals("leader"))
+                        .map(replica -> fromParts(replica.getRpcHost(), replica.getRpcPort()))
+                        .collect(toImmutableList());
+            }
+
+            return new KuduSplit(tableHandle.getSchemaTableName(), primaryKeyColumnCount, serializedScanToken, bucketNumber, addresses);
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);

@@ -15,6 +15,7 @@ package io.trino.plugin.thrift.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.MappedRecordSet;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.plugin.thrift.api.TrinoThriftId;
 import io.trino.plugin.thrift.api.TrinoThriftNullableToken;
@@ -27,7 +28,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
-import io.trino.split.MappedRecordSet;
 import io.trino.testing.tpch.TpchIndexedData;
 import io.trino.testing.tpch.TpchIndexedData.IndexedTable;
 import io.trino.testing.tpch.TpchScaledTable;

@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc.expression;
 
 import io.trino.sql.tree.ComparisonExpression;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.stream.Stream;
 
@@ -26,7 +26,7 @@ public class TestRewriteComparison
     public void testOperatorEnumsInSync()
     {
         assertThat(
-                Stream.of(RewriteComparison.ComparisonOperator.values())
+                Stream.of(ComparisonOperator.values())
                         .map(Enum::name))
                 .containsExactlyInAnyOrder(
                         Stream.of(ComparisonExpression.Operator.values())

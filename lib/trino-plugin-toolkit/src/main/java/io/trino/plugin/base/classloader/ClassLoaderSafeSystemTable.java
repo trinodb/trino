@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.classloader;
 
+import com.google.inject.Inject;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -22,7 +23,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 
-import javax.inject.Inject;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -60,6 +61,14 @@ public class ClassLoaderSafeSystemTable
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.cursor(transactionHandle, session, constraint);
+        }
+    }
+
+    @Override
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint, Set<Integer> requiredColumns)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.cursor(transactionHandle, session, constraint, requiredColumns);
         }
     }
 

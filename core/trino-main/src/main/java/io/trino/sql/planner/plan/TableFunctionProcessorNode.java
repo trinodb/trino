@@ -221,6 +221,19 @@ public class TableFunctionProcessorNode
     public PlanNode replaceChildren(List<PlanNode> newSources)
     {
         Optional<PlanNode> newSource = newSources.isEmpty() ? Optional.empty() : Optional.of(getOnlyElement(newSources));
-        return new TableFunctionProcessorNode(getId(), name, properOutputs, newSource, pruneWhenEmpty, passThroughSpecifications, requiredSymbols, markerSymbols, specification, prePartitioned, preSorted, hashSymbol, handle);
+        return new TableFunctionProcessorNode(
+                getId(),
+                name,
+                properOutputs,
+                newSource,
+                pruneWhenEmpty,
+                passThroughSpecifications,
+                requiredSymbols,
+                markerSymbols,
+                specification,
+                prePartitioned,
+                preSorted,
+                hashSymbol,
+                handle);
     }
 }

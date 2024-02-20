@@ -131,7 +131,7 @@ public class ISO8601JsonFieldDecoder
                 }
                 if (columnType.equals(TIME_TZ_MILLIS)) {
                     TemporalAccessor parseResult = ISO_OFFSET_TIME.parse(textValue);
-                    return packTimeWithTimeZone((long) (parseResult.get(MILLI_OF_DAY)) * NANOSECONDS_PER_MILLISECOND, ZoneOffset.from(parseResult).getTotalSeconds() / 60);
+                    return packTimeWithTimeZone((long) parseResult.get(MILLI_OF_DAY) * NANOSECONDS_PER_MILLISECOND, ZoneOffset.from(parseResult).getTotalSeconds() / 60);
                 }
                 if (columnType == DATE) {
                     return ISO_DATE.parse(textValue).getLong(EPOCH_DAY);

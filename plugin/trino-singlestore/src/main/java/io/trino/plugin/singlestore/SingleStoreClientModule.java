@@ -19,6 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.singlestore.jdbc.Driver;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -26,7 +27,7 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.util.Properties;
 
@@ -49,7 +50,7 @@ public class SingleStoreClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(SingleStoreJdbcConfig config, CredentialProvider credentialProvider, SingleStoreConfig singleStoreConfig)
+    public static ConnectionFactory createConnectionFactory(SingleStoreJdbcConfig config, CredentialProvider credentialProvider, SingleStoreConfig singleStoreConfig, OpenTelemetry openTelemetry)
     {
         Properties connectionProperties = new Properties();
         // we don't want to interpret tinyInt type (with cardinality as 2) as boolean/bit
@@ -61,6 +62,7 @@ public class SingleStoreClientModule
                 new Driver(),
                 config.getConnectionUrl(),
                 connectionProperties,
-                credentialProvider);
+                credentialProvider,
+                openTelemetry);
     }
 }

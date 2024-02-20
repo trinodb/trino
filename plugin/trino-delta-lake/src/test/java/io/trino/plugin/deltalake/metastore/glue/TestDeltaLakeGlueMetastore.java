@@ -23,8 +23,9 @@ import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
-import io.trino.filesystem.hdfs.HdfsFileSystemModule;
-import io.trino.hdfs.HdfsEnvironment;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
@@ -48,14 +49,15 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
@@ -74,19 +76,22 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPER
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDeltaLakeGlueMetastore
 {
     private File tempDir;
@@ -96,7 +101,7 @@ public class TestDeltaLakeGlueMetastore
     private String databaseName;
     private TestingConnectorSession session;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
@@ -108,25 +113,24 @@ public class TestDeltaLakeGlueMetastore
                 .put("delta.hide-non-delta-lake-tables", "true")
                 .buildOrThrow();
 
+        ConnectorContext context = new TestingConnectorContext();
         Bootstrap app = new Bootstrap(
                 // connector dependencies
                 new JsonModule(),
                 binder -> {
-                    ConnectorContext context = new TestingConnectorContext();
                     binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                     binder.bind(NodeVersion.class).toInstance(new NodeVersion("test_version"));
+                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
                 },
                 // connector modules
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
                 // test setup
-                binder -> {
-                    binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT);
-                    binder.install(new HdfsFileSystemModule());
-                });
+                new FileSystemModule("test", context.getNodeManager(), context.getOpenTelemetry()));
 
         Injector injector = app
                 .doNotInitializeLogging()
@@ -153,7 +157,7 @@ public class TestDeltaLakeGlueMetastore
                 .build());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
@@ -239,6 +243,8 @@ public class TestDeltaLakeGlueMetastore
                 .isEmpty();
         assertThat(listTableColumns(metadata, new SchemaTablePrefix(databaseName, nonDeltaLakeView1.getTableName())))
                 .isEmpty();
+
+        metadata.cleanupQuery(session);
     }
 
     private Set<SchemaTableName> listTableColumns(DeltaLakeMetadata metadata, SchemaTablePrefix tablePrefix)
@@ -263,9 +269,9 @@ public class TestDeltaLakeGlueMetastore
      * Creates a valid transaction log
      */
     private void createTransactionLog(String deltaLakeTableLocation)
-            throws URISyntaxException, IOException
+            throws IOException
     {
-        File deltaTableLogLocation = new File(new File(new URI(deltaLakeTableLocation)), "_delta_log");
+        File deltaTableLogLocation = new File(new File(URI.create(deltaLakeTableLocation)), "_delta_log");
         verify(deltaTableLogLocation.mkdirs(), "mkdirs() on '%s' failed", deltaTableLogLocation);
         String entry = Resources.toString(Resources.getResource("deltalake/person/_delta_log/00000000000000000000.json"), UTF_8);
         Files.writeString(new File(deltaTableLogLocation, "00000000000000000000.json").toPath(), entry);
@@ -283,7 +289,7 @@ public class TestDeltaLakeGlueMetastore
                 .setTableName(tableName.getTableName())
                 .setOwner(Optional.of(session.getUser()))
                 .setTableType(EXTERNAL_TABLE.name())
-                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())));
+                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty(), Map.of())));
 
         table.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(PARQUET))
@@ -302,7 +308,7 @@ public class TestDeltaLakeGlueMetastore
                 .setTableName(viewName.getTableName())
                 .setOwner(Optional.of(session.getUser()))
                 .setTableType(VIRTUAL_VIEW.name())
-                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())));
+                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty(), Map.of())));
 
         table.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(PARQUET))

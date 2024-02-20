@@ -19,7 +19,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -48,9 +48,9 @@ public class PushDistinctLimitIntoTableScan
                     .with(source().matching(tableScan().capturedAs(TABLE_SCAN)));
 
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushDistinctLimitIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public PushDistinctLimitIntoTableScan(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");

@@ -33,12 +33,12 @@ import io.trino.json.ir.IrPredicate;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -68,6 +68,7 @@ import static io.trino.sql.planner.PathNodes.ceiling;
 import static io.trino.sql.planner.PathNodes.conjunction;
 import static io.trino.sql.planner.PathNodes.contextVariable;
 import static io.trino.sql.planner.PathNodes.currentItem;
+import static io.trino.sql.planner.PathNodes.descendantMemberAccessor;
 import static io.trino.sql.planner.PathNodes.disjunction;
 import static io.trino.sql.planner.PathNodes.divide;
 import static io.trino.sql.planner.PathNodes.emptySequence;
@@ -252,13 +253,13 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, abs(literal(TINYINT, -128L)))))
-                .isInstanceOf(PathEvaluationError.class);
+                .isInstanceOf(PathEvaluationException.class);
 
         // type mismatch
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, abs(jsonVariable("null_parameter")))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
     }
 
@@ -283,26 +284,27 @@ public class TestJsonPathEvaluator
         assertThat(pathResult(
                 IntNode.valueOf(-5),
                 path(true, subtract(variable("short_decimal_parameter"), variable("long_decimal_parameter")))))
+                .withEqualsForType(TypeSignature::equals, TypeSignature.class) // we don't want deep TypeSignature comparison because of cached hashCode
                 .isEqualTo(singletonSequence(new TypedValue(createDecimalType(31, 20), Int128.valueOf("-1330000000000000000000"))));
 
         // division by 0
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, divide(jsonVariable("json_number_parameter"), literal(BIGINT, 0L)))))
-                .isInstanceOf(PathEvaluationError.class);
+                .isInstanceOf(PathEvaluationException.class);
 
         // type mismatch
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, modulus(jsonVariable("json_number_parameter"), literal(BOOLEAN, true)))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid operand types to MODULUS operator (integer, boolean)");
 
         // left operand is not singleton
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, add(wildcardArrayAccessor(jsonVariable("json_array_parameter")), literal(BIGINT, 0L)))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: arithmetic binary expression requires singleton operands");
 
         // array is automatically unwrapped in lax mode
@@ -346,13 +348,13 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, minus(literal(TINYINT, -128L)))))
-                .isInstanceOf(PathEvaluationError.class);
+                .isInstanceOf(PathEvaluationException.class);
 
         // type mismatch
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, plus(jsonVariable("null_parameter")))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
     }
 
@@ -412,7 +414,7 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, last())))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: accessing the last array index with no enclosing array");
 
         // last variable in nested arrays
@@ -448,20 +450,20 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("fourth"), TextNode.valueOf("fifth"))),
                 path(false, arrayAccessor(contextVariable(), at(literal(INTEGER, 100L))))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [100, 100] for array of size 5");
 
         assertThatThrownBy(() -> evaluate(
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("fourth"), TextNode.valueOf("fifth"))),
                 path(false, arrayAccessor(contextVariable(), range(literal(INTEGER, 3L), literal(INTEGER, 100L))))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [3, 100] for array of size 5");
 
         // incorrect subscript: from > to (strict mode)
         assertThatThrownBy(() -> evaluate(
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"), TextNode.valueOf("second"), TextNode.valueOf("third"), TextNode.valueOf("fourth"), TextNode.valueOf("fifth"))),
                 path(false, arrayAccessor(contextVariable(), range(literal(INTEGER, 3L), literal(INTEGER, 2L))))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [3, 2] for array of size 5");
 
         // type mismatch (lax mode) -> the value is wrapped in a singleton array
@@ -474,7 +476,7 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(false, arrayAccessor(contextVariable(), at(literal(INTEGER, 0L))))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: ARRAY, actual: NUMBER");
     }
 
@@ -512,8 +514,79 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, ceiling(jsonVariable("null_parameter")))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
+    }
+
+    @Test
+    public void testDescendantMemberAccessor()
+    {
+        // non-structural value
+        assertThat(pathResult(
+                BooleanNode.TRUE,
+                path(true, descendantMemberAccessor(contextVariable(), "key1"))))
+                .isEqualTo(emptySequence());
+
+        // array
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(BooleanNode.TRUE, TextNode.valueOf("foo"))),
+                path(true, descendantMemberAccessor(contextVariable(), "key1"))))
+                .isEqualTo(emptySequence());
+
+        // object
+        assertThat(pathResult(
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("first", BooleanNode.TRUE, "second", IntNode.valueOf(42))),
+                path(true, descendantMemberAccessor(contextVariable(), "second"))))
+                .isEqualTo(singletonSequence(IntNode.valueOf(42)));
+
+        assertThat(pathResult(
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("first", BooleanNode.TRUE, "second", IntNode.valueOf(42))),
+                path(true, descendantMemberAccessor(contextVariable(), "third"))))
+                .isEqualTo(emptySequence());
+
+        // deep nesting array(object(array(object)))
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
+                        BooleanNode.TRUE,
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "key1", IntNode.valueOf(42),
+                                "key2", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
+                                        NullNode.instance,
+                                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                                "key3", TextNode.valueOf("foo"),
+                                                "key1", BooleanNode.FALSE)))))))),
+                path(true, descendantMemberAccessor(contextVariable(), "key1"))))
+                .isEqualTo(sequence(
+                        IntNode.valueOf(42),
+                        BooleanNode.FALSE));
+
+        // preorder: member from top-level object first
+        assertThat(pathResult(
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                        "key1", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "key2", BooleanNode.FALSE)),
+                        "key2", IntNode.valueOf(42))),
+                path(true, descendantMemberAccessor(contextVariable(), "key2"))))
+                .isEqualTo(sequence(
+                        IntNode.valueOf(42),
+                        BooleanNode.FALSE));
+
+        // matching a structural value
+        assertThat(pathResult(
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                        "key1", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "key1", BooleanNode.FALSE)),
+                        "key2", IntNode.valueOf(42))),
+                path(true, descendantMemberAccessor(contextVariable(), "key1"))))
+                .isEqualTo(sequence(
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", BooleanNode.FALSE)),
+                        BooleanNode.FALSE));
+
+        // strict mode
+        assertThat(pathResult(
+                BooleanNode.TRUE,
+                path(false, descendantMemberAccessor(contextVariable(), "key1"))))
+                .isEqualTo(emptySequence());
     }
 
     @Test
@@ -560,7 +633,7 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, toDouble(jsonVariable("null_parameter")))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER or TEXT, actual: NULL");
     }
 
@@ -598,7 +671,7 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, floor(jsonVariable("null_parameter")))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
     }
 
@@ -683,11 +756,60 @@ public class TestJsonPathEvaluator
                                 "value", NullNode.instance,
                                 "id", IntNode.valueOf(1)))));
 
+        // nested methods
+        assertThat(pathResult(
+                new ArrayNode(
+                        JsonNodeFactory.instance,
+                        ImmutableList.of(
+                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("first"), "key2", BooleanNode.TRUE)),
+                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key3", IntNode.valueOf(42))))),
+                path(true, keyValue(keyValue(wildcardArrayAccessor(contextVariable()))))))
+                .isEqualTo(sequence(
+                        // key1
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "name", TextNode.valueOf("name"),
+                                "value", TextNode.valueOf("key1"),
+                                "id", IntNode.valueOf(2))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "name", TextNode.valueOf("value"),
+                                "value", TextNode.valueOf("first"),
+                                "id", IntNode.valueOf(2))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "name", TextNode.valueOf("id"),
+                                "value", IntNode.valueOf(0),
+                                "id", IntNode.valueOf(2))),
+                        // key2
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "name", TextNode.valueOf("name"),
+                                "value", TextNode.valueOf("key2"),
+                                "id", IntNode.valueOf(3))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "name", TextNode.valueOf("value"),
+                                "value", BooleanNode.TRUE,
+                                "id", IntNode.valueOf(3))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "name", TextNode.valueOf("id"),
+                                "value", IntNode.valueOf(0),
+                                "id", IntNode.valueOf(3))),
+                        // key3
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "name", TextNode.valueOf("name"),
+                                "value", TextNode.valueOf("key3"),
+                                "id", IntNode.valueOf(4))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "name", TextNode.valueOf("value"),
+                                "value", IntNode.valueOf(42),
+                                "id", IntNode.valueOf(4))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "name", TextNode.valueOf("id"),
+                                "value", IntNode.valueOf(1),
+                                "id", IntNode.valueOf(4)))));
+
         // type mismatch
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, keyValue(jsonVariable("null_parameter")))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: OBJECT, actual: NULL");
     }
 
@@ -735,7 +857,7 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance)),
                 path(false, memberAccessor(contextVariable(), "wrong_key"))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: missing member 'wrong_key' in JSON object");
 
         // multiple input objects, key not found in one of them -- lax mode
@@ -756,14 +878,14 @@ public class TestJsonPathEvaluator
                                 new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("first"), "key2", BooleanNode.TRUE)),
                                 new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key3", IntNode.valueOf(1), "key4", NullNode.instance)))),
                 path(false, memberAccessor(wildcardArrayAccessor(contextVariable()), "key2"))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: missing member 'key2' in JSON object");
 
         // type mismatch
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, keyValue(jsonVariable("null_parameter")))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: OBJECT, actual: NULL");
     }
 
@@ -810,7 +932,7 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(false, size(contextVariable()))))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: ARRAY, actual: NUMBER");
     }
 
@@ -1316,7 +1438,7 @@ public class TestJsonPathEvaluator
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),
                 path(true, currentItem())))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: accessing current filter item with no enclosing filter");
     }
 
@@ -1357,7 +1479,7 @@ public class TestJsonPathEvaluator
                 input,
                 PARAMETERS.values().toArray(),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
-                new CachingResolver(createTestMetadataManager(), testSessionBuilder().build().toConnectorSession(), new TestingTypeManager()));
+                new CachingResolver(createTestMetadataManager()));
     }
 
     private static PathPredicateEvaluationVisitor createPredicateVisitor(JsonNode input, boolean lax)
@@ -1366,6 +1488,6 @@ public class TestJsonPathEvaluator
                 lax,
                 createPathVisitor(input, lax),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
-                new CachingResolver(createTestMetadataManager(), testSessionBuilder().build().toConnectorSession(), new TestingTypeManager()));
+                new CachingResolver(createTestMetadataManager()));
     }
 }

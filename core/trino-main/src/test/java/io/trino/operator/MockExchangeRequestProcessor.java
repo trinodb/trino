@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
@@ -54,8 +54,7 @@ import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class MockExchangeRequestProcessor
         implements TestingHttpClient.Processor
@@ -101,9 +100,9 @@ public class MockExchangeRequestProcessor
         }
 
         // verify we got a data size and it parses correctly
-        assertTrue(!request.getHeaders().get(InternalHeaders.TRINO_MAX_SIZE).isEmpty());
+        assertThat(!request.getHeaders().get(InternalHeaders.TRINO_MAX_SIZE).isEmpty()).isTrue();
         DataSize maxSize = DataSize.valueOf(request.getHeader(InternalHeaders.TRINO_MAX_SIZE));
-        assertEquals(maxSize, expectedMaxSize);
+        assertThat(maxSize).isEqualTo(expectedMaxSize);
 
         RequestLocation requestLocation = new RequestLocation(request.getUri());
         URI location = requestLocation.getLocation();
@@ -213,7 +212,9 @@ public class MockExchangeRequestProcessor
                 throw failure;
             }
 
-            assertEquals(sequenceId, token.get(), "token");
+            assertThat(sequenceId)
+                    .describedAs("token")
+                    .isEqualTo(token.get());
 
             // wait for a single page to arrive
             Slice serializedPage = null;

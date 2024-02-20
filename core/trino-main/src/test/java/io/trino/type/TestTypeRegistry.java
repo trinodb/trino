@@ -18,7 +18,7 @@ import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

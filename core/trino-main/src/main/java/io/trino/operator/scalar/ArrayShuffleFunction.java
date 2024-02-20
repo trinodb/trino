@@ -13,14 +13,13 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -29,14 +28,14 @@ import java.util.concurrent.ThreadLocalRandom;
 @Description("Generates a random permutation of the given array.")
 public final class ArrayShuffleFunction
 {
-    private final PageBuilder pageBuilder;
+    private final BufferedArrayValueBuilder arrayValueBuilder;
     private static final int INITIAL_LENGTH = 128;
     private int[] positions = new int[INITIAL_LENGTH];
 
     @TypeParameter("E")
     public ArrayShuffleFunction(@TypeParameter("E") Type elementType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
     }
 
     @TypeParameter("E")
@@ -62,17 +61,10 @@ public final class ArrayShuffleFunction
             positions[index] = swap;
         }
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-
-        for (int i = 0; i < length; i++) {
-            type.appendTo(block, positions[i], blockBuilder);
-        }
-        pageBuilder.declarePositions(length);
-
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - length, length);
+        return arrayValueBuilder.build(length, elementBuilder -> {
+            for (int i = 0; i < length; i++) {
+                type.appendTo(block, positions[i], elementBuilder);
+            }
+        });
     }
 }

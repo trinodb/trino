@@ -18,6 +18,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
@@ -27,11 +28,9 @@ import io.trino.plugin.raptor.legacy.metadata.ShardMetadata;
 import io.trino.plugin.raptor.legacy.metadata.Table;
 import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.trino.spi.NodeManager;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.HashSet;

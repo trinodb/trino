@@ -20,8 +20,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;

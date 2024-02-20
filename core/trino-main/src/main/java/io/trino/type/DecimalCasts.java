@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +40,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -61,10 +61,12 @@ import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
+import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.currentTokenAsLongDecimal;
 import static io.trino.util.JsonUtil.currentTokenAsShortDecimal;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -91,14 +93,15 @@ public final class DecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), "shortDecimalToJson", "longDecimalToJson");
     public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON.getTypeSignature(), true, "jsonToShortDecimal", "jsonToLongDecimal");
 
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+
     private static SqlScalarFunction castFunctionFromDecimalTo(TypeSignature to, String... methodNames)
     {
         Signature signature = Signature.builder()
-                .operatorType(CAST)
                 .argumentType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .returnType(to)
                 .build();
-        return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
+        return new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -127,11 +130,10 @@ public final class DecimalCasts
     private static SqlScalarFunction castFunctionToDecimalFromBuilder(TypeSignature from, boolean nullableResult, String... methodNames)
     {
         Signature signature = Signature.builder()
-                .operatorType(CAST)
                 .argumentType(from)
                 .returnType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .build();
-        return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
+        return new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
                 .signature(signature)
                 .nullableResult(nullableResult)
                 .deterministic(true)
@@ -152,9 +154,8 @@ public final class DecimalCasts
                                 }))).build();
     }
 
-    public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
+    public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
             .signature(Signature.builder()
-                    .operatorType(CAST)
                     .argumentType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                     .returnType(new TypeSignature("varchar", typeVariable("x")))
                     .build())
@@ -467,13 +468,15 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long realToShortDecimal(long value, long precision, long scale, long tenToScale)
     {
-        return DecimalConversions.realToShortDecimal(value, precision, scale);
+        float floatValue = intBitsToFloat((int) value);
+        return DecimalConversions.realToShortDecimal(floatValue, precision, scale);
     }
 
     @UsedByGeneratedCode
     public static Int128 realToLongDecimal(long value, long precision, long scale, Int128 tenToScale)
     {
-        return DecimalConversions.realToLongDecimal(value, precision, scale);
+        float floatValue = intBitsToFloat((int) value);
+        return DecimalConversions.realToLongDecimal(floatValue, precision, scale);
     }
 
     @UsedByGeneratedCode

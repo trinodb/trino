@@ -14,17 +14,14 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.services.glue.model.Table;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
-
-import java.util.Map;
 import java.util.function.Predicate;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
-import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static java.util.function.Predicate.not;
 
 public class DefaultGlueMetastoreTableFilterProvider
@@ -42,14 +39,8 @@ public class DefaultGlueMetastoreTableFilterProvider
     public Predicate<Table> get()
     {
         if (hideDeltaLakeTables) {
-            return not(DefaultGlueMetastoreTableFilterProvider::isDeltaLakeTable);
+            return not(table -> isDeltaLakeTable(getTableParameters(table)));
         }
         return table -> true;
-    }
-
-    public static boolean isDeltaLakeTable(Table table)
-    {
-        Map<String, String> parameters = firstNonNull(table.getParameters(), Map.of());
-        return parameters.getOrDefault(SPARK_TABLE_PROVIDER_KEY, "").equalsIgnoreCase(DELTA_LAKE_PROVIDER);
     }
 }

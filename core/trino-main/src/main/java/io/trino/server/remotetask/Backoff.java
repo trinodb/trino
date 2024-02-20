@@ -16,9 +16,8 @@ package io.trino.server.remotetask;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 

@@ -22,14 +22,13 @@ import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.relational.LambdaDefinitionExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.VariableReferenceExpression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -119,7 +118,7 @@ public class BenchmarkTransformKey
             }
             MapType mapType = mapType(elementType, elementType);
             ResolvedFunction resolvedFunction = functionResolution.resolveFunction(
-                    QualifiedName.of(name),
+                    name,
                     fromTypes(mapType, new FunctionType(ImmutableList.of(elementType, elementType), elementType)));
             ResolvedFunction add = functionResolution.resolveOperator(ADD, ImmutableList.of(elementType, elementType));
             projectionsBuilder.add(call(resolvedFunction, ImmutableList.of(
@@ -139,24 +138,24 @@ public class BenchmarkTransformKey
 
         private static Block createChannel(int positionCount, MapType mapType, Type elementType)
         {
-            BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
-            BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
-            Object value;
-            for (int position = 0; position < positionCount; position++) {
-                if (elementType.equals(BIGINT)) {
-                    value = ThreadLocalRandom.current().nextLong();
+            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
+            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                Object value;
+                for (int position = 0; position < positionCount; position++) {
+                    if (elementType.equals(BIGINT)) {
+                        value = ThreadLocalRandom.current().nextLong();
+                    }
+                    else if (elementType.equals(DOUBLE)) {
+                        value = ThreadLocalRandom.current().nextDouble();
+                    }
+                    else {
+                        throw new UnsupportedOperationException();
+                    }
+                    // Use position as the key to avoid collision
+                    writeNativeValue(elementType, keyBuilder, position);
+                    writeNativeValue(elementType, valueBuilder, value);
                 }
-                else if (elementType.equals(DOUBLE)) {
-                    value = ThreadLocalRandom.current().nextDouble();
-                }
-                else {
-                    throw new UnsupportedOperationException();
-                }
-                // Use position as the key to avoid collision
-                writeNativeValue(elementType, singleMapBlockWriter, position);
-                writeNativeValue(elementType, singleMapBlockWriter, value);
-            }
-            mapBlockBuilder.closeEntry();
+            });
             return mapBlockBuilder.build();
         }
 

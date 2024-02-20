@@ -14,6 +14,7 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.type.BooleanType;
 import org.apache.parquet.column.values.ValuesWriter;
 
@@ -35,10 +36,12 @@ public final class TestBooleanValueDecoders
     @Override
     protected Object[][] tests()
     {
+        PrimitiveField field = createField(BOOLEAN, OptionalInt.empty(), BooleanType.BOOLEAN);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
         return testArgs(
                 new TestType<>(
-                        createField(BOOLEAN, OptionalInt.empty(), BooleanType.BOOLEAN),
-                        ValueDecoders::getBooleanDecoder,
+                        field,
+                        valueDecoders::getBooleanDecoder,
                         BooleanApacheParquetValueDecoder::new,
                         BYTE_ADAPTER,
                         (actual, expected) -> assertThat(actual).isEqualTo(expected)),

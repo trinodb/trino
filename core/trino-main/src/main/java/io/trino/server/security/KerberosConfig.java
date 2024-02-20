@@ -16,8 +16,7 @@ package io.trino.server.security;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.Optional;

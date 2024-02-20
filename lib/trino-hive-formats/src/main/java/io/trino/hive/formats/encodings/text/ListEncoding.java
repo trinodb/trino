@@ -16,19 +16,22 @@ package io.trino.hive.formats.encodings.text;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.FileCorruptionException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
+import io.trino.spi.type.ArrayType;
 
 public class ListEncoding
         extends BlockEncoding
 {
+    private final ArrayType arrayType;
     private final byte separator;
     private final TextColumnEncoding elementEncoding;
 
-    public ListEncoding(Type type, Slice nullSequence, byte separator, Byte escapeByte, TextColumnEncoding elementEncoding)
+    public ListEncoding(ArrayType arrayType, Slice nullSequence, byte separator, Byte escapeByte, TextColumnEncoding elementEncoding)
     {
-        super(type, nullSequence, escapeByte);
+        super(arrayType, nullSequence, escapeByte);
+        this.arrayType = arrayType;
         this.separator = separator;
         this.elementEncoding = elementEncoding;
     }
@@ -37,7 +40,7 @@ public class ListEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        Block list = block.getObject(position, Block.class);
+        Block list = arrayType.getObject(block, position);
         for (int elementIndex = 0; elementIndex < list.getPositionCount(); elementIndex++) {
             if (elementIndex > 0) {
                 output.writeByte(separator);
@@ -55,26 +58,31 @@ public class ListEncoding
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
             throws FileCorruptionException
     {
-        int end = offset + length;
+        ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> decodeArrayInto(elementBuilder, slice, offset, length));
+    }
 
-        BlockBuilder arrayBlockBuilder = builder.beginBlockEntry();
-        if (length > 0) {
-            int elementOffset = offset;
-            while (offset < end) {
-                byte currentByte = slice.getByte(offset);
-                if (currentByte == separator) {
-                    decodeElementValueInto(arrayBlockBuilder, slice, elementOffset, offset - elementOffset);
-                    elementOffset = offset + 1;
-                }
-                else if (isEscapeByte(currentByte) && offset + 1 < length) {
-                    // ignore the char after escape_char
-                    offset++;
-                }
+    private void decodeArrayInto(BlockBuilder elementBuilder, Slice slice, int offset, int length)
+            throws FileCorruptionException
+    {
+        if (length <= 0) {
+            return;
+        }
+
+        int end = offset + length;
+        int elementOffset = offset;
+        while (offset < end) {
+            byte currentByte = slice.getByte(offset);
+            if (currentByte == separator) {
+                decodeElementValueInto(elementBuilder, slice, elementOffset, offset - elementOffset);
+                elementOffset = offset + 1;
+            }
+            else if (isEscapeByte(currentByte) && offset + 1 < length) {
+                // ignore the char after escape_char
                 offset++;
             }
-            decodeElementValueInto(arrayBlockBuilder, slice, elementOffset, offset - elementOffset);
+            offset++;
         }
-        builder.closeEntry();
+        decodeElementValueInto(elementBuilder, slice, elementOffset, offset - elementOffset);
     }
 
     private void decodeElementValueInto(BlockBuilder blockBuilder, Slice slice, int offset, int length)

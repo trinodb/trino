@@ -13,30 +13,39 @@
  */
 package io.trino.spi.security;
 
+import io.trino.spi.connector.CatalogSchemaName;
+
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class ViewExpression
 {
-    private final String identity;
+    private final Optional<String> identity;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final String expression;
+    private final List<CatalogSchemaName> path;
 
-    public ViewExpression(String identity, Optional<String> catalog, Optional<String> schema, String expression)
+    private ViewExpression(Optional<String> identity, Optional<String> catalog, Optional<String> schema, String expression, List<CatalogSchemaName> path)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.expression = requireNonNull(expression, "expression is null");
+        this.path = List.copyOf(path);
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
         }
     }
 
-    public String getIdentity()
+    /**
+     * @return user as whom the view expression will be evaluated. If empty identity is returned,
+     * then session user is used.
+     */
+    public Optional<String> getSecurityIdentity()
     {
         return identity;
     }
@@ -54,5 +63,65 @@ public class ViewExpression
     public String getExpression()
     {
         return expression;
+    }
+
+    public List<CatalogSchemaName> getPath()
+    {
+        return path;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private String identity;
+        private String catalog;
+        private String schema;
+        private String expression;
+        private List<CatalogSchemaName> path = List.of();
+
+        private Builder() {}
+
+        public Builder identity(String identity)
+        {
+            this.identity = identity;
+            return this;
+        }
+
+        public Builder catalog(String catalog)
+        {
+            this.catalog = catalog;
+            return this;
+        }
+
+        public Builder schema(String schema)
+        {
+            this.schema = schema;
+            return this;
+        }
+
+        public Builder expression(String expression)
+        {
+            this.expression = expression;
+            return this;
+        }
+
+        public void setPath(List<CatalogSchemaName> path)
+        {
+            this.path = List.copyOf(path);
+        }
+
+        public ViewExpression build()
+        {
+            return new ViewExpression(
+                    Optional.ofNullable(identity),
+                    Optional.ofNullable(catalog),
+                    Optional.ofNullable(schema),
+                    expression,
+                    path);
+        }
     }
 }

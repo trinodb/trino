@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -28,7 +28,8 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTuple
 {
@@ -42,18 +43,22 @@ public class TestTuple
         Tuple greaterThanTuple1 = new Tuple(types, ImmutableList.of(1L, "hello", false, 1.2d, 11111, 1113));
         Tuple lessThanTuple1 = new Tuple(types, ImmutableList.of(1L, "hello", false, 1.2d, 11111, 1111));
 
-        assertEquals(tuple1.compareTo(equalToTuple1), 0);
+        assertThat(tuple1.compareTo(equalToTuple1)).isEqualTo(0);
         assertLessThan(tuple1.compareTo(greaterThanTuple1), 0);
         assertGreaterThan(tuple1.compareTo(lessThanTuple1), 0);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "types must be the same")
+    @Test
     public void testMismatchedTypes()
     {
-        List<Type> types1 = ImmutableList.of(createVarcharType(3));
-        List<Type> types2 = ImmutableList.of(createVarcharType(4));
-        Tuple tuple1 = new Tuple(types1, ImmutableList.of("abc"));
-        Tuple tuple2 = new Tuple(types2, ImmutableList.of("abcd"));
-        tuple1.compareTo(tuple2);
+        assertThatThrownBy(() -> {
+            List<Type> types1 = ImmutableList.of(createVarcharType(3));
+            List<Type> types2 = ImmutableList.of(createVarcharType(4));
+            Tuple tuple1 = new Tuple(types1, ImmutableList.of("abc"));
+            Tuple tuple2 = new Tuple(types2, ImmutableList.of("abcd"));
+            tuple1.compareTo(tuple2);
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("types must be the same");
     }
 }

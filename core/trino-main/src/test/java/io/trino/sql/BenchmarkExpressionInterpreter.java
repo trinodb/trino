@@ -15,6 +15,7 @@ package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.Expression;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -27,7 +28,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.options.WarmupMode;
-import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -37,7 +37,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.sql.TestExpressionInterpreter.planExpression;
 import static java.util.stream.Collectors.joining;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
@@ -91,7 +91,7 @@ public class BenchmarkExpressionInterpreter
         BenchmarkData data = new BenchmarkData();
         data.setup();
         BenchmarkExpressionInterpreter benchmark = new BenchmarkExpressionInterpreter();
-        assertEquals(benchmark.optimize(data).size(), data.expressions.size());
+        assertThat(benchmark.optimize(data).size()).isEqualTo(data.expressions.size());
     }
 
     public static void main(String[] args)

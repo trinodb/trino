@@ -20,12 +20,11 @@ import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.google.common.collect.ImmutableList;
 
-import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
+import static io.trino.plugin.hive.metastore.glue.AwsCurrentRegionHolder.getCurrentRegionFromEc2Metadata;
 
 public final class GlueClientUtil
 {
@@ -34,7 +33,7 @@ public final class GlueClientUtil
     public static AWSGlueAsync createAsyncGlueClient(
             GlueHiveMetastoreConfig config,
             AWSCredentialsProvider credentialsProvider,
-            Optional<RequestHandler2> requestHandler,
+            Set<RequestHandler2> requestHandlers,
             RequestMetricCollector metricsCollector)
     {
         ClientConfiguration clientConfig = new ClientConfiguration()
@@ -44,10 +43,7 @@ public final class GlueClientUtil
                 .withMetricsCollector(metricsCollector)
                 .withClientConfiguration(clientConfig);
 
-        ImmutableList.Builder<RequestHandler2> requestHandlers = ImmutableList.builder();
-        requestHandler.ifPresent(requestHandlers::add);
-        config.getCatalogId().ifPresent(catalogId -> requestHandlers.add(new GlueCatalogIdRequestHandler(catalogId)));
-        asyncGlueClientBuilder.setRequestHandlers(requestHandlers.build().toArray(RequestHandler2[]::new));
+        asyncGlueClientBuilder.setRequestHandlers(requestHandlers.toArray(RequestHandler2[]::new));
 
         if (config.getGlueEndpointUrl().isPresent()) {
             checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
@@ -59,7 +55,7 @@ public final class GlueClientUtil
             asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
         }
         else if (config.getPinGlueClientToCurrentRegion()) {
-            asyncGlueClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+            asyncGlueClientBuilder.setRegion(getCurrentRegionFromEc2Metadata().getName());
         }
 
         asyncGlueClientBuilder.setCredentials(credentialsProvider);

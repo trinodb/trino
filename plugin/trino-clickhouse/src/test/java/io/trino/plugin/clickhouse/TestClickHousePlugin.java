@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -28,6 +28,12 @@ public class TestClickHousePlugin
     {
         Plugin plugin = new ClickHousePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:clickhouse://test"), new TestingConnectorContext());
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:clickhouse://test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext())
+                .shutdown();
     }
 }

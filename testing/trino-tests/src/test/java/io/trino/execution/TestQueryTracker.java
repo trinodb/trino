@@ -22,8 +22,11 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -31,17 +34,20 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_PLANNING_TIME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // Tests need to finish before strict timeouts. Any background work
 // may make them flaky
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // CountDownLatches are shared mutable state
 public class TestQueryTracker
         extends AbstractTestQueryFramework
 {
     private final CountDownLatch freeze = new CountDownLatch(1);
     private final CountDownLatch interrupted = new CountDownLatch(1);
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void unfreeze()
     {
         freeze.countDown();
@@ -57,7 +63,7 @@ public class TestQueryTracker
                 .setSystemProperty(QUERY_MAX_PLANNING_TIME, "2s")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
+        QueryRunner queryRunner = DistributedQueryRunner
                 .builder(defaultSession)
                 .build();
         queryRunner.installPlugin(new Plugin()
@@ -77,7 +83,8 @@ public class TestQueryTracker
         return queryRunner;
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testInterruptApplyFilter()
             throws InterruptedException
     {

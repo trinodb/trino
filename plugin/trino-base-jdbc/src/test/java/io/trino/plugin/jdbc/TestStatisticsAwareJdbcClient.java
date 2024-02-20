@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;

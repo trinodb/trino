@@ -18,12 +18,11 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.trino.collect.cache.NonEvictableLoadingCache;
+import com.google.inject.Inject;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.util.List;
@@ -33,7 +32,7 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.localfile.LocalFileMetadata.PRESTO_LOGS_SCHEMA;
 import static io.trino.plugin.localfile.LocalFileMetadata.SERVER_ADDRESS_COLUMN;
 import static io.trino.plugin.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;

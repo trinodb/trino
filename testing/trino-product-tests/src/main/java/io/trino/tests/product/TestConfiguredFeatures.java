@@ -23,10 +23,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.sql.JDBCType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests in this class verify that the test environments have been defined correctly,

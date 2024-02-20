@@ -20,19 +20,19 @@ import io.trino.orc.checkpoint.ByteStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.Stream;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static java.lang.Math.toIntExact;
 
 public class ByteOutputStream
         implements ValueOutputStream<ByteStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ByteOutputStream.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ByteOutputStream.class);
 
     private static final int MIN_REPEAT_SIZE = 3;
     // A value out side of the range of a signed byte

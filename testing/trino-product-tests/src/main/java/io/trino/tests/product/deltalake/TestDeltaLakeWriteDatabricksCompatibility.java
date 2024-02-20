@@ -14,12 +14,13 @@
 package io.trino.tests.product.deltalake;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
-import org.assertj.core.api.Assertions;
+import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.assertj.core.api.SoftAssertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -30,14 +31,16 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_122_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.skipTestUnlessUnsupportedWriterVersionExists;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -45,6 +48,8 @@ import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeWriteDatabricksCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -55,10 +60,9 @@ public class TestDeltaLakeWriteDatabricksCompatibility
 
     private AmazonS3 s3;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
-        super.setUp();
         s3 = new S3ClientFactory().createS3Client(s3ServerType);
     }
 
@@ -297,7 +301,8 @@ public class TestDeltaLakeWriteDatabricksCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testInsertingIntoDatabricksTableWithAddedNotNullConstraint()
     {
         String tableName = "test_databricks_table_altered_after_initial_write_" + randomNameSuffix();
@@ -325,7 +330,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoVacuumRemoveChangeDataFeedFiles()
     {
@@ -335,7 +340,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
         });
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksVacuumRemoveChangeDataFeedFiles()
     {
@@ -361,13 +366,65 @@ public class TestDeltaLakeWriteDatabricksCompatibility
             onDelta().executeQuery("INSERT INTO " + tableName + " VALUES (1)");
             onDelta().executeQuery("UPDATE " + tableName + " SET a = 2");
 
-            Assertions.assertThat(s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries()).hasSize(1);
+            assertThat(s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries()).hasSize(1);
 
             // Vacuum procedure should remove files in _change_data directory
             // https://docs.delta.io/2.1.0/delta-change-data-feed.html#change-data-storage
             vacuumExecutor.accept(tableName);
 
-            Assertions.assertThat(s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries()).hasSize(0);
+            List<S3ObjectSummary> summaries = s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries();
+            assertThat(summaries).hasSizeBetween(0, 1);
+            if (!summaries.isEmpty()) {
+                // Databricks version >= 12.2 keep an empty _change_data directory
+                DatabricksVersion databricksRuntimeVersion = getDatabricksRuntimeVersion().orElseThrow();
+                assertThat(databricksRuntimeVersion.isAtLeast(DATABRICKS_122_RUNTIME_VERSION)).isTrue();
+                S3ObjectSummary summary = summaries.get(0);
+                assertThat(summary.getKey()).endsWith(changeDataPrefix + "/");
+                assertThat(summary.getSize()).isEqualTo(0);
+            }
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testVacuumUnsupportedWriterVersion()
+    {
+        skipTestUnlessUnsupportedWriterVersionExists();
+
+        String tableName = "test_vacuum_unsupported_writer_version_" + randomNameSuffix();
+        String directoryName = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(a INT)" +
+                "USING DELTA " +
+                "LOCATION '" + ("s3://" + bucketName + "/" + directoryName) + "'" +
+                "TBLPROPERTIES ('delta.minWriterVersion'='8')");
+
+        try {
+            assertThatThrownBy(() -> onTrino().executeQuery("CALL delta.system.vacuum('default', '" + tableName + "', '7d')"))
+                    .hasMessageContaining("Cannot execute vacuum procedure with 8 writer version");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testVacuumUnsupportedWriterFeature()
+    {
+        String tableName = "test_vacuum_unsupported_writer_feature_" + randomNameSuffix();
+        String directoryName = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(a INT)" +
+                "USING DELTA " +
+                "LOCATION '" + ("s3://" + bucketName + "/" + directoryName) + "'" +
+                "TBLPROPERTIES ('delta.enableDeletionVectors' = true)");
+        try {
+            assertThatThrownBy(() -> onTrino().executeQuery("CALL delta.system.vacuum('default', '" + tableName + "', '7d')"))
+                    .hasMessageContaining("Cannot execute vacuum procedure with [deletionVectors] writer features");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);

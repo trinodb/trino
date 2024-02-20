@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
@@ -51,6 +52,7 @@ public class LegacyHiveViewReader
                         .collect(toImmutableList()),
                 Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
                 Optional.empty(), // will be filled in later by HiveMetadata
-                hiveViewsRunAsInvoker);
+                hiveViewsRunAsInvoker,
+                ImmutableList.of());
     }
 }

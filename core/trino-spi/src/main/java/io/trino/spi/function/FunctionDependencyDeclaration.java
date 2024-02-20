@@ -13,6 +13,9 @@
  */
 package io.trino.spi.function;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -25,7 +28,6 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 @Experimental(eta = "2022-10-31")
 public class FunctionDependencyDeclaration
@@ -54,24 +56,39 @@ public class FunctionDependencyDeclaration
         this.castDependencies = Set.copyOf(requireNonNull(castDependencies, "castDependencies is null"));
     }
 
+    @JsonProperty
     public Set<TypeSignature> getTypeDependencies()
     {
         return typeDependencies;
     }
 
+    @JsonProperty
     public Set<FunctionDependency> getFunctionDependencies()
     {
         return functionDependencies;
     }
 
+    @JsonProperty
     public Set<OperatorDependency> getOperatorDependencies()
     {
         return operatorDependencies;
     }
 
+    @JsonProperty
     public Set<CastDependency> getCastDependencies()
     {
         return castDependencies;
+    }
+
+    @JsonCreator
+    @DoNotCall // For JSON deserialization only
+    public static FunctionDependencyDeclaration fromJson(
+            @JsonProperty Set<TypeSignature> typeDependencies,
+            @JsonProperty Set<FunctionDependency> functionDependencies,
+            @JsonProperty Set<OperatorDependency> operatorDependencies,
+            @JsonProperty Set<CastDependency> castDependencies)
+    {
+        return new FunctionDependencyDeclaration(typeDependencies, functionDependencies, operatorDependencies, castDependencies);
     }
 
     public static final class FunctionDependencyDeclarationBuilder
@@ -89,32 +106,32 @@ public class FunctionDependencyDeclaration
             return this;
         }
 
-        public FunctionDependencyDeclarationBuilder addFunction(QualifiedFunctionName name, List<Type> parameterTypes)
+        public FunctionDependencyDeclarationBuilder addFunction(CatalogSchemaFunctionName name, List<Type> parameterTypes)
         {
             functionDependencies.add(new FunctionDependency(name, parameterTypes.stream()
                     .map(Type::getTypeSignature)
-                    .collect(toUnmodifiableList()), false));
+                    .toList(), false));
             return this;
         }
 
-        public FunctionDependencyDeclarationBuilder addFunctionSignature(QualifiedFunctionName name, List<TypeSignature> parameterTypes)
+        public FunctionDependencyDeclarationBuilder addFunctionSignature(CatalogSchemaFunctionName name, List<TypeSignature> parameterTypes)
         {
             functionDependencies.add(new FunctionDependency(name, parameterTypes, false));
             return this;
         }
 
-        public FunctionDependencyDeclarationBuilder addOptionalFunction(QualifiedFunctionName name, List<Type> parameterTypes)
+        public FunctionDependencyDeclarationBuilder addOptionalFunction(CatalogSchemaFunctionName name, List<Type> parameterTypes)
         {
             functionDependencies.add(new FunctionDependency(
                     name,
                     parameterTypes.stream()
                             .map(Type::getTypeSignature)
-                            .collect(toUnmodifiableList()),
+                            .toList(),
                     true));
             return this;
         }
 
-        public FunctionDependencyDeclarationBuilder addOptionalFunctionSignature(QualifiedFunctionName name, List<TypeSignature> parameterTypes)
+        public FunctionDependencyDeclarationBuilder addOptionalFunctionSignature(CatalogSchemaFunctionName name, List<TypeSignature> parameterTypes)
         {
             functionDependencies.add(new FunctionDependency(name, parameterTypes, true));
             return this;
@@ -124,7 +141,7 @@ public class FunctionDependencyDeclaration
         {
             operatorDependencies.add(new OperatorDependency(operatorType, parameterTypes.stream()
                     .map(Type::getTypeSignature)
-                    .collect(toUnmodifiableList()), false));
+                    .toList(), false));
             return this;
         }
 
@@ -140,7 +157,7 @@ public class FunctionDependencyDeclaration
                     operatorType,
                     parameterTypes.stream()
                             .map(Type::getTypeSignature)
-                            .collect(toUnmodifiableList()),
+                            .toList(),
                     true));
             return this;
         }
@@ -187,30 +204,42 @@ public class FunctionDependencyDeclaration
 
     public static final class FunctionDependency
     {
-        private final QualifiedFunctionName name;
+        private final CatalogSchemaFunctionName name;
         private final List<TypeSignature> argumentTypes;
         private final boolean optional;
 
-        private FunctionDependency(QualifiedFunctionName name, List<TypeSignature> argumentTypes, boolean optional)
+        private FunctionDependency(CatalogSchemaFunctionName name, List<TypeSignature> argumentTypes, boolean optional)
         {
             this.name = requireNonNull(name, "name is null");
             this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
             this.optional = optional;
         }
 
-        public QualifiedFunctionName getName()
+        @JsonProperty
+        public CatalogSchemaFunctionName getName()
         {
             return name;
         }
 
+        @JsonProperty
         public List<TypeSignature> getArgumentTypes()
         {
             return argumentTypes;
         }
 
+        @JsonProperty
         public boolean isOptional()
         {
             return optional;
+        }
+
+        @JsonCreator
+        public static FunctionDependency fromJson(
+                @JsonProperty CatalogSchemaFunctionName name,
+                @JsonProperty List<TypeSignature> argumentTypes,
+                @JsonProperty boolean optional)
+        {
+            return new FunctionDependency(name, argumentTypes, optional);
         }
 
         @Override
@@ -255,19 +284,31 @@ public class FunctionDependencyDeclaration
             this.optional = optional;
         }
 
+        @JsonProperty
         public OperatorType getOperatorType()
         {
             return operatorType;
         }
 
+        @JsonProperty
         public List<TypeSignature> getArgumentTypes()
         {
             return argumentTypes;
         }
 
+        @JsonProperty
         public boolean isOptional()
         {
             return optional;
+        }
+
+        @JsonCreator
+        public static OperatorDependency fromJson(
+                @JsonProperty OperatorType operatorType,
+                @JsonProperty List<TypeSignature> argumentTypes,
+                @JsonProperty boolean optional)
+        {
+            return new OperatorDependency(operatorType, argumentTypes, optional);
         }
 
         @Override
@@ -312,19 +353,31 @@ public class FunctionDependencyDeclaration
             this.optional = optional;
         }
 
+        @JsonProperty
         public TypeSignature getFromType()
         {
             return fromType;
         }
 
+        @JsonProperty
         public TypeSignature getToType()
         {
             return toType;
         }
 
+        @JsonProperty
         public boolean isOptional()
         {
             return optional;
+        }
+
+        @JsonCreator
+        public static CastDependency fromJson(
+                @JsonProperty TypeSignature fromType,
+                @JsonProperty TypeSignature toType,
+                @JsonProperty boolean optional)
+        {
+            return new CastDependency(fromType, toType, optional);
         }
 
         @Override

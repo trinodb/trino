@@ -18,9 +18,11 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
@@ -34,17 +36,31 @@ public final class OracleQueryRunner
 {
     private OracleQueryRunner() {}
 
-    public static DistributedQueryRunner createOracleQueryRunner(
+    public static QueryRunner createOracleQueryRunner(
             TestingOracleServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = null;
+        return createOracleQueryRunner(server, extraProperties, Map.of(), connectorProperties, tables, queryRunner -> {});
+    }
+
+    public static QueryRunner createOracleQueryRunner(
+            TestingOracleServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            Consumer<QueryRunner> moreSetup)
+            throws Exception
+    {
+        QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
+                    .setAdditionalSetup(moreSetup)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());
@@ -84,7 +100,7 @@ public final class OracleQueryRunner
             throws Exception
     {
         TestingOracleServer server = new TestingOracleServer();
-        DistributedQueryRunner queryRunner = createOracleQueryRunner(
+        QueryRunner queryRunner = createOracleQueryRunner(
                 server,
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.<String, String>builder()

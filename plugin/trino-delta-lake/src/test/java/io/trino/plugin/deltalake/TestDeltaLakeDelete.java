@@ -16,37 +16,36 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Isolated
 public class TestDeltaLakeDelete
         extends AbstractTestQueryFramework
 {
     private static final String SCHEMA = "default";
-    private final String bucketName = "test-delta-lake-connector-test-" + randomNameSuffix();
 
+    private final String bucketName = "test-delta-lake-connector-test-" + randomNameSuffix();
     private HiveMinioDataLake hiveMinioDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        verify(!new ParquetWriterConfig().isParquetOptimizedWriterEnabled(), "This test assumes the optimized Parquet writer is disabled by default");
-
         hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
+        QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 ImmutableMap.of(
@@ -70,9 +69,13 @@ public class TestDeltaLakeDelete
                 "AS VALUES " +
                 "(1, 'with-hyphen'), " +
                 "(2, 'with:colon'), " +
-                "(3, 'with?question')", 3);
+                "(3, 'with:colon'), " + // create two rows in a single file to trigger parquet file rewrite on delete
+                "(4, 'with?question')", 4);
+        assertQuery("SELECT count(*), count(DISTINCT \"$path\"), col_name FROM " + tableName + " GROUP BY 3", "VALUES (1, 1, 'with-hyphen'), (2, 1, 'with:colon'), (1, 1, 'with?question')");
         assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'with-hyphen'), (3, 'with?question')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'with-hyphen'), (3, 'with:colon'), (4, 'with?question')");
+        assertUpdate("DELETE FROM " + tableName, 3);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
     }
 
     @Test
@@ -89,7 +92,7 @@ public class TestDeltaLakeDelete
     {
         testDeleteMultiFile(
                 "multi_file_databricks" + randomNameSuffix(),
-                "io/trino/plugin/deltalake/testing/resources/databricks");
+                "io/trino/plugin/deltalake/testing/resources/databricks73");
     }
 
     @Test
@@ -171,7 +174,7 @@ public class TestDeltaLakeDelete
         String tableName = "test_delete_all_databricks" + randomNameSuffix();
         Set<String> originalFiles = testDeleteAllAndReturnInitialDataLakeFilesSet(
                 tableName,
-                "io/trino/plugin/deltalake/testing/resources/databricks");
+                "io/trino/plugin/deltalake/testing/resources/databricks73");
 
         Set<String> expected = ImmutableSet.<String>builder()
                 .addAll(originalFiles)
@@ -184,9 +187,14 @@ public class TestDeltaLakeDelete
     public void testDeleteAllOssDeltaLake()
     {
         String tableName = "test_delete_all_deltalake" + randomNameSuffix();
-        Set<String> originalFiles = testDeleteAllAndReturnInitialDataLakeFilesSet(
-                tableName,
-                "io/trino/plugin/deltalake/testing/resources/ossdeltalake");
+        hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/ossdeltalake/customer", tableName);
+        Set<String> originalFiles = ImmutableSet.copyOf(hiveMinioDataLake.listFiles(tableName));
+        getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, getLocationForTable(tableName)));
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM customer");
+        // There are `add` files in the transaction log without stats, reason why the DELETE statement on the whole table
+        // performed on the basis of metadata does not return the number of deleted records
+        assertUpdate("DELETE FROM " + tableName);
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
         Set<String> expected = ImmutableSet.<String>builder()
                 .addAll(originalFiles)
                 .add(tableName + "/_delta_log/00000000000000000001.json")

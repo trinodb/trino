@@ -13,41 +13,50 @@
  */
 package io.trino.execution.scheduler;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.exchange.ExchangeSourceHandle;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class TestingExchangeSourceHandle
         implements ExchangeSourceHandle
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TestingExchangeSourceHandle.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(TestingExchangeSourceHandle.class);
 
     private final int id;
     private final int partitionId;
     private final long sizeInBytes;
 
-    public TestingExchangeSourceHandle(int id, int partitionId, long sizeInBytes)
+    @JsonCreator
+    public TestingExchangeSourceHandle(
+            @JsonProperty("id") int id,
+            @JsonProperty("partitionId") int partitionId,
+            @JsonProperty("sizeInBytes") long sizeInBytes)
     {
         this.id = id;
         this.partitionId = partitionId;
         this.sizeInBytes = sizeInBytes;
     }
 
+    @JsonProperty
     public int getId()
     {
         return id;
     }
 
     @Override
+    @JsonProperty
     public int getPartitionId()
     {
         return partitionId;
     }
 
     @Override
+    @JsonProperty("sizeInBytes")
     public long getDataSizeInBytes()
     {
         return sizeInBytes;

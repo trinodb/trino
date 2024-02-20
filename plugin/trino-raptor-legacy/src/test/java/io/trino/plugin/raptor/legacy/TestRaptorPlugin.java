@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -44,6 +44,7 @@ public class TestRaptorPlugin
                     .put("metadata.db.type", "h2")
                     .put("metadata.db.filename", tmpDir.getAbsolutePath())
                     .put("storage.data-directory", tmpDir.getAbsolutePath())
+                    .put("bootstrap.quiet", "true")
                     .buildOrThrow();
 
             factory.create("test", config, new TestingConnectorContext()).shutdown();

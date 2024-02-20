@@ -19,31 +19,35 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
-import javax.annotation.PostConstruct;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
-
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static javax.validation.constraints.Pattern.Flag.CASE_INSENSITIVE;
+import static jakarta.validation.constraints.Pattern.Flag.CASE_INSENSITIVE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class BaseJdbcConfig
 {
-    public static final String METADATA_CACHE_TTL = "metadata.cache-ttl";
-    public static final String METADATA_CACHE_MAXIMUM_SIZE = "metadata.cache-maximum-size";
+    private static final String METADATA_CACHE_TTL = "metadata.cache-ttl";
+    private static final String METADATA_SCHEMAS_CACHE_TTL = "metadata.schemas.cache-ttl";
+    private static final String METADATA_TABLES_CACHE_TTL = "metadata.tables.cache-ttl";
+    private static final String METADATA_STATISTICS_CACHE_TTL = "metadata.statistics.cache-ttl";
+    private static final String METADATA_CACHE_MAXIMUM_SIZE = "metadata.cache-maximum-size";
+    private static final long DEFAULT_METADATA_CACHE_SIZE = 10000;
 
     private String connectionUrl;
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
-    public static final Duration CACHING_DISABLED = new Duration(0, MILLISECONDS);
-    private Duration metadataCacheTtl = CACHING_DISABLED;
+    private Duration metadataCacheTtl = new Duration(0, SECONDS);
+    private Optional<Duration> schemaNamesCacheTtl = Optional.empty();
+    private Optional<Duration> tableNamesCacheTtl = Optional.empty();
+    private Optional<Duration> statisticsCacheTtl = Optional.empty();
     private boolean cacheMissing;
-    public static final long DEFAULT_METADATA_CACHE_SIZE = 10000;
-    private long cacheMaximumSize = DEFAULT_METADATA_CACHE_SIZE;
+    private Optional<Long> cacheMaximumSize = Optional.empty();
 
     @NotNull
     // Some drivers match case insensitive in Driver.acceptURL
@@ -87,6 +91,48 @@ public class BaseJdbcConfig
         return this;
     }
 
+    @NotNull
+    public Duration getSchemaNamesCacheTtl()
+    {
+        return schemaNamesCacheTtl.orElse(metadataCacheTtl);
+    }
+
+    @Config(METADATA_SCHEMAS_CACHE_TTL)
+    @ConfigDescription("Determines how long schema names list information will be cached")
+    public BaseJdbcConfig setSchemaNamesCacheTtl(Duration schemaNamesCacheTtl)
+    {
+        this.schemaNamesCacheTtl = Optional.ofNullable(schemaNamesCacheTtl);
+        return this;
+    }
+
+    @NotNull
+    public Duration getTableNamesCacheTtl()
+    {
+        return tableNamesCacheTtl.orElse(metadataCacheTtl);
+    }
+
+    @Config(METADATA_TABLES_CACHE_TTL)
+    @ConfigDescription("Determines how long table names list information will be cached")
+    public BaseJdbcConfig setTableNamesCacheTtl(Duration tableNamesCacheTtl)
+    {
+        this.tableNamesCacheTtl = Optional.ofNullable(tableNamesCacheTtl);
+        return this;
+    }
+
+    @NotNull
+    public Duration getStatisticsCacheTtl()
+    {
+        return statisticsCacheTtl.orElse(metadataCacheTtl);
+    }
+
+    @Config(METADATA_STATISTICS_CACHE_TTL)
+    @ConfigDescription("Determines how long table statistics information will be cached")
+    public BaseJdbcConfig setStatisticsCacheTtl(Duration statisticsCacheTtl)
+    {
+        this.statisticsCacheTtl = Optional.ofNullable(statisticsCacheTtl);
+        return this;
+    }
+
     public boolean isCacheMissing()
     {
         return cacheMissing;
@@ -103,23 +149,34 @@ public class BaseJdbcConfig
     @Min(1)
     public long getCacheMaximumSize()
     {
-        return cacheMaximumSize;
+        return cacheMaximumSize.orElse(DEFAULT_METADATA_CACHE_SIZE);
     }
 
     @Config(METADATA_CACHE_MAXIMUM_SIZE)
     @ConfigDescription("Maximum number of objects stored in the metadata cache")
     public BaseJdbcConfig setCacheMaximumSize(long cacheMaximumSize)
     {
-        this.cacheMaximumSize = cacheMaximumSize;
+        this.cacheMaximumSize = Optional.of(cacheMaximumSize);
         return this;
     }
 
-    @PostConstruct
-    public void validate()
+    @AssertTrue(message = METADATA_CACHE_TTL + " or " + METADATA_STATISTICS_CACHE_TTL + " must be set to a non-zero value when " + METADATA_CACHE_MAXIMUM_SIZE + " is set")
+    public boolean isCacheMaximumSizeConsistent()
     {
-        if (metadataCacheTtl.equals(CACHING_DISABLED) && cacheMaximumSize != BaseJdbcConfig.DEFAULT_METADATA_CACHE_SIZE) {
-            throw new IllegalArgumentException(
-                    format("%s must be set to a non-zero value when %s is set", METADATA_CACHE_TTL, METADATA_CACHE_MAXIMUM_SIZE));
-        }
+        return !metadataCacheTtl.isZero() ||
+                (statisticsCacheTtl.isPresent() && !statisticsCacheTtl.get().isZero()) ||
+                cacheMaximumSize.isEmpty();
+    }
+
+    @AssertTrue(message = METADATA_SCHEMAS_CACHE_TTL + " must not be set when " + METADATA_CACHE_TTL + " is not set")
+    public boolean isSchemaNamesCacheTtlConsistent()
+    {
+        return !metadataCacheTtl.isZero() || schemaNamesCacheTtl.isEmpty();
+    }
+
+    @AssertTrue(message = METADATA_TABLES_CACHE_TTL + " must not be set when " + METADATA_CACHE_TTL + " is not set")
+    public boolean isTableNamesCacheTtlConsistent()
+    {
+        return !metadataCacheTtl.isZero() || tableNamesCacheTtl.isEmpty();
     }
 }

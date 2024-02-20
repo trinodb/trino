@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestIcebergDisabledRegisterTableProcedure
         extends AbstractTestQueryFramework

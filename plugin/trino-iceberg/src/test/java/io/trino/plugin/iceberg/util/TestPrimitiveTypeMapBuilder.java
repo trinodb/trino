@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg.util;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;

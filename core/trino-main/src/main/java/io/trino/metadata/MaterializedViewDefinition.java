@@ -13,63 +13,51 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableMap;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.security.Identity;
 
+import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedViewDefinition
         extends ViewDefinition
 {
+    private final Optional<Duration> gracePeriod;
     private final Optional<CatalogSchemaTableName> storageTable;
-    private final Map<String, Object> properties;
 
     public MaterializedViewDefinition(
             String originalSql,
             Optional<String> catalog,
             Optional<String> schema,
             List<ViewColumn> columns,
+            Optional<Duration> gracePeriod,
             Optional<String> comment,
             Identity owner,
-            Optional<CatalogSchemaTableName> storageTable,
-            Map<String, Object> properties)
+            List<CatalogSchemaName> path,
+            Optional<CatalogSchemaTableName> storageTable)
     {
-        super(originalSql, catalog, schema, columns, comment, Optional.of(owner));
+        super(originalSql, catalog, schema, columns, comment, Optional.of(owner), path);
+        checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
+        this.gracePeriod = gracePeriod;
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
 
-    public MaterializedViewDefinition(ConnectorMaterializedViewDefinition view, Identity runAsIdentity)
+    public Optional<Duration> getGracePeriod()
     {
-        super(
-                view.getOriginalSql(),
-                view.getCatalog(),
-                view.getSchema(),
-                view.getColumns().stream()
-                        .map(column -> new ViewColumn(column.getName(), column.getType(), Optional.empty()))
-                        .collect(toImmutableList()),
-                view.getComment(),
-                Optional.of(runAsIdentity));
-        this.storageTable = view.getStorageTable();
-        this.properties = ImmutableMap.copyOf(view.getProperties());
+        return gracePeriod;
     }
 
     public Optional<CatalogSchemaTableName> getStorageTable()
     {
         return storageTable;
-    }
-
-    public Map<String, Object> getProperties()
-    {
-        return properties;
     }
 
     public ConnectorMaterializedViewDefinition toConnectorMaterializedViewDefinition()
@@ -80,11 +68,12 @@ public class MaterializedViewDefinition
                 getCatalog(),
                 getSchema(),
                 getColumns().stream()
-                        .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType()))
+                        .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType(), column.getComment()))
                         .collect(toImmutableList()),
+                getGracePeriod(),
                 getComment(),
                 getRunAsIdentity().map(Identity::getUser),
-                properties);
+                getPath());
     }
 
     @Override
@@ -95,10 +84,11 @@ public class MaterializedViewDefinition
                 .add("catalog", getCatalog().orElse(null))
                 .add("schema", getSchema().orElse(null))
                 .add("columns", getColumns())
+                .add("gracePeriod", gracePeriod.orElse(null))
                 .add("comment", getComment().orElse(null))
                 .add("runAsIdentity", getRunAsIdentity())
+                .add("path", getPath())
                 .add("storageTable", storageTable.orElse(null))
-                .add("properties", properties)
                 .toString();
     }
 }

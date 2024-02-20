@@ -16,10 +16,10 @@ package io.trino.operator;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCyclingGroupByHash
 {
@@ -28,14 +28,14 @@ public class TestCyclingGroupByHash
     {
         CyclingGroupByHash groupByHash = new CyclingGroupByHash(1);
         Page page = createPage(1);
-        GroupByIdBlock groupByIdBlock = computeGroupByIdBlock(groupByHash, page);
-        assertGrouping(groupByIdBlock, 0L);
-        assertEquals(groupByIdBlock.getGroupCount(), 1);
+        int[] groupByIds = computeGroupByIdBlock(groupByHash, page);
+        assertGrouping(groupByIds, 0);
+        assertThat(groupByHash.getGroupCount()).isEqualTo(1);
 
         page = createPage(2);
-        groupByIdBlock = computeGroupByIdBlock(groupByHash, page);
-        assertGrouping(groupByIdBlock, 0L, 0L);
-        assertEquals(groupByIdBlock.getGroupCount(), 1);
+        groupByIds = computeGroupByIdBlock(groupByHash, page);
+        assertGrouping(groupByIds, 0, 0);
+        assertThat(groupByHash.getGroupCount()).isEqualTo(1);
     }
 
     @Test
@@ -43,14 +43,14 @@ public class TestCyclingGroupByHash
     {
         CyclingGroupByHash groupByHash = new CyclingGroupByHash(2);
         Page page = createPage(3);
-        GroupByIdBlock groupByIdBlock = computeGroupByIdBlock(groupByHash, page);
-        assertGrouping(groupByIdBlock, 0L, 1L, 0L);
-        assertEquals(groupByIdBlock.getGroupCount(), 2);
+        int[] groupByIds = computeGroupByIdBlock(groupByHash, page);
+        assertGrouping(groupByIds, 0, 1, 0);
+        assertThat(groupByHash.getGroupCount()).isEqualTo(2);
 
         page = createPage(2);
-        groupByIdBlock = computeGroupByIdBlock(groupByHash, page);
-        assertGrouping(groupByIdBlock, 1L, 0L);
-        assertEquals(groupByIdBlock.getGroupCount(), 2);
+        groupByIds = computeGroupByIdBlock(groupByHash, page);
+        assertGrouping(groupByIds, 1, 0);
+        assertThat(groupByHash.getGroupCount()).isEqualTo(2);
     }
 
     @Test
@@ -58,24 +58,21 @@ public class TestCyclingGroupByHash
     {
         CyclingGroupByHash groupByHash = new CyclingGroupByHash(3);
         Page page = createPage(2);
-        GroupByIdBlock groupByIdBlock = computeGroupByIdBlock(groupByHash, page);
-        assertGrouping(groupByIdBlock, 0L, 1L);
+        int[] groupByIds = computeGroupByIdBlock(groupByHash, page);
+        assertGrouping(groupByIds, 0, 1);
 
         // Only 2 groups generated out of max 3
-        assertEquals(groupByIdBlock.getGroupCount(), 2);
+        assertThat(groupByHash.getGroupCount()).isEqualTo(2);
     }
 
-    private static void assertGrouping(GroupByIdBlock groupByIdBlock, long... groupIds)
+    private static void assertGrouping(int[] groupIds, int... expectedGroupIds)
     {
-        assertEquals(groupByIdBlock.getPositionCount(), groupIds.length);
-        for (int i = 0; i < groupByIdBlock.getPositionCount(); i++) {
-            assertEquals(groupByIdBlock.getGroupId(i), groupIds[i]);
-        }
+        assertThat(groupIds).isEqualTo(expectedGroupIds);
     }
 
-    private static GroupByIdBlock computeGroupByIdBlock(GroupByHash groupByHash, Page page)
+    private static int[] computeGroupByIdBlock(GroupByHash groupByHash, Page page)
     {
-        Work<GroupByIdBlock> groupIds = groupByHash.getGroupIds(page);
+        Work<int[]> groupIds = groupByHash.getGroupIds(page);
         while (!groupIds.process()) {
             // Process until finished
         }

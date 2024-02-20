@@ -134,7 +134,7 @@ public class TaskOutputOperator
     @Override
     public ListenableFuture<Void> isBlocked()
     {
-        // Avoid re-synchronizing on the output buffer when operator is already blocked
+        // Avoid re-synchronizing on the output buffer when the operator is already blocked
         if (isBlocked.isDone()) {
             isBlocked = outputBuffer.isFull();
             if (isBlocked.isDone()) {

@@ -20,8 +20,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.concurrent.atomic.AtomicLong;
 

@@ -22,14 +22,14 @@ import com.datastax.oss.driver.internal.core.metadata.DefaultEndPoint;
 import com.datastax.oss.driver.internal.core.metadata.DefaultNode;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.HostAddress;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Set;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHostAddressFactory
 {
@@ -58,6 +58,6 @@ public class TestHostAddressFactory
         HostAddressFactory hostAddressFactory = new HostAddressFactory();
         List<HostAddress> list = hostAddressFactory.toHostAddressList(nodes);
 
-        assertEquals(list.toString(), "[[102:304:506:708:90a:b0c:d0e:f10], 1.2.3.4]");
+        assertThat(list.toString()).isEqualTo("[[102:304:506:708:90a:b0c:d0e:f10], 1.2.3.4]");
     }
 }

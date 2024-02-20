@@ -5,50 +5,46 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-cli</artifactId>
-    <name>trino-cli</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
         <main-class>io.trino.cli.Trino</main-class>
-        <dep.jline.version>3.21.0</dep.jline.version>
+        <dep.jline.version>3.25.1</dep.jline.version>
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-parser</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>
         </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+            <exclusions>
+                <!-- Brings in duplicate classes already in org.slf4j:jcl-over-slf4j (from io.airlift:log-manager) -->
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -67,8 +63,25 @@
         </dependency>
 
         <dependency>
-            <groupId>net.sf.opencsv</groupId>
-            <artifactId>opencsv</artifactId>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <!-- JDK8 support dropped by version 1.8+ -->
+            <version>1.7</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-grammar</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -106,7 +119,12 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- for testing -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
@@ -114,8 +132,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>mockwebserver</artifactId>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -126,8 +144,14 @@
         </dependency>
 
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -139,10 +163,10 @@
                 <artifactId>maven-shade-plugin</artifactId>
                 <executions>
                     <execution>
-                        <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
                         </goals>
+                        <phase>package</phase>
                         <configuration>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>executable</shadedClassifierName>
@@ -167,10 +191,10 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <phase>package</phase>
                         <goals>
                             <goal>really-executable-jar</goal>
                         </goals>
+                        <phase>package</phase>
                     </execution>
                 </executions>
             </plugin>

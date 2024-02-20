@@ -26,19 +26,16 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
-import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -48,7 +45,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestMergeWindows
         extends BasePlanTest
@@ -101,12 +98,7 @@ public class TestMergeWindows
 
     public TestMergeWindows()
     {
-        this(ImmutableMap.of());
-    }
-
-    public TestMergeWindows(Map<String, String> sessionProperties)
-    {
-        super(sessionProperties);
+        super(ImmutableMap.of());
 
         specificationA = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
@@ -164,8 +156,7 @@ public class TestMergeWindows
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specificationB)
                                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                                anyNot(WindowNode.class,
-                                                        LINEITEM_TABLESCAN_DOQSS)))));  // should be anyTree(LINEITEM_TABLESCAN_DOQSS) but anyTree does not handle zero nodes case correctly
+                                                LINEITEM_TABLESCAN_DOQSS))));  // should be anyTree(LINEITEM_TABLESCAN_DOQSS) but anyTree does not handle zero nodes case correctly
 
         assertPlan(sql, pattern);
     }
@@ -592,16 +583,16 @@ public class TestMergeWindows
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
                 new IterativeOptimizer(
-                        getQueryRunner().getPlannerContext(),
+                        getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
-                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        getPlanTester().getStatsCalculator(),
+                        getPlanTester().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
                                 .addAll(GatherAndMergeWindows.rules())
-                                .addAll(columnPruningRules(getQueryRunner().getMetadata()))
+                                .addAll(columnPruningRules(getPlanTester().getPlannerContext().getMetadata()))
                                 .build()));
         assertPlan(sql, pattern, optimizers);
     }

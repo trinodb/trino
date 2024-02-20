@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 
@@ -34,6 +35,7 @@ public class FileSystemFinalizerService
     private final Set<FinalizerReference> finalizers = newSetFromMap(new ConcurrentHashMap<>());
     private final ReferenceQueue<Object> finalizerQueue = new ReferenceQueue<>();
     private Thread finalizerThread;
+    private volatile boolean shutdown;
 
     private FileSystemFinalizerService() {}
 
@@ -45,6 +47,17 @@ public class FileSystemFinalizerService
             instance = Optional.of(finalizer);
         }
         return instance.get();
+    }
+
+    public static synchronized void shutdown()
+    {
+        instance.ifPresent(FileSystemFinalizerService::doShutdown);
+    }
+
+    public synchronized void doShutdown()
+    {
+        shutdown = true;
+        finalizerThread.interrupt();
     }
 
     private void start()
@@ -64,16 +77,17 @@ public class FileSystemFinalizerService
      * <p>
      * Note: cleanup must not contain a reference to the referent object.
      */
-    public void addFinalizer(Object referent, Runnable cleanup)
+    public synchronized void addFinalizer(Object referent, Runnable cleanup)
     {
         requireNonNull(referent, "referent is null");
         requireNonNull(cleanup, "cleanup is null");
+        checkState(!shutdown, "FileSystemFinalizerService is shutdown");
         finalizers.add(new FinalizerReference(referent, finalizerQueue, cleanup));
     }
 
     private void processFinalizerQueue()
     {
-        while (!Thread.interrupted()) {
+        while (!Thread.interrupted() && !shutdown) {
             try {
                 FinalizerReference finalizer = (FinalizerReference) finalizerQueue.remove();
                 finalizers.remove(finalizer);

@@ -16,12 +16,14 @@ package io.trino.plugin.hive.type;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.util.SerdeConstants.DECIMAL_TYPE_NAME;
 
 // based on org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo
 public final class DecimalTypeInfo
         extends PrimitiveTypeInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(DecimalTypeInfo.class);
     public static final int MAX_PRECISION = 38;
     public static final int MAX_SCALE = 38;
 
@@ -70,5 +72,11 @@ public final class DecimalTypeInfo
     public static String decimalTypeName(int precision, int scale)
     {
         return DECIMAL_TYPE_NAME + "(" + precision + "," + scale + ")";
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + getDeclaredFieldsRetainedSizeInBytes();
     }
 }

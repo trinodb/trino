@@ -21,8 +21,7 @@ import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;

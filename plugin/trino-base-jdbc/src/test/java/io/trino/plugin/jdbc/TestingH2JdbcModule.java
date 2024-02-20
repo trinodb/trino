@@ -19,10 +19,10 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.ptf.Query;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import org.h2.Driver;
 
 import java.util.Map;
@@ -71,7 +71,9 @@ public class TestingH2JdbcModule
 
     public static Map<String, String> createProperties()
     {
-        return ImmutableMap.of("connection-url", createH2ConnectionUrl());
+        return ImmutableMap.of(
+                "connection-url", createH2ConnectionUrl(),
+                "bootstrap.quiet", "true");
     }
 
     public static String createH2ConnectionUrl()

@@ -17,12 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-
-import java.lang.annotation.Annotation;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -30,8 +26,8 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -48,7 +44,7 @@ public class TestDeltaLakeConfig
                 .setDataFileCacheTtl(new Duration(30, MINUTES))
                 .setMetadataCacheTtl(new Duration(5, TimeUnit.MINUTES))
                 .setMetadataCacheMaxSize(1000)
-                .setDomainCompactionThreshold(100)
+                .setDomainCompactionThreshold(1000)
                 .setMaxSplitsPerSecond(Integer.MAX_VALUE)
                 .setMaxOutstandingSplits(1_000)
                 .setMaxInitialSplits(200)
@@ -58,6 +54,7 @@ public class TestDeltaLakeConfig
                 .setMaxPartitionsPerWriter(100)
                 .setUnsafeWritesEnabled(false)
                 .setDefaultCheckpointWritingInterval(10)
+                .setCheckpointFilteringEnabled(false)
                 .setCheckpointRowStatisticsWritingEnabled(true)
                 .setVacuumMinRetention(new Duration(7, DAYS))
                 .setHiveCatalogName(null)
@@ -70,11 +67,11 @@ public class TestDeltaLakeConfig
                 .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
+                .setIdleWriterMinFileSize(DataSize.of(16, MEGABYTE))
                 .setUniqueTableLocation(true)
-                .setLegacyCreateTableWithExistingLocationEnabled(false)
                 .setRegisterTableProcedureEnabled(false)
-                .setDefaultReaderVersion(1)
-                .setDefaultWriterVersion(2));
+                .setProjectionPushdownEnabled(true)
+                .setQueryPartitionFilterRequired(false));
     }
 
     @Test
@@ -95,6 +92,7 @@ public class TestDeltaLakeConfig
                 .put("delta.max-partitions-per-writer", "200")
                 .put("delta.enable-non-concurrent-writes", "true")
                 .put("delta.default-checkpoint-writing-interval", "15")
+                .put("delta.checkpoint-filtering.enabled", "true")
                 .put("delta.checkpoint-row-statistics-writing.enabled", "false")
                 .put("delta.vacuum.min-retention", "13h")
                 .put("delta.hive-catalog-name", "hive")
@@ -107,11 +105,11 @@ public class TestDeltaLakeConfig
                 .put("delta.delete-schema-locations-fallback", "true")
                 .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
                 .put("delta.target-max-file-size", "2 GB")
+                .put("delta.idle-writer-min-file-size", "1MB")
                 .put("delta.unique-table-location", "false")
-                .put("delta.legacy-create-table-with-existing-location.enabled", "true")
                 .put("delta.register-table-procedure.enabled", "true")
-                .put("delta.default-reader-version", "2")
-                .put("delta.default-writer-version", "3")
+                .put("delta.projection-pushdown-enabled", "false")
+                .put("delta.query-partition-filter-required", "true")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -130,6 +128,7 @@ public class TestDeltaLakeConfig
                 .setUnsafeWritesEnabled(true)
                 .setDefaultCheckpointWritingInterval(15)
                 .setCheckpointRowStatisticsWritingEnabled(false)
+                .setCheckpointFilteringEnabled(true)
                 .setVacuumMinRetention(new Duration(13, HOURS))
                 .setHiveCatalogName("hive")
                 .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES))
@@ -141,31 +140,12 @@ public class TestDeltaLakeConfig
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(500)
                 .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
+                .setIdleWriterMinFileSize(DataSize.of(1, MEGABYTE))
                 .setUniqueTableLocation(false)
-                .setLegacyCreateTableWithExistingLocationEnabled(true)
                 .setRegisterTableProcedureEnabled(true)
-                .setDefaultReaderVersion(2)
-                .setDefaultWriterVersion(3);
+                .setProjectionPushdownEnabled(false)
+                .setQueryPartitionFilterRequired(true);
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test
-    public void testValidation()
-    {
-        assertFailsReaderVersionValidation(new DeltaLakeConfig().setDefaultReaderVersion(0), Min.class);
-        assertFailsReaderVersionValidation(new DeltaLakeConfig().setDefaultReaderVersion(3), Max.class);
-        assertFailsWriterVersionValidation(new DeltaLakeConfig().setDefaultWriterVersion(1), Min.class);
-        assertFailsWriterVersionValidation(new DeltaLakeConfig().setDefaultWriterVersion(5), Max.class);
-    }
-
-    private void assertFailsReaderVersionValidation(DeltaLakeConfig config, Class<? extends Annotation> annotation)
-    {
-        assertFailsValidation(config, "defaultReaderVersion", "Must be in between 1 and 2", annotation);
-    }
-
-    private void assertFailsWriterVersionValidation(DeltaLakeConfig config, Class<? extends Annotation> annotation)
-    {
-        assertFailsValidation(config, "defaultWriterVersion", "Must be in between 2 and 4", annotation);
     }
 }

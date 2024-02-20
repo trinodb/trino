@@ -14,6 +14,8 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.FullConnectorSession;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.dispatcher.DispatchManager;
@@ -24,8 +26,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
-
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;
@@ -45,6 +45,7 @@ import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public class KillQueryProcedure
+        implements Provider<Procedure>
 {
     private static final MethodHandle KILL_QUERY = methodHandle(KillQueryProcedure.class, "killQuery", String.class, String.class, ConnectorSession.class);
 
@@ -89,7 +90,8 @@ public class KillQueryProcedure
         }
     }
 
-    public Procedure getProcedure()
+    @Override
+    public Procedure get()
     {
         return new Procedure(
                 "runtime",

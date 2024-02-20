@@ -15,16 +15,14 @@ package io.trino.plugin.resourcegroups.db;
 
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testng.annotations.Test;
 
-@Test(singleThreaded = true)
 public class TestDbResourceGroupsPostgresqlFlywayMigration
         extends BaseTestDbResourceGroupsFlywayMigration
 {
     @Override
     protected final JdbcDatabaseContainer<?> startContainer()
     {
-        JdbcDatabaseContainer<?> container = new PostgreSQLContainer<>("postgres:10.20");
+        JdbcDatabaseContainer<?> container = new PostgreSQLContainer<>("postgres:11");
         container.start();
         return container;
     }

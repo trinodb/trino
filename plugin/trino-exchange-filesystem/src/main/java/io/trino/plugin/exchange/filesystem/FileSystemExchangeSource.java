@@ -19,13 +19,12 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceOutputSelector;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

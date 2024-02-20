@@ -41,7 +41,7 @@ public class Minio
 {
     private static final Logger log = Logger.get(Minio.class);
 
-    public static final String DEFAULT_IMAGE = "minio/minio:RELEASE.2022-10-05T14-58-27Z";
+    public static final String DEFAULT_IMAGE = "minio/minio:RELEASE.2023-05-18T00-05-36Z";
     public static final String DEFAULT_HOST_NAME = "minio";
 
     public static final int MINIO_API_PORT = 4566;
@@ -50,6 +50,7 @@ public class Minio
     // defaults
     public static final String MINIO_ACCESS_KEY = "accesskey";
     public static final String MINIO_SECRET_KEY = "secretkey";
+    public static final String MINIO_REGION = "us-east-1";
 
     public static Builder builder()
     {
@@ -126,7 +127,7 @@ public class Minio
     public void copyResources(String resourcePath, String bucketName, String target)
     {
         try (MinioClient minioClient = createMinioClient()) {
-            for (ClassPath.ResourceInfo resourceInfo : ClassPath.from(MinioClient.class.getClassLoader())
+            for (ClassPath.ResourceInfo resourceInfo : ClassPath.from(getClass().getClassLoader())
                     .getResources()) {
                 if (resourceInfo.getResourceName().startsWith(resourcePath)) {
                     String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(target));

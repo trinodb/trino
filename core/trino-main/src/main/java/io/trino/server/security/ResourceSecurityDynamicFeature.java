@@ -13,32 +13,30 @@
  */
 package io.trino.server.security;
 
+import com.google.inject.Inject;
 import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.InternalAuthenticationManager;
-import io.trino.server.ProtocolConfig;
 import io.trino.server.security.ResourceSecurity.AccessType;
 import io.trino.server.ui.WebUiAuthenticationFilter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
-
-import javax.annotation.Priority;
-import javax.inject.Inject;
-import javax.ws.rs.ForbiddenException;
-import javax.ws.rs.Priorities;
-import javax.ws.rs.ServiceUnavailableException;
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.container.ContainerRequestFilter;
-import javax.ws.rs.container.ContainerResponseContext;
-import javax.ws.rs.container.ContainerResponseFilter;
-import javax.ws.rs.container.DynamicFeature;
-import javax.ws.rs.container.ResourceInfo;
-import javax.ws.rs.core.FeatureContext;
+import jakarta.annotation.Priority;
+import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.Priorities;
+import jakarta.ws.rs.ServiceUnavailableException;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.container.ContainerResponseContext;
+import jakarta.ws.rs.container.ContainerResponseFilter;
+import jakarta.ws.rs.container.DynamicFeature;
+import jakarta.ws.rs.container.ResourceInfo;
+import jakarta.ws.rs.core.FeatureContext;
 
 import java.util.Optional;
 
-import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
+import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
@@ -55,7 +53,6 @@ public class ResourceSecurityDynamicFeature
     private final HttpRequestSessionContextFactory sessionContextFactory;
     private final Optional<String> fixedManagementUser;
     private final boolean fixedManagementUserForHttps;
-    private final Optional<String> alternateHeaderName;
 
     @Inject
     public ResourceSecurityDynamicFeature(
@@ -65,8 +62,7 @@ public class ResourceSecurityDynamicFeature
             InternalAuthenticationManager internalAuthenticationManager,
             AccessControl accessControl,
             HttpRequestSessionContextFactory sessionContextFactory,
-            SecurityConfig securityConfig,
-            ProtocolConfig protocolConfig)
+            SecurityConfig securityConfig)
     {
         this.resourceAccessType = requireNonNull(resourceAccessType, "resourceAccessType is null");
         this.authenticationFilter = requireNonNull(authenticationFilter, "authenticationFilter is null");
@@ -76,7 +72,6 @@ public class ResourceSecurityDynamicFeature
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.fixedManagementUser = securityConfig.getFixedManagementUser();
         this.fixedManagementUserForHttps = securityConfig.isFixedManagementUserForHttps();
-        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }
 
     @Override
@@ -98,7 +93,7 @@ public class ResourceSecurityDynamicFeature
             case MANAGEMENT_READ:
             case MANAGEMENT_WRITE:
                 context.register(new ManagementAuthenticationFilter(fixedManagementUser, fixedManagementUserForHttps, authenticationFilter));
-                context.register(new ManagementAuthorizationFilter(accessControl, sessionContextFactory, accessType == MANAGEMENT_READ, alternateHeaderName));
+                context.register(new ManagementAuthorizationFilter(accessControl, sessionContextFactory, accessType == MANAGEMENT_READ));
                 context.register(new DisposeIdentityResponseFilter());
                 return;
             case INTERNAL_ONLY:
@@ -142,14 +137,12 @@ public class ResourceSecurityDynamicFeature
         private final AccessControl accessControl;
         private final HttpRequestSessionContextFactory sessionContextFactory;
         private final boolean read;
-        private final Optional<String> alternateHeaderName;
 
-        public ManagementAuthorizationFilter(AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory, boolean read, Optional<String> alternateHeaderName)
+        public ManagementAuthorizationFilter(AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory, boolean read)
         {
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
             this.read = read;
-            this.alternateHeaderName = requireNonNull(alternateHeaderName, "alternateHeaderName is null");
         }
 
         @Override
@@ -160,10 +153,7 @@ public class ResourceSecurityDynamicFeature
             }
 
             try {
-                Identity identity = sessionContextFactory.extractAuthorizedIdentity(
-                        Optional.ofNullable((Identity) request.getProperty(AUTHENTICATED_IDENTITY)),
-                        request.getHeaders(),
-                        alternateHeaderName);
+                Identity identity = sessionContextFactory.extractAuthorizedIdentity(authenticatedIdentity(request), request.getHeaders());
                 if (read) {
                     accessControl.checkCanReadSystemInformation(identity);
                 }
@@ -215,9 +205,7 @@ public class ResourceSecurityDynamicFeature
         public void filter(ContainerRequestContext request, ContainerResponseContext response)
         {
             // destroy identity if identity is still attached to the request
-            Optional.ofNullable(request.getProperty(AUTHENTICATED_IDENTITY))
-                    .map(Identity.class::cast)
-                    .ifPresent(Identity::destroy);
+            authenticatedIdentity(request).ifPresent(Identity::destroy);
         }
     }
 }

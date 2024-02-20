@@ -17,12 +17,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
+import io.trino.connector.MockConnectorTableHandle;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.plugin.tpch.ColumnNaming;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.LogicalPlanner.Stage;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.sql.planner.optimizations.PlanOptimizer;
+import io.trino.testing.PlanTester;
 import io.trino.tpch.Customer;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -36,7 +43,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.options.WarmupMode;
-import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URL;
@@ -47,15 +53,19 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.BenchmarkPlanner.Queries.TPCH;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
@@ -66,6 +76,8 @@ import static org.testng.Assert.assertNotNull;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPlanner
 {
+    private static final SchemaTableName TABLE = new SchemaTableName("default", "t");
+
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Benchmark)
     public static class BenchmarkData
@@ -75,7 +87,7 @@ public class BenchmarkPlanner
         @Param
         private Queries queries = TPCH;
 
-        private LocalQueryRunner queryRunner;
+        private PlanTester planTester;
         private Session session;
 
         @Setup
@@ -88,26 +100,44 @@ public class BenchmarkPlanner
                     .setSchema("sf1")
                     .build();
 
-            queryRunner = LocalQueryRunner.create(session);
-            queryRunner.createCatalog(tpch, new TpchConnectorFactory(4), ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()));
+            planTester = PlanTester.create(session);
+            planTester.installPlugin(new TpchPlugin());
+            planTester.createCatalog(tpch, "tpch", ImmutableMap.<String, String>builder()
+                    .put(TPCH_SPLITS_PER_NODE, "4")
+                    .put(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name())
+                    .buildOrThrow());
+
+            planTester.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                    .withGetTableHandle((session1, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
+                    .withGetColumns(name -> {
+                        if (!name.equals(TABLE)) {
+                            throw new IllegalArgumentException();
+                        }
+                        return IntStream.rangeClosed(0, 500)
+                                .mapToObj(i -> new ColumnMetadata("col_varchar_" + i, VARCHAR))
+                                .collect(toImmutableList());
+                    })
+                    .build()));
+            planTester.createCatalog("mock", "mock", ImmutableMap.of());
         }
 
         @TearDown
         public void tearDown()
         {
-            queryRunner.close();
-            queryRunner = null;
+            planTester.close();
+            planTester = null;
         }
     }
 
     @Benchmark
     public List<Plan> plan(BenchmarkData benchmarkData)
     {
-        return benchmarkData.queryRunner.inTransaction(transactionSession -> {
-            return benchmarkData.queries.getQueries().stream()
-                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, benchmarkData.stage, false, WarningCollector.NOOP))
-                    .collect(toImmutableList());
-        });
+        PlanTester planTester = benchmarkData.planTester;
+        List<PlanOptimizer> planOptimizers = planTester.getPlanOptimizers(false);
+        PlanOptimizersStatsCollector planOptimizersStatsCollector = createPlanOptimizersStatsCollector();
+        return planTester.inTransaction(transactionSession -> benchmarkData.queries.getQueries().stream()
+                .map(query -> planTester.createPlan(transactionSession, query, planOptimizers, benchmarkData.stage, NOOP, planOptimizersStatsCollector))
+                .collect(toImmutableList()));
     }
 
     @Test
@@ -118,7 +148,7 @@ public class BenchmarkPlanner
             BenchmarkData data = new BenchmarkData();
             data.queries = queries;
             data.setup();
-            assertNotNull(benchmark.plan(data));
+            assertThat(benchmark.plan(data)).isNotNull();
         }
     }
 
@@ -134,7 +164,7 @@ public class BenchmarkPlanner
                         .mapToObj(Integer::toString)
                         .collect(joining(", ", "(", ")")))),
         // 86k columns present in the query with 500 group bys
-        GROUP_BY_WITH_MANY_REFERENCED_COLUMNS(() -> ImmutableList.of("WITH " + IntStream.rangeClosed(0, 500)
+        MULTIPLE_GROUP_BY(() -> ImmutableList.of("WITH " + IntStream.rangeClosed(0, 500)
                 .mapToObj(i -> """
                         t%s AS (
                         SELECT * FROM lineitem a
@@ -147,6 +177,10 @@ public class BenchmarkPlanner
                         .formatted(i))
                 .collect(joining(",")) +
                 "SELECT 1 FROM lineitem")),
+        GROUP_BY_WITH_MANY_REFERENCED_COLUMNS(() -> ImmutableList.of("SELECT * FROM mock.default.t GROUP BY " +
+                IntStream.rangeClosed(1, 501)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(",")))),
         /**/;
 
         private final Supplier<List<String>> queries;

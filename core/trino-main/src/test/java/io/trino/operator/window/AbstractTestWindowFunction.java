@@ -13,27 +13,34 @@
  */
 package io.trino.operator.window;
 
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class AbstractTestWindowFunction
 {
-    protected LocalQueryRunner queryRunner;
+    protected QueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public final void initTestWindowFunction()
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroyTestWindowFunction()
     {
         closeAllRuntimeException(queryRunner);

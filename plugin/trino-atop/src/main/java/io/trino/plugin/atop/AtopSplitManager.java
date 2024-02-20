@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.atop;
 
+import com.google.inject.Inject;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorSession;
@@ -27,8 +28,6 @@ import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
-
-import javax.inject.Inject;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;

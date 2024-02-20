@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.trino.plugin.mongodb.MongoPlugin;
 import io.trino.server.testing.TestingTrinoServer;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -55,6 +55,9 @@ import static java.sql.Types.JAVA_OBJECT;
 import static java.sql.Types.TIMESTAMP;
 import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 /**
  * The main purpose of this class is to test cases when current server implementation breaks older JDBC clients
@@ -65,30 +68,17 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * This test in turn is run using an old JDBC client against current server implementation.
  */
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJdbcCompatibility
 {
     private static final Optional<Integer> VERSION_UNDER_TEST = testedVersion();
     private static final int TIMESTAMP_DEFAULT_PRECISION = 3;
 
-    private TestingTrinoServer server;
-    private String serverUrl;
+    private final TestingTrinoServer server;
+    private final String serverUrl;
 
-    @Test
-    public void ensureProperDriverVersionLoaded()
-    {
-        if (VERSION_UNDER_TEST.isEmpty()) {
-            throw new SkipException("Information about JDBC version under test is missing");
-        }
-
-        assertThat(driverVersion())
-                .isEqualTo(VERSION_UNDER_TEST.get());
-
-        assertThat(jdbcDriver().getClass().getPackage().getImplementationVersion())
-                .isEqualTo(VERSION_UNDER_TEST.get().toString());
-    }
-
-    @BeforeClass
-    public void setup()
+    public TestJdbcCompatibility()
     {
         Logging.initialize();
 
@@ -100,12 +90,25 @@ public class TestJdbcCompatibility
         serverUrl = format("jdbc:trino://%s", server.getAddress());
     }
 
-    @AfterClass(alwaysRun = true)
+    @Test
+    public void ensureProperDriverVersionLoaded()
+    {
+        if (VERSION_UNDER_TEST.isEmpty()) {
+            abort("Information about JDBC version under test is missing");
+        }
+
+        assertThat(driverVersion())
+                .isEqualTo(VERSION_UNDER_TEST.get());
+
+        assertThat(jdbcDriver().getClass().getPackage().getImplementationVersion())
+                .isEqualTo(VERSION_UNDER_TEST.get().toString());
+    }
+
+    @AfterAll
     public void tearDown()
             throws IOException
     {
         server.close();
-        server = null;
     }
 
     @Test
@@ -134,7 +137,7 @@ public class TestJdbcCompatibility
     public void testSelectTimestampWithTimeZone()
     {
         if (hasBrokenParametricTimestampWithTimeZoneSupport()) {
-            throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
+            abort("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
 
         String query = "SELECT timestamp '2012-10-31 01:00 Australia/Eucla'";
@@ -190,7 +193,7 @@ public class TestJdbcCompatibility
     public void testSelectParametricTimestampWithTimeZone()
     {
         if (hasBrokenParametricTimestampWithTimeZoneSupport()) {
-            throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
+            abort("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
 
         if (!supportsParametricTimestampWithTimeZone()) {
@@ -299,7 +302,7 @@ public class TestJdbcCompatibility
     public void testSelectParametricTimestampWithTimeZoneInMap()
     {
         if (hasBrokenParametricTimestampWithTimeZoneSupport()) {
-            throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
+            abort("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
 
         if (!supportsParametricTimestampWithTimeZone()) {
@@ -422,7 +425,7 @@ public class TestJdbcCompatibility
     public void testSelectParametricTimestampWithTimeZoneInArray()
     {
         if (hasBrokenParametricTimestampWithTimeZoneSupport()) {
-            throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
+            abort("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
 
         if (!supportsParametricTimestampWithTimeZone()) {
@@ -544,7 +547,7 @@ public class TestJdbcCompatibility
     public void testSelectParametricTimestampWithTimeZoneInRow()
     {
         if (hasBrokenParametricTimestampWithTimeZoneSupport()) {
-            throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
+            abort("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
 
         if (!supportsParametricTimestampWithTimeZone()) {

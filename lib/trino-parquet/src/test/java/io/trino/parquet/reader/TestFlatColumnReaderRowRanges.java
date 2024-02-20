@@ -15,14 +15,17 @@ package io.trino.parquet.reader;
 
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.FlatColumnReader;
+import io.trino.parquet.reader.flat.FlatDefinitionLevelDecoder;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.util.function.Supplier;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetEncoding.PLAIN;
+import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
+import static io.trino.parquet.reader.flat.DictionaryDecoder.getDictionaryDecoder;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
@@ -59,10 +62,8 @@ public class TestFlatColumnReaderRowRanges
     private enum FlatColumnReaderProvider
             implements ColumnReaderProvider
     {
-        INT_PRIMITIVE_NO_NULLS(() -> new IntColumnReader(FIELD), FIELD),
-        INT_PRIMITIVE_NULLABLE(() -> new IntColumnReader(NULLABLE_FIELD), NULLABLE_FIELD),
-        INT_FLAT_NO_NULLS(() -> new FlatColumnReader<>(FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), FIELD),
-        INT_FLAT_NULLABLE(() -> new FlatColumnReader<>(NULLABLE_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), NULLABLE_FIELD),
+        INT_FLAT_NO_NULLS(() -> createFlatColumnReader(FIELD), FIELD),
+        INT_FLAT_NULLABLE(() -> createFlatColumnReader(NULLABLE_FIELD), NULLABLE_FIELD),
         /**/;
 
         private final Supplier<ColumnReader> columnReader;
@@ -85,5 +86,21 @@ public class TestFlatColumnReaderRowRanges
         {
             return field;
         }
+    }
+
+    private static FlatColumnReader<int[]> createFlatColumnReader(PrimitiveField field)
+    {
+        ValueDecodersProvider<int[]> valueDecodersProvider = getIntDecodersProvider(field);
+        return new FlatColumnReader<>(
+                field,
+                valueDecodersProvider,
+                FlatDefinitionLevelDecoder::getFlatDefinitionLevelDecoder,
+                (dictionaryPage, isNonNull) -> getDictionaryDecoder(
+                        dictionaryPage,
+                        INT_ADAPTER,
+                        valueDecodersProvider.create(PLAIN),
+                        isNonNull),
+                INT_ADAPTER,
+                MEMORY_CONTEXT);
     }
 }

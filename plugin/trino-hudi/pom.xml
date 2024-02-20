@@ -3,60 +3,42 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <artifactId>trino-root</artifactId>
         <groupId>io.trino</groupId>
-        <version>409-SNAPSHOT</version>
+        <artifactId>trino-root</artifactId>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-hudi</artifactId>
-    <description>Trino - Hudi Connector</description>
     <packaging>trino-plugin</packaging>
+    <description>Trino - Hudi Connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.hudi.version>0.12.2</dep.hudi.version>
+        <dep.hudi.version>0.14.0</dep.hudi.version>
+        <dep.hbase.version>2.4.9</dep.hbase.version>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-filesystem</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hdfs</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive</artifactId>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-memory-context</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-parquet</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hive</groupId>
-            <artifactId>hive-apache</artifactId>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>
@@ -95,34 +77,43 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-manager</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hive</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-memory-context</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parquet</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -131,91 +122,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.hudi</groupId>
-            <artifactId>hudi-common</artifactId>
-            <version>${dep.hudi.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.hbase</groupId>
-                    <artifactId>hbase-server</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hbase</groupId>
-                    <artifactId>hbase-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.osgi</groupId>
-                    <artifactId>org.osgi.core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.orc</groupId>
-                    <artifactId>orc-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-databind</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>fluent-hc</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.rocksdb</groupId>
-                    <artifactId>rocksdbjni</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.esotericsoftware</groupId>
-                    <artifactId>kryo-shaded</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hadoop</groupId>
-                    <artifactId>hadoop-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hadoop</groupId>
-                    <artifactId>hadoop-hdfs</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpcore</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-exec</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-jdbc</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.github.ben-manes.caffeine</groupId>
-                    <artifactId>caffeine</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.lz4</groupId>
-                    <artifactId>lz4-java</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.hudi</groupId>
-            <artifactId>hudi-hadoop-mr</artifactId>
-            <version>${dep.hudi.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-column</artifactId>
         </dependency>
 
         <dependency>
@@ -223,23 +136,9 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- Trino SPI -->
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -250,8 +149,20 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -261,17 +172,53 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive</artifactId>
-            <type>test-jar</type>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.dropwizard.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>kryo-shaded</artifactId>
+            <version>4.0.2</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hive-hadoop2</artifactId>
+            <artifactId>trino-hdfs</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hive</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -326,15 +273,41 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino.tpch</groupId>
             <artifactId>tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
+            <groupId>org.apache.hbase</groupId>
+            <artifactId>hbase-client</artifactId>
+            <version>${dep.hbase.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hbase</groupId>
+            <artifactId>hbase-server</artifactId>
+            <version>${dep.hbase.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -344,63 +317,20 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.beust</groupId>
-                    <artifactId>jcommander</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.dropwizard.metrics</groupId>
-                    <artifactId>metrics-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.curator</groupId>
-                    <artifactId>curator-framework</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hudi</groupId>
-                    <artifactId>hudi-common</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hudi</groupId>
-                    <artifactId>hudi-hive-sync</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hudi</groupId>
-                    <artifactId>hudi-timeline-service</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-service</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-avro</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.curator</groupId>
-                    <artifactId>curator-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.curator</groupId>
-                    <artifactId>curator-recipes</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.github.davidmoten</groupId>
-                    <artifactId>hilbert-curve</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.prometheus</groupId>
+                    <groupId>*</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-common</artifactId>
+            <version>${dep.hudi.version}</version>
+            <scope>test</scope>
+            <exclusions>
                 <exclusion>
-                    <groupId>io.dropwizard.metrics</groupId>
+                    <groupId>*</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
@@ -416,11 +346,19 @@
                     <groupId>org.apache.hudi</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-avro</artifactId>
-                </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-avro</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-hadoop</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -430,14 +368,14 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -449,21 +387,12 @@
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
                 <configuration>
                     <ignoredResourcePatterns>
-                        <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
-                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
-                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
                         <!-- org.apache.hudi:hudi-client-common and org.apache.hudi:hudi-java-client log4j.properties duplicates -->
                         <ignoredResourcePattern>log4j.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>log4j-surefire.properties</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-            </plugin>
         </plugins>
     </build>
-
 </project>

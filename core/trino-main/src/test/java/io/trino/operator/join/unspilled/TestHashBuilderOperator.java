@@ -22,12 +22,14 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.TaskContext;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
-import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.List;
@@ -45,26 +47,27 @@ import static io.trino.operator.join.unspilled.HashBuilderOperator.State.CLOSED;
 import static io.trino.operator.join.unspilled.HashBuilderOperator.State.CONSUMING_INPUT;
 import static io.trino.operator.join.unspilled.HashBuilderOperator.State.LOOKUP_SOURCE_BUILT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestHashBuilderOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (executor != null) {
@@ -98,7 +101,7 @@ public class TestHashBuilderOperator
                 ImmutableList.of(BIGINT),
                 1,
                 false,
-                new BlockTypeOperators());
+                new TypeOperators());
         try (HashBuilderOperator operator = new HashBuilderOperator(
                 operatorContext,
                 lookupSourceFactory,
@@ -112,27 +115,27 @@ public class TestHashBuilderOperator
                 10_000,
                 new PagesIndex.TestingFactory(false),
                 defaultHashArraySizeSupplier())) {
-            assertEquals(operator.getState(), CONSUMING_INPUT);
+            assertThat(operator.getState()).isEqualTo(CONSUMING_INPUT);
 
             ListenableFuture<Void> whenBuildFinishes = lookupSourceFactory.whenBuildFinishes();
             assertThat(whenBuildFinishes).isNotDone();
 
             for (int i = 0; i < 100; i++) {
                 assertThat(operator.isBlocked()).isDone();
-                assertTrue(operator.needsInput());
+                assertThat(operator.needsInput()).isTrue();
                 operator.addInput(somePage(types));
             }
 
-            assertFalse(operator.isFinished());
-            assertEquals(operator.getState(), CONSUMING_INPUT);
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(operator.getState()).isEqualTo(CONSUMING_INPUT);
 
             anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(memoryPoolSizeInBytes);
 
             operator.finish();
 
             // not enough memory to create lookup source
-            assertEquals(operator.getState(), CONSUMING_INPUT);
-            assertFalse(operator.isFinished());
+            assertThat(operator.getState()).isEqualTo(CONSUMING_INPUT);
+            assertThat(operator.isFinished()).isFalse();
             assertThat(whenBuildFinishes).isNotDone();
             assertThat(operatorContext.isWaitingForMemory()).isNotDone();
 
@@ -140,20 +143,20 @@ public class TestHashBuilderOperator
 
             operator.finish();
 
-            assertEquals(operator.getState(), LOOKUP_SOURCE_BUILT);
-            assertFalse(operator.isFinished());
+            assertThat(operator.getState()).isEqualTo(LOOKUP_SOURCE_BUILT);
+            assertThat(operator.isFinished()).isFalse();
             assertThat(whenBuildFinishes).isDone();
             assertThat(operator.isBlocked()).isNotDone();
 
             lookupSourceFactory.destroy();
             assertThat(operator.isBlocked()).isDone();
 
-            assertEquals(operator.getState(), LOOKUP_SOURCE_BUILT);
+            assertThat(operator.getState()).isEqualTo(LOOKUP_SOURCE_BUILT);
 
             operator.finish();
 
-            assertEquals(operator.getState(), CLOSED);
-            assertTrue(operator.isFinished());
+            assertThat(operator.getState()).isEqualTo(CLOSED);
+            assertThat(operator.isFinished()).isTrue();
         }
         finally {
             operatorContext.destroy();

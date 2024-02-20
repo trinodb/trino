@@ -14,12 +14,11 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -34,6 +33,7 @@ public class JdbcWriteSessionProperties
 {
     public static final String WRITE_BATCH_SIZE = "write_batch_size";
     public static final String NON_TRANSACTIONAL_INSERT = "non_transactional_insert";
+    public static final String WRITE_PARALLELISM = "write_parallelism";
 
     private final List<PropertyMetadata<?>> properties;
 
@@ -52,6 +52,11 @@ public class JdbcWriteSessionProperties
                         "Do not use temporary table on insert to table",
                         writeConfig.isNonTransactionalInsert(),
                         false))
+                .add(integerProperty(
+                        WRITE_PARALLELISM,
+                        "Maximum number of parallel write tasks",
+                        writeConfig.getWriteParallelism(),
+                        false))
                 .build();
     }
 
@@ -64,6 +69,11 @@ public class JdbcWriteSessionProperties
     public static int getWriteBatchSize(ConnectorSession session)
     {
         return session.getProperty(WRITE_BATCH_SIZE, Integer.class);
+    }
+
+    public static int getWriteParallelism(ConnectorSession session)
+    {
+        return session.getProperty(WRITE_PARALLELISM, Integer.class);
     }
 
     public static boolean isNonTransactionalInsert(ConnectorSession session)

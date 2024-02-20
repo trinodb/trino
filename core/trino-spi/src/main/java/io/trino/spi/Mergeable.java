@@ -13,6 +13,8 @@
  */
 package io.trino.spi;
 
+import java.util.List;
+
 public interface Mergeable<T>
 {
     /**
@@ -21,4 +23,18 @@ public interface Mergeable<T>
      * @throws NullPointerException if other is null
      */
     T mergeWith(T other);
+
+    @SuppressWarnings("unchecked")
+    default T mergeWith(List<T> others)
+    {
+        if (others.isEmpty()) {
+            return (T) this;
+        }
+
+        Mergeable<T> result = this;
+        for (T other : others) {
+            result = (Mergeable<T>) result.mergeWith(other);
+        }
+        return (T) result;
+    }
 }

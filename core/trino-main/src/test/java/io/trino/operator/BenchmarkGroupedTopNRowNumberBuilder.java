@@ -22,7 +22,6 @@ import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
@@ -66,28 +65,30 @@ public class BenchmarkGroupedTopNRowNumberBuilder
                 new TypeOperators());
 
         @Param({"1", "10", "100"})
-        private String topN = "1";
+        private int topN = 1;
 
         @Param({"10000", "1000000"})
-        private String positions = "1";
+        private int positions = 1000;
 
+        // when positions is evenly divisible by groupCount, each row will end up in the same group on each processPage call,
+        // which means it will stop inserting after topN is saturated which may or may not be desirable for any given benchmark scenario
         @Param({"1", "10000", "1000000"})
-        private String groupCount = "1";
+        private int groupCount = 1;
+
+        @Param("100")
+        private int addPageCalls = 1;
 
         private Page page;
-        private GroupedTopNRowNumberBuilder topNBuilder;
 
-        @Setup(value = Level.Invocation)
+        @Setup
         public void setup()
         {
-            page = createInputPage(Integer.valueOf(positions), types);
-
-            topNBuilder = new GroupedTopNRowNumberBuilder(types, comparator, Integer.valueOf(topN), false, new CyclingGroupByHash(Integer.valueOf(groupCount)));
+            page = createInputPage(positions, types);
         }
 
-        public GroupedTopNBuilder getTopNBuilder()
+        public GroupedTopNRowNumberBuilder newTopNRowNumberBuilder()
         {
-            return topNBuilder;
+            return new GroupedTopNRowNumberBuilder(types, comparator, topN, false, new int[0], new CyclingGroupByHash(groupCount));
         }
 
         public Page getPage()
@@ -97,10 +98,29 @@ public class BenchmarkGroupedTopNRowNumberBuilder
     }
 
     @Benchmark
+    public long processTopNInput(BenchmarkData data)
+    {
+        GroupedTopNRowNumberBuilder topNBuilder = data.newTopNRowNumberBuilder();
+        Page inputPage = data.getPage();
+        for (int i = 0; i < data.addPageCalls; i++) {
+            if (!topNBuilder.processPage(inputPage).process()) {
+                throw new IllegalStateException("Work did not complete");
+            }
+        }
+        return topNBuilder.getEstimatedSizeInBytes();
+    }
+
+    @Benchmark
     public List<Page> topN(BenchmarkData data)
     {
-        data.getTopNBuilder().processPage(data.getPage()).process();
-        return ImmutableList.copyOf(data.getTopNBuilder().buildResult());
+        GroupedTopNRowNumberBuilder topNBuilder = data.newTopNRowNumberBuilder();
+        Page inputPage = data.getPage();
+        for (int i = 0; i < data.addPageCalls; i++) {
+            if (!topNBuilder.processPage(inputPage).process()) {
+                throw new IllegalStateException("Work did not complete");
+            }
+        }
+        return ImmutableList.copyOf(topNBuilder.buildResult());
     }
 
     public static void main(String[] args)
@@ -108,7 +128,10 @@ public class BenchmarkGroupedTopNRowNumberBuilder
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        new BenchmarkGroupedTopNRowNumberBuilder().topN(data);
+
+        BenchmarkGroupedTopNRowNumberBuilder benchmark = new BenchmarkGroupedTopNRowNumberBuilder();
+        benchmark.topN(data);
+        benchmark.processTopNInput(data);
 
         benchmark(BenchmarkGroupedTopNRowNumberBuilder.class).run();
     }

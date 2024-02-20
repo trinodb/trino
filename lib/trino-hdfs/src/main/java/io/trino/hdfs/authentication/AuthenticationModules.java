@@ -14,6 +14,7 @@
 package io.trino.hdfs.authentication;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -22,8 +23,6 @@ import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.plugin.base.authentication.KerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosConfiguration;
 import io.trino.plugin.base.security.UserNameProvider;
-
-import javax.inject.Inject;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;

@@ -18,7 +18,8 @@ import io.trino.Session;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.TestInstance;
 
 import java.nio.file.Path;
 import java.util.Map;
@@ -26,7 +27,9 @@ import java.util.Map;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
         extends BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest
 {
@@ -41,10 +44,10 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
                 .setSchema(schema)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("data");
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin());
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory));
         Map<String, String> deltaLakeProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", dataDirectory.toString())
@@ -55,7 +58,7 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
         queryRunner.createCatalog("delta_with_redirections", CONNECTOR_NAME, deltaLakeProperties);
         queryRunner.execute("CREATE SCHEMA " + schema);
 
-        queryRunner.installPlugin(new TestingHivePlugin());
+        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
 
         queryRunner.createCatalog(
                 "hive_with_redirections",
@@ -72,7 +75,7 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
     {
         getQueryRunner().execute("DROP TABLE IF EXISTS hive_with_redirections." + schema + ".region");

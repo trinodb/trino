@@ -34,10 +34,12 @@ import io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult;
 import io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator;
 import io.trino.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -47,51 +49,52 @@ import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJoinEnumerator
 {
-    private LocalQueryRunner queryRunner;
+    private PlanTester planTester;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(testSessionBuilder().build());
+        planTester = PlanTester.create(testSessionBuilder().build());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
-        closeAllRuntimeException(queryRunner);
-        queryRunner = null;
+        closeAllRuntimeException(planTester);
+        planTester = null;
     }
 
     @Test
     public void testGeneratePartitions()
     {
-        assertEquals(generatePartitions(4),
-                ImmutableSet.of(
-                        ImmutableSet.of(0),
-                        ImmutableSet.of(0, 1),
-                        ImmutableSet.of(0, 2),
-                        ImmutableSet.of(0, 3),
-                        ImmutableSet.of(0, 1, 2),
-                        ImmutableSet.of(0, 1, 3),
-                        ImmutableSet.of(0, 2, 3)));
+        assertThat(generatePartitions(4)).isEqualTo(ImmutableSet.of(
+                ImmutableSet.of(0),
+                ImmutableSet.of(0, 1),
+                ImmutableSet.of(0, 2),
+                ImmutableSet.of(0, 3),
+                ImmutableSet.of(0, 1, 2),
+                ImmutableSet.of(0, 1, 3),
+                ImmutableSet.of(0, 2, 3)));
 
-        assertEquals(generatePartitions(3),
-                ImmutableSet.of(
-                        ImmutableSet.of(0),
-                        ImmutableSet.of(0, 1),
-                        ImmutableSet.of(0, 2)));
+        assertThat(generatePartitions(3)).isEqualTo(ImmutableSet.of(
+                ImmutableSet.of(0),
+                ImmutableSet.of(0, 1),
+                ImmutableSet.of(0, 2)));
     }
 
     @Test
     public void testDoesNotCreateJoinWhenPartitionedOnCrossJoin()
     {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanBuilder p = new PlanBuilder(idAllocator, queryRunner.getMetadata(), queryRunner.getDefaultSession());
+        PlanBuilder p = new PlanBuilder(idAllocator, planTester.getPlannerContext(), planTester.getDefaultSession());
         Symbol a1 = p.symbol("A1");
         Symbol b1 = p.symbol("B1");
         MultiJoinNode multiJoinNode = new MultiJoinNode(
@@ -100,13 +103,13 @@ public class TestJoinEnumerator
                 ImmutableList.of(a1, b1),
                 false);
         JoinEnumerator joinEnumerator = new JoinEnumerator(
-                queryRunner.getMetadata(),
+                planTester.getPlannerContext().getMetadata(),
                 new CostComparator(1, 1, 1),
                 multiJoinNode.getFilter(),
                 createContext());
         JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
-        assertFalse(actual.getPlanNode().isPresent());
-        assertEquals(actual.getCost(), PlanCostEstimate.infinite());
+        assertThat(actual.getPlanNode().isPresent()).isFalse();
+        assertThat(actual.getCost()).isEqualTo(PlanCostEstimate.infinite());
     }
 
     private Rule.Context createContext()
@@ -114,17 +117,17 @@ public class TestJoinEnumerator
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         CachingStatsProvider statsProvider = new CachingStatsProvider(
-                queryRunner.getStatsCalculator(),
+                planTester.getStatsCalculator(),
                 Optional.empty(),
                 noLookup(),
-                queryRunner.getDefaultSession(),
+                planTester.getDefaultSession(),
                 symbolAllocator.getTypes(),
-                new CachingTableStatsProvider(queryRunner.getMetadata(), queryRunner.getDefaultSession()));
+                new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), planTester.getDefaultSession()));
         CachingCostProvider costProvider = new CachingCostProvider(
-                queryRunner.getCostCalculator(),
+                planTester.getCostCalculator(),
                 statsProvider,
                 Optional.empty(),
-                queryRunner.getDefaultSession(),
+                planTester.getDefaultSession(),
                 symbolAllocator.getTypes());
 
         return new Rule.Context()
@@ -150,7 +153,7 @@ public class TestJoinEnumerator
             @Override
             public Session getSession()
             {
-                return queryRunner.getDefaultSession();
+                return planTester.getDefaultSession();
             }
 
             @Override

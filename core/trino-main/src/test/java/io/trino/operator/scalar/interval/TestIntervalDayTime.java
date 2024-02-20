@@ -19,12 +19,15 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestIntervalDayTime
 {
     protected QueryAssertions assertions;
@@ -135,20 +138,20 @@ public class TestIntervalDayTime
         assertThat(assertions.expression("INTERVAL '32' SECOND"))
                 .isEqualTo(interval(0, 0, 0, 32, 0));
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '12X' DAY").evaluate())
-                .hasMessage("line 1:12: '12X' is not a valid interval literal");
+        assertThatThrownBy(assertions.expression("INTERVAL '12X' DAY")::evaluate)
+                .hasMessage("line 1:12: '12X' is not a valid INTERVAL literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '12 10' DAY").evaluate())
-                .hasMessage("line 1:12: '12 10' is not a valid interval literal");
+        assertThatThrownBy(assertions.expression("INTERVAL '12 10' DAY")::evaluate)
+                .hasMessage("line 1:12: '12 10' is not a valid INTERVAL literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '12 X' DAY TO HOUR").evaluate())
-                .hasMessage("line 1:12: '12 X' is not a valid interval literal");
+        assertThatThrownBy(assertions.expression("INTERVAL '12 X' DAY TO HOUR")::evaluate)
+                .hasMessage("line 1:12: '12 X' is not a valid INTERVAL literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '12 -10' DAY TO HOUR").evaluate())
-                .hasMessage("line 1:12: '12 -10' is not a valid interval literal");
+        assertThatThrownBy(assertions.expression("INTERVAL '12 -10' DAY TO HOUR")::evaluate)
+                .hasMessage("line 1:12: '12 -10' is not a valid INTERVAL literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '--12 -10' DAY TO HOUR").evaluate())
-                .hasMessage("line 1:12: '--12 -10' is not a valid interval literal");
+        assertThatThrownBy(assertions.expression("INTERVAL '--12 -10' DAY TO HOUR")::evaluate)
+                .hasMessage("line 1:12: '--12 -10' is not a valid INTERVAL literal");
     }
 
     private static SqlIntervalDayTime interval(int day, int hour, int minute, int second, int milliseconds)

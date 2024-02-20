@@ -16,8 +16,7 @@ package io.trino.plugin.clickhouse;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.ForwardingConnection;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PreDestroy;
 
 import java.sql.Connection;
 import java.sql.SQLException;

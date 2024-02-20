@@ -20,6 +20,7 @@ import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -243,6 +244,12 @@ class TestingSystemSecurityMetadata
     }
 
     @Override
+    public Optional<Identity> getFunctionRunAsIdentity(Session session, CatalogSchemaFunctionName functionName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public void schemaCreated(Session session, CatalogSchemaName schema) {}
 
     @Override
@@ -259,4 +266,25 @@ class TestingSystemSecurityMetadata
 
     @Override
     public void tableDropped(Session session, CatalogSchemaTableName table) {}
+
+    @Override
+    public void columnCreated(Session session, CatalogSchemaTableName table, String column)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldName, String newName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void columnDropped(Session session, CatalogSchemaTableName table, String column)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void columnTypeChanged(Session session, CatalogSchemaTableName table, String column, String oldType, String newType) {}
 }

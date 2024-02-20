@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.sqlserver;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 
 import java.util.List;
@@ -33,7 +35,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
  * Implements specialized version of {@code count(*)} that returns bigint in SQL Server.
  */
 public class ImplementSqlServerCountBigAll
-        implements AggregateFunctionRule<JdbcExpression, String>
+        implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
 {
     @Override
     public Pattern<AggregateFunction> getPattern()
@@ -44,9 +46,12 @@ public class ImplementSqlServerCountBigAll
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         verify(aggregateFunction.getOutputType() == BIGINT);
-        return Optional.of(new JdbcExpression("count_big(*)", BIGINT_TYPE));
+        return Optional.of(new JdbcExpression(
+                "count_big(*)",
+                ImmutableList.of(),
+                BIGINT_TYPE));
     }
 }

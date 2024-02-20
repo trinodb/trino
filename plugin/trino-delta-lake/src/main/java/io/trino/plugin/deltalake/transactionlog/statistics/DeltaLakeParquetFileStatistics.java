@@ -19,7 +19,8 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.CanonicalColumnName;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.block.Block;
-import org.openjdk.jol.info.ClassLayout;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 
 import java.util.List;
 import java.util.Map;
@@ -28,13 +29,14 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.toCanonicalNameKeyedMap;
 
 public class DeltaLakeParquetFileStatistics
         implements DeltaLakeFileStatistics
 {
     private static final Logger log = Logger.get(DeltaLakeParquetFileStatistics.class);
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DeltaLakeParquetFileStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(DeltaLakeParquetFileStatistics.class);
 
     private final Optional<Long> numRecords;
     private final Optional<Map<CanonicalColumnName, Object>> minValues;
@@ -82,13 +84,19 @@ public class DeltaLakeParquetFileStatistics
     @Override
     public Optional<Object> getMaxColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        return getStat(columnHandle.getPhysicalName(), maxValues);
+        if (!columnHandle.isBaseColumn()) {
+            return Optional.empty();
+        }
+        return getStat(columnHandle.getBasePhysicalColumnName(), maxValues);
     }
 
     @Override
     public Optional<Object> getMinColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        return getStat(columnHandle.getPhysicalName(), minValues);
+        if (!columnHandle.isBaseColumn()) {
+            return Optional.empty();
+        }
+        return getStat(columnHandle.getBasePhysicalColumnName(), minValues);
     }
 
     @Override
@@ -107,7 +115,7 @@ public class DeltaLakeParquetFileStatistics
         if (contents == null) {
             return Optional.empty();
         }
-        if (contents instanceof List || contents instanceof Map || contents instanceof Block) {
+        if (contents instanceof List || contents instanceof Map || contents instanceof Block || contents instanceof SqlMap || contents instanceof SqlRow) {
             log.debug("Skipping statistics value for column with complex value type: %s", columnName);
             return Optional.empty();
         }

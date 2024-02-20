@@ -13,11 +13,10 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
+import com.google.common.collect.ImmutableMap;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 
@@ -25,8 +24,8 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
+import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -48,38 +47,37 @@ public class AggregationStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(AggregationNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(AggregationNode node, Context context)
     {
-        if (node.getGroupingSetCount() != 1) {
+        if (node.getGroupingSetCount() != 1 || node.getStep() == INTERMEDIATE) {
             return Optional.empty();
         }
 
-        if (node.getStep() != SINGLE && node.getStep() != FINAL) {
-            return Optional.empty();
-        }
+        PlanNodeStatsEstimate estimate;
 
-        return Optional.of(groupBy(
-                statsProvider.getStats(node.getSource()),
-                node.getGroupingKeys(),
-                node.getAggregations()));
+        if (node.getStep() == PARTIAL) {
+            estimate = partialGroupBy(context.statsProvider().getStats(node.getSource()),
+                    node.getGroupingKeys(),
+                    node.getAggregations());
+        }
+        else {
+            estimate = groupBy(
+                    context.statsProvider().getStats(node.getSource()),
+                    node.getGroupingKeys(),
+                    node.getAggregations());
+        }
+        return Optional.of(estimate);
     }
 
     public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)
     {
+        // Used to estimate FINAL or SINGLE step aggregations
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         if (groupBySymbols.isEmpty()) {
             result.setOutputRowCount(1);
         }
         else {
-            for (Symbol groupBySymbol : groupBySymbols) {
-                SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
-                result.addSymbolStatistics(groupBySymbol, symbolStatistics.mapNullsFraction(nullsFraction -> {
-                    if (nullsFraction == 0.0) {
-                        return 0.0;
-                    }
-                    return 1.0 / (symbolStatistics.getDistinctValuesCount() + 1);
-                }));
-            }
+            result.addSymbolStatistics(getGroupBySymbolsStatistics(sourceStats, groupBySymbols));
             double rowsCount = getRowsCount(sourceStats, groupBySymbols);
             result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
         }
@@ -99,6 +97,35 @@ public class AggregationStatsRule
             rowsCount *= symbolStatistics.getDistinctValuesCount() + nullRow;
         }
         return rowsCount;
+    }
+
+    private static PlanNodeStatsEstimate partialGroupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)
+    {
+        // Pessimistic assumption of no reduction from PARTIAL aggregation, forwarding of the source statistics. This makes the CBO estimates in the EXPLAIN plan output easier to understand,
+        // even though partial aggregations are added after the CBO rules have been run.
+        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        result.setOutputRowCount(sourceStats.getOutputRowCount());
+        result.addSymbolStatistics(getGroupBySymbolsStatistics(sourceStats, groupBySymbols));
+        for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
+            result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
+        }
+
+        return result.build();
+    }
+
+    private static Map<Symbol, SymbolStatsEstimate> getGroupBySymbolsStatistics(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols)
+    {
+        ImmutableMap.Builder<Symbol, SymbolStatsEstimate> symbolSymbolStatsEstimates = ImmutableMap.builder();
+        for (Symbol groupBySymbol : groupBySymbols) {
+            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
+            symbolSymbolStatsEstimates.put(groupBySymbol, symbolStatistics.mapNullsFraction(nullsFraction -> {
+                if (nullsFraction == 0.0) {
+                    return 0.0;
+                }
+                return 1.0 / (symbolStatistics.getDistinctValuesCount() + 1);
+            }));
+        }
+        return symbolSymbolStatsEstimates.buildOrThrow();
     }
 
     private static SymbolStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats)

@@ -14,6 +14,7 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
@@ -41,12 +42,13 @@ import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.FrameBoundType;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.JoinNode.Type;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -64,10 +66,10 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.plan.WindowFrameType;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.QualifiedName;
@@ -98,7 +100,7 @@ import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static io.trino.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
@@ -357,10 +359,10 @@ public final class PlanMatchPattern
     }
 
     public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
-            WindowFrame.Type type,
-            FrameBound.Type startType,
+            WindowFrameType type,
+            FrameBoundType startType,
             Optional<String> startValue,
-            FrameBound.Type endType,
+            FrameBoundType endType,
             Optional<String> endValue,
             Optional<String> sortKey)
     {
@@ -368,11 +370,11 @@ public final class PlanMatchPattern
     }
 
     public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
-            WindowFrame.Type type,
-            FrameBound.Type startType,
+            WindowFrameType type,
+            FrameBoundType startType,
             Optional<String> startValue,
             Optional<String> sortKeyForStartComparison,
-            FrameBound.Type endType,
+            FrameBoundType endType,
             Optional<String> endValue,
             Optional<String> sortKeyForEndComparison)
     {
@@ -414,7 +416,7 @@ public final class PlanMatchPattern
         return builder.build();
     }
 
-    public static PlanMatchPattern join(JoinNode.Type type, Consumer<JoinMatcher.Builder> handler)
+    public static PlanMatchPattern join(JoinType type, Consumer<JoinMatcher.Builder> handler)
     {
         JoinMatcher.Builder builder = new JoinMatcher.Builder(type);
         handler.accept(builder);
@@ -544,7 +546,7 @@ public final class PlanMatchPattern
             List<String> replicateSymbols,
             List<UnnestMapping> mappings,
             Optional<String> ordinalitySymbol,
-            Type type,
+            JoinType type,
             Optional<String> filter,
             PlanMatchPattern source)
     {
@@ -623,6 +625,21 @@ public final class PlanMatchPattern
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, Optional<Integer> partitionCount, PlanMatchPattern... sources)
     {
         return exchange(scope, Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.of(type), Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, PartitioningHandle partitioningHandle, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.empty(), Optional.of(partitioningHandle), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PartitioningHandle partitioningHandle, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.of(type), Optional.of(partitioningHandle), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
     }
 
     public static PlanMatchPattern exchange(
@@ -710,7 +727,7 @@ public final class PlanMatchPattern
         return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate, Optional.of(dynamicFilter)));
     }
 
-    public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, ExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, SetExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
     {
         PlanMatchPattern result = node(ApplyNode.class, inputPattern, subqueryPattern)
                 .with(new CorrelationMatcher(correlationSymbolAliases));
@@ -742,8 +759,19 @@ public final class PlanMatchPattern
             String groupIdSymbol,
             PlanMatchPattern source)
     {
+        return groupId(groupingSets, ImmutableMap.of(), aggregationArguments, groupIdSymbol, source);
+    }
+
+    public static PlanMatchPattern groupId(
+            List<List<String>> groupingSets,
+            Map<String, String> groupingColumns,
+            List<String> aggregationArguments,
+            String groupIdSymbol,
+            PlanMatchPattern source)
+    {
         return node(GroupIdNode.class, source).with(new GroupIdMatcher(
                 groupingSets,
+                groupingColumns,
                 aggregationArguments,
                 groupIdSymbol));
     }
@@ -1021,6 +1049,11 @@ public final class PlanMatchPattern
     public static RvalueMatcher columnReference(String tableName, String columnName)
     {
         return new ColumnReference(tableName, columnName);
+    }
+
+    public static SetExpressionMatcher setExpression(ApplyNode.SetExpression expression)
+    {
+        return new SetExpressionMatcher(expression);
     }
 
     public static ExpressionMatcher expression(@Language("SQL") String expression)

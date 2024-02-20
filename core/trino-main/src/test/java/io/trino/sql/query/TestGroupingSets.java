@@ -14,29 +14,24 @@
 package io.trino.sql.query;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestGroupingSets
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -87,5 +82,41 @@ public class TestGroupingSets
                 "GROUP BY ROLLUP (a) " +
                 "ORDER BY a LIMIT 2"))
                 .matches("VALUES 1, 2");
+    }
+
+    @Test
+    public void testComplexCube()
+    {
+        assertThat(assertions.query("""
+                SELECT a, b, c, count(*)
+                FROM (VALUES (1, 1, 1), (1, 2, 2), (1, 2, 2)) t(a, b, c)
+                GROUP BY CUBE (a, (b, c))
+                """))
+                .matches("""
+                        VALUES
+                            (   1,    1,    1, BIGINT '1'),
+                            (   1,    2,    2, 2),
+                            (   1, NULL, NULL, 3),
+                            (NULL, NULL, NULL, 3),
+                            (NULL,    1,    1, 1),
+                            (NULL,    2,    2, 2)
+                        """);
+    }
+
+    @Test
+    public void testComplexRollup()
+    {
+        assertThat(assertions.query("""
+                SELECT a, b, c, count(*)
+                FROM (VALUES (1, 1, 1), (1, 2, 2), (1, 2, 2)) t(a, b, c)
+                GROUP BY ROLLUP (a, (b, c))
+                """))
+                .matches("""
+                         VALUES
+                         (   1,    1,    1, BIGINT '1'),
+                         (NULL, NULL, NULL, 3),
+                         (   1, NULL, NULL, 3),
+                         (   1,    2,    2, 2)
+                        """);
     }
 }

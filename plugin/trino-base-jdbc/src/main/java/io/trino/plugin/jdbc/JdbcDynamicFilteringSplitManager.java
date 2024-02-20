@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -24,8 +25,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -69,6 +68,11 @@ public class JdbcDynamicFilteringSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
+        // JdbcProcedureHandle doesn't support any pushdown operation, so we rely on delegateSplitManager
+        if (table instanceof JdbcProcedureHandle) {
+            return delegateSplitManager.getSplits(transaction, session, table, dynamicFilter, constraint);
+        }
+
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         // pushing DF through limit could reduce query performance
         boolean hasLimit = tableHandle.getLimit().isPresent();

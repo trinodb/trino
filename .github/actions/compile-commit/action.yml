@@ -15,13 +15,16 @@ runs:
         echo "tree-hash=${TREE_HASH}" >> $GITHUB_OUTPUT
     - name: Cache compile-commit action success
       id: check-compile-commit-success
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: compile-commit-success.txt
         # use tree hashes instead of commit hashes to reuse cache when changes in commits are reorganized without changing the workspace
         key: compile-commit-success-${{ github.event.pull_request.head.repo.full_name }}-${{ steps.repo-hash.outputs.tree-hash }}
     - uses: ./.github/actions/setup
       if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
+      with:
+        # Dependencies are downloaded explicitly below, after MAVEN has been set here. This allows modifications to the MAVEN setup with a PR.
+        download_dependencies: false
     - name: Check if a specified commit compiles
       shell: bash
       if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
@@ -35,7 +38,7 @@ runs:
         export MAVEN="./mvnw --offline"
         # maven.wagon.rto is in millis, defaults to 30m
         MAVEN_INSTALL_OPTS="-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-        MAVEN_COMPILE_COMMITS="-B --strict-checksums --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl !:trino-server-rpm"
+        MAVEN_COMPILE_COMMITS="-B --strict-checksums --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl !:trino-server-rpm"
         export MAVEN_GIB="-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ inputs.base_ref }}"
         RETRY=.github/bin/retry
         # -------

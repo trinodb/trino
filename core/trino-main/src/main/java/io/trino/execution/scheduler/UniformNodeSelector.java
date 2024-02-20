@@ -33,8 +33,7 @@ import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;

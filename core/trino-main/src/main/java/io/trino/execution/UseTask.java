@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -26,11 +27,10 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Use;
 
-import javax.inject.Inject;
-
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
@@ -73,7 +73,7 @@ public class UseTask
 
         SecurityContext securityContext = session.toSecurityContext();
         if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
-            throw new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalog);
+            throw new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' not found".formatted(catalog));
         }
         if (!hasCatalogAccess(securityContext, catalog)) {
             denyCatalogAccess(catalog);

@@ -13,12 +13,11 @@
  */
 package io.trino.tests.product.iceberg;
 
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
 import org.assertj.core.api.AbstractStringAssert;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -26,7 +25,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
@@ -34,6 +32,7 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests interactions between Iceberg and Hive connectors, when one tries to read a table created by the other
@@ -44,7 +43,7 @@ import static java.sql.JDBCType.VARCHAR;
 public class TestIcebergRedirectionToHive
         extends ProductTest
 {
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void createAdditionalSchema()
     {
         onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS iceberg.nondefaultschema");
@@ -132,12 +131,27 @@ public class TestIcebergRedirectionToHive
     {
         String tableName = "hive_unpartitioned_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
-        String icebergTableName = "iceberg.default." + tableName;
 
         createHiveTable(hiveTableName, false);
 
         assertQueryFailure(() -> onTrino().executeQuery("TABLE iceberg.default.\"" + tableName + "$partitions\""))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table '" + icebergTableName + "$partitions' redirected to '" + hiveTableName + "$partitions', but the target table '" + hiveTableName + "$partitions' does not exist");
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table 'iceberg.default.\"" + tableName + "$partitions\"' redirected to 'hive.default.\"" + tableName + "$partitions\"', " +
+                        "but the target table 'hive.default.\"" + tableName + "$partitions\"' does not exist");
+
+        onTrino().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testRedirectInvalidSystemTable()
+    {
+        String tableName = "hive_invalid_table_" + randomNameSuffix();
+        String hiveTableName = "hive.default." + tableName;
+
+        createHiveTable(hiveTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery("TABLE iceberg.default.\"" + tableName + "$invalid\""))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table 'iceberg.default.\"" + tableName + "$invalid\"' redirected to 'hive.default.\"" + tableName + "$invalid\"', " +
+                        "but the target table 'hive.default.\"" + tableName + "$invalid\"' does not exist");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -223,6 +237,19 @@ public class TestIcebergRedirectionToHive
                 .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): " + MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateOrReplaceTable()
+    {
+        String tableName = "iceberg_create_or_replace_hive_" + randomNameSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createHiveTable(hiveTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery("CREATE OR REPLACE TABLE " + icebergTableName + " (d integer)"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + icebergTableName + "' of unsupported type already exists");
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
@@ -335,7 +362,7 @@ public class TestIcebergRedirectionToHive
 
         onTrino().executeQuery("ALTER TABLE " + icebergTableName + " ADD COLUMN some_new_column double");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + hiveTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + hiveTableName).column(1))
                 .containsOnly("nationkey", "name", "regionkey", "comment", "some_new_column");
 
         assertResultsEqual(
@@ -355,7 +382,7 @@ public class TestIcebergRedirectionToHive
 
         onTrino().executeQuery("ALTER TABLE " + icebergTableName + " RENAME COLUMN nationkey TO nation_key");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nation_key", "name", "regionkey", "comment");
 
         assertResultsEqual(
@@ -376,7 +403,7 @@ public class TestIcebergRedirectionToHive
 
         onTrino().executeQuery("ALTER TABLE " + icebergTableName + " DROP COLUMN comment");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nationkey", "name", "regionkey");
 
         // After dropping the column from the Hive metastore, access ORC columns by name
@@ -587,7 +614,7 @@ public class TestIcebergRedirectionToHive
 
     private static AbstractStringAssert<?> assertTableComment(String catalog, String schema, String tableName)
     {
-        return Assertions.assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
+        return assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
     }
 
     private static QueryResult readTableComment(String catalog, String schema, String tableName)

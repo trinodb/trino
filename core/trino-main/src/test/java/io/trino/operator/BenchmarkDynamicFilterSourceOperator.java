@@ -25,7 +25,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
-import io.trino.type.BlockTypeOperators;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -39,7 +39,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
-import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.List;
@@ -54,7 +53,7 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -92,6 +91,7 @@ public class BenchmarkDynamicFilterSourceOperator
             int maxDistinctValuesCount = Integer.parseInt(limits[0]);
             int minMaxCollectionLimit = Integer.parseInt(limits[1]);
 
+            TypeOperators typeOperators = new TypeOperators();
             operatorFactory = new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                     1,
                     new PlanNodeId("joinNodeId"),
@@ -115,7 +115,7 @@ public class BenchmarkDynamicFilterSourceOperator
                     maxDistinctValuesCount,
                     DataSize.ofBytes(Long.MAX_VALUE),
                     minMaxCollectionLimit,
-                    new BlockTypeOperators(new TypeOperators()));
+                    typeOperators);
         }
 
         @TearDown
@@ -203,7 +203,7 @@ public class BenchmarkDynamicFilterSourceOperator
         context.setup();
 
         List<Page> outputPages = dynamicFilterCollect(context);
-        assertEquals(TOTAL_POSITIONS, outputPages.stream().mapToInt(Page::getPositionCount).sum());
+        assertThat(TOTAL_POSITIONS).isEqualTo(outputPages.stream().mapToInt(Page::getPositionCount).sum());
 
         context.cleanup();
     }

@@ -18,6 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
@@ -28,7 +29,7 @@ import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.util.Properties;
 
@@ -56,12 +57,13 @@ public class RedshiftClientModule
     @ForBaseJdbc
     public static ConnectionFactory getConnectionFactory(
             BaseJdbcConfig config,
-            CredentialProvider credentialProvider)
+            CredentialProvider credentialProvider,
+            OpenTelemetry openTelemetry)
     {
         Properties properties = new Properties();
         properties.put("reWriteBatchedInserts", "true");
         properties.put("reWriteBatchedInsertsSize", "512");
 
-        return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), properties, credentialProvider);
+        return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), properties, credentialProvider, openTelemetry);
     }
 }

@@ -25,6 +25,7 @@ import io.trino.orc.metadata.statistics.DateStatisticsBuilder;
 import io.trino.orc.metadata.statistics.DoubleStatisticsBuilder;
 import io.trino.orc.metadata.statistics.IntegerStatisticsBuilder;
 import io.trino.orc.metadata.statistics.StringStatisticsBuilder;
+import io.trino.orc.metadata.statistics.TimeMicrosStatisticsBuilder;
 import io.trino.orc.metadata.statistics.TimestampStatisticsBuilder;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
@@ -33,6 +34,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.trino.orc.reader.ColumnReaders.ICEBERG_LONG_TYPE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -55,8 +57,8 @@ public final class ColumnWriters
         if (type instanceof TimeType timeType) {
             checkArgument(timeType.getPrecision() == 6, "%s not supported for ORC writer", type);
             checkArgument(orcType.getOrcTypeKind() == LONG, "wrong ORC type %s for type %s", orcType, type);
-            checkArgument("TIME".equals(orcType.getAttributes().get("iceberg.long-type")), "wrong attributes %s for type %s", orcType.getAttributes(), type);
-            return new TimeColumnWriter(columnId, type, compression, bufferSize, () -> new IntegerStatisticsBuilder(bloomFilterBuilder.get()));
+            checkArgument("TIME".equals(orcType.getAttributes().get(ICEBERG_LONG_TYPE)), "wrong attributes %s for type %s", orcType.getAttributes(), type);
+            return new TimeColumnWriter(columnId, type, compression, bufferSize, () -> new TimeMicrosStatisticsBuilder(bloomFilterBuilder.get()));
         }
         switch (orcType.getOrcTypeKind()) {
             case BOOLEAN:

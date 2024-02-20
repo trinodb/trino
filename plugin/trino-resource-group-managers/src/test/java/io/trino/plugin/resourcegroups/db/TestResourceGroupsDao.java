@@ -21,8 +21,9 @@ import io.trino.plugin.resourcegroups.ResourceGroupNameTemplate;
 import io.trino.plugin.resourcegroups.SelectorResourceEstimate;
 import io.trino.plugin.resourcegroups.SelectorResourceEstimate.Range;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import org.h2.jdbc.JdbcException;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.List;
@@ -40,9 +41,7 @@ import static io.trino.spi.resourcegroups.QueryType.SELECT;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestResourceGroupsDao
 {
@@ -83,7 +82,7 @@ public class TestResourceGroupsDao
         dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
         dao.insertResourceGroup(2, "bi", "50%", 50, 50, 50, null, null, null, null, null, 1L, ENVIRONMENT);
         List<ResourceGroupSpecBuilder> records = dao.getResourceGroups(ENVIRONMENT);
-        assertEquals(records.size(), 2);
+        assertThat(records.size()).isEqualTo(2);
         map.put(1L, new ResourceGroupSpecBuilder(1, new ResourceGroupNameTemplate("global"), "100%", 100, Optional.of(100), 100, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
         map.put(2L, new ResourceGroupSpecBuilder(2, new ResourceGroupNameTemplate("bi"), "50%", 50, Optional.of(50), 50, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(1L)));
         compareResourceGroups(map, records);
@@ -248,20 +247,20 @@ public class TestResourceGroupsDao
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         ResourceGroupGlobalProperties globalProperties = new ResourceGroupGlobalProperties(Optional.of(new Duration(1, HOURS)));
         ResourceGroupGlobalProperties records = dao.getResourceGroupGlobalProperties().get(0);
-        assertEquals(globalProperties, records);
+        assertThat(globalProperties).isEqualTo(records);
         try {
             dao.insertResourceGroupsGlobalProperties("invalid_property", "1h");
         }
         catch (UnableToExecuteStatementException ex) {
-            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
-            assertTrue(ex.getCause().getMessage().startsWith("Check constraint violation:"));
+            assertThat(ex.getCause() instanceof JdbcException).isTrue();
+            assertThat(ex.getCause().getMessage().startsWith("Check constraint violation:")).isTrue();
         }
         try {
             dao.updateResourceGroupsGlobalProperties("invalid_property_name");
         }
         catch (UnableToExecuteStatementException ex) {
-            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
-            assertTrue(ex.getCause().getMessage().startsWith("Check constraint violation:"));
+            assertThat(ex.getCause() instanceof JdbcException).isTrue();
+            assertThat(ex.getCause().getMessage().startsWith("Check constraint violation:")).isTrue();
         }
     }
 
@@ -277,33 +276,33 @@ public class TestResourceGroupsDao
         dao.insertExactMatchSelector("test", "@test@test_pipeline", INSERT.name(), codec.toJson(resourceGroupId1));
         dao.insertExactMatchSelector("test", "@test@test_pipeline", SELECT.name(), codec.toJson(resourceGroupId2));
 
-        assertNull(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", null));
-        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", INSERT.name()), codec.toJson(resourceGroupId1));
-        assertEquals(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", SELECT.name()), codec.toJson(resourceGroupId2));
-        assertNull(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", DELETE.name()));
+        assertThat(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", null)).isNull();
+        assertThat(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", INSERT.name())).isEqualTo(codec.toJson(resourceGroupId1));
+        assertThat(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", SELECT.name())).isEqualTo(codec.toJson(resourceGroupId2));
+        assertThat(dao.getExactMatchResourceGroup("test", "@test@test_pipeline", DELETE.name())).isNull();
 
-        assertNull(dao.getExactMatchResourceGroup("test", "abc", INSERT.name()));
-        assertNull(dao.getExactMatchResourceGroup("prod", "@test@test_pipeline", INSERT.name()));
+        assertThat(dao.getExactMatchResourceGroup("test", "abc", INSERT.name())).isNull();
+        assertThat(dao.getExactMatchResourceGroup("prod", "@test@test_pipeline", INSERT.name())).isNull();
     }
 
     private static void compareResourceGroups(Map<Long, ResourceGroupSpecBuilder> map, List<ResourceGroupSpecBuilder> records)
     {
-        assertEquals(map.size(), records.size());
+        assertThat(map.size()).isEqualTo(records.size());
         for (ResourceGroupSpecBuilder record : records) {
             ResourceGroupSpecBuilder expected = map.get(record.getId());
-            assertEquals(record.build(), expected.build());
+            assertThat(record.build()).isEqualTo(expected.build());
         }
     }
 
     private static void compareSelectors(Map<Long, SelectorRecord> map, List<SelectorRecord> records)
     {
-        assertEquals(map.size(), records.size());
+        assertThat(map.size()).isEqualTo(records.size());
         for (SelectorRecord record : records) {
             SelectorRecord expected = map.get(record.getResourceGroupId());
-            assertEquals(record.getResourceGroupId(), expected.getResourceGroupId());
-            assertEquals(record.getUserRegex().map(Pattern::pattern), expected.getUserRegex().map(Pattern::pattern));
-            assertEquals(record.getSourceRegex().map(Pattern::pattern), expected.getSourceRegex().map(Pattern::pattern));
-            assertEquals(record.getSelectorResourceEstimate(), expected.getSelectorResourceEstimate());
+            assertThat(record.getResourceGroupId()).isEqualTo(expected.getResourceGroupId());
+            assertThat(record.getUserRegex().map(Pattern::pattern)).isEqualTo(expected.getUserRegex().map(Pattern::pattern));
+            assertThat(record.getSourceRegex().map(Pattern::pattern)).isEqualTo(expected.getSourceRegex().map(Pattern::pattern));
+            assertThat(record.getSelectorResourceEstimate()).isEqualTo(expected.getSelectorResourceEstimate());
         }
     }
 }

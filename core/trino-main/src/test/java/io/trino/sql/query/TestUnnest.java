@@ -14,30 +14,24 @@
 package io.trino.sql.query;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestUnnest
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -71,11 +65,11 @@ public class TestUnnest
                 "SELECT x FROM UNNEST(CAST(ARRAY[ROW(1, 'a'), ROW(2, 'b')] as ARRAY(ROW(x int, y varchar))))"))
                 .matches("VALUES (1), (2)");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT x FROM" +
                         "(VALUES (3)) AS t(x)" +
                         "CROSS JOIN UNNEST(CAST(ARRAY[ROW(1, 'a'), ROW(2, 'b')] as ARRAY(ROW(x int, y varchar))))"))
-                .hasMessageMatching(".*Column 'x' is ambiguous.*");
+                .failure().hasMessageMatching(".*Column 'x' is ambiguous.*");
 
         assertThat(assertions.query(
                 "SELECT t.x FROM" +
@@ -93,12 +87,12 @@ public class TestUnnest
     @Test
     public void testUnnestMultiExpr()
     {
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT x " +
                         "FROM UNNEST(" +
                         "   CAST(ARRAY[ROW(1, 'a'), ROW(2, 'b')] as ARRAY(ROW(x int, y varchar)))," +
                         "   CAST(ARRAY[ROW(1, 'a'), ROW(2, 'b')] as ARRAY(ROW(x int, y varchar))))"))
-                .hasMessageMatching(".*Column 'x' is ambiguous.*");
+                .failure().hasMessageMatching(".*Column 'x' is ambiguous.*");
 
         assertThat(assertions.query(
                 "SELECT t3 " +
@@ -130,9 +124,9 @@ public class TestUnnest
         assertThat(assertions.query(
                 "SELECT * FROM (VALUES ARRAY[]) a(x) LEFT OUTER JOIN UNNEST(x) WITH ORDINALITY ON true"))
                 .matches("VALUES (ARRAY[], null, CAST(NULL AS bigint))");
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES ARRAY[1, null]) a(x) LEFT OUTER JOIN UNNEST(x) b(y) ON b.y = 1"))
-                .hasMessageMatching("line .*: LEFT JOIN involving UNNEST is only supported with condition ON TRUE");
+                .failure().hasMessageMatching("line .*: LEFT JOIN involving UNNEST is only supported with condition ON TRUE");
         assertThat(assertions.query(
                 "SELECT * FROM (VALUES 'a', 'b') LEFT JOIN UNNEST(ARRAY[]) ON TRUE"))
                 .matches("VALUES ('a', null), ('b', null)");
@@ -161,9 +155,9 @@ public class TestUnnest
         assertThat(assertions.query(
                 "SELECT * FROM (VALUES ARRAY[1, null]) a(x) RIGHT OUTER JOIN UNNEST(ARRAY[2, null]) WITH ORDINALITY ON true"))
                 .matches("VALUES (ARRAY[1, null], 2, BIGINT '1'), (ARRAY[1, null], null, BIGINT '2')");
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES ARRAY[1, null]) a(x) RIGHT OUTER JOIN UNNEST(ARRAY[2, null]) b(y) ON b.y = 1"))
-                .hasMessageMatching("line .*: RIGHT JOIN involving UNNEST is only supported with condition ON TRUE");
+                .failure().hasMessageMatching("line .*: RIGHT JOIN involving UNNEST is only supported with condition ON TRUE");
     }
 
     @Test
@@ -182,9 +176,9 @@ public class TestUnnest
         assertThat(assertions.query(
                 "SELECT * FROM (VALUES ARRAY[]) a(x) FULL OUTER JOIN UNNEST(ARRAY[2, null]) WITH ORDINALITY ON true"))
                 .matches("VALUES (ARRAY[], 2, BIGINT '1'), (ARRAY[], null, BIGINT '2')");
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES ARRAY[1, null]) a(x) FULL OUTER JOIN UNNEST(ARRAY[2, null]) b(y) ON b.y = 1"))
-                .hasMessageMatching("line .*: FULL JOIN involving UNNEST is only supported with condition ON TRUE");
+                .failure().hasMessageMatching("line .*: FULL JOIN involving UNNEST is only supported with condition ON TRUE");
     }
 
     @Test
@@ -200,9 +194,9 @@ public class TestUnnest
                 "SELECT * FROM (VALUES ARRAY[]) a(x) INNER JOIN UNNEST(x) ON true");
         assertions.assertQueryReturnsEmptyResult(
                 "SELECT * FROM (VALUES ARRAY[]) a(x) INNER JOIN UNNEST(x) WITH ORDINALITY ON true");
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM (VALUES ARRAY[1, null]) a(x) INNER JOIN UNNEST(x) b(y) ON b.y = 1"))
-                .hasMessageMatching("line .*: INNER JOIN involving UNNEST is only supported with condition ON TRUE");
+                .failure().hasMessageMatching("line .*: INNER JOIN involving UNNEST is only supported with condition ON TRUE");
     }
 
     @Test
@@ -232,7 +226,7 @@ public class TestUnnest
     public void testNullRows()
     {
         // This query tries to simulate testArrayOfRowsUnnesterWithNulls e2e
-        assertions.query("SELECT "
+        assertions.execute("SELECT "
                 + "     x, y "
                 + "FROM "
                 + "     (VALUES "

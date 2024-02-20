@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -25,6 +26,7 @@ import io.trino.plugin.accumulo.model.TabletSplitMetadata;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import jakarta.annotation.PreDestroy;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Scanner;
@@ -34,9 +36,6 @@ import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.hadoop.io.Text;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;

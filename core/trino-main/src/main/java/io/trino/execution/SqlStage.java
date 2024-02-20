@@ -15,8 +15,12 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
@@ -27,9 +31,6 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
@@ -82,6 +84,8 @@ public final class SqlStage
             boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
             Executor stateMachineExecutor,
+            Tracer tracer,
+            Span schedulerSpan,
             SplitSchedulerStats schedulerStats)
     {
         requireNonNull(stageId, "stageId is null");
@@ -92,11 +96,21 @@ public final class SqlStage
         requireNonNull(session, "session is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         requireNonNull(stateMachineExecutor, "stateMachineExecutor is null");
+        requireNonNull(tracer, "tracer is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
+
+        StageStateMachine stateMachine = new StageStateMachine(
+                stageId,
+                fragment,
+                tables,
+                stateMachineExecutor,
+                tracer,
+                schedulerSpan,
+                schedulerStats);
 
         SqlStage sqlStage = new SqlStage(
                 session,
-                new StageStateMachine(stageId, fragment, tables, stateMachineExecutor, schedulerStats),
+                stateMachine,
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo);
@@ -134,6 +148,11 @@ public final class SqlStage
     public StageId getStageId()
     {
         return stateMachine.getStageId();
+    }
+
+    public Span getStageSpan()
+    {
+        return stateMachine.getStageSpan();
     }
 
     public StageState getState()
@@ -228,7 +247,8 @@ public final class SqlStage
             OutputBuffers outputBuffers,
             Multimap<PlanNodeId, Split> splits,
             Set<PlanNodeId> noMoreSplits,
-            Optional<DataSize> estimatedMemory)
+            Optional<DataSize> estimatedMemory,
+            boolean speculative)
     {
         if (stateMachine.getState().isDone()) {
             return Optional.empty();
@@ -240,8 +260,10 @@ public final class SqlStage
 
         RemoteTask task = remoteTaskFactory.createRemoteTask(
                 session,
+                stateMachine.getStageSpan(),
                 taskId,
                 node,
+                speculative,
                 stateMachine.getFragment().withBucketToPartition(bucketToPartition),
                 splits,
                 outputBuffers,
@@ -268,16 +290,22 @@ public final class SqlStage
         stateMachine.recordGetSplitTime(start);
     }
 
-    private synchronized void updateTaskStatus(TaskStatus status)
+    private void updateTaskStatus(TaskStatus status)
     {
-        if (status.getState().isDone()) {
-            finishedTasks.add(status.getTaskId());
+        boolean isDone = status.getState().isDone();
+        if (!isDone && stateMachine.getState() == StageState.RUNNING) {
+            return;
         }
-        if (!finishedTasks.containsAll(allTasks)) {
-            stateMachine.transitionToRunning();
-        }
-        else {
-            stateMachine.transitionToPending();
+        synchronized (this) {
+            if (isDone) {
+                finishedTasks.add(status.getTaskId());
+            }
+            if (finishedTasks.size() == allTasks.size()) {
+                stateMachine.transitionToPending();
+            }
+            else {
+                stateMachine.transitionToRunning();
+            }
         }
     }
 
@@ -287,20 +315,34 @@ public final class SqlStage
         checkAllTaskFinal();
     }
 
-    private synchronized void checkAllTaskFinal()
+    private void checkAllTaskFinal()
     {
-        if (stateMachine.getState().isDone() && tasksWithFinalInfo.containsAll(tasks.keySet())) {
-            List<TaskInfo> finalTaskInfos = tasks.values().stream()
-                    .map(RemoteTask::getTaskInfo)
-                    .collect(toImmutableList());
-            stateMachine.setAllTasksFinal(finalTaskInfos);
+        if (!stateMachine.getState().isDone()) {
+            return;
+        }
+        synchronized (this) {
+            if (tasksWithFinalInfo.size() == allTasks.size()) {
+                List<TaskInfo> finalTaskInfos = tasks.values().stream()
+                        .map(RemoteTask::getTaskInfo)
+                        .collect(toImmutableList());
+                stateMachine.setAllTasksFinal(finalTaskInfos);
+            }
         }
     }
 
     @Override
-    public String toString()
+    // for debugging
+    public synchronized String toString()
     {
-        return stateMachine.toString();
+        return toStringHelper(this)
+                .add("stateMachine", stateMachine)
+                .add("summarizeTaskInfo", summarizeTaskInfo)
+                .add("outboundDynamicFilterIds", outboundDynamicFilterIds)
+                .add("tasks", tasks)
+                .add("allTasks", allTasks)
+                .add("finishedTasks", finishedTasks)
+                .add("tasksWithFinalInfo", tasksWithFinalInfo)
+                .toString();
     }
 
     private class MemoryUsageListener

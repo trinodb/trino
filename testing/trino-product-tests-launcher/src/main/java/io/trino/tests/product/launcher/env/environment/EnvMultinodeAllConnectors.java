@@ -13,14 +13,13 @@
  */
 package io.trino.tests.product.launcher.env.environment;
 
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -70,6 +69,7 @@ public final class EnvMultinodeAllConnectors
                         "singlestore",
                         "mongodb",
                         "mysql",
+                        "opensearch",
                         "oracle",
                         "phoenix5",
                         "pinot",

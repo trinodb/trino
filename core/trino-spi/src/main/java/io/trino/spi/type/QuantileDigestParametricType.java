@@ -15,8 +15,6 @@ package io.trino.spi.type;
 
 import java.util.List;
 
-import static java.lang.String.format;
-
 public class QuantileDigestParametricType
         implements ParametricType
 {
@@ -31,20 +29,14 @@ public class QuantileDigestParametricType
     @Override
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
-        checkArgument(parameters.size() == 1, "QDIGEST type expects exactly one type as a parameter, got %s", parameters);
-        checkArgument(
-                parameters.get(0).getKind() == ParameterKind.TYPE,
-                "QDIGEST expects type as a parameter, got %s",
-                parameters);
+        if (parameters.size() != 1) {
+            throw new IllegalArgumentException("QDIGEST type expects exactly one type as a parameter, got " + parameters);
+        }
+        if (parameters.get(0).getKind() != ParameterKind.TYPE) {
+            throw new IllegalArgumentException("QDIGEST expects type as a parameter, got " + parameters);
+        }
         // Validation check on the acceptable type (bigint, real, double) intentionally omitted
         // because this is validated in each function and to allow for consistent error messaging
         return new QuantileDigestType(parameters.get(0).getType());
-    }
-
-    private static void checkArgument(boolean argument, String format, Object... args)
-    {
-        if (!argument) {
-            throw new IllegalArgumentException(format(format, args));
-        }
     }
 }

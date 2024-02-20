@@ -14,12 +14,11 @@
 package io.trino.plugin.jdbc.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
+import io.trino.plugin.base.mapping.CachingIdentifierMapping;
 import io.trino.plugin.jdbc.CachingJdbcClient;
-import io.trino.plugin.jdbc.mapping.CachingIdentifierMapping;
 import io.trino.spi.procedure.Procedure;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;

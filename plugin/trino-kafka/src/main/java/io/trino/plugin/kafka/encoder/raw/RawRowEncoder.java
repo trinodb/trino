@@ -33,6 +33,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -307,7 +308,7 @@ public class RawRowEncoder
     @Override
     protected void appendByteBuffer(ByteBuffer value)
     {
-        byte[] valueBytes = value.array();
+        byte[] valueBytes = getWrappedBytes(value);
         checkArgument(valueBytes.length == columnMappings.get(currentColumnIndex).getLength(), format(
                 "length '%s' of message for column '%s' does not equal expected length '%s'",
                 valueBytes.length,

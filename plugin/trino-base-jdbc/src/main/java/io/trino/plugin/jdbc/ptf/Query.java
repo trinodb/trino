@@ -16,6 +16,8 @@ package io.trino.plugin.jdbc.ptf;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -23,21 +25,19 @@ import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTransactionManager;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.ptf.AbstractConnectorTableFunction;
-import io.trino.spi.ptf.Argument;
-import io.trino.spi.ptf.ConnectorTableFunction;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
-import io.trino.spi.ptf.Descriptor;
-import io.trino.spi.ptf.Descriptor.Field;
-import io.trino.spi.ptf.ScalarArgument;
-import io.trino.spi.ptf.ScalarArgumentSpecification;
-import io.trino.spi.ptf.TableFunctionAnalysis;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
+import io.trino.spi.function.table.AbstractConnectorTableFunction;
+import io.trino.spi.function.table.Argument;
+import io.trino.spi.function.table.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.Descriptor;
+import io.trino.spi.function.table.Descriptor.Field;
+import io.trino.spi.function.table.ScalarArgument;
+import io.trino.spi.function.table.ScalarArgumentSpecification;
+import io.trino.spi.function.table.TableFunctionAnalysis;
 
 import java.util.List;
 import java.util.Map;
@@ -45,7 +45,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -88,7 +88,11 @@ public class Query
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             ScalarArgument argument = (ScalarArgument) getOnlyElement(arguments.values());
             String query = ((Slice) argument.getValue()).toStringUtf8();

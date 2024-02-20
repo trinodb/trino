@@ -13,24 +13,30 @@
  */
 package io.trino.plugin.iceberg.catalog.jdbc;
 
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.log.Logger;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.SchemaNotFoundException;
+import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -43,32 +49,49 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.transformValues;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
 
 public class TrinoJdbcCatalog
         extends AbstractTrinoCatalog
 {
+    private static final Logger LOG = Logger.get(TrinoJdbcCatalog.class);
+
+    private static final int PER_QUERY_CACHE_SIZE = 1000;
+
     private final JdbcCatalog jdbcCatalog;
     private final IcebergJdbcClient jdbcClient;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final String defaultWarehouseDir;
-    private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
+
+    private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
+            .maximumSize(PER_QUERY_CACHE_SIZE)
+            .build();
 
     public TrinoJdbcCatalog(
             CatalogName catalogName,
@@ -80,7 +103,7 @@ public class TrinoJdbcCatalog
             boolean useUniqueTableLocation,
             String defaultWarehouseDir)
     {
-        super(catalogName, typeManager, tableOperationsProvider, useUniqueTableLocation);
+        super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
         this.jdbcCatalog = requireNonNull(jdbcCatalog, "jdbcCatalog is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -160,13 +183,39 @@ public class TrinoJdbcCatalog
         return tablesListBuilder.build().asList();
     }
 
+    @Override
+    public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace)
+    {
+        // views and materialized views are currently not supported
+        verify(listViews(session, namespace).isEmpty(), "Unexpected views support");
+        verify(listMaterializedViews(session, namespace).isEmpty(), "Unexpected views support");
+        return listTables(session, namespace).stream()
+                .collect(toImmutableMap(identity(), ignore -> RelationType.TABLE));
+    }
+
+    @Override
+    public Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> namespace,
+            UnaryOperator<Set<SchemaTableName>> relationFilter,
+            Predicate<SchemaTableName> isRedirected)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<Iterator<RelationCommentMetadata>> streamRelationComments(
+            ConnectorSession session,
+            Optional<String> namespace,
+            UnaryOperator<Set<SchemaTableName>> relationFilter,
+            Predicate<SchemaTableName> isRedirected)
+    {
+        return Optional.empty();
+    }
+
     private List<String> listNamespaces(ConnectorSession session, Optional<String> namespace)
     {
         if (namespace.isPresent() && namespaceExists(session, namespace.get())) {
-            if ("information_schema".equals(namespace.get())) {
-                // TODO https://github.com/trinodb/trino/issues/1559 this should be filtered out in engine.
-                return ImmutableList.of();
-            }
             return ImmutableList.of(namespace.get());
         }
         return listNamespaces(session);
@@ -182,9 +231,6 @@ public class TrinoJdbcCatalog
             String location,
             Map<String, String> properties)
     {
-        if (!listNamespaces(session, Optional.of(schemaTableName.getSchemaName())).contains(schemaTableName.getSchemaName())) {
-            throw new SchemaNotFoundException(schemaTableName.getSchemaName());
-        }
         return newCreateTableTransaction(
                 session,
                 schemaTableName,
@@ -197,11 +243,32 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation)
+    public Transaction newCreateOrReplaceTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
+    {
+        return newCreateOrReplaceTableTransaction(
+                session,
+                schemaTableName,
+                schema,
+                partitionSpec,
+                sortOrder,
+                location,
+                properties,
+                Optional.of(session.getUser()));
+    }
+
+    @Override
+    public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
     {
         // Using IcebergJdbcClient because JdbcCatalog.registerTable causes the below error.
         // "Cannot invoke "org.apache.iceberg.util.SerializableSupplier.get()" because "this.hadoopConf" is null"
-        jdbcClient.createTable(tableName.getSchemaName(), tableName.getTableName(), metadataLocation);
+        jdbcClient.createTable(tableName.getSchemaName(), tableName.getTableName(), tableMetadata.metadataFileLocation());
     }
 
     @Override
@@ -219,8 +286,31 @@ public class TrinoJdbcCatalog
         validateTableCanBeDropped(table);
 
         jdbcCatalog.dropTable(toIdentifier(schemaTableName), false);
-        dropTableData(table.io(), table.operations().current());
+        try {
+            dropTableData(table.io(), table.operations().current());
+        }
+        catch (RuntimeException e) {
+            // If the snapshot file is not found, an exception will be thrown by the dropTableData function.
+            // So log the exception and continue with deleting the table location
+            LOG.warn(e, "Failed to delete table data referenced by metadata");
+        }
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+        invalidateTableCache(schemaTableName);
+    }
+
+    @Override
+    public void dropCorruptedTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        Optional<String> metadataLocation = jdbcClient.getMetadataLocation(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        if (!jdbcCatalog.dropTable(toIdentifier(schemaTableName), false)) {
+            throw new TableNotFoundException(schemaTableName);
+        }
+        if (metadataLocation.isEmpty()) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Could not find metadata_location for table %s", schemaTableName));
+        }
+        String tableLocation = metadataLocation.get().replaceFirst("/metadata/[^/]*$", "");
+        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -232,16 +322,31 @@ public class TrinoJdbcCatalog
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to rename table from %s to %s".formatted(from, to), e);
         }
+        invalidateTableCache(from);
     }
 
     @Override
     public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        TableMetadata metadata = tableMetadataCache.computeIfAbsent(
-                schemaTableName,
-                ignore -> ((BaseTable) loadIcebergTable(this, tableOperationsProvider, session, schemaTableName)).operations().current());
+        TableMetadata metadata;
+        try {
+            metadata = uncheckedCacheGet(
+                    tableMetadataCache,
+                    schemaTableName,
+                    () -> ((BaseTable) loadIcebergTable(this, tableOperationsProvider, session, schemaTableName)).operations().current());
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfUnchecked(e.getCause());
+            throw e;
+        }
 
         return getIcebergTableWithMetadata(this, tableOperationsProvider, session, schemaTableName, metadata);
+    }
+
+    @Override
+    public Map<SchemaTableName, List<ColumnMetadata>> tryGetColumnMetadata(ConnectorSession session, List<SchemaTableName> tables)
+    {
+        return ImmutableMap.of();
     }
 
     @Override
@@ -261,23 +366,16 @@ public class TrinoJdbcCatalog
     {
         Namespace namespace = Namespace.of(schemaTableName.getSchemaName());
         String tableName = createNewTableName(schemaTableName.getTableName());
-        Optional<String> databaseLocation;
-        if (!jdbcCatalog.namespaceExists(namespace)) {
-            databaseLocation = Optional.empty();
-        }
-        else {
+
+        Optional<String> databaseLocation = Optional.empty();
+        if (jdbcCatalog.namespaceExists(namespace)) {
             databaseLocation = Optional.ofNullable(jdbcCatalog.loadNamespaceMetadata(namespace).get(LOCATION_PROPERTY));
         }
 
-        Path location;
-        if (databaseLocation.isEmpty()) {
-            location = new Path(new Path(defaultWarehouseDir, schemaTableName.getSchemaName()), tableName);
-        }
-        else {
-            location = new Path(databaseLocation.get(), tableName);
-        }
+        String schemaLocation = databaseLocation.orElseGet(() ->
+                appendPath(defaultWarehouseDir, schemaTableName.getSchemaName()));
 
-        return location.toString();
+        return appendPath(schemaLocation, tableName);
     }
 
     @Override
@@ -341,9 +439,27 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg JDBC catalog does not support materialized views");
+    }
+
+    @Override
+    public void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName schemaViewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
+            boolean replace,
+            boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg JDBC catalogs");
+    }
+
+    @Override
+    public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "updateMaterializedViewColumnComment is not supported for Iceberg JDBC catalogs");
     }
 
     @Override
@@ -359,15 +475,27 @@ public class TrinoJdbcCatalog
     }
 
     @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "getMaterializedViewProperties is not supported for Iceberg JDBC catalogs");
+    }
+
+    @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         throw new TrinoException(NOT_SUPPORTED, "renameMaterializedView is not supported for Iceberg JDBC catalogs");
     }
 
     @Override
-    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String hiveCatalogName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    protected void invalidateTableCache(SchemaTableName schemaTableName)
+    {
+        tableMetadataCache.invalidate(schemaTableName);
     }
 
     private static TableIdentifier toIdentifier(SchemaTableName table)

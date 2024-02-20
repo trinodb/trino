@@ -14,16 +14,15 @@
 package io.trino.tests.product.iceberg;
 
 import io.trino.tempto.ProductTest;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergPartitionEvolution
         extends ProductTest
@@ -44,7 +43,7 @@ public class TestIcebergPartitionEvolution
 
         onSpark().executeQuery("ALTER TABLE iceberg_test.default.test_dropped_partition_field DROP PARTITION FIELD " + (dropFirst ? "a" : "b"));
 
-        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE test_dropped_partition_field").getOnlyValue())
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE test_dropped_partition_field").getOnlyValue())
                 .matches(
                         "\\QCREATE TABLE iceberg.default.test_dropped_partition_field (\n" +
                                 "   a varchar,\n" +
@@ -52,7 +51,7 @@ public class TestIcebergPartitionEvolution
                                 "   c varchar\n" +
                                 ")\n" +
                                 "WITH (\n" +
-                                "   format = 'ORC',\n" +
+                                "   format = 'PARQUET',\n" +
                                 "   format_version = 1,\n" +
                                 "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/test_dropped_partition_field-\\E.*\\Q',\n" +
                                 "   partitioning = ARRAY[" + (dropFirst ? "'void(a)','b'" : "'a','void(b)'") + "]\n" +
@@ -69,9 +68,9 @@ public class TestIcebergPartitionEvolution
 
         assertThat(onTrino().executeQuery("SHOW STATS FOR test_dropped_partition_field"))
                 .containsOnly(
-                        row("a", null, null, 1. / 6, null, null, null),
-                        row("b", null, null, 1. / 6, null, null, null),
-                        row("c", null, null, 0., null, null, null),
+                        row("a", 664.0, 3.0, 1. / 6, null, null, null),
+                        row("b", 666.0, 3.0, 1. / 6, null, null, null),
+                        row("c", 639.0, 4.0, 0., null, null, null),
                         row(null, null, null, null, 6., null, null));
 
         assertThat(onTrino().executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'test_dropped_partition_field$partitions'"))

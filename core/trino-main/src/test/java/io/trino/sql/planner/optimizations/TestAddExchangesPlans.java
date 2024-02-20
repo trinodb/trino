@@ -17,39 +17,54 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
+import io.trino.connector.MockConnectorColumnHandle;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorTableHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.BigintType;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
-import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
+import static io.trino.SystemSessionProperties.USE_COST_BASED_PARTITIONING;
 import static io.trino.SystemSessionProperties.USE_EXACT_PARTITIONING;
+import static io.trino.SystemSessionProperties.isColocatedJoinEnabled;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -64,6 +79,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.symbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -75,29 +91,26 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.TopNNode.Step.FINAL;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAddExchangesPlans
         extends BasePlanTest
 {
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session session = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
-        FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setSpillerSpillPaths("/tmp/test_spill_path");
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(session)
-                .withFeaturesConfig(featuresConfig)
-                .build();
-        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
-        return queryRunner;
+        PlanTester planTester = PlanTester.create(session);
+        planTester.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        return planTester;
     }
 
     @Test
@@ -132,7 +145,7 @@ public class TestAddExchangesPlans
     @Test
     public void testRepartitionForUnionAllBeforeHashJoin()
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, DistributionType.PARTITIONED.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
                 .build();
@@ -153,8 +166,7 @@ public class TestAddExchangesPlans
                                 .right(
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
         assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
                 session,
@@ -167,13 +179,35 @@ public class TestAddExchangesPlans
                                                         anyTree(
                                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
                                                 exchange(REMOTE, REPARTITION,
-                                                        project(
-                                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"))))))))
+                                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")))))))
                                 .right(
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+    }
+
+    @Test
+    public void testSingleGatheringExchangeForUnionAllWithLimit()
+    {
+        assertDistributedPlan("""
+                SELECT * FROM (
+                    SELECT nationkey FROM nation
+                    UNION ALL
+                    SELECT nationkey FROM nation
+                    UNION ALL
+                    SELECT nationkey FROM nation
+                )
+                LIMIT 2
+                """,
+                output(
+                        limit(2, ImmutableList.of(), false,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, GATHER,
+                                            limit(2, ImmutableList.of(), true,
+                                                    exchange(LOCAL, REPARTITION,
+                                                            limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                            limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                            limit(2, ImmutableList.of(), true, tableScan("nation")))))))));
     }
 
     @Test
@@ -188,15 +222,13 @@ public class TestAddExchangesPlans
                                 .distributionType(REPLICATED)
                                 .spillable(false)
                                 .left(
-                                        anyNot(ExchangeNode.class,
-                                                node(
-                                                        FilterNode.class,
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         anyTree(
                                                 exchange(REMOTE, REPLICATE,
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
         assertDistributedPlan(
                 "SELECT * FROM nation n join region r on n.nationkey = r.regionkey",
@@ -212,8 +244,7 @@ public class TestAddExchangesPlans
                                 .right(
                                         exchange(LOCAL, GATHER,
                                                 exchange(REMOTE, REPARTITION,
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
     @Test
@@ -222,41 +253,39 @@ public class TestAddExchangesPlans
         String query = "SELECT count(orderkey), count(distinct orderkey), custkey , count(1) FROM ( SELECT * FROM (VALUES (1, 2)) as t(custkey, orderkey) UNION ALL SELECT 3, 4) GROUP BY 3";
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "true")
+                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
                         .build(),
                 anyTree(
                         node(MarkDistinctNode.class,
                                 anyTree(
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1", "partition2"),
-                                                project(
-                                                        values(
-                                                                ImmutableList.of("field", "partition2", "partition1"),
-                                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1")))))),
+                                                values(
+                                                        ImmutableList.of("field", "partition2", "partition1"),
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1"))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
-                                                project(
-                                                        values(
-                                                                ImmutableList.of("partition3", "partition4", "field_0"),
-                                                                ImmutableList.of(ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"), new LongLiteral("1"))))))))));
+                                                values(
+                                                        ImmutableList.of("partition3", "partition4", "field_0"),
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"), new LongLiteral("1")))))))));
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "false")
+                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
                         .build(),
                 anyTree(
                         node(MarkDistinctNode.class,
                                 anyTree(
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1"),
-                                                project(
-                                                        values(
-                                                                ImmutableList.of("field", "partition2", "partition1"),
-                                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1")))))),
+                                                values(
+                                                        ImmutableList.of("field", "partition2", "partition1"),
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1"))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
-                                                project(
-                                                        values(
-                                                                ImmutableList.of("partition3", "partition4", "field_0"),
-                                                                ImmutableList.of(ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"), new LongLiteral("1"))))))))));
+                                                values(
+                                                        ImmutableList.of("partition3", "partition4", "field_0"),
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"), new LongLiteral("1")))))))));
     }
 
     @Test
@@ -359,27 +388,20 @@ public class TestAddExchangesPlans
                 anyTree(
                         rowNumber(
                                 pattern -> pattern
-                                        .partitionBy(ImmutableList.of("regionkey"))
-                                        .hashSymbol(Optional.of("hash")),
+                                        .partitionBy(ImmutableList.of("regionkey")),
                                 exchange(
                                         LOCAL,
                                         REPARTITION,
                                         ImmutableList.of(),
                                         ImmutableSet.of("regionkey"),
                                         project(
-                                                ImmutableMap.of("regionkey", expression("regionkey"), "hash", expression("hash")),
+                                                ImmutableMap.of("regionkey", expression("regionkey")),
                                                 topN(
                                                         5,
                                                         ImmutableList.of(sort("nationkey", ASCENDING, LAST)),
                                                         FINAL,
-                                                        any(
-                                                                project(
-                                                                        ImmutableMap.of(
-                                                                                "regionkey", expression("regionkey"),
-                                                                                "nationkey", expression("nationkey"),
-                                                                                "hash", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(regionkey), 0))")),
-                                                                        any(
-                                                                                tableScan("nation", ImmutableMap.of("regionkey", "regionkey", "nationkey", "nationkey")))))))))));
+                                                        anyTree(
+                                                                tableScan("nation", ImmutableMap.of("regionkey", "regionkey", "nationkey", "nationkey")))))))));
 
         // * source of Projection is distributed (filter)
         // * parent of Projection requires hashed multiple distribution (rowNumber).
@@ -389,26 +411,20 @@ public class TestAddExchangesPlans
                 anyTree(
                         rowNumber(
                                 pattern -> pattern
-                                        .partitionBy(ImmutableList.of("b"))
-                                        .hashSymbol(Optional.of("hash")),
+                                        .partitionBy(ImmutableList.of("b")),
                                 exchange(
                                         LOCAL,
                                         REPARTITION,
                                         ImmutableList.of(),
                                         ImmutableSet.of("b"),
                                         project(
-                                                ImmutableMap.of("b", expression("b"), "hash", expression("hash")),
+                                                ImmutableMap.of("b", expression("b")),
                                                 filter(
                                                         "a < 10",
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
-                                                                project(
-                                                                        ImmutableMap.of(
-                                                                                "a", expression("a"),
-                                                                                "b", expression("b"),
-                                                                                "hash", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(b), 0))")),
-                                                                        values("a", "b")))))))));
+                                                                values("a", "b"))))))));
 
         // * source of Projection is single stream (topN)
         // * parent of Projection requires random multiple distribution (partial aggregation)
@@ -475,15 +491,13 @@ public class TestAddExchangesPlans
                         join(INNER, builder -> builder
                                 .equiCriteria("nationkey", "regionkey")
                                 .left(
-                                        anyNot(ExchangeNode.class,
-                                                node(
-                                                        FilterNode.class,
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, GATHER,
                                                 exchange(REMOTE, REPLICATE,
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
         // build side bigger than threshold, local partitioned exchanged expected
         assertDistributedPlan(
@@ -495,15 +509,13 @@ public class TestAddExchangesPlans
                         join(INNER, builder -> builder
                                 .equiCriteria("nationkey", "regionkey")
                                 .left(
-                                        anyNot(ExchangeNode.class,
-                                                node(
-                                                        FilterNode.class,
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, REPARTITION,
                                                 exchange(REMOTE, REPLICATE,
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
         // build side contains join, local partitioned exchanged expected
         assertDistributedPlan(
                 "SELECT * FROM nation n join (select r.regionkey from region r join region r2 on r.regionkey = r2.regionkey) j on n.nationkey = j.regionkey ",
@@ -512,25 +524,22 @@ public class TestAddExchangesPlans
                         join(INNER, builder -> builder
                                 .equiCriteria("nationkey", "regionkey2")
                                 .left(
-                                        anyNot(ExchangeNode.class,
-                                                node(
-                                                        FilterNode.class,
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, REPARTITION,
                                                 exchange(REMOTE, REPLICATE,
                                                         join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                                 .equiCriteria("regionkey2", "regionkey1")
                                                                 .left(
-                                                                        anyNot(ExchangeNode.class,
-                                                                                node(
-                                                                                        FilterNode.class,
-                                                                                        tableScan("region", ImmutableMap.of("regionkey2", "regionkey")))))
+                                                                        node(
+                                                                                FilterNode.class,
+                                                                                tableScan("region", ImmutableMap.of("regionkey2", "regionkey"))))
                                                                 .right(
                                                                         exchange(LOCAL, GATHER,
                                                                                 exchange(REMOTE, REPLICATE,
-                                                                                        anyTree(
-                                                                                                tableScan("region", ImmutableMap.of("regionkey1", "regionkey")))))))))))));
+                                                                                        tableScan("region", ImmutableMap.of("regionkey1", "regionkey"))))))))))));
 
         // build side smaller than threshold, but stats not available. local partitioned exchanged expected
         assertDistributedPlan(
@@ -542,15 +551,13 @@ public class TestAddExchangesPlans
                         join(INNER, builder -> builder
                                 .equiCriteria("nationkey", "regionkey")
                                 .left(
-                                        anyNot(ExchangeNode.class,
-                                                node(
-                                                        FilterNode.class,
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, REPARTITION,
                                                 exchange(REMOTE, REPLICATE,
-                                                        anyTree(
-                                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
     @Test
@@ -583,6 +590,143 @@ public class TestAddExchangesPlans
                                                                 "ordertatus", "orderstatus",
                                                                 "orderkey", "orderkey",
                                                                 "orderdate", "orderdate"))))))));
+    }
+
+    @Test
+    public void testAggregationPrefersParentPartitioning()
+    {
+        String singleColumnParentGroupBy = """
+                SELECT (partkey, sum(count))
+                FROM (
+                    SELECT suppkey, partkey, count(*) as count
+                    FROM lineitem
+                    GROUP BY suppkey, partkey)
+                GROUP BY partkey""";
+
+        // parent aggregation partitioned by a single column
+        assertDistributedPlan(
+                singleColumnParentGroupBy,
+                anyTree(aggregation(
+                        singleGroupingSet("partkey"),
+                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                        Optional.empty(),
+                        SINGLE, // no need for partial aggregation since data are already partitioned
+                        project(aggregation(
+                                ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                Step.FINAL,
+                                exchange(LOCAL,
+                                        // we only partition by partkey but aggregate by partkey and suppkey
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey"),
+                                                aggregation(
+                                                        singleGroupingSet("partkey", "suppkey"),
+                                                        ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                        Optional.empty(),
+                                                        Step.PARTIAL,
+                                                        tableScan("lineitem", ImmutableMap.of(
+                                                                "partkey", "partkey",
+                                                                "suppkey", "suppkey"))))))))));
+
+        PlanMatchPattern exactPartitioningPlan = anyTree(aggregation(
+                singleGroupingSet("partkey"),
+                ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("sum_partial")))),
+                Optional.empty(),
+                Step.FINAL,
+                exchange(LOCAL,
+                        // additional remote exchange
+                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey"),
+                                aggregation(
+                                        singleGroupingSet("partkey"),
+                                        ImmutableMap.of(Optional.of("sum_partial"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                                        Optional.empty(),
+                                        PARTIAL,
+                                        project(aggregation(
+                                                ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                                Step.FINAL,
+                                                exchange(LOCAL,
+                                                        // forced exact partitioning
+                                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey", "suppkey"),
+                                                                aggregation(
+                                                                        singleGroupingSet("partkey", "suppkey"),
+                                                                        ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                                        Optional.empty(),
+                                                                        PARTIAL,
+                                                                        tableScan("lineitem", ImmutableMap.of(
+                                                                                "partkey", "partkey",
+                                                                                "suppkey", "suppkey"))))))))))));
+        // parent partitioning would be preferable but use_cost_based_partitioning=false prevents it
+        assertDistributedPlan(singleColumnParentGroupBy, doNotUseCostBasedPartitioning(), exactPartitioningPlan);
+        // parent partitioning would be preferable but use_exact_partitioning prevents it
+        assertDistributedPlan(singleColumnParentGroupBy, useExactPartitioning(), exactPartitioningPlan);
+        // no stats. fallback to exact partitioning expected
+        assertDistributedPlan(singleColumnParentGroupBy, disableStats(), exactPartitioningPlan);
+        // parent partitioning with estimated small number of distinct values. fallback to exact partitioning expected
+        assertDistributedPlan("""
+                        SELECT (partkey_expr, sum(count))
+                        FROM (
+                            SELECT suppkey, partkey % 10 as partkey_expr, count(*) as count
+                            FROM lineitem
+                            GROUP BY suppkey, partkey % 10)
+                        GROUP BY partkey_expr""",
+                anyTree(aggregation(
+                        singleGroupingSet("partkey_expr"),
+                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("sum_partial")))),
+                        Optional.empty(),
+                        Step.FINAL,
+                        exchange(LOCAL,
+                                // additional remote exchange
+                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey_expr"),
+                                        aggregation(
+                                                singleGroupingSet("partkey_expr"),
+                                                ImmutableMap.of(Optional.of("sum_partial"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                                                Optional.empty(),
+                                                PARTIAL,
+                                                project(aggregation(
+                                                        ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                                        Step.FINAL,
+                                                        exchange(LOCAL,
+                                                                // forced exact partitioning
+                                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey_expr", "suppkey"),
+                                                                        aggregation(
+                                                                                singleGroupingSet("partkey_expr", "suppkey"),
+                                                                                ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                                                Optional.empty(),
+                                                                                PARTIAL,
+                                                                                project(
+                                                                                        ImmutableMap.of("partkey_expr", expression("partkey % BIGINT '10'")),
+                                                                                        tableScan("lineitem", ImmutableMap.of(
+                                                                                                "partkey", "partkey",
+                                                                                                "suppkey", "suppkey"))))))))))))));
+
+        // parent aggregation partitioned by multiple columns
+        assertDistributedPlan("""
+                        SELECT (orderkey % 10000, partkey, sum(count))
+                        FROM (
+                            SELECT orderkey % 10000 as orderkey, partkey, suppkey, count(*) as count
+                            FROM lineitem
+                            GROUP BY orderkey % 10000, partkey, suppkey)
+                        GROUP BY orderkey, partkey""",
+                anyTree(aggregation(
+                        singleGroupingSet("orderkey_expr", "partkey"),
+                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                        Optional.empty(),
+                        SINGLE, // no need for partial aggregation since data are already partitioned
+                        project(aggregation(
+                                ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                Step.FINAL,
+                                exchange(LOCAL,
+                                        // we don't partition by suppkey because it's not needed by the parent aggregation
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("orderkey_expr", "partkey"),
+                                                aggregation(
+                                                        singleGroupingSet("orderkey_expr", "partkey", "suppkey"),
+                                                        ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                        Optional.empty(),
+                                                        Step.PARTIAL,
+                                                        project(
+                                                                ImmutableMap.of("orderkey_expr", expression("orderkey % BIGINT '10000'")),
+                                                                tableScan("lineitem", ImmutableMap.of(
+                                                                        "partkey", "partkey",
+                                                                        "orderkey", "orderkey",
+                                                                        "suppkey", "suppkey")))))))))));
     }
 
     @Test
@@ -639,8 +783,7 @@ public class TestAddExchangesPlans
                 useExactPartitioning(),
                 anyTree(
                         exchange(REMOTE, REPARTITION,
-                                anyTree(
-                                        values("a")))));
+                                values("a"))));
     }
 
     @Test
@@ -648,28 +791,28 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 "SELECT\n" +
-                "    a,\n" +
-                "    ROW_NUMBER() OVER (\n" +
-                "        PARTITION BY\n" +
-                "            a\n" +
-                "        ORDER BY\n" +
-                "            a\n" +
-                "    ) rn\n" +
-                "FROM (\n" +
-                "    SELECT\n" +
-                "        a,\n" +
-                "        b,\n" +
-                "        COUNT(*)\n" +
-                "    FROM (\n" +
-                "        VALUES\n" +
-                "            (1, 2)\n" +
-                "    ) t (a, b)\n" +
-                "    GROUP BY\n" +
-                "        a,\n" +
-                "        b\n" +
-                ")\n" +
-                "LIMIT\n" +
-                "    2",
+                        "    a,\n" +
+                        "    ROW_NUMBER() OVER (\n" +
+                        "        PARTITION BY\n" +
+                        "            a\n" +
+                        "        ORDER BY\n" +
+                        "            a\n" +
+                        "    ) rn\n" +
+                        "FROM (\n" +
+                        "    SELECT\n" +
+                        "        a,\n" +
+                        "        b,\n" +
+                        "        COUNT(*)\n" +
+                        "    FROM (\n" +
+                        "        VALUES\n" +
+                        "            (1, 2)\n" +
+                        "    ) t (a, b)\n" +
+                        "    GROUP BY\n" +
+                        "        a,\n" +
+                        "        b\n" +
+                        ")\n" +
+                        "LIMIT\n" +
+                        "    2",
                 useExactPartitioning(),
                 anyTree(
                         exchange(REMOTE, REPARTITION,
@@ -703,7 +846,7 @@ public class TestAddExchangesPlans
                                 anyTree(
                                         aggregation(
                                                 singleGroupingSet("orderkey"),
-                                                ImmutableMap.of(Optional.of("arbitrary"), PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol()))),
+                                                ImmutableMap.of(Optional.of("any_value"), PlanMatchPattern.functionCall("any_value", false, ImmutableList.of(anySymbol()))),
                                                 ImmutableList.of("orderkey"),
                                                 ImmutableList.of(),
                                                 Optional.empty(),
@@ -713,10 +856,9 @@ public class TestAddExchangesPlans
                                                         "orderstatus", "orderstatus"))))),
                         exchange(LOCAL, GATHER,
                                 exchange(REMOTE, REPARTITION,
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of(
-                                                        "orderkey1", "orderkey",
-                                                        "orderstatus3", "orderstatus")))))));
+                                        tableScan("orders", ImmutableMap.of(
+                                                "orderkey1", "orderkey",
+                                                "orderstatus3", "orderstatus"))))));
     }
 
     @Test
@@ -749,41 +891,298 @@ public class TestAddExchangesPlans
                                                                                 "orderdate", "orderdate"))))))))));
     }
 
-    // Negative test for use-exact-partitioning
+    // Negative test for use-exact-partitioning when colocated join is disabled
+    @Test
+    public void testJoinNotExactlyPartitionedWhenColocatedJoinDisabled()
+    {
+        assertDistributedPlan(
+                """
+                        SELECT
+                            orders.orderkey,
+                            orders.orderstatus
+                        FROM (
+                            SELECT
+                                orderkey,
+                                ARBITRARY(orderstatus) AS orderstatus,
+                                COUNT(*)
+                            FROM orders
+                        GROUP BY
+                            orderkey
+                        ) t,
+                        orders
+                        WHERE
+                            orders.orderkey = t.orderkey
+                            AND orders.orderstatus = t.orderstatus
+                """,
+                noJoinReorderingColocatedJoinDisabled(),
+                anyTree(
+                        anyTree(
+                                tableScan("orders")),
+                        exchange(LOCAL, GATHER,
+                                exchange(REMOTE, REPARTITION,
+                                        tableScan("orders")))));
+    }
+
+    // Negative test for use-exact-partitioning when colocated join is enabled (default)
     @Test
     public void testJoinNotExactlyPartitioned()
     {
+        assertThat(isColocatedJoinEnabled(getPlanTester().getDefaultSession())).isTrue();
+
         assertDistributedPlan(
-                "SELECT\n" +
-                        "    orders.orderkey,\n" +
-                        "    orders.orderstatus\n" +
-                        "FROM (\n" +
-                        "    SELECT\n" +
-                        "        orderkey,\n" +
-                        "        ARBITRARY(orderstatus) AS orderstatus,\n" +
-                        "        COUNT(*)\n" +
-                        "    FROM orders\n" +
-                        "    GROUP BY\n" +
-                        "        orderkey\n" +
-                        ") t,\n" +
-                        "orders\n" +
-                        "WHERE\n" +
-                        "    orders.orderkey = t.orderkey\n" +
-                        "    AND orders.orderstatus = t.orderstatus",
+                """
+                    SELECT
+                        orders.orderkey,
+                        orders.orderstatus
+                    FROM (
+                        SELECT
+                            orderkey,
+                            ARBITRARY(orderstatus) AS orderstatus,
+                            COUNT(*)
+                        FROM orders
+                        GROUP BY
+                            orderkey
+                    ) t,
+                    orders
+                    WHERE
+                        orders.orderkey = t.orderkey
+                        AND orders.orderstatus = t.orderstatus
+                """,
                 noJoinReordering(),
                 anyTree(
-                        project(
-                                anyTree(
-                                        tableScan("orders"))),
+                        anyTree(
+                                tableScan("orders")),
                         exchange(LOCAL, GATHER,
-                                exchange(REMOTE, REPARTITION,
+                                tableScan("orders"))));
+    }
+
+    @Test
+    public void testBroadcastJoinAboveUnionAll()
+    {
+        // Put union at build side
+        assertDistributedPlan(
+                """
+                    SELECT * FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey
+                """,
+                noJoinReordering(),
+                anyTree(
+                        join(INNER, join -> join
+                                .equiCriteria("regionkey", "nationkey")
+                                .left(
+                                        node(FilterNode.class,
+                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))
+                                .right(
+                                        exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
+                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")),
+                                                                tableScan("nation"))))))));
+        // Put union at probe side
+        assertDistributedPlan(
+                """
+                            SELECT * FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n JOIN region r ON r.regionkey = n.nationkey
+                        """,
+                noJoinReordering(),
+                anyTree(
+                        join(INNER, join -> join
+                                .equiCriteria("nationkey", "regionkey")
+                                .left(
+                                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                node(FilterNode.class,
+                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
+                                                node(FilterNode.class,
+                                                        tableScan("nation"))))
+                                .right(
+                                        exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
+                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+    }
+
+    @Test
+    public void testUnionAllAboveBroadcastJoin()
+    {
+        assertDistributedPlan(
+                """
+                    SELECT regionkey FROM nation UNION ALL (SELECT nationkey FROM nation n JOIN region r on r.regionkey = n.nationkey)
+                """,
+                noJoinReordering(),
+                anyTree(
+                        exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                                tableScan("nation"),
+                                join(INNER, join -> join
+                                        .equiCriteria("nationkey", "regionkey")
+                                        .left(
+                                                node(FilterNode.class,
+                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
+                                        .right(
+                                                exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
+                                                        exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                                tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
+    }
+
+    @Test
+    public void testGroupedAggregationAboveUnionAllCrossJoined()
+    {
+        assertDistributedPlan(
+                """
+                    SELECT sum(nationkey) FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey FROM nation), region group by nationkey
+                """,
+                noJoinReordering(),
+                anyTree(
+                        join(INNER, join -> join
+                                .left(
+                                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")),
+                                                tableScan("nation")))
+                                .right(
+                                        exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
+                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                        tableScan("region")))))));
+    }
+
+    @Test
+    public void testGroupedAggregationAboveUnionAll()
+    {
+        assertDistributedPlan(
+                """
+                    SELECT sum(nationkey) FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey FROM nation) GROUP BY nationkey
+                """,
+                noJoinReordering(),
+                anyTree(
+                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                project(
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                aggregation(ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("nationkey"))),
+                                                        PARTIAL,
+                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))),
+                                project(
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                aggregation(ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("nationkey"))),
+                                                        PARTIAL,
+                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))))));
+    }
+
+    @Test
+    public void testUnionAllOnPartitionedAndUnpartitionedSources()
+    {
+        assertDistributedPlan(
+                """
+                     SELECT * FROM (SELECT nationkey FROM nation UNION ALL VALUES (1))
+                """,
+                noJoinReordering(),
+                output(
+                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                values("1"),
+                                exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                                        tableScan("nation")))));
+    }
+
+    @Test
+    public void testNestedUnionAll()
+    {
+        assertDistributedPlan(
+                """
+                     SELECT * FROM ((SELECT nationkey FROM nation) UNION ALL (SELECT nationkey FROM nation)) UNION ALL (SELECT nationkey FROM nation)
+                """,
+                noJoinReordering(),
+                output(
+                        exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                tableScan("nation"))));
+    }
+
+    @Test
+    public void testUnionAllOnSourceAndHashDistributedChildren()
+    {
+        assertDistributedPlan(
+                """
+                     SELECT * FROM ((SELECT nationkey FROM nation) UNION ALL (SELECT nationkey FROM nation)) UNION ALL (SELECT sum(nationkey) FROM nation GROUP BY nationkey)
+                """,
+                noJoinReordering(),
+                output(
+                        exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                project(
                                         anyTree(
-                                                tableScan("orders"))))));
+                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                        aggregation(ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("nationkey"))),
+                                                                PARTIAL,
+                                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))))));
+    }
+
+    @Test
+    public void testUnionAllOnDifferentCatalogs()
+    {
+        MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                .withGetColumns(schemaTableName -> ImmutableList.of(
+                        new ColumnMetadata("nationkey", BigintType.BIGINT)))
+                .withGetTableHandle((session, schemaTableName) -> new MockConnectorTableHandle(
+                        SchemaTableName.schemaTableName("default", "nation"),
+                        TupleDomain.all(),
+                        Optional.of(ImmutableList.of(new MockConnectorColumnHandle("nationkey", BigintType.BIGINT)))))
+                .withName("mock")
+                .build();
+        getPlanTester().createCatalog("mock", connectorFactory, ImmutableMap.of());
+
+        // Need to use JOIN as parent of UNION ALL to expose replacing remote exchange with local exchange
+        assertDistributedPlan(
+                """
+                         SELECT * FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey FROM mock.default.nation), region
+                """,
+                noJoinReordering(),
+                output(
+                        join(INNER, join -> join
+                                .left(exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                        tableScan("nation"),
+                                        node(TableScanNode.class)))
+                                .right(
+                                        exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
+                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                        tableScan("region")))))));
+    }
+
+    @Test
+    public void testUnionAllOnInternalCatalog()
+    {
+        // Need to use JOIN as parent of UNION ALL to expose replacing remote exchange with local exchange
+        // TODO: https://starburstdata.atlassian.net/browse/SEP-11273
+        assertDistributedPlan(
+                """
+                         SELECT * FROM (SELECT table_catalog FROM system.information_schema.tables UNION ALL SELECT table_catalog FROM system.information_schema.tables), region
+                """,
+                noJoinReordering(),
+                output(
+                        join(INNER, join -> join
+                                .left(exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                        tableScan("tables"),
+                                        tableScan("tables")))
+                                .right(
+                                        exchange(
+                                                LOCAL, GATHER, SINGLE_DISTRIBUTION,
+                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                        tableScan("region")))))));
+    }
+
+    @Test
+    public void testUnionAllOnTableScanAndValues()
+    {
+        assertDistributedPlan(
+                """
+                         SELECT * FROM (SELECT nationkey FROM nation UNION ALL VALUES(1))
+                """,
+                noJoinReordering(),
+                output(
+                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                node(ValuesNode.class),
+                                exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                                        tableScan("nation")))));
     }
 
     private Session spillEnabledWithJoinDistributionType(JoinDistributionType joinDistributionType)
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, joinDistributionType.toString())
                 .setSystemProperty(SPILL_ENABLED, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "16")
@@ -792,7 +1191,7 @@ public class TestAddExchangesPlans
 
     private Session noJoinReordering()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(SPILL_ENABLED, "true")
@@ -800,13 +1199,37 @@ public class TestAddExchangesPlans
                 .build();
     }
 
+    private Session noJoinReorderingColocatedJoinDisabled()
+    {
+        return Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
+                .setSystemProperty(TASK_CONCURRENCY, "16")
+                .setSystemProperty(COLOCATED_JOIN, "false")
+                .build();
+    }
+
     private Session useExactPartitioning()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                 .setSystemProperty(USE_EXACT_PARTITIONING, "true")
+                .build();
+    }
+
+    private Session doNotUseCostBasedPartitioning()
+    {
+        return Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(USE_COST_BASED_PARTITIONING, "false")
+                .build();
+    }
+
+    private Session disableStats()
+    {
+        return Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
                 .build();
     }
 }

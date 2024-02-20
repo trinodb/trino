@@ -77,7 +77,7 @@ public class LocalMergeSourceOperator
             PageWithPositionComparator comparator = orderingCompiler.compilePageWithPositionComparator(types, sortChannels, orderings);
             List<LocalExchangeSource> sources = IntStream.range(0, localExchange.getBufferCount())
                     .boxed()
-                    .map(index -> localExchange.getNextSource(driverContext::getPhysicalWrittenDataSize))
+                    .map(index -> localExchange.getNextSource())
                     .collect(toImmutableList());
             return new LocalMergeSourceOperator(operatorContext, sources, types, comparator);
         }

@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.scheduler.BucketNodeMap;
@@ -31,11 +32,9 @@ import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.split.EmptySplit;
 import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitioning;
-import io.trino.type.BlockTypeOperators;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -60,17 +59,17 @@ import static java.util.Objects.requireNonNull;
 public class NodePartitioningManager
 {
     private final NodeScheduler nodeScheduler;
-    private final BlockTypeOperators blockTypeOperators;
+    private final TypeOperators typeOperators;
     private final CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider;
 
     @Inject
     public NodePartitioningManager(
             NodeScheduler nodeScheduler,
-            BlockTypeOperators blockTypeOperators,
+            TypeOperators typeOperators,
             CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider)
     {
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
-        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
     }
 
@@ -88,7 +87,7 @@ public class NodePartitioningManager
                     partitionChannelTypes,
                     partitioningScheme.getHashColumn().isPresent(),
                     bucketToPartition,
-                    blockTypeOperators);
+                    typeOperators);
         }
 
         if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle handle) {
@@ -110,7 +109,7 @@ public class NodePartitioningManager
                     partitionChannelTypes,
                     partitioningScheme.getHashColumn().isPresent(),
                     bucketToPartition,
-                    blockTypeOperators);
+                    typeOperators);
         }
 
         BucketFunction bucketFunction = getBucketFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition.length);

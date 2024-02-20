@@ -20,8 +20,10 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.util.Map;
 import java.util.Optional;
@@ -37,10 +39,13 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 // Single-threaded because H2 DDL operations can sometimes take a global lock, leading to apparent deadlocks
 // like in https://github.com/trinodb/trino/issues/7209.
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(ExecutionMode.SAME_THREAD)
 public class TestJdbcConnectorTest
         extends BaseJdbcConnectorTest
 {
@@ -56,42 +61,30 @@ public class TestJdbcConnectorTest
         return createH2QueryRunner(REQUIRED_TPCH_TABLES, properties);
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_LIMIT_PUSHDOWN:
-            case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_AGGREGATION_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_AGGREGATION_PUSHDOWN,
+                    SUPPORTS_ARRAY,
+                    SUPPORTS_COMMENT_ON_COLUMN,
+                    SUPPORTS_COMMENT_ON_TABLE,
+                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+                    SUPPORTS_LIMIT_PUSHDOWN,
+                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_TOPN_PUSHDOWN -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
+    @Test
     @Override
-    @Test(dataProvider = "largeInValuesCount")
-    public void testLargeIn(int valuesCount)
+    public void testLargeIn()
     {
-        throw new SkipException("This test should pass with H2, but takes too long (currently over a mninute) and is not that important");
+        // This test should pass with H2, but takes too long (currently over a mninute) and is not that important
     }
 
     @Override
@@ -133,6 +126,7 @@ public class TestJdbcConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -256,6 +250,14 @@ public class TestJdbcConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testNativeQueryColumnAlias()
+    {
+        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+                .matches("VALUES CAST('AFRICA' AS VARCHAR(25))");
+    }
+
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
@@ -268,11 +270,12 @@ public class TestJdbcConnectorTest
         assertThat(e).hasMessageContaining("NULL not allowed for column");
     }
 
+    @Test
     @Override
     public void testAddColumnConcurrently()
     {
         // TODO: Difficult to determine whether the exception is concurrent issue or not from the error message
-        throw new SkipException("TODO: Enable this test after finding the failure cause");
+        abort("TODO: Enable this test after finding the failure cause");
     }
 
     @Override

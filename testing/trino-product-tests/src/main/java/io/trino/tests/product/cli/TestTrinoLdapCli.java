@@ -16,7 +16,7 @@ package io.trino.tests.product.cli;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
@@ -93,7 +93,7 @@ public class TestTrinoLdapCli
             throws IOException
     {}
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     @Override
     public void stopCli()
             throws InterruptedException
@@ -229,7 +229,7 @@ public class TestTrinoLdapCli
         ldapUserName = "";
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("Malformed credentials: user is empty"));
+                assertThat(line).contains("Both username and password must be specified"));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -252,8 +252,8 @@ public class TestTrinoLdapCli
         ldapServerAddress = format("http://%s:8443", serverHost);
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("Authentication using username/password requires HTTPS to be enabled"));
-        skipAfterTestWithContext();
+                assertThat(line).contains("TLS/SSL required for authentication with username and password"));
+        skipAfterMethodWithContext();
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -264,10 +264,10 @@ public class TestTrinoLdapCli
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Error setting up SSL: keystore password was incorrect"));
-        skipAfterTestWithContext();
+        skipAfterMethodWithContext();
     }
 
-    private void skipAfterTestWithContext()
+    private void skipAfterMethodWithContext()
     {
         trino.close();
         trino = null;
@@ -291,7 +291,7 @@ public class TestTrinoLdapCli
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Illegal character ':' found in username"));
-        skipAfterTestWithContext();
+        skipAfterMethodWithContext();
     }
 
     @Test(groups = {LDAP_AND_FILE_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)

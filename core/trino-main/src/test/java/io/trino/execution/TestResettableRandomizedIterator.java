@@ -15,15 +15,14 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.execution.scheduler.ResettableRandomizedIterator;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestResettableRandomizedIterator
 {
@@ -42,14 +41,14 @@ public class TestResettableRandomizedIterator
         while (randomizedIterator.hasNext()) {
             actual.add(randomizedIterator.next());
         }
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         actual.clear();
         randomizedIterator.reset();
         while (randomizedIterator.hasNext()) {
             actual.add(randomizedIterator.next());
         }
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -73,6 +72,7 @@ public class TestResettableRandomizedIterator
         for (int i = 0; i < 99; i++) {
             list2.add(randomizedIterator.next());
         }
-        assertNotEquals(list1, list2);
+        assertThat(list1)
+                .isNotEqualTo(list2);
     }
 }

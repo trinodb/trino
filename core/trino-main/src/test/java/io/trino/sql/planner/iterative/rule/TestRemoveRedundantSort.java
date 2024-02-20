@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;

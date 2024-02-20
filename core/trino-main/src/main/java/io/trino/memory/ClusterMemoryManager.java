@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.common.io.Closer;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -44,13 +46,10 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.memory.MemoryPoolInfo;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -393,7 +392,7 @@ public class ClusterMemoryManager
             stringBuilder.append("MaxBytes ").append(memoryPoolInfo.getMaxBytes()).append(' ');
             stringBuilder.append("FreeBytes ").append(memoryPoolInfo.getFreeBytes() + memoryPoolInfo.getReservedRevocableBytes()).append(' ');
             stringBuilder.append("Queries ");
-            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getQueryMemoryReservations()).append((' '));
+            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getQueryMemoryReservations()).append(' ');
             stringBuilder.append("Tasks ");
             Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getTaskMemoryReservations());
             stringBuilder.append('\n');

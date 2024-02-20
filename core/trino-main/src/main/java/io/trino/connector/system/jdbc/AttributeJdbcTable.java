@@ -23,7 +23,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class AttributeJdbcTable
         extends JdbcTable
@@ -31,26 +31,26 @@ public class AttributeJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "attributes");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("type_cat", createUnboundedVarcharType())
-            .column("type_schem", createUnboundedVarcharType())
-            .column("type_name", createUnboundedVarcharType())
-            .column("attr_name", createUnboundedVarcharType())
+            .column("type_cat", VARCHAR)
+            .column("type_schem", VARCHAR)
+            .column("type_name", VARCHAR)
+            .column("attr_name", VARCHAR)
             .column("data_type", BIGINT)
-            .column("attr_type_name", createUnboundedVarcharType())
+            .column("attr_type_name", VARCHAR)
             .column("attr_size", BIGINT)
             .column("decimal_digits", BIGINT)
             .column("num_prec_radix", BIGINT)
             .column("nullable", BIGINT)
-            .column("remarks", createUnboundedVarcharType())
-            .column("attr_def", createUnboundedVarcharType())
+            .column("remarks", VARCHAR)
+            .column("attr_def", VARCHAR)
             .column("sql_data_type", BIGINT)
             .column("sql_datetime_sub", BIGINT)
             .column("char_octet_length", BIGINT)
             .column("ordinal_position", BIGINT)
-            .column("is_nullable", createUnboundedVarcharType())
-            .column("scope_catalog", createUnboundedVarcharType())
-            .column("scope_schema", createUnboundedVarcharType())
-            .column("scope_table", createUnboundedVarcharType())
+            .column("is_nullable", VARCHAR)
+            .column("scope_catalog", VARCHAR)
+            .column("scope_schema", VARCHAR)
+            .column("scope_table", VARCHAR)
             .column("source_data_type", BIGINT)
             .build();
 

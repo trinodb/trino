@@ -71,7 +71,7 @@ public class DeltaHiveTypeTranslator
         return HiveType.toHiveType(translate(type));
     }
 
-    // Copy from HiveTypeTranslator with a custom mapping for TimestampWithTimeZone
+    // Copy from HiveTypeTranslator with custom mappings for TimestampType and TimestampWithTimeZone
     public static TypeInfo translate(Type type)
     {
         requireNonNull(type, "type is null");
@@ -122,8 +122,8 @@ public class DeltaHiveTypeTranslator
             verify(((TimestampWithTimeZoneType) type).getPrecision() == 3, "Unsupported type: %s", type);
             return HIVE_TIMESTAMP.getTypeInfo();
         }
-        if (type instanceof TimestampType) {
-            verify(((TimestampType) type).getPrecision() == 3, "Unsupported type: %s", type);
+        if (type instanceof TimestampType timestampType) {
+            verify(timestampType.getPrecision() == 3 || timestampType.getPrecision() == 6, "Unsupported type: %s", type);
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof DecimalType decimalType) {

@@ -13,9 +13,8 @@
  */
 package io.trino.procedure;
 
+import com.google.inject.Provider;
 import io.trino.spi.procedure.Procedure;
-
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 

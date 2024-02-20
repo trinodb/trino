@@ -19,6 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.DoubleType;
@@ -36,7 +37,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.String.format;
 
 public class ImplementSqlServerVariancePop
-        implements AggregateFunctionRule<JdbcExpression, String>
+        implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -52,15 +53,17 @@ public class ImplementSqlServerVariancePop
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
         verify(columnHandle.getColumnType().equals(DOUBLE));
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
+        ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("VARP(%s)", context.rewriteExpression(argument).orElseThrow()),
+                format("VARP(%s)", rewrittenArgument.expression()),
+                rewrittenArgument.parameters(),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

@@ -19,12 +19,15 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestIntervalYearMonth
 {
     protected QueryAssertions assertions;
@@ -63,20 +66,20 @@ public class TestIntervalYearMonth
         assertThat(assertions.expression("INTERVAL '32767-32767' YEAR TO MONTH"))
                 .isEqualTo(interval(32767, 32767));
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '124X' YEAR").evaluate())
-                .hasMessage("line 1:12: '124X' is not a valid interval literal");
+        assertThatThrownBy(assertions.expression("INTERVAL '124X' YEAR")::evaluate)
+                .hasMessage("line 1:12: '124X' is not a valid INTERVAL literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '124-30' YEAR").evaluate())
-                .hasMessage("line 1:12: '124-30' is not a valid interval literal");
+        assertThatThrownBy(assertions.expression("INTERVAL '124-30' YEAR")::evaluate)
+                .hasMessage("line 1:12: '124-30' is not a valid INTERVAL literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '124-X' YEAR TO MONTH").evaluate())
-                .hasMessage("line 1:12: '124-X' is not a valid interval literal");
+        assertThatThrownBy(assertions.expression("INTERVAL '124-X' YEAR TO MONTH")::evaluate)
+                .hasMessage("line 1:12: '124-X' is not a valid INTERVAL literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '124--30' YEAR TO MONTH").evaluate())
-                .hasMessage("line 1:12: '124--30' is not a valid interval literal");
+        assertThatThrownBy(assertions.expression("INTERVAL '124--30' YEAR TO MONTH")::evaluate)
+                .hasMessage("line 1:12: '124--30' is not a valid INTERVAL literal");
 
-        assertThatThrownBy(() -> assertions.expression("INTERVAL '--124--30' YEAR TO MONTH").evaluate())
-                .hasMessage("line 1:12: '--124--30' is not a valid interval literal");
+        assertThatThrownBy(assertions.expression("INTERVAL '--124--30' YEAR TO MONTH")::evaluate)
+                .hasMessage("line 1:12: '--124--30' is not a valid INTERVAL literal");
     }
 
     private static SqlIntervalYearMonth interval(int year, int month)

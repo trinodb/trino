@@ -14,17 +14,14 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 
@@ -37,18 +34,10 @@ import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGroupedTopNRankBuilder
 {
-    @DataProvider
-    public static Object[][] produceRanking()
-    {
-        return new Object[][] {{true}, {false}};
-    }
-
     @Test
     public void testEmptyInput()
     {
@@ -73,12 +62,19 @@ public class TestGroupedTopNRankBuilder
                 },
                 5,
                 false,
+                new int[0],
                 new NoChannelGroupByHash());
-        assertFalse(groupedTopNBuilder.buildResult().hasNext());
+        assertThat(groupedTopNBuilder.buildResult().hasNext()).isFalse();
     }
 
-    @Test(dataProvider = "produceRanking")
-    public void testSingleGroupTopN(boolean produceRanking)
+    @Test
+    public void testSingleGroupTopN()
+    {
+        testSingleGroupTopN(true);
+        testSingleGroupTopN(false);
+    }
+
+    private void testSingleGroupTopN(boolean produceRanking)
     {
         TypeOperators typeOperators = new TypeOperators();
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
@@ -90,35 +86,36 @@ public class TestGroupedTopNRankBuilder
                 new SimplePageWithPositionEqualsAndHash(types, ImmutableList.of(0), blockTypeOperators),
                 3,
                 produceRanking,
+                new int[0],
                 new NoChannelGroupByHash());
 
         // Expected effect: [0.2 x 1 => rank=1, 0.3 x 2 => rank=2]
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0.3)
                         .row(0.3)
                         .row(0.2)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         // Page should be dropped, because single value 0.4 is too large to be considered
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0.4)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         // Next page should cause 0.3 values to be evicted (first page will be compacted)
         // Expected effect: [0.1 x 2 => rank 1, 0.2 x 3 => rank 3]
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0.1)
                         .row(0.2)
                         .row(0.3)
                         .row(0.2)
                         .row(0.1)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertEquals(output.size(), 1);
+        assertThat(output.size()).isEqualTo(1);
 
         List<Type> outputTypes = ImmutableList.of(DOUBLE, BIGINT);
         Page expected = rowPageBuilder(outputTypes)
@@ -135,46 +132,53 @@ public class TestGroupedTopNRankBuilder
         assertPageEquals(outputTypes, getOnlyElement(output), expected);
     }
 
-    @Test(dataProvider = "produceRanking")
-    public void testMultiGroupTopN(boolean produceRanking)
+    @Test
+    public void testMultiGroupTopN()
+    {
+        testMultiGroupTopN(true);
+        testMultiGroupTopN(false);
+    }
+
+    private void testMultiGroupTopN(boolean produceRanking)
     {
         TypeOperators typeOperators = new TypeOperators();
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE);
 
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP, typeOperators, blockTypeOperators);
+        GroupByHash groupByHash = createGroupByHash(types.get(0), NOOP, typeOperators);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
                 new SimplePageWithPositionEqualsAndHash(types, ImmutableList.of(1), blockTypeOperators),
                 3,
                 produceRanking,
+                new int[] {0},
                 groupByHash);
 
         // Expected effect:
         // Group 0 [0.2 x 1 => rank=1, 0.3 x 3 => rank=2]
         // Group 1 [0.2 x 1 => rank=1]
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0L, 0.3)
                         .row(0L, 0.3)
                         .row(0L, 0.3)
                         .row(0L, 0.2)
                         .row(1L, 0.2)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         // Page should be dropped, because all values too large to be considered
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0L, 0.4)
                         .row(1L, 0.4)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         // Next page should cause evict 0.3 from group 0, which should cause the first page to be compacted
         // Expected effect:
         // Group 0 [0.1 x 1 => rank=1, 0.2 x 2 => rank=2]
         // Group 1 [0.2 x 2 => rank=1, 0.3 x 2 => rank=3]
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0L, 0.1)
                         .row(1L, 0.2)
@@ -184,10 +188,10 @@ public class TestGroupedTopNRankBuilder
                         .row(1L, 0.4)
                         .row(1L, 0.3)
                         .row(1L, 0.3)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertEquals(output.size(), 1);
+        assertThat(output.size()).isEqualTo(1);
 
         List<Type> outputTypes = ImmutableList.of(BIGINT, DOUBLE, BIGINT);
         Page expected = rowPageBuilder(outputTypes)
@@ -223,22 +227,23 @@ public class TestGroupedTopNRankBuilder
         input.compact();
 
         AtomicBoolean unblock = new AtomicBoolean();
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), unblock::get, typeOperators, blockTypeOperators);
+        GroupByHash groupByHash = createGroupByHash(types.get(0), unblock::get, typeOperators);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
                 new SimplePageWithPositionEqualsAndHash(types, ImmutableList.of(1), blockTypeOperators),
                 5,
                 false,
+                new int[] {0},
                 groupByHash);
 
         Work<?> work = groupedTopNBuilder.processPage(input);
-        assertFalse(work.process());
-        assertFalse(work.process());
+        assertThat(work.process()).isFalse();
+        assertThat(work.process()).isFalse();
         unblock.set(true);
-        assertTrue(work.process());
+        assertThat(work.process()).isTrue();
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertEquals(output.size(), 1);
+        assertThat(output.size()).isEqualTo(1);
 
         Page expected = rowPagesBuilder(types)
                 .row(1L, 0.1)
@@ -250,16 +255,14 @@ public class TestGroupedTopNRankBuilder
         assertPageEquals(types, output.get(0), expected);
     }
 
-    private GroupByHash createGroupByHash(List<Type> partitionTypes, List<Integer> partitionChannels, UpdateMemory updateMemory, TypeOperators typeOperators, BlockTypeOperators blockTypeOperators)
+    private GroupByHash createGroupByHash(Type partitionType, UpdateMemory updateMemory, TypeOperators typeOperators)
     {
         return GroupByHash.createGroupByHash(
-                partitionTypes,
-                Ints.toArray(partitionChannels),
-                Optional.empty(),
+                ImmutableList.of(partitionType),
+                false,
                 1,
                 false,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators,
                 updateMemory);
     }
 

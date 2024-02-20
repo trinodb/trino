@@ -18,11 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
 import io.trino.spi.block.Block;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
@@ -31,7 +32,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRcFileReaderManual
 {
@@ -78,29 +79,29 @@ public class TestRcFileReaderManual
                 .map(Segment::getValues)
                 .flatMap(List::stream)
                 .collect(toList());
-        assertEquals(allValues, readValues(file, 0, file.length()));
+        assertThat(allValues).isEqualTo(readValues(file, 0, file.length()));
 
         for (Segment segment : segments) {
             // whole segment
-            assertEquals(segment.getValues(), readValues(file, segment.getOffset(), segment.getLength()));
+            assertThat(segment.getValues()).isEqualTo(readValues(file, segment.getOffset(), segment.getLength()));
             // first byte of segment
-            assertEquals(segment.getValues(), readValues(file, segment.getOffset(), 1));
+            assertThat(segment.getValues()).isEqualTo(readValues(file, segment.getOffset(), 1));
             // straddle segment start
-            assertEquals(segment.getValues(), readValues(file, segment.getOffset() - 1, 2));
+            assertThat(segment.getValues()).isEqualTo(readValues(file, segment.getOffset() - 1, 2));
 
             // regions entirely within the segment
-            assertEquals(ImmutableList.of(), readValues(file, segment.getOffset() + 1, 1));
-            assertEquals(ImmutableList.of(), readValues(file, segment.getOffset() + 1, segment.getLength() - 1));
+            assertThat(ImmutableList.of()).isEqualTo(readValues(file, segment.getOffset() + 1, 1));
+            assertThat(ImmutableList.of()).isEqualTo(readValues(file, segment.getOffset() + 1, segment.getLength() - 1));
 
             for (int rowGroupOffset : segment.getRowGroupSegmentOffsets()) {
                 // segment header to row group start
-                assertEquals(segment.getValues(), readValues(file, segment.getOffset(), rowGroupOffset));
-                assertEquals(segment.getValues(), readValues(file, segment.getOffset(), rowGroupOffset - 1));
-                assertEquals(segment.getValues(), readValues(file, segment.getOffset(), rowGroupOffset + 1));
+                assertThat(segment.getValues()).isEqualTo(readValues(file, segment.getOffset(), rowGroupOffset));
+                assertThat(segment.getValues()).isEqualTo(readValues(file, segment.getOffset(), rowGroupOffset - 1));
+                assertThat(segment.getValues()).isEqualTo(readValues(file, segment.getOffset(), rowGroupOffset + 1));
 
                 // region from grow group start until end of file (row group offset is always inside of the segment since a
                 // segment starts with a file header or sync sequence)
-                assertEquals(ImmutableList.of(), readValues(file, segment.getOffset() + rowGroupOffset, segment.getLength() - rowGroupOffset));
+                assertThat(ImmutableList.of()).isEqualTo(readValues(file, segment.getOffset() + rowGroupOffset, segment.getLength() - rowGroupOffset));
             }
         }
 
@@ -115,10 +116,10 @@ public class TestRcFileReaderManual
                         .flatMap(List::stream)
                         .collect(toList());
 
-                assertEquals(segmentsValues, readValues(file, startSegment.getOffset(), endSegment.getOffset() + endSegment.getLength() - startSegment.getOffset()));
-                assertEquals(segmentsValues, readValues(file, startSegment.getOffset(), endSegment.getOffset() + 1 - startSegment.getOffset()));
-                assertEquals(segmentsValues, readValues(file, startSegment.getOffset() - 1, endSegment.getOffset() + 1 + endSegment.getLength() - startSegment.getOffset()));
-                assertEquals(segmentsValues, readValues(file, startSegment.getOffset() - 1, endSegment.getOffset() + 1 + 1 - startSegment.getOffset()));
+                assertThat(segmentsValues).isEqualTo(readValues(file, startSegment.getOffset(), endSegment.getOffset() + endSegment.getLength() - startSegment.getOffset()));
+                assertThat(segmentsValues).isEqualTo(readValues(file, startSegment.getOffset(), endSegment.getOffset() + 1 - startSegment.getOffset()));
+                assertThat(segmentsValues).isEqualTo(readValues(file, startSegment.getOffset() - 1, endSegment.getOffset() + 1 + endSegment.getLength() - startSegment.getOffset()));
+                assertThat(segmentsValues).isEqualTo(readValues(file, startSegment.getOffset() - 1, endSegment.getOffset() + 1 + 1 - startSegment.getOffset()));
             }
         }
     }
@@ -235,7 +236,7 @@ public class TestRcFileReaderManual
         }
 
         RcFileReader reader = new RcFileReader(
-                new MemoryInputFile("test", data),
+                new MemoryInputFile(Location.of("memory:///test"), data),
                 new BinaryColumnEncodingFactory(DateTimeZone.UTC),
                 ImmutableMap.of(0, SMALLINT),
                 offset,
@@ -245,7 +246,7 @@ public class TestRcFileReaderManual
         while (reader.advance() >= 0) {
             Block block = reader.readBlock(0);
             for (int position = 0; position < block.getPositionCount(); position++) {
-                values.add((int) SMALLINT.getLong(block, position));
+                values.add((int) SMALLINT.getShort(block, position));
             }
         }
 

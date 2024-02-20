@@ -44,11 +44,21 @@ public class TestingProperties
 
     public static String getProjectVersion()
     {
-        return requireNonNull(properties.get().getProperty("project.version"), "project.version is null");
+        return getProjectProperty("project.version");
     }
 
     public static String getDockerImagesVersion()
     {
-        return requireNonNull(properties.get().getProperty("docker.images.version"), "docker.images.version is null");
+        return getProjectProperty("docker.images.version");
+    }
+
+    public static String getConfluentVersion()
+    {
+        return getProjectProperty("confluent.version");
+    }
+
+    private static String getProjectProperty(String name)
+    {
+        return requireNonNull(properties.get().getProperty(name), name + " is null");
     }
 }

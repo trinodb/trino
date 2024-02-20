@@ -13,37 +13,51 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongDecimalWithOverflowAndLongStateSerializer
 {
     private static final LongDecimalWithOverflowAndLongStateFactory STATE_FACTORY = new LongDecimalWithOverflowAndLongStateFactory();
 
-    @Test(dataProvider = "input")
-    public void testSerde(long low, long high, long overflow, long count, int expectedLength)
+    @Test
+    public void testSerde()
+    {
+        testSerde(3, 0, 0, 1, 1);
+        testSerde(3, 5, 0, 1, 2);
+        testSerde(3, 5, 7, 1, 4);
+        testSerde(3, 0, 0, 2, 3);
+        testSerde(3, 5, 0, 2, 4);
+        testSerde(3, 5, 7, 2, 4);
+        testSerde(3, 0, 7, 1, 3);
+        testSerde(3, 0, 7, 2, 3);
+        testSerde(0, 0, 0, 1, 1);
+        testSerde(0, 5, 0, 1, 2);
+        testSerde(0, 5, 7, 1, 4);
+        testSerde(0, 0, 0, 2, 3);
+        testSerde(0, 5, 0, 2, 4);
+        testSerde(0, 5, 7, 2, 4);
+        testSerde(0, 0, 7, 1, 3);
+        testSerde(0, 0, 7, 2, 3);
+    }
+
+    private void testSerde(long low, long high, long overflow, long count, int expectedLength)
     {
         LongDecimalWithOverflowAndLongState state = STATE_FACTORY.createSingleState();
         state.getDecimalArray()[0] = high;
         state.getDecimalArray()[1] = low;
         state.setOverflow(overflow);
         state.setLong(count);
-        state.setNotNull();
 
         LongDecimalWithOverflowAndLongState outState = roundTrip(state, expectedLength);
 
-        assertTrue(outState.isNotNull());
-        assertEquals(outState.getDecimalArray()[0], high);
-        assertEquals(outState.getDecimalArray()[1], low);
-        assertEquals(outState.getOverflow(), overflow);
-        assertEquals(outState.getLong(), count);
+        assertThat(outState.getDecimalArray()[0]).isEqualTo(high);
+        assertThat(outState.getDecimalArray()[1]).isEqualTo(low);
+        assertThat(outState.getOverflow()).isEqualTo(overflow);
+        assertThat(outState.getLong()).isEqualTo(count);
     }
 
     @Test
@@ -54,43 +68,20 @@ public class TestLongDecimalWithOverflowAndLongStateSerializer
 
         LongDecimalWithOverflowAndLongState outState = roundTrip(state, 0);
 
-        assertFalse(outState.isNotNull());
+        assertThat(outState.getLong()).isEqualTo(0);
     }
 
     private LongDecimalWithOverflowAndLongState roundTrip(LongDecimalWithOverflowAndLongState state, int expectedLength)
     {
         LongDecimalWithOverflowAndLongStateSerializer serializer = new LongDecimalWithOverflowAndLongStateSerializer();
-        BlockBuilder out = new VariableWidthBlockBuilder(null, 1, 0);
+        VariableWidthBlockBuilder out = new VariableWidthBlockBuilder(null, 1, 0);
 
         serializer.serialize(state, out);
 
-        Block serialized = out.build();
-        assertEquals(serialized.getSliceLength(0), expectedLength * Long.BYTES);
+        VariableWidthBlock serialized = out.buildValueBlock();
+        assertThat(serialized.getSliceLength(0)).isEqualTo(expectedLength * Long.BYTES);
         LongDecimalWithOverflowAndLongState outState = STATE_FACTORY.createSingleState();
         serializer.deserialize(serialized, 0, outState);
         return outState;
-    }
-
-    @DataProvider
-    public Object[][] input()
-    {
-        return new Object[][] {
-                {3, 0, 0, 1, 1},
-                {3, 5, 0, 1, 2},
-                {3, 5, 7, 1, 4},
-                {3, 0, 0, 2, 3},
-                {3, 5, 0, 2, 4},
-                {3, 5, 7, 2, 4},
-                {3, 0, 7, 1, 3},
-                {3, 0, 7, 2, 3},
-                {0, 0, 0, 1, 1},
-                {0, 5, 0, 1, 2},
-                {0, 5, 7, 1, 4},
-                {0, 0, 0, 2, 3},
-                {0, 5, 0, 2, 4},
-                {0, 5, 7, 2, 4},
-                {0, 0, 7, 1, 3},
-                {0, 0, 7, 2, 3}
-        };
     }
 }

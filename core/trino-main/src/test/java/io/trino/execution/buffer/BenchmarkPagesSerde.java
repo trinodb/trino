@@ -20,6 +20,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -33,7 +34,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.RunnerException;
-import org.testng.annotations.Test;
 
 import javax.crypto.SecretKey;
 
@@ -44,6 +44,8 @@ import java.util.Optional;
 import java.util.Random;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -83,7 +85,7 @@ public class BenchmarkPagesSerde
     public void testBenchmarkData()
     {
         BenchmarkData data = new BenchmarkData();
-        data.compressed = true;
+        data.compressionCodec = LZ4;
         data.initialize();
         Slice[] serializedPages = data.serializedPages;
         PageDeserializer deserializer = data.deserializer;
@@ -100,8 +102,8 @@ public class BenchmarkPagesSerde
         private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
         @Param({"true", "false"})
         private boolean encrypted;
-        @Param({"true", "false"})
-        private boolean compressed;
+        @Param({"LZ4", "NONE"})
+        private CompressionCodec compressionCodec = NONE;
         @Param("1000")
         private int randomSeed = 1000;
 
@@ -113,7 +115,7 @@ public class BenchmarkPagesSerde
         @Setup
         public void initialize()
         {
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), compressed);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), compressionCodec);
             Optional<SecretKey> encryptionKey = encrypted ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
             serializer = serdeFactory.createSerializer(encryptionKey);
             deserializer = serdeFactory.createDeserializer(encryptionKey);
@@ -170,7 +172,6 @@ public class BenchmarkPagesSerde
             }
         }
 
-        // copied & modifed from TestRowBlock
         private List<Object>[] generateTestRows(Random random, List<Type> fieldTypes, int numRows)
         {
             @SuppressWarnings("unchecked")
@@ -207,7 +208,7 @@ public class BenchmarkPagesSerde
             throws RunnerException
     {
         BenchmarkData data = new BenchmarkData();
-        data.compressed = true; // Get usable stats on compressibility
+        data.compressionCodec = LZ4; // Get usable stats on compressibility
         data.initialize();
         System.out.println("Page Size Avg: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).average().getAsDouble());
         System.out.println("Page Size Min: " + Arrays.stream(data.dataPages).mapToLong(Page::getSizeInBytes).min().getAsLong());

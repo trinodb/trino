@@ -13,7 +13,8 @@
  */
 package io.trino.plugin.base.authentication;
 
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 

@@ -16,14 +16,15 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRealType
         extends AbstractTestType
@@ -33,7 +34,7 @@ public class TestRealType
         super(REAL, Float.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = REAL.createBlockBuilder(null, 30);
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
@@ -47,7 +48,7 @@ public class TestRealType
         REAL.writeLong(blockBuilder, floatToRawIntBits(33.33F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(33.33F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(44.44F));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -61,16 +62,40 @@ public class TestRealType
     @Test
     public void testNaNHash()
     {
-        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 4);
-        blockBuilder.writeInt(floatToIntBits(Float.NaN));
-        blockBuilder.writeInt(floatToRawIntBits(Float.NaN));
+        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 5);
+        REAL.writeFloat(blockBuilder, Float.NaN);
+        REAL.writeInt(blockBuilder, floatToIntBits(Float.NaN));
+        REAL.writeInt(blockBuilder, floatToRawIntBits(Float.NaN));
         // the following two are the integer values of a float NaN
-        blockBuilder.writeInt(-0x400000);
-        blockBuilder.writeInt(0x7fc00000);
+        REAL.writeInt(blockBuilder, -0x400000);
+        REAL.writeInt(blockBuilder, 0x7fc00000);
+        Block block = blockBuilder.build();
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(REAL);
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 1));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 1));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 2));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 3));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 4));
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

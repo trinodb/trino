@@ -13,16 +13,13 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
@@ -30,12 +27,11 @@ import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
-import static java.lang.Math.toIntExact;
 
-public class LongArrayBlock
-        implements Block
+public final class LongArrayBlock
+        implements ValueBlock
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LongArrayBlock.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(LongArrayBlock.class);
     public static final int SIZE_IN_BYTES_PER_POSITION = Long.BYTES + Byte.BYTES;
 
     private final int arrayOffset;
@@ -127,60 +123,10 @@ public class LongArrayBlock
         return positionCount;
     }
 
-    @Override
-    public long getLong(int position, int offset)
+    public long getLong(int position)
     {
         checkReadablePosition(this, position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
         return values[position + arrayOffset];
-    }
-
-    @Override
-    @Deprecated
-    // TODO: Remove when we fix intermediate types on aggregations.
-    public int getInt(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-        return toIntExact(values[position + arrayOffset]);
-    }
-
-    @Override
-    @Deprecated
-    // TODO: Remove when we fix intermediate types on aggregations.
-    public short getShort(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-
-        short value = (short) (values[position + arrayOffset]);
-        if (value != values[position + arrayOffset]) {
-            throw new ArithmeticException("short overflow");
-        }
-        return value;
-    }
-
-    @Override
-    @Deprecated
-    // TODO: Remove when we fix intermediate types on aggregations.
-    public byte getByte(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-
-        byte value = (byte) (values[position + arrayOffset]);
-        if (value != values[position + arrayOffset]) {
-            throw new ArithmeticException("byte overflow");
-        }
-        return value;
     }
 
     @Override
@@ -197,7 +143,7 @@ public class LongArrayBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public LongArrayBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
         return new LongArrayBlock(
@@ -208,7 +154,7 @@ public class LongArrayBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public LongArrayBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
@@ -229,7 +175,7 @@ public class LongArrayBlock
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public LongArrayBlock getRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -237,7 +183,7 @@ public class LongArrayBlock
     }
 
     @Override
-    public Block copyRegion(int positionOffset, int length)
+    public LongArrayBlock copyRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -258,12 +204,18 @@ public class LongArrayBlock
     }
 
     @Override
-    public Block copyWithAppendedNull()
+    public LongArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
         long[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
 
         return new LongArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
+    }
+
+    @Override
+    public LongArrayBlock getUnderlyingValueBlock()
+    {
+        return this;
     }
 
     @Override
@@ -275,8 +227,18 @@ public class LongArrayBlock
         return sb.toString();
     }
 
-    Slice getValuesSlice()
+    int getRawValuesOffset()
     {
-        return Slices.wrappedLongArray(values, arrayOffset, positionCount);
+        return arrayOffset;
+    }
+
+    long[] getRawValues()
+    {
+        return values;
+    }
+
+    boolean[] getRawValueIsNull()
+    {
+        return valueIsNull;
     }
 }

@@ -37,12 +37,15 @@ import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.sql.SqlPath;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.Map;
@@ -54,14 +57,16 @@ import static io.trino.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-@Test(singleThreaded = true) // see @BeforeMethod
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestDbSessionPropertyManagerIntegration
 {
-    private DistributedQueryRunner queryRunner;
+    private QueryRunner queryRunner;
 
     private static final String EXAMPLE_PROPERTY = SystemSessionProperties.QUERY_MAX_CPU_TIME;
     private static final Duration EXAMPLE_VALUE_DEFAULT = new QueryManagerConfig().getQueryMaxCpuTime();
@@ -70,22 +75,23 @@ public class TestDbSessionPropertyManagerIntegration
     private TestingMySqlContainer mysqlContainer;
     private SessionPropertiesDao dao;
 
-    private static DistributedQueryRunner createQueryRunner()
+    private static QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder().build();
-        assertEquals(session.getSystemProperties(), emptyMap());
+        assertThat(session.getSystemProperties()).isEqualTo(emptyMap());
 
         Duration sessionValue = session.getSystemProperty(EXAMPLE_PROPERTY, Duration.class);
-        assertEquals(sessionValue, EXAMPLE_VALUE_DEFAULT);
-        assertNotEquals(EXAMPLE_VALUE_DEFAULT, EXAMPLE_VALUE_CONFIGURED);
+        assertThat(sessionValue).isEqualTo(EXAMPLE_VALUE_DEFAULT);
+        assertThat(EXAMPLE_VALUE_DEFAULT)
+                .isNotEqualTo(EXAMPLE_VALUE_CONFIGURED);
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         queryRunner.installPlugin(new TestingSessionPropertyConfigurationManagerPlugin());
         return queryRunner;
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws Exception
     {
@@ -94,7 +100,7 @@ public class TestDbSessionPropertyManagerIntegration
         queryRunner = createQueryRunner();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
             throws IOException
     {
@@ -106,7 +112,7 @@ public class TestDbSessionPropertyManagerIntegration
         mysqlContainer = null;
     }
 
-    @BeforeMethod
+    @BeforeEach
     public void setupTest()
     {
         queryRunner.getCoordinator().getSessionPropertyDefaults()
@@ -125,7 +131,7 @@ public class TestDbSessionPropertyManagerIntegration
                 .onDemand(SessionPropertiesDao.class);
     }
 
-    @Test(description = "Test successful and unsuccessful reloading of SessionMatchSpecs from the database")
+    @Test // "Test successful and unsuccessful reloading of SessionMatchSpecs from the database"
     public void testOperation()
     {
         // Configure the session property for users with user regex user1.*
@@ -162,11 +168,11 @@ public class TestDbSessionPropertyManagerIntegration
 
         MaterializedResult result = queryRunner.execute(session, "SHOW SESSION");
         String actualValueString = (String) result.getMaterializedRows().stream()
-                .filter(row -> (row.getField(0).equals(EXAMPLE_PROPERTY)))
+                .filter(row -> row.getField(0).equals(EXAMPLE_PROPERTY))
                 .collect(onlyElement())
                 .getField(1);
 
-        assertEquals(Duration.valueOf(actualValueString), expectedValue);
+        assertThat(Duration.valueOf(actualValueString)).isEqualTo(expectedValue);
     }
 
     /**
@@ -177,10 +183,11 @@ public class TestDbSessionPropertyManagerIntegration
         return Session.builder(new SessionPropertyManager())
                 .setQueryId(new QueryIdGenerator().createNextQueryId())
                 .setIdentity(Identity.ofUser("user"))
+                .setOriginalIdentity(Identity.ofUser("user"))
                 .setSource("test")
                 .setCatalog("catalog")
                 .setSchema("schema")
-                .setPath(new SqlPath(Optional.of("path")))
+                .setPath(SqlPath.buildPath("path", Optional.empty()))
                 .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")

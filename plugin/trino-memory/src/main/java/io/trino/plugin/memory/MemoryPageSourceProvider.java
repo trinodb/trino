@@ -14,6 +14,7 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
@@ -30,8 +31,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeUtils;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
@@ -39,7 +38,6 @@ import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public final class MemoryPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -71,9 +69,10 @@ public final class MemoryPageSourceProvider
         MemoryTableHandle memoryTable = (MemoryTableHandle) table;
         OptionalDouble sampleRatio = memoryTable.getSampleRatio();
 
-        List<Integer> columnIndexes = columns.stream()
+        int[] columnIndexes = columns.stream()
                 .map(MemoryColumnHandle.class::cast)
-                .map(MemoryColumnHandle::getColumnIndex).collect(toList());
+                .mapToInt(MemoryColumnHandle::getColumnIndex)
+                .toArray();
         List<Page> pages = pagesStore.getPages(
                 tableId,
                 partNumber,

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mysql;
 
+import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
@@ -22,12 +23,11 @@ import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
 import java.util.List;
@@ -38,10 +38,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertTrue;
 
 public class TestMySqlClient
 {
@@ -138,7 +136,13 @@ public class TestMySqlClient
         testImplementAggregation(
                 new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), true, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.empty());  // distinct not supported
+                Optional.of("sum(DISTINCT `c_bigint`)"));
+
+        // sum(DISTINCT double)
+        testImplementAggregation(
+                new AggregateFunction("sum", DOUBLE, List.of(bigintVariable), List.of(), true, Optional.empty()),
+                Map.of(bigintVariable.getName(), DOUBLE_COLUMN),
+                Optional.of("sum(DISTINCT `c_double`)"));
 
         // sum(bigint) FILTER (WHERE ...)
         testImplementAggregation(
@@ -155,10 +159,14 @@ public class TestMySqlClient
         }
         else {
             assertThat(result).isPresent();
-            assertEquals(result.get().getExpression(), expectedExpression.get());
+            assertThat(result.get().getExpression())
+                    .isEqualTo(expectedExpression.get());
             Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toColumnMapping(SESSION, null, result.get().getJdbcTypeHandle());
-            assertTrue(columnMapping.isPresent(), "No mapping for: " + result.get().getJdbcTypeHandle());
-            assertEquals(columnMapping.get().getType(), aggregateFunction.getOutputType());
+            assertThat(columnMapping.isPresent())
+                    .describedAs("No mapping for: " + result.get().getJdbcTypeHandle())
+                    .isTrue();
+            assertThat(columnMapping.get().getType())
+                    .isEqualTo(aggregateFunction.getOutputType());
         }
     }
 }

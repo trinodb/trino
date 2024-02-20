@@ -13,17 +13,11 @@
  */
 package io.trino.plugin.hudi.testing;
 
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.filesystem.Location;
 import io.trino.testing.QueryRunner;
-import org.apache.hadoop.conf.Configuration;
 
 public interface HudiTablesInitializer
 {
-    void initializeTables(
-            QueryRunner queryRunner,
-            HiveMetastore metastore,
-            String schemaName,
-            String dataDir,
-            Configuration conf)
+    void initializeTables(QueryRunner queryRunner, Location externalLocation, String schemaName)
             throws Exception;
 }

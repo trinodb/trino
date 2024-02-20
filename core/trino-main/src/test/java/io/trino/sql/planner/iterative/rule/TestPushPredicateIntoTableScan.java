@@ -37,6 +37,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Cast;
@@ -46,12 +47,11 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingTransactionHandle;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
@@ -63,7 +63,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -94,14 +93,14 @@ public class TestPushPredicateIntoTableScan
     private TableHandle ordersTableHandle;
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
-    @BeforeClass
+    @BeforeAll
     public void setUpBeforeClass()
     {
-        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()));
+        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), new IrTypeAnalyzer(tester().getPlannerContext()), false);
 
         CatalogHandle catalogHandle = tester().getCurrentCatalogHandle();
-        tester().getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
-        mockCatalogHandle = tester().getQueryRunner().getCatalogHandle(MOCK_CATALOG);
+        tester().getPlanTester().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
+        mockCatalogHandle = tester().getPlanTester().getCatalogHandle(MOCK_CATALOG);
 
         TpchTableHandle nation = new TpchTableHandle("sf1", "nation", 1.0);
         nationTableHandle = new TableHandle(
@@ -117,7 +116,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void doesNotFireIfNoTableScan()
+    public void testDoesNotFireIfNoTableScan()
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.values(p.symbol("a", BIGINT)))
@@ -125,7 +124,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void eliminateTableScanWhenNoLayoutExist()
+    public void testEliminateTableScanWhenNoLayoutExist()
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'G'"),
@@ -137,7 +136,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void replaceWithExistsWhenNoLayoutExist()
+    public void testReplaceWithExistsWhenNoLayoutExist()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
@@ -152,7 +151,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void consumesDeterministicPredicateIfNewDomainIsSame()
+    public void testConsumesDeterministicPredicateIfNewDomainIsSame()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
@@ -170,7 +169,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void consumesDeterministicPredicateIfNewDomainIsWider()
+    public void testConsumesDeterministicPredicateIfNewDomainIsWider()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
@@ -188,7 +187,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void consumesDeterministicPredicateIfNewDomainIsNarrower()
+    public void testConsumesDeterministicPredicateIfNewDomainIsNarrower()
     {
         Type orderStatusType = createVarcharType(1);
         ColumnHandle columnHandle = new TpchColumnHandle("orderstatus", orderStatusType);
@@ -206,7 +205,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void doesNotConsumeRemainingPredicateIfNewDomainIsWider()
+    public void testDoesNotConsumeRemainingPredicateIfNewDomainIsWider()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
@@ -217,7 +216,7 @@ public class TestPushPredicateIntoTableScan
                                         new ComparisonExpression(
                                                 EQUAL,
                                                 functionResolution
-                                                        .functionCallBuilder(QualifiedName.of("rand"))
+                                                        .functionCallBuilder("rand")
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         // non-translatable to connector expression
@@ -251,7 +250,7 @@ public class TestPushPredicateIntoTableScan
                                         new ComparisonExpression(
                                                 EQUAL,
                                                 functionResolution
-                                                        .functionCallBuilder(QualifiedName.of("rand"))
+                                                        .functionCallBuilder("rand")
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         new ComparisonExpression(
@@ -268,7 +267,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void doesNotFireOnNonDeterministicPredicate()
+    public void testDoesNotFireOnNonDeterministicPredicate()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
@@ -276,7 +275,7 @@ public class TestPushPredicateIntoTableScan
                         new ComparisonExpression(
                                 EQUAL,
                                 functionResolution
-                                        .functionCallBuilder(QualifiedName.of("rand"))
+                                        .functionCallBuilder("rand")
                                         .build(),
                                 new LongLiteral("42")),
                         p.tableScan(
@@ -288,7 +287,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void doesNotFireIfRuleNotChangePlan()
+    public void testDoesNotFireIfRuleNotChangePlan()
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("nationkey % 17 =  BIGINT '44' AND nationkey % 15 =  BIGINT '43'"),
@@ -301,7 +300,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void ruleAddedTableLayoutToFilterTableScan()
+    public void testRuleAddedTableLayoutToFilterTableScan()
     {
         Map<String, Domain> filterConstraint = ImmutableMap.of("orderstatus", singleValue(createVarcharType(1), utf8Slice("F")));
         tester().assertThat(pushPredicateIntoTableScan)
@@ -315,7 +314,7 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
-    public void nonDeterministicPredicate()
+    public void testNonDeterministicPredicate()
     {
         Type orderStatusType = createVarcharType(1);
         tester().assertThat(pushPredicateIntoTableScan)
@@ -328,7 +327,7 @@ public class TestPushPredicateIntoTableScan
                                 new ComparisonExpression(
                                         EQUAL,
                                         functionResolution
-                                                .functionCallBuilder(QualifiedName.of("rand"))
+                                                .functionCallBuilder("rand")
                                                 .build(),
                                         new LongLiteral("0"))),
                         p.tableScan(
@@ -340,7 +339,7 @@ public class TestPushPredicateIntoTableScan
                                 new ComparisonExpression(
                                         EQUAL,
                                         functionResolution
-                                                .functionCallBuilder(QualifiedName.of("rand"))
+                                                .functionCallBuilder("rand")
                                                 .build(),
                                         new LongLiteral("0")),
                                 constrainedTableScanWithTableLayout(
@@ -377,16 +376,46 @@ public class TestPushPredicateIntoTableScan
                 .matches(tableScan("partitioned"));
     }
 
+    @Test
+    public void testEliminateTableScanWhenPredicateIsNull()
+    {
+        ColumnHandle nationKeyColumn = new TpchColumnHandle("nationkey", BIGINT);
+
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("CAST(null AS boolean)"),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), nationKeyColumn))))
+                .matches(values(ImmutableList.of("A"), ImmutableList.of()));
+
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("nationkey = CAST(null AS BIGINT)"),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), nationKeyColumn))))
+                .matches(values(ImmutableList.of("A"), ImmutableList.of()));
+
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(expression("nationkey = BIGINT '44' AND CAST(null AS boolean)"),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), nationKeyColumn))))
+                .matches(values(ImmutableList.of("A"), ImmutableList.of()));
+    }
+
     public static MockConnectorFactory createMockFactory()
     {
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder();
         builder
                 .withApplyFilter((session, tableHandle, constraint) -> {
                     if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED)) {
-                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_UNPARTITIONED_TABLE_HANDLE, TupleDomain.all(), false));
+                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_UNPARTITIONED_TABLE_HANDLE, TupleDomain.all(), constraint.getExpression(), false));
                     }
                     if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE)) {
-                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_PARTITIONED_TABLE_HANDLE, TupleDomain.all(), false));
+                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_PARTITIONED_TABLE_HANDLE, TupleDomain.all(), constraint.getExpression(), false));
                     }
                     return Optional.empty();
                 })
@@ -395,7 +424,6 @@ public class TestPushPredicateIntoTableScan
                         return new ConnectorTableProperties(
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(PARTITIONING_HANDLE, ImmutableList.of(MOCK_COLUMN_HANDLE))),
-                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of());
                     }

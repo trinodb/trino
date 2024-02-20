@@ -14,8 +14,8 @@
 package io.trino.plugin.ml;
 
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.InputFunction;
@@ -34,7 +34,7 @@ public final class LearnClassifierAggregation
     public static void input(
             @AggregationState LearnState state,
             @SqlType(BIGINT) long label,
-            @SqlType("map(bigint,double)") Block features)
+            @SqlType("map(bigint,double)") SqlMap features)
     {
         input(state, (double) label, features);
     }
@@ -43,7 +43,7 @@ public final class LearnClassifierAggregation
     public static void input(
             @AggregationState LearnState state,
             @SqlType(DOUBLE) double label,
-            @SqlType("map(bigint,double)") Block features)
+            @SqlType("map(bigint,double)") SqlMap features)
     {
         LearnLibSvmClassifierAggregation.input(state, label, features, Slices.utf8Slice(""));
     }

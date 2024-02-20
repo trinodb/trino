@@ -15,29 +15,32 @@ package io.trino.hive.formats.line.text;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.line.LineBuffer;
-import org.openjdk.jol.info.ClassLayout;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.zip.GZIPOutputStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLineReader
 {
-    private static final int LINE_READER_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TextLineReader.class).instanceSize());
+    private static final int LINE_READER_INSTANCE_SIZE = instanceSize(TextLineReader.class);
     private static final int[] SKIP_SIZES = new int[] {1, 2, 3, 13, 101, 331, 443, 701, 853, 1021};
 
     @Test
@@ -104,7 +107,8 @@ public class TestLineReader
                         TestData testData = createInputData(lines, delimiter, delimiterAtEndOfFile, bom);
                         LineBuffer lineBuffer = createLineBuffer(lines);
 
-                        assertLines(testData, lineBuffer, bufferSize);
+                        assertLines(testData, lineBuffer, bufferSize, false);
+                        assertLines(testData, lineBuffer, bufferSize, true);
                         assertSplitRead(testData, lineBuffer, bufferSize, bom);
                         assertSkipLines(testData, lineBuffer, bufferSize);
                     }
@@ -113,15 +117,31 @@ public class TestLineReader
         }
     }
 
-    private static void assertLines(TestData testData, LineBuffer lineBuffer, int bufferSize)
+    private static void assertLines(TestData testData, LineBuffer lineBuffer, int bufferSize, boolean compressed)
             throws IOException
     {
-        TextLineReader lineReader = new TextLineReader(new ByteArrayInputStream(testData.inputData()), bufferSize);
+        byte[] inputData = testData.inputData();
+
+        TextLineReader lineReader;
+        if (compressed) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream(inputData.length);
+            try (OutputStream compress = new GZIPOutputStream(out)) {
+                compress.write(inputData);
+            }
+            inputData = out.toByteArray();
+            lineReader = TextLineReader.createCompressedReader(new ByteArrayInputStream(inputData), bufferSize, CompressionKind.GZIP.createCodec());
+        }
+        else {
+            lineReader = TextLineReader.createUncompressedReader(new ByteArrayInputStream(inputData), bufferSize);
+        }
+
         assertThat(lineReader.getRetainedSize()).isEqualTo(LINE_READER_INSTANCE_SIZE + sizeOfByteArray(bufferSize));
         for (ExpectedLine expectedLine : testData.expectedLines()) {
             assertThat(lineReader.readLine(lineBuffer)).isTrue();
             assertThat(new String(lineBuffer.getBuffer(), 0, lineBuffer.getLength(), UTF_8)).isEqualTo(expectedLine.line());
-            assertThat(lineReader.getCurrentPosition()).isEqualTo(expectedLine.endExclusive());
+            if (!compressed) {
+                assertThat(lineReader.getCurrentPosition()).isEqualTo(expectedLine.endExclusive());
+            }
             assertThat(lineReader.getRetainedSize()).isEqualTo(LINE_READER_INSTANCE_SIZE + sizeOfByteArray(bufferSize));
         }
 
@@ -129,6 +149,7 @@ public class TestLineReader
         assertThat(lineBuffer.isEmpty()).isTrue();
         assertThat(lineReader.isClosed()).isTrue();
         assertThat(lineReader.getRetainedSize()).isEqualTo(LINE_READER_INSTANCE_SIZE + sizeOfByteArray(bufferSize));
+        assertThat(lineReader.getBytesRead()).isEqualTo(inputData.length);
     }
 
     private static void assertSplitRead(TestData testData, LineBuffer lineBuffer, int bufferSize, boolean bom)
@@ -162,7 +183,7 @@ public class TestLineReader
         int lineIndex = 0;
 
         // read up to the first split
-        TextLineReader lineReader = new TextLineReader(new ByteArrayInputStream(testData.inputData()), bufferSize, 0, splitPosition);
+        TextLineReader lineReader = TextLineReader.createUncompressedReader(new ByteArrayInputStream(testData.inputData()), bufferSize, 0, splitPosition);
         assertThat(lineReader.getCurrentPosition()).isEqualTo(bom ? 3 : 0);
         while (lineReader.readLine(lineBuffer)) {
             ExpectedLine expectedLine = testData.expectedLines().get(lineIndex++);
@@ -173,7 +194,7 @@ public class TestLineReader
         assertThat(lineBuffer.isEmpty()).isTrue();
         assertThat(lineReader.isClosed()).isTrue();
 
-        lineReader = new TextLineReader(new ByteArrayInputStream(testData.inputData()), bufferSize, splitPosition, testData.inputData().length - splitPosition);
+        lineReader = TextLineReader.createUncompressedReader(new ByteArrayInputStream(testData.inputData()), bufferSize, splitPosition, testData.inputData().length - splitPosition);
         assertThat(lineReader.getCurrentPosition()).isEqualTo(testData.expectedLines().get(lineIndex - 1).endExclusive());
         while (lineReader.readLine(lineBuffer)) {
             ExpectedLine expectedLine = testData.expectedLines().get(lineIndex++);
@@ -193,7 +214,7 @@ public class TestLineReader
         for (int skipLines : SKIP_SIZES) {
             skipLines = min(skipLines, lines.size());
 
-            TextLineReader lineReader = new TextLineReader(new ByteArrayInputStream(testData.inputData()), bufferSize);
+            TextLineReader lineReader = TextLineReader.createUncompressedReader(new ByteArrayInputStream(testData.inputData()), bufferSize);
             assertThat(lineReader.getRetainedSize()).isEqualTo(LINE_READER_INSTANCE_SIZE + sizeOfByteArray(bufferSize));
             lineReader.skipLines(skipLines);
             for (String line : lines.subList(skipLines, lines.size())) {

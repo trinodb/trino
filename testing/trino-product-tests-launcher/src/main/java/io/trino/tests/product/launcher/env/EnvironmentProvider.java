@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.env.common.EnvironmentExtender;
 
+import java.io.PrintStream;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,11 +43,11 @@ public abstract class EnvironmentProvider
         this.bases = ImmutableList.copyOf(requireNonNull(bases, "bases is null"));
     }
 
-    public final Environment.Builder createEnvironment(String name, EnvironmentConfig environmentConfig, Map<String, String> extraOptions)
+    public final Environment.Builder createEnvironment(String name, PrintStream printStream, EnvironmentConfig environmentConfig, Map<String, String> extraOptions)
     {
         requireNonNull(environmentConfig, "environmentConfig is null");
         requireNonNull(extraOptions, "extraOptions is null");
-        Environment.Builder builder = Environment.builder(name);
+        Environment.Builder builder = Environment.builder(name, printStream);
 
         // Environment is created by applying bases, environment definition and environment config to builder
         ImmutableList<EnvironmentExtender> extenders = ImmutableList.<EnvironmentExtender>builder()

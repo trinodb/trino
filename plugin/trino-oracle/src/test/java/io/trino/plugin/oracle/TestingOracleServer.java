@@ -22,7 +22,9 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
+import io.trino.plugin.jdbc.RetryingConnectionFactory.DefaultRetryStrategy;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.testing.ResourcePresence;
 import oracle.jdbc.OracleDriver;
 import org.testcontainers.containers.OracleContainer;
@@ -40,10 +42,11 @@ import java.sql.Statement;
 import java.time.temporal.ChronoUnit;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 
 public class TestingOracleServer
-        implements Closeable
+        implements AutoCloseable
 {
     private static final Logger log = Logger.get(TestingOracleServer.class);
 
@@ -64,6 +67,8 @@ public class TestingOracleServer
 
     private final OracleContainer container;
 
+    private Closeable cleanup = () -> {};
+
     public TestingOracleServer()
     {
         container = Failsafe.with(CONTAINER_RETRY_POLICY).get(this::createContainer);
@@ -76,7 +81,7 @@ public class TestingOracleServer
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
                 .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
                 .usingSid();
-        container.start();
+        cleanup = startOrReuse(container);
         return container;
     }
 
@@ -122,17 +127,22 @@ public class TestingOracleServer
 
     private ConnectionFactory getConnectionFactory(String connectionUrl, String username, String password)
     {
-        DriverConnectionFactory connectionFactory = new DriverConnectionFactory(
+        StatisticsAwareConnectionFactory connectionFactory = new StatisticsAwareConnectionFactory(new DriverConnectionFactory(
                 new OracleDriver(),
                 new BaseJdbcConfig().setConnectionUrl(connectionUrl),
-                StaticCredentialProvider.of(username, password));
-        return new RetryingConnectionFactory(connectionFactory);
+                StaticCredentialProvider.of(username, password)));
+        return new RetryingConnectionFactory(connectionFactory, new DefaultRetryStrategy());
     }
 
     @Override
     public void close()
     {
-        container.stop();
+        try {
+            cleanup.close();
+        }
+        catch (IOException ioe) {
+            throw new UncheckedIOException(ioe);
+        }
     }
 
     @ResourcePresence

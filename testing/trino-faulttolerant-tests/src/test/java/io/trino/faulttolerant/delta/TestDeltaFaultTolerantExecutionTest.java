@@ -18,9 +18,9 @@ import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
@@ -33,7 +33,8 @@ public class TestDeltaFaultTolerantExecutionTest
         extends BaseFaultTolerantExecutionTest
 {
     private static final String SCHEMA = "fte_preferred_write_partitioning";
-    private static final String BUCKET_NAME = "test-fte-preferred-write-partitioning-" + randomNameSuffix();
+
+    private final String bucketName = "test-fte-preferred-write-partitioning-" + randomNameSuffix();
 
     public TestDeltaFaultTolerantExecutionTest()
     {
@@ -44,12 +45,12 @@ public class TestDeltaFaultTolerantExecutionTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME));
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        MinioStorage minioStorage = closeAfterClass(new MinioStorage(BUCKET_NAME));
+        MinioStorage minioStorage = closeAfterClass(new MinioStorage(bucketName));
         minioStorage.start();
 
-        DistributedQueryRunner runner = createS3DeltaLakeQueryRunner(
+        QueryRunner runner = createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 FaultTolerantExecutionConnectorTestHelper.getExtraProperties(),
@@ -61,10 +62,11 @@ public class TestDeltaFaultTolerantExecutionTest
                     instance.installPlugin(new FileSystemExchangePlugin());
                     instance.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 });
-        runner.execute(format("CREATE SCHEMA %s WITH (location = 's3://%s/%s')", SCHEMA, BUCKET_NAME, SCHEMA));
+        runner.execute(format("CREATE SCHEMA %s WITH (location = 's3://%s/%s')", SCHEMA, bucketName, SCHEMA));
         return runner;
     }
 
+    @Test
     @Override
     public void testExecutePreferredWritePartitioningSkewMitigation()
     {

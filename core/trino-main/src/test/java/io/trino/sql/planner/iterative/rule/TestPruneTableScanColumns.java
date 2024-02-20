@@ -36,7 +36,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -146,6 +146,7 @@ public class TestPruneTableScanColumns
                 .build();
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
             ruleTester.assertThat(new PruneTableScanColumns(ruleTester.getMetadata()))
+                    .withSession(testSessionBuilder().setCatalog(TEST_CATALOG_NAME).setSchema(testSchema).build())
                     .on(p -> {
                         Symbol symbolA = p.symbol("cola", DATE);
                         Symbol symbolB = p.symbol("colb", DOUBLE);
@@ -158,7 +159,6 @@ public class TestPruneTableScanColumns
                                                 symbolA, columnHandleA,
                                                 symbolB, columnHandleB)));
                     })
-                    .withSession(testSessionBuilder().setCatalog(TEST_CATALOG_NAME).setSchema(testSchema).build())
                     .matches(
                             strictProject(
                                     ImmutableMap.of("expr", PlanMatchPattern.expression("COLB")),

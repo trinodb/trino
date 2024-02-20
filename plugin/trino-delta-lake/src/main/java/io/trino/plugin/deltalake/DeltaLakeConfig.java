@@ -21,13 +21,11 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import org.joda.time.DateTimeZone;
-
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 import java.util.TimeZone;
@@ -38,7 +36,9 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-@DefunctConfig("delta.experimental.ignore-checkpoint-write-failures")
+@DefunctConfig({
+        "delta.experimental.ignore-checkpoint-write-failures",
+        "delta.legacy-create-table-with-existing-location.enabled"})
 public class DeltaLakeConfig
 {
     public static final String EXTENDED_STATISTICS_ENABLED = "delta.extended-statistics.enabled";
@@ -49,17 +49,11 @@ public class DeltaLakeConfig
     @VisibleForTesting
     static final DataSize DEFAULT_DATA_FILE_CACHE_SIZE = DataSize.succinctBytes(Math.floorDiv(Runtime.getRuntime().maxMemory(), 10L));
 
-    public static final int MIN_READER_VERSION = 1;
-    public static final int MIN_WRITER_VERSION = 2;
-    // The highest reader and writer versions Trino supports writing to
-    public static final int MAX_READER_VERSION = 2;
-    public static final int MAX_WRITER_VERSION = 4;
-
     private Duration metadataCacheTtl = new Duration(5, TimeUnit.MINUTES);
     private long metadataCacheMaxSize = 1000;
     private DataSize dataFileCacheSize = DEFAULT_DATA_FILE_CACHE_SIZE;
     private Duration dataFileCacheTtl = new Duration(30, TimeUnit.MINUTES);
-    private int domainCompactionThreshold = 100;
+    private int domainCompactionThreshold = 1000;
     private int maxOutstandingSplits = 1_000;
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
     private int maxInitialSplits = 200;
@@ -70,6 +64,7 @@ public class DeltaLakeConfig
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
     private long defaultCheckpointWritingInterval = 10;
+    private boolean checkpointFilteringEnabled;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
     private Optional<String> hiveCatalogName = Optional.empty();
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
@@ -81,11 +76,11 @@ public class DeltaLakeConfig
     private boolean deleteSchemaLocationsFallback;
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
+    private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
     private boolean uniqueTableLocation = true;
-    private boolean legacyCreateTableWithExistingLocationEnabled;
     private boolean registerTableProcedureEnabled;
-    private int defaultReaderVersion = MIN_READER_VERSION;
-    private int defaultWriterVersion = MIN_WRITER_VERSION;
+    private boolean projectionPushdownEnabled = true;
+    private boolean queryPartitionFilterRequired;
 
     public Duration getMetadataCacheTtl()
     {
@@ -277,6 +272,18 @@ public class DeltaLakeConfig
         return defaultCheckpointWritingInterval;
     }
 
+    public boolean isCheckpointFilteringEnabled()
+    {
+        return checkpointFilteringEnabled;
+    }
+
+    @Config("delta.checkpoint-filtering.enabled")
+    public DeltaLakeConfig setCheckpointFilteringEnabled(boolean checkpointFilteringEnabled)
+    {
+        this.checkpointFilteringEnabled = checkpointFilteringEnabled;
+        return this;
+    }
+
     @NotNull
     public Duration getVacuumMinRetention()
     {
@@ -444,6 +451,20 @@ public class DeltaLakeConfig
         return this;
     }
 
+    @NotNull
+    public DataSize getIdleWriterMinFileSize()
+    {
+        return idleWriterMinFileSize;
+    }
+
+    @Config("delta.idle-writer-min-file-size")
+    @ConfigDescription("Minimum data written by a single partition writer before it can be consider as 'idle' and could be closed by the engine")
+    public DeltaLakeConfig setIdleWriterMinFileSize(DataSize idleWriterMinFileSize)
+    {
+        this.idleWriterMinFileSize = idleWriterMinFileSize;
+        return this;
+    }
+
     public boolean isUniqueTableLocation()
     {
         return uniqueTableLocation;
@@ -454,21 +475,6 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setUniqueTableLocation(boolean uniqueTableLocation)
     {
         this.uniqueTableLocation = uniqueTableLocation;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isLegacyCreateTableWithExistingLocationEnabled()
-    {
-        return legacyCreateTableWithExistingLocationEnabled;
-    }
-
-    @Deprecated
-    @Config("delta.legacy-create-table-with-existing-location.enabled")
-    @ConfigDescription("Enable using the CREATE TABLE statement to register an existing table")
-    public DeltaLakeConfig setLegacyCreateTableWithExistingLocationEnabled(boolean legacyCreateTableWithExistingLocationEnabled)
-    {
-        this.legacyCreateTableWithExistingLocationEnabled = legacyCreateTableWithExistingLocationEnabled;
         return this;
     }
 
@@ -485,33 +491,29 @@ public class DeltaLakeConfig
         return this;
     }
 
-    @Min(value = MIN_READER_VERSION, message = "Must be in between " + MIN_READER_VERSION + " and " + MAX_READER_VERSION)
-    @Max(value = MAX_READER_VERSION, message = "Must be in between " + MIN_READER_VERSION + " and " + MAX_READER_VERSION)
-    public int getDefaultReaderVersion()
+    public boolean isProjectionPushdownEnabled()
     {
-        return defaultReaderVersion;
+        return projectionPushdownEnabled;
     }
 
-    @Config("delta.default-reader-version")
-    @ConfigDescription("The default reader version used by new tables")
-    public DeltaLakeConfig setDefaultReaderVersion(int defaultReaderVersion)
+    @Config("delta.projection-pushdown-enabled")
+    @ConfigDescription("Read only required fields from a row type")
+    public DeltaLakeConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
-        this.defaultReaderVersion = defaultReaderVersion;
+        this.projectionPushdownEnabled = projectionPushdownEnabled;
         return this;
     }
 
-    @Min(value = MIN_WRITER_VERSION, message = "Must be in between " + MIN_WRITER_VERSION + " and " + MAX_WRITER_VERSION)
-    @Max(value = MAX_WRITER_VERSION, message = "Must be in between " + MIN_WRITER_VERSION + " and " + MAX_WRITER_VERSION)
-    public int getDefaultWriterVersion()
+    public boolean isQueryPartitionFilterRequired()
     {
-        return defaultWriterVersion;
+        return queryPartitionFilterRequired;
     }
 
-    @Config("delta.default-writer-version")
-    @ConfigDescription("The default writer version used by new tables")
-    public DeltaLakeConfig setDefaultWriterVersion(int defaultWriterVersion)
+    @Config("delta.query-partition-filter-required")
+    @ConfigDescription("Require filter on at least one partition column")
+    public DeltaLakeConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
     {
-        this.defaultWriterVersion = defaultWriterVersion;
+        this.queryPartitionFilterRequired = queryPartitionFilterRequired;
         return this;
     }
 }

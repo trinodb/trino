@@ -18,14 +18,17 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestLuhnCheckFunction
 {
     private QueryAssertions assertions;
@@ -58,16 +61,16 @@ public class TestLuhnCheckFunction
         assertThat(assertions.function("luhn_check", "NULL"))
                 .isNull(BOOLEAN);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("luhn_check", "'abcd424242424242'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("luhn_check", "'abcd424242424242'")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertThat(assertions.function("luhn_check", "'123456789'"))
                 .isEqualTo(false);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("luhn_check", "'\u4EA0\u4EFF\u4EA112345'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("luhn_check", "'\u4EA0\u4EFF\u4EA112345'")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("luhn_check", "'4242\u4FE124242424242'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("luhn_check", "'4242\u4FE124242424242'")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

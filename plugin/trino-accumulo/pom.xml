@@ -5,17 +5,17 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-accumulo</artifactId>
-    <description>Trino - Accumulo Connector</description>
     <packaging>trino-plugin</packaging>
+    <description>Trino - Accumulo Connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.curator.version>2.12.0</dep.curator.version>
+        <dep.curator.version>2.13.0</dep.curator.version>
     </properties>
 
     <dependencyManagement>
@@ -30,19 +30,18 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-accumulo-iterators</artifactId>
-            <version>${project.version}</version>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-collect</artifactId>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-plugin-toolkit</artifactId>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>
@@ -76,45 +75,35 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.prestosql.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
             <version>${dep.accumulo-hadoop.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-accumulo-iterators</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-cache</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -123,32 +112,20 @@
             <version>${dep.accumulo.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>org.apache.hadoop</groupId>
-                    <artifactId>hadoop-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.htrace</groupId>
-                    <artifactId>htrace-core</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>com.beust</groupId>
                     <artifactId>jcommander</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>commons-beanutils</groupId>
                     <artifactId>commons-beanutils-core</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>org.codehaus.plexus</groupId>
-                    <artifactId>plexus-utils</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.codehaus.plexus</groupId>
-                    <artifactId>plexus-utils</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
+                    <groupId>commons-cli</groupId>
+                    <artifactId>commons-cli</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>commons-logging</groupId>
@@ -159,8 +136,16 @@
                     <artifactId>jline</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>commons-cli</groupId>
-                    <artifactId>commons-cli</artifactId>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.htrace</groupId>
+                    <artifactId>htrace-core</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.maven.scm</groupId>
@@ -171,8 +156,12 @@
                     <artifactId>maven-scm-provider-svnexe</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
+                    <groupId>org.codehaus.plexus</groupId>
+                    <artifactId>plexus-utils</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.codehaus.plexus</groupId>
+                    <artifactId>plexus-utils</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -194,7 +183,42 @@
             <artifactId>zookeeper</artifactId>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
@@ -207,38 +231,22 @@
             </exclusions>
         </dependency>
 
-        <!-- Trino SPI -->
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
-            <scope>provided</scope>
+            <groupId>com.github.docker-java</groupId>
+            <artifactId>docker-java-api</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
-            <scope>provided</scope>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- for testing -->
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
-
             <exclusions>
                 <exclusion>
                     <groupId>commons-codec</groupId>
@@ -251,13 +259,18 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
-
             <exclusions>
                 <exclusion>
                     <groupId>commons-codec</groupId>
                     <artifactId>commons-codec</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -279,12 +292,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.docker-java</groupId>
-            <artifactId>docker-java-api</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
@@ -297,14 +304,20 @@
         </dependency>
 
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -312,15 +325,16 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
                     <execution>
                         <id>copy-iterators</id>
-                        <!-- the resource is not needed for compilation -->
-                        <phase>process-test-classes</phase>
                         <goals>
                             <goal>copy</goal>
                         </goals>
+                        <!-- the resource is not needed for compilation -->
+                        <phase>process-test-classes</phase>
                         <configuration>
                             <skip>false</skip>
                             <artifactItems>

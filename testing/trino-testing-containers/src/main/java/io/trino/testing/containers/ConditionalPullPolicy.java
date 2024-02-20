@@ -22,7 +22,7 @@ import static java.lang.System.getenv;
 public class ConditionalPullPolicy
         implements ImagePullPolicy
 {
-    private static final boolean TESTCONTAINERS_NEVER_PULL = "true".equalsIgnoreCase(getenv("TESTCONTAINERS_NEVER_PULL"));
+    public static final boolean TESTCONTAINERS_NEVER_PULL = "true".equalsIgnoreCase(getenv("TESTCONTAINERS_NEVER_PULL"));
     private static final ImagePullPolicy defaultPolicy = PullPolicy.defaultPolicy();
 
     @Override

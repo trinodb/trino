@@ -20,6 +20,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DoubleType;
@@ -28,7 +29,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -42,13 +43,11 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
-import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -80,10 +79,8 @@ public class BenchmarkGroupByHashOnSimulatedData
     private static final int DEFAULT_POSITIONS = 10_000_000;
     private static final int EXPECTED_GROUP_COUNT = 10_000;
     private static final int DEFAULT_PAGE_SIZE = 8192;
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
 
-    private final JoinCompiler joinCompiler = new JoinCompiler(TYPE_OPERATORS);
+    private final JoinCompiler joinCompiler = new JoinCompiler(new TypeOperators());
 
     @Benchmark
     @OperationsPerInvocation(DEFAULT_POSITIONS)
@@ -91,17 +88,15 @@ public class BenchmarkGroupByHashOnSimulatedData
     {
         GroupByHash groupByHash = GroupByHash.createGroupByHash(
                 data.getTypes(),
-                data.getChannels(),
-                Optional.empty(),
+                false,
                 EXPECTED_GROUP_COUNT,
                 false,
                 joinCompiler,
-                TYPE_OPERATOR_FACTORY,
                 NOOP);
-        List<GroupByIdBlock> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
+        List<int[]> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
+        PageBuilder pageBuilder = new PageBuilder(data.getTypes());
         for (int groupId = 0; groupId < groupByHash.getGroupCount(); groupId++) {
             pageBuilder.declarePosition();
             groupByHash.appendValuesTo(groupId, pageBuilder);
@@ -127,12 +122,12 @@ public class BenchmarkGroupByHashOnSimulatedData
         }
     }
 
-    private List<GroupByIdBlock> addInputPages(GroupByHash groupByHash, List<Page> pages, WorkType workType)
+    private List<int[]> addInputPages(GroupByHash groupByHash, List<Page> pages, WorkType workType)
     {
-        List<GroupByIdBlock> results = new ArrayList<>();
+        List<int[]> results = new ArrayList<>();
         for (Page page : pages) {
             if (workType == GET_GROUPS) {
-                Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+                Work<int[]> work = groupByHash.getGroupIds(page);
                 boolean finished;
                 do {
                     finished = work.process();
@@ -163,19 +158,19 @@ public class BenchmarkGroupByHashOnSimulatedData
         BIGINT(BigintType.BIGINT, (blockBuilder, positionCount, seed) -> {
             Random r = new Random(seed);
             for (int i = 0; i < positionCount; i++) {
-                blockBuilder.writeLong((r.nextLong() >>> 1)); // Only positives
+                BigintType.BIGINT.writeLong(blockBuilder, r.nextLong() >>> 1); // Only positives
             }
         }),
         INT(IntegerType.INTEGER, (blockBuilder, positionCount, seed) -> {
             Random r = new Random(seed);
             for (int i = 0; i < positionCount; i++) {
-                blockBuilder.writeInt(r.nextInt());
+                IntegerType.INTEGER.writeInt(blockBuilder, r.nextInt());
             }
         }),
         DOUBLE(DoubleType.DOUBLE, (blockBuilder, positionCount, seed) -> {
             Random r = new Random(seed);
             for (int i = 0; i < positionCount; i++) {
-                blockBuilder.writeLong((r.nextLong() >>> 1)); // Only positives
+                ((LongArrayBlockBuilder) blockBuilder).writeLong(r.nextLong() >>> 1); // Only positives
             }
         }),
         VARCHAR_25(VarcharType.VARCHAR, (blockBuilder, positionCount, seed) -> {
@@ -198,13 +193,9 @@ public class BenchmarkGroupByHashOnSimulatedData
 
         private static void writeVarchar(BlockBuilder blockBuilder, int positionCount, long seed, int maxLength)
         {
-            Random r = new Random(seed);
-
+            Random random = new Random(seed);
             for (int i = 0; i < positionCount; i++) {
-                int length = 1 + r.nextInt(maxLength - 1);
-                byte[] bytes = new byte[length];
-                r.nextBytes(bytes);
-                VarcharType.VARCHAR.writeSlice(blockBuilder, Slices.wrappedBuffer(bytes));
+                VarcharType.VARCHAR.writeSlice(blockBuilder, Slices.random(1 + random.nextInt(maxLength - 1), random));
             }
         }
 
@@ -243,7 +234,6 @@ public class BenchmarkGroupByHashOnSimulatedData
         private final int positions;
         private List<Page> pages;
         private List<Type> types;
-        private int[] channels;
 
         public BenchmarkContext()
         {
@@ -264,7 +254,6 @@ public class BenchmarkGroupByHashOnSimulatedData
             types = query.getChannels().stream()
                     .map(channel -> channel.columnType.type)
                     .collect(toImmutableList());
-            channels = IntStream.range(0, query.getChannels().size()).toArray();
             pages = createPages(query);
         }
 
@@ -300,11 +289,6 @@ public class BenchmarkGroupByHashOnSimulatedData
         public List<Type> getTypes()
         {
             return types;
-        }
-
-        public int[] getChannels()
-        {
-            return channels;
         }
 
         public WorkType getWorkType()
@@ -467,11 +451,6 @@ public class BenchmarkGroupByHashOnSimulatedData
             this.channels = Arrays.stream(requireNonNull(channels, "channels is null")).collect(toImmutableList());
         }
 
-        public int getPageSize()
-        {
-            return pageSize;
-        }
-
         public List<ChannelDefinition> getChannels()
         {
             return channels;
@@ -562,7 +541,7 @@ public class BenchmarkGroupByHashOnSimulatedData
 
         private void createNonDictionaryBlock(int blockCount, int positionsPerBlock, int channel, double nullChance, Block[] blocks)
         {
-            BlockBuilder allValues = generateValues(channel, distinctValuesCountInColumn);
+            Block allValues = generateValues(channel, distinctValuesCountInColumn).build();
             Random r = new Random(channel);
             for (int i = 0; i < blockCount; i++) {
                 BlockBuilder block = columnType.getType().createBlockBuilder(null, positionsPerBlock);
@@ -614,7 +593,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         // Pollute JVM profile
         BenchmarkGroupByHashOnSimulatedData benchmark = new BenchmarkGroupByHashOnSimulatedData();
         for (WorkType workType : WorkType.values()) {
-            for (double nullChance : new double[] {0, .1, .5, .9}) {
+            for (double nullChance : new double[] {0, 0.1, 0.5, 0.9}) {
                 for (AggregationDefinition query : new AggregationDefinition[] {BIGINT_2_GROUPS, BIGINT_1K_GROUPS, BIGINT_1M_GROUPS}) {
                     BenchmarkContext context = new BenchmarkContext(workType, query, nullChance, 8000);
                     context.setup();

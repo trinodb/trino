@@ -13,8 +13,8 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
@@ -34,14 +34,14 @@ public class TestAbfsSyncPartitionMetadata
 {
     private final String schema = "test_" + randomNameSuffix();
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         removeHdfsDirectory(schemaLocation());
         makeHdfsDirectory(schemaLocation());
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void tearDown()
     {
         removeHdfsDirectory(schemaLocation());

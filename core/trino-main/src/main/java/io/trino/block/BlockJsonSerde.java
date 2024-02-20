@@ -20,14 +20,13 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
+import com.google.inject.Inject;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 

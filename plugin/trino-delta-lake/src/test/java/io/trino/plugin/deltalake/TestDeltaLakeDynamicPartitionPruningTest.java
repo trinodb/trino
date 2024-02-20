@@ -15,10 +15,9 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseDynamicPartitionPruningTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -30,6 +29,7 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestDeltaLakeDynamicPartitionPruningTest
         extends BaseDynamicPartitionPruningTest
@@ -38,7 +38,7 @@ public class TestDeltaLakeDynamicPartitionPruningTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, EXTRA_PROPERTIES, ImmutableMap.of(
+        QueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, EXTRA_PROPERTIES, ImmutableMap.of(
                 "delta.dynamic-filtering.wait-timeout", "1h",
                 "delta.enable-non-concurrent-writes", "true"));
         for (TpchTable<?> table : REQUIRED_TABLES) {
@@ -47,10 +47,11 @@ public class TestDeltaLakeDynamicPartitionPruningTest
         return queryRunner;
     }
 
+    @Test
     @Override
     public void testJoinDynamicFilteringMultiJoinOnBucketedTables()
     {
-        throw new SkipException("Delta Lake does not support bucketing");
+        abort("Delta Lake does not support bucketing");
     }
 
     @Override

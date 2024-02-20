@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
-import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -31,7 +31,6 @@ import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.RowExpressionVisitor;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.VariableReferenceExpression;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,7 +38,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
@@ -53,6 +52,8 @@ import static io.trino.type.JsonType.JSON;
 
 public class ExpressionOptimizer
 {
+    private static final CatalogSchemaFunctionName JSON_PARSE_NAME = builtinFunctionName("json_parse");
+
     private final Metadata metadata;
     private final FunctionManager functionManager;
     private final Session session;
@@ -87,7 +88,7 @@ public class ExpressionOptimizer
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {
-            if (call.getResolvedFunction().getSignature().getName().equals(mangleOperatorName(CAST))) {
+            if (call.getResolvedFunction().getSignature().getName().equals(builtinFunctionName(CAST))) {
                 call = rewriteCast(call);
             }
 
@@ -96,8 +97,7 @@ public class ExpressionOptimizer
                     .collect(toImmutableList());
 
             // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
-            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(session, call.getResolvedFunction());
-            if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && functionMetadata.isDeterministic()) {
+            if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && call.getResolvedFunction().isDeterministic()) {
                 List<Object> constantArguments = arguments.stream()
                         .map(ConstantExpression.class::cast)
                         .map(ConstantExpression::getValue)
@@ -191,30 +191,30 @@ public class ExpressionOptimizer
         {
             if (call.getArguments().get(0) instanceof CallExpression innerCall) {
                 // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
-                if (innerCall.getResolvedFunction().getSignature().getName().equals("json_parse")) {
+                if (innerCall.getResolvedFunction().getSignature().getName().equals(JSON_PARSE_NAME)) {
                     checkArgument(innerCall.getType().equals(JSON));
                     checkArgument(innerCall.getArguments().size() == 1);
                     Type returnType = call.getType();
                     if (returnType instanceof ArrayType) {
                         return call(
-                                metadata.getCoercion(session, QualifiedName.of(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
+                                metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof MapType) {
                         return call(
-                                metadata.getCoercion(session, QualifiedName.of(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
+                                metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof RowType) {
                         return call(
-                                metadata.getCoercion(session, QualifiedName.of(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
+                                metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
                                 innerCall.getArguments());
                     }
                 }
             }
 
             return call(
-                    metadata.getCoercion(session, call.getArguments().get(0).getType(), call.getType()),
+                    metadata.getCoercion(call.getArguments().get(0).getType(), call.getType()),
                     call.getArguments());
         }
     }

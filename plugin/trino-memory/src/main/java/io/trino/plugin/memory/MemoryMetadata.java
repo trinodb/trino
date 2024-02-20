@@ -17,6 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -32,8 +36,11 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
@@ -42,13 +49,12 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.ViewNotFoundException;
+import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -62,19 +68,23 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SampleType.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 @ThreadSafe
 public class MemoryMetadata
@@ -83,11 +93,16 @@ public class MemoryMetadata
     public static final String SCHEMA_NAME = "default";
 
     private final NodeManager nodeManager;
+    @GuardedBy("this")
     private final List<String> schemas = new ArrayList<>();
     private final AtomicLong nextTableId = new AtomicLong();
+    @GuardedBy("this")
     private final Map<SchemaTableName, Long> tableIds = new HashMap<>();
+    @GuardedBy("this")
     private final Map<Long, TableInfo> tables = new HashMap<>();
+    @GuardedBy("this")
     private final Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
+    private final Map<SchemaFunctionName, Map<String, LanguageFunction>> functions = new HashMap<>();
 
     @Inject
     public MemoryMetadata(NodeManager nodeManager)
@@ -112,12 +127,24 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void dropSchema(ConnectorSession session, String schemaName)
+    public synchronized void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         if (!schemas.contains(schemaName)) {
             throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
         }
 
+        if (cascade) {
+            Set<SchemaTableName> viewNames = views.keySet().stream()
+                    .filter(view -> view.getSchemaName().equals(schemaName))
+                    .collect(toImmutableSet());
+            viewNames.forEach(viewName -> dropView(session, viewName));
+
+            Set<SchemaTableName> tableNames = tables.values().stream()
+                    .filter(table -> table.getSchemaName().equals(schemaName))
+                    .map(TableInfo::getSchemaTableName)
+                    .collect(toImmutableSet());
+            tableNames.forEach(tableName -> dropTable(session, getTableHandle(session, tableName, Optional.empty(), Optional.empty())));
+        }
         // DropSchemaTask has the same logic, but needs to check in connector side considering concurrent operations
         if (!isSchemaEmpty(schemaName)) {
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
@@ -126,27 +153,29 @@ public class MemoryMetadata
         verify(schemas.remove(schemaName));
     }
 
+    @GuardedBy("this")
     private boolean isSchemaEmpty(String schemaName)
     {
-        if (tables.values().stream()
-                .anyMatch(table -> table.getSchemaName().equals(schemaName))) {
-            return false;
-        }
-
-        if (views.keySet().stream()
-                .anyMatch(view -> view.getSchemaName().equals(schemaName))) {
-            return false;
-        }
-
-        return true;
+        return tables.values().stream().noneMatch(table -> table.getSchemaName().equals(schemaName)) &&
+                views.keySet().stream().noneMatch(view -> view.getSchemaName().equals(schemaName));
     }
 
     @Override
-    public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        throw new UnsupportedOperationException("This method is not supported because getTableHandle with versions is implemented instead");
+    }
+
+    @Override
+    public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
         Long id = tableIds.get(schemaTableName);
         if (id == null) {
             return null;
+        }
+
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
 
         return new MemoryTableHandle(id);
@@ -201,15 +230,37 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        // This list must be materialized before returning, otherwise the iterator could throw a ConcurrentModificationException
-        // if another thread modifies the tables map before the iterator is fully consumed
-        List<TableColumnsMetadata> columnsMetadata = tables.values().stream()
-                .filter(table -> prefix.matches(table.getSchemaTableName()))
-                .map(tableInfo -> TableColumnsMetadata.forTable(tableInfo.getSchemaTableName(), tableInfo.getMetadata().getColumns()))
-                .collect(toImmutableList());
-        return columnsMetadata.iterator();
+        throw new UnsupportedOperationException("The deprecated streamTableColumns is not supported because streamRelationColumns is implemented instead");
+    }
+
+    @Override
+    public synchronized Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Map<SchemaTableName, RelationColumnsMetadata> relationsColumns = Streams.concat(
+                        tables.values().stream()
+                                .map(tableInfo -> RelationColumnsMetadata.forTable(tableInfo.getSchemaTableName(), tableInfo.getMetadata().getColumns())),
+                        views.entrySet().stream()
+                                .map(entry -> RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns())))
+                .collect(toImmutableMap(RelationColumnsMetadata::name, identity()));
+        return relationFilter.apply(relationsColumns.keySet()).stream()
+                .map(relationsColumns::get)
+                .iterator();
+    }
+
+    @Override
+    public synchronized Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Map<SchemaTableName, RelationCommentMetadata> relationsColumns = Streams.concat(
+                        tables.values().stream()
+                                .map(tableInfo -> RelationCommentMetadata.forRelation(tableInfo.getSchemaTableName(), tableInfo.getMetadata().getComment())),
+                        views.entrySet().stream()
+                                .map(entry -> RelationCommentMetadata.forRelation(entry.getKey(), entry.getValue().getComment())))
+                .collect(toImmutableMap(RelationCommentMetadata::name, identity()));
+        return relationFilter.apply(relationsColumns.keySet()).stream()
+                .map(relationsColumns::get)
+                .iterator();
     }
 
     @Override
@@ -272,6 +323,7 @@ public class MemoryMetadata
         return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()));
     }
 
+    @GuardedBy("this")
     private void checkSchemaExists(String schemaName)
     {
         if (!schemas.contains(schemaName)) {
@@ -279,6 +331,7 @@ public class MemoryMetadata
         }
     }
 
+    @GuardedBy("this")
     private void checkTableNotExists(SchemaTableName tableName)
     {
         if (tableIds.containsKey(tableName)) {
@@ -344,7 +397,8 @@ public class MemoryMetadata
                 view.getColumns(),
                 comment,
                 view.getOwner(),
-                view.isRunAsInvoker()));
+                view.isRunAsInvoker(),
+                view.getPath()));
     }
 
     @Override
@@ -360,7 +414,8 @@ public class MemoryMetadata
                         .collect(toImmutableList()),
                 view.getComment(),
                 view.getOwner(),
-                view.isRunAsInvoker()));
+                view.isRunAsInvoker(),
+                view.getPath()));
     }
 
     @Override
@@ -414,14 +469,11 @@ public class MemoryMetadata
         return Optional.ofNullable(views.get(viewName));
     }
 
+    @GuardedBy("this")
     private void updateRowsOnHosts(long tableId, Collection<Slice> fragments)
     {
         TableInfo info = tables.get(tableId);
-        checkState(
-                info != null,
-                "Uninitialized tableId [%s.%s]",
-                info.getSchemaName(),
-                info.getTableName());
+        checkState(info != null, "Uninitialized tableId %s", tableId);
 
         Map<HostAddress, MemoryDataFragment> dataFragments = new HashMap<>(info.getDataFragments());
         for (Slice fragment : fragments) {
@@ -432,7 +484,7 @@ public class MemoryMetadata
         tables.put(tableId, new TableInfo(tableId, info.getSchemaName(), info.getTableName(), info.getColumns(), dataFragments, info.getComment()));
     }
 
-    public List<MemoryDataFragment> getDataFragments(long tableId)
+    public synchronized List<MemoryDataFragment> getDataFragments(long tableId)
     {
         return ImmutableList.copyOf(tables.get(tableId).getDataFragments().values());
     }
@@ -504,5 +556,49 @@ public class MemoryMetadata
                                 .collect(toImmutableList()),
                         info.getDataFragments(),
                         info.getComment()));
+    }
+
+    @Override
+    public synchronized Collection<LanguageFunction> listLanguageFunctions(ConnectorSession session, String schemaName)
+    {
+        return functions.entrySet().stream()
+                .filter(entry -> entry.getKey().getSchemaName().equals(schemaName))
+                .flatMap(entry -> entry.getValue().values().stream())
+                .toList();
+    }
+
+    @Override
+    public synchronized Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        return functions.getOrDefault(name, Map.of()).values();
+    }
+
+    @Override
+    public synchronized boolean languageFunctionExists(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        return functions.getOrDefault(name, Map.of()).containsKey(signatureToken);
+    }
+
+    @Override
+    public synchronized void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
+    {
+        Map<String, LanguageFunction> map = functions.computeIfAbsent(name, ignored -> new HashMap<>());
+        if (!replace && map.containsKey(function.signatureToken())) {
+            throw new TrinoException(ALREADY_EXISTS, "Function already exists");
+        }
+        map.put(function.signatureToken(), function);
+    }
+
+    @Override
+    public synchronized void dropLanguageFunction(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        Map<String, LanguageFunction> map = functions.get(name);
+        if ((map == null) || !map.containsKey(signatureToken)) {
+            throw new TrinoException(NOT_FOUND, "Function not found");
+        }
+        map.remove(signatureToken);
+        if (map.isEmpty()) {
+            functions.remove(name);
+        }
     }
 }

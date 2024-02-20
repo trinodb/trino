@@ -20,7 +20,7 @@ import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.airlift.testing.TempFile;
-import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
@@ -95,7 +95,7 @@ public class TestTrinoCli
             throws IOException
     {}
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     @Override
     public void stopCli()
             throws InterruptedException

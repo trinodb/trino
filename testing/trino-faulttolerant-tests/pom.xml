@@ -5,29 +5,41 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-faulttolerant-tests</artifactId>
-    <name>trino-faulttolerant-tests</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-
-        <!--
-          Project's default for air.test.parallel is 'methods'. By design, 'instances' runs all the methods in the same instance in the same thread,
-          but two methods on two different instances will be running in different threads.
-          As a side effect, it prevents TestNG from initializing multiple test instances upfront, which happens with 'methods'.
-          This reduces tests' memory footprint, which generally allows them to complete faster.
-          A potential downside can be long tail single-threaded execution of a single long test class.
-          TODO (https://github.com/trinodb/trino/issues/11294) remove when we upgrade to surefire with https://issues.apache.org/jira/browse/SUREFIRE-1967
-          -->
-        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>
-        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
@@ -77,38 +89,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
+            <groupId>jakarta.ws.rs</groupId>
+            <artifactId>jakarta.ws.rs-api</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -119,9 +101,27 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>provided</scope>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -177,14 +177,20 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hdfs</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.alluxio</groupId>
-                    <artifactId>alluxio-shaded-client</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -192,25 +198,12 @@
             <artifactId>trino-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.alluxio</groupId>
-                    <artifactId>alluxio-shaded-client</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-iceberg</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- calcite-core and iceberg-data have conflicting versions of org.apache.commons:commons-lang3 -->
-                    <groupId>org.apache.commons</groupId>
-                    <artifactId>commons-lang3</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -218,13 +211,6 @@
             <artifactId>trino-iceberg</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- calcite-core and iceberg-data have conflicting versions of org.apache.commons:commons-lang3 -->
-                    <groupId>org.apache.commons</groupId>
-                    <artifactId>commons-lang3</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -374,24 +360,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>bootstrap</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
             <scope>test</scope>
@@ -403,7 +371,18 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- for benchmarks -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
@@ -445,12 +424,6 @@
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
@@ -460,13 +433,8 @@
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
                 <configuration>
                     <ignoredResourcePatterns>
-                        <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
-                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
-                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
                         <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
-                        <!-- TODO: To be removed https://github.com/trinodb/trino/issues/15371 -->
-                        <ignoredResourcePattern>google/protobuf/.*\.proto$</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>

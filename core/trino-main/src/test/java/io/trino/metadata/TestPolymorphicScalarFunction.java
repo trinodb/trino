@@ -28,11 +28,13 @@ import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.TypeSignature;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_BIGINT_RETURN_VALUE;
 import static io.trino.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_VARCHAR_RETURN_VALUE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -47,22 +49,24 @@ import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestPolymorphicScalarFunction
 {
     private static final FunctionManager FUNCTION_MANAGER = createTestingFunctionManager();
+    private static final String FUNCTION_NAME = "foo";
     private static final Signature SIGNATURE = Signature.builder()
-            .name("foo")
             .returnType(BIGINT)
             .argumentType(new TypeSignature("varchar", typeVariable("x")))
             .build();
     private static final int INPUT_VARCHAR_LENGTH = 10;
     private static final Slice INPUT_SLICE = Slices.allocate(INPUT_VARCHAR_LENGTH);
-    private static final BoundSignature BOUND_SIGNATURE = new BoundSignature(SIGNATURE.getName(), BIGINT, ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
+
+    private static final BoundSignature BOUND_SIGNATURE = new BoundSignature(
+            builtinFunctionName(FUNCTION_NAME),
+            BIGINT,
+            ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
 
     private static final TypeSignature DECIMAL_SIGNATURE = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
 
@@ -75,13 +79,12 @@ public class TestPolymorphicScalarFunction
             throws Throwable
     {
         Signature signature = Signature.builder()
-                .operatorType(IS_DISTINCT_FROM)
                 .argumentType(DECIMAL_SIGNATURE)
                 .argumentType(DECIMAL_SIGNATURE)
                 .returnType(BOOLEAN)
                 .build();
 
-        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(IS_DISTINCT_FROM, TestMethods.class)
                 .signature(signature)
                 .argumentNullability(true, true)
                 .deterministic(true)
@@ -98,34 +101,36 @@ public class TestPolymorphicScalarFunction
                                         asList(Optional.of(long.class), Optional.of(long.class)))))
                 .build();
 
-        BoundSignature shortDecimalBoundSignature = new BoundSignature(signature.getName(), BOOLEAN, ImmutableList.of(SHORT_DECIMAL_BOUND_TYPE, SHORT_DECIMAL_BOUND_TYPE));
+        BoundSignature shortDecimalBoundSignature = new BoundSignature(
+                builtinFunctionName(mangleOperatorName(IS_DISTINCT_FROM)),
+                BOOLEAN,
+                ImmutableList.of(SHORT_DECIMAL_BOUND_TYPE, SHORT_DECIMAL_BOUND_TYPE));
         ChoicesSpecializedSqlScalarFunction specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(
                 shortDecimalBoundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
 
-        assertEquals(specializedFunction.getChoices().size(), 2);
-        assertEquals(
-                specializedFunction.getChoices().get(0).getInvocationConvention(),
-                new InvocationConvention(ImmutableList.of(NULL_FLAG, NULL_FLAG), FAIL_ON_NULL, false, false));
-        assertEquals(
-                specializedFunction.getChoices().get(1).getInvocationConvention(),
-                new InvocationConvention(ImmutableList.of(BLOCK_POSITION, BLOCK_POSITION), FAIL_ON_NULL, false, false));
+        assertThat(specializedFunction.getChoices().size()).isEqualTo(2);
+        assertThat(specializedFunction.getChoices().get(0).getInvocationConvention()).isEqualTo(new InvocationConvention(ImmutableList.of(NULL_FLAG, NULL_FLAG), FAIL_ON_NULL, false, false));
+        assertThat(specializedFunction.getChoices().get(1).getInvocationConvention()).isEqualTo(new InvocationConvention(ImmutableList.of(BLOCK_POSITION, BLOCK_POSITION), FAIL_ON_NULL, false, false));
         Block block1 = new LongArrayBlock(0, Optional.empty(), new long[0]);
         Block block2 = new LongArrayBlock(0, Optional.empty(), new long[0]);
-        assertFalse((boolean) specializedFunction.getChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0));
+        assertThat((boolean) specializedFunction.getChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0)).isFalse();
 
-        BoundSignature longDecimalBoundSignature = new BoundSignature(signature.getName(), BOOLEAN, ImmutableList.of(LONG_DECIMAL_BOUND_TYPE, LONG_DECIMAL_BOUND_TYPE));
+        BoundSignature longDecimalBoundSignature = new BoundSignature(
+                builtinFunctionName(mangleOperatorName(IS_DISTINCT_FROM)),
+                BOOLEAN,
+                ImmutableList.of(LONG_DECIMAL_BOUND_TYPE, LONG_DECIMAL_BOUND_TYPE));
         specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(
                 longDecimalBoundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
-        assertTrue((boolean) specializedFunction.getChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0));
+        assertThat((boolean) specializedFunction.getChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0)).isTrue();
     }
 
     @Test
     public void testSelectsMethodBasedOnArgumentTypes()
             throws Throwable
     {
-        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -138,14 +143,14 @@ public class TestPolymorphicScalarFunction
         ChoicesSpecializedSqlScalarFunction specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(
                 BOUND_SIGNATURE,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
-        assertEquals(specializedFunction.getChoices().get(0).getMethodHandle().invoke(INPUT_SLICE), (long) INPUT_VARCHAR_LENGTH);
+        assertThat(specializedFunction.getChoices().get(0).getMethodHandle().invoke(INPUT_SLICE)).isEqualTo((long) INPUT_VARCHAR_LENGTH);
     }
 
     @Test
     public void testSelectsMethodBasedOnReturnType()
             throws Throwable
     {
-        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -159,7 +164,7 @@ public class TestPolymorphicScalarFunction
                 BOUND_SIGNATURE,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
 
-        assertEquals(specializedFunction.getChoices().get(0).getMethodHandle().invoke(INPUT_SLICE), VARCHAR_TO_BIGINT_RETURN_VALUE);
+        assertThat(specializedFunction.getChoices().get(0).getMethodHandle().invoke(INPUT_SLICE)).isEqualTo(VARCHAR_TO_BIGINT_RETURN_VALUE);
     }
 
     @Test
@@ -167,25 +172,27 @@ public class TestPolymorphicScalarFunction
             throws Throwable
     {
         Signature signature = Signature.builder()
-                .name("foo")
                 .returnType(new TypeSignature("varchar", typeVariable("x")))
                 .argumentType(new TypeSignature("varchar", typeVariable("x")))
                 .build();
 
-        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        BoundSignature boundSignature = new BoundSignature(signature.getName(), createVarcharType(INPUT_VARCHAR_LENGTH), ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
+        BoundSignature boundSignature = new BoundSignature(
+                builtinFunctionName(FUNCTION_NAME),
+                createVarcharType(INPUT_VARCHAR_LENGTH),
+                ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
 
         ChoicesSpecializedSqlScalarFunction specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
         Slice slice = (Slice) specializedFunction.getChoices().get(0).getMethodHandle().invoke(INPUT_SLICE);
-        assertEquals(slice, VARCHAR_TO_VARCHAR_RETURN_VALUE);
+        assertThat(slice).isEqualTo(VARCHAR_TO_VARCHAR_RETURN_VALUE);
     }
 
     @Test
@@ -193,7 +200,6 @@ public class TestPolymorphicScalarFunction
             throws Throwable
     {
         Signature signature = Signature.builder()
-                .name("foo")
                 .typeVariableConstraint(TypeVariableConstraint.builder("V")
                         .comparableRequired()
                         .variadicBound("ROW")
@@ -202,51 +208,56 @@ public class TestPolymorphicScalarFunction
                 .argumentType(new TypeSignature("V"))
                 .build();
 
-        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        BoundSignature boundSignature = new BoundSignature(signature.getName(), VARCHAR, ImmutableList.of(VARCHAR));
+        BoundSignature boundSignature = new BoundSignature(
+                builtinFunctionName(FUNCTION_NAME),
+                VARCHAR,
+                ImmutableList.of(VARCHAR));
 
         ChoicesSpecializedSqlScalarFunction specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
         Slice slice = (Slice) specializedFunction.getChoices().get(0).getMethodHandle().invoke(INPUT_SLICE);
-        assertEquals(slice, VARCHAR_TO_VARCHAR_RETURN_VALUE);
+        assertThat(slice).isEqualTo(VARCHAR_TO_VARCHAR_RETURN_VALUE);
     }
 
     @Test
     public void testSetsHiddenToTrueForOperators()
     {
         Signature signature = Signature.builder()
-                .operatorType(ADD)
                 .returnType(new TypeSignature("varchar", typeVariable("x")))
                 .argumentType(new TypeSignature("varchar", typeVariable("x")))
                 .build();
 
-        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(ADD, TestMethods.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        BoundSignature boundSignature = new BoundSignature(signature.getName(), createVarcharType(INPUT_VARCHAR_LENGTH), ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
+        BoundSignature boundSignature = new BoundSignature(
+                builtinFunctionName(mangleOperatorName(ADD)),
+                createVarcharType(INPUT_VARCHAR_LENGTH),
+                ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
         function.specialize(boundSignature, new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
     }
 
     @Test
     public void testFailIfNotAllMethodsPresent()
     {
-        assertThatThrownBy(() -> new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        assertThatThrownBy(() -> new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("bigintToBigintReturnExtraParameter"))
-                        .implementation(methodsGroup -> methodsGroup.methods("foo")))
+                        .implementation(methodsGroup -> methodsGroup.methods(FUNCTION_NAME)))
                 .build())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageMatching("method foo was not found in class io.trino.metadata.TestPolymorphicScalarFunction\\$TestMethods");
@@ -255,7 +266,7 @@ public class TestPolymorphicScalarFunction
     @Test
     public void testFailNoMethodsAreSelectedWhenExtraParametersFunctionIsSet()
     {
-        assertThatThrownBy(() -> new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        assertThatThrownBy(() -> new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -269,7 +280,7 @@ public class TestPolymorphicScalarFunction
     @Test
     public void testFailIfTwoMethodsWithSameArguments()
     {
-        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice

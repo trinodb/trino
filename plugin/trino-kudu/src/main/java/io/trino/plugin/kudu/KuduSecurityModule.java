@@ -15,6 +15,7 @@ package io.trino.plugin.kudu;
 
 import com.google.inject.Binder;
 import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosAuthentication;
@@ -23,8 +24,6 @@ import io.trino.plugin.kudu.schema.NoSchemaEmulation;
 import io.trino.plugin.kudu.schema.SchemaEmulation;
 import io.trino.plugin.kudu.schema.SchemaEmulationByTableNameConvention;
 import org.apache.kudu.client.KuduClient;
-
-import javax.inject.Singleton;
 
 import java.util.function.Function;
 
@@ -116,6 +115,6 @@ public class KuduSecurityModule
         else {
             strategy = new NoSchemaEmulation();
         }
-        return new KuduClientSession(client, strategy);
+        return new KuduClientSession(client, strategy, config.isAllowLocalScheduling());
     }
 }

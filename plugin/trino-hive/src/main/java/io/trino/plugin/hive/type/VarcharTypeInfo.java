@@ -14,12 +14,14 @@
 package io.trino.plugin.hive.type;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.util.SerdeConstants.VARCHAR_TYPE_NAME;
 
 // based on org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo
 public final class VarcharTypeInfo
         extends BaseCharTypeInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(VarcharTypeInfo.class);
     public static final int MAX_VARCHAR_LENGTH = 65535;
 
     public VarcharTypeInfo(int length)
@@ -39,5 +41,11 @@ public final class VarcharTypeInfo
     public int hashCode()
     {
         return getLength();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + getDeclaredFieldsRetainedSizeInBytes();
     }
 }

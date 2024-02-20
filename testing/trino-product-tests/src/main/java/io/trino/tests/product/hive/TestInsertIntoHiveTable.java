@@ -28,7 +28,6 @@ import java.time.LocalDateTime;
 
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
@@ -36,6 +35,7 @@ import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInsertIntoHiveTable
         extends ProductTest

@@ -36,6 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
@@ -59,7 +60,8 @@ public abstract class AbstractParquetDataSource
     protected Slice readTailInternal(int length)
             throws IOException
     {
-        return readFully(estimatedSize - length, length);
+        int readSize = toIntExact(min(estimatedSize, length));
+        return readFully(estimatedSize - readSize, readSize);
     }
 
     protected abstract void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)

@@ -15,10 +15,9 @@ package io.trino.cost;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.sql.planner.OptimizerConfig;
-
-import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;

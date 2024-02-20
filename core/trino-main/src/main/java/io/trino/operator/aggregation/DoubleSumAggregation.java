@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
+import io.trino.operator.aggregation.state.LongAndDoubleState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -30,34 +31,34 @@ public final class DoubleSumAggregation
     private DoubleSumAggregation() {}
 
     @InputFunction
-    public static void sum(@AggregationState LongDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static void sum(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        state.setFirst(state.getFirst() + 1);
-        state.setSecond(state.getSecond() + value);
+        state.setLong(state.getLong() + 1);
+        state.setDouble(state.getDouble() + value);
     }
 
     @RemoveInputFunction
-    public static void removeInput(@AggregationState LongDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static void removeInput(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        state.setFirst(state.getFirst() - 1);
-        state.setSecond(state.getSecond() - value);
+        state.setLong(state.getLong() - 1);
+        state.setDouble(state.getDouble() - value);
     }
 
     @CombineFunction
-    public static void combine(@AggregationState LongDoubleState state, @AggregationState LongDoubleState otherState)
+    public static void combine(@AggregationState LongAndDoubleState state, @AggregationState LongAndDoubleState otherState)
     {
-        state.setFirst(state.getFirst() + otherState.getFirst());
-        state.setSecond(state.getSecond() + otherState.getSecond());
+        state.setLong(state.getLong() + otherState.getLong());
+        state.setDouble(state.getDouble() + otherState.getDouble());
     }
 
     @OutputFunction(StandardTypes.DOUBLE)
-    public static void output(@AggregationState LongDoubleState state, BlockBuilder out)
+    public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {
-        if (state.getFirst() == 0) {
+        if (state.getLong() == 0) {
             out.appendNull();
         }
         else {
-            DoubleType.DOUBLE.writeDouble(out, state.getSecond());
+            DoubleType.DOUBLE.writeDouble(out, state.getDouble());
         }
     }
 }

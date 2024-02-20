@@ -14,6 +14,7 @@
 package io.trino.plugin.accumulo;
 
 import io.trino.testing.TestingProperties;
+import io.trino.testing.containers.junit.ReportLeakedContainers;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -63,6 +64,7 @@ public class TestingAccumuloServer
         // TODO Change this class to not be a singleton
         //  https://github.com/trinodb/trino/issues/5842
         accumuloContainer.start();
+        ReportLeakedContainers.ignoreContainerId(accumuloContainer.getContainerId());
     }
 
     public String getInstanceName()

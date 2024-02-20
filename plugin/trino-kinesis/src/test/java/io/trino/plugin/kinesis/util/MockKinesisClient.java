@@ -60,13 +60,13 @@ import static java.lang.Integer.parseInt;
 public class MockKinesisClient
         extends AmazonKinesisClient
 {
-    private List<InternalStream> streams = new ArrayList<>();
+    private final List<InternalStream> streams = new ArrayList<>();
 
     public static class InternalShard
             extends Shard
     {
-        private List<Record> recs = new ArrayList<>();
-        private int index;
+        private final List<Record> recs = new ArrayList<>();
+        private final int index;
 
         public InternalShard(String streamName, int index)
         {
@@ -128,7 +128,7 @@ public class MockKinesisClient
 
             for (int i = 0; i < shardCount; i++) {
                 InternalShard newShard = new InternalShard(this.streamName, i);
-                newShard.setSequenceNumberRange((new SequenceNumberRange()).withStartingSequenceNumber("100").withEndingSequenceNumber("999"));
+                newShard.setSequenceNumberRange(new SequenceNumberRange().withStartingSequenceNumber("100").withEndingSequenceNumber("999"));
                 this.shards.add(newShard);
             }
         }
@@ -304,7 +304,7 @@ public class MockKinesisClient
     public CreateStreamResult createStream(String streamName, Integer integer)
             throws AmazonClientException
     {
-        return this.createStream((new CreateStreamRequest()).withStreamName(streamName).withShardCount(integer));
+        return this.createStream(new CreateStreamRequest().withStreamName(streamName).withShardCount(integer));
     }
 
     @Override
@@ -318,7 +318,7 @@ public class MockKinesisClient
             List<PutRecordsResultEntry> resultList = new ArrayList<>();
             for (PutRecordsRequestEntry entry : putRecordsRequest.getRecords()) {
                 PutRecordResult putResult = theStream.putRecord(entry.getData(), entry.getPartitionKey());
-                resultList.add((new PutRecordsResultEntry()).withShardId(putResult.getShardId()).withSequenceNumber(putResult.getSequenceNumber()));
+                resultList.add(new PutRecordsResultEntry().withShardId(putResult.getShardId()).withSequenceNumber(putResult.getSequenceNumber()));
             }
 
             result.setRecords(resultList);

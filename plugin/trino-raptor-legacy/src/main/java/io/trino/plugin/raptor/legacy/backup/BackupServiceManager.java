@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy.backup;
 
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import java.util.Optional;
 

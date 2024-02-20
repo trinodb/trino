@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation.arrayagg;
 
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -23,12 +24,10 @@ import io.trino.spi.type.Type;
 public class ArrayAggregationStateSerializer
         implements AccumulatorStateSerializer<ArrayAggregationState>
 {
-    private final Type elementType;
     private final Type arrayType;
 
     public ArrayAggregationStateSerializer(@TypeParameter("T") Type elementType)
     {
-        this.elementType = elementType;
         this.arrayType = new ArrayType(elementType);
     }
 
@@ -45,19 +44,13 @@ public class ArrayAggregationStateSerializer
             out.appendNull();
         }
         else {
-            BlockBuilder entryBuilder = out.beginBlockEntry();
-            state.forEach((block, position) -> elementType.appendTo(block, position, entryBuilder));
-            out.closeEntry();
+            ((ArrayBlockBuilder) out).buildEntry(state::writeAll);
         }
     }
 
     @Override
     public void deserialize(Block block, int index, ArrayAggregationState state)
     {
-        state.reset();
-        Block stateBlock = (Block) arrayType.getObject(block, index);
-        for (int i = 0; i < stateBlock.getPositionCount(); i++) {
-            state.add(stateBlock, i);
-        }
+        ((SingleArrayAggregationState) state).setTempDeserializeBlock((Block) arrayType.getObject(block, index));
     }
 }

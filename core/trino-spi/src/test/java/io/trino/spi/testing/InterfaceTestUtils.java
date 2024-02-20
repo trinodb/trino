@@ -26,8 +26,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.reflect.Reflection.newProxy;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 
 public final class InterfaceTestUtils
 {
@@ -86,7 +86,7 @@ public final class InterfaceTestUtils
             }
             C forwardingInstance = forwardingInstanceFactory.apply(
                     newProxy(iface, (proxy, expectedMethod, expectedArguments) -> {
-                        assertEquals(actualMethod.getName(), expectedMethod.getName());
+                        assertThat(actualMethod.getName()).isEqualTo(expectedMethod.getName());
                         // TODO assert arguments
 
                         if (actualMethod.getReturnType().isPrimitive()) {

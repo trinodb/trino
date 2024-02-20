@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.base.classloader;
 
+import com.google.inject.Inject;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSplitSource;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

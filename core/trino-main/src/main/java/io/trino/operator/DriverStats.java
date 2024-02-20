@@ -17,12 +17,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Set;

@@ -15,6 +15,9 @@ package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Column;
@@ -23,10 +26,8 @@ import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -35,24 +36,24 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // some tests may invalidate the whole cache affecting therefore other concurrent tests
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestTransactionScopeCachingDirectoryLister
-        extends BaseCachingDirectoryListerTest<TransactionScopeCachingDirectoryLister>
 {
     private static final Column TABLE_COLUMN = new Column(
             "column",
             HiveType.HIVE_INT,
-            Optional.of("comment"));
+            Optional.of("comment"),
+            Map.of());
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
             Optional.of("location"),
-            Optional.of(new HiveBucketProperty(ImmutableList.of("column"), BUCKETING_V1, 10, ImmutableList.of(new SortingColumn("column", SortingColumn.Order.ASCENDING)))),
+            Optional.of(new HiveBucketProperty(ImmutableList.of("column"), 10, ImmutableList.of(new SortingColumn("column", SortingColumn.Order.ASCENDING)))),
             true,
             ImmutableMap.of("param", "value2"));
     private static final Table TABLE = new Table(
@@ -68,47 +69,37 @@ public class TestTransactionScopeCachingDirectoryLister
             Optional.of("expanded_text"),
             OptionalLong.empty());
 
-    @Override
-    protected TransactionScopeCachingDirectoryLister createDirectoryLister()
-    {
-        return new TransactionScopeCachingDirectoryLister(new FileSystemDirectoryLister(), 1_000_000L);
-    }
-
-    @Override
-    protected boolean isCached(TransactionScopeCachingDirectoryLister directoryLister, Path path)
-    {
-        return directoryLister.isCached(path);
-    }
-
     @Test
     public void testConcurrentDirectoryListing()
             throws IOException
     {
-        TrinoFileStatus firstFile = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("x"), false, 1, 1);
-        TrinoFileStatus secondFile = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("y"), false, 1, 1);
-        TrinoFileStatus thirdFile = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("z"), false, 1, 1);
+        TrinoFileStatus firstFile = new TrinoFileStatus(ImmutableList.of(), "file:/x/x", false, 1, 1);
+        TrinoFileStatus secondFile = new TrinoFileStatus(ImmutableList.of(), "file:/x/y", false, 1, 1);
+        TrinoFileStatus thirdFile = new TrinoFileStatus(ImmutableList.of(), "file:/y/z", false, 1, 1);
 
-        org.apache.hadoop.fs.Path path1 = new org.apache.hadoop.fs.Path("x");
-        org.apache.hadoop.fs.Path path2 = new org.apache.hadoop.fs.Path("y");
+        Location path1 = Location.of("file:/x");
+        Location path2 = Location.of("file:/y");
 
         CountingDirectoryLister countingLister = new CountingDirectoryLister(
                 ImmutableMap.of(
                         path1, ImmutableList.of(firstFile, secondFile),
                         path2, ImmutableList.of(thirdFile)));
 
-        TransactionScopeCachingDirectoryLister cachingLister = new TransactionScopeCachingDirectoryLister(countingLister, 2);
+        // Set concurrencyLevel to 1 as EvictableCache with higher concurrencyLimit is not deterministic
+        // due to Token being a key in segmented cache.
+        TransactionScopeCachingDirectoryLister cachingLister = (TransactionScopeCachingDirectoryLister) new TransactionScopeCachingDirectoryListerFactory(DataSize.ofBytes(500), Optional.of(1)).get(countingLister);
 
-        assertFiles(cachingLister.list(null, TABLE, path2), ImmutableList.of(thirdFile));
+        assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2), true), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // listing path2 again shouldn't increase listing count
         assertThat(cachingLister.isCached(path2)).isTrue();
-        assertFiles(cachingLister.list(null, TABLE, path2), ImmutableList.of(thirdFile));
+        assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2), true), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // start listing path1 concurrently
-        RemoteIterator<TrinoFileStatus> path1FilesA = cachingLister.list(null, TABLE, path1);
-        RemoteIterator<TrinoFileStatus> path1FilesB = cachingLister.list(null, TABLE, path1);
+        RemoteIterator<TrinoFileStatus> path1FilesA = new DirectoryListingFilter(path1, cachingLister.listFilesRecursively(null, TABLE, path1), true);
+        RemoteIterator<TrinoFileStatus> path1FilesB = new DirectoryListingFilter(path1, cachingLister.listFilesRecursively(null, TABLE, path1), true);
         assertThat(countingLister.getListCount()).isEqualTo(2);
 
         // list path1 files using both iterators concurrently
@@ -122,7 +113,7 @@ public class TestTransactionScopeCachingDirectoryLister
 
         // listing path2 again should increase listing count because 2 files were cached for path1
         assertThat(cachingLister.isCached(path2)).isFalse();
-        assertFiles(cachingLister.list(null, TABLE, path2), ImmutableList.of(thirdFile));
+        assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2), true), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(3);
     }
 
@@ -130,16 +121,16 @@ public class TestTransactionScopeCachingDirectoryLister
     public void testConcurrentDirectoryListingException()
             throws IOException
     {
-        TrinoFileStatus file = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("x"), false, 1, 1);
-        org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path("x");
+        TrinoFileStatus file = new TrinoFileStatus(ImmutableList.of(), "file:/x/x", false, 1, 1);
+        Location path = Location.of("file:/x");
 
         CountingDirectoryLister countingLister = new CountingDirectoryLister(ImmutableMap.of(path, ImmutableList.of(file)));
-        DirectoryLister cachingLister = new TransactionScopeCachingDirectoryLister(countingLister, 1);
+        DirectoryLister cachingLister = new TransactionScopeCachingDirectoryListerFactory(DataSize.ofBytes(600), Optional.empty()).get(countingLister);
 
         // start listing path concurrently
         countingLister.setThrowException(true);
-        RemoteIterator<TrinoFileStatus> filesA = cachingLister.list(null, TABLE, path);
-        RemoteIterator<TrinoFileStatus> filesB = cachingLister.list(null, TABLE, path);
+        RemoteIterator<TrinoFileStatus> filesA = cachingLister.listFilesRecursively(null, TABLE, path);
+        RemoteIterator<TrinoFileStatus> filesB = cachingLister.listFilesRecursively(null, TABLE, path);
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // listing should throw an exception
@@ -147,7 +138,7 @@ public class TestTransactionScopeCachingDirectoryLister
 
         // listing again should succeed
         countingLister.setThrowException(false);
-        assertFiles(cachingLister.list(null, TABLE, path), ImmutableList.of(file));
+        assertFiles(new DirectoryListingFilter(path, cachingLister.listFilesRecursively(null, TABLE, path), true), ImmutableList.of(file));
         assertThat(countingLister.getListCount()).isEqualTo(2);
 
         // listing using second concurrently initialized DirectoryLister should fail
@@ -167,29 +158,21 @@ public class TestTransactionScopeCachingDirectoryLister
     private static class CountingDirectoryLister
             implements DirectoryLister
     {
-        private final Map<org.apache.hadoop.fs.Path, List<TrinoFileStatus>> fileStatuses;
+        private final Map<Location, List<TrinoFileStatus>> fileStatuses;
         private int listCount;
         private boolean throwException;
 
-        public CountingDirectoryLister(Map<org.apache.hadoop.fs.Path, List<TrinoFileStatus>> fileStatuses)
+        public CountingDirectoryLister(Map<Location, List<TrinoFileStatus>> fileStatuses)
         {
             this.fileStatuses = requireNonNull(fileStatuses, "fileStatuses is null");
         }
 
         @Override
-        public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, org.apache.hadoop.fs.Path path)
-                throws IOException
-        {
-            listCount++;
-            return throwingRemoteIterator(requireNonNull(fileStatuses.get(path)), throwException);
-        }
-
-        @Override
-        public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
-                throws IOException
+        public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
         {
             // No specific recursive files-only listing implementation
-            return list(fs, table, path);
+            listCount++;
+            return throwingRemoteIterator(requireNonNull(fileStatuses.get(location)), throwException);
         }
 
         public void setThrowException(boolean throwException)

@@ -13,83 +13,69 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public abstract class BaseMySqlConnectorTest
         extends BaseJdbcConnectorTest
 {
     protected TestingMySqlServer mySqlServer;
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
-                return false;
-
-            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
-                return true;
-
-            case SUPPORTS_JOIN_PUSHDOWN:
-                return true;
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
-            case SUPPORTS_NEGATIVE_DATE:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_AGGREGATION_PUSHDOWN,
+                    SUPPORTS_JOIN_PUSHDOWN -> true;
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                    SUPPORTS_ARRAY,
+                    SUPPORTS_COMMENT_ON_COLUMN,
+                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                    SUPPORTS_NEGATIVE_DATE,
+                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                    SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override
@@ -114,24 +100,11 @@ public abstract class BaseMySqlConnectorTest
                 "(one bigint, two decimal(50,0), three varchar(10))");
     }
 
+    @Test
     @Override
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(255)", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(255)", "", "")
-                .row("clerk", "varchar(255)", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar(255)", "", "")
-                .build();
-
-        assertEquals(actual, expectedParametrizedVarchar);
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
     @Override
@@ -144,9 +117,19 @@ public abstract class BaseMySqlConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("timestamp(3) with time zone") ||
-                typeName.equals("timestamp(6) with time zone")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
+
+        // MySQL TIMESTAMP has a range of '1970-01-01 00:00:01' UTC to '2038-01-19 03:14:07' UTC.
+        if (typeName.equals("timestamp(3) with time zone")) {
+            if (dataMappingTestSetup.getSampleValueLiteral().contains("1969")) {
+                return Optional.of(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '1970-01-01 15:03:00.123 +01:00'", "TIMESTAMP '1970-01-31 17:03:00.456 +01:00'"));
+            }
+            return Optional.of(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '2038-01-19 03:14:07.000 UTC'"));
+        }
+        else if (typeName.equals("timestamp(6) with time zone")) {
+            if (dataMappingTestSetup.getSampleValueLiteral().contains("1969")) {
+                return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '1970-01-01 15:03:00.123456 +01:00'", "TIMESTAMP '1970-01-31 17:03:00.123456 +01:00'"));
+            }
+            return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '2038-01-19 03:14:07.000 UTC'"));
         }
 
         if (typeName.equals("timestamp")) {
@@ -163,11 +146,10 @@ public abstract class BaseMySqlConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(255)", "", "")
@@ -178,10 +160,9 @@ public abstract class BaseMySqlConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar(255)", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -199,6 +180,7 @@ public abstract class BaseMySqlConnectorTest
                         ")");
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -222,15 +204,15 @@ public abstract class BaseMySqlConnectorTest
                 .setSchema(getSession().getSchema())
                 .build();
 
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_table")).isFalse();
 
         assertUpdate(session, "CREATE TABLE test_table AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(session, "test_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_table")).isTrue();
 
         assertQuery(session, "SELECT * FROM test_table", "SELECT 123");
 
         assertUpdate(session, "DROP TABLE test_table");
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_table")).isFalse();
     }
 
     @Test
@@ -238,20 +220,12 @@ public abstract class BaseMySqlConnectorTest
     {
         onRemoteDatabase().execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM mysql_test_tinyint1");
-        MaterializedResult expected = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("c_tinyint", "tinyint", "", "")
-                .build();
-
-        assertEquals(actual, expected);
+        assertQuery("SHOW COLUMNS FROM mysql_test_tinyint1", "VALUES ('c_tinyint', 'tinyint', '', '')");
 
         onRemoteDatabase().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
         MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
-        assertEquals(materializedRows.getRowCount(), 1);
-        MaterializedRow row = getOnlyElement(materializedRows);
-
-        assertEquals(row.getFields().size(), 1);
-        assertEquals(row.getField(0), (byte) 127);
+        assertThat(materializedRows.getOnlyValue())
+                .isEqualTo((byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
     }
@@ -289,8 +263,72 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Test
+    @Override
+    public void testAddNotNullColumn()
+    {
+        assertThatThrownBy(super::testAddNotNullColumn)
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("Should fail to add not null column without a default value to a non-empty table");
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_col", "(a_varchar varchar)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a')", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+            assertThat(query("TABLE " + tableName))
+                    .skippingTypesCheck()
+                    // MySQL adds implicit default value of '' for b_varchar
+                    .matches("VALUES ('a', '')");
+        }
+    }
+
+    @Test
+    public void testLikePredicatePushdownWithCollation()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_like_predicate_pushdown",
+                "(id integer, a_varchar varchar(1) CHARACTER SET utf8 COLLATE utf8_bin)",
+                List.of(
+                        "1, 'A'",
+                        "2, 'a'",
+                        "3, 'B'",
+                        "4, 'ą'",
+                        "5, 'Ą'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A%'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą%'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testLikeWithEscapePredicatePushdownWithCollation()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_like_with_escape_predicate_pushdown",
+                "(id integer, a_varchar varchar(4) CHARACTER SET utf8 COLLATE utf8_bin)",
+                List.of(
+                        "1, 'A%b'",
+                        "2, 'Asth'",
+                        "3, 'ą%b'",
+                        "4, 'ąsth'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A\\%%' ESCAPE '\\'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą\\%%' ESCAPE '\\'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testPredicatePushdown()
     {
+        // varchar like
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name LIKE '%ROM%'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
         // varchar equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
@@ -342,6 +380,113 @@ public abstract class BaseMySqlConnectorTest
                 .isFullyPushedDown();
     }
 
+    @Test
+    public void testPredicatePushdownWithCollationView()
+    {
+        testPredicatePushdownWithCollationView("latin1", "latin1_general_cs");
+        testPredicatePushdownWithCollationView("utf8", "utf8_bin");
+    }
+
+    private void testPredicatePushdownWithCollationView(String charset, String collation)
+    {
+        onRemoteDatabase().execute(format("CREATE OR REPLACE VIEW tpch.test_view_pushdown AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation;", charset, collation));
+        testNationCollationQueries("test_view_pushdown");
+        onRemoteDatabase().execute("DROP VIEW tpch.test_view_pushdown");
+    }
+
+    @Test
+    public void testPredicatePushdownWithCollation()
+    {
+        testPredicatePushdownWithCollation("latin1", "latin1_general_cs");
+        testPredicatePushdownWithCollation("utf8", "utf8_bin");
+    }
+
+    private void testPredicatePushdownWithCollation(String charset, String collation)
+    {
+        try (TestTable testTable = new TestTable(
+                onRemoteDatabase(),
+                "tpch.nation_collate",
+                format("AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation", charset, collation))) {
+            testNationCollationQueries(testTable.getName());
+        }
+    }
+
+    private void testNationCollationQueries(String objectName)
+    {
+        // varchar like
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name LIKE '%%ROM%%'", objectName)))
+                .isFullyPushedDown();
+
+        // varchar inequality
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name != 'ROMANIA' AND name != 'ALGERIA'", objectName)))
+                .isFullyPushedDown();
+
+        // varchar equality
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'ROMANIA'", objectName)))
+                .isFullyPushedDown();
+
+        // varchar range
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name BETWEEN 'POLAND' AND 'RPA'", objectName)))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                // We are not supporting range predicate pushdown for varchars
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar NOT IN
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+                .isFullyPushedDown();
+
+        // varchar NOT IN with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("mysql", "domain_compaction_threshold", "1")
+                        .build(),
+                format("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+                // no pushdown because it was converted to range predicate
+                .isNotFullyPushedDown(
+                        node(
+                                FilterNode.class,
+                                // verify that no constraint is applied by the connector
+                                tableScan(
+                                        tableHandle -> ((JdbcTableHandle) tableHandle).getConstraint().isAll(),
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())));
+
+        // varchar IN without domain compaction
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(255)))")
+                .isFullyPushedDown();
+
+        // varchar IN with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("mysql", "domain_compaction_threshold", "1")
+                        .build(),
+                format("SELECT regionkey, nationkey, name FROM %s WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(255)))")
+                // no pushdown because it was converted to range predicate
+                .isNotFullyPushedDown(
+                        node(
+                                FilterNode.class,
+                                // verify that no constraint is applied by the connector
+                                tableScan(
+                                        tableHandle -> ((JdbcTableHandle) tableHandle).getConstraint().isAll(),
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())));
+        // varchar different case
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'romania'", objectName)))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        Session joinPushdownEnabled = joinPushdownEnabled(getSession());
+        // join on varchar columns
+        assertThat(query(joinPushdownEnabled, format("SELECT n.name, n2.regionkey FROM %1$s n JOIN %1$s n2 ON n.name = n2.name", objectName)))
+                .joinIsNotFullyPushedDown();
+    }
+
     /**
      * This test helps to tune TupleDomain simplification threshold.
      */
@@ -366,21 +511,23 @@ public abstract class BaseMySqlConnectorTest
         onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
         // override because MySQL succeeds in preparing query, and then fails because of no metadata available
-        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+        assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
 
+    @Test
     @Override
     public void testNativeQueryIncorrectSyntax()
     {
         // override because MySQL succeeds in preparing query, and then fails because of no metadata available
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
     }
 
     @Test

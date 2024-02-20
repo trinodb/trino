@@ -19,18 +19,18 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.BeforeTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-// Single-threaded because of shared mutable state, e.g. onGetTableProperties
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestJdbcTableProperties
         extends AbstractTestQueryFramework
 {
@@ -53,16 +53,10 @@ public class TestJdbcTableProperties
         return createH2QueryRunner(ImmutableList.copyOf(TpchTable.getTables()), properties, module);
     }
 
-    @BeforeTest
-    public void reset()
-    {
-        onGetTableProperties = () -> {};
-    }
-
     @Test
     public void testGetTablePropertiesIsNotCalledForSelect()
     {
-        onGetTableProperties = () -> { fail("Unexpected call of: getTableProperties"); };
+        onGetTableProperties = () -> fail("Unexpected call of: getTableProperties");
         assertUpdate("CREATE TABLE copy_of_nation AS SELECT * FROM nation", 25);
         assertQuerySucceeds("SELECT * FROM copy_of_nation");
         assertQuerySucceeds("SELECT nationkey FROM copy_of_nation");
@@ -72,7 +66,7 @@ public class TestJdbcTableProperties
     public void testGetTablePropertiesIsCalled()
     {
         AtomicInteger counter = new AtomicInteger();
-        onGetTableProperties = () -> { counter.incrementAndGet(); };
+        onGetTableProperties = () -> counter.incrementAndGet();
         assertQuerySucceeds("SHOW CREATE TABLE nation");
         assertThat(counter.get()).isOne();
     }

@@ -21,11 +21,10 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-
-import javax.annotation.PostConstruct;
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.List;

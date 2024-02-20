@@ -47,24 +47,23 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
+import static io.trino.sql.planner.plan.SkipToPosition.LAST;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
-import static io.trino.sql.tree.SkipTo.Position.LAST;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPatternRecognitionNodeSerialization
 {
@@ -94,7 +93,7 @@ public class TestPatternRecognitionNodeSerialization
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
         JsonCodec<ValuePointer> codec = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
 
-        ResolvedFunction countFunction = createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of());
+        ResolvedFunction countFunction = createTestMetadataManager().resolveBuiltinFunction("count", ImmutableList.of());
         assertJsonRoundTrip(codec, new AggregationValuePointer(
                 countFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(), false),
@@ -102,7 +101,7 @@ public class TestPatternRecognitionNodeSerialization
                 new Symbol("classifier"),
                 new Symbol("match_number")));
 
-        ResolvedFunction maxFunction = createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(BIGINT));
+        ResolvedFunction maxFunction = createTestMetadataManager().resolveBuiltinFunction("max", fromTypes(BIGINT));
         assertJsonRoundTrip(codec, new AggregationValuePointer(
                 maxFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true),
@@ -189,7 +188,7 @@ public class TestPatternRecognitionNodeSerialization
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
         JsonCodec<PatternRecognitionNode> codec = new JsonCodecFactory(provider).jsonCodec(PatternRecognitionNode.class);
 
-        ResolvedFunction rankFunction = createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("rank"), ImmutableList.of());
+        ResolvedFunction rankFunction = createTestMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
 
         // test remaining fields inside PatternRecognitionNode specific to pattern recognition:
         // windowFunctions, measures, commonBaseFrame, rowsPerMatch, skipToLabel, skipToPosition, initial, pattern, subsets, variableDefinitions
@@ -225,20 +224,20 @@ public class TestPatternRecognitionNodeSerialization
 
         PatternRecognitionNode roundtripNode = codec.fromJson(codec.toJson(node));
 
-        assertEquals(roundtripNode.getMeasures(), node.getMeasures());
-        assertEquals(roundtripNode.getRowsPerMatch(), node.getRowsPerMatch());
-        assertEquals(roundtripNode.getSkipToLabel(), node.getSkipToLabel());
-        assertEquals(roundtripNode.getSkipToPosition(), node.getSkipToPosition());
-        assertEquals(roundtripNode.isInitial(), node.isInitial());
-        assertEquals(roundtripNode.getPattern(), node.getPattern());
-        assertEquals(roundtripNode.getSubsets(), node.getSubsets());
-        assertEquals(roundtripNode.getVariableDefinitions(), node.getVariableDefinitions());
+        assertThat(roundtripNode.getMeasures()).isEqualTo(node.getMeasures());
+        assertThat(roundtripNode.getRowsPerMatch()).isEqualTo(node.getRowsPerMatch());
+        assertThat(roundtripNode.getSkipToLabel()).isEqualTo(node.getSkipToLabel());
+        assertThat(roundtripNode.getSkipToPosition()).isEqualTo(node.getSkipToPosition());
+        assertThat(roundtripNode.isInitial()).isEqualTo(node.isInitial());
+        assertThat(roundtripNode.getPattern()).isEqualTo(node.getPattern());
+        assertThat(roundtripNode.getSubsets()).isEqualTo(node.getSubsets());
+        assertThat(roundtripNode.getVariableDefinitions()).isEqualTo(node.getVariableDefinitions());
     }
 
     public static <T> void assertJsonRoundTrip(JsonCodec<T> codec, T object)
     {
         String json = codec.toJson(object);
         T copy = codec.fromJson(json);
-        assertEquals(copy, object);
+        assertThat(copy).isEqualTo(object);
     }
 }

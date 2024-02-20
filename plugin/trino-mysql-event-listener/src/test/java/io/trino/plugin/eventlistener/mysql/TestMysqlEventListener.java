@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.spi.TrinoWarning;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.StandardWarningCode;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.EventListener;
@@ -33,10 +34,12 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.ResourceEstimates;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import org.testcontainers.containers.MySQLContainer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.sql.Connection;
@@ -53,14 +56,16 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestMysqlEventListener
 {
     private static final QueryMetadata FULL_QUERY_METADATA = new QueryMetadata(
@@ -89,6 +94,7 @@ public class TestMysqlEventListener
             Optional.of(ofMillis(107)),
             Optional.of(ofMillis(108)),
             Optional.of(ofMillis(109)),
+            Optional.of(ofMillis(1091)),
             Optional.of(ofMillis(110)),
             Optional.of(ofMillis(111)),
             Optional.of(ofMillis(112)),
@@ -110,6 +116,7 @@ public class TestMysqlEventListener
             125L,
             126L,
             127L,
+            1271L,
             128.0,
             129.0,
             // not stored
@@ -121,13 +128,17 @@ public class TestMysqlEventListener
             // not stored
             Collections.emptyList(),
             // not stored
+            List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
+            // not stored
             Collections.emptyList(),
             // not stored
             Optional.empty());
 
     private static final QueryContext FULL_QUERY_CONTEXT = new QueryContext(
             "user",
+            "originalUser",
             Optional.of("principal"),
+            Set.of("role1", "role2"),
             Set.of("group1", "group2"),
             Optional.of("traceToken"),
             Optional.of("remoteAddress"),
@@ -137,6 +148,7 @@ public class TestMysqlEventListener
             // not stored
             Set.of(),
             Optional.of("source"),
+            UTC_KEY.getId(),
             Optional.of("catalog"),
             Optional.of("schema"),
             Optional.of(new ResourceGroupId("resourceGroup")),
@@ -153,6 +165,7 @@ public class TestMysqlEventListener
             List.of(
                     new QueryInputMetadata(
                             "catalog1",
+                            new CatalogVersion("default"),
                             "schema1",
                             "table1",
                             List.of("column1", "column2"),
@@ -162,6 +175,7 @@ public class TestMysqlEventListener
                             OptionalLong.of(202)),
                     new QueryInputMetadata(
                             "catalog2",
+                            new CatalogVersion("default"),
                             "schema2",
                             "table2",
                             List.of("column3", "column4"),
@@ -171,6 +185,7 @@ public class TestMysqlEventListener
                             OptionalLong.of(204))),
             Optional.of(new QueryOutputMetadata(
                     "catalog3",
+                    new CatalogVersion("default"),
                     "schema3",
                     "table3",
                     Optional.of(List.of(
@@ -242,6 +257,7 @@ public class TestMysqlEventListener
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             115L,
             116L,
             117L,
@@ -257,6 +273,7 @@ public class TestMysqlEventListener
             125L,
             126L,
             127L,
+            1271L,
             128.0,
             129.0,
             // not stored
@@ -267,14 +284,16 @@ public class TestMysqlEventListener
             Collections.emptyList(),
             // not stored
             Collections.emptyList(),
-            // not stored
+            Collections.emptyList(),
             Collections.emptyList(),
             // not stored
             Optional.empty());
 
     private static final QueryContext MINIMAL_QUERY_CONTEXT = new QueryContext(
             "user",
+            "originalUser",
             Optional.empty(),
+            Set.of(),
             Set.of(),
             Optional.empty(),
             Optional.empty(),
@@ -284,6 +303,7 @@ public class TestMysqlEventListener
             // not stored
             Set.of(),
             Optional.empty(),
+            UTC_KEY.getId(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -314,7 +334,7 @@ public class TestMysqlEventListener
     private EventListener eventListener;
     private JsonCodecFactory jsonCodecFactory;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         mysqlContainer = new MySQLContainer<>("mysql:8.0.12");
@@ -325,7 +345,7 @@ public class TestMysqlEventListener
         jsonCodecFactory = new JsonCodecFactory();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         if (mysqlContainer != null) {
@@ -355,73 +375,75 @@ public class TestMysqlEventListener
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SELECT * FROM trino_queries WHERE query_id = 'full_query'");
                 try (ResultSet resultSet = statement.getResultSet()) {
-                    assertTrue(resultSet.next());
-                    assertEquals(resultSet.getString("query_id"), "full_query");
-                    assertEquals(resultSet.getString("transaction_id"), "transactionId");
-                    assertEquals(resultSet.getString("query"), "query");
-                    assertEquals(resultSet.getString("update_type"), "updateType");
-                    assertEquals(resultSet.getString("prepared_query"), "preparedQuery");
-                    assertEquals(resultSet.getString("query_state"), "queryState");
-                    assertEquals(resultSet.getString("plan"), "plan");
-                    assertEquals(resultSet.getString("stage_info_json"), "stageInfo");
-                    assertEquals(resultSet.getString("user"), "user");
-                    assertEquals(resultSet.getString("principal"), "principal");
-                    assertEquals(resultSet.getString("trace_token"), "traceToken");
-                    assertEquals(resultSet.getString("remote_client_address"), "remoteAddress");
-                    assertEquals(resultSet.getString("user_agent"), "userAgent");
-                    assertEquals(resultSet.getString("client_info"), "clientInfo");
-                    assertEquals(resultSet.getString("client_tags_json"), jsonCodecFactory.jsonCodec(new TypeToken<Set<String>>() {}).toJson(FULL_QUERY_CONTEXT.getClientTags()));
-                    assertEquals(resultSet.getString("source"), "source");
-                    assertEquals(resultSet.getString("catalog"), "catalog");
-                    assertEquals(resultSet.getString("schema"), "schema");
-                    assertEquals(resultSet.getString("resource_group_id"), "resourceGroup");
-                    assertEquals(resultSet.getString("session_properties_json"), jsonCodecFactory.mapJsonCodec(String.class, String.class).toJson(FULL_QUERY_CONTEXT.getSessionProperties()));
-                    assertEquals(resultSet.getString("server_address"), "serverAddress");
-                    assertEquals(resultSet.getString("server_version"), "serverVersion");
-                    assertEquals(resultSet.getString("environment"), "environment");
-                    assertEquals(resultSet.getString("query_type"), "SELECT");
-                    assertEquals(resultSet.getString("inputs_json"), jsonCodecFactory.listJsonCodec(QueryInputMetadata.class).toJson(FULL_QUERY_IO_METADATA.getInputs()));
-                    assertEquals(resultSet.getString("output_json"), jsonCodecFactory.jsonCodec(QueryOutputMetadata.class).toJson(FULL_QUERY_IO_METADATA.getOutput().orElseThrow()));
-                    assertEquals(resultSet.getString("error_code"), GENERIC_INTERNAL_ERROR.name());
-                    assertEquals(resultSet.getString("error_type"), GENERIC_INTERNAL_ERROR.toErrorCode().getType().name());
-                    assertEquals(resultSet.getString("failure_type"), "failureType");
-                    assertEquals(resultSet.getString("failure_message"), "failureMessage");
-                    assertEquals(resultSet.getString("failure_task"), "failureTask");
-                    assertEquals(resultSet.getString("failure_host"), "failureHost");
-                    assertEquals(resultSet.getString("failures_json"), "failureJson");
-                    assertEquals(resultSet.getString("warnings_json"), jsonCodecFactory.listJsonCodec(TrinoWarning.class).toJson(FULL_QUERY_COMPLETED_EVENT.getWarnings()));
-                    assertEquals(resultSet.getLong("cpu_time_millis"), 101);
-                    assertEquals(resultSet.getLong("failed_cpu_time_millis"), 102);
-                    assertEquals(resultSet.getLong("wall_time_millis"), 103);
-                    assertEquals(resultSet.getLong("queued_time_millis"), 104);
-                    assertEquals(resultSet.getLong("scheduled_time_millis"), 105);
-                    assertEquals(resultSet.getLong("failed_scheduled_time_millis"), 106);
-                    assertEquals(resultSet.getLong("waiting_time_millis"), 107);
-                    assertEquals(resultSet.getLong("analysis_time_millis"), 108);
-                    assertEquals(resultSet.getLong("planning_time_millis"), 109);
-                    assertEquals(resultSet.getLong("execution_time_millis"), 110);
-                    assertEquals(resultSet.getLong("input_blocked_time_millis"), 111);
-                    assertEquals(resultSet.getLong("failed_input_blocked_time_millis"), 112);
-                    assertEquals(resultSet.getLong("output_blocked_time_millis"), 113);
-                    assertEquals(resultSet.getLong("failed_output_blocked_time_millis"), 114);
-                    assertEquals(resultSet.getLong("physical_input_read_time_millis"), 115);
-                    assertEquals(resultSet.getLong("peak_memory_bytes"), 115);
-                    assertEquals(resultSet.getLong("peak_task_memory_bytes"), 117);
-                    assertEquals(resultSet.getLong("physical_input_bytes"), 118);
-                    assertEquals(resultSet.getLong("physical_input_rows"), 119);
-                    assertEquals(resultSet.getLong("internal_network_bytes"), 120);
-                    assertEquals(resultSet.getLong("internal_network_rows"), 121);
-                    assertEquals(resultSet.getLong("total_bytes"), 122);
-                    assertEquals(resultSet.getLong("total_rows"), 123);
-                    assertEquals(resultSet.getLong("output_bytes"), 124);
-                    assertEquals(resultSet.getLong("output_rows"), 125);
-                    assertEquals(resultSet.getLong("written_bytes"), 126);
-                    assertEquals(resultSet.getLong("written_rows"), 127);
-                    assertEquals(resultSet.getDouble("cumulative_memory"), 128.0);
-                    assertEquals(resultSet.getDouble("failed_cumulative_memory"), 129.0);
-                    assertEquals(resultSet.getLong("completed_splits"), 130);
-                    assertEquals(resultSet.getString("retry_policy"), "TASK");
-                    assertFalse(resultSet.next());
+                    assertThat(resultSet.next()).isTrue();
+                    assertThat(resultSet.getString("query_id")).isEqualTo("full_query");
+                    assertThat(resultSet.getString("transaction_id")).isEqualTo("transactionId");
+                    assertThat(resultSet.getString("query")).isEqualTo("query");
+                    assertThat(resultSet.getString("update_type")).isEqualTo("updateType");
+                    assertThat(resultSet.getString("prepared_query")).isEqualTo("preparedQuery");
+                    assertThat(resultSet.getString("query_state")).isEqualTo("queryState");
+                    assertThat(resultSet.getString("plan")).isEqualTo("plan");
+                    assertThat(resultSet.getString("stage_info_json")).isEqualTo("stageInfo");
+                    assertThat(resultSet.getString("user")).isEqualTo("user");
+                    assertThat(resultSet.getString("principal")).isEqualTo("principal");
+                    assertThat(resultSet.getString("trace_token")).isEqualTo("traceToken");
+                    assertThat(resultSet.getString("remote_client_address")).isEqualTo("remoteAddress");
+                    assertThat(resultSet.getString("user_agent")).isEqualTo("userAgent");
+                    assertThat(resultSet.getString("client_info")).isEqualTo("clientInfo");
+                    assertThat(resultSet.getString("client_tags_json")).isEqualTo(jsonCodecFactory.jsonCodec(new TypeToken<Set<String>>() { }).toJson(FULL_QUERY_CONTEXT.getClientTags()));
+                    assertThat(resultSet.getString("source")).isEqualTo("source");
+                    assertThat(resultSet.getString("catalog")).isEqualTo("catalog");
+                    assertThat(resultSet.getString("schema")).isEqualTo("schema");
+                    assertThat(resultSet.getString("resource_group_id")).isEqualTo("resourceGroup");
+                    assertThat(resultSet.getString("session_properties_json")).isEqualTo(jsonCodecFactory.mapJsonCodec(String.class, String.class).toJson(FULL_QUERY_CONTEXT.getSessionProperties()));
+                    assertThat(resultSet.getString("server_address")).isEqualTo("serverAddress");
+                    assertThat(resultSet.getString("server_version")).isEqualTo("serverVersion");
+                    assertThat(resultSet.getString("environment")).isEqualTo("environment");
+                    assertThat(resultSet.getString("query_type")).isEqualTo("SELECT");
+                    assertThat(resultSet.getString("inputs_json")).isEqualTo(jsonCodecFactory.listJsonCodec(QueryInputMetadata.class).toJson(FULL_QUERY_IO_METADATA.getInputs()));
+                    assertThat(resultSet.getString("output_json")).isEqualTo(jsonCodecFactory.jsonCodec(QueryOutputMetadata.class).toJson(FULL_QUERY_IO_METADATA.getOutput().orElseThrow()));
+                    assertThat(resultSet.getString("error_code")).isEqualTo(GENERIC_INTERNAL_ERROR.name());
+                    assertThat(resultSet.getString("error_type")).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode().getType().name());
+                    assertThat(resultSet.getString("failure_type")).isEqualTo("failureType");
+                    assertThat(resultSet.getString("failure_message")).isEqualTo("failureMessage");
+                    assertThat(resultSet.getString("failure_task")).isEqualTo("failureTask");
+                    assertThat(resultSet.getString("failure_host")).isEqualTo("failureHost");
+                    assertThat(resultSet.getString("failures_json")).isEqualTo("failureJson");
+                    assertThat(resultSet.getString("warnings_json")).isEqualTo(jsonCodecFactory.listJsonCodec(TrinoWarning.class).toJson(FULL_QUERY_COMPLETED_EVENT.getWarnings()));
+                    assertThat(resultSet.getLong("cpu_time_millis")).isEqualTo(101);
+                    assertThat(resultSet.getLong("failed_cpu_time_millis")).isEqualTo(102);
+                    assertThat(resultSet.getLong("wall_time_millis")).isEqualTo(103);
+                    assertThat(resultSet.getLong("queued_time_millis")).isEqualTo(104);
+                    assertThat(resultSet.getLong("scheduled_time_millis")).isEqualTo(105);
+                    assertThat(resultSet.getLong("failed_scheduled_time_millis")).isEqualTo(106);
+                    assertThat(resultSet.getLong("waiting_time_millis")).isEqualTo(107);
+                    assertThat(resultSet.getLong("analysis_time_millis")).isEqualTo(108);
+                    assertThat(resultSet.getLong("planning_time_millis")).isEqualTo(109);
+                    assertThat(resultSet.getLong("planning_cpu_time_millis")).isEqualTo(1091);
+                    assertThat(resultSet.getLong("execution_time_millis")).isEqualTo(110);
+                    assertThat(resultSet.getLong("input_blocked_time_millis")).isEqualTo(111);
+                    assertThat(resultSet.getLong("failed_input_blocked_time_millis")).isEqualTo(112);
+                    assertThat(resultSet.getLong("output_blocked_time_millis")).isEqualTo(113);
+                    assertThat(resultSet.getLong("failed_output_blocked_time_millis")).isEqualTo(114);
+                    assertThat(resultSet.getLong("physical_input_read_time_millis")).isEqualTo(115);
+                    assertThat(resultSet.getLong("peak_memory_bytes")).isEqualTo(115);
+                    assertThat(resultSet.getLong("peak_task_memory_bytes")).isEqualTo(117);
+                    assertThat(resultSet.getLong("physical_input_bytes")).isEqualTo(118);
+                    assertThat(resultSet.getLong("physical_input_rows")).isEqualTo(119);
+                    assertThat(resultSet.getLong("internal_network_bytes")).isEqualTo(120);
+                    assertThat(resultSet.getLong("internal_network_rows")).isEqualTo(121);
+                    assertThat(resultSet.getLong("total_bytes")).isEqualTo(122);
+                    assertThat(resultSet.getLong("total_rows")).isEqualTo(123);
+                    assertThat(resultSet.getLong("output_bytes")).isEqualTo(124);
+                    assertThat(resultSet.getLong("output_rows")).isEqualTo(125);
+                    assertThat(resultSet.getLong("written_bytes")).isEqualTo(126);
+                    assertThat(resultSet.getLong("written_rows")).isEqualTo(127);
+                    assertThat(resultSet.getDouble("cumulative_memory")).isEqualTo(128.0);
+                    assertThat(resultSet.getDouble("failed_cumulative_memory")).isEqualTo(129.0);
+                    assertThat(resultSet.getLong("completed_splits")).isEqualTo(130);
+                    assertThat(resultSet.getString("retry_policy")).isEqualTo("TASK");
+                    assertThat(resultSet.getString("operator_summaries_json")).isEqualTo("[{operator: \"operator1\"},{operator: \"operator2\"}]");
+                    assertThat(resultSet.next()).isFalse();
                 }
             }
         }
@@ -437,73 +459,74 @@ public class TestMysqlEventListener
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SELECT * FROM trino_queries WHERE query_id = 'minimal_query'");
                 try (ResultSet resultSet = statement.getResultSet()) {
-                    assertTrue(resultSet.next());
-                    assertEquals(resultSet.getString("query_id"), "minimal_query");
-                    assertNull(resultSet.getString("transaction_id"));
-                    assertEquals(resultSet.getString("query"), "query");
-                    assertNull(resultSet.getString("update_type"));
-                    assertNull(resultSet.getString("prepared_query"));
-                    assertEquals(resultSet.getString("query_state"), "queryState");
-                    assertNull(resultSet.getString("plan"));
-                    assertNull(resultSet.getString("stage_info_json"));
-                    assertEquals(resultSet.getString("user"), "user");
-                    assertNull(resultSet.getString("principal"));
-                    assertNull(resultSet.getString("trace_token"));
-                    assertNull(resultSet.getString("remote_client_address"));
-                    assertNull(resultSet.getString("user_agent"));
-                    assertNull(resultSet.getString("client_info"));
-                    assertEquals(resultSet.getString("client_tags_json"), jsonCodecFactory.jsonCodec(new TypeToken<Set<String>>() {}).toJson(Set.of()));
-                    assertNull(resultSet.getString("source"));
-                    assertNull(resultSet.getString("catalog"));
-                    assertNull(resultSet.getString("schema"));
-                    assertNull(resultSet.getString("resource_group_id"));
-                    assertEquals(resultSet.getString("session_properties_json"), jsonCodecFactory.mapJsonCodec(String.class, String.class).toJson(Map.of()));
-                    assertEquals(resultSet.getString("server_address"), "serverAddress");
-                    assertEquals(resultSet.getString("server_version"), "serverVersion");
-                    assertEquals(resultSet.getString("environment"), "environment");
-                    assertNull(resultSet.getString("query_type"));
-                    assertEquals(resultSet.getString("inputs_json"), jsonCodecFactory.listJsonCodec(QueryInputMetadata.class).toJson(List.of()));
-                    assertNull(resultSet.getString("output_json"));
-                    assertNull(resultSet.getString("error_code"));
-                    assertNull(resultSet.getString("error_type"));
-                    assertNull(resultSet.getString("failure_type"));
-                    assertNull(resultSet.getString("failure_message"));
-                    assertNull(resultSet.getString("failure_task"));
-                    assertNull(resultSet.getString("failure_host"));
-                    assertNull(resultSet.getString("failures_json"));
-                    assertEquals(resultSet.getString("warnings_json"), jsonCodecFactory.listJsonCodec(TrinoWarning.class).toJson(List.of()));
-                    assertEquals(resultSet.getLong("cpu_time_millis"), 101);
-                    assertEquals(resultSet.getLong("failed_cpu_time_millis"), 102);
-                    assertEquals(resultSet.getLong("wall_time_millis"), 103);
-                    assertEquals(resultSet.getLong("queued_time_millis"), 104);
-                    assertEquals(resultSet.getLong("scheduled_time_millis"), 0);
-                    assertEquals(resultSet.getLong("failed_scheduled_time_millis"), 0);
-                    assertEquals(resultSet.getLong("waiting_time_millis"), 0);
-                    assertEquals(resultSet.getLong("analysis_time_millis"), 0);
-                    assertEquals(resultSet.getLong("planning_time_millis"), 0);
-                    assertEquals(resultSet.getLong("execution_time_millis"), 0);
-                    assertEquals(resultSet.getLong("input_blocked_time_millis"), 0);
-                    assertEquals(resultSet.getLong("failed_input_blocked_time_millis"), 0);
-                    assertEquals(resultSet.getLong("output_blocked_time_millis"), 0);
-                    assertEquals(resultSet.getLong("failed_output_blocked_time_millis"), 0);
-                    assertEquals(resultSet.getLong("physical_input_read_time_millis"), 0);
-                    assertEquals(resultSet.getLong("peak_memory_bytes"), 115);
-                    assertEquals(resultSet.getLong("peak_task_memory_bytes"), 117);
-                    assertEquals(resultSet.getLong("physical_input_bytes"), 118);
-                    assertEquals(resultSet.getLong("physical_input_rows"), 119);
-                    assertEquals(resultSet.getLong("internal_network_bytes"), 120);
-                    assertEquals(resultSet.getLong("internal_network_rows"), 121);
-                    assertEquals(resultSet.getLong("total_bytes"), 122);
-                    assertEquals(resultSet.getLong("total_rows"), 123);
-                    assertEquals(resultSet.getLong("output_bytes"), 124);
-                    assertEquals(resultSet.getLong("output_rows"), 125);
-                    assertEquals(resultSet.getLong("written_bytes"), 126);
-                    assertEquals(resultSet.getLong("written_rows"), 127);
-                    assertEquals(resultSet.getDouble("cumulative_memory"), 128.0);
-                    assertEquals(resultSet.getDouble("failed_cumulative_memory"), 129.0);
-                    assertEquals(resultSet.getLong("completed_splits"), 130);
-                    assertEquals(resultSet.getString("retry_policy"), "NONE");
-                    assertFalse(resultSet.next());
+                    assertThat(resultSet.next()).isTrue();
+                    assertThat(resultSet.getString("query_id")).isEqualTo("minimal_query");
+                    assertThat(resultSet.getString("transaction_id")).isNull();
+                    assertThat(resultSet.getString("query")).isEqualTo("query");
+                    assertThat(resultSet.getString("update_type")).isNull();
+                    assertThat(resultSet.getString("prepared_query")).isNull();
+                    assertThat(resultSet.getString("query_state")).isEqualTo("queryState");
+                    assertThat(resultSet.getString("plan")).isNull();
+                    assertThat(resultSet.getString("stage_info_json")).isNull();
+                    assertThat(resultSet.getString("user")).isEqualTo("user");
+                    assertThat(resultSet.getString("principal")).isNull();
+                    assertThat(resultSet.getString("trace_token")).isNull();
+                    assertThat(resultSet.getString("remote_client_address")).isNull();
+                    assertThat(resultSet.getString("user_agent")).isNull();
+                    assertThat(resultSet.getString("client_info")).isNull();
+                    assertThat(resultSet.getString("client_tags_json")).isEqualTo(jsonCodecFactory.jsonCodec(new TypeToken<Set<String>>() { }).toJson(Set.of()));
+                    assertThat(resultSet.getString("source")).isNull();
+                    assertThat(resultSet.getString("catalog")).isNull();
+                    assertThat(resultSet.getString("schema")).isNull();
+                    assertThat(resultSet.getString("resource_group_id")).isNull();
+                    assertThat(resultSet.getString("session_properties_json")).isEqualTo(jsonCodecFactory.mapJsonCodec(String.class, String.class).toJson(Map.of()));
+                    assertThat(resultSet.getString("server_address")).isEqualTo("serverAddress");
+                    assertThat(resultSet.getString("server_version")).isEqualTo("serverVersion");
+                    assertThat(resultSet.getString("environment")).isEqualTo("environment");
+                    assertThat(resultSet.getString("query_type")).isNull();
+                    assertThat(resultSet.getString("inputs_json")).isEqualTo(jsonCodecFactory.listJsonCodec(QueryInputMetadata.class).toJson(List.of()));
+                    assertThat(resultSet.getString("output_json")).isNull();
+                    assertThat(resultSet.getString("error_code")).isNull();
+                    assertThat(resultSet.getString("error_type")).isNull();
+                    assertThat(resultSet.getString("failure_type")).isNull();
+                    assertThat(resultSet.getString("failure_message")).isNull();
+                    assertThat(resultSet.getString("failure_task")).isNull();
+                    assertThat(resultSet.getString("failure_host")).isNull();
+                    assertThat(resultSet.getString("failures_json")).isNull();
+                    assertThat(resultSet.getString("warnings_json")).isEqualTo(jsonCodecFactory.listJsonCodec(TrinoWarning.class).toJson(List.of()));
+                    assertThat(resultSet.getLong("cpu_time_millis")).isEqualTo(101);
+                    assertThat(resultSet.getLong("failed_cpu_time_millis")).isEqualTo(102);
+                    assertThat(resultSet.getLong("wall_time_millis")).isEqualTo(103);
+                    assertThat(resultSet.getLong("queued_time_millis")).isEqualTo(104);
+                    assertThat(resultSet.getLong("scheduled_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("failed_scheduled_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("waiting_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("analysis_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("planning_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("execution_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("input_blocked_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("failed_input_blocked_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("output_blocked_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("failed_output_blocked_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("physical_input_read_time_millis")).isEqualTo(0);
+                    assertThat(resultSet.getLong("peak_memory_bytes")).isEqualTo(115);
+                    assertThat(resultSet.getLong("peak_task_memory_bytes")).isEqualTo(117);
+                    assertThat(resultSet.getLong("physical_input_bytes")).isEqualTo(118);
+                    assertThat(resultSet.getLong("physical_input_rows")).isEqualTo(119);
+                    assertThat(resultSet.getLong("internal_network_bytes")).isEqualTo(120);
+                    assertThat(resultSet.getLong("internal_network_rows")).isEqualTo(121);
+                    assertThat(resultSet.getLong("total_bytes")).isEqualTo(122);
+                    assertThat(resultSet.getLong("total_rows")).isEqualTo(123);
+                    assertThat(resultSet.getLong("output_bytes")).isEqualTo(124);
+                    assertThat(resultSet.getLong("output_rows")).isEqualTo(125);
+                    assertThat(resultSet.getLong("written_bytes")).isEqualTo(126);
+                    assertThat(resultSet.getLong("written_rows")).isEqualTo(127);
+                    assertThat(resultSet.getDouble("cumulative_memory")).isEqualTo(128.0);
+                    assertThat(resultSet.getDouble("failed_cumulative_memory")).isEqualTo(129.0);
+                    assertThat(resultSet.getLong("completed_splits")).isEqualTo(130);
+                    assertThat(resultSet.getString("retry_policy")).isEqualTo("NONE");
+                    assertThat(resultSet.getString("operator_summaries_json")).isEqualTo("[]");
+                    assertThat(resultSet.next()).isFalse();
                 }
             }
         }

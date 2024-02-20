@@ -14,7 +14,7 @@
 package io.trino.plugin.localfile;
 
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -25,7 +25,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLocalFileColumnHandle
 {
@@ -43,7 +43,7 @@ public class TestLocalFileColumnHandle
         for (LocalFileColumnHandle handle : columnHandle) {
             String json = COLUMN_CODEC.toJson(handle);
             LocalFileColumnHandle copy = COLUMN_CODEC.fromJson(json);
-            assertEquals(copy, handle);
+            assertThat(copy).isEqualTo(handle);
         }
     }
 }

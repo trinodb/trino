@@ -49,4 +49,14 @@ public abstract class TypeCoercer<F extends Type, T extends Type>
     }
 
     protected abstract void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position);
+
+    public Type getFromType()
+    {
+        return fromType;
+    }
+
+    public Type getToType()
+    {
+        return toType;
+    }
 }

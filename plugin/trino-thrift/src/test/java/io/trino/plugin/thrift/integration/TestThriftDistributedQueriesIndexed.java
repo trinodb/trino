@@ -16,6 +16,7 @@ package io.trino.plugin.thrift.integration;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestIndexedQueries;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 
@@ -29,6 +30,7 @@ public class TestThriftDistributedQueriesIndexed
         return createThriftQueryRunner(2, true, ImmutableMap.of());
     }
 
+    @Test
     @Override
     public void testExampleSystemTable()
     {

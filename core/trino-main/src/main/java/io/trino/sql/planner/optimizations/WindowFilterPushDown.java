@@ -15,8 +15,6 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -27,7 +25,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -40,7 +37,6 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -68,15 +64,10 @@ public class WindowFilterPushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
-        requireNonNull(idAllocator, "idAllocator is null");
-
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, plannerContext, session, types), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(context.idAllocator(), plannerContext, context.session(), context.types()), plan, null);
     }
 
     private static class Rewriter
@@ -100,8 +91,8 @@ public class WindowFilterPushDown
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            rowNumberFunctionId = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId();
-            rankFunctionId = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("rank"), ImmutableList.of()).getFunctionId();
+            rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("row_number", ImmutableList.of()).getFunctionId();
+            rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("rank", ImmutableList.of()).getFunctionId();
             domainTranslator = new DomainTranslator(plannerContext);
         }
 
@@ -142,7 +133,7 @@ public class WindowFilterPushDown
             PlanNode source = context.rewrite(node.getSource());
             int limit = toIntExact(node.getCount());
             if (source instanceof RowNumberNode) {
-                RowNumberNode rowNumberNode = mergeLimit(((RowNumberNode) source), limit);
+                RowNumberNode rowNumberNode = mergeLimit((RowNumberNode) source, limit);
                 if (rowNumberNode.getPartitionBy().isEmpty()) {
                     return rowNumberNode;
                 }
@@ -176,7 +167,7 @@ public class WindowFilterPushDown
                     if (upperBound.getAsInt() <= 0) {
                         return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
                     }
-                    source = mergeLimit(((RowNumberNode) source), upperBound.getAsInt());
+                    source = mergeLimit((RowNumberNode) source, upperBound.getAsInt());
                     return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
                 }
             }
@@ -212,7 +203,7 @@ public class WindowFilterPushDown
             Expression newPredicate = ExpressionUtils.combineConjuncts(
                     plannerContext.getMetadata(),
                     extractionResult.getRemainingExpression(),
-                    domainTranslator.toPredicate(session, newTupleDomain));
+                    domainTranslator.toPredicate(newTupleDomain));
 
             if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 return source;

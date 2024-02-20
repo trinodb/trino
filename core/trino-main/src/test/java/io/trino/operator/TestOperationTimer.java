@@ -13,19 +13,18 @@
  */
 package io.trino.operator;
 
+import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.operator.OperationTimer.OperationTiming;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 import java.util.function.Consumer;
 
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestOperationTimer
 {
@@ -104,9 +103,7 @@ public class TestOperationTimer
 
     private static void doSomething()
     {
-        byte[] data = new byte[10_000];
-        new Random(blackHole).nextBytes(data);
-        blackHole = XxHash64.hash(wrappedBuffer(data));
+        blackHole = XxHash64.hash(Slices.random(10_000, new Random(blackHole)));
         sleepUninterruptibly(50, MILLISECONDS);
     }
 
@@ -134,17 +131,17 @@ public class TestOperationTimer
         {
             previousWallNanos = timing.getWallNanos();
             previousCpuNanos = timing.getCpuNanos();
-            assertEquals(timing.getCalls(), calls);
+            assertThat(timing.getCalls()).isEqualTo(calls);
             timer.accept(timing);
             calls++;
-            assertEquals(timing.getCalls(), calls);
+            assertThat(timing.getCalls()).isEqualTo(calls);
             assertThat(timing.getWallNanos()).isGreaterThan(previousWallNanos);
             if (trackCpuTime) {
                 assertThat(timing.getCpuNanos()).isGreaterThan(previousCpuNanos);
                 assertThat(timing.getWallNanos()).isGreaterThan(timing.getCpuNanos());
             }
             else {
-                assertEquals(timing.getCpuNanos(), 0);
+                assertThat(timing.getCpuNanos()).isEqualTo(0);
             }
         }
     }

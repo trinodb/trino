@@ -57,8 +57,10 @@ public class ParametricScalar
 
     private static FunctionMetadata createFunctionMetadata(Signature signature, ScalarHeader details, boolean deprecated, FunctionNullability functionNullability)
     {
-        FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder()
+        FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder(details.getName())
                 .signature(signature);
+
+        details.getAliases().forEach(functionMetadata::alias);
 
         if (details.getDescription().isPresent()) {
             functionMetadata.description(details.getDescription().get());
@@ -125,7 +127,7 @@ public class ParametricScalar
         ParametricScalarImplementation exactImplementation = implementations.getExactImplementations().get(boundSignature.toSignature());
         if (exactImplementation != null) {
             Optional<SpecializedSqlScalarFunction> scalarFunctionImplementation = exactImplementation.specialize(functionBinding, functionDependencies);
-            checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
+            checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, "Exact implementation of %s do not match expected java types", boundSignature.getName());
             return scalarFunctionImplementation.get();
         }
 

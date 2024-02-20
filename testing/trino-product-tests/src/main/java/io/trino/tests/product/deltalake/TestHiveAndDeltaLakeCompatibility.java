@@ -14,26 +14,27 @@
 package io.trino.tests.product.deltalake;
 
 import io.trino.tempto.ProductTest;
-import io.trino.testng.services.Flaky;
+import io.trino.tests.product.hudi.TestHudiHiveViewsCompatibility;
+import io.trino.tests.product.iceberg.TestIcebergHiveViewsCompatibility;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * @see TestIcebergHiveViewsCompatibility
+ * @see TestHudiHiveViewsCompatibility
+ */
 public class TestHiveAndDeltaLakeCompatibility
         extends ProductTest
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testInformationSchemaColumnsOnPresenceOfHiveView()
     {
         // use dedicated schema so we control the number and shape of tables

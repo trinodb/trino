@@ -13,7 +13,7 @@
  */
 package io.trino.server.security.oauth2;
 
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import java.net.URI;
 
@@ -30,7 +30,8 @@ public class StaticConfigurationProvider
                 URI.create(config.getAuthUrl()),
                 URI.create(config.getTokenUrl()),
                 URI.create(config.getJwksUrl()),
-                config.getUserinfoUrl().map(URI::create));
+                config.getUserinfoUrl().map(URI::create),
+                config.getEndSessionUrl().map(URI::create));
     }
 
     @Override

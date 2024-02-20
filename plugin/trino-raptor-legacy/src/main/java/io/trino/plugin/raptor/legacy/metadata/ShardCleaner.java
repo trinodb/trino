@@ -17,6 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
@@ -24,13 +26,10 @@ import io.trino.plugin.raptor.legacy.backup.BackupStore;
 import io.trino.plugin.raptor.legacy.storage.StorageService;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
 import io.trino.spi.NodeManager;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.sql.Timestamp;

@@ -18,8 +18,8 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ExpressionExtractor;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.Array;
@@ -50,14 +50,14 @@ public final class SugarFreeChecker
     public void validate(PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
         ExpressionExtractor.forEachExpression(planNode, SugarFreeChecker::validate);
     }
 
-    private static void validate(Expression expression)
+    public static void validate(Expression expression)
     {
         VISITOR.process(expression, null);
     }

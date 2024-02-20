@@ -15,6 +15,7 @@ package io.trino.plugin.raptor.legacy.systemtables;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
 import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
 import io.trino.plugin.raptor.legacy.metadata.TableStatsRow;
@@ -30,8 +31,6 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

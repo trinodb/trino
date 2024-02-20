@@ -14,7 +14,7 @@
 * Fix query failure when query contains a cast from `varchar` to a shorter `char`. ({issue}`9036`)
 * Fix planning failure of `INSERT` statement when source table has hidden columns. ({issue}`9150`)
 * Fix planning of recursive queries when the recursion, the base plan, or the recursion step plan produce duplicate outputs. ({issue}`9153`)
-* Fix failure when querying the [optimizer_rule_stats](optimizer_rule_stats) system table. ({issue}`8700`)
+* Fix failure when querying the [optimizer_rule_stats](optimizer-rule-stats) system table. ({issue}`8700`)
 * Fix failure for queries that push projections into connectors. ({issue}`6200`)
 * Fix planning timeout for queries containing `IS NULL`, `AND`, and `OR` predicates in the `WHERE` clause. ({issue}`9250`)
 * Fix failure for queries containing `ORDER BY ... LIMIT` when columns in the subquery are known to be constant. ({issue}`9171`)

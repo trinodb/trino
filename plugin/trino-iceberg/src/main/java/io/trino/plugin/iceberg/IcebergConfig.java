@@ -20,19 +20,20 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
-
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.AssertFalse;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
-import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -46,10 +47,11 @@ public class IcebergConfig
     public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
     public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.extended-statistics.enabled";
     public static final String EXTENDED_STATISTICS_DESCRIPTION = "Enable collection (ANALYZE) and use of extended statistics.";
+    public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION = "Collect extended statistics during writes";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire_snapshots.min-retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove_orphan_files.min-retention";
 
-    private IcebergFileFormat fileFormat = ORC;
+    private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = ZSTD;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
@@ -58,6 +60,7 @@ public class IcebergConfig
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
+    private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
@@ -65,13 +68,17 @@ public class IcebergConfig
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
     private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
+    private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
     // This is meant to protect users who are misusing schema locations (by
     // putting schemas in locations with extraneous files), so default to false
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
     private double minimumAssignedSplitWeight = 0.05;
+    private boolean hideMaterializedViewStorageTable = true;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
+    private boolean queryPartitionFilterRequired;
+    private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
 
     public CatalogType getCatalogType()
     {
@@ -202,13 +209,26 @@ public class IcebergConfig
         return this;
     }
 
+    public boolean isCollectExtendedStatisticsOnWrite()
+    {
+        return collectExtendedStatisticsOnWrite;
+    }
+
+    @Config("iceberg.extended-statistics.collect-on-write")
+    @ConfigDescription(COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION)
+    public IcebergConfig setCollectExtendedStatisticsOnWrite(boolean collectExtendedStatisticsOnWrite)
+    {
+        this.collectExtendedStatisticsOnWrite = collectExtendedStatisticsOnWrite;
+        return this;
+    }
+
     public boolean isProjectionPushdownEnabled()
     {
         return projectionPushdownEnabled;
     }
 
     @Config("iceberg.projection-pushdown-enabled")
-    @ConfigDescription("Read only required fields from a struct")
+    @ConfigDescription("Read only required fields from a row type")
     public IcebergConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
@@ -298,6 +318,20 @@ public class IcebergConfig
         return this;
     }
 
+    @NotNull
+    public DataSize getIdleWriterMinFileSize()
+    {
+        return idleWriterMinFileSize;
+    }
+
+    @Config("iceberg.idle-writer-min-file-size")
+    @ConfigDescription("Minimum data written by a single partition writer before it can be consider as 'idle' and could be closed by the engine")
+    public IcebergConfig setIdleWriterMinFileSize(DataSize idleWriterMinFileSize)
+    {
+        this.idleWriterMinFileSize = idleWriterMinFileSize;
+        return this;
+    }
+
     public boolean isDeleteSchemaLocationsFallback()
     {
         return this.deleteSchemaLocationsFallback;
@@ -327,6 +361,19 @@ public class IcebergConfig
         return minimumAssignedSplitWeight;
     }
 
+    public boolean isHideMaterializedViewStorageTable()
+    {
+        return hideMaterializedViewStorageTable;
+    }
+
+    @Config("iceberg.materialized-views.hide-storage-table")
+    @ConfigDescription("Hide materialized view storage tables in metastore")
+    public IcebergConfig setHideMaterializedViewStorageTable(boolean hideMaterializedViewStorageTable)
+    {
+        this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
+        return this;
+    }
+
     @NotNull
     public Optional<String> getMaterializedViewsStorageSchema()
     {
@@ -352,5 +399,38 @@ public class IcebergConfig
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
+    }
+
+    @Config("iceberg.query-partition-filter-required")
+    @ConfigDescription("Require a filter on at least one partition column")
+    public IcebergConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
+    {
+        this.queryPartitionFilterRequired = queryPartitionFilterRequired;
+        return this;
+    }
+
+    public boolean isQueryPartitionFilterRequired()
+    {
+        return queryPartitionFilterRequired;
+    }
+
+    @Min(0)
+    public int getSplitManagerThreads()
+    {
+        return splitManagerThreads;
+    }
+
+    @Config("iceberg.split-manager-threads")
+    @ConfigDescription("Number of threads to use for generating splits")
+    public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
+    {
+        this.splitManagerThreads = splitManagerThreads;
+        return this;
+    }
+
+    @AssertFalse(message = "iceberg.materialized-views.storage-schema may only be set when iceberg.materialized-views.hide-storage-table is set to false")
+    public boolean isStorageSchemaSetWhenHidingIsEnabled()
+    {
+        return hideMaterializedViewStorageTable && materializedViewsStorageSchema.isPresent();
     }
 }

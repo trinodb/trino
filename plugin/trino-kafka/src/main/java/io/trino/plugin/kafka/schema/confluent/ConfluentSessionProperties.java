@@ -14,12 +14,11 @@
 package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -38,7 +37,7 @@ public class ConfluentSessionProperties
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
                         EMPTY_FIELD_STRATEGY,
-                        "Strategy for handling struct types with no fields: IGNORE (default), FAIL, and ADD_DUMMY to add a boolean field named 'dummy'",
+                        "Strategy for handling struct types with no fields: IGNORE (default), FAIL, and MARK to add a boolean field named '$empty_field_marker'",
                         EmptyFieldStrategy.class,
                         config.getEmptyFieldStrategy(),
                         false))

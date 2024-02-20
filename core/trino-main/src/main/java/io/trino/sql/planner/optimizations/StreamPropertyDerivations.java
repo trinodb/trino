@@ -19,15 +19,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableProperties;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -63,7 +64,10 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -73,8 +77,6 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -98,8 +100,10 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DIST
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class StreamPropertyDerivations
@@ -111,7 +115,7 @@ public final class StreamPropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
                 .map(source -> derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer))
@@ -125,7 +129,7 @@ public final class StreamPropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         return deriveProperties(node, ImmutableList.of(inputProperties), plannerContext, session, types, typeAnalyzer);
     }
@@ -136,7 +140,7 @@ public final class StreamPropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
@@ -158,17 +162,58 @@ public final class StreamPropertyDerivations
                 types,
                 typeAnalyzer);
 
-        StreamProperties result = node.accept(new Visitor(plannerContext.getMetadata(), session), inputProperties)
+        StreamProperties result = deriveStreamPropertiesWithoutActualProperties(node, inputProperties, plannerContext.getMetadata(), session)
                 .withOtherActualProperties(otherProperties);
-
-        result.getPartitioningColumns().ifPresent(columns ->
-                verify(node.getOutputSymbols().containsAll(columns), "Stream-level partitioning properties contain columns not present in node's output"));
 
         Set<Symbol> localPropertyColumns = result.getLocalProperties().stream()
                 .flatMap(property -> property.getColumns().stream())
                 .collect(Collectors.toSet());
 
         verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Stream-level local properties contain columns not present in node's output");
+
+        return result;
+    }
+
+    /**
+     * Determines whether a local exchange is single-stream distributed at its only input source. This method will is expensive
+     * since it requires traversing the entire sub-plan at each local exchange node, so calling this method should be avoided
+     * whenever possible and new usages should not be added.
+     *
+     * @param exchangeNode a local exchange with a single input source to check for single stream input distribution
+     * @throws IllegalArgumentException if the exchange is not a local exchange or does not have only a single input source
+     * @deprecated Only for use by {@link PropertyDerivations}
+     */
+    @Deprecated
+    static boolean isLocalExchangesSourceSingleStreamDistributed(ExchangeNode exchangeNode, Metadata metadata, Session session)
+    {
+        checkArgument(exchangeNode.getScope() == LOCAL, "exchangeNode must be a local exchange");
+        checkArgument(exchangeNode.getSources().size() == 1, "exchangeNode must have a single source");
+
+        return deriveStreamPropertiesWithoutActualPropertiesRecursively(exchangeNode.getSources().get(0), metadata, session).isSingleStream();
+    }
+
+    /**
+     * Derives {@link StreamProperties} without populating {@link StreamProperties#otherActualProperties}. This is necessary to avoid exponential-time,
+     * mutually recursive sub-plan traversals when {@link PropertyDerivations} attempts to check a local exchange's input source for single stream distribution.
+     *
+     * @deprecated For internal use only by {@link StreamPropertyDerivations#isLocalExchangesSourceSingleStreamDistributed(ExchangeNode, Metadata, Session)}
+     */
+    @Deprecated
+    private static StreamProperties deriveStreamPropertiesWithoutActualPropertiesRecursively(PlanNode node, Metadata metadata, Session session)
+    {
+        List<StreamProperties> inputProperties = node.getSources().stream()
+                .map(source -> deriveStreamPropertiesWithoutActualPropertiesRecursively(source, metadata, session))
+                .collect(toImmutableList());
+
+        return deriveStreamPropertiesWithoutActualProperties(node, inputProperties, metadata, session);
+    }
+
+    private static StreamProperties deriveStreamPropertiesWithoutActualProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session)
+    {
+        StreamProperties result = node.accept(new Visitor(metadata, session), inputProperties);
+
+        result.getPartitioningColumns().ifPresent(columns ->
+                verify(node.getOutputSymbols().containsAll(columns), "Stream-level partitioning properties contain columns not present in node's output"));
 
         return result;
     }
@@ -287,19 +332,24 @@ public final class StreamPropertyDerivations
                     .filter(entry -> !entry.getValue().isNull())  // TODO consider allowing nulls
                     .forEach(entry -> constants.add(entry.getKey()));
 
-            Optional<Set<Symbol>> streamPartitionSymbols = layout.getStreamPartitioningColumns()
-                    .flatMap(columns -> getNonConstantSymbols(columns, assignments, constants));
+            Optional<Set<Symbol>> partitioningSymbols = layout.getTablePartitioning().flatMap(partitioning -> {
+                if (!partitioning.isSingleSplitPerPartition()) {
+                    return Optional.empty();
+                }
+                Optional<Set<Symbol>> symbols = getNonConstantSymbols(partitioning.getPartitioningColumns(), assignments, constants);
+                // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
+                // the connector does not guarantee a single split in this case (since it might not understand
+                // that the value is a constant).
+                if (symbols.isPresent() && symbols.get().isEmpty()) {
+                    return Optional.empty();
+                }
+                return symbols;
+            });
 
-            // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
-            // the connector does not guarantee a single split in this case (since it might not understand
-            // that the value is a constant).
-            if (streamPartitionSymbols.isPresent() && streamPartitionSymbols.get().isEmpty()) {
-                return new StreamProperties(MULTIPLE, Optional.empty(), false);
-            }
-            return new StreamProperties(MULTIPLE, streamPartitionSymbols, false);
+            return new StreamProperties(MULTIPLE, partitioningSymbols, false);
         }
 
-        private static Optional<Set<Symbol>> getNonConstantSymbols(Set<ColumnHandle> columnHandles, Map<ColumnHandle, Symbol> assignments, Set<ColumnHandle> globalConstants)
+        private static Optional<Set<Symbol>> getNonConstantSymbols(List<ColumnHandle> columnHandles, Map<ColumnHandle, Symbol> assignments, Set<ColumnHandle> globalConstants)
         {
             // Strip off the constants from the partitioning columns (since those are not required for translation)
             Set<ColumnHandle> constantsStrippedPartitionColumns = columnHandles.stream()
@@ -419,6 +469,13 @@ public final class StreamPropertyDerivations
         public StreamProperties visitTableDelete(TableDeleteNode node, List<StreamProperties> inputProperties)
         {
             // delete only outputs a single row count
+            return StreamProperties.singleStream();
+        }
+
+        @Override
+        public StreamProperties visitTableUpdate(TableUpdateNode node, List<StreamProperties> inputProperties)
+        {
+            // update only outputs a single row count
             return StreamProperties.singleStream();
         }
 
@@ -567,6 +624,32 @@ public final class StreamPropertyDerivations
 
             boolean preservesOrdering = node.getRowsPerMatch().isOneRow() || node.getSkipToPosition() == PAST_LAST;
             return translatedProperties.unordered(!preservesOrdering);
+        }
+
+        @Override
+        public StreamProperties visitTableFunction(TableFunctionNode node, List<StreamProperties> inputProperties)
+        {
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+        }
+
+        @Override
+        public StreamProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, List<StreamProperties> inputProperties)
+        {
+            if (node.getSource().isEmpty()) {
+                return StreamProperties.singleStream(); // TODO allow multiple; return partitioning properties
+            }
+
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            Set<Symbol> passThroughInputs = Sets.intersection(ImmutableSet.copyOf(node.getSource().orElseThrow().getOutputSymbols()), ImmutableSet.copyOf(node.getOutputSymbols()));
+            StreamProperties translatedProperties = properties.translate(column -> {
+                if (passThroughInputs.contains(column)) {
+                    return Optional.of(column);
+                }
+                return Optional.empty();
+            });
+
+            return translatedProperties.unordered(true);
         }
 
         @Override
@@ -792,7 +875,8 @@ public final class StreamPropertyDerivations
                         }
                         return Optional.of(newPartitioningColumns.build());
                     }),
-                    ordered, otherActualProperties.translate(translator));
+                    ordered,
+                    otherActualProperties == null ? null : otherActualProperties.translate(translator));
         }
 
         public Optional<List<Symbol>> getPartitioningColumns()

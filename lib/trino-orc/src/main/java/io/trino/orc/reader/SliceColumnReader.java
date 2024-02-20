@@ -27,13 +27,13 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.ZoneId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -41,13 +41,12 @@ import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static io.trino.spi.type.Varchars.byteCount;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SliceColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SliceColumnReader.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SliceColumnReader.class);
 
     private final OrcColumn column;
     private final SliceDirectColumnReader directReader;

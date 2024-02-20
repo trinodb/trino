@@ -37,7 +37,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 public class IndexedTpchConnectorFactory
@@ -61,7 +61,7 @@ public class IndexedTpchConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         int splitsPerNode = getSplitsPerNode(properties);
         TpchIndexedData indexedData = new TpchIndexedData(indexSpec);

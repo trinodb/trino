@@ -62,6 +62,7 @@ public final class DeterminismEvaluator
         {
             if (!resolvedFunctionSupplier.apply(node).isDeterministic()) {
                 deterministic.set(false);
+                return null;
             }
             return super.visitFunctionCall(node, deterministic);
         }
@@ -83,7 +84,7 @@ public final class DeterminismEvaluator
         protected Void visitCurrentTime(CurrentTime node, AtomicBoolean currentTime)
         {
             currentTime.set(true);
-            return super.visitCurrentTime(node, currentTime);
+            return null;
         }
     }
 }

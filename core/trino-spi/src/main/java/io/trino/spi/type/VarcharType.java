@@ -16,33 +16,30 @@ package io.trino.spi.type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.function.BlockIndex;
-import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.ScalarOperator;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
-import static io.trino.spi.function.OperatorType.EQUAL;
-import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Slices.sliceRepresentation;
-import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.String.format;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
 
 public final class VarcharType
         extends AbstractVariableWidthType
 {
-    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(VarcharType.class, lookup(), Slice.class);
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
+            .addOperators(DEFAULT_READ_OPERATORS)
+            .addOperators(DEFAULT_COMPARABLE_OPERATORS)
+            .addOperators(DEFAULT_ORDERING_OPERATORS)
+            .build();
 
     public static final int UNBOUNDED_LENGTH = Integer.MAX_VALUE;
     public static final int MAX_LENGTH = Integer.MAX_VALUE - 1;
@@ -136,7 +133,7 @@ public final class VarcharType
             return null;
         }
 
-        Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
+        Slice slice = getSlice(block, position);
         if (!isUnbounded() && countCodePoints(slice) > length) {
             throw new IllegalArgumentException(format("Character count exceeds length limit %s: %s", length, sliceRepresentation(slice)));
         }
@@ -144,7 +141,7 @@ public final class VarcharType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public VariableWidthBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(
                 blockBuilderStatus,
@@ -165,7 +162,7 @@ public final class VarcharType
         if (!cachedRangePresent) {
             if (length > 100) {
                 // The max/min values may be materialized in the plan, so we don't want them to be too large.
-                // Range comparison against large values are usually nonsensical, too, so no need to support them
+                // Range comparison against large values is usually nonsensical, too, so no need to support them
                 // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
                 range = Optional.empty();
             }
@@ -186,21 +183,11 @@ public final class VarcharType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
-            blockBuilder.closeEntry();
-        }
-    }
-
-    @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getSliceLength(position));
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return valueBlock.getSlice(valuePosition);
     }
 
     public void writeString(BlockBuilder blockBuilder, String value)
@@ -217,7 +204,7 @@ public final class VarcharType
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        blockBuilder.writeBytes(value, offset, length).closeEntry();
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(value, offset, length);
     }
 
     @Override
@@ -239,48 +226,5 @@ public final class VarcharType
     public int hashCode()
     {
         return Objects.hash(length);
-    }
-
-    @ScalarOperator(EQUAL)
-    private static boolean equalOperator(Slice left, Slice right)
-    {
-        return left.equals(right);
-    }
-
-    @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
-    {
-        int leftLength = leftBlock.getSliceLength(leftPosition);
-        int rightLength = rightBlock.getSliceLength(rightPosition);
-        if (leftLength != rightLength) {
-            return false;
-        }
-        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, leftLength);
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(Slice value)
-    {
-        return XxHash64.hash(value);
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
-    {
-        return block.hash(position, 0, block.getSliceLength(position));
-    }
-
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(Slice left, Slice right)
-    {
-        return left.compareTo(right);
-    }
-
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
-    {
-        int leftLength = leftBlock.getSliceLength(leftPosition);
-        int rightLength = rightBlock.getSliceLength(rightPosition);
-        return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
 }

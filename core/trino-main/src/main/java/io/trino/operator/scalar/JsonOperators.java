@@ -14,7 +14,6 @@
 package io.trino.operator.scalar;
 
 import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import io.airlift.slice.DynamicSliceOutput;
@@ -30,7 +29,6 @@ import io.trino.util.JsonCastException;
 
 import java.io.IOException;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -46,6 +44,7 @@ import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.Failures.checkCondition;
+import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.currentTokenAsBigint;
@@ -61,7 +60,7 @@ import static java.lang.String.format;
 
 public final class JsonOperators
 {
-    public static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
 
     private JsonOperators()
     {

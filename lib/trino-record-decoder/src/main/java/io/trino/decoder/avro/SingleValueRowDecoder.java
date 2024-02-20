@@ -23,7 +23,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-class SingleValueRowDecoder
+public class SingleValueRowDecoder
         implements RowDecoder
 {
     private final DecoderColumnHandle column;
@@ -32,13 +32,19 @@ class SingleValueRowDecoder
     public SingleValueRowDecoder(AvroDeserializer<Object> deserializer, DecoderColumnHandle column)
     {
         this.deserializer = requireNonNull(deserializer, "deserializer is null");
-        this.column = requireNonNull(column, "columns is null");
+        this.column = requireNonNull(column, "column is null");
     }
 
     @Override
     public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data)
     {
-        Object avroValue = deserializer.deserialize(data);
+        Object avroValue;
+        try {
+            avroValue = deserializer.deserialize(data);
+        }
+        catch (RuntimeException e) {
+            return Optional.empty();
+        }
         return Optional.of(ImmutableMap.of(column, new AvroColumnDecoder.ObjectValueProvider(avroValue, column.getType(), column.getName())));
     }
 }

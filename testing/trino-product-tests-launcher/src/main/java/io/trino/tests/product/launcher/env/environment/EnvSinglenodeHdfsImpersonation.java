@@ -14,14 +14,13 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;

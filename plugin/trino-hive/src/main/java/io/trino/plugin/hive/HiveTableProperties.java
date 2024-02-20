@@ -14,6 +14,8 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import io.trino.plugin.hive.HiveWritableTableHandle.BucketInfo;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
@@ -21,17 +23,17 @@ import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
-
-import javax.inject.Inject;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_ENABLED;
-import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_IGNORE;
-import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_LOCATION_TEMPLATE;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.PARTITION_PROJECTION_ENABLED;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.PARTITION_PROJECTION_IGNORE;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.PARTITION_PROJECTION_LOCATION_TEMPLATE;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -69,13 +71,15 @@ public class HiveTableProperties
     public static final String REGEX_CASE_INSENSITIVE = "regex_case_insensitive";
     public static final String TRANSACTIONAL = "transactional";
     public static final String AUTO_PURGE = "auto_purge";
+    public static final String EXTRA_PROPERTIES = "extra_properties";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
     public HiveTableProperties(
             HiveConfig config,
-            OrcWriterConfig orcWriterConfig)
+            OrcWriterConfig orcWriterConfig,
+            TypeManager typeManager)
     {
         tableProperties = ImmutableList.of(
                 stringProperty(
@@ -173,7 +177,25 @@ public class HiveTableProperties
                         PARTITION_PROJECTION_LOCATION_TEMPLATE,
                         "Partition projection location template",
                         null,
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        EXTRA_PROPERTIES,
+                        "Extra table properties",
+                        new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators()),
+                        Map.class,
+                        null,
+                        true, // currently not shown in SHOW CREATE TABLE
+                        value -> {
+                            Map<String, String> extraProperties = (Map<String, String>) value;
+                            if (extraProperties.containsValue(null)) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra table property value cannot be null '%s'", extraProperties));
+                            }
+                            if (extraProperties.containsKey(null)) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra table property key cannot be null '%s'", extraProperties));
+                            }
+                            return extraProperties;
+                        },
+                        value -> value));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -223,12 +245,12 @@ public class HiveTableProperties
         return partitionedBy == null ? ImmutableList.of() : ImmutableList.copyOf(partitionedBy);
     }
 
-    public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
+    public static Optional<BucketInfo> getBucketInfo(Map<String, Object> tableProperties)
     {
         List<String> bucketedBy = getBucketedBy(tableProperties);
         List<SortingColumn> sortedBy = getSortedBy(tableProperties);
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
-        if ((bucketedBy.isEmpty()) && (bucketCount == 0)) {
+        if (bucketedBy.isEmpty() && (bucketCount == 0)) {
             if (!sortedBy.isEmpty()) {
                 throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s may be specified only when %s is specified", SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
             }
@@ -241,7 +263,7 @@ public class HiveTableProperties
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
         BucketingVersion bucketingVersion = getBucketingVersion(tableProperties);
-        return Optional.of(new HiveBucketProperty(bucketedBy, bucketingVersion, bucketCount, sortedBy));
+        return Optional.of(new BucketInfo(bucketedBy, bucketingVersion, bucketCount, sortedBy));
     }
 
     public static BucketingVersion getBucketingVersion(Map<String, Object> tableProperties)
@@ -310,5 +332,10 @@ public class HiveTableProperties
     public static Optional<Boolean> isAutoPurge(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Boolean) tableProperties.get(AUTO_PURGE));
+    }
+
+    public static Optional<Map<String, String>> getExtraProperties(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Map<String, String>) tableProperties.get(EXTRA_PROPERTIES));
     }
 }

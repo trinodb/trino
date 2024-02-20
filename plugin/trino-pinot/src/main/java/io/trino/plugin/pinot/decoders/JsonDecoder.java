@@ -16,6 +16,7 @@ package io.trino.plugin.pinot.decoders;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 
 import java.util.function.Supplier;
 
@@ -36,7 +37,7 @@ public class JsonDecoder
         }
         else if (value instanceof String) {
             Slice slice = jsonParse(utf8Slice((String) value));
-            output.writeBytes(slice, 0, slice.length()).closeEntry();
+            ((VariableWidthBlockBuilder) output).writeEntry(slice);
         }
         else {
             throw new TrinoException(TYPE_MISMATCH, format("Expected a json value of type STRING: %s [%s]", value, value.getClass().getSimpleName()));

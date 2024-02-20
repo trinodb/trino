@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableSet;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
@@ -26,8 +27,10 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Identifier;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.List;
@@ -37,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -45,14 +49,18 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDeallocateTask
 {
     private final Metadata metadata = createTestMetadataManager();
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
@@ -66,7 +74,7 @@ public class TestDeallocateTask
                 .addPreparedStatement("my_query", "SELECT bar, baz FROM foo")
                 .build();
         Set<String> statements = executeDeallocate("my_query", "DEALLOCATE PREPARE my_query", session);
-        assertEquals(statements, ImmutableSet.of("my_query"));
+        assertThat(statements).isEqualTo(ImmutableSet.of("my_query"));
     }
 
     @Test
@@ -80,7 +88,13 @@ public class TestDeallocateTask
     private Set<String> executeDeallocate(String statementName, String sqlString, Session session)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControl = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), DefaultSystemAccessControl.NAME);
+        AccessControlManager accessControl = new AccessControlManager(
+                NodeVersion.UNKNOWN,
+                transactionManager,
+                emptyEventListenerManager(),
+                new AccessControlConfig(),
+                OpenTelemetry.noop(),
+                DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 Optional.empty(),
@@ -95,6 +109,7 @@ public class TestDeallocateTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));

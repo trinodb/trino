@@ -13,8 +13,8 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -26,8 +26,6 @@ import io.trino.spi.TrinoException;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameTable;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -87,18 +85,18 @@ public class RenameTableTask
         }
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
-        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+        if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
             return immediateVoidFuture();
         }
 
-        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
-        QualifiedObjectName source = redirectionAwareTableHandle.getRedirectedTableName().orElse(tableName);
+        TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
+        QualifiedObjectName source = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
         QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget());
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
-            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
+            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.getCatalogName());
         }
         if (metadata.isMaterializedView(session, target)) {
             throw semanticException(GENERIC_USER_ERROR, statement, "Target table '%s' does not exist, but a materialized view with that name exists.", target);
@@ -126,7 +124,7 @@ public class RenameTableTask
             throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", target));
         }
 
-        List<String> parts = Lists.reverse(target.getParts());
+        List<String> parts = target.getParts().reversed();
         String objectName = parts.get(0);
         String schemaName = (parts.size() > 1) ? parts.get(1) : source.getSchemaName();
         String catalogName = (parts.size() > 2) ? parts.get(2) : source.getCatalogName();

@@ -14,6 +14,7 @@
 package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
@@ -26,10 +27,8 @@ import io.trino.server.security.oauth2.TokenPairSerializer;
 import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Response;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -46,9 +45,10 @@ import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_EN
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
+import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
+import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 public class OAuth2WebUiAuthenticationFilter
         implements WebUiAuthenticationFilter
@@ -136,17 +136,17 @@ public class OAuth2WebUiAuthenticationFilter
 
     private boolean tokenNotExpired(TokenPair tokenPair)
     {
-        return tokenPair.getExpiration().after(Date.from(Instant.now()));
+        return tokenPair.expiration().after(Date.from(Instant.now()));
     }
 
     private Optional<Map<String, Object>> getAccessTokenClaims(TokenPair tokenPair)
     {
-        return client.getClaims(tokenPair.getAccessToken());
+        return client.getClaims(tokenPair.accessToken());
     }
 
     private void needAuthentication(ContainerRequestContext request, Optional<TokenPair> tokenPair)
     {
-        Optional<String> refreshToken = tokenPair.flatMap(TokenPair::getRefreshToken);
+        Optional<String> refreshToken = tokenPair.flatMap(TokenPair::refreshToken);
         if (refreshToken.isPresent()) {
             try {
                 redirectForNewToken(request, refreshToken.get());
@@ -164,9 +164,14 @@ public class OAuth2WebUiAuthenticationFilter
     {
         OAuth2Client.Response response = client.refreshTokens(refreshToken);
         String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
-        request.abortWith(Response.temporaryRedirect(request.getUriInfo().getRequestUri())
-                .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
-                .build());
+        Instant newExpirationTime = tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration());
+        Response.ResponseBuilder builder = Response.temporaryRedirect(request.getUriInfo().getRequestUri())
+                .cookie(OAuthWebUiCookie.create(serializedToken, newExpirationTime));
+
+        OAuthIdTokenCookie.read(request.getCookies().get(ID_TOKEN_COOKIE))
+                .ifPresent(idToken -> builder.cookie(OAuthIdTokenCookie.create(idToken, newExpirationTime)));
+
+        request.abortWith(builder.build());
     }
 
     private void handleAuthenticationFailure(ContainerRequestContext request)

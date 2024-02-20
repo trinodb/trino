@@ -19,8 +19,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -105,7 +104,7 @@ public class TestSimplifyFilterPredicate
 
         // both results are equal non-deterministic expressions
         FunctionCall randomFunction = new FunctionCall(
-                tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
+                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(

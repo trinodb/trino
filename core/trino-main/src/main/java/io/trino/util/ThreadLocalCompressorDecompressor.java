@@ -31,7 +31,7 @@ public class ThreadLocalCompressorDecompressor
     public ThreadLocalCompressorDecompressor(Supplier<Compressor> compressorFactory, Supplier<Decompressor> decompressorFactory)
     {
         this.compressor = ThreadLocal.withInitial(requireNonNull(compressorFactory, "compressorFactory is null"));
-        this.decompressor = ThreadLocal.withInitial((requireNonNull(decompressorFactory, "decompressorFactory is null")));
+        this.decompressor = ThreadLocal.withInitial(requireNonNull(decompressorFactory, "decompressorFactory is null"));
     }
 
     @Override

@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
@@ -23,8 +24,6 @@ import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
-
-import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;

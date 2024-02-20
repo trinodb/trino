@@ -17,7 +17,7 @@ import io.trino.Session;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -38,37 +38,37 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a = DOUBLE '1'", "a = BIGINT '1'");
 
         // non-representable
-        testUnwrap("smallint", "a = DOUBLE '1.1'", "a IS NULL AND NULL");
-        testUnwrap("smallint", "a = DOUBLE '1.9'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '1.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
+        testUnwrap("smallint", "a = DOUBLE '1.9'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("bigint", "a = DOUBLE '1.1'", "a IS NULL AND NULL");
+        testUnwrap("bigint", "a = DOUBLE '1.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // below top of range
         testUnwrap("smallint", "a = DOUBLE '32766'", "a = SMALLINT '32766'");
 
         // round to top of range
-        testUnwrap("smallint", "a = DOUBLE '32766.9'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '32766.9'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // top of range
         testUnwrap("smallint", "a = DOUBLE '32767'", "a = SMALLINT '32767'");
 
         // above range
-        testUnwrap("smallint", "a = DOUBLE '32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a = DOUBLE '-32767'", "a = SMALLINT '-32767'");
 
         // round to bottom of range
-        testUnwrap("smallint", "a = DOUBLE '-32767.9'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '-32767.9'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // bottom of range
         testUnwrap("smallint", "a = DOUBLE '-32768'", "a = SMALLINT '-32768'");
 
         // below range
-        testUnwrap("smallint", "a = DOUBLE '-32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '-32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // -2^64 constant
-        testUnwrap("bigint", "a = DOUBLE '-18446744073709551616'", "a IS NULL AND NULL");
+        testUnwrap("bigint", "a = DOUBLE '-18446744073709551616'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // shorter varchar and char
         testNoUnwrap("varchar(1)", "= CAST('abc' AS char(3))", "char(3)");
@@ -92,37 +92,37 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a <> DOUBLE '1'", "a <> BIGINT '1'");
 
         // non-representable
-        testUnwrap("smallint", "a <> DOUBLE '1.1'", "NOT (a IS NULL) OR NULL");
-        testUnwrap("smallint", "a <> DOUBLE '1.9'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '1.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
+        testUnwrap("smallint", "a <> DOUBLE '1.9'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("bigint", "a <> DOUBLE '1.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("bigint", "a <> DOUBLE '1.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // below top of range
         testUnwrap("smallint", "a <> DOUBLE '32766'", "a <> SMALLINT '32766'");
 
         // round to top of range
-        testUnwrap("smallint", "a <> DOUBLE '32766.9'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '32766.9'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // top of range
         testUnwrap("smallint", "a <> DOUBLE '32767'", "a <> SMALLINT '32767'");
 
         // above range
-        testUnwrap("smallint", "a <> DOUBLE '32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // 2^64 constant
-        testUnwrap("bigint", "a <> DOUBLE '18446744073709551616'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("bigint", "a <> DOUBLE '18446744073709551616'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a <> DOUBLE '-32767'", "a <> SMALLINT '-32767'");
 
         // round to bottom of range
-        testUnwrap("smallint", "a <> DOUBLE '-32767.9'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '-32767.9'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // bottom of range
         testUnwrap("smallint", "a <> DOUBLE '-32768'", "a <> SMALLINT '-32768'");
 
         // below range
-        testUnwrap("smallint", "a <> DOUBLE '-32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '-32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
     }
 
     @Test
@@ -150,7 +150,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a < DOUBLE '32767'", "a <> SMALLINT '32767'");
 
         // above range
-        testUnwrap("smallint", "a < DOUBLE '32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a < DOUBLE '32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a < DOUBLE '-32767'", "a < SMALLINT '-32767'");
@@ -159,13 +159,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a < DOUBLE '-32767.9'", "a = SMALLINT '-32768'");
 
         // bottom of range
-        testUnwrap("smallint", "a < DOUBLE '-32768'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a < DOUBLE '-32768'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // below range
-        testUnwrap("smallint", "a < DOUBLE '-32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a < DOUBLE '-32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // -2^64 constant
-        testUnwrap("bigint", "a < DOUBLE '-18446744073709551616'", "a IS NULL AND NULL");
+        testUnwrap("bigint", "a < DOUBLE '-18446744073709551616'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
     }
 
     @Test
@@ -190,13 +190,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a <= DOUBLE '32766.9'", "a < SMALLINT '32767'");
 
         // top of range
-        testUnwrap("smallint", "a <= DOUBLE '32767'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <= DOUBLE '32767'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // above range
-        testUnwrap("smallint", "a <= DOUBLE '32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <= DOUBLE '32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // 2^64 constant
-        testUnwrap("bigint", "a <= DOUBLE '18446744073709551616'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("bigint", "a <= DOUBLE '18446744073709551616'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a <= DOUBLE '-32767'", "a <= SMALLINT '-32767'");
@@ -208,7 +208,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a <= DOUBLE '-32768'", "a = SMALLINT '-32768'");
 
         // below range
-        testUnwrap("smallint", "a <= DOUBLE '-32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a <= DOUBLE '-32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
     }
 
     @Test
@@ -233,13 +233,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a > DOUBLE '32766.9'", "a = SMALLINT '32767'");
 
         // top of range
-        testUnwrap("smallint", "a > DOUBLE '32767'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a > DOUBLE '32767'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // above range
-        testUnwrap("smallint", "a > DOUBLE '32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a > DOUBLE '32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // 2^64 constant
-        testUnwrap("bigint", "a > DOUBLE '18446744073709551616'", "a IS NULL AND NULL");
+        testUnwrap("bigint", "a > DOUBLE '18446744073709551616'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a > DOUBLE '-32767'", "a > SMALLINT '-32767'");
@@ -251,7 +251,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a > DOUBLE '-32768'", "a <> SMALLINT '-32768'");
 
         // below range
-        testUnwrap("smallint", "a > DOUBLE '-32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a > DOUBLE '-32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
     }
 
     @Test
@@ -279,7 +279,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a >= DOUBLE '32767'", "a = SMALLINT '32767'");
 
         // above range
-        testUnwrap("smallint", "a >= DOUBLE '32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a >= DOUBLE '32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a >= DOUBLE '-32767'", "a >= SMALLINT '-32767'");
@@ -288,13 +288,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a >= DOUBLE '-32767.9'", "a > SMALLINT '-32768' ");
 
         // bottom of range
-        testUnwrap("smallint", "a >= DOUBLE '-32768'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a >= DOUBLE '-32768'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // below range
-        testUnwrap("smallint", "a >= DOUBLE '-32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a >= DOUBLE '-32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // -2^64 constant
-        testUnwrap("bigint", "a >= DOUBLE '-18446744073709551616'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("bigint", "a >= DOUBLE '-18446744073709551616'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
     }
 
     @Test
@@ -365,23 +365,23 @@ public class TestUnwrapCastInComparison
     @Test
     public void testNaN()
     {
-        testUnwrap("smallint", "a = nan()", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = nan()", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("bigint", "a = nan()", "a IS NULL AND NULL");
+        testUnwrap("bigint", "a = nan()", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("smallint", "a < nan()", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a < nan()", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("smallint", "a <> nan()", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> nan()", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         testRemoveFilter("smallint", "a IS DISTINCT FROM nan()");
 
         testRemoveFilter("bigint", "a IS DISTINCT FROM nan()");
 
-        testUnwrap("real", "a = nan()", "a IS NULL AND NULL");
+        testUnwrap("real", "a = nan()", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("real", "a < nan()", "a IS NULL AND NULL");
+        testUnwrap("real", "a < nan()", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("real", "a <> nan()", "NOT (a IS NULL) OR NULL");
+        testUnwrap("real", "a <> nan()", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         testUnwrap("real", "a IS DISTINCT FROM nan()", "a IS DISTINCT FROM CAST(nan() AS REAL)");
     }
@@ -419,7 +419,7 @@ public class TestUnwrapCastInComparison
     @Test
     public void testCastDateToTimestampWithTimeZone()
     {
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Session utcSession = withZone(session, TimeZoneKey.UTC_KEY);
         // east of Greenwich
@@ -513,7 +513,7 @@ public class TestUnwrapCastInComparison
     @Test
     public void testCastTimestampToTimestampWithTimeZone()
     {
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Session utcSession = withZone(session, TimeZoneKey.UTC_KEY);
         // east of Greenwich
@@ -628,16 +628,12 @@ public class TestUnwrapCastInComparison
         // INTEGER->REAL implicit cast is not injective if the real constant is >= 2^23 and <= 2^31 - 1
         testUnwrap("integer", "a = REAL '8388608'", "CAST(a AS REAL) = REAL '8388608.0'");
 
-        testUnwrap("integer", "a = REAL '2147483647'", Runtime.version().feature() >= 19
-                ? "CAST(a AS REAL) = REAL '2.1474836E9'"
-                : "CAST(a AS REAL) = REAL '2.14748365E9'");
+        testUnwrap("integer", "a = REAL '2147483647'", "CAST(a AS REAL) = REAL '2.1474836E9'");
 
         // INTEGER->REAL implicit cast is not injective if the real constant is <= -2^23 and >= -2^31 + 1
         testUnwrap("integer", "a = REAL '-8388608'", "CAST(a AS REAL) = REAL '-8388608.0'");
 
-        testUnwrap("integer", "a = REAL '-2147483647'", Runtime.version().feature() >= 19
-                ? "CAST(a AS REAL) = REAL '-2.1474836E9'"
-                : "CAST(a AS REAL) = REAL '-2.14748365E9'");
+        testUnwrap("integer", "a = REAL '-2147483647'", "CAST(a AS REAL) = REAL '-2.1474836E9'");
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
         testUnwrap("decimal(16)", "a = DOUBLE '1'", "CAST(a AS DOUBLE) = 1E0");
@@ -786,7 +782,7 @@ public class TestUnwrapCastInComparison
 
     private void testNoUnwrap(String inputType, String inputPredicate, String expectedCastType)
     {
-        testNoUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedCastType);
+        testNoUnwrap(getPlanTester().getDefaultSession(), inputType, inputPredicate, expectedCastType);
     }
 
     private void testNoUnwrap(Session session, String inputType, String inputPredicate, String expectedCastType)
@@ -802,13 +798,13 @@ public class TestUnwrapCastInComparison
     {
         assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42", inputType, inputPredicate),
                 output(
-                        filter("rand() = 42e0",
+                        filter("random() = 42e0",
                                 values("a"))));
     }
 
     private void testUnwrap(String inputType, String inputPredicate, String expectedPredicate)
     {
-        testUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedPredicate);
+        testUnwrap(getPlanTester().getDefaultSession(), inputType, inputPredicate, expectedPredicate);
     }
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)
@@ -816,7 +812,7 @@ public class TestUnwrapCastInComparison
         assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s OR rand() = 42", inputType, inputPredicate),
                 session,
                 output(
-                        filter(format("%s OR rand() = 42e0", expectedPredicate),
+                        filter(format("%s OR random() = 42e0", expectedPredicate),
                                 values("a"))));
     }
 

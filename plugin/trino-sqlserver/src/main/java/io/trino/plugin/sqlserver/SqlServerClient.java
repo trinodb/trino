@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import dev.failsafe.Failsafe;
@@ -29,6 +30,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.CaseSensitivity;
@@ -38,6 +40,8 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcProcedureHandle;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -56,11 +60,12 @@ import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
+import io.trino.plugin.jdbc.expression.ComparisonOperator;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
-import io.trino.plugin.jdbc.expression.RewriteComparison;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.expression.RewriteCaseSensitiveComparison;
 import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -69,8 +74,10 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
@@ -86,10 +93,9 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import microsoft.sql.DateTimeOffset;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Inject;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;
@@ -98,6 +104,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -106,10 +114,12 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
@@ -134,6 +144,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
@@ -173,6 +184,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -193,6 +205,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -214,10 +227,17 @@ public class SqlServerClient
 
     private final boolean statisticsEnabled;
 
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
+
+    private static final DateTimeFormatter DATE_TIME_OFFSET_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("yyyy-MM-dd HH:mm:ss")
+            .appendFraction(NANO_OF_SECOND, 0, MAX_SUPPORTED_TEMPORAL_PRECISION, true)
+            .appendPattern(" ")
+            .appendZoneId()
+            .toFormatter();
 
     private static final PredicatePushdownController SQLSERVER_CHARACTER_PUSHDOWN = (session, domain) -> {
         if (domain.isNullableSingleValue()) {
@@ -233,10 +253,37 @@ public class SqlServerClient
             }
             // Domain#simplify can turn a discrete set into a range predicate
             // Push down of range predicate for varchar/char types could lead to incorrect results
-            // when the remote database is case insensitive
+            // when the remote database is case-insensitive
             return DISABLE_PUSHDOWN.apply(session, domain);
         }
         return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+    };
+
+    // Dates prior to the Gregorian calendar switch in 1582 can cause incorrect results when pushed down,
+    // so we disable predicate push down when the domain contains values prior to 1583
+    private static final Instant GREGORIAN_SWITCH_INSTANT = Instant.parse("1583-01-01T00:00:00Z");
+    private static final DateTimeOffset GREGORIAN_SWITCH_DATETIMEOFFSET = DateTimeOffset.valueOf(new Timestamp(GREGORIAN_SWITCH_INSTANT.toEpochMilli()), 0);
+    private static final LongTimestampWithTimeZone LONG_DATETIMEOFFSET_DISABLE_VALUE =
+            LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                    GREGORIAN_SWITCH_INSTANT.getEpochSecond(),
+                    (long) GREGORIAN_SWITCH_INSTANT.getNano() * PICOSECONDS_PER_NANOSECOND,
+                    UTC_KEY);
+    private static final long SHORT_DATETIMEOFFSET_DISABLE_VALUE = GREGORIAN_SWITCH_INSTANT.toEpochMilli();
+
+    private static final PredicatePushdownController SQLSERVER_DATE_TIME_PUSHDOWN = (session, domain) -> {
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        for (Range range : simplifiedDomain.getValues().getRanges().getOrderedRanges()) {
+            Range disableRange = range.getType().getJavaType().equals(LongTimestampWithTimeZone.class)
+                    ? Range.lessThan(range.getType(), LONG_DATETIMEOFFSET_DISABLE_VALUE)
+                    : Range.lessThan(range.getType(), SHORT_DATETIMEOFFSET_DISABLE_VALUE);
+
+            // If there is any overlap of any predicate range and (-inf, 1583), disable push down
+            if (range.overlaps(disableRange)) {
+                return DISABLE_PUSHDOWN.apply(session, domain);
+            }
+        }
+
+        return FULL_PUSHDOWN.apply(session, domain);
     };
 
     @Inject
@@ -253,13 +300,17 @@ public class SqlServerClient
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
-                // Only SqlServer requires N prefix for unicode characters (SQL-92 standard),
-                // so we add this rule to support such cases for pushdowns
-                .add(new RewriteUnicodeVarcharConstant())
                 .addStandardRules(this::quoted)
-                .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
                 .add(new RewriteIn())
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
+                .withTypeClass("numeric_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint", "decimal", "real", "double"))
+                .map("$equal(left: numeric_type, right: numeric_type)").to("left = right")
+                .map("$not_equal(left: numeric_type, right: numeric_type)").to("left <> right")
+                .map("$less_than(left: numeric_type, right: numeric_type)").to("left < right")
+                .map("$less_than_or_equal(left: numeric_type, right: numeric_type)").to("left <= right")
+                .map("$greater_than(left: numeric_type, right: numeric_type)").to("left > right")
+                .map("$greater_than_or_equal(left: numeric_type, right: numeric_type)").to("left >= right")
+                .add(new RewriteCaseSensitiveComparison(ImmutableSet.of(ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL)))
                 .map("$add(left: integer_type, right: integer_type)").to("left + right")
                 .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
                 .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
@@ -276,7 +327,7 @@ public class SqlServerClient
 
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementSqlServerCountBigAll())
                         .add(new ImplementSqlServerCountBig())
                         .add(new ImplementMinMax(false))
@@ -290,6 +341,17 @@ public class SqlServerClient
                         .add(new ImplementSqlServerVariancePop())
                         // SQL Server doesn't have covar_samp and covar_pop functions so we can't implement pushdown for them
                         .build());
+    }
+
+    @Override
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
+            throws SQLException
+    {
+        if (cascade) {
+            // SQL Server doesn't support CASCADE option https://learn.microsoft.com/en-us/sql/t-sql/statements/drop-schema-transact-sql
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
+        }
+        execute(session, connection, "DROP SCHEMA " + quoted(remoteSchemaName));
     }
 
     @Override
@@ -403,7 +465,13 @@ public class SqlServerClient
     }
 
     @Override
-    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
+    }
+
+    @Override
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
@@ -438,9 +506,9 @@ public class SqlServerClient
         if (tableHandle.isSynthetic()) {
             return ImmutableMap.of();
         }
-        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * from %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
+        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
 
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
             ImmutableMap.Builder<String, CaseSensitivity> columns = ImmutableMap.builder();
             for (int column = 1; column <= metadata.getColumnCount(); column++) {
@@ -450,6 +518,13 @@ public class SqlServerClient
             return columns.buildOrThrow();
         }
         catch (SQLException e) {
+            if (e instanceof SQLServerException sqlServerException && sqlServerException.getSQLServerError().getErrorNumber() == 208) {
+                // The 208 indicates that the object doesn't exist or lack of permission.
+                // Throw TableNotFoundException because users shouldn't see such tables if they don't have the permission.
+                // TableNotFoundException will be suppressed when listing information_schema.
+                // https://learn.microsoft.com/sql/relational-databases/errors-events/mssqlserver-208-database-engine-error
+                throw new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName());
+            }
             throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + firstNonNull(e.getMessage(), e), e);
         }
     }
@@ -529,7 +604,7 @@ public class SqlServerClient
             case Types.DATE:
                 return Optional.of(ColumnMapping.longMapping(
                         DATE,
-                        sqlServerDateReadFunction(),
+                        dateReadFunctionUsingLocalDate(),
                         sqlServerDateWriteFunction()));
 
             case Types.TIME:
@@ -647,6 +722,29 @@ public class SqlServerClient
         catch (SQLException | RuntimeException e) {
             throwIfInstanceOf(e, TrinoException.class);
             throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    @Override
+    public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery)
+    {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            try (Statement statement = connection.createStatement();
+                    // When FMTONLY is ON , a rowset is returned with the column names for the query
+                    ResultSet resultSet = statement.executeQuery("set fmtonly on %s \nset fmtonly off".formatted(procedureQuery.query()))) {
+                ResultSetMetaData metadata = resultSet.getMetaData();
+                if (metadata == null) {
+                    throw new TrinoException(NOT_SUPPORTED, "Procedure not supported: ResultSetMetaData not available for query: " + procedureQuery.query());
+                }
+                JdbcProcedureHandle procedureHandle = new JdbcProcedureHandle(procedureQuery, getColumns(session, connection, metadata));
+                if (statement.getMoreResults()) {
+                    throw new TrinoException(NOT_SUPPORTED, "Procedure has multiple ResultSets for query: " + procedureQuery.query());
+                }
+                return procedureHandle;
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for procedure query. " + firstNonNull(e.getMessage(), e), e);
         }
     }
 
@@ -797,6 +895,26 @@ public class SqlServerClient
             ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
+            JoinStatistics statistics)
+    {
+        return implementJoinCostAware(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                statistics,
+                () -> super.implementJoin(session, joinType, leftSource, leftProjections, rightSource, rightProjections, joinConditions, statistics));
+    }
+
+    @Override
+    public Optional<PreparedQuery> legacyImplementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
             PreparedQuery rightSource,
             List<JdbcJoinCondition> joinConditions,
             Map<JdbcColumnHandle, String> rightAssignments,
@@ -809,7 +927,7 @@ public class SqlServerClient
                 leftSource,
                 rightSource,
                 statistics,
-                () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
+                () -> super.legacyImplementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
     }
 
     private LongWriteFunction sqlServerTimeWriteFunction(int precision)
@@ -843,11 +961,6 @@ public class SqlServerClient
         return (statement, index, day) -> statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(day)));
     }
 
-    private static LongReadFunction sqlServerDateReadFunction()
-    {
-        return (resultSet, index) -> LocalDate.parse(resultSet.getString(index), DATE_FORMATTER).toEpochDay();
-    }
-
     private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)
     {
         checkArgument(precision <= MAX_SUPPORTED_TEMPORAL_PRECISION, "Unsupported datetimeoffset precision %s", precision);
@@ -855,19 +968,29 @@ public class SqlServerClient
             return ColumnMapping.longMapping(
                     createTimestampWithTimeZoneType(precision),
                     shortTimestampWithTimeZoneReadFunction(),
-                    shortTimestampWithTimeZoneWriteFunction());
+                    shortTimestampWithTimeZoneWriteFunction(),
+                    SQLSERVER_DATE_TIME_PUSHDOWN);
         }
         return ColumnMapping.objectMapping(
                 createTimestampWithTimeZoneType(precision),
                 longTimestampWithTimeZoneReadFunction(),
-                longTimestampWithTimeZoneWriteFunction());
+                longTimestampWithTimeZoneWriteFunction(),
+                SQLSERVER_DATE_TIME_PUSHDOWN);
     }
 
     private static LongReadFunction shortTimestampWithTimeZoneReadFunction()
     {
         return (resultSet, columnIndex) -> {
-            OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
-            ZonedDateTime zonedDateTime = offsetDateTime.toZonedDateTime();
+            ZonedDateTime zonedDateTime;
+            DateTimeOffset dateTimeOffset = resultSet.getObject(columnIndex, DateTimeOffset.class);
+            if (dateTimeOffset.compareTo(GREGORIAN_SWITCH_DATETIMEOFFSET) < 0) {
+                String stringValue = resultSet.getString(columnIndex);
+                zonedDateTime = ZonedDateTime.from(DATE_TIME_OFFSET_FORMATTER.parse(stringValue));
+            }
+            else {
+                zonedDateTime = dateTimeOffset.getOffsetDateTime().toZonedDateTime();
+            }
+
             return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.getZone().getId());
         };
     }
@@ -886,7 +1009,16 @@ public class SqlServerClient
         return ObjectReadFunction.of(
                 LongTimestampWithTimeZone.class,
                 (resultSet, columnIndex) -> {
-                    OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
+                    OffsetDateTime offsetDateTime;
+                    DateTimeOffset dateTimeOffset = resultSet.getObject(columnIndex, DateTimeOffset.class);
+                    if (dateTimeOffset.compareTo(GREGORIAN_SWITCH_DATETIMEOFFSET) < 0) {
+                        String stringValue = resultSet.getString(columnIndex);
+                        offsetDateTime = ZonedDateTime.from(DATE_TIME_OFFSET_FORMATTER.parse(stringValue)).toOffsetDateTime();
+                    }
+                    else {
+                        offsetDateTime = dateTimeOffset.getOffsetDateTime();
+                    }
+
                     return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
                             offsetDateTime.toEpochSecond(),
                             (long) offsetDateTime.getNano() * PICOSECONDS_PER_NANOSECOND,
@@ -1019,18 +1151,18 @@ public class SqlServerClient
     }
 
     @Override
-    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         if (tableMetadata.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
         }
-        return format(
+        return ImmutableList.of(format(
                 "CREATE TABLE %s (%s) %s",
                 quoted(remoteTableName),
                 join(", ", columns),
                 getDataCompression(tableMetadata.getProperties())
                         .map(dataCompression -> format("WITH (DATA_COMPRESSION = %s)", dataCompression))
-                        .orElse(""));
+                        .orElse("")));
     }
 
     @Override
@@ -1054,6 +1186,12 @@ public class SqlServerClient
         catch (SQLException exception) {
             throw new TrinoException(JDBC_ERROR, exception);
         }
+    }
+
+    @Override
+    public OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        return getMaxColumnNameLengthFromDatabaseMetaData(session);
     }
 
     @Override
@@ -1185,7 +1323,7 @@ public class SqlServerClient
                 {
                     Throwable rootCause = Throwables.getRootCause(throwable);
                     return rootCause instanceof SQLServerException &&
-                            ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
+                            ((SQLServerException) rootCause).getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
                 })
                 .onFailedAttempt(event -> log.warn(event.getLastException(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage))
                 .build();

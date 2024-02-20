@@ -13,11 +13,9 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
 
@@ -47,14 +45,14 @@ public class ProjectStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(ProjectNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(ProjectNode node, Context context)
     {
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
+        PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(node.getSource());
         PlanNodeStatsEstimate.Builder calculatedStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(sourceStats.getOutputRowCount());
 
         for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-            calculatedStats.addSymbolStatistics(entry.getKey(), scalarStatsCalculator.calculate(entry.getValue(), sourceStats, session, types));
+            calculatedStats.addSymbolStatistics(entry.getKey(), scalarStatsCalculator.calculate(entry.getValue(), sourceStats, context.session(), context.types()));
         }
         return Optional.of(calculatedStats.build());
     }

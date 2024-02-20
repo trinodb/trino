@@ -18,13 +18,15 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -34,65 +36,62 @@ public class TestAddExchangesScaledWriters
         extends BasePlanTest
 {
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session session = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
-        queryRunner.createCatalog("mock_dont_report_written_bytes", createConnectorFactorySupportingReportingBytesWritten(false, "mock_dont_report_written_bytes"), ImmutableMap.of());
-        queryRunner.createCatalog("mock_report_written_bytes", createConnectorFactorySupportingReportingBytesWritten(true, "mock_report_written_bytes"), ImmutableMap.of());
-        return queryRunner;
+        PlanTester planTester = PlanTester.create(session);
+        planTester.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        planTester.createCatalog("catalog_with_scaled_writers", createConnectorFactory("catalog_with_scaled_writers", true), ImmutableMap.of());
+        planTester.createCatalog("catalog_without_scaled_writers", createConnectorFactory("catalog_without_scaled_writers", false), ImmutableMap.of());
+        return planTester;
     }
 
-    private MockConnectorFactory createConnectorFactorySupportingReportingBytesWritten(boolean supportsWrittenBytes, String name)
+    private MockConnectorFactory createConnectorFactory(String name, boolean writerScalingEnabledAcrossTasks)
     {
-        MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withSupportsReportingWrittenBytes(supportsWrittenBytes)
-                .withGetTableHandle(((session, schemaTableName) -> null))
+        return MockConnectorFactory.builder()
+                .withGetTableHandle((session, schemaTableName) -> null)
                 .withName(name)
+                .withWriterScalingOptions(new WriterScalingOptions(writerScalingEnabledAcrossTasks, true))
                 .build();
-        return connectorFactory;
     }
 
-    @DataProvider(name = "scale_writers")
-    public Object[][] prepareScaledWritersOption()
+    @Test
+    public void testScaledWriters()
     {
-        return new Object[][] {{true}, {false}};
-    }
+        for (boolean isScaleWritersEnabled : Arrays.asList(true, false)) {
+            Session session = testSessionBuilder()
+                    .setSystemProperty("scale_writers", Boolean.toString(isScaleWritersEnabled))
+                    .build();
 
-    @Test(dataProvider = "scale_writers")
-    public void testScaledWritersEnabled(boolean isScaleWritersEnabled)
-    {
-        Session session = testSessionBuilder()
-                .setSystemProperty("scale_writers", Boolean.toString(isScaleWritersEnabled))
-                .build();
-
-        @Language("SQL")
-        String query = "CREATE TABLE mock_report_written_bytes.mock.test AS SELECT * FROM tpch.tiny.nation";
-        SubPlan subPlan = subplan(query, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, session);
-        if (isScaleWritersEnabled) {
-            assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle());
+            @Language("SQL")
+            String query = "CREATE TABLE catalog_with_scaled_writers.mock.test AS SELECT * FROM tpch.tiny.nation";
+            SubPlan subPlan = subplan(query, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, session);
+            if (isScaleWritersEnabled) {
+                assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle());
+            }
+            else {
+                subPlan.getAllFragments().forEach(
+                        fragment -> assertThat(fragment.getPartitioning().getConnectorHandle()).isNotEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle()));
+            }
         }
-        else {
+    }
+
+    @Test
+    public void testScaledWritersWithTasksScalingDisabled()
+    {
+        for (boolean isScaleWritersEnabled : Arrays.asList(true, false)) {
+            Session session = testSessionBuilder()
+                    .setSystemProperty("scale_writers", Boolean.toString(isScaleWritersEnabled))
+                    .build();
+
+            @Language("SQL")
+            String query = "CREATE TABLE catalog_without_scaled_writers.mock.test AS SELECT * FROM tpch.tiny.nation";
+            SubPlan subPlan = subplan(query, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, session);
             subPlan.getAllFragments().forEach(
                     fragment -> assertThat(fragment.getPartitioning().getConnectorHandle()).isNotEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle()));
         }
-    }
-
-    @Test(dataProvider = "scale_writers")
-    public void testScaledWritersDisabled(boolean isScaleWritersEnabled)
-    {
-        Session session = testSessionBuilder()
-                .setSystemProperty("scale_writers", Boolean.toString(isScaleWritersEnabled))
-                .build();
-
-        @Language("SQL")
-        String query = "CREATE TABLE mock_dont_report_written_bytes.mock.test AS SELECT * FROM tpch.tiny.nation";
-        SubPlan subPlan = subplan(query, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, session);
-        subPlan.getAllFragments().forEach(
-                fragment -> assertThat(fragment.getPartitioning().getConnectorHandle()).isNotEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle()));
     }
 }

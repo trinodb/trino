@@ -16,8 +16,7 @@ package io.trino.server.security;
 import com.google.inject.Inject;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
-
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
 import java.util.List;
@@ -46,7 +45,8 @@ public class HeaderAuthenticator
     }
 
     @Override
-    public Identity authenticate(ContainerRequestContext request) throws AuthenticationException
+    public Identity authenticate(ContainerRequestContext request)
+            throws AuthenticationException
     {
         AuthenticationException exception = null;
         Map<String, List<String>> lowerCasedHeaders = request.getHeaders().entrySet().stream()

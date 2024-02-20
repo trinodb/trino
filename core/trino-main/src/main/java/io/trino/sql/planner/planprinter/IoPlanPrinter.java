@@ -21,7 +21,6 @@ import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableMetadata;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -729,15 +728,15 @@ public class IoPlanPrinter
         private void addInputTableConstraints(TupleDomain<ColumnHandle> filterDomain, TableScanNode tableScan, IoPlanBuilder context)
         {
             TableHandle table = tableScan.getTable();
-            TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, table);
+            CatalogSchemaTableName tableName = plannerContext.getMetadata().getTableName(session, table);
             TupleDomain<ColumnHandle> predicateDomain = plannerContext.getMetadata().getTableProperties(session, table).getPredicate();
             EstimatedStatsAndCost estimatedStatsAndCost = getEstimatedStatsAndCost(tableScan);
             context.addInputTableColumnInfo(
                     new IoPlan.TableColumnInfo(
                             new CatalogSchemaTableName(
-                                    tableMetadata.getCatalogName(),
-                                    tableMetadata.getTable().getSchemaName(),
-                                    tableMetadata.getTable().getTableName()),
+                                    tableName.getCatalogName(),
+                                    tableName.getSchemaTableName().getSchemaName(),
+                                    tableName.getSchemaTableName().getTableName()),
                             parseConstraint(table, predicateDomain.intersect(filterDomain)),
                             estimatedStatsAndCost));
         }

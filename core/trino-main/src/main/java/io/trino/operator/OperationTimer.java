@@ -13,8 +13,8 @@
  */
 package io.trino.operator;
 
-import javax.annotation.concurrent.NotThreadSafe;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import io.trino.annotation.NotThreadSafe;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
@@ -58,12 +58,6 @@ class OperationTimer
 
         intervalWallStart = wallStart;
         intervalCpuStart = cpuStart;
-    }
-
-    void resetInterval()
-    {
-        intervalCpuStart = trackOperationCpuTime ? currentThreadCpuTime() : 0;
-        intervalWallStart = System.nanoTime();
     }
 
     void recordOperationComplete(OperationTiming operationTiming)

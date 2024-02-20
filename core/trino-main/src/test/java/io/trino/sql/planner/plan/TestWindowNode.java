@@ -30,14 +30,10 @@ import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.WindowFrame;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
@@ -46,17 +42,14 @@ import java.util.UUID;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static org.testng.Assert.assertEquals;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWindowNode
 {
     private final TestingFunctionResolution functionResolution;
-    private SymbolAllocator symbolAllocator;
-    private ValuesNode sourceNode;
-    private Symbol columnA;
-    private Symbol columnB;
-    private Symbol columnC;
-
     private final ObjectMapper objectMapper;
 
     public TestWindowNode()
@@ -77,32 +70,28 @@ public class TestWindowNode
         objectMapper = provider.get();
     }
 
-    @BeforeClass
-    public void setUp()
-    {
-        symbolAllocator = new SymbolAllocator();
-        columnA = symbolAllocator.newSymbol("a", BIGINT);
-        columnB = symbolAllocator.newSymbol("b", BIGINT);
-        columnC = symbolAllocator.newSymbol("c", BIGINT);
-
-        sourceNode = new ValuesNode(
-                newId(),
-                ImmutableList.of(columnA, columnB, columnC),
-                ImmutableList.of());
-    }
-
     @Test
     public void testSerializationRoundtrip()
             throws Exception
     {
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol columnA = symbolAllocator.newSymbol("a", BIGINT);
+        Symbol columnB = symbolAllocator.newSymbol("b", BIGINT);
+        Symbol columnC = symbolAllocator.newSymbol("c", BIGINT);
+
+        ValuesNode sourceNode = new ValuesNode(
+                newId(),
+                ImmutableList.of(columnA, columnB, columnC),
+                ImmutableList.of());
+
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
-        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
+                RANGE,
+                UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 Optional.empty(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING,
+                UNBOUNDED_FOLLOWING,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -130,13 +119,13 @@ public class TestWindowNode
 
         WindowNode actualNode = objectMapper.readValue(json, WindowNode.class);
 
-        assertEquals(actualNode.getId(), windowNode.getId());
-        assertEquals(actualNode.getSpecification(), windowNode.getSpecification());
-        assertEquals(actualNode.getWindowFunctions(), windowNode.getWindowFunctions());
-        assertEquals(actualNode.getFrames(), windowNode.getFrames());
-        assertEquals(actualNode.getHashSymbol(), windowNode.getHashSymbol());
-        assertEquals(actualNode.getPrePartitionedInputs(), windowNode.getPrePartitionedInputs());
-        assertEquals(actualNode.getPreSortedOrderPrefix(), windowNode.getPreSortedOrderPrefix());
+        assertThat(actualNode.getId()).isEqualTo(windowNode.getId());
+        assertThat(actualNode.getSpecification()).isEqualTo(windowNode.getSpecification());
+        assertThat(actualNode.getWindowFunctions()).isEqualTo(windowNode.getWindowFunctions());
+        assertThat(actualNode.getFrames()).isEqualTo(windowNode.getFrames());
+        assertThat(actualNode.getHashSymbol()).isEqualTo(windowNode.getHashSymbol());
+        assertThat(actualNode.getPrePartitionedInputs()).isEqualTo(windowNode.getPrePartitionedInputs());
+        assertThat(actualNode.getPreSortedOrderPrefix()).isEqualTo(windowNode.getPreSortedOrderPrefix());
     }
 
     private static PlanNodeId newId()

@@ -14,29 +14,24 @@
 package io.trino.sql.query;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestFullJoin
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -44,9 +39,9 @@ public class TestFullJoin
     {
         assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2) AS l(v) FULL OUTER JOIN (VALUES 2, 1) AS r(v) ON l.v = r.v LIMIT 1"))
-                .satisfies(actual -> assertThat(actual.getMaterializedRows())
-                        .hasSize(1)
-                        .containsAnyElementsOf(assertions.execute("VALUES (1,1), (2,2)").getMaterializedRows()));
+                .result().rows()
+                .hasSize(1)
+                .containsAnyElementsOf(assertions.execute("VALUES (1,1), (2,2)").getMaterializedRows());
 
         assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2) AS l(v) FULL OUTER JOIN (VALUES 2) AS r(v) ON l.v = r.v " +

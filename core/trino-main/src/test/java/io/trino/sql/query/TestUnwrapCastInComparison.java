@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -32,26 +32,21 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestUnwrapCastInComparison
 {
     private static final List<String> COMPARISON_OPERATORS = asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM");
     private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss[.SSS]");
 
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -418,6 +413,26 @@ public class TestUnwrapCastInComparison
         }
     }
 
+    @Test
+    public void testMap()
+    {
+        String from = "MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])";
+        String to = "MAP(ARRAY['foo', 'bar'], ARRAY[bigint '1', bigint '3'])";
+        for (String operator : asList("=", "!=", "<>", "IS DISTINCT FROM", "IS NOT DISTINCT FROM")) {
+            validate(operator, "MAP(VARCHAR(3),INTEGER)", from, "MAP(VARCHAR(3),BIGINT)", to);
+        }
+    }
+
+    @Test
+    public void testRow()
+    {
+        String from = "ROW(MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]))";
+        String to = "ROW(MAP(ARRAY['foo', 'bar'], ARRAY[bigint '1', bigint '3']))";
+        for (String operator : asList("=", "!=", "<>", "IS DISTINCT FROM", "IS NOT DISTINCT FROM")) {
+            validate(operator, "ROW(MAP(VARCHAR(3),INTEGER))", from, "ROW(MAP(VARCHAR(3),BIGINT))", to);
+        }
+    }
+
     private void validate(String operator, String fromType, Object fromValue, String toType, Object toValue)
     {
         validate(assertions.getDefaultSession(), operator, fromType, fromValue, toType, toValue);
@@ -429,7 +444,7 @@ public class TestUnwrapCastInComparison
                 "SELECT (CAST(v AS %s) %s CAST(%s AS %s)) " +
                         "IS NOT DISTINCT FROM " +
                         "(CAST(%s AS %s) %s CAST(%s AS %s)) " +
-                        "FROM (VALUES CAST(%s AS %s)) t(v)",
+                        "FROM (VALUES CAST(ROW(%s) AS ROW(%s))) t(v)",
                 toType, operator, toValue, toType,
                 fromValue, toType, operator, toValue, toType,
                 fromValue, fromType);

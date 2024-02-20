@@ -13,8 +13,10 @@
  */
 package io.trino.operator.scalar;
 
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
@@ -22,6 +24,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -43,8 +46,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.BlockBuilderAppender.createBlockBuilderAppender;
-import static io.trino.util.JsonUtil.JSON_FACTORY;
 import static io.trino.util.JsonUtil.canCastFromJson;
+import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static io.trino.util.Reflection.methodHandle;
@@ -56,11 +59,17 @@ public class JsonToMapCast
     public static final JsonToMapCast JSON_TO_MAP = new JsonToMapCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
 
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+
+    static {
+        // Changes factory. Necessary for JsonParser.readValueAsTree to work.
+        new ObjectMapper(JSON_FACTORY);
+    }
+
     private JsonToMapCast()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .operatorType(CAST)
                         .castableFromTypeParameter("K", VARCHAR.getTypeSignature())
                         .castableFromTypeParameter("V", JSON.getTypeSignature())
                         .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
@@ -87,7 +96,7 @@ public class JsonToMapCast
     }
 
     @UsedByGeneratedCode
-    public static Block toMap(MapType mapType, BlockBuilderAppender mapAppender, ConnectorSession connectorSession, Slice json)
+    public static SqlMap toMap(MapType mapType, BlockBuilderAppender mapAppender, ConnectorSession connectorSession, Slice json)
     {
         try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, json)) {
             jsonParser.nextToken();
@@ -100,7 +109,8 @@ public class JsonToMapCast
             if (jsonParser.nextToken() != null) {
                 throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
             }
-            return mapType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+            Block block = blockBuilder.build();
+            return mapType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);

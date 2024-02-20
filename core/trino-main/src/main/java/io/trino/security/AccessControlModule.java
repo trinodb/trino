@@ -23,6 +23,8 @@ import io.airlift.log.Logger;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.spi.security.GroupProvider;
+import io.trino.tracing.ForTracing;
+import io.trino.tracing.TracingAccessControl;
 
 import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -38,6 +40,7 @@ public class AccessControlModule
         configBinder(binder).bindConfig(AccessControlConfig.class);
         newOptionalBinder(binder, Key.get(String.class, DefaultSystemAccessControlName.class)).setDefault().toInstance(DefaultSystemAccessControl.NAME);
         binder.bind(AccessControlManager.class).in(Scopes.SINGLETON);
+        binder.bind(AccessControl.class).to(TracingAccessControl.class);
         binder.bind(GroupProviderManager.class).in(Scopes.SINGLETON);
         binder.bind(GroupProvider.class).to(GroupProviderManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(AccessControlManager.class).withGeneratedName();
@@ -45,6 +48,7 @@ public class AccessControlModule
 
     @Provides
     @Singleton
+    @ForTracing
     public AccessControl createAccessControl(AccessControlManager accessControlManager)
     {
         Logger logger = Logger.get(AccessControl.class);

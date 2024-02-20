@@ -19,15 +19,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.DoNotCall;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -52,6 +52,7 @@ public class TableScanNode
 
     @Nullable // null on workers
     private final TupleDomain<ColumnHandle> enforcedConstraint;
+    @SuppressWarnings("NullableOptional")
     @Nullable // null on workers
     private final Optional<PlanNodeStatsEstimate> statistics;
     private final boolean updateTarget;
@@ -75,19 +76,32 @@ public class TableScanNode
         return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), Optional.empty(), updateTarget, useConnectorNodePartitioning);
     }
 
-    /*
-     * This constructor is for JSON deserialization only. Do not use.
-     * It's marked as @Deprecated to help avoid usage, and not because we plan to remove it.
-     */
-    @Deprecated
+    @DoNotCall // For JSON serialization only
     @JsonCreator
-    public TableScanNode(
+    public static TableScanNode fromJson(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputs,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("updateTarget") boolean updateTarget,
             @JsonProperty("useConnectorNodePartitioning") Optional<Boolean> useConnectorNodePartitioning)
+    {
+        return new TableScanNode(
+                id,
+                table,
+                outputs,
+                assignments,
+                updateTarget,
+                useConnectorNodePartitioning);
+    }
+
+    private TableScanNode(
+            PlanNodeId id,
+            TableHandle table,
+            List<Symbol> outputs,
+            Map<Symbol, ColumnHandle> assignments,
+            boolean updateTarget,
+            Optional<Boolean> useConnectorNodePartitioning)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");

@@ -13,14 +13,13 @@
  */
 package io.trino.operator.index;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

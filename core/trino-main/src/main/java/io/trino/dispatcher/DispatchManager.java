@@ -16,7 +16,13 @@ package io.trino.dispatcher;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.event.QueryMonitor;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManagerConfig;
@@ -36,12 +42,10 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -52,6 +56,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
+import static io.trino.tracing.ScopedSpan.scopedSpan;
+import static io.trino.util.Failures.toFailure;
 import static io.trino.util.StatementUtils.getQueryType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -67,6 +73,7 @@ public class DispatchManager
     private final SessionSupplier sessionSupplier;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final SessionPropertyManager sessionPropertyManager;
+    private final Tracer tracer;
 
     private final int maxQueryLength;
 
@@ -75,6 +82,7 @@ public class DispatchManager
     private final QueryTracker<DispatchQuery> queryTracker;
 
     private final QueryManagerStats stats = new QueryManagerStats();
+    private final QueryMonitor queryMonitor;
 
     @Inject
     public DispatchManager(
@@ -87,8 +95,10 @@ public class DispatchManager
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
             SessionPropertyManager sessionPropertyManager,
+            Tracer tracer,
             QueryManagerConfig queryManagerConfig,
-            DispatchExecutor dispatchExecutor)
+            DispatchExecutor dispatchExecutor,
+            QueryMonitor queryMonitor)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
@@ -99,12 +109,14 @@ public class DispatchManager
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.sessionPropertyManager = sessionPropertyManager;
+        this.tracer = requireNonNull(tracer, "tracer is null");
 
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
 
         this.dispatchExecutor = dispatchExecutor.getExecutor();
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
+        this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
     }
 
     @PostConstruct
@@ -131,26 +143,31 @@ public class DispatchManager
         return queryIdGenerator.createNextQueryId();
     }
 
-    public ListenableFuture<Void> createQuery(QueryId queryId, Slug slug, SessionContext sessionContext, String query)
+    public ListenableFuture<Void> createQuery(QueryId queryId, Span querySpan, Slug slug, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
+        requireNonNull(querySpan, "querySpan is null");
         requireNonNull(sessionContext, "sessionContext is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
-        checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
+        checkArgument(!queryTracker.hasQuery(queryId), "query %s already exists", queryId);
 
         // It is important to return a future implementation which ignores cancellation request.
         // Using NonCancellationPropagatingFuture is not enough; it does not propagate cancel to wrapped future
         // but it would still return true on call to isCancelled() after cancel() is called on it.
         DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
-        dispatchExecutor.execute(() -> {
-            try {
-                createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
+        dispatchExecutor.execute(Context.current().wrap(() -> {
+            Span span = tracer.spanBuilder("dispatch")
+                    .addLink(Span.current().getSpanContext())
+                    .setParent(Context.current().with(querySpan))
+                    .startSpan();
+            try (var ignored = scopedSpan(span)) {
+                createQueryInternal(queryId, querySpan, slug, sessionContext, query, resourceGroupManager);
             }
             finally {
                 queryCreationFuture.set(null);
             }
-        });
+        }));
         return queryCreationFuture;
     }
 
@@ -158,7 +175,7 @@ public class DispatchManager
      * Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
      * tracker.  If an error occurs while creating a dispatch query, a failed dispatch will be created and registered.
      */
-    private <C> void createQueryInternal(QueryId queryId, Slug slug, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
+    private <C> void createQueryInternal(QueryId queryId, Span querySpan, Slug slug, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
         PreparedQuery preparedQuery = null;
@@ -170,7 +187,7 @@ public class DispatchManager
             }
 
             // decode session
-            session = sessionSupplier.createSession(queryId, sessionContext);
+            session = sessionSupplier.createSession(queryId, querySpan, sessionContext);
 
             // check query execute permissions
             accessControl.checkCanExecuteQuery(sessionContext.getIdentity());
@@ -217,12 +234,21 @@ public class DispatchManager
                 session = Session.builder(sessionPropertyManager)
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
+                        .setOriginalIdentity(sessionContext.getOriginalIdentity())
                         .setSource(sessionContext.getSource().orElse(null))
                         .build();
             }
             Optional<String> preparedSql = Optional.ofNullable(preparedQuery).flatMap(PreparedQuery::getPrepareSql);
             DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(session, query, preparedSql, Optional.empty(), throwable);
             queryCreated(failedDispatchQuery);
+            // maintain proper order of calls such that EventListener has access to QueryInfo
+            // - add query to tracker
+            // - fire query created event
+            // - fire query completed event
+            queryMonitor.queryImmediateFailureEvent(failedDispatchQuery.getBasicQueryInfo(), toFailure(throwable));
+            querySpan.setStatus(StatusCode.ERROR, throwable.getMessage())
+                    .recordException(throwable)
+                    .end();
         }
     }
 
@@ -273,13 +299,21 @@ public class DispatchManager
     public long getRunningQueries()
     {
         return queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == RUNNING)
+                .count();
+    }
+
+    @Managed
+    public long getProgressingQueries()
+    {
+        return queryTracker.getAllQueries().stream()
                 .filter(query -> query.getState() == RUNNING && !query.getBasicQueryInfo().getQueryStats().isFullyBlocked())
                 .count();
     }
 
     public boolean isQueryRegistered(QueryId queryId)
     {
-        return queryTracker.tryGetQuery(queryId).isPresent();
+        return queryTracker.hasQuery(queryId);
     }
 
     public DispatchQuery getQuery(QueryId queryId)

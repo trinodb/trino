@@ -457,7 +457,7 @@ public class CassandraSession
         return executeWithSession(session -> session.prepare(statement));
     }
 
-    public ResultSet execute(Statement statement)
+    public ResultSet execute(Statement<?> statement)
     {
         return executeWithSession(session -> session.execute(statement));
     }

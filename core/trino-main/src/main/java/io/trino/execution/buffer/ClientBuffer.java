@@ -16,14 +16,13 @@ package io.trino.execution.buffer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.Immutable;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.Immutable;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Collection;

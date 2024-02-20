@@ -14,20 +14,21 @@
 package io.trino.plugin.iceberg.catalog.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.PreDestroy;
 import org.apache.iceberg.jdbc.JdbcCatalog;
+import org.apache.iceberg.jdbc.JdbcClientPool;
 
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
-
-import java.util.Optional;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.URI;
@@ -43,14 +44,10 @@ public class TrinoJdbcCatalogFactory
     private final TrinoFileSystemFactory fileSystemFactory;
     private final IcebergJdbcClient jdbcClient;
     private final String jdbcCatalogName;
-    private final String connectionUrl;
-    private final Optional<String> connectionUser;
-    private final Optional<String> connectionPassword;
     private final String defaultWarehouseDir;
     private final boolean isUniqueTableLocation;
-
-    @GuardedBy("this")
-    private JdbcCatalog icebergCatalog;
+    private final Map<String, String> catalogProperties;
+    private final JdbcClientPool clientPool;
 
     @Inject
     public TrinoJdbcCatalogFactory(
@@ -69,39 +66,42 @@ public class TrinoJdbcCatalogFactory
         this.isUniqueTableLocation = requireNonNull(icebergConfig, "icebergConfig is null").isUniqueTableLocation();
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.jdbcCatalogName = jdbcConfig.getCatalogName();
-        this.connectionUrl = jdbcConfig.getConnectionUrl();
-        this.connectionUser = jdbcConfig.getConnectionUser();
-        this.connectionPassword = jdbcConfig.getConnectionPassword();
         this.defaultWarehouseDir = jdbcConfig.getDefaultWarehouseDir();
+
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        properties.put(URI, jdbcConfig.getConnectionUrl());
+        properties.put(WAREHOUSE_LOCATION, defaultWarehouseDir);
+        jdbcConfig.getConnectionUser().ifPresent(user -> properties.put(PROPERTY_PREFIX + "user", user));
+        jdbcConfig.getConnectionPassword().ifPresent(password -> properties.put(PROPERTY_PREFIX + "password", password));
+        this.catalogProperties = properties.buildOrThrow();
+
+        this.clientPool = new JdbcClientPool(jdbcConfig.getConnectionUrl(), catalogProperties);
+    }
+
+    @PreDestroy
+    public void shutdown()
+    {
+        clientPool.close();
     }
 
     @Override
-    public synchronized TrinoCatalog create(ConnectorIdentity identity)
+    public TrinoCatalog create(ConnectorIdentity identity)
     {
-        // Reuse JdbcCatalog instance to avoid JDBC connection leaks
-        if (icebergCatalog == null) {
-            icebergCatalog = createJdbcCatalog();
-        }
+        JdbcCatalog jdbcCatalog = new JdbcCatalog(
+                config -> new ForwardingFileIo(fileSystemFactory.create(identity)),
+                config -> clientPool,
+                false);
+
+        jdbcCatalog.initialize(jdbcCatalogName, catalogProperties);
+
         return new TrinoJdbcCatalog(
                 catalogName,
                 typeManager,
                 tableOperationsProvider,
-                icebergCatalog,
+                jdbcCatalog,
                 jdbcClient,
                 fileSystemFactory,
                 isUniqueTableLocation,
                 defaultWarehouseDir);
-    }
-
-    private JdbcCatalog createJdbcCatalog()
-    {
-        JdbcCatalog jdbcCatalog = new JdbcCatalog();
-        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
-        properties.put(URI, connectionUrl);
-        properties.put(WAREHOUSE_LOCATION, defaultWarehouseDir);
-        connectionUser.ifPresent(user -> properties.put(PROPERTY_PREFIX + "user", user));
-        connectionPassword.ifPresent(password -> properties.put(PROPERTY_PREFIX + "password", password));
-        jdbcCatalog.initialize(jdbcCatalogName, properties.buildOrThrow());
-        return jdbcCatalog;
     }
 }

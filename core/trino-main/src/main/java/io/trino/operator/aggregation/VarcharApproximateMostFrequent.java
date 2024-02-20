@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.function.AggregationFunction;
@@ -97,12 +98,10 @@ public final class VarcharApproximateMostFrequent
             out.appendNull();
         }
         else {
-            BlockBuilder entryBuilder = out.beginBlockEntry();
-            state.get().forEachBucket((key, value) -> {
-                VarcharType.VARCHAR.writeSlice(entryBuilder, key);
-                BigintType.BIGINT.writeLong(entryBuilder, value);
-            });
-            out.closeEntry();
+            ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> state.get().forEachBucket((key, value) -> {
+                VarcharType.VARCHAR.writeSlice(keyBuilder, key);
+                BigintType.BIGINT.writeLong(valueBuilder, value);
+            }));
         }
     }
 }

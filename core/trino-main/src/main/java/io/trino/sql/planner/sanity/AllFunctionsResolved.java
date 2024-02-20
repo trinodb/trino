@@ -19,8 +19,8 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ExpressionExtractor;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
@@ -39,7 +39,7 @@ public final class AllFunctionsResolved
             PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {

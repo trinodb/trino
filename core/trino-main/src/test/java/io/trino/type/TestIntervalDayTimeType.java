@@ -13,10 +13,12 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIntervalDayTimeType
         extends AbstractTestType
@@ -26,7 +28,7 @@ public class TestIntervalDayTimeType
         super(INTERVAL_DAY_TIME, SqlIntervalDayTime.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(null, 15);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);
@@ -40,12 +42,33 @@ public class TestIntervalDayTimeType
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 3333);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 3333);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 4444);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
         return ((Long) value) + 1;
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

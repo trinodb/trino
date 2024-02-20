@@ -22,7 +22,7 @@ import io.trino.spi.type.RowType;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -32,12 +32,18 @@ import static io.trino.spi.type.RowType.rowType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetPageSourceFactory
 {
     @Test
     public void testGetNestedMixedRepetitionColumnType()
+    {
+        testGetNestedMixedRepetitionColumnType(true);
+        testGetNestedMixedRepetitionColumnType(false);
+    }
+
+    private void testGetNestedMixedRepetitionColumnType(boolean useColumnNames)
     {
         RowType rowType = rowType(
                 RowType.field(
@@ -63,8 +69,6 @@ public class TestParquetPageSourceFactory
                 new GroupType(OPTIONAL, "optional_level1",
                         new GroupType(OPTIONAL, "optional_level2",
                                 new PrimitiveType(REQUIRED, INT32, "required_level3"))));
-        assertEquals(
-                ParquetPageSourceFactory.getColumnType(columnHandle, fileSchema, true).get(),
-                fileSchema.getType("optional_level1"));
+        assertThat(ParquetPageSourceFactory.getColumnType(columnHandle, fileSchema, useColumnNames).get()).isEqualTo(fileSchema.getType("optional_level1"));
     }
 }

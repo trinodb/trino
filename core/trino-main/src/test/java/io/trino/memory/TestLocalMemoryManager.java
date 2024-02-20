@@ -14,7 +14,7 @@
 package io.trino.memory;
 
 import io.airlift.units.DataSize;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

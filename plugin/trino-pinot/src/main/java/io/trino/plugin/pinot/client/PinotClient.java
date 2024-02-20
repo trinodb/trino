@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.net.HostAndPort;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.JsonResponseHandler;
@@ -38,7 +39,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecBinder;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.log.Logger;
-import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.plugin.pinot.ForPinot;
 import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.PinotConfig;
@@ -55,8 +56,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
 import org.apache.pinot.spi.data.Schema;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -89,7 +88,7 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_AMBIGUOUS_TABLE_NAME;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
@@ -155,7 +154,6 @@ public class PinotClient
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)).jsonCodec(Schema.class);
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
-        requireNonNull(config, "config is null");
         this.scheme = config.isTlsEnabled() ? "https" : "http";
         this.proxyEnabled = config.getProxyEnabled();
 
@@ -436,8 +434,9 @@ public class PinotClient
                 @JsonProperty String timeValue)
         {
             if (timeColumn != null && timeValue != null) {
-                offlineTimePredicate = Optional.of(format("%s < %s", timeColumn, timeValue));
-                onlineTimePredicate = Optional.of(format("%s >= %s", timeColumn, timeValue));
+                // See org.apache.pinot.broker.requesthandler.BaseBrokerRequestHandler::attachTimeBoundary
+                offlineTimePredicate = Optional.of(format("%s <= %s", timeColumn, timeValue));
+                onlineTimePredicate = Optional.of(format("%s > %s", timeColumn, timeValue));
             }
             else {
                 onlineTimePredicate = Optional.empty();

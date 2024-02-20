@@ -22,7 +22,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -52,12 +51,11 @@ public class TestingAggregationFunction
                 .collect(toImmutableList());
         intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
         this.finalType = signature.getReturnType();
-        this.factory = generateAccumulatorFactory(signature, aggregationImplementation, functionNullability);
+        this.factory = generateAccumulatorFactory(signature, aggregationImplementation, functionNullability, true);
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,
                 new JoinCompiler(TYPE_OPERATORS),
-                new BlockTypeOperators(TYPE_OPERATORS),
                 TEST_SESSION);
     }
 
@@ -72,7 +70,6 @@ public class TestingAggregationFunction
                 factory,
                 parameterTypes,
                 new JoinCompiler(TYPE_OPERATORS),
-                new BlockTypeOperators(TYPE_OPERATORS),
                 TEST_SESSION);
     }
 

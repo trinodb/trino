@@ -16,16 +16,13 @@ package io.trino.plugin.hive.fs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.trino.collect.cache.EvictableCacheBuilder;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,11 +30,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.util.Collections.synchronizedList;
 import static java.util.Objects.requireNonNull;
 
@@ -50,35 +50,27 @@ import static java.util.Objects.requireNonNull;
 public class TransactionScopeCachingDirectoryLister
         implements DirectoryLister
 {
+    private final long transactionId;
     //TODO use a cache key based on Path & SchemaTableName and iterate over the cache keys
     // to deal more efficiently with cache invalidation scenarios for partitioned tables.
-    private final Cache<DirectoryListingCacheKey, FetchingValueHolder> cache;
+    private final Cache<TransactionDirectoryListingCacheKey, FetchingValueHolder> cache;
     private final DirectoryLister delegate;
 
-    public TransactionScopeCachingDirectoryLister(DirectoryLister delegate, long maxFileStatuses)
+    public TransactionScopeCachingDirectoryLister(DirectoryLister delegate, long transactionId, Cache<TransactionDirectoryListingCacheKey, FetchingValueHolder> cache)
     {
-        EvictableCacheBuilder<DirectoryListingCacheKey, FetchingValueHolder> cacheBuilder = EvictableCacheBuilder.newBuilder()
-                .maximumWeight(maxFileStatuses)
-                .weigher((key, value) -> value.getCachedFilesSize());
-        this.cache = cacheBuilder.build();
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.transactionId = transactionId;
+        this.cache = requireNonNull(cache, "cache is null");
     }
 
     @Override
-    public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
+    public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
             throws IOException
     {
-        return listInternal(fs, table, new DirectoryListingCacheKey(path, false));
+        return listInternal(fs, table, new TransactionDirectoryListingCacheKey(transactionId, location));
     }
 
-    @Override
-    public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
-            throws IOException
-    {
-        return listInternal(fs, table, new DirectoryListingCacheKey(path, true));
-    }
-
-    private RemoteIterator<TrinoFileStatus> listInternal(FileSystem fs, Table table, DirectoryListingCacheKey cacheKey)
+    private RemoteIterator<TrinoFileStatus> listInternal(TrinoFileSystem fs, Table table, TransactionDirectoryListingCacheKey cacheKey)
             throws IOException
     {
         FetchingValueHolder cachedValueHolder;
@@ -99,13 +91,10 @@ public class TransactionScopeCachingDirectoryLister
         return cachingRemoteIterator(cachedValueHolder, cacheKey);
     }
 
-    private RemoteIterator<TrinoFileStatus> createListingRemoteIterator(FileSystem fs, Table table, DirectoryListingCacheKey cacheKey)
+    private RemoteIterator<TrinoFileStatus> createListingRemoteIterator(TrinoFileSystem fs, Table table, TransactionDirectoryListingCacheKey cacheKey)
             throws IOException
     {
-        if (cacheKey.isRecursiveFilesOnly()) {
-            return delegate.listFilesRecursively(fs, table, cacheKey.getPath());
-        }
-        return delegate.list(fs, table, cacheKey.getPath());
+        return delegate.listFilesRecursively(fs, table, cacheKey.getPath());
     }
 
     @Override
@@ -113,7 +102,7 @@ public class TransactionScopeCachingDirectoryLister
     {
         if (isLocationPresent(table.getStorage())) {
             if (table.getPartitionColumns().isEmpty()) {
-                cache.invalidateAll(DirectoryListingCacheKey.allKeysWithPath(new Path(table.getStorage().getLocation())));
+                cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, Location.of(table.getStorage().getLocation())));
             }
             else {
                 // a partitioned table can have multiple paths in cache
@@ -127,12 +116,12 @@ public class TransactionScopeCachingDirectoryLister
     public void invalidate(Partition partition)
     {
         if (isLocationPresent(partition.getStorage())) {
-            cache.invalidateAll(DirectoryListingCacheKey.allKeysWithPath(new Path(partition.getStorage().getLocation())));
+            cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, Location.of(partition.getStorage().getLocation())));
         }
         delegate.invalidate(partition);
     }
 
-    private RemoteIterator<TrinoFileStatus> cachingRemoteIterator(FetchingValueHolder cachedValueHolder, DirectoryListingCacheKey cacheKey)
+    private RemoteIterator<TrinoFileStatus> cachingRemoteIterator(FetchingValueHolder cachedValueHolder, TransactionDirectoryListingCacheKey cacheKey)
     {
         return new RemoteIterator<>()
         {
@@ -169,13 +158,13 @@ public class TransactionScopeCachingDirectoryLister
     }
 
     @VisibleForTesting
-    boolean isCached(Path path)
+    boolean isCached(Location location)
     {
-        return isCached(new DirectoryListingCacheKey(path, false));
+        return isCached(new TransactionDirectoryListingCacheKey(transactionId, location));
     }
 
     @VisibleForTesting
-    boolean isCached(DirectoryListingCacheKey cacheKey)
+    boolean isCached(TransactionDirectoryListingCacheKey cacheKey)
     {
         FetchingValueHolder cached = cache.getIfPresent(cacheKey);
         return cached != null && cached.isFullyCached();
@@ -187,9 +176,13 @@ public class TransactionScopeCachingDirectoryLister
         return storage.getOptionalLocation().isPresent() && !storage.getLocation().isEmpty();
     }
 
-    private static class FetchingValueHolder
+    static class FetchingValueHolder
     {
+        private static final long ATOMIC_LONG_SIZE = instanceSize(AtomicLong.class);
+        private static final long INSTANCE_SIZE = instanceSize(FetchingValueHolder.class);
+
         private final List<TrinoFileStatus> cachedFiles = synchronizedList(new ArrayList<>());
+        private final AtomicLong cachedFilesSize = new AtomicLong();
         @GuardedBy("this")
         @Nullable
         private RemoteIterator<TrinoFileStatus> fileIterator;
@@ -207,9 +200,10 @@ public class TransactionScopeCachingDirectoryLister
             return fileIterator == null && exception == null;
         }
 
-        public int getCachedFilesSize()
+        public long getRetainedSizeInBytes()
         {
-            return cachedFiles.size();
+            // ignore fileIterator and exception as they are ephemeral
+            return INSTANCE_SIZE + ATOMIC_LONG_SIZE + sizeOfObjectArray(cachedFiles.size()) + cachedFilesSize.get();
         }
 
         public Iterator<TrinoFileStatus> getCachedFiles()
@@ -253,6 +247,7 @@ public class TransactionScopeCachingDirectoryLister
 
                 TrinoFileStatus fileStatus = fileIterator.next();
                 cachedFiles.add(fileStatus);
+                cachedFilesSize.addAndGet(fileStatus.getRetainedSizeInBytes());
                 return Optional.of(fileStatus);
             }
             catch (Exception exception) {

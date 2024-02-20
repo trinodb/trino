@@ -13,20 +13,16 @@
  */
 package io.trino.spi.type;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.Objects;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static io.trino.spi.type.Decimals.overflows;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDecimals
 {
@@ -92,6 +88,16 @@ public class TestDecimals
         assertParseResult("0000.12345678901234567890123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 38);
         assertParseResult("+0000.12345678901234567890123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 38);
         assertParseResult("-0000.12345678901234567890123456789012345678", Int128.valueOf("-12345678901234567890123456789012345678"), 38, 38);
+
+        assertParseResult("0_1_2_3_4", 1234L, 4, 0);
+        assertParseFailure("0_1_2_3_4_");
+        assertParseFailure("_0_1_2_3_4");
+
+        assertParseResult("0_1_2_3_4.5_6_7_8", 12345678L, 8, 4);
+        assertParseFailure("_0_1_2_3_4.5_6_7_8");
+        assertParseFailure("0_1_2_3_4_.5_6_7_8");
+        assertParseFailure("0_1_2_3_4._5_6_7_8");
+        assertParseFailure("0_1_2_3_4.5_6_7_8_");
     }
 
     @Test
@@ -105,47 +111,46 @@ public class TestDecimals
     @Test
     public void testEncodeShortScaledValue()
     {
-        assertEquals(encodeShortScaledValue(new BigDecimal("2.00"), 2), 200L);
-        assertEquals(encodeShortScaledValue(new BigDecimal("2.13"), 2), 213L);
-        assertEquals(encodeShortScaledValue(new BigDecimal("172.60"), 2), 17260L);
-        assertEquals(encodeShortScaledValue(new BigDecimal("2"), 2), 200L);
-        assertEquals(encodeShortScaledValue(new BigDecimal("172.6"), 2), 17260L);
+        assertThat(encodeShortScaledValue(new BigDecimal("2.00"), 2)).isEqualTo(200L);
+        assertThat(encodeShortScaledValue(new BigDecimal("2.13"), 2)).isEqualTo(213L);
+        assertThat(encodeShortScaledValue(new BigDecimal("172.60"), 2)).isEqualTo(17260L);
+        assertThat(encodeShortScaledValue(new BigDecimal("2"), 2)).isEqualTo(200L);
+        assertThat(encodeShortScaledValue(new BigDecimal("172.6"), 2)).isEqualTo(17260L);
 
-        assertEquals(encodeShortScaledValue(new BigDecimal("-2.00"), 2), -200L);
-        assertEquals(encodeShortScaledValue(new BigDecimal("-2.13"), 2), -213L);
-        assertEquals(encodeShortScaledValue(new BigDecimal("-2"), 2), -200L);
+        assertThat(encodeShortScaledValue(new BigDecimal("-2.00"), 2)).isEqualTo(-200L);
+        assertThat(encodeShortScaledValue(new BigDecimal("-2.13"), 2)).isEqualTo(-213L);
+        assertThat(encodeShortScaledValue(new BigDecimal("-2"), 2)).isEqualTo(-200L);
     }
 
     @Test
     public void testEncodeScaledValue()
     {
-        assertEquals(encodeScaledValue(new BigDecimal("2.00"), 2), Int128.valueOf(200));
-        assertEquals(encodeScaledValue(new BigDecimal("2.13"), 2), Int128.valueOf(213));
-        assertEquals(encodeScaledValue(new BigDecimal("172.60"), 2), Int128.valueOf(17260));
-        assertEquals(encodeScaledValue(new BigDecimal("2"), 2), Int128.valueOf(200));
-        assertEquals(encodeScaledValue(new BigDecimal("172.6"), 2), Int128.valueOf(17260));
+        assertThat(encodeScaledValue(new BigDecimal("2.00"), 2)).isEqualTo(Int128.valueOf(200));
+        assertThat(encodeScaledValue(new BigDecimal("2.13"), 2)).isEqualTo(Int128.valueOf(213));
+        assertThat(encodeScaledValue(new BigDecimal("172.60"), 2)).isEqualTo(Int128.valueOf(17260));
+        assertThat(encodeScaledValue(new BigDecimal("2"), 2)).isEqualTo(Int128.valueOf(200));
+        assertThat(encodeScaledValue(new BigDecimal("172.6"), 2)).isEqualTo(Int128.valueOf(17260));
 
-        assertEquals(encodeScaledValue(new BigDecimal("-2.00"), 2), Int128.valueOf(-200));
-        assertEquals(encodeScaledValue(new BigDecimal("-2.13"), 2), Int128.valueOf(-213));
-        assertEquals(encodeScaledValue(new BigDecimal("-2"), 2), Int128.valueOf(-200));
-        assertEquals(encodeScaledValue(new BigDecimal("-172.60"), 2), Int128.valueOf(-17260));
+        assertThat(encodeScaledValue(new BigDecimal("-2.00"), 2)).isEqualTo(Int128.valueOf(-200));
+        assertThat(encodeScaledValue(new BigDecimal("-2.13"), 2)).isEqualTo(Int128.valueOf(-213));
+        assertThat(encodeScaledValue(new BigDecimal("-2"), 2)).isEqualTo(Int128.valueOf(-200));
+        assertThat(encodeScaledValue(new BigDecimal("-172.60"), 2)).isEqualTo(Int128.valueOf(-17260));
     }
 
     @Test
     public void testOverflows()
     {
-        assertTrue(overflows(Int128.valueOf("100"), 2));
-        assertTrue(overflows(Int128.valueOf("-100"), 2));
-        assertFalse(overflows(Int128.valueOf("99"), 2));
-        assertFalse(overflows(Int128.valueOf("-99"), 2));
+        assertThat(overflows(Int128.valueOf("100"), 2)).isTrue();
+        assertThat(overflows(Int128.valueOf("-100"), 2)).isTrue();
+        assertThat(overflows(Int128.valueOf("99"), 2)).isFalse();
+        assertThat(overflows(Int128.valueOf("-99"), 2)).isFalse();
     }
 
     private void assertParseResult(String value, Object expectedObject, int expectedPrecision, int expectedScale)
     {
-        assertEquals(Decimals.parse(value),
-                new DecimalParseResult(
-                        expectedObject,
-                        createDecimalType(expectedPrecision, expectedScale)));
+        assertThat(Decimals.parse(value)).isEqualTo(new DecimalParseResult(
+                expectedObject,
+                createDecimalType(expectedPrecision, expectedScale)));
     }
 
     private void assertParseFailure(String text)
@@ -154,12 +159,12 @@ public class TestDecimals
             Decimals.parse(text);
         }
         catch (IllegalArgumentException e) {
-            String expectedMessage = format("Invalid decimal value '%s'", text);
-            if (!Objects.equals(e.getMessage(), expectedMessage)) {
-                fail(format("Unexpected exception, exception with message '%s' was expected", expectedMessage), e);
-            }
+            String expectedMessage = format("Invalid DECIMAL value '%s'", text);
+            assertThat(e.getMessage())
+                    .withFailMessage(() -> format("Unexpected exception, exception with message '%s' was expected", expectedMessage))
+                    .isEqualTo(expectedMessage);
             return;
         }
-        fail("Parse failure was expected");
+        throw new AssertionError("Parse failure was expected");
     }
 }

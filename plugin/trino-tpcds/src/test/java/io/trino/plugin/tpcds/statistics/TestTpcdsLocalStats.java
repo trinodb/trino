@@ -14,12 +14,15 @@
 package io.trino.plugin.tpcds.statistics;
 
 import io.trino.Session;
-import io.trino.plugin.tpcds.TpcdsConnectorFactory;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.plugin.tpcds.TpcdsPlugin;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.statistics.StatisticsAssertion;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -30,12 +33,16 @@ import static io.trino.testing.statistics.MetricComparisonStrategies.relativeErr
 import static io.trino.testing.statistics.Metrics.OUTPUT_ROW_COUNT;
 import static io.trino.testing.statistics.Metrics.distinctValuesCount;
 import static java.util.Collections.emptyMap;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTpcdsLocalStats
 {
     private StatisticsAssertion statisticsAssertion;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         Session defaultSession = testSessionBuilder()
@@ -45,12 +52,13 @@ public class TestTpcdsLocalStats
                 .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true")
                 .build();
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(defaultSession);
-        queryRunner.createCatalog("tpcds", new TpcdsConnectorFactory(), emptyMap());
+        QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
+        queryRunner.installPlugin(new TpcdsPlugin());
+        queryRunner.createCatalog("tpcds", "tpcds", emptyMap());
         statisticsAssertion = new StatisticsAssertion(queryRunner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         statisticsAssertion.close();

@@ -20,7 +20,8 @@ import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -58,7 +59,8 @@ public class TestHiveFaultTolerantExecutionTest
                 .build();
     }
 
-    @Test(timeOut = 120_000)
+    @Test
+    @Timeout(120)
     public void testPotentialDeadlocks()
     {
         // create a highly granular table to ensure the number of splits is high

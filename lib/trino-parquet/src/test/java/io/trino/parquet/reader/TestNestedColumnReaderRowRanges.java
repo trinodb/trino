@@ -15,13 +15,16 @@ package io.trino.parquet.reader;
 
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.decoders.ValueDecoders;
+import io.trino.parquet.reader.decoders.ValueDecoder;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.util.function.Supplier;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetEncoding.PLAIN;
+import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
+import static io.trino.parquet.reader.flat.DictionaryDecoder.getDictionaryDecoder;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
@@ -66,15 +69,14 @@ public class TestNestedColumnReaderRowRanges
     private enum NestedColumnReaderProvider
             implements ColumnReaderProvider
     {
-        NESTED_READER_NO_NULLS(() -> new NestedColumnReader<>(FLAT_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), FLAT_FIELD),
-        NESTED_READER_NULLABLE(() -> new NestedColumnReader<>(NULLABLE_FLAT_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), NULLABLE_FLAT_FIELD),
-        NESTED_READER_NESTED_NO_NULLS(() -> new NestedColumnReader<>(NESTED_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), NESTED_FIELD),
-        NESTED_READER_NESTED_NULLABLE(() -> new NestedColumnReader<>(NULLABLE_NESTED_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), NULLABLE_NESTED_FIELD),
-        NESTED_READER_REPEATABLE_NO_NULLS(() -> new NestedColumnReader<>(REPEATED_FLAT_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), REPEATED_FLAT_FIELD),
-        NESTED_READER_REPEATABLE_NULLABLE(() -> new NestedColumnReader<>(REPEATED_NULLABLE_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), REPEATED_NULLABLE_FIELD),
-        NESTED_READER_REPEATABLE_NESTED_NO_NULLS(() -> new NestedColumnReader<>(REPEATED_NESTED_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), REPEATED_NESTED_FIELD),
-        NESTED_READER_REPEATABLE_NESTED_NULLABLE(() -> new NestedColumnReader<>(REPEATED_NULLABLE_NESTED_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), REPEATED_NULLABLE_NESTED_FIELD),
-        REPEATABLE_NESTED_NULLABLE(() -> new IntColumnReader(REPEATED_NULLABLE_NESTED_FIELD), REPEATED_NULLABLE_NESTED_FIELD),
+        NESTED_READER_NO_NULLS(() -> createNestedColumnReader(FLAT_FIELD), FLAT_FIELD),
+        NESTED_READER_NULLABLE(() -> createNestedColumnReader(NULLABLE_FLAT_FIELD), NULLABLE_FLAT_FIELD),
+        NESTED_READER_NESTED_NO_NULLS(() -> createNestedColumnReader(NESTED_FIELD), NESTED_FIELD),
+        NESTED_READER_NESTED_NULLABLE(() -> createNestedColumnReader(NULLABLE_NESTED_FIELD), NULLABLE_NESTED_FIELD),
+        NESTED_READER_REPEATABLE_NO_NULLS(() -> createNestedColumnReader(REPEATED_FLAT_FIELD), REPEATED_FLAT_FIELD),
+        NESTED_READER_REPEATABLE_NULLABLE(() -> createNestedColumnReader(REPEATED_NULLABLE_FIELD), REPEATED_NULLABLE_FIELD),
+        NESTED_READER_REPEATABLE_NESTED_NO_NULLS(() -> createNestedColumnReader(REPEATED_NESTED_FIELD), REPEATED_NESTED_FIELD),
+        NESTED_READER_REPEATABLE_NESTED_NULLABLE(() -> createNestedColumnReader(REPEATED_NULLABLE_NESTED_FIELD), REPEATED_NULLABLE_NESTED_FIELD),
         /**/;
 
         private final Supplier<ColumnReader> columnReader;
@@ -97,5 +99,21 @@ public class TestNestedColumnReaderRowRanges
         {
             return field;
         }
+    }
+
+    private static NestedColumnReader<int[]> createNestedColumnReader(PrimitiveField field)
+    {
+        ValueDecodersProvider<int[]> valueDecodersProvider = getIntDecodersProvider(field);
+        return new NestedColumnReader<>(
+                field,
+                valueDecodersProvider,
+                ValueDecoder::createLevelsDecoder,
+                (dictionaryPage, isNonNull) -> getDictionaryDecoder(
+                        dictionaryPage,
+                        INT_ADAPTER,
+                        valueDecodersProvider.create(PLAIN),
+                        isNonNull),
+                INT_ADAPTER,
+                MEMORY_CONTEXT);
     }
 }

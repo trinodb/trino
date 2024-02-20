@@ -13,35 +13,30 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.TestInstance;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.Optional;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
-import static io.trino.tpch.TpchTable.LINE_ITEM;
-import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 // Redundant over TestIcebergOrcConnectorTest, but exists to exercise BaseConnectorSmokeTest
 // Some features like materialized views may be supported by Iceberg only.
+@TestInstance(PER_CLASS)
 public class TestIcebergConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
     private HiveMetastore metastore;
-    private File metastoreDir;
 
     public TestIcebergConnectorSmokeTest()
     {
@@ -52,26 +47,17 @@ public class TestIcebergConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.metastoreDir = Files.createTempDirectory("test_iceberg_table_smoke_test").toFile();
-        this.metastoreDir.deleteOnExit();
-        this.metastore = createTestingFileHiveMetastore(metastoreDir);
-        return IcebergQueryRunner.builder()
-                .setInitialTables(ImmutableList.<TpchTable<?>>builder()
-                        .addAll(REQUIRED_TPCH_TABLES)
-                        .add(LINE_ITEM)
-                        .build())
-                .setMetastoreDirectory(metastoreDir)
+        QueryRunner queryRunner = IcebergQueryRunner.builder()
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setIcebergProperties(ImmutableMap.of(
+                        "iceberg.file-format", format.name(),
                         "iceberg.register-table-procedure.enabled", "true",
                         "iceberg.writer-sort-buffer-size", "1MB"))
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-            throws IOException
-    {
-        deleteRecursively(metastoreDir.toPath(), ALLOW_INSECURE);
+        metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
+                .getInstance(HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
+        return queryRunner;
     }
 
     @Override
@@ -92,20 +78,14 @@ public class TestIcebergConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("%s/%s", metastoreDir, getSession().getSchema().orElseThrow());
+        return "local:///%s".formatted(getSession().getSchema().orElseThrow());
     }
 
     @Override
     protected boolean locationExists(String location)
     {
-        return Files.exists(Path.of(location));
-    }
-
-    @Override
-    protected void deleteDirectory(String location)
-    {
         try {
-            deleteRecursively(Path.of(location), ALLOW_INSECURE);
+            return fileSystem.newInputFile(Location.of(location)).exists();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -113,8 +93,19 @@ public class TestIcebergConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(String path, String sortColumnName)
+    protected void deleteDirectory(String location)
     {
-        return checkOrcFileSorting(path, sortColumnName);
+        try {
+            fileSystem.deleteDirectory(Location.of(location));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    protected boolean isFileSorted(Location path, String sortColumnName)
+    {
+        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 }

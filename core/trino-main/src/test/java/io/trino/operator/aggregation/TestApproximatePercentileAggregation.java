@@ -15,13 +15,13 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -69,7 +69,7 @@ public class TestApproximatePercentileAggregation
         // regular approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE,
                 null,
                 createLongsBlock(null, null),
@@ -77,7 +77,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE,
                 1L,
                 createLongsBlock(null, 1L),
@@ -85,7 +85,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE,
                 2L,
                 createLongsBlock(null, 1L, 2L, 3L),
@@ -93,7 +93,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE,
                 2L,
                 createLongsBlock(1L, 2L, 3L),
@@ -101,7 +101,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE,
                 3L,
                 createLongsBlock(1L, null, 2L, 2L, null, 2L, 2L, null, 2L, 2L, null, 3L, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
@@ -110,7 +110,7 @@ public class TestApproximatePercentileAggregation
         // array of approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_ARRAY,
                 null,
                 createLongsBlock(null, null),
@@ -118,7 +118,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_ARRAY,
                 null,
                 createLongsBlock(null, null),
@@ -126,7 +126,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(1L, 1L),
                 createLongsBlock(null, 1L),
@@ -134,7 +134,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(1L, 2L, 3L),
                 createLongsBlock(null, 1L, 2L, 3L),
@@ -142,7 +142,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(2L, 3L),
                 createLongsBlock(1L, 2L, 3L),
@@ -150,7 +150,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(1L, 3L),
                 createLongsBlock(1L, null, 2L, 2L, null, 2L, 2L, null, 2L, 2L, null, 3L, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
@@ -159,7 +159,7 @@ public class TestApproximatePercentileAggregation
         // unsorted percentiles
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(3L, 1L, 2L),
                 createLongsBlock(null, 1L, 2L, 3L),
@@ -168,7 +168,7 @@ public class TestApproximatePercentileAggregation
         // weighted approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED,
                 null,
                 createLongsBlock(null, null),
@@ -177,7 +177,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED,
                 1L,
                 createLongsBlock(null, 1L),
@@ -186,7 +186,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2L,
                 createLongsBlock(null, 1L, 2L, 3L),
@@ -195,7 +195,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2L,
                 createLongsBlock(1L, 2L, 3L),
@@ -204,7 +204,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2L,
                 createLongsBlock(1L, 2L, 3L),
@@ -213,7 +213,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED,
                 3L,
                 createLongsBlock(1L, null, 2L, null, 2L, null, 2L, null, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
@@ -222,7 +222,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED,
                 3L,
                 createLongsBlock(1L, null, 2L, null, 2L, null, 2L, null, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
@@ -231,7 +231,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY,
                 9900L,
                 createLongSequenceBlock(0, 10000),
@@ -242,7 +242,7 @@ public class TestApproximatePercentileAggregation
         // weighted + array of approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
                 ImmutableList.of(2L, 3L),
                 createLongsBlock(1L, 2L, 3L),
@@ -256,7 +256,7 @@ public class TestApproximatePercentileAggregation
         // regular approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE,
                 null,
                 createBlockOfReals(null, null),
@@ -264,7 +264,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE,
                 1.0f,
                 createBlockOfReals(null, 1.0f),
@@ -272,7 +272,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE,
                 2.0f,
                 createBlockOfReals(null, 1.0f, 2.0f, 3.0f),
@@ -280,7 +280,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE,
                 1.0f,
                 createBlockOfReals(-1.0f, 1.0f),
@@ -288,7 +288,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE,
                 -1.0f,
                 createBlockOfReals(-2.0f, 3.0f, -1.0f),
@@ -296,7 +296,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE,
                 2.0f,
                 createBlockOfReals(1.0f, 2.0f, 3.0f),
@@ -304,7 +304,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE,
                 3.0f,
                 createBlockOfReals(1.0f, null, 2.0f, 2.0f, null, 2.0f, 2.0f, null, 2.0f, 2.0f, null, 3.0f, 3.0f, null, 3.0f, null, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f),
@@ -313,7 +313,7 @@ public class TestApproximatePercentileAggregation
         // array of approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_ARRAY,
                 null,
                 createBlockOfReals(null, null),
@@ -321,7 +321,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_ARRAY,
                 null,
                 createBlockOfReals(null, null),
@@ -329,7 +329,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(1.0f, 1.0f),
                 createBlockOfReals(null, 1.0f),
@@ -337,7 +337,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(1.0f, 2.0f, 3.0f),
                 createBlockOfReals(null, 1.0f, 2.0f, 3.0f),
@@ -345,7 +345,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(2.0f, 3.0f),
                 createBlockOfReals(1.0f, 2.0f, 3.0f),
@@ -353,7 +353,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(1.0f, 3.0f),
                 createBlockOfReals(1.0f, null, 2.0f, 2.0f, null, 2.0f, 2.0f, null, 2.0f, 2.0f, null, 3.0f, 3.0f, null, 3.0f, null, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f),
@@ -362,7 +362,7 @@ public class TestApproximatePercentileAggregation
         // unsorted percentiles
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(3.0f, 1.0f, 2.0f),
                 createBlockOfReals(null, 1.0f, 2.0f, 3.0f),
@@ -371,7 +371,7 @@ public class TestApproximatePercentileAggregation
         // weighted approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED,
                 null,
                 createBlockOfReals(null, null),
@@ -380,7 +380,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED,
                 1.0f,
                 createBlockOfReals(null, 1.0f),
@@ -389,7 +389,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2.0f,
                 createBlockOfReals(null, 1.0f, 2.0f, 3.0f),
@@ -398,7 +398,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2.0f,
                 createBlockOfReals(1.0f, 2.0f, 3.0f),
@@ -407,7 +407,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2.75f,
                 createBlockOfReals(1.0f, null, 2.0f, null, 2.0f, null, 2.0f, null, 3.0f, null, 3.0f, null, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f),
@@ -416,7 +416,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2.75f,
                 createBlockOfReals(1.0f, null, 2.0f, null, 2.0f, null, 2.0f, null, 3.0f, null, 3.0f, null, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f),
@@ -425,7 +425,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY,
                 9900.0f,
                 createSequenceBlockOfReal(0, 10000),
@@ -436,7 +436,7 @@ public class TestApproximatePercentileAggregation
         // weighted + array of approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
                 ImmutableList.of(1.5f, 2.6f),
                 createBlockOfReals(1.0f, 2.0f, 3.0f),
@@ -450,7 +450,7 @@ public class TestApproximatePercentileAggregation
         // regular approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE,
                 null,
                 createDoublesBlock(null, null),
@@ -458,7 +458,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE,
                 1.0,
                 createDoublesBlock(null, 1.0),
@@ -466,7 +466,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE,
                 2.0,
                 createDoublesBlock(null, 1.0, 2.0, 3.0),
@@ -474,7 +474,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE,
                 2.0,
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -482,7 +482,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE,
                 3.0,
                 createDoublesBlock(1.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 3.0, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
@@ -491,7 +491,7 @@ public class TestApproximatePercentileAggregation
         // array of approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_ARRAY,
                 null,
                 createDoublesBlock(null, null),
@@ -499,7 +499,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_ARRAY,
                 null,
                 createDoublesBlock(null, null),
@@ -507,7 +507,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(1.0, 1.0),
                 createDoublesBlock(null, 1.0),
@@ -515,7 +515,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(1.0, 2.0, 3.0),
                 createDoublesBlock(null, 1.0, 2.0, 3.0),
@@ -523,7 +523,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(2.0, 3.0),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -531,7 +531,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(1.0, 3.0),
                 createDoublesBlock(1.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 3.0, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
@@ -540,7 +540,7 @@ public class TestApproximatePercentileAggregation
         // unsorted percentiles
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_ARRAY,
                 ImmutableList.of(3.0, 1.0, 2.0),
                 createDoublesBlock(null, 1.0, 2.0, 3.0),
@@ -549,7 +549,7 @@ public class TestApproximatePercentileAggregation
         // weighted approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED,
                 null,
                 createDoublesBlock(null, null),
@@ -558,7 +558,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED,
                 1.0,
                 createDoublesBlock(null, 1.0),
@@ -567,7 +567,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2.0,
                 createDoublesBlock(null, 1.0, 2.0, 3.0),
@@ -576,7 +576,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2.0,
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -585,7 +585,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2.75,
                 createDoublesBlock(1.0, null, 2.0, null, 2.0, null, 2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
@@ -594,7 +594,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED,
                 2.75,
                 createDoublesBlock(1.0, null, 2.0, null, 2.0, null, 2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
@@ -603,7 +603,7 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY,
                 9900.0,
                 createDoubleSequenceBlock(0, 10000),
@@ -614,7 +614,7 @@ public class TestApproximatePercentileAggregation
         // weighted + array of approx_percentile
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("approx_percentile"),
+                "approx_percentile",
                 DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
                 ImmutableList.of(1.5, 2.6000000000000005),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -631,15 +631,12 @@ public class TestApproximatePercentileAggregation
 
     private static Block createRleBlock(Iterable<Double> percentiles, int positionCount)
     {
-        BlockBuilder rleBlockBuilder = new ArrayType(DOUBLE).createBlockBuilder(null, 1);
-        BlockBuilder arrayBlockBuilder = rleBlockBuilder.beginBlockEntry();
-
-        for (double percentile : percentiles) {
-            DOUBLE.writeDouble(arrayBlockBuilder, percentile);
-        }
-
-        rleBlockBuilder.closeEntry();
-
-        return RunLengthEncodedBlock.create(rleBlockBuilder.build(), positionCount);
+        ArrayBlockBuilder arrayBuilder = new ArrayType(DOUBLE).createBlockBuilder(null, 1);
+        arrayBuilder.buildEntry(elementBuilder -> {
+            for (double percentile : percentiles) {
+                DOUBLE.writeDouble(elementBuilder, percentile);
+            }
+        });
+        return RunLengthEncodedBlock.create(arrayBuilder.build(), positionCount);
     }
 }

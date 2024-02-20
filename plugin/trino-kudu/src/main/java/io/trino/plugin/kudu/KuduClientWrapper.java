@@ -30,19 +30,26 @@ import java.io.IOException;
 public interface KuduClientWrapper
         extends AutoCloseable
 {
-    KuduTable createTable(String name, Schema schema, CreateTableOptions builder) throws KuduException;
+    KuduTable createTable(String name, Schema schema, CreateTableOptions builder)
+            throws KuduException;
 
-    DeleteTableResponse deleteTable(String name) throws KuduException;
+    DeleteTableResponse deleteTable(String name)
+            throws KuduException;
 
-    AlterTableResponse alterTable(String name, AlterTableOptions ato) throws KuduException;
+    AlterTableResponse alterTable(String name, AlterTableOptions ato)
+            throws KuduException;
 
-    ListTablesResponse getTablesList() throws KuduException;
+    ListTablesResponse getTablesList()
+            throws KuduException;
 
-    ListTablesResponse getTablesList(String nameFilter) throws KuduException;
+    ListTablesResponse getTablesList(String nameFilter)
+            throws KuduException;
 
-    boolean tableExists(String name) throws KuduException;
+    boolean tableExists(String name)
+            throws KuduException;
 
-    KuduTable openTable(String name) throws KuduException;
+    KuduTable openTable(String name)
+            throws KuduException;
 
     KuduScanner.KuduScannerBuilder newScannerBuilder(KuduTable table);
 
@@ -50,8 +57,10 @@ public interface KuduClientWrapper
 
     KuduSession newSession();
 
-    KuduScanner deserializeIntoScanner(byte[] serializedScanToken) throws IOException;
+    KuduScanner deserializeIntoScanner(byte[] serializedScanToken)
+            throws IOException;
 
     @Override
-    void close() throws KuduException;
+    void close()
+            throws KuduException;
 }

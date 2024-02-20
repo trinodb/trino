@@ -18,9 +18,9 @@ import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 
@@ -77,7 +77,7 @@ public final class TrinoThriftHyperLogLog
     }
 
     @Override
-    public Block toBlock(Type desiredType)
+    public ValueBlock toBlock(Type desiredType)
     {
         checkArgument(HYPER_LOG_LOG.equals(desiredType), "type doesn't match: %s", desiredType);
         return sliceType.toBlock(desiredType);

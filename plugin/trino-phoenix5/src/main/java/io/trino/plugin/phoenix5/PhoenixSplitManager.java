@@ -15,6 +15,7 @@ package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -39,8 +40,6 @@ import org.apache.phoenix.compile.QueryPlan;
 import org.apache.phoenix.jdbc.PhoenixPreparedStatement;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 import org.apache.phoenix.query.KeyRange;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -82,12 +81,13 @@ public class PhoenixSplitManager
             List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
                     .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));
-            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) phoenixClient.prepareStatement(
+            PhoenixPreparedStatement inputQuery = phoenixClient.prepareStatement(
                     session,
                     connection,
                     tableHandle,
                     columns,
-                    Optional.empty());
+                    Optional.empty())
+                    .unwrap(PhoenixPreparedStatement.class);
 
             int maxScansPerSplit = session.getProperty(PhoenixSessionProperties.MAX_SCANS_PER_SPLIT, Integer.class);
             List<ConnectorSplit> splits = getSplits(inputQuery, maxScansPerSplit).stream()

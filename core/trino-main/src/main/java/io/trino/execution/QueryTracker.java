@@ -14,6 +14,8 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -21,9 +23,6 @@ import io.trino.execution.QueryTracker.TrackedQuery;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
 import java.util.NoSuchElementException;
@@ -145,6 +144,12 @@ public class QueryTracker<T extends TrackedQuery>
     {
         return tryGetQuery(queryId)
                 .orElseThrow(() -> new NoSuchElementException(queryId.toString()));
+    }
+
+    public boolean hasQuery(QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+        return queries.containsKey(queryId);
     }
 
     public Optional<T> tryGetQuery(QueryId queryId)

@@ -23,7 +23,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -37,6 +36,7 @@ import java.security.GeneralSecurityException;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static io.trino.execution.buffer.PagesSerdeUtil.ESTIMATED_AES_CIPHER_RETAINED_SIZE;
@@ -54,14 +54,14 @@ import static javax.crypto.Cipher.DECRYPT_MODE;
 
 public class PageDeserializer
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PageDeserializer.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(PageDeserializer.class);
 
     private final BlockEncodingSerde blockEncodingSerde;
     private final SerializedPageInput input;
 
     public PageDeserializer(
             BlockEncodingSerde blockEncodingSerde,
-            boolean compressionEnabled,
+            Optional<Decompressor> decompressor,
             Optional<SecretKey> encryptionKey,
             int blockSizeInBytes)
     {
@@ -69,7 +69,7 @@ public class PageDeserializer
         requireNonNull(encryptionKey, "encryptionKey is null");
         encryptionKey.ifPresent(secretKey -> checkArgument(is256BitSecretKeySpec(secretKey), "encryptionKey is expected to be an instance of SecretKeySpec containing a 256bit key"));
         input = new SerializedPageInput(
-                compressionEnabled ? Optional.of(new Lz4Decompressor()) : Optional.empty(),
+                requireNonNull(decompressor, "decompressor is null"),
                 encryptionKey,
                 blockSizeInBytes);
     }
@@ -90,18 +90,18 @@ public class PageDeserializer
     private static class SerializedPageInput
             extends SliceInput
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SerializedPageInput.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(SerializedPageInput.class);
         // TODO: implement getRetainedSizeInBytes in Lz4Decompressor
-        private static final int DECOMPRESSOR_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(Lz4Decompressor.class).instanceSize());
-        private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(SecretKeySpec.class).instanceSize() + sizeOfByteArray(256 / 8));
+        private static final int DECOMPRESSOR_RETAINED_SIZE = instanceSize(Lz4Decompressor.class);
+        private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(instanceSize(SecretKeySpec.class) + sizeOfByteArray(256 / 8));
 
-        private final Optional<Lz4Decompressor> decompressor;
+        private final Optional<Decompressor> decompressor;
         private final Optional<SecretKey> encryptionKey;
         private final Optional<Cipher> cipher;
 
         private final ReadBuffer[] buffers;
 
-        private SerializedPageInput(Optional<Lz4Decompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
+        private SerializedPageInput(Optional<Decompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
         {
             this.decompressor = requireNonNull(decompressor, "decompressor is null");
             this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
@@ -239,6 +239,76 @@ public class PageDeserializer
         }
 
         @Override
+        public void readShorts(short[] destination, int destinationIndex, int length)
+        {
+            ReadBuffer buffer = buffers[0];
+            int shortsRemaining = length;
+            while (shortsRemaining > 0) {
+                ensureReadable(min(Long.BYTES, shortsRemaining * Short.BYTES));
+                int shortsToRead = min(shortsRemaining, buffer.available() / Short.BYTES);
+                buffer.readShorts(destination, destinationIndex, shortsToRead);
+                shortsRemaining -= shortsToRead;
+                destinationIndex += shortsToRead;
+            }
+        }
+
+        @Override
+        public void readInts(int[] destination, int destinationIndex, int length)
+        {
+            ReadBuffer buffer = buffers[0];
+            int intsRemaining = length;
+            while (intsRemaining > 0) {
+                ensureReadable(min(Long.BYTES, intsRemaining * Integer.BYTES));
+                int intsToRead = min(intsRemaining, buffer.available() / Integer.BYTES);
+                buffer.readInts(destination, destinationIndex, intsToRead);
+                intsRemaining -= intsToRead;
+                destinationIndex += intsToRead;
+            }
+        }
+
+        @Override
+        public void readLongs(long[] destination, int destinationIndex, int length)
+        {
+            ReadBuffer buffer = buffers[0];
+            int longsRemaining = length;
+            while (longsRemaining > 0) {
+                ensureReadable(min(Long.BYTES, longsRemaining * Long.BYTES));
+                int longsToRead = min(longsRemaining, buffer.available() / Long.BYTES);
+                buffer.readLongs(destination, destinationIndex, longsToRead);
+                longsRemaining -= longsToRead;
+                destinationIndex += longsToRead;
+            }
+        }
+
+        @Override
+        public void readFloats(float[] destination, int destinationIndex, int length)
+        {
+            ReadBuffer buffer = buffers[0];
+            int floatsRemaining = length;
+            while (floatsRemaining > 0) {
+                ensureReadable(min(Long.BYTES, floatsRemaining * Float.BYTES));
+                int floatsToRead = min(floatsRemaining, buffer.available() / Float.BYTES);
+                buffer.readFloats(destination, destinationIndex, floatsToRead);
+                floatsRemaining -= floatsToRead;
+                destinationIndex += floatsToRead;
+            }
+        }
+
+        @Override
+        public void readDoubles(double[] destination, int destinationIndex, int length)
+        {
+            ReadBuffer buffer = buffers[0];
+            int doublesRemaining = length;
+            while (doublesRemaining > 0) {
+                ensureReadable(min(Long.BYTES, doublesRemaining * Double.BYTES));
+                int doublesToRead = min(doublesRemaining, buffer.available() / Double.BYTES);
+                buffer.readDoubles(destination, destinationIndex, doublesToRead);
+                doublesRemaining -= doublesToRead;
+                destinationIndex += doublesToRead;
+            }
+        }
+
+        @Override
         public void readBytes(Slice destination, int destinationIndex, int length)
         {
             ReadBuffer buffer = buffers[0];
@@ -337,7 +407,7 @@ public class PageDeserializer
                         blockSize,
                         sink.getSlice().byteArray(),
                         sink.getSlice().byteArrayOffset() + bytesPreserved,
-                        sink.getSlice().length());
+                        sink.getSlice().length() - bytesPreserved);
             }
             else {
                 System.arraycopy(
@@ -354,7 +424,7 @@ public class PageDeserializer
 
         private static int getCompressedBlockSize(int compressedBlockMarker)
         {
-            return compressedBlockMarker & (~SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK);
+            return compressedBlockMarker & ~SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK;
         }
 
         private static boolean isCompressed(int compressedBlockMarker)
@@ -460,7 +530,7 @@ public class PageDeserializer
 
     private static class ReadBuffer
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ReadBuffer.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(ReadBuffer.class);
 
         private final Slice slice;
         private int position;
@@ -469,7 +539,6 @@ public class PageDeserializer
         public ReadBuffer(Slice slice)
         {
             requireNonNull(slice, "slice is null");
-            checkArgument(slice.hasByteArray(), "slice is expected to be based on a byte array");
             this.slice = slice;
             limit = slice.length();
         }
@@ -570,6 +639,36 @@ public class PageDeserializer
         {
             slice.getBytes(position, destination, destinationIndex, length);
             position += length;
+        }
+
+        public void readShorts(short[] destination, int destinationIndex, int length)
+        {
+            slice.getShorts(position, destination, destinationIndex, length);
+            position += length * Short.BYTES;
+        }
+
+        public void readInts(int[] destination, int destinationIndex, int length)
+        {
+            slice.getInts(position, destination, destinationIndex, length);
+            position += length * Integer.BYTES;
+        }
+
+        public void readLongs(long[] destination, int destinationIndex, int length)
+        {
+            slice.getLongs(position, destination, destinationIndex, length);
+            position += length * Long.BYTES;
+        }
+
+        public void readFloats(float[] destination, int destinationIndex, int length)
+        {
+            slice.getFloats(position, destination, destinationIndex, length);
+            position += length * Float.BYTES;
+        }
+
+        public void readDoubles(double[] destination, int destinationIndex, int length)
+        {
+            slice.getDoubles(position, destination, destinationIndex, length);
+            position += length * Double.BYTES;
         }
 
         public void readBytes(Slice destination, int destinationIndex, int length)

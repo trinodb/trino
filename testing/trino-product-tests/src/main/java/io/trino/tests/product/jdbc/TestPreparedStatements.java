@@ -30,7 +30,6 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
@@ -55,6 +54,7 @@ import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TINYINT;
 import static java.sql.JDBCType.VARBINARY;
 import static java.sql.JDBCType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 // TODO Consider merging this class with TestJdbcPreparedStatement
 public class TestPreparedStatements
@@ -105,12 +105,30 @@ public class TestPreparedStatements
             throws SQLException
     {
         String prepareSql = "PREPARE ps1 from SELECT c_int FROM " + TABLE_NAME + " WHERE c_int = ?";
-        final int testValue = 2147483647;
+        int testValue = 2147483647;
         String executeSql = "EXECUTE ps1 using ";
 
         try (Statement statement = connection().createStatement()) {
             statement.execute(prepareSql);
 
+            assertThat(QueryResult.forResultSet(statement.executeQuery(executeSql + testValue)))
+                    .containsOnly(row(testValue));
+            assertThat(QueryResult.forResultSet(statement.executeQuery(executeSql + "NULL")))
+                    .hasNoRows();
+            assertThat(QueryResult.forResultSet(statement.executeQuery(executeSql + 2)))
+                    .hasNoRows();
+        }
+    }
+
+    @Test(groups = JDBC)
+    @Requires(ImmutableAllTypesTable.class)
+    public void executeImmediateSelectSql()
+            throws SQLException
+    {
+        int testValue = 2147483647;
+        String executeSql = "EXECUTE IMMEDIATE 'SELECT c_int FROM " + TABLE_NAME + " WHERE c_int = ?' USING ";
+
+        try (Connection conn = connection(); Statement statement = conn.createStatement()) {
             assertThat(QueryResult.forResultSet(statement.executeQuery(executeSql + testValue)))
                     .containsOnly(row(testValue));
             assertThat(QueryResult.forResultSet(statement.executeQuery(executeSql + "NULL")))
@@ -263,96 +281,116 @@ public class TestPreparedStatements
         String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
         String executeSql = "EXECUTE ps1 using ";
 
-        try (Statement statement = connection().createStatement()) {
+        try (Connection conn = connection(); Statement statement = conn.createStatement()) {
             statement.execute(insertSqlWithTable);
-            statement.execute(executeSql +
-                    "cast(127 as tinyint), " +
-                    "cast(32767 as smallint), " +
-                    "2147483647, " +
-                    "9223372036854775807, " +
-                    "cast(123.345 as real), " +
-                    "cast(234.567 as double), " +
-                    "cast(345 as decimal(10)), " +
-                    "cast(345.678 as decimal(10,5)), " +
-                    "timestamp '2015-05-10 12:15:35', " +
-                    "date '2015-05-10', " +
-                    "'ala ma kota', " +
-                    "'ala ma kot', " +
-                    "cast('ala ma' as char(10)), " +
-                    "true, " +
-                    "X'00010203002AF9'");
-
-            statement.execute(executeSql +
-                    "cast(1 as tinyint), " +
-                    "cast(2 as smallint), " +
-                    "3, " +
-                    "4, " +
-                    "cast(5.6 as real), " +
-                    "cast(7.8 as double), " +
-                    "cast(9 as decimal(10)), " +
-                    "cast(2.3 as decimal(10,5)), " +
-                    "timestamp '2012-05-10 1:35:15', " +
-                    "date '2014-03-10', " +
-                    "'abc', " +
-                    "'def', " +
-                    "cast('ghi' as char(10)), " +
-                    "false, " +
-                    "varbinary 'jkl'");
-
-            statement.execute(executeSql +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null");
-
-            QueryResult result = onTrino().executeQuery(selectSqlWithTable);
-            assertColumnTypes(result);
-            assertThat(result).containsOnly(
-                    row(
-                            127,
-                            32767,
-                            2147483647,
-                            Long.valueOf("9223372036854775807"),
-                            Float.valueOf("123.345"),
-                            234.567,
-                            BigDecimal.valueOf(345),
-                            new BigDecimal("345.67800"),
-                            Timestamp.valueOf("2015-05-10 12:15:35"),
-                            Date.valueOf("2015-05-10"),
-                            "ala ma kota",
-                            "ala ma kot",
-                            "ala ma    ",
-                            Boolean.TRUE,
-                            new byte[] {0, 1, 2, 3, 0, 42, -7}),
-                    row(
-                            1,
-                            2,
-                            3,
-                            4,
-                            Float.valueOf("5.6"),
-                            7.8,
-                            BigDecimal.valueOf(9),
-                            new BigDecimal("2.30000"),
-                            Timestamp.valueOf("2012-05-10 1:35:15"),
-                            Date.valueOf("2014-03-10"),
-                            "abc",
-                            "def",
-                            "ghi       ",
-                            Boolean.FALSE,
-                            "jkl".getBytes(UTF_8)),
-                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+            insertAndVerify(statement, executeSql, selectSqlWithTable);
         }
+    }
+
+    @Test(groups = JDBC)
+    @Requires(MutableAllTypesTable.class)
+    public void executeImmediateInsertSql()
+            throws SQLException
+    {
+        String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
+        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
+        String executeInsertSql = format("EXECUTE IMMEDIATE '%s' using ", format(INSERT_SQL, tableNameInDatabase));
+
+        try (Connection conn = connection(); Statement statement = conn.createStatement()) {
+            insertAndVerify(statement, executeInsertSql, selectSqlWithTable);
+        }
+    }
+
+    private void insertAndVerify(Statement statement, String insertSql, String verifySql)
+            throws SQLException
+    {
+        statement.execute(insertSql +
+                "cast(127 as tinyint), " +
+                "cast(32767 as smallint), " +
+                "2147483647, " +
+                "9223372036854775807, " +
+                "cast(123.345 as real), " +
+                "cast(234.567 as double), " +
+                "cast(345 as decimal(10)), " +
+                "cast(345.678 as decimal(10,5)), " +
+                "timestamp '2015-05-10 12:15:35', " +
+                "date '2015-05-10', " +
+                "'ala ma kota', " +
+                "'ala ma kot', " +
+                "cast('ala ma' as char(10)), " +
+                "true, " +
+                "X'00010203002AF9'");
+
+        statement.execute(insertSql +
+                "cast(1 as tinyint), " +
+                "cast(2 as smallint), " +
+                "3, " +
+                "4, " +
+                "cast(5.6 as real), " +
+                "cast(7.8 as double), " +
+                "cast(9 as decimal(10)), " +
+                "cast(2.3 as decimal(10,5)), " +
+                "timestamp '2012-05-10 1:35:15', " +
+                "date '2014-03-10', " +
+                "'abc', " +
+                "'def', " +
+                "cast('ghi' as char(10)), " +
+                "false, " +
+                "varbinary 'jkl'");
+
+        statement.execute(insertSql +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null");
+
+        QueryResult result = onTrino().executeQuery(verifySql);
+        assertColumnTypes(result);
+        assertThat(result).containsOnly(
+                row(
+                        127,
+                        32767,
+                        2147483647,
+                        Long.valueOf("9223372036854775807"),
+                        Float.valueOf("123.345"),
+                        234.567,
+                        BigDecimal.valueOf(345),
+                        new BigDecimal("345.67800"),
+                        Timestamp.valueOf("2015-05-10 12:15:35"),
+                        Date.valueOf("2015-05-10"),
+                        "ala ma kota",
+                        "ala ma kot",
+                        "ala ma    ",
+                        Boolean.TRUE,
+                        new byte[] {0, 1, 2, 3, 0, 42, -7}),
+                row(
+                        1,
+                        2,
+                        3,
+                        4,
+                        Float.valueOf("5.6"),
+                        7.8,
+                        BigDecimal.valueOf(9),
+                        new BigDecimal("2.30000"),
+                        Timestamp.valueOf("2012-05-10 1:35:15"),
+                        Date.valueOf("2014-03-10"),
+                        "abc",
+                        "def",
+                        "ghi       ",
+                        Boolean.FALSE,
+                        "jkl".getBytes(UTF_8)),
+                row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
     }
 
     @Test(groups = JDBC)
@@ -367,29 +405,51 @@ public class TestPreparedStatements
 
         try (Statement statement = connection().createStatement()) {
             statement.execute(insertSqlWithTable);
-            statement.execute(executeSql +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "null, " +
-                    "X'00010203002AF9'");
-
-            QueryResult result = onTrino().executeQuery(selectSqlWithTable);
-            assertColumnTypes(result);
-            assertThat(result).containsOnly(
-                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                            new byte[] {0, 1, 2, 3, 0, 42, -7}));
+            insertAndVerifyVarbinary(statement, executeSql, selectSqlWithTable);
         }
+    }
+
+    @Test(groups = JDBC)
+    @Requires(MutableAllTypesTable.class)
+    public void executeImmediateVarbinarySql()
+            throws SQLException
+    {
+        String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
+        String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
+        String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
+        String executeSql = format("EXECUTE IMMEDIATE '%s' using ", format(INSERT_SQL, tableNameInDatabase));
+
+        try (Connection conn = connection(); Statement statement = conn.createStatement()) {
+            statement.execute(insertSqlWithTable);
+            insertAndVerifyVarbinary(statement, executeSql, selectSqlWithTable);
+        }
+    }
+
+    private void insertAndVerifyVarbinary(Statement statement, String insertSql, String verifySql)
+            throws SQLException
+    {
+        statement.execute(insertSql +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "null, " +
+                "X'00010203002AF9'");
+
+        QueryResult result = onTrino().executeQuery(verifySql);
+        assertColumnTypes(result);
+        assertThat(result).containsOnly(
+                row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                        new byte[] {0, 1, 2, 3, 0, 42, -7}));
     }
 
     private void assertColumnTypes(QueryResult queryResult)

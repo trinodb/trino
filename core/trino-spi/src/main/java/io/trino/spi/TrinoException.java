@@ -39,10 +39,20 @@ public class TrinoException
         this(errorCode, Optional.empty(), message, cause);
     }
 
+    public TrinoException(ErrorCode errorCode, String message, Throwable cause)
+    {
+        this(errorCode, Optional.empty(), message, cause);
+    }
+
     public TrinoException(ErrorCodeSupplier errorCodeSupplier, Optional<Location> location, String message, Throwable cause)
     {
+        this(errorCodeSupplier.toErrorCode(), location, message, cause);
+    }
+
+    private TrinoException(ErrorCode errorCode, Optional<Location> location, String message, Throwable cause)
+    {
         super(message, cause);
-        this.errorCode = errorCodeSupplier.toErrorCode();
+        this.errorCode = requireNonNull(errorCode, "errorCode is null");
         this.location = requireNonNull(location, "location is null");
     }
 

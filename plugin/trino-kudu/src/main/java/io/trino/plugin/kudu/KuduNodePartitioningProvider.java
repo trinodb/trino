@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.kudu;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -22,8 +23,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

@@ -13,9 +13,8 @@
  */
 package io.trino.spiller;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.operator.SpillContext;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import static com.google.common.base.Preconditions.checkState;
 

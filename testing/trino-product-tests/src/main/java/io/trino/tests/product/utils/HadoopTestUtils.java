@@ -29,13 +29,10 @@ public final class HadoopTestUtils
 
     private static final Logger log = Logger.get(HiveProductTest.class);
 
-    public static final String ERROR_READING_FROM_HIVE_ISSUE = "https://github.com/trinodb/trino/issues/7535";
-    @Language("RegExp")
-    public static final String ERROR_READING_FROM_HIVE_MATCH = "FAILED: Execution Error, return code 2 from org.apache.hadoop.hive.ql.exec.mr.MapRedTask";
-
     /**
      * Link to issues:
      * <ul>
+     *     <ol><a href="https://github.com/trinodb/trino/issues/7535">#7535</a></ol>
      *     <ol><a href="https://github.com/trinodb/trino/issues/4936">#4936</a></ol>
      *     <ol><a href="https://github.com/trinodb/trino/issues/5427">#5427</a></ol>
      * </ul>
@@ -49,7 +46,7 @@ public final class HadoopTestUtils
                     // "could only be written to 0 of the 1 minReplication" is the error wording used by e.g. HDP 3
                     "|could only be written to 0 of the 1 minReplication" +
                     // "Error while processing statement: FAILED: Execution Error, return code 1 from org.apache.hadoop.hive.ql.exec.mr.MapRedTask. Error caching map.xml: java.nio.channels.ClosedByInterruptException"
-                    "|return code 1 from \\Qorg.apache.hadoop.hive.ql.exec.mr.MapRedTask.\\E Error caching \\S*: \\Qjava.nio.channels.ClosedByInterruptException\\E" +
+                    "|return code [12] from \\Qorg.apache.hadoop.hive.ql.exec.mr.MapRedTask\\E" +
                     ")";
 
     public static final RetryPolicy<QueryResult> ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY = RetryPolicy.<QueryResult>builder()

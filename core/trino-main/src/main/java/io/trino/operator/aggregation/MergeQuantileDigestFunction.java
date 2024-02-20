@@ -15,8 +15,8 @@ package io.trino.operator.aggregation;
 
 import io.airlift.stats.QuantileDigest;
 import io.trino.operator.aggregation.state.QuantileDigestState;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -45,7 +45,7 @@ public final class MergeQuantileDigestFunction
     public static void input(
             @TypeParameter("qdigest(V)") Type type,
             @AggregationState QuantileDigestState state,
-            @BlockPosition @SqlType("qdigest(V)") Block value,
+            @BlockPosition @SqlType("qdigest(V)") ValueBlock value,
             @BlockIndex int index)
     {
         merge(state, new QuantileDigest(type.getSlice(value, index)));

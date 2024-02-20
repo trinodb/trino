@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.iceberg.fileio;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import org.apache.iceberg.io.BulkDeletionFailureException;
 import org.apache.iceberg.io.InputFile;
@@ -23,6 +25,7 @@ import org.apache.iceberg.io.SupportsBulkOperations;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -35,35 +38,42 @@ public class ForwardingFileIo
     private static final int BATCH_DELETE_PATHS_MESSAGE_LIMIT = 5;
 
     private final TrinoFileSystem fileSystem;
+    private final Map<String, String> properties;
 
     public ForwardingFileIo(TrinoFileSystem fileSystem)
     {
+        this(fileSystem, ImmutableMap.of());
+    }
+
+    public ForwardingFileIo(TrinoFileSystem fileSystem, Map<String, String> properties)
+    {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
 
     @Override
     public InputFile newInputFile(String path)
     {
-        return new ForwardingInputFile(fileSystem.newInputFile(path));
+        return new ForwardingInputFile(fileSystem.newInputFile(Location.of(path)));
     }
 
     @Override
     public InputFile newInputFile(String path, long length)
     {
-        return new ForwardingInputFile(fileSystem.newInputFile(path, length));
+        return new ForwardingInputFile(fileSystem.newInputFile(Location.of(path), length));
     }
 
     @Override
     public OutputFile newOutputFile(String path)
     {
-        return new ForwardingOutputFile(fileSystem, path);
+        return new ForwardingOutputFile(fileSystem, Location.of(path));
     }
 
     @Override
     public void deleteFile(String path)
     {
         try {
-            fileSystem.deleteFile(path);
+            fileSystem.deleteFile(Location.of(path));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to delete file: " + path, e);
@@ -81,7 +91,7 @@ public class ForwardingFileIo
     private void deleteBatch(List<String> filesToDelete)
     {
         try {
-            fileSystem.deleteFiles(filesToDelete);
+            fileSystem.deleteFiles(filesToDelete.stream().map(Location::of).toList());
         }
         catch (IOException e) {
             throw new UncheckedIOException(
@@ -93,5 +103,17 @@ public class ForwardingFileIo
                                     .collect(joining(", ", "[", "]")),
                     e);
         }
+    }
+
+    @Override
+    public Map<String, String> properties()
+    {
+        return properties;
+    }
+
+    @Override
+    public void initialize(Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException("ForwardingFileIO does not support initialization by properties");
     }
 }

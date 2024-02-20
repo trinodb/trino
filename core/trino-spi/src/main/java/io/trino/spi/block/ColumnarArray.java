@@ -36,22 +36,24 @@ public class ColumnarArray
             return toColumnarArray(runLengthEncodedBlock);
         }
 
-        if (!(block instanceof AbstractArrayBlock arrayBlock)) {
+        if (!(block instanceof ArrayBlock arrayBlock)) {
             throw new IllegalArgumentException("Invalid array block: " + block.getClass().getName());
         }
 
         Block elementsBlock = arrayBlock.getRawElementBlock();
+        int[] offsets = arrayBlock.getOffsets();
+        int arrayOffset = arrayBlock.getOffsetBase();
 
         // trim elements to just visible region
         int elementsOffset = 0;
         int elementsLength = 0;
         if (arrayBlock.getPositionCount() > 0) {
-            elementsOffset = arrayBlock.getOffset(0);
-            elementsLength = arrayBlock.getOffset(arrayBlock.getPositionCount()) - elementsOffset;
+            elementsOffset = offsets[arrayOffset];
+            elementsLength = offsets[arrayBlock.getPositionCount() + arrayOffset] - elementsOffset;
         }
         elementsBlock = elementsBlock.getRegion(elementsOffset, elementsLength);
 
-        return new ColumnarArray(block, arrayBlock.getOffsetBase(), arrayBlock.getOffsets(), elementsBlock);
+        return new ColumnarArray(block, arrayOffset, offsets, elementsBlock);
     }
 
     private static ColumnarArray toColumnarArray(DictionaryBlock dictionaryBlock)

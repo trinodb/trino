@@ -13,11 +13,14 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -34,11 +37,22 @@ public interface QueryBuilder
             JdbcRelationHandle baseRelation,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions,
+            Map<String, ParameterizedExpression> columnExpressions,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<String> additionalPredicate);
+            Optional<ParameterizedExpression> additionalPredicate);
 
     PreparedQuery prepareJoinQuery(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions);
+
+    PreparedQuery legacyPrepareJoinQuery(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
@@ -55,12 +69,29 @@ public interface QueryBuilder
             Connection connection,
             JdbcNamedRelationHandle baseRelation,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<String> additionalPredicate);
+            Optional<ParameterizedExpression> additionalPredicate);
+
+    PreparedQuery prepareUpdateQuery(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            JdbcNamedRelationHandle baseRelation,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<ParameterizedExpression> additionalPredicate,
+            List<JdbcAssignmentItem> assignments);
 
     PreparedStatement prepareStatement(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
-            PreparedQuery preparedQuery)
+            PreparedQuery preparedQuery,
+            Optional<Integer> columnCount)
+            throws SQLException;
+
+    CallableStatement callProcedure(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            ProcedureQuery procedureQuery)
             throws SQLException;
 }

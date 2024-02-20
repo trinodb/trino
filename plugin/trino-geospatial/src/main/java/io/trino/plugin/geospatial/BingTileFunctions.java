@@ -17,11 +17,13 @@ import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.Slice;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedRowValueBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -45,6 +47,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.asin;
 import static java.lang.Math.atan2;
+import static java.lang.Math.clamp;
 import static java.lang.Math.cos;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.sin;
@@ -108,28 +111,21 @@ public final class BingTileFunctions
     {
         private static final RowType BING_TILE_COORDINATES_ROW_TYPE = RowType.anonymous(ImmutableList.of(INTEGER, INTEGER));
 
-        private final PageBuilder pageBuilder;
+        private final BufferedRowValueBuilder rowValueBuilder;
 
         public BingTileCoordinatesFunction()
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(BING_TILE_COORDINATES_ROW_TYPE));
+            rowValueBuilder = BufferedRowValueBuilder.createBuffered(BING_TILE_COORDINATES_ROW_TYPE);
         }
 
         @SqlType("row(x integer,y integer)")
-        public Block bingTileCoordinates(@SqlType(BingTileType.NAME) long input)
+        public SqlRow bingTileCoordinates(@SqlType(BingTileType.NAME) long input)
         {
-            if (pageBuilder.isFull()) {
-                pageBuilder.reset();
-            }
-            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
             BingTile tile = BingTile.decode(input);
-            BlockBuilder tileBlockBuilder = blockBuilder.beginBlockEntry();
-            INTEGER.writeLong(tileBlockBuilder, tile.getX());
-            INTEGER.writeLong(tileBlockBuilder, tile.getY());
-            blockBuilder.closeEntry();
-            pageBuilder.declarePosition();
-
-            return BING_TILE_COORDINATES_ROW_TYPE.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+            return rowValueBuilder.build(fields -> {
+                INTEGER.writeLong(fields.get(0), tile.getX());
+                INTEGER.writeLong(fields.get(1), tile.getY());
+            });
         }
     }
 
@@ -507,10 +503,10 @@ public final class BingTileFunctions
         checkArgument(leftUpperTile.getZoomLevel() > zoomLevel);
 
         int divisor = 1 << (leftUpperTile.getZoomLevel() - zoomLevel);
-        int minX = (int) Math.floor(leftUpperTile.getX() / divisor);
-        int maxX = (int) Math.floor(rightLowerTile.getX() / divisor);
-        int minY = (int) Math.floor(leftUpperTile.getY() / divisor);
-        int maxY = (int) Math.floor(rightLowerTile.getY() / divisor);
+        int minX = leftUpperTile.getX() / divisor;
+        int maxX = rightLowerTile.getX() / divisor;
+        int minY = leftUpperTile.getY() / divisor;
+        int maxY = rightLowerTile.getY() / divisor;
 
         BingTile[] tiles = new BingTile[(maxX - minX + 1) * (maxY - minY + 1)];
         int index = 0;
@@ -580,8 +576,8 @@ public final class BingTileFunctions
     private static Point tileXYToLatitudeLongitude(int tileX, int tileY, int zoomLevel)
     {
         long mapSize = mapSize(zoomLevel);
-        double x = (clip(tileX * TILE_PIXELS, 0, mapSize) / mapSize) - 0.5;
-        double y = 0.5 - (clip(tileY * TILE_PIXELS, 0, mapSize) / mapSize);
+        double x = (clamp((long) tileX * TILE_PIXELS, 0, mapSize) / (double) mapSize) - 0.5;
+        double y = 0.5 - (clamp((long) tileY * TILE_PIXELS, 0, mapSize) / (double) mapSize);
 
         double latitude = 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
         double longitude = 360 * x;
@@ -631,7 +627,7 @@ public final class BingTileFunctions
      */
     private static int axisToCoordinates(double axis, long mapSize)
     {
-        int tileAxis = (int) clip(axis * mapSize, 0, mapSize - 1);
+        int tileAxis = (int) clamp(axis * mapSize, 0d, mapSize - 1);
         return tileAxis / TILE_PIXELS;
     }
 
@@ -676,9 +672,9 @@ public final class BingTileFunctions
 
     private static final class GreatCircleDistanceToPoint
     {
-        private double sinLatitude;
-        private double cosLatitude;
-        private double radianLongitude;
+        private final double sinLatitude;
+        private final double cosLatitude;
+        private final double radianLongitude;
 
         private GreatCircleDistanceToPoint(double latitude, double longitude)
         {
@@ -706,16 +702,17 @@ public final class BingTileFunctions
         }
     }
 
+    private static void checkCondition(boolean condition, String message)
+    {
+        checkCondition(condition, "%s", message);
+    }
+
+    @FormatMethod
     private static void checkCondition(boolean condition, String formatString, Object... args)
     {
         if (!condition) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format(formatString, args));
         }
-    }
-
-    private static double clip(double n, double minValue, double maxValue)
-    {
-        return Math.min(Math.max(n, minValue), maxValue);
     }
 
     private static long mapSize(int zoomLevel)

@@ -29,9 +29,7 @@ import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -39,6 +37,7 @@ import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
@@ -53,7 +52,7 @@ import static java.util.Objects.requireNonNull;
 public class ListColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ListColumnReader.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ListColumnReader.class);
 
     private final Type elementType;
     private final OrcColumn column;

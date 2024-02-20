@@ -26,6 +26,7 @@ import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -45,9 +46,9 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,9 +60,10 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
@@ -72,7 +74,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -89,12 +90,12 @@ public class TestConnectorPushdownRulesWithHive
     private CatalogHandle catalogHandle;
 
     private static final Session HIVE_SESSION = testSessionBuilder()
-            .setCatalog(TEST_CATALOG_NAME)
+            .setCatalog(HIVE_CATALOG)
             .setSchema(SCHEMA_NAME)
             .build();
 
     @Override
-    protected Optional<LocalQueryRunner> createLocalQueryRunner()
+    protected Optional<PlanTester> createPlanTester()
     {
         try {
             baseDir = Files.createTempDirectory(null).toFile();
@@ -103,20 +104,20 @@ public class TestConnectorPushdownRulesWithHive
             throw new UncheckedIOException(e);
         }
 
-        metastore = createTestingFileHiveMetastore(baseDir);
-        Database database = Database.builder()
+        PlanTester planTester = PlanTester.create(HIVE_SESSION);
+        planTester.createCatalog(HIVE_CATALOG, new TestingHiveConnectorFactory(baseDir.toPath()), ImmutableMap.of());
+        catalogHandle = planTester.getCatalogHandle(HIVE_CATALOG);
+
+        metastore = getConnectorService(planTester, HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
+
+        metastore.createDatabase(Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
                 .setOwnerName(Optional.of("public"))
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
-                .build();
+                .build());
 
-        metastore.createDatabase(database);
-
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(HIVE_SESSION);
-        queryRunner.createCatalog(TEST_CATALOG_NAME, new TestingHiveConnectorFactory(metastore), ImmutableMap.of());
-        catalogHandle = queryRunner.getCatalogHandle(TEST_CATALOG_NAME);
-
-        return Optional.of(queryRunner);
+        return Optional.of(planTester);
     }
 
     @Test
@@ -128,7 +129,7 @@ public class TestConnectorPushdownRulesWithHive
                 tester().getTypeAnalyzer(),
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
-        tester().getQueryRunner().execute(format(
+        tester().getPlanTester().executeStatement(format(
                 "CREATE TABLE  %s (struct_of_int) AS " +
                         "SELECT cast(row(5, 6) as row(a bigint, b bigint)) as struct_of_int where false",
                 tableName));
@@ -208,9 +209,9 @@ public class TestConnectorPushdownRulesWithHive
     public void testPredicatePushdown()
     {
         String tableName = "predicate_test";
-        tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
-        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
+        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer(), false);
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false));
@@ -240,7 +241,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testColumnPruningProjectionPushdown()
     {
         String tableName = "column_pruning_projection_test";
-        tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
@@ -278,7 +279,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testPushdownWithDuplicateExpressions()
     {
         String tableName = "duplicate_expressions";
-        tester().getQueryRunner().execute(format(
+        tester().getPlanTester().executeStatement(format(
                 "CREATE TABLE  %s (struct_of_bigint, just_bigint) AS SELECT cast(row(5, 6) AS row(a bigint, b bigint)) AS struct_of_int, 5 AS just_bigint WHERE false",
                 tableName));
 
@@ -355,7 +356,7 @@ public class TestConnectorPushdownRulesWithHive
         metastore.dropTable(SCHEMA_NAME, tableName, true);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws IOException
     {

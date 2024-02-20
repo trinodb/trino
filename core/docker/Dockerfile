@@ -11,26 +11,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM eclipse-temurin:17-jdk AS builder
+FROM ghcr.io/airlift/jvmkill:latest AS jvmkill
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS jdk-download
+ARG JDK_DOWNLOAD_LINK
+ARG JDK_VERSION
+ENV JAVA_HOME="/usr/lib/jvm/jdk-${JDK_VERSION}"
+
+RUN \
+    set -xeuo pipefail && \
+    microdnf install -y tar gzip && \
+    # Install JDK from the provided archive link \
+    echo "Downloading JDK from ${JDK_DOWNLOAD_LINK}" && \
+    mkdir -p "${JAVA_HOME}" && \
+    curl -#LfS "${JDK_DOWNLOAD_LINK}" | tar -zx --strip 1 -C "${JAVA_HOME}"
+
+# Use ubi9 minimal as it's more secure
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+ARG JDK_VERSION
+ENV JAVA_HOME="/usr/lib/jvm/jdk-${JDK_VERSION}"
+ENV PATH=$PATH:$JAVA_HOME/bin
+COPY --from=jdk-download $JAVA_HOME $JAVA_HOME
 
 RUN \
     set -xeu && \
-    echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries && \
-    echo 'Acquire::http::Timeout "15";' > /etc/apt/apt.conf.d/80-timeouts && \
-    apt-get update -q && \
-    apt-get install -y -q git gcc make && \
-    git clone https://github.com/airlift/jvmkill /tmp/jvmkill && \
-    make -C /tmp/jvmkill
-
-FROM eclipse-temurin:17-jdk
-
-RUN \
-    set -xeu && \
-    echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries && \
-    echo 'Acquire::http::Timeout "15";' > /etc/apt/apt.conf.d/80-timeouts && \
-    apt-get update -q && \
-    apt-get install -y -q less python3 curl && \
-    rm -rf /var/lib/apt/lists/* && \
+    microdnf update -y && \
+    microdnf install -y tar less python3 shadow-utils && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     groupadd trino --gid 1000 && \
     useradd trino --uid 1000 --gid 1000 --create-home && \
@@ -38,10 +44,10 @@ RUN \
     chown -R "trino:trino" /usr/lib/trino /data/trino
 
 ARG TRINO_VERSION
-COPY trino-cli-${TRINO_VERSION}-executable.jar /usr/bin/trino
+COPY --chown=trino:trino trino-cli-${TRINO_VERSION}-executable.jar /usr/bin/trino
 COPY --chown=trino:trino trino-server-${TRINO_VERSION} /usr/lib/trino
 COPY --chown=trino:trino default/etc /etc/trino
-COPY --chown=trino:trino --from=builder /tmp/jvmkill/libjvmkill.so /usr/lib/trino/bin
+COPY --chown=trino:trino --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
 
 EXPOSE 8080
 USER trino:trino

@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.Page;
-import io.trino.sql.planner.plan.PlanNodeId;
 
 import static java.util.Objects.requireNonNull;
 
@@ -54,10 +53,10 @@ public class WorkProcessorOperatorAdapter
     }
 
     /**
-     * Provides dual {@link OperatorFactory} and {@link WorkProcessorOperatorFactory} interface.
+     * Provides {@link OperatorFactory} implementation for {@link WorkProcessorSourceOperator}.
      */
     private static class Factory
-            implements OperatorFactory, WorkProcessorOperatorFactory
+            implements OperatorFactory
     {
         final AdapterWorkProcessorOperatorFactory operatorFactory;
 
@@ -65,8 +64,6 @@ public class WorkProcessorOperatorAdapter
         {
             this.operatorFactory = requireNonNull(operatorFactory, "operatorFactory is null");
         }
-
-        // Methods from OperatorFactory
 
         @Override
         public Operator createOperator(DriverContext driverContext)
@@ -81,45 +78,13 @@ public class WorkProcessorOperatorAdapter
         @Override
         public void noMoreOperators()
         {
-            close();
+            operatorFactory.close();
         }
 
         @Override
         public OperatorFactory duplicate()
         {
             return new Factory(operatorFactory.duplicate());
-        }
-
-        // Methods from WorkProcessorOperatorFactory
-
-        @Override
-        public int getOperatorId()
-        {
-            return operatorFactory.getOperatorId();
-        }
-
-        @Override
-        public PlanNodeId getPlanNodeId()
-        {
-            return operatorFactory.getPlanNodeId();
-        }
-
-        @Override
-        public String getOperatorType()
-        {
-            return operatorFactory.getOperatorType();
-        }
-
-        @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
-        {
-            return operatorFactory.create(processorContext, sourcePages);
-        }
-
-        @Override
-        public void close()
-        {
-            operatorFactory.close();
         }
     }
 

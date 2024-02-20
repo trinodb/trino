@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.SystemSessionProperties;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
@@ -28,7 +29,7 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
 import io.trino.sql.tree.FunctionCall;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -51,7 +52,9 @@ public class TestOptimizeMixedDistinctAggregations
 {
     public TestOptimizeMixedDistinctAggregations()
     {
-        super(ImmutableMap.of(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true"));
+        super(ImmutableMap.of(
+                SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true",
+                SystemSessionProperties.MARK_DISTINCT_STRATEGY, "always"));
     }
 
     @Test
@@ -69,7 +72,7 @@ public class TestOptimizeMixedDistinctAggregations
         // Second Aggregation data
         List<String> groupByKeysSecond = ImmutableList.of(groupBy);
         Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of(
-                Optional.of("arbitrary"), PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
+                Optional.of("any_value"), PlanMatchPattern.functionCall("any_value", false, ImmutableList.of(anySymbol())),
                 Optional.of("count"), PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())));
 
         // First Aggregation data
@@ -98,7 +101,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         // Second Aggregation data
         Map<String, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of(
-                "arbitrary", PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
+                "any_value", PlanMatchPattern.functionCall("any_value", false, ImmutableList.of(anySymbol())),
                 "count", PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())));
 
         // First Aggregation data
@@ -116,25 +119,25 @@ public class TestOptimizeMixedDistinctAggregations
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
                 new IterativeOptimizer(
-                        getQueryRunner().getPlannerContext(),
+                        getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
-                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        getPlanTester().getStatsCalculator(),
+                        getPlanTester().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new SingleDistinctAggregationToGroupBy(),
-                                new MultipleDistinctAggregationToMarkDistinct())),
-                new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
+                                new MultipleDistinctAggregationToMarkDistinct(new TaskCountEstimator(() -> 4)))),
+                new OptimizeMixedDistinctAggregations(getPlanTester().getPlannerContext().getMetadata()),
                 new IterativeOptimizer(
-                        getQueryRunner().getPlannerContext(),
+                        getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
-                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        getPlanTester().getStatsCalculator(),
+                        getPlanTester().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
-                                .addAll(columnPruningRules(getQueryRunner().getMetadata()))
+                                .addAll(columnPruningRules(getPlanTester().getPlannerContext().getMetadata()))
                                 .build()));
         assertPlan(sql, pattern, optimizers);
     }

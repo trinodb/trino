@@ -20,8 +20,6 @@ import io.trino.spi.connector.ColumnMetadata;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsTable
@@ -31,11 +29,9 @@ public class SheetsTable
 
     @JsonCreator
     public SheetsTable(
-            @JsonProperty("name") String name,
             @JsonProperty("columns") List<SheetsColumn> columns,
             @JsonProperty("values") List<List<String>> values)
     {
-        checkArgument(!isNullOrEmpty(name), "name is null or is empty");
         requireNonNull(columns, "columns is null");
 
         ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();

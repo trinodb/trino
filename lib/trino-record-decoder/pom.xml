@@ -5,38 +5,26 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-record-decoder</artifactId>
-    <name>trino-record-decoder</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
     <dependencies>
-        <!-- Trino SPI -->
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
-        </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -55,13 +43,51 @@
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.wire</groupId>
-            <artifactId>wire-schema</artifactId>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+            <exclusions>
+                <!-- Brings in duplicate classes already in org.slf4j:jcl-over-slf4j (from io.airlift:log-manager) -->
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.wire</groupId>
+            <artifactId>wire-runtime-jvm</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.wire</groupId>
+            <artifactId>wire-schema-jvm</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-cache</artifactId>
+        </dependency>
+
+        <!-- Trino SPI -->
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -70,16 +96,10 @@
         </dependency>
 
         <dependency>
-            <groupId>net.sf.opencsv</groupId>
-            <artifactId>opencsv</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
@@ -87,16 +107,15 @@
         </dependency>
 
         <dependency>
-            <groupId>org.xerial.snappy</groupId>
-            <artifactId>snappy-java</artifactId>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio-jvm</artifactId>
             <scope>runtime</scope>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-main</artifactId>
-            <scope>test</scope>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -107,7 +126,32 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-provider</artifactId>
+            <!-- This is under Confluent Community License and it should not be used with compile scope -->
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-main</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -118,11 +162,27 @@
         </dependency>
 
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <repositories>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>confluent</id>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
 
     <build>
         <plugins>

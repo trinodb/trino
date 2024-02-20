@@ -26,7 +26,8 @@ import static java.util.Objects.requireNonNull;
  * - the projected columns required by a connector level pagesource and
  * -  the columns supplied by format-specific page source
  * <p>
- * Currently used in {@link HivePageSource} and {@code io.trino.plugin.iceberg.IcebergPageSource}.
+ * Currently used in {@link HivePageSource}, {@code io.trino.plugin.iceberg.IcebergPageSource},
+ * and {@code io.trino.plugin.deltalake.DeltaLakePageSource}.
  */
 public class ReaderColumns
 {

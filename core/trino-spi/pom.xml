@@ -5,58 +5,57 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>409-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-spi</artifactId>
-    <name>trino-spi</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <released-artifacts.dir>${project.build.directory}/released-artifacts</released-artifacts.dir>
+        <trino.check.skip-revapi>${air.check.skip-basic}</trino.check.skip-revapi>
     </properties>
 
     <!-- the SPI should have only minimal dependencies -->
     <dependencies>
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
-        </dependency>
-
-        <!-- for testing -->
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-testing-services</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-            <scope>test</scope>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -74,6 +73,36 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>json</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -112,27 +141,21 @@
             <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
         <resources>
             <resource>
-                <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <directory>src/main/resources</directory>
                 <includes>
                     <include>io/trino/spi/trino-spi-version.txt</include>
                 </includes>
             </resource>
 
             <resource>
-                <directory>src/main/resources</directory>
                 <filtering>false</filtering>
+                <directory>src/main/resources</directory>
                 <excludes>
                     <exclude>io/trino/spi/trino-spi-version.txt</exclude>
                 </excludes>
@@ -141,41 +164,11 @@
 
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <dependencies>
-                    <!-- allow both JUnit and TestNG -->
-                    <dependency>
-                        <groupId>org.apache.maven.surefire</groupId>
-                        <artifactId>surefire-junit-platform</artifactId>
-                        <version>${dep.plugin.surefire.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.apache.maven.surefire</groupId>
-                        <artifactId>surefire-testng</artifactId>
-                        <version>${dep.plugin.surefire.version}</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
-            <plugin>
                 <groupId>org.revapi</groupId>
                 <artifactId>revapi-maven-plugin</artifactId>
-                <version>0.14.7</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.revapi</groupId>
-                        <artifactId>revapi-java</artifactId>
-                        <version>0.27.0</version>
-                    </dependency>
-                </dependencies>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <version>0.15.0</version>
                 <configuration>
+                    <skip>${trino.check.skip-revapi}</skip>
                     <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
                     <analysisConfiguration>
                         <revapi.filter>
@@ -217,61 +210,250 @@
                                         <match>@java.lang.Deprecated(*) ^*;</match>
                                     </old>
                                 </item>
-                                <!-- Revapi tries to compare any API with its previous version -->
-                                <!-- If it can't download the old version, if falls back to comparing with an empty file -->
-                                <!-- This can lead to errors which are not shown in daily development where local Maven cache has the old version -->
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>class io.airlift.slice.BasicSliceInput</new>
-                                    <justification>Trino SPI depends on Airlift</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>class io.airlift.slice.Slice</new>
-                                    <justification>Trino SPI depends on Airlift</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>class io.airlift.slice.SliceInput</new>
-                                    <justification>Trino SPI depends on Airlift</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>class io.airlift.slice.SliceOutput</new>
-                                    <justification>Trino SPI depends on Airlift</justification>
-                                </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <ignore>true</ignore>
-                                    <code>java.field.visibilityReduced</code>
-                                    <old>field io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor&lt;T extends java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;&gt;.records</old>
-                                    <new>field io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor.records</new>
-                                    <oldVisibility>protected</oldVisibility>
-                                    <newVisibility>private</newVisibility>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMaterializedViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;io.trino.spi.connector.CatalogSchemaTableName&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;, java.util.Map&lt;java.lang.String, java.lang.Object&gt;)</old>
+                                    <new>method void io.trino.spi.connector.ConnectorMaterializedViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;io.trino.spi.connector.CatalogSchemaTableName&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;)</new>
                                 </item>
                                 <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter void io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor&lt;T extends java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;&gt;::&lt;init&gt;(java.util.List&lt;io.trino.spi.type.Type&gt;, ===T===)</old>
-                                    <new>parameter void io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor::&lt;init&gt;(java.util.List&lt;io.trino.spi.type.Type&gt;, ===java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;===)</new>
-                                    <parameterIndex>1</parameterIndex>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Map&lt;java.lang.String, java.lang.Object&gt; io.trino.spi.connector.ConnectorMaterializedViewDefinition::getProperties()</old>
                                 </item>
                                 <item>
-                                    <ignore>true</ignore>
-                                    <code>java.generics.formalTypeParameterRemoved</code>
-                                    <old>class io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor&lt;T extends java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;&gt;</old>
-                                    <new>class io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor</new>
-                                    <typeParameter>T extends java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;</typeParameter>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMetadata::createMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorMaterializedViewDefinition, boolean, boolean)</old>
+                                    <new>method void io.trino.spi.connector.ConnectorMetadata::createMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorMaterializedViewDefinition, java.util.Map&lt;java.lang.String, java.lang.Object&gt;, boolean, boolean)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;)</old>
+                                    <new>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, java.util.List&lt;java.lang.String&gt;)</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.Location</old>
+                                    <new>class io.trino.spi.Location</new>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.Block::getChildren()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.DictionaryBlock::getChildren()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.LazyBlock::getChildren()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.RunLengthEncodedBlock::getChildren()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.ArrayBlock::getChildren()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.MapBlock::getChildren()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.RowBlock::getChildren()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.Block::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.ByteArrayBlock::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.DictionaryBlock::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.LazyBlock::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.RunLengthEncodedBlock::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.VariableWidthBlock::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method short io.trino.spi.block.Block::getShort(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method short io.trino.spi.block.DictionaryBlock::getShort(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method short io.trino.spi.block.LazyBlock::getShort(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method short io.trino.spi.block.RunLengthEncodedBlock::getShort(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method short io.trino.spi.block.ShortArrayBlock::getShort(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method short io.trino.spi.block.VariableWidthBlock::getShort(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.Block::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.DictionaryBlock::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.IntArrayBlock::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.LazyBlock::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.RunLengthEncodedBlock::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.VariableWidthBlock::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Block::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.DictionaryBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Fixed12Block::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Int128ArrayBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.LazyBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.LongArrayBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.RunLengthEncodedBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.VariableWidthBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.airlift.slice.Slice io.trino.spi.block.Block::getSlice(int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.Block::getSliceLength(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.airlift.slice.Slice io.trino.spi.block.DictionaryBlock::getSlice(int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.DictionaryBlock::getSliceLength(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.airlift.slice.Slice io.trino.spi.block.LazyBlock::getSlice(int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.LazyBlock::getSliceLength(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.airlift.slice.Slice io.trino.spi.block.RunLengthEncodedBlock::getSlice(int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.RunLengthEncodedBlock::getSliceLength(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.airlift.slice.Slice io.trino.spi.block.VariableWidthBlock::getSlice(int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.ArrayBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.Block::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.DictionaryBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.LazyBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.MapBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.RowBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.RunLengthEncodedBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method void io.trino.spi.block.BlockBuilder::resetTo(int)</new>
                                 </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
                 </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.revapi</groupId>
+                        <artifactId>revapi-java</artifactId>
+                        <version>0.28.1</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

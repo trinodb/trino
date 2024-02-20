@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
@@ -58,9 +58,9 @@ public class PushDownDereferencesThroughAssignUniqueId
         implements Rule<ProjectNode>
 {
     private static final Capture<AssignUniqueId> CHILD = newCapture();
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushDownDereferencesThroughAssignUniqueId(TypeAnalyzer typeAnalyzer)
+    public PushDownDereferencesThroughAssignUniqueId(IrTypeAnalyzer typeAnalyzer)
     {
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }

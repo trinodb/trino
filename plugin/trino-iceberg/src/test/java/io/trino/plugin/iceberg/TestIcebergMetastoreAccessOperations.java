@@ -15,65 +15,53 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import com.google.common.collect.Sets;
 import io.trino.Session;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
-import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
+import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import java.io.File;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.CREATE_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.DROP_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.REPLACE_TABLE;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES_WITH_PARAMETER;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
 import static io.trino.plugin.iceberg.TableType.MANIFESTS;
+import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
+import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
-import static java.lang.String.join;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.fail;
 
-@Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
+@Execution(ExecutionMode.SAME_THREAD) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestIcebergMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
-    private static final Session TEST_SESSION = testSessionBuilder()
-            .setCatalog("iceberg")
-            .setSchema("test_schema")
-            .build();
-
-    private CountingAccessHiveMetastore metastore;
+    private static final int MAX_PREFIXES_COUNT = 10;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).build();
-
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
-        metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
-        queryRunner.createCatalog("iceberg", "iceberg");
-
-        queryRunner.execute("CREATE SCHEMA test_schema");
-        return queryRunner;
+        return IcebergQueryRunner.builder()
+                .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
+                .build();
     }
 
     @Test
@@ -86,7 +74,7 @@ public class TestIcebergMetastoreAccessOperations
                 .setSchema(Optional.empty())
                 .build();
         assertMetastoreInvocations(session, "USE %s.%s".formatted(catalog, schema),
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .build());
     }
@@ -95,7 +83,7 @@ public class TestIcebergMetastoreAccessOperations
     public void testCreateTable()
     {
         assertMetastoreInvocations("CREATE TABLE test_create (id VARCHAR, age INT)",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(CREATE_TABLE)
                         .add(GET_DATABASE)
                         .add(GET_TABLE)
@@ -103,13 +91,63 @@ public class TestIcebergMetastoreAccessOperations
     }
 
     @Test
+    public void testCreateOrReplaceTable()
+    {
+        assertMetastoreInvocations("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(CREATE_TABLE)
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
+                        .build());
+        assertMetastoreInvocations("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_DATABASE)
+                        .add(REPLACE_TABLE)
+                        .add(GET_TABLE)
+                        .build());
+    }
+
+    @Test
     public void testCreateTableAsSelect()
     {
-        assertMetastoreInvocations("CREATE TABLE test_ctas AS SELECT 1 AS age",
-                ImmutableMultiset.builder()
+        assertMetastoreInvocations(
+                withStatsOnWrite(getSession(), false),
+                "CREATE TABLE test_ctas AS SELECT 1 AS age",
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .add(CREATE_TABLE)
                         .add(GET_TABLE)
+                        .build());
+
+        assertMetastoreInvocations(
+                withStatsOnWrite(getSession(), true),
+                "CREATE TABLE test_ctas_with_stats AS SELECT 1 AS age",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_DATABASE)
+                        .add(CREATE_TABLE)
+                        .addCopies(GET_TABLE, 4)
+                        .add(REPLACE_TABLE)
+                        .build());
+    }
+
+    @Test
+    public void testCreateOrReplaceTableAsSelect()
+    {
+        assertMetastoreInvocations(
+                "CREATE OR REPLACE TABLE test_cortas AS SELECT 1 AS age",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_DATABASE)
+                        .add(CREATE_TABLE)
+                        .addCopies(GET_TABLE, 4)
+                        .add(REPLACE_TABLE)
+                        .build());
+
+        assertMetastoreInvocations(
+                "CREATE OR REPLACE TABLE test_cortas AS SELECT 1 AS age",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_DATABASE)
+                        .addCopies(GET_TABLE, 3)
+                        .addCopies(REPLACE_TABLE, 2)
                         .build());
     }
 
@@ -119,7 +157,7 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_select_from (id VARCHAR, age INT)");
 
         assertMetastoreInvocations("SELECT * FROM test_select_from",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -130,7 +168,7 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_select_from_where AS SELECT 2 as age", 1);
 
         assertMetastoreInvocations("SELECT * FROM test_select_from_where WHERE age = 2",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -142,7 +180,7 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE VIEW test_select_view_view AS SELECT id, age FROM test_select_view_table");
 
         assertMetastoreInvocations("SELECT * FROM test_select_view_view",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 2)
                         .build());
     }
@@ -154,7 +192,7 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE VIEW test_select_view_where_view AS SELECT age FROM test_select_view_where_table");
 
         assertMetastoreInvocations("SELECT * FROM test_select_view_where_view WHERE age = 2",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 2)
                         .build());
     }
@@ -166,8 +204,8 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE MATERIALIZED VIEW test_select_mview_view AS SELECT id, age FROM test_select_mview_table");
 
         assertMetastoreInvocations("SELECT * FROM test_select_mview_view",
-                ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 3)
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 2)
                         .build());
     }
 
@@ -178,8 +216,8 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE MATERIALIZED VIEW test_select_mview_where_view AS SELECT age FROM test_select_mview_where_table");
 
         assertMetastoreInvocations("SELECT * FROM test_select_mview_where_view WHERE age = 2",
-                ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 3)
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 2)
                         .build());
     }
 
@@ -190,8 +228,8 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE MATERIALIZED VIEW test_refresh_mview_view AS SELECT id, age FROM test_refresh_mview_table");
 
         assertMetastoreInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
-                ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 6)
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 2)
                         .addCopies(REPLACE_TABLE, 1)
                         .build());
     }
@@ -203,7 +241,7 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_join_t2 AS SELECT 'name1' as name, 'id1' AS id", 1);
 
         assertMetastoreInvocations("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 2)
                         .build());
     }
@@ -214,7 +252,7 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_self_join_table AS SELECT 2 as age, 0 parent, 3 AS id", 1);
 
         assertMetastoreInvocations("SELECT child.age, parent.age FROM test_self_join_table child JOIN test_self_join_table parent ON child.parent = parent.id",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -225,7 +263,7 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_explain AS SELECT 2 as age", 1);
 
         assertMetastoreInvocations("EXPLAIN SELECT * FROM test_explain",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -236,7 +274,7 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_show_stats AS SELECT 2 as age", 1);
 
         assertMetastoreInvocations("SHOW STATS FOR test_show_stats",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -247,7 +285,7 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_show_stats_with_filter AS SELECT 2 as age", 1);
 
         assertMetastoreInvocations("SHOW STATS FOR (SELECT * FROM test_show_stats_with_filter where age >= 2)",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -259,43 +297,46 @@ public class TestIcebergMetastoreAccessOperations
 
         // select from $history
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$history\"",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 1)
                         .build());
 
         // select from $snapshots
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$snapshots\"",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 1)
                         .build());
 
         // select from $manifests
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$manifests\"",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 1)
                         .build());
 
         // select from $partitions
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$partitions\"",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 1)
                         .build());
 
         // select from $files
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$files\"",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 1)
                         .build());
 
         // select from $properties
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$properties\"",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 1)
                         .build());
 
+        assertQueryFails("SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
+                "Table 'tpch.test_select_snapshots\\$materialized_view_storage' not found");
+
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
-                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES);
+                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS, MATERIALIZED_VIEW_STORAGE);
     }
 
     @Test
@@ -304,43 +345,194 @@ public class TestIcebergMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_unregister_table AS SELECT 2 as age", 1);
 
         assertMetastoreInvocations("CALL system.unregister_table(CURRENT_SCHEMA, 'test_unregister_table')",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .add(GET_TABLE)
                         .add(DROP_TABLE)
                         .build());
     }
 
-    private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
+    @ParameterizedTest
+    @MethodSource("metadataQueriesTestTableCountDataProvider")
+    public void testInformationSchemaColumns(int tables)
+    {
+        String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        Session session = Session.builder(getSession())
+                .setSchema(schemaName)
+                .build();
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
+            // Produce multiple snapshots and metadata files
+            assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('abc', 11)", 1);
+            assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('xyz', 12)", 1);
+
+            assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
+        }
+
+        // Bulk retrieval
+        assertMetastoreInvocations(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLES)
+                        .addCopies(GET_TABLE, tables * 2)
+                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
+                        .build());
+
+        // Pointed lookup
+        assertMetastoreInvocations(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'test_select_i_s_columns0'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .build());
+
+        // Pointed lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
+        assertMetastoreInvocations(session, "DESCRIBE test_select_i_s_columns0",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
+                        .build());
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "DROP TABLE test_select_i_s_columns" + i);
+            assertUpdate(session, "DROP TABLE test_other_select_i_s_columns" + i);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("metadataQueriesTestTableCountDataProvider")
+    public void testSystemMetadataTableComments(int tables)
+    {
+        String schemaName = "test_s_m_table_comments" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        Session session = Session.builder(getSession())
+                .setSchema(schemaName)
+                .build();
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "CREATE TABLE test_select_s_m_t_comments" + i + "(id varchar, age integer)");
+            // Produce multiple snapshots and metadata files
+            assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('abc', 11)", 1);
+            assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('xyz', 12)", 1);
+
+            assertUpdate(session, "CREATE TABLE test_other_select_s_m_t_comments" + i + "(id varchar, age integer)"); // won't match the filter
+        }
+
+        // Bulk retrieval
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLES)
+                        .addCopies(GET_TABLE, tables * 2)
+                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
+                        .build());
+
+        // Bulk retrieval for two schemas
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent') AND table_name LIKE 'test_select_s_m_t_comments%'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLES, 2)
+                        .addCopies(GET_TABLES_WITH_PARAMETER, 4)
+                        .addCopies(GET_TABLE, tables * 2)
+                        .build());
+
+        // Pointed lookup
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name = 'test_select_s_m_t_comments0'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 1)
+                        .build());
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "DROP TABLE test_select_s_m_t_comments" + i);
+            assertUpdate(session, "DROP TABLE test_other_select_s_m_t_comments" + i);
+        }
+    }
+
+    public Object[][] metadataQueriesTestTableCountDataProvider()
+    {
+        return new Object[][] {
+                {3},
+                {MAX_PREFIXES_COUNT},
+                {MAX_PREFIXES_COUNT + 3},
+        };
+    }
+
+    @Test
+    public void testSystemMetadataMaterializedViews()
+    {
+        String schemaName = "test_materialized_views_" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        Session session = Session.builder(getSession())
+                .setSchema(schemaName)
+                .build();
+
+        assertUpdate(session, "CREATE TABLE test_table1 AS SELECT 1 a", 1);
+        assertUpdate(session, "CREATE TABLE test_table2 AS SELECT 1 a", 1);
+
+        assertUpdate(session, "CREATE MATERIALIZED VIEW mv1 AS SELECT * FROM test_table1 JOIN test_table2 USING (a)");
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW mv1", 1);
+
+        assertUpdate(session, "CREATE MATERIALIZED VIEW mv2 AS SELECT count(*) c FROM test_table1 JOIN test_table2 USING (a)");
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW mv2", 1);
+
+        // Bulk retrieval
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLES_WITH_PARAMETER)
+                        .addCopies(GET_TABLE, 4)
+                        .build());
+
+        // Bulk retrieval without selecting freshness
+        assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLES_WITH_PARAMETER)
+                        .addCopies(GET_TABLE, 2)
+                        .build());
+
+        // Bulk retrieval for two schemas
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent')",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
+                        .addCopies(GET_TABLE, 4)
+                        .build());
+
+        // Pointed lookup
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 3)
+                        .build());
+
+        // Pointed lookup without selecting freshness
+        assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .build());
+
+        assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
+    }
+
+    @Test
+    public void testShowTables()
+    {
+        assertMetastoreInvocations("SHOW TABLES",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLES)
+                        .build());
+    }
+
+    private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
         assertMetastoreInvocations(getSession(), query, expectedInvocations);
     }
 
-    private void assertMetastoreInvocations(Session session, @Language("SQL") String query, Multiset<?> expectedInvocations)
+    private void assertMetastoreInvocations(Session session, @Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
-        metastore.resetCounters();
-        getQueryRunner().execute(session, query);
-        Multiset<CountingAccessHiveMetastore.Methods> actualInvocations = metastore.getMethodInvocations();
+        assertMetastoreInvocationsForQuery(getDistributedQueryRunner(), session, query, expectedInvocations);
+    }
 
-        if (expectedInvocations.equals(actualInvocations)) {
-            return;
-        }
-
-        List<String> mismatchReport = Sets.union(expectedInvocations.elementSet(), actualInvocations.elementSet()).stream()
-                .filter(key -> expectedInvocations.count(key) != actualInvocations.count(key))
-                .flatMap(key -> {
-                    int expectedCount = expectedInvocations.count(key);
-                    int actualCount = actualInvocations.count(key);
-                    if (actualCount < expectedCount) {
-                        return Stream.of(format("%s more occurrences of %s", expectedCount - actualCount, key));
-                    }
-                    if (actualCount > expectedCount) {
-                        return Stream.of(format("%s fewer occurrences of %s", actualCount - expectedCount, key));
-                    }
-                    return Stream.of();
-                })
-                .collect(toImmutableList());
-
-        fail("Expected: \n\t\t" + join(",\n\t\t", mismatchReport));
+    private static Session withStatsOnWrite(Session session, boolean enabled)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
+                .build();
     }
 }

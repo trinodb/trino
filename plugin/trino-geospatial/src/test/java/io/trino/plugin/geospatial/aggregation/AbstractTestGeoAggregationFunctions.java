@@ -17,11 +17,15 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
 import io.trino.block.BlockAssertions;
 import io.trino.geospatial.serde.GeometrySerde;
-import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.spi.Page;
-import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.BeforeClass;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,17 +33,34 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class AbstractTestGeoAggregationFunctions
-        extends AbstractTestFunctions
 {
-    @BeforeClass
-    public void registerFunctions()
+    private QueryRunner runner;
+    private TestingFunctionResolution functionResolution;
+
+    @BeforeAll
+    public final void initTestFunctions()
     {
-        functionAssertions.installPlugin(new GeoPlugin());
+        runner = new StandaloneQueryRunner(TEST_SESSION);
+        runner.installPlugin(new GeoPlugin());
+        functionResolution = new TestingFunctionResolution(runner);
+    }
+
+    @AfterAll
+    public final void destroyTestFunctions()
+    {
+        closeAllRuntimeException(runner);
+        runner = null;
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)
@@ -66,8 +87,8 @@ public abstract class AbstractTestGeoAggregationFunctions
         };
         // Test in forward and reverse order to verify that ordering doesn't affect the output
         assertAggregation(
-                functionAssertions.getFunctionResolution(),
-                QualifiedName.of(getFunctionName()),
+                functionResolution,
+                getFunctionName(),
                 fromTypes(GEOMETRY),
                 equalityFunction,
                 testDescription,
@@ -75,8 +96,8 @@ public abstract class AbstractTestGeoAggregationFunctions
                 expectedWkt);
         Collections.reverse(geometrySlices);
         assertAggregation(
-                functionAssertions.getFunctionResolution(),
-                QualifiedName.of(getFunctionName()),
+                functionResolution,
+                getFunctionName(),
                 fromTypes(GEOMETRY),
                 equalityFunction,
                 testDescription,

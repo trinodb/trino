@@ -27,11 +27,13 @@ public class FileBasedSystemAccessControlRules
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
     private final Optional<List<SystemInformationRule>> systemInformationRules;
+    private final Optional<List<AuthorizationRule>> authorizationRules;
     private final Optional<List<CatalogSchemaAccessControlRule>> schemaRules;
     private final Optional<List<CatalogTableAccessControlRule>> tableRules;
     private final Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules;
     private final Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules;
     private final Optional<List<CatalogFunctionAccessControlRule>> functionRules;
+    private final Optional<List<CatalogProcedureAccessControlRule>> procedureRules;
 
     @JsonCreator
     public FileBasedSystemAccessControlRules(
@@ -40,22 +42,26 @@ public class FileBasedSystemAccessControlRules
             @JsonProperty("impersonation") Optional<List<ImpersonationRule>> impersonationRules,
             @JsonProperty("principals") Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             @JsonProperty("system_information") Optional<List<SystemInformationRule>> systemInformationRules,
+            @JsonProperty("authorization") Optional<List<AuthorizationRule>> authorizationRules,
             @JsonProperty("schemas") Optional<List<CatalogSchemaAccessControlRule>> schemaAccessControlRules,
             @JsonProperty("tables") Optional<List<CatalogTableAccessControlRule>> tableAccessControlRules,
             @JsonProperty("system_session_properties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules,
             @JsonProperty("catalog_session_properties") Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules,
-            @JsonProperty("functions") Optional<List<CatalogFunctionAccessControlRule>> functionRules)
+            @JsonProperty("functions") Optional<List<CatalogFunctionAccessControlRule>> functionRules,
+            @JsonProperty("procedures") Optional<List<CatalogProcedureAccessControlRule>> procedureRules)
     {
         this.catalogRules = catalogRules.map(ImmutableList::copyOf);
         this.queryAccessRules = queryAccessRules.map(ImmutableList::copyOf);
         this.principalUserMatchRules = principalUserMatchRules.map(ImmutableList::copyOf);
         this.impersonationRules = impersonationRules.map(ImmutableList::copyOf);
         this.systemInformationRules = systemInformationRules.map(ImmutableList::copyOf);
+        this.authorizationRules = authorizationRules.map(ImmutableList::copyOf);
         this.schemaRules = schemaAccessControlRules.map(ImmutableList::copyOf);
         this.tableRules = tableAccessControlRules.map(ImmutableList::copyOf);
         this.sessionPropertyRules = sessionPropertyRules.map(ImmutableList::copyOf);
         this.catalogSessionPropertyRules = catalogSessionPropertyRules.map(ImmutableList::copyOf);
         this.functionRules = functionRules.map(ImmutableList::copyOf);
+        this.procedureRules = procedureRules.map(ImmutableList::copyOf);
     }
 
     public Optional<List<CatalogAccessControlRule>> getCatalogRules()
@@ -83,6 +89,11 @@ public class FileBasedSystemAccessControlRules
         return systemInformationRules;
     }
 
+    public List<AuthorizationRule> getAuthorizationRules()
+    {
+        return authorizationRules.orElseGet(ImmutableList::of);
+    }
+
     public Optional<List<CatalogSchemaAccessControlRule>> getSchemaRules()
     {
         return schemaRules;
@@ -106,5 +117,10 @@ public class FileBasedSystemAccessControlRules
     public Optional<List<CatalogFunctionAccessControlRule>> getFunctionRules()
     {
         return functionRules;
+    }
+
+    public Optional<List<CatalogProcedureAccessControlRule>> getProcedureRules()
+    {
+        return procedureRules;
     }
 }

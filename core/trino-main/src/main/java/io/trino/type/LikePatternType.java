@@ -14,17 +14,19 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
-import io.trino.likematcher.LikeMatcher;
+import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.Optional;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class LikePatternType
         extends AbstractVariableWidthType
@@ -34,17 +36,11 @@ public class LikePatternType
 
     private LikePatternType()
     {
-        super(new TypeSignature(NAME), LikeMatcher.class);
+        super(new TypeSignature(NAME), LikePattern.class);
     }
 
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         throw new UnsupportedOperationException();
     }
@@ -56,40 +52,47 @@ public class LikePatternType
             return null;
         }
 
-        // layout is: <pattern length> <pattern> <hasEscape> <escape>?
-        int offset = 0;
-        int length = block.getInt(position, offset);
-        offset += SIZE_OF_INT;
-        String pattern = block.getSlice(position, offset, length).toStringUtf8();
-        offset += length;
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        Slice slice = valueBlock.getSlice(valuePosition);
 
-        boolean hasEscape = block.getByte(position, offset) != 0;
-        offset++;
+        // layout is: <patternLength> <pattern> <hasEscape> <escape>?
+        int length = slice.getInt(0);
+        String pattern = slice.toString(4, length, UTF_8);
+
+        boolean hasEscape = slice.getByte(4 + length) != 0;
 
         Optional<Character> escape = Optional.empty();
         if (hasEscape) {
-            escape = Optional.of((char) block.getInt(position, offset));
+            escape = Optional.of((char) slice.getInt(4 + length + 1));
         }
 
-        return LikeMatcher.compile(pattern, escape);
+        return LikePattern.compile(pattern, escape);
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        LikeMatcher matcher = (LikeMatcher) value;
+        LikePattern likePattern = (LikePattern) value;
+        Slice pattern = utf8Slice(likePattern.getPattern());
 
-        Slice pattern = utf8Slice(matcher.getPattern());
-        int length = pattern.length();
-        blockBuilder.writeInt(length);
-        blockBuilder.writeBytes(pattern, 0, length);
-        if (matcher.getEscape().isEmpty()) {
-            blockBuilder.writeByte(0);
+        Slice slice = Slices.allocate(
+                Integer.BYTES +
+                pattern.length() +
+                Byte.BYTES +
+                (likePattern.getEscape().isPresent() ? Integer.BYTES : 0));
+
+        // layout is: <pattern_length> <pattern> <hasEscape> <escape>?
+        slice.setInt(0, pattern.length());
+        slice.setBytes(4, pattern);
+        if (likePattern.getEscape().isEmpty()) {
+            slice.setByte(4 + pattern.length(), (byte) 0);
         }
         else {
-            blockBuilder.writeByte(1);
-            blockBuilder.writeInt(matcher.getEscape().get());
+            slice.setByte(4 + pattern.length(), (byte) 1);
+            slice.setInt(4 + pattern.length() + 1, likePattern.getEscape().get());
         }
-        blockBuilder.closeEntry();
+
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(slice);
     }
 }

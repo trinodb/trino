@@ -13,14 +13,16 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.SqlTimeWithTimeZone;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
 import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTimeWithTimeZoneType
         extends AbstractTestType
@@ -30,7 +32,7 @@ public class TestTimeWithTimeZoneType
         super(TIME_TZ_MILLIS, SqlTimeWithTimeZone.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = TIME_TZ_MILLIS.createBlockBuilder(null, 15);
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(1_111_000_000L, 0));
@@ -44,12 +46,33 @@ public class TestTimeWithTimeZoneType
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(3_333_000_000L, 8));
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(3_333_000_000L, 9));
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(4_444_000_000L, 10));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
         return packTimeWithTimeZone(unpackTimeNanos((Long) value) + 10, unpackOffsetMinutes((Long) value));
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

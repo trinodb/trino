@@ -22,19 +22,18 @@ import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.common.cache.CacheBuilder;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.collect.cache.NonEvictableCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;

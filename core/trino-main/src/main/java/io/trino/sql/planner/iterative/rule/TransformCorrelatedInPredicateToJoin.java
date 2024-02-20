@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
@@ -32,6 +31,7 @@ import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -39,21 +39,19 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.util.AstUtils;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -114,28 +112,27 @@ public class TransformCorrelatedInPredicateToJoin
     @Override
     public Result apply(ApplyNode apply, Captures captures, Context context)
     {
-        Assignments subqueryAssignments = apply.getSubqueryAssignments();
+        Map<Symbol, ApplyNode.SetExpression> subqueryAssignments = apply.getSubqueryAssignments();
         if (subqueryAssignments.size() != 1) {
             return Result.empty();
         }
-        Expression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
-        if (!(assignmentExpression instanceof InPredicate inPredicate)) {
+        ApplyNode.SetExpression assignmentExpression = getOnlyElement(subqueryAssignments.values());
+        if (!(assignmentExpression instanceof ApplyNode.In inPredicate)) {
             return Result.empty();
         }
 
-        Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.getSymbols());
+        Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.keySet());
 
-        return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator(), context.getSession());
+        return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
     }
 
     private Result apply(
             ApplyNode apply,
-            InPredicate inPredicate,
+            ApplyNode.In inPredicate,
             Symbol inPredicateOutputSymbol,
             Lookup lookup,
             PlanNodeIdAllocator idAllocator,
-            SymbolAllocator symbolAllocator,
-            Session session)
+            SymbolAllocator symbolAllocator)
     {
         Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation())
                 .decorrelate(apply.getSubquery());
@@ -150,20 +147,18 @@ public class TransformCorrelatedInPredicateToJoin
                 inPredicateOutputSymbol,
                 decorrelated.get(),
                 idAllocator,
-                symbolAllocator,
-                session);
+                symbolAllocator);
 
         return Result.ofPlanNode(projection);
     }
 
     private PlanNode buildInPredicateEquivalent(
             ApplyNode apply,
-            InPredicate inPredicate,
+            ApplyNode.In inPredicate,
             Symbol inPredicateOutputSymbol,
             Decorrelated decorrelated,
             PlanNodeIdAllocator idAllocator,
-            SymbolAllocator symbolAllocator,
-            Session session)
+            SymbolAllocator symbolAllocator)
     {
         Expression correlationCondition = and(decorrelated.getCorrelatedPredicates());
         PlanNode decorrelatedBuildSource = decorrelated.getDecorrelatedNode();
@@ -182,8 +177,8 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(buildSideKnownNonNull, bigint(0))
                         .build());
 
-        Symbol probeSideSymbol = Symbol.from(inPredicate.getValue());
-        Symbol buildSideSymbol = Symbol.from(inPredicate.getValueList());
+        Symbol probeSideSymbol = inPredicate.value();
+        Symbol buildSideSymbol = inPredicate.reference();
 
         Expression joinExpression = and(
                 or(
@@ -220,8 +215,8 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 preProjection,
                 ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
-                        .put(countMatchesSymbol, countWithFilter(session, matchConditionSymbol))
-                        .put(countNullMatchesSymbol, countWithFilter(session, nullMatchConditionSymbol))
+                        .put(countMatchesSymbol, countWithFilter(matchConditionSymbol))
+                        .put(countNullMatchesSymbol, countWithFilter(nullMatchConditionSymbol))
                         .buildOrThrow(),
                 singleGroupingSet(probeSide.getOutputSymbols()));
 
@@ -244,7 +239,7 @@ public class TransformCorrelatedInPredicateToJoin
     {
         return new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 probeSide,
                 buildSide,
                 ImmutableList.of(),
@@ -260,10 +255,10 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.empty());
     }
 
-    private AggregationNode.Aggregation countWithFilter(Session session, Symbol filter)
+    private AggregationNode.Aggregation countWithFilter(Symbol filter)
     {
         return new AggregationNode.Aggregation(
-                metadata.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of()),
+                metadata.resolveBuiltinFunction("count", ImmutableList.of()),
                 ImmutableList.of(),
                 false,
                 Optional.of(filter),

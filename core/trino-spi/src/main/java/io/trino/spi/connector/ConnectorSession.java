@@ -39,15 +39,6 @@ public interface ConnectorSession
 
     Optional<String> getTraceToken();
 
-    /**
-     * @deprecated use {@link #getStart()} instead
-     */
-    @Deprecated
-    default long getStartTime()
-    {
-        return getStart().toEpochMilli();
-    }
-
     Instant getStart();
 
     <T> T getProperty(String name, Class<T> type);

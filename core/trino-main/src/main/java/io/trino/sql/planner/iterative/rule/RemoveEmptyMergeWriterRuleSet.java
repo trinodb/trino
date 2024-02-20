@@ -45,7 +45,8 @@ import static java.util.Objects.requireNonNull;
  *    - Exchange (optional)
  *      - MergeWriter
  *        - Exchange
- *          - empty Values
+ *          - Project
+ *            - empty Values
  * </pre>
  * into
  * <pre>

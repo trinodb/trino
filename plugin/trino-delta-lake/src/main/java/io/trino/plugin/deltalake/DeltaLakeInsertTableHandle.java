@@ -17,7 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 
@@ -26,27 +28,27 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeInsertTableHandle
         implements ConnectorInsertTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
+    private final SchemaTableName tableName;
     private final String location;
     private final MetadataEntry metadataEntry;
+    private final ProtocolEntry protocolEntry;
     private final List<DeltaLakeColumnHandle> inputColumns;
     private final long readVersion;
     private final boolean retriesEnabled;
 
     @JsonCreator
     public DeltaLakeInsertTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
+            @JsonProperty("tableName") SchemaTableName tableName,
             @JsonProperty("location") String location,
             @JsonProperty("metadataEntry") MetadataEntry metadataEntry,
+            @JsonProperty("protocolEntry") ProtocolEntry protocolEntry,
             @JsonProperty("inputColumns") List<DeltaLakeColumnHandle> inputColumns,
             @JsonProperty("readVersion") long readVersion,
             @JsonProperty("retriesEnabled") boolean retriesEnabled)
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
+        this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
         this.inputColumns = ImmutableList.copyOf(inputColumns);
         this.location = requireNonNull(location, "location is null");
         this.readVersion = readVersion;
@@ -54,13 +56,7 @@ public class DeltaLakeInsertTableHandle
     }
 
     @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
+    public SchemaTableName getTableName()
     {
         return tableName;
     }
@@ -75,6 +71,12 @@ public class DeltaLakeInsertTableHandle
     public MetadataEntry getMetadataEntry()
     {
         return metadataEntry;
+    }
+
+    @JsonProperty
+    public ProtocolEntry getProtocolEntry()
+    {
+        return protocolEntry;
     }
 
     @JsonProperty
@@ -93,5 +95,11 @@ public class DeltaLakeInsertTableHandle
     public boolean isRetriesEnabled()
     {
         return retriesEnabled;
+    }
+
+    @Override
+    public String toString()
+    {
+        return tableName + "[" + location + "]";
     }
 }

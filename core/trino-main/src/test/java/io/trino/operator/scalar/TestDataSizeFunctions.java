@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -26,8 +27,10 @@ import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDataSizeFunctions
 {
     private static final DecimalType DECIMAL = createDecimalType(38, 0);
@@ -98,28 +101,28 @@ public class TestDataSizeFunctions
         assertThat(assertions.function("parse_data_size", "'69175290276410818560EB'"))
                 .isEqualTo(decimal("79753679747094952374228423616820674560", DECIMAL));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("parse_data_size", "''")::evaluate)
                 .hasMessage("Invalid data size: ''");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("parse_data_size", "'0'")::evaluate)
                 .hasMessage("Invalid data size: '0'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'10KB'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("parse_data_size", "'10KB'")::evaluate)
                 .hasMessage("Invalid data size: '10KB'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'KB'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("parse_data_size", "'KB'")::evaluate)
                 .hasMessage("Invalid data size: 'KB'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'-1B'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("parse_data_size", "'-1B'")::evaluate)
                 .hasMessage("Invalid data size: '-1B'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'12345K'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("parse_data_size", "'12345K'")::evaluate)
                 .hasMessage("Invalid data size: '12345K'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'A12345B'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("parse_data_size", "'A12345B'")::evaluate)
                 .hasMessage("Invalid data size: 'A12345B'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'99999999999999YB'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("parse_data_size", "'99999999999999YB'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("Value out of range: '99999999999999YB' ('120892581961461708544797985370825293824B')");
     }

@@ -18,19 +18,21 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
+import jakarta.annotation.Nullable;
+import okhttp3.Call;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.ThreadSafe;
-
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.UnsupportedEncodingException;
+import java.net.ProtocolException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -44,19 +46,21 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -74,12 +78,14 @@ class StatementClientV1
             firstNonNull(StatementClientV1.class.getPackage().getImplementationVersion(), "unknown");
     private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
 
-    private final OkHttpClient httpClient;
+    private final Call.Factory httpCallFactory;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
     private final AtomicReference<String> setPath = new AtomicReference<>();
+    private final AtomicReference<String> setAuthorizationUser = new AtomicReference<>();
+    private final AtomicBoolean resetAuthorizationUser = new AtomicBoolean();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final Map<String, ClientSelectedRole> setRoles = new ConcurrentHashMap<>();
@@ -90,22 +96,27 @@ class StatementClientV1
     private final ZoneId timeZone;
     private final Duration requestTimeoutNanos;
     private final Optional<String> user;
+    private final Optional<String> originalUser;
     private final String clientCapabilities;
     private final boolean compressionDisabled;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
-    public StatementClientV1(OkHttpClient httpClient, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
+    public StatementClientV1(Call.Factory httpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
-        requireNonNull(httpClient, "httpClient is null");
+        requireNonNull(httpCallFactory, "httpCallFactory is null");
         requireNonNull(session, "session is null");
         requireNonNull(query, "query is null");
 
-        this.httpClient = httpClient;
+        this.httpCallFactory = httpCallFactory;
         this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
-        this.user = Stream.of(session.getUser(), session.getPrincipal())
+        this.user = Stream.of(session.getAuthorizationUser(), session.getUser(), session.getPrincipal())
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst();
+        this.originalUser = Stream.of(session.getUser(), session.getPrincipal())
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
@@ -116,14 +127,9 @@ class StatementClientV1
 
         Request request = buildQueryRequest(session, query);
 
-        // Always materialize the first response to avoid losing the response body if the initial response parsing fails
-        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.empty());
-        if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
-            state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
-            throw requestFailedException("starting query", request, response);
-        }
-
-        processResponse(response.getHeaders(), response.getValue());
+        // Pass empty as materializedJsonSizeLimit to always materialize the first response
+        // to avoid losing the response body if the initial response parsing fails
+        executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
     }
 
     private Request buildQueryRequest(ClientSession session, String query)
@@ -149,12 +155,8 @@ class StatementClientV1
         if (session.getClientInfo() != null) {
             builder.addHeader(TRINO_HEADERS.requestClientInfo(), session.getClientInfo());
         }
-        if (session.getCatalog() != null) {
-            builder.addHeader(TRINO_HEADERS.requestCatalog(), session.getCatalog());
-        }
-        if (session.getSchema() != null) {
-            builder.addHeader(TRINO_HEADERS.requestSchema(), session.getSchema());
-        }
+        session.getCatalog().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestCatalog(), value));
+        session.getSchema().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestSchema(), value));
         if (session.getPath() != null) {
             builder.addHeader(TRINO_HEADERS.requestPath(), session.getPath());
         }
@@ -276,6 +278,18 @@ class StatementClientV1
     }
 
     @Override
+    public Optional<String> getSetAuthorizationUser()
+    {
+        return Optional.ofNullable(setAuthorizationUser.get());
+    }
+
+    @Override
+    public boolean isResetAuthorizationUser()
+    {
+        return resetAuthorizationUser.get();
+    }
+
+    @Override
     public Map<String, String> getSetSessionProperties()
     {
         return ImmutableMap.copyOf(setSessionProperties);
@@ -324,6 +338,7 @@ class StatementClientV1
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
                 .url(url);
         user.ifPresent(requestUser -> builder.addHeader(TRINO_HEADERS.requestUser(), requestUser));
+        originalUser.ifPresent(originalUser -> builder.addHeader(TRINO_HEADERS.requestOriginalUser(), originalUser));
         if (compressionDisabled) {
             builder.header(ACCEPT_ENCODING, "identity");
         }
@@ -344,7 +359,11 @@ class StatementClientV1
         }
 
         Request request = prepareRequest(HttpUrl.get(nextUri)).build();
+        return executeRequest(request, "fetching next", OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE), (e) -> true);
+    }
 
+    private boolean executeRequest(Request request, String taskName, OptionalLong materializedJsonSizeLimit, Function<Exception, Boolean> isRetryable)
+    {
         Exception cause = null;
         long start = System.nanoTime();
         long attempts = 0;
@@ -379,23 +398,38 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, materializedJsonSizeLimit);
             }
             catch (RuntimeException e) {
+                if (!isRetryable.apply(e)) {
+                    throw e;
+                }
                 cause = e;
                 continue;
             }
-
-            if ((response.getStatusCode() == HTTP_OK) && response.hasValue()) {
-                processResponse(response.getHeaders(), response.getValue());
-                return true;
+            if (isTransient(response.getException())) {
+                cause = response.getException();
+                continue;
+            }
+            if (response.getStatusCode() != HTTP_OK || !response.hasValue()) {
+                if (!shouldRetry(response.getStatusCode())) {
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    throw requestFailedException(taskName, request, response);
+                }
+                continue;
             }
 
-            if (response.getStatusCode() != HTTP_UNAVAILABLE) {
-                state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
-                throw requestFailedException("fetching next", request, response);
-            }
+            processResponse(response.getHeaders(), response.getValue());
+            return true;
         }
+    }
+
+    private boolean isTransient(Throwable exception)
+    {
+        return exception != null && getCausalChain(exception).stream()
+                .anyMatch(e -> (e instanceof InterruptedIOException && e.getMessage().equals("timeout")
+                        || e instanceof ProtocolException
+                        || e instanceof SocketTimeoutException));
     }
 
     private void processResponse(Headers headers, QueryResults results)
@@ -403,6 +437,16 @@ class StatementClientV1
         setCatalog.set(headers.get(TRINO_HEADERS.responseSetCatalog()));
         setSchema.set(headers.get(TRINO_HEADERS.responseSetSchema()));
         setPath.set(headers.get(TRINO_HEADERS.responseSetPath()));
+
+        String setAuthorizationUser = headers.get(TRINO_HEADERS.responseSetAuthorizationUser());
+        if (setAuthorizationUser != null) {
+            this.setAuthorizationUser.set(setAuthorizationUser);
+        }
+
+        String resetAuthorizationUser = headers.get(TRINO_HEADERS.responseResetAuthorizationUser());
+        if (resetAuthorizationUser != null) {
+            this.resetAuthorizationUser.set(Boolean.parseBoolean(resetAuthorizationUser));
+        }
 
         for (String setSession : headers.values(TRINO_HEADERS.responseSetSession())) {
             List<String> keyValue = COLLECTION_HEADER_SPLITTER.splitToList(setSession);
@@ -488,7 +532,7 @@ class StatementClientV1
                 .delete()
                 .build();
         try {
-            httpClient.newCall(request)
+            httpCallFactory.newCall(request)
                     .execute()
                     .close();
         }

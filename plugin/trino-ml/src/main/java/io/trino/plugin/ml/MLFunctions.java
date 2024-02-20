@@ -17,16 +17,16 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.hash.HashCode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.collect.cache.NonEvictableCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.plugin.ml.type.RegressorType;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.ml.type.ClassifierType.BIGINT_CLASSIFIER;
 import static io.trino.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static io.trino.plugin.ml.type.RegressorType.REGRESSOR;
@@ -42,7 +42,7 @@ public final class MLFunctions
 
     @ScalarFunction("classify")
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice varcharClassify(@SqlType(MAP_BIGINT_DOUBLE) Block featuresMap, @SqlType("Classifier(varchar)") Slice modelSlice)
+    public static Slice varcharClassify(@SqlType(MAP_BIGINT_DOUBLE) SqlMap featuresMap, @SqlType("Classifier(varchar)") Slice modelSlice)
     {
         FeatureVector features = ModelUtils.toFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
@@ -53,7 +53,7 @@ public final class MLFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long classify(@SqlType(MAP_BIGINT_DOUBLE) Block featuresMap, @SqlType("Classifier(bigint)") Slice modelSlice)
+    public static long classify(@SqlType(MAP_BIGINT_DOUBLE) SqlMap featuresMap, @SqlType("Classifier(bigint)") Slice modelSlice)
     {
         FeatureVector features = ModelUtils.toFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
@@ -64,7 +64,7 @@ public final class MLFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double regress(@SqlType(MAP_BIGINT_DOUBLE) Block featuresMap, @SqlType(RegressorType.NAME) Slice modelSlice)
+    public static double regress(@SqlType(MAP_BIGINT_DOUBLE) SqlMap featuresMap, @SqlType(RegressorType.NAME) Slice modelSlice)
     {
         FeatureVector features = ModelUtils.toFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);

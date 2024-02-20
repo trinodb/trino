@@ -15,10 +15,9 @@ package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import org.testng.annotations.Test;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.junit.jupiter.api.Test;
 
 import java.math.RoundingMode;
 import java.util.Map;

@@ -22,7 +22,10 @@ import io.trino.hive.formats.line.LineBuffer;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -120,8 +123,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.data.Offset.offset;
 
 public final class FormatTestUtils
 {
@@ -293,6 +295,8 @@ public final class FormatTestUtils
         map.forEach((entryKey, entryValue) -> newMap.put(
                 decodeRecordReaderValue(keyType, entryKey, hiveStorageTimeZone),
                 decodeRecordReaderValue(valueType, entryValue, hiveStorageTimeZone)));
+        // Trino does not support null keys for hive, so remove them here
+        newMap.remove(null);
         return newMap;
     }
 
@@ -381,16 +385,26 @@ public final class FormatTestUtils
         throw new IllegalArgumentException("Unsupported writable type: " + writable.getClass().getSimpleName());
     }
 
+    public static void assertColumnValuesEquals(List<Column> columns, List<Object> actualValues, List<Object> expectedValues)
+    {
+        for (int i = 0; i < columns.size(); i++) {
+            Type type = columns.get(i).type();
+            Object actualValue = actualValues.get(i);
+            Object expectedValue = expectedValues.get(i);
+            assertColumnValueEquals(type, actualValue, expectedValue);
+        }
+    }
+
     public static void assertColumnValueEquals(Type type, Object actual, Object expected)
     {
-        if (actual == null) {
-            assertNull(expected);
+        if (actual == null || expected == null) {
+            assertThat(actual).isEqualTo(expected);
             return;
         }
         if (type instanceof ArrayType) {
             List<?> actualArray = (List<?>) actual;
             List<?> expectedArray = (List<?>) expected;
-            assertEquals(actualArray.size(), expectedArray.size());
+            assertThat(actualArray.size()).isEqualTo(expectedArray.size());
 
             Type elementType = type.getTypeParameters().get(0);
             for (int i = 0; i < actualArray.size(); i++) {
@@ -402,7 +416,7 @@ public final class FormatTestUtils
         else if (type instanceof MapType) {
             Map<?, ?> actualMap = (Map<?, ?>) actual;
             Map<?, ?> expectedMap = (Map<?, ?>) expected;
-            assertEquals(actualMap.size(), expectedMap.size());
+            assertThat(actualMap.size()).isEqualTo(expectedMap.size());
 
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
@@ -428,8 +442,8 @@ public final class FormatTestUtils
 
             List<?> actualRow = (List<?>) actual;
             List<?> expectedRow = (List<?>) expected;
-            assertEquals(actualRow.size(), fieldTypes.size());
-            assertEquals(actualRow.size(), expectedRow.size());
+            assertThat(actualRow.size()).isEqualTo(fieldTypes.size());
+            assertThat(actualRow.size()).isEqualTo(expectedRow.size());
 
             for (int fieldId = 0; fieldId < actualRow.size(); fieldId++) {
                 Type fieldType = fieldTypes.get(fieldId);
@@ -441,10 +455,11 @@ public final class FormatTestUtils
         else if (type.equals(DOUBLE)) {
             Double actualDouble = (Double) actual;
             Double expectedDouble = (Double) expected;
-            assertEquals(actualDouble, expectedDouble, 0.001);
+            assertThat(actualDouble)
+                    .isCloseTo(expectedDouble, offset(0.001));
         }
         else if (!Objects.equals(actual, expected)) {
-            assertEquals(actual, expected);
+            assertThat(actual).isEqualTo(expected);
         }
     }
 
@@ -527,32 +542,30 @@ public final class FormatTestUtils
         else if (type instanceof ArrayType) {
             List<?> array = (List<?>) value;
             Type elementType = type.getTypeParameters().get(0);
-            BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Object elementValue : array) {
-                writeTrinoValue(elementType, arrayBlockBuilder, elementValue);
-            }
-            blockBuilder.closeEntry();
+            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                for (Object elementValue : array) {
+                    writeTrinoValue(elementType, elementBuilder, elementValue);
+                }
+            });
         }
         else if (type instanceof MapType) {
             Map<?, ?> map = (Map<?, ?>) value;
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
-            BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
-            map.forEach((entryKey, entryValue) -> {
-                writeTrinoValue(keyType, mapBlockBuilder, entryKey);
-                writeTrinoValue(valueType, mapBlockBuilder, entryValue);
-            });
-            blockBuilder.closeEntry();
+            ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> map.forEach((entryKey, entryValue) -> {
+                writeTrinoValue(keyType, keyBuilder, entryKey);
+                writeTrinoValue(valueType, valueBuilder, entryValue);
+            }));
         }
         else if (type instanceof RowType) {
             List<?> array = (List<?>) value;
             List<Type> fieldTypes = type.getTypeParameters();
-            BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
-            for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
-                Type fieldType = fieldTypes.get(fieldId);
-                writeTrinoValue(fieldType, rowBlockBuilder, array.get(fieldId));
-            }
-            blockBuilder.closeEntry();
+            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
+                    Type fieldType = fieldTypes.get(fieldId);
+                    writeTrinoValue(fieldType, fieldBuilders.get(fieldId), array.get(fieldId));
+                }
+            });
         }
         else {
             throw new IllegalArgumentException("Unsupported type: " + type);

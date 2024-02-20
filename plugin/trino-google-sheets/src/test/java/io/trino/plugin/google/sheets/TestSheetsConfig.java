@@ -16,9 +16,8 @@ package io.trino.plugin.google.sheets;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.Duration;
-import org.testng.annotations.Test;
-
-import javax.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.AssertTrue;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,7 +33,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSheetsConfig
 {
@@ -50,7 +49,9 @@ public class TestSheetsConfig
                 .setMetadataSheetId(null)
                 .setSheetsDataMaxCacheSize(1000)
                 .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES))
-                .setReadTimeout(new Duration(20, TimeUnit.SECONDS)));
+                .setConnectionTimeout(new Duration(20, TimeUnit.SECONDS))
+                .setReadTimeout(new Duration(20, TimeUnit.SECONDS))
+                .setWriteTimeout(new Duration(20, TimeUnit.SECONDS)));
     }
 
     @Test
@@ -64,18 +65,22 @@ public class TestSheetsConfig
                 .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
                 .put("gsheets.max-data-cache-size", "2000")
                 .put("gsheets.data-cache-ttl", "10m")
-                .put("gsheets.read-timeout", "1m")
+                .put("gsheets.connection-timeout", "1m")
+                .put("gsheets.read-timeout", "2m")
+                .put("gsheets.write-timeout", "3m")
                 .buildOrThrow();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         SheetsConfig config = configurationFactory.build(SheetsConfig.class);
 
-        assertEquals(config.getCredentialsKey(), Optional.empty());
-        assertEquals(config.getCredentialsFilePath(), Optional.of(credentialsFile.toString()));
-        assertEquals(config.getMetadataSheetId(), "foo_bar_sheet_id#Sheet1");
-        assertEquals(config.getSheetsDataMaxCacheSize(), 2000);
-        assertEquals(config.getSheetsDataExpireAfterWrite(), Duration.valueOf("10m"));
-        assertEquals(config.getReadTimeout(), Duration.valueOf("1m"));
+        assertThat(config.getCredentialsKey()).isEqualTo(Optional.empty());
+        assertThat(config.getCredentialsFilePath()).isEqualTo(Optional.of(credentialsFile.toString()));
+        assertThat(config.getMetadataSheetId()).isEqualTo(Optional.of("foo_bar_sheet_id#Sheet1"));
+        assertThat(config.getSheetsDataMaxCacheSize()).isEqualTo(2000);
+        assertThat(config.getSheetsDataExpireAfterWrite()).isEqualTo(Duration.valueOf("10m"));
+        assertThat(config.getConnectionTimeout()).isEqualTo(Duration.valueOf("1m"));
+        assertThat(config.getReadTimeout()).isEqualTo(Duration.valueOf("2m"));
+        assertThat(config.getWriteTimeout()).isEqualTo(Duration.valueOf("3m"));
     }
 
     @Test
@@ -92,12 +97,12 @@ public class TestSheetsConfig
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         SheetsConfig config = configurationFactory.build(SheetsConfig.class);
 
-        assertEquals(config.getCredentialsKey(), Optional.of(BASE_64_ENCODED_TEST_KEY));
-        assertEquals(config.getCredentialsFilePath(), Optional.empty());
-        assertEquals(config.getMetadataSheetId(), "foo_bar_sheet_id#Sheet1");
-        assertEquals(config.getSheetsDataMaxCacheSize(), 2000);
-        assertEquals(config.getSheetsDataExpireAfterWrite(), Duration.valueOf("10m"));
-        assertEquals(config.getReadTimeout(), Duration.valueOf("1m"));
+        assertThat(config.getCredentialsKey()).isEqualTo(Optional.of(BASE_64_ENCODED_TEST_KEY));
+        assertThat(config.getCredentialsFilePath()).isEqualTo(Optional.empty());
+        assertThat(config.getMetadataSheetId()).isEqualTo(Optional.of("foo_bar_sheet_id#Sheet1"));
+        assertThat(config.getSheetsDataMaxCacheSize()).isEqualTo(2000);
+        assertThat(config.getSheetsDataExpireAfterWrite()).isEqualTo(Duration.valueOf("10m"));
+        assertThat(config.getReadTimeout()).isEqualTo(Duration.valueOf("1m"));
     }
 
     @Test

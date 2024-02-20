@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.line;
 
+import io.trino.filesystem.Location;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.LineReader;
@@ -20,31 +21,30 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.OptionalLong;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LinePageSource
         implements ConnectorPageSource
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LinePageSource.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(LinePageSource.class);
 
     private final LineReader lineReader;
     private final LineDeserializer deserializer;
     private final LineBuffer lineBuffer;
-    private final String filePath;
+    private final Location filePath;
 
     private PageBuilder pageBuilder;
     private long completedPositions;
 
-    public LinePageSource(LineReader lineReader, LineDeserializer deserializer, LineBuffer lineBuffer, String filePath)
+    public LinePageSource(LineReader lineReader, LineDeserializer deserializer, LineBuffer lineBuffer, Location filePath)
     {
         this.lineReader = requireNonNull(lineReader, "lineReader is null");
         this.deserializer = requireNonNull(deserializer, "deserializer is null");

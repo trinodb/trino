@@ -22,11 +22,10 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import org.apache.hadoop.fs.permission.FsPermission;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
 
 import java.io.File;
 import java.util.List;
@@ -231,6 +230,7 @@ public class HdfsConfig
         return this;
     }
 
+    @Min(1)
     public int getFileSystemMaxCacheSize()
     {
         return fileSystemMaxCacheSize;

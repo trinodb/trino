@@ -22,4 +22,6 @@ public enum TableType
     PARTITIONS,
     FILES,
     PROPERTIES,
+    REFS,
+    MATERIALIZED_VIEW_STORAGE,
 }

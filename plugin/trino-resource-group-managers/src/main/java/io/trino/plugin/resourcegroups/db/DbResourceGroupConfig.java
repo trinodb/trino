@@ -18,8 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.AssertTrue;
 
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;

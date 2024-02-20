@@ -15,6 +15,7 @@ package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.inject.Inject;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -24,14 +25,14 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.NodeState;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.security.ResourceSecurity;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
 
-import javax.inject.Inject;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-
+import static com.google.common.math.DoubleMath.roundToLong;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -92,7 +93,7 @@ public class ClusterStatsResource
             if (!query.getState().isDone()) {
                 totalInputBytes += query.getQueryStats().getRawInputDataSize().toBytes();
                 totalInputRows += query.getQueryStats().getRawInputPositions();
-                totalCpuTimeSecs += query.getQueryStats().getTotalCpuTime().getValue(SECONDS);
+                totalCpuTimeSecs += roundToLong(query.getQueryStats().getTotalCpuTime().getValue(SECONDS), HALF_UP);
 
                 memoryReservation += query.getQueryStats().getUserMemoryReservation().toBytes();
                 runningDrivers += query.getQueryStats().getRunningDrivers();

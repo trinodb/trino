@@ -19,21 +19,20 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(KafkaSplit.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(KafkaSplit.class);
 
     private final String topicName;
     private final String keyDataFormat;
@@ -58,8 +57,8 @@ public class KafkaSplit
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
-        this.keyDataSchemaContents = keyDataSchemaContents;
-        this.messageDataSchemaContents = messageDataSchemaContents;
+        this.keyDataSchemaContents = requireNonNull(keyDataSchemaContents, "keyDataSchemaContents is null");
+        this.messageDataSchemaContents = requireNonNull(messageDataSchemaContents, "messageDataSchemaContents is null");
         this.partitionId = partitionId;
         this.messagesRange = requireNonNull(messagesRange, "messagesRange is null");
         this.leader = requireNonNull(leader, "leader is null");
@@ -111,12 +110,6 @@ public class KafkaSplit
     public HostAddress getLeader()
     {
         return leader;
-    }
-
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
     }
 
     @Override

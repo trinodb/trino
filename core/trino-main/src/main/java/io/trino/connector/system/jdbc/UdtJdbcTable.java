@@ -22,7 +22,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class UdtJdbcTable
         extends JdbcTable
@@ -30,13 +30,13 @@ public class UdtJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "udts");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("type_cat", createUnboundedVarcharType())
-            .column("type_schem", createUnboundedVarcharType())
-            .column("type_name", createUnboundedVarcharType())
-            .column("class_name", createUnboundedVarcharType())
-            .column("data_type", createUnboundedVarcharType())
-            .column("remarks", createUnboundedVarcharType())
-            .column("base_type", createUnboundedVarcharType())
+            .column("type_cat", VARCHAR)
+            .column("type_schem", VARCHAR)
+            .column("type_name", VARCHAR)
+            .column("class_name", VARCHAR)
+            .column("data_type", VARCHAR)
+            .column("remarks", VARCHAR)
+            .column("base_type", VARCHAR)
             .build();
 
     @Override

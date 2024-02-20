@@ -14,14 +14,13 @@
 package io.trino.execution.buffer;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.exchange.ExchangeSink;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +31,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPageUncompressedSizeInBytes;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -193,13 +193,15 @@ public class SpoolingExchangeOutputBuffer
         checkState(sink != null, "exchangeSink is null");
         long dataSizeInBytes = 0;
         for (Slice page : pages) {
-            dataSizeInBytes += page.length();
+            dataSizeInBytes += getSerializedPageUncompressedSizeInBytes(page);
             sink.add(partition, page);
-            totalRowsAdded.addAndGet(getSerializedPagePositionCount(page));
+            int serializedPagePositionCount = getSerializedPagePositionCount(page);
+            totalRowsAdded.addAndGet(serializedPagePositionCount);
+            outputStats.updateRowCount(serializedPagePositionCount);
         }
         updateMemoryUsage(sink.getMemoryUsage());
         totalPagesAdded.addAndGet(pages.size());
-        outputStats.update(partition, dataSizeInBytes);
+        outputStats.updatePartitionDataSize(partition, dataSizeInBytes);
     }
 
     @Override

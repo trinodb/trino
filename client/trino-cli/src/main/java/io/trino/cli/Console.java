@@ -14,22 +14,25 @@
 package io.trino.cli;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.OutputFormat;
+import io.trino.cli.ClientOptions.PropertyMapping;
 import io.trino.cli.Trino.VersionProvider;
+import io.trino.cli.lexer.StatementSplitter;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
-import io.trino.sql.parser.StatementSplitter;
+import io.trino.client.uri.PropertyName;
+import io.trino.client.uri.TrinoUri;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.History;
-import org.jline.reader.LineReader;
-import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.InfoCmp;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
@@ -37,8 +40,10 @@ import picocli.CommandLine.Option;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -48,8 +53,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.CharMatcher.whitespace;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.trino.cli.Completion.commandCompleter;
@@ -59,9 +64,10 @@ import static io.trino.cli.TerminalUtils.closeTerminal;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static io.trino.cli.TerminalUtils.terminalEncoding;
+import static io.trino.cli.Trino.formatCliErrorMessage;
+import static io.trino.cli.lexer.StatementSplitter.Statement;
+import static io.trino.cli.lexer.StatementSplitter.isEmptyStatement;
 import static io.trino.client.ClientSession.stripTransactionId;
-import static io.trino.sql.parser.StatementSplitter.Statement;
-import static io.trino.sql.parser.StatementSplitter.isEmptyStatement;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -85,6 +91,9 @@ public class Console
     private static final String PROMPT_NAME = "trino";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
 
+    @CommandLine.Spec
+    CommandLine.Model.CommandSpec spec;
+
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
 
@@ -102,7 +111,18 @@ public class Console
 
     public boolean run()
     {
-        ClientSession session = clientOptions.toClientSession();
+        CommandLine.ParseResult parseResult = spec.commandLine().getParseResult();
+
+        Map<PropertyName, String> restrictedOptions = spec.options().stream()
+                .filter(parseResult::hasMatchedOption)
+                .map(option -> getMapping(option.userObject())
+                        .map(value -> new AbstractMap.SimpleEntry<>(value, option.longestName())))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        TrinoUri uri = clientOptions.getTrinoUri(restrictedOptions);
+        ClientSession session = clientOptions.toClientSession(uri);
         boolean hasQuery = clientOptions.execute != null;
         boolean isFromFile = !isNullOrEmpty(clientOptions.file);
 
@@ -147,38 +167,17 @@ public class Console
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             exiting.set(true);
             interruptor.interrupt();
-            awaitUninterruptibly(exited, EXIT_DELAY.toMillis(), MILLISECONDS);
+            @SuppressWarnings("CheckReturnValue")
+            boolean ignored = awaitUninterruptibly(exited, EXIT_DELAY.toMillis(), MILLISECONDS);
             // Terminal closing restores terminal settings and releases underlying system resources
             closeTerminal();
         }));
 
         try (QueryRunner queryRunner = new QueryRunner(
+                uri,
                 session,
                 clientOptions.debug,
-                clientOptions.networkLogging,
-                clientOptions.socksProxy,
-                clientOptions.httpProxy,
-                clientOptions.keystorePath,
-                clientOptions.keystorePassword,
-                clientOptions.keystoreType,
-                clientOptions.truststorePath,
-                clientOptions.truststorePassword,
-                clientOptions.truststoreType,
-                clientOptions.useSystemTruststore,
-                clientOptions.insecure,
-                clientOptions.accessToken,
-                clientOptions.user,
-                clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
-                clientOptions.krb5Principal,
-                clientOptions.krb5ServicePrincipalPattern,
-                clientOptions.krb5RemoteServiceName,
-                clientOptions.krb5ConfigPath,
-                clientOptions.krb5KeytabPath,
-                clientOptions.krb5CredentialCachePath,
-                !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
-                false,
-                clientOptions.externalAuthentication,
-                clientOptions.externalAuthenticationRedirectHandler)) {
+                clientOptions.networkLogging)) {
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,
@@ -207,25 +206,14 @@ public class Console
         }
     }
 
-    private String getPassword()
+    private static Optional<PropertyName> getMapping(Object userObject)
     {
-        checkState(clientOptions.user.isPresent(), "Username must be specified along with password");
-        String defaultPassword = System.getenv("TRINO_PASSWORD");
-        if (defaultPassword != null) {
-            return defaultPassword;
+        if (userObject instanceof Field) {
+            return Optional.ofNullable(((Field) userObject).getAnnotation(PropertyMapping.class))
+                    .map(PropertyMapping::value);
         }
 
-        java.io.Console console = System.console();
-        if (console != null) {
-            char[] password = console.readPassword("Password: ");
-            if (password != null) {
-                return new String(password);
-            }
-            return "";
-        }
-
-        LineReader reader = LineReaderBuilder.builder().terminal(getTerminal()).build();
-        return reader.readLine("Password: ", (char) 0);
+        return Optional.empty();
     }
 
     private static void runConsole(
@@ -245,10 +233,9 @@ public class Console
             while (!exiting.get()) {
                 // setup prompt
                 String prompt = PROMPT_NAME;
-                String schema = queryRunner.getSession().getSchema();
-                if (schema != null) {
-                    prompt += ":" + schema.replace("%", "%%");
-                }
+                Optional<String> schema = queryRunner.getSession().getSchema();
+                prompt += schema.map(value -> ":" + value.replace("%", "%%"))
+                        .orElse("");
                 String commandPrompt = prompt + "> ";
 
                 // read a line of input from user
@@ -361,8 +348,8 @@ public class Console
         try {
             finalSql = preprocessQuery(
                     terminal,
-                    Optional.ofNullable(queryRunner.getSession().getCatalog()),
-                    Optional.ofNullable(queryRunner.getSession().getSchema()),
+                    queryRunner.getSession().getCatalog(),
+                    queryRunner.getSession().getSchema(),
                     sql);
         }
         catch (QueryPreprocessorException e) {
@@ -380,10 +367,10 @@ public class Console
 
             // update catalog and schema if present
             if (query.getSetCatalog().isPresent() || query.getSetSchema().isPresent()) {
-                session = ClientSession.builder(session)
-                        .catalog(query.getSetCatalog().orElse(session.getCatalog()))
-                        .schema(query.getSetSchema().orElse(session.getSchema()))
-                        .build();
+                ClientSession.Builder builder = ClientSession.builder(session);
+                query.getSetCatalog().ifPresent(builder::catalog);
+                query.getSetSchema().ifPresent(builder::schema);
+                session = builder.build();
             }
 
             // update transaction ID if necessary
@@ -400,6 +387,17 @@ public class Console
             // update path if present
             if (query.getSetPath().isPresent()) {
                 builder = builder.path(query.getSetPath().get());
+            }
+
+            // update authorization user if present
+            if (query.getSetAuthorizationUser().isPresent()) {
+                builder = builder.authorizationUser(query.getSetAuthorizationUser());
+                builder = builder.roles(ImmutableMap.of());
+            }
+
+            if (query.isResetAuthorizationUser()) {
+                builder = builder.authorizationUser(Optional.empty());
+                builder = builder.roles(ImmutableMap.of());
             }
 
             // update session properties if present
@@ -435,10 +433,7 @@ public class Console
             return success;
         }
         catch (RuntimeException e) {
-            System.err.println("Error running command: " + e.getMessage());
-            if (queryRunner.isDebug()) {
-                e.printStackTrace(System.err);
-            }
+            System.err.println(formatCliErrorMessage(e, queryRunner.isDebug()));
             return false;
         }
     }

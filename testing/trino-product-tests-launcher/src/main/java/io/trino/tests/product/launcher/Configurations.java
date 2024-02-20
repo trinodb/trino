@@ -19,6 +19,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.Environments;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 import io.trino.tests.product.launcher.suite.Suite;
 
 import java.io.IOException;
@@ -61,6 +62,21 @@ public final class Configurations
         }
     }
 
+    public static List<Class<? extends JdkProvider>> findJdkProvidersByBasePackage(String packageName)
+    {
+        try {
+            return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
+                    .map(ClassPath.ClassInfo::load)
+                    .filter(clazz -> !isAbstract(clazz.getModifiers()))
+                    .filter(JdkProvider.class::isAssignableFrom)
+                    .map(clazz -> (Class<? extends JdkProvider>) clazz.asSubclass(JdkProvider.class))
+                    .collect(toImmutableList());
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static List<Class<? extends Suite>> findSuitesByPackageName(String packageName)
     {
         try {
@@ -90,6 +106,13 @@ public final class Configurations
         return canonicalConfigName(className);
     }
 
+    public static String nameForJdkProvider(Class<? extends JdkProvider> clazz)
+    {
+        String className = clazz.getSimpleName();
+        checkArgument(className.matches("^[A-Z].*JdkProvider$"), "Name of %s should end with 'JdkProvider'", clazz);
+        return canonicalJdkProviderName(className);
+    }
+
     public static String nameForSuiteClass(Class<? extends Suite> clazz)
     {
         String className = clazz.getSimpleName();
@@ -103,6 +126,15 @@ public final class Configurations
         if (name.matches("^Env[A-Z].*")) {
             name = name.replaceFirst("^Env", "");
         }
+        return canonicalName(name);
+    }
+
+    public static String canonicalJdkProviderName(String name)
+    {
+        if (name.matches("^.*?JdkProvider$")) {
+            name = name.replaceFirst("JdkProvider$", "");
+        }
+
         return canonicalName(name);
     }
 

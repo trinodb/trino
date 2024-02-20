@@ -18,12 +18,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.tree.Expression;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
 import java.util.List;
@@ -42,7 +40,7 @@ public class UnnestNode
     private final List<Symbol> replicateSymbols;
     private final List<Mapping> mappings;
     private final Optional<Symbol> ordinalitySymbol;
-    private final Type joinType;
+    private final JoinType joinType;
     private final Optional<Expression> filter;
 
     @JsonCreator
@@ -52,7 +50,7 @@ public class UnnestNode
             @JsonProperty("replicateSymbols") List<Symbol> replicateSymbols,
             @JsonProperty("mappings") List<Mapping> mappings,
             @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol,
-            @JsonProperty("joinType") Type joinType,
+            @JsonProperty("joinType") JoinType joinType,
             @JsonProperty("filter") Optional<Expression> filter)
     {
         super(id);
@@ -110,7 +108,7 @@ public class UnnestNode
     }
 
     @JsonProperty
-    public Type getJoinType()
+    public JoinType getJoinType()
     {
         return joinType;
     }

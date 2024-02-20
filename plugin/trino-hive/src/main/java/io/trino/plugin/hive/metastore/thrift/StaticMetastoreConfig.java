@@ -16,8 +16,7 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.base.Splitter;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.List;

@@ -13,9 +13,8 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.type.Type;
-
-import javax.annotation.concurrent.Immutable;
 
 import static java.util.Objects.requireNonNull;
 

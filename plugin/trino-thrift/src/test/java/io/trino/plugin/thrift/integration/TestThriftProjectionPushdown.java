@@ -34,9 +34,10 @@ import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.util.List;
@@ -53,7 +54,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.joining;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestThriftProjectionPushdown
         extends BaseRuleTest
 {
@@ -66,7 +69,7 @@ public class TestThriftProjectionPushdown
             .build();
 
     @Override
-    protected Optional<LocalQueryRunner> createLocalQueryRunner()
+    protected Optional<PlanTester> createPlanTester()
     {
         try {
             servers = startThriftServers(1, false);
@@ -92,13 +95,13 @@ public class TestThriftProjectionPushdown
                 .put("trino-thrift.lookup-requests-concurrency", "2")
                 .buildOrThrow();
 
-        LocalQueryRunner runner = LocalQueryRunner.create(SESSION);
+        PlanTester runner = PlanTester.create(SESSION);
         runner.createCatalog(TEST_CATALOG_NAME, getOnlyElement(new ThriftPlugin().getConnectorFactories()), connectorProperties);
 
         return Optional.of(runner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
     {
         if (servers != null) {
@@ -169,6 +172,7 @@ public class TestThriftProjectionPushdown
                 Optional.of(ImmutableSet.of(columnHandle)));
 
         tester().assertThat(pushProjectionIntoTableScan)
+                .withSession(SESSION)
                 .on(p -> {
                     Symbol orderStatusSymbol = p.symbol(columnName, VARCHAR);
                     return p.project(
@@ -180,7 +184,6 @@ public class TestThriftProjectionPushdown
                                     ImmutableList.of(orderStatusSymbol),
                                     ImmutableMap.of(orderStatusSymbol, columnHandle)));
                 })
-                .withSession(SESSION)
                 .matches(project(
                         ImmutableMap.of("expr_2", expression(new SymbolReference(columnName))),
                         tableScan(
@@ -198,6 +201,7 @@ public class TestThriftProjectionPushdown
         ThriftColumnHandle nameColumn = new ThriftColumnHandle("name", VARCHAR, "", false);
 
         tester().assertThat(rule)
+                .withSession(SESSION)
                 .on(p -> {
                     Symbol nationKey = p.symbol(nationKeyColumn.getColumnName(), VARCHAR);
                     Symbol name = p.symbol(nameColumn.getColumnName(), VARCHAR);
@@ -213,7 +217,6 @@ public class TestThriftProjectionPushdown
                                             .put(name, nameColumn)
                                             .buildOrThrow()));
                 })
-                .withSession(SESSION)
                 .matches(project(
                         ImmutableMap.of("expr", expression(new SymbolReference(nationKeyColumn.getColumnName()))),
                         tableScan(

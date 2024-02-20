@@ -18,5 +18,8 @@ public enum TableType
     MANAGED_TABLE,
     EXTERNAL_TABLE,
     VIRTUAL_VIEW,
+    /**
+     * A table type denoting materialized view created by Hive, not by Trino.
+     */
     MATERIALIZED_VIEW,
 }

@@ -13,6 +13,9 @@
  */
 package io.trino.util;
 
+import com.google.common.util.concurrent.ListeningExecutorService;
+import io.trino.spi.VersionEmbedder;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -20,8 +23,10 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.MoreFutures.getDone;
 
 public final class Executors
@@ -65,5 +70,30 @@ public final class Executors
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted", e);
         }
+    }
+
+    public static ListeningExecutorService decorateWithVersion(ExecutorService executorService, VersionEmbedder versionEmbedder)
+    {
+        return decorateWithVersion(listeningDecorator(executorService), versionEmbedder);
+    }
+
+    public static ListeningExecutorService decorateWithVersion(ListeningExecutorService executorService, VersionEmbedder versionEmbedder)
+    {
+        return new DecoratingListeningExecutorService(
+                executorService,
+                new DecoratingListeningExecutorService.TaskDecorator()
+                {
+                    @Override
+                    public Runnable decorate(Runnable command)
+                    {
+                        return versionEmbedder.embedVersion(command);
+                    }
+
+                    @Override
+                    public <T> Callable<T> decorate(Callable<T> task)
+                    {
+                        return versionEmbedder.embedVersion(task);
+                    }
+                });
     }
 }

@@ -13,9 +13,13 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
-import org.apache.hadoop.fs.Path;
+import io.trino.filesystem.Location;
 
-import static java.lang.String.format;
+import java.util.Map;
+import java.util.Optional;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.filesystem.Locations.appendPath;
 
 public final class TransactionLogUtil
 {
@@ -23,13 +27,28 @@ public final class TransactionLogUtil
 
     public static final String TRANSACTION_LOG_DIRECTORY = "_delta_log";
 
-    public static Path getTransactionLogDir(Path tableLocation)
+    public static String getTransactionLogDir(String tableLocation)
     {
-        return new Path(tableLocation, TRANSACTION_LOG_DIRECTORY);
+        return appendPath(tableLocation, TRANSACTION_LOG_DIRECTORY);
     }
 
-    public static Path getTransactionLogJsonEntryPath(Path transactionLogDir, long entryNumber)
+    public static Location getTransactionLogJsonEntryPath(String transactionLogDir, long entryNumber)
     {
-        return new Path(transactionLogDir, format("%020d.json", entryNumber));
+        return Location.of(transactionLogDir).appendPath("%020d.json".formatted(entryNumber));
+    }
+
+    public static Map<String, Optional<String>> canonicalizePartitionValues(Map<String, String> partitionValues)
+    {
+        return partitionValues.entrySet().stream()
+                .collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> {
+                            String value = entry.getValue();
+                            if (value == null || value.isEmpty()) {
+                                // For VARCHAR based partitions null and "" are treated the same
+                                return Optional.empty();
+                            }
+                            return Optional.of(value);
+                        }));
     }
 }

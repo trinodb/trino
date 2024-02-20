@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.ExecutionFailureInfo;
@@ -41,7 +42,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingMetadata;
 import io.trino.util.FinalizerService;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.List;
@@ -58,7 +59,7 @@ import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestScaledWriterScheduler
 {
@@ -75,7 +76,7 @@ public class TestScaledWriterScheduler
         TaskStatus taskStatus3 = buildTaskStatus(false, 12345L);
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(0);
     }
 
     @Test
@@ -86,7 +87,7 @@ public class TestScaledWriterScheduler
         TaskStatus taskStatus3 = buildTaskStatus(false, 12345L);
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(1);
     }
 
     @Test
@@ -97,7 +98,7 @@ public class TestScaledWriterScheduler
         TaskStatus taskStatus3 = buildTaskStatus(false, 123456L);
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(1);
     }
 
     @Test
@@ -108,11 +109,11 @@ public class TestScaledWriterScheduler
         TaskStatus taskStatus3 = buildTaskStatus(false, 1234567L);
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(1);
     }
 
     @Test
-    public void testGetNewTaskCountWhenWrittenBytesIsGreaterThanMinWrittenBytesForScaleUp()
+    public void testGetNewTaskCountWhenWriterDataProcessedIsGreaterThanMinForScaleUp()
     {
         TaskStatus taskStatus1 = buildTaskStatus(1, DataSize.of(32, DataSize.Unit.MEGABYTE));
         TaskStatus taskStatus2 = buildTaskStatus(1, DataSize.of(32, DataSize.Unit.MEGABYTE));
@@ -120,11 +121,11 @@ public class TestScaledWriterScheduler
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
         // Scale up will happen
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(1);
     }
 
     @Test
-    public void testGetNewTaskCountWhenWrittenBytesIsLessThanMinWrittenBytesForScaleUp()
+    public void testGetNewTaskCountWhenWriterDataProcessedIsLessThanMinForScaleUp()
     {
         TaskStatus taskStatus1 = buildTaskStatus(1, DataSize.of(32, DataSize.Unit.MEGABYTE));
         TaskStatus taskStatus2 = buildTaskStatus(1, DataSize.of(32, DataSize.Unit.MEGABYTE));
@@ -132,8 +133,8 @@ public class TestScaledWriterScheduler
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
         // Scale up will not happen because for one of the task there are two local writers which makes the
-        // minWrittenBytes for scaling up to (2 * writerMinSizeBytes) that is greater than physicalWrittenBytes.
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
+        // minWrittenBytes for scaling up to (2 * writerScalingMinDataProcessed) that is greater than writerInputDataSize.
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(0);
     }
 
     @Test
@@ -145,27 +146,49 @@ public class TestScaledWriterScheduler
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
         // Scale up will not happen because one of the existing writer task isn't initialized yet with maxWriterCount.
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(0);
+    }
+
+    @Test
+    public void testNewTaskCountWhenNodesUpperLimitIsNotExceeded()
+    {
+        TaskStatus taskStatus = buildTaskStatus(true, 123456L);
+        AtomicReference<List<TaskStatus>> taskStatusProvider = new AtomicReference<>(ImmutableList.of(taskStatus));
+        ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider, 2);
+
+        scaledWriterScheduler.schedule();
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(1);
+    }
+
+    @Test
+    public void testNewTaskCountWhenNodesUpperLimitIsExceeded()
+    {
+        TaskStatus taskStatus = buildTaskStatus(true, 123456L);
+        AtomicReference<List<TaskStatus>> taskStatusProvider = new AtomicReference<>(ImmutableList.of(taskStatus));
+        ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider, 1);
+
+        scaledWriterScheduler.schedule();
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(0);
     }
 
     private ScaledWriterScheduler buildScaleWriterSchedulerWithInitialTasks(TaskStatus taskStatus1, TaskStatus taskStatus2, TaskStatus taskStatus3)
     {
         AtomicReference<List<TaskStatus>> taskStatusProvider = new AtomicReference<>(ImmutableList.of());
-        ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider);
+        ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider, 100);
 
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(1);
         taskStatusProvider.set(ImmutableList.of(taskStatus1));
 
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(1);
         taskStatusProvider.set(ImmutableList.of(taskStatus1, taskStatus2));
 
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks().size()).isEqualTo(1);
         taskStatusProvider.set(ImmutableList.of(taskStatus1, taskStatus2, taskStatus3));
 
         return scaledWriterScheduler;
     }
 
-    private ScaledWriterScheduler buildScaledWriterScheduler(AtomicReference<List<TaskStatus>> taskStatusProvider)
+    private ScaledWriterScheduler buildScaledWriterScheduler(AtomicReference<List<TaskStatus>> taskStatusProvider, int maxWritersNodesCount)
     {
         return new ScaledWriterScheduler(
                 new TestingStageExecution(createFragment()),
@@ -176,7 +199,8 @@ public class TestScaledWriterScheduler
                         new NodeSchedulerConfig().setIncludeCoordinator(true),
                         new NodeTaskMap(new FinalizerService())).createNodeSelector(testSessionBuilder().build(), Optional.empty()),
                 newScheduledThreadPool(10, threadsNamed("task-notification-%s")),
-                DataSize.of(32, DataSize.Unit.MEGABYTE));
+                DataSize.of(32, DataSize.Unit.MEGABYTE),
+                maxWritersNodesCount);
     }
 
     private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize)
@@ -184,35 +208,37 @@ public class TestScaledWriterScheduler
         return buildTaskStatus(isOutputBufferOverUtilized, outputDataSize, Optional.of(1), DataSize.of(32, DataSize.Unit.MEGABYTE));
     }
 
-    private static TaskStatus buildTaskStatus(int maxWriterCount, DataSize physicalWrittenDataSize)
+    private static TaskStatus buildTaskStatus(int maxWriterCount, DataSize writerInputDataSize)
     {
-        return buildTaskStatus(true, 12345L, Optional.of(maxWriterCount), physicalWrittenDataSize);
+        return buildTaskStatus(true, 12345L, Optional.of(maxWriterCount), writerInputDataSize);
     }
 
-    private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize, Optional<Integer> maxWriterCount, DataSize physicalWrittenDataSize)
+    private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize, Optional<Integer> maxWriterCount, DataSize writerInputDataSize)
     {
         return new TaskStatus(
-                        TaskId.valueOf("taskId"),
-                        "task-instance-id",
-                        0,
-                        TaskState.RUNNING,
-                        URI.create("fake://task/" + "taskId" + "/node/some_node"),
-                        "some_node",
-                        ImmutableList.of(),
-                        0,
-                        0,
-                        new OutputBufferStatus(OptionalLong.empty(), isOutputBufferOverUtilized, false),
-                        DataSize.ofBytes(outputDataSize),
-                        physicalWrittenDataSize,
-                        maxWriterCount,
-                        DataSize.of(1, DataSize.Unit.MEGABYTE),
-                        DataSize.of(1, DataSize.Unit.MEGABYTE),
-                        DataSize.of(0, DataSize.Unit.MEGABYTE),
-                        0,
-                        Duration.valueOf("0s"),
-                        0,
-                        1,
-                        1);
+                TaskId.valueOf("taskId"),
+                "task-instance-id",
+                0,
+                TaskState.RUNNING,
+                URI.create("fake://task/" + "taskId" + "/node/some_node"),
+                "some_node",
+                false,
+                ImmutableList.of(),
+                0,
+                0,
+                new OutputBufferStatus(OptionalLong.empty(), isOutputBufferOverUtilized, false),
+                DataSize.ofBytes(outputDataSize),
+                writerInputDataSize,
+                DataSize.of(1, DataSize.Unit.MEGABYTE),
+                maxWriterCount,
+                DataSize.of(1, DataSize.Unit.MEGABYTE),
+                DataSize.of(1, DataSize.Unit.MEGABYTE),
+                DataSize.of(0, DataSize.Unit.MEGABYTE),
+                0,
+                Duration.valueOf("0s"),
+                0,
+                1,
+                1);
     }
 
     private static class TestingStageExecution
@@ -257,6 +283,12 @@ public class TestScaledWriterScheduler
 
         @Override
         public int getAttemptId()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Span getStageSpan()
         {
             throw new UnsupportedOperationException();
         }
@@ -362,6 +394,7 @@ public class TestScaledWriterScheduler
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty());
     }

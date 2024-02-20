@@ -18,6 +18,6 @@ public class TestDeltaLakeDatabricksHdfsReads
 {
     public TestDeltaLakeDatabricksHdfsReads()
     {
-        super("io/trino/plugin/deltalake/testing/resources/databricks/region");
+        super("io/trino/plugin/deltalake/testing/resources/databricks73/region");
     }
 }

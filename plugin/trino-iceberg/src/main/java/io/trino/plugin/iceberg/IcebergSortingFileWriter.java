@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.SortingFileWriter;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
@@ -22,16 +23,14 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Metrics;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IcebergSortingFileWriter
+public final class IcebergSortingFileWriter
         implements IcebergFileWriter
 {
     private final IcebergFileWriter outputWriter;
@@ -39,7 +38,7 @@ public class IcebergSortingFileWriter
 
     public IcebergSortingFileWriter(
             TrinoFileSystem fileSystem,
-            Path tempFilePrefix,
+            Location tempFilePrefix,
             IcebergFileWriter outputWriter,
             DataSize maxMemory,
             int maxOpenTempFiles,
@@ -104,11 +103,5 @@ public class IcebergSortingFileWriter
     public long getValidationCpuNanos()
     {
         return sortingFileWriter.getValidationCpuNanos();
-    }
-
-    @Override
-    public Optional<Runnable> getVerificationTask()
-    {
-        return sortingFileWriter.getVerificationTask();
     }
 }

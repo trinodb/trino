@@ -18,7 +18,10 @@ import io.airlift.slice.Slices;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.Page;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.ValueDecoder;
+import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.spi.block.Block;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
@@ -56,9 +59,12 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.parquet.ParquetTestUtils.toTrinoDictionaryPage;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
-import static io.trino.parquet.reader.TestingColumnReader.toTrinoDictionaryPage;
+import static io.trino.parquet.reader.TestingRowRanges.toRowRange;
+import static io.trino.parquet.reader.TestingRowRanges.toRowRanges;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.concat;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -66,8 +72,6 @@ import static java.lang.Math.toIntExact;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
 import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
-import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRange;
-import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRanges;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractColumnReaderRowRangesTest
@@ -127,7 +131,7 @@ public abstract class AbstractColumnReaderRowRangesTest
                     assertThat(rowValueCounts.getInt(i)).isEqualTo(expectedDefinitions.size());
                     for (int j = 0; j < rowValueCounts.getInt(i); j++) {
                         if (expectedDefinitions.getBoolean(j)) {
-                            assertThat(block.getInt(blockIndex++, 0)).isEqualTo(selectedRowNumber);
+                            assertThat(INTEGER.getInt(block, blockIndex++)).isEqualTo(selectedRowNumber);
                         }
                         else {
                             assertThat(block.isNull(blockIndex++)).isTrue();
@@ -150,6 +154,12 @@ public abstract class AbstractColumnReaderRowRangesTest
         ColumnReader createColumnReader();
 
         PrimitiveField getField();
+    }
+
+    protected static ValueDecoder.ValueDecodersProvider<int[]> getIntDecodersProvider(PrimitiveField field)
+    {
+        ValueDecoders valueDecoders = new ValueDecoders(field);
+        return valueDecoders::getIntDecoder;
     }
 
     @DataProvider
@@ -550,6 +560,7 @@ public abstract class AbstractColumnReaderRowRangesTest
             inputPages = ImmutableList.<Page>builder().add(toTrinoDictionaryPage(encoder.toDictPageAndClose())).addAll(inputPages).build();
         }
         return new PageReader(
+                new ParquetDataSourceId("test"),
                 UNCOMPRESSED,
                 inputPages.iterator(),
                 dictionaryEncoding == DictionaryEncoding.ALL || (dictionaryEncoding == DictionaryEncoding.MIXED && testingPages.size() == 1),
@@ -586,7 +597,7 @@ public abstract class AbstractColumnReaderRowRangesTest
                 getParquetEncoding(encoder.getEncoding()),
                 Slices.wrappedBuffer(encodedBytes),
                 valueCount * 4,
-                OptionalLong.of(toIntExact(testingPage.pageRowRange().start())),
+                OptionalLong.of(testingPage.pageRowRange().start()),
                 null,
                 false);
         encoder.reset();

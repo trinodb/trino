@@ -14,15 +14,15 @@
 package io.trino.sql.planner;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.trino.spi.function.Description;
-
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
 
 @DefunctConfig("compiler.interpreter-enabled")
 public class CompilerConfig
 {
     private int expressionCacheSize = 10_000;
+    private boolean specializeAggregationLoops = true;
 
     @Min(0)
     public int getExpressionCacheSize()
@@ -31,10 +31,22 @@ public class CompilerConfig
     }
 
     @Config("compiler.expression-cache-size")
-    @Description("Reuse compiled expressions across multiple queries")
+    @ConfigDescription("Reuse compiled expressions across multiple queries")
     public CompilerConfig setExpressionCacheSize(int expressionCacheSize)
     {
         this.expressionCacheSize = expressionCacheSize;
+        return this;
+    }
+
+    public boolean isSpecializeAggregationLoops()
+    {
+        return specializeAggregationLoops;
+    }
+
+    @Config("compiler.specialized-aggregation-loops")
+    public CompilerConfig setSpecializeAggregationLoops(boolean specializeAggregationLoops)
+    {
+        this.specializeAggregationLoops = specializeAggregationLoops;
         return this;
     }
 }

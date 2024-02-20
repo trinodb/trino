@@ -24,19 +24,18 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
-import io.trino.security.SecurityContext;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.TrinoWarning;
 import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
@@ -71,7 +70,6 @@ import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CurrentCatalog;
@@ -79,6 +77,7 @@ import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentUser;
+import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DoubleLiteral;
@@ -107,6 +106,7 @@ import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonPathParameter.JsonFormat;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -124,6 +124,7 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
@@ -136,10 +137,9 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
+import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
@@ -148,8 +148,7 @@ import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -170,8 +169,9 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonExistsFunction.JSON_EXISTS_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_TO_JSON;
@@ -198,6 +198,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.INVALID_NAVIGATION_NESTING;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
+import static io.trino.spi.StandardErrorCode.INVALID_PATH;
 import static io.trino.spi.StandardErrorCode.INVALID_PATTERN_RECOGNITION_FUNCTION;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
@@ -213,7 +214,6 @@ import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
-import static io.trino.spi.connector.StandardWarningCode.DEPRECATED_FUNCTION;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -284,6 +284,8 @@ public class ExpressionAnalyzer
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT = 63;
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
 
+    private static final CatalogSchemaFunctionName ARRAY_CONSTRUCTOR_NAME = builtinFunctionName(ArrayConstructor.NAME);
+
     public static final RowType JSON_NO_PARAMETERS_ROW_TYPE = RowType.anonymous(ImmutableList.of(UNKNOWN));
 
     private final PlannerContext plannerContext;
@@ -296,11 +298,10 @@ public class ExpressionAnalyzer
     // Cache from SQL type name to Type; every Type in the cache has a CAST defined from VARCHAR
     private final Cache<String, Type> varcharCastableTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
-    private final Map<NodeRef<Expression>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
-    private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
 
     // Coercions needed for window function frame of type RANGE.
     // These are coercions for the sort key, needed for frame bound calculation, identified by frame range offset expression.
@@ -335,9 +336,9 @@ public class ExpressionAnalyzer
     private final Set<NodeRef<FunctionCall>> patternAggregations = new LinkedHashSet<>();
 
     // for JSON functions
-    private final Map<NodeRef<Expression>, JsonPathAnalysis> jsonPathAnalyses = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, JsonPathAnalysis> jsonPathAnalyses = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedFunction> jsonInputFunctions = new LinkedHashMap<>();
-    private final Map<NodeRef<Expression>, ResolvedFunction> jsonOutputFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, ResolvedFunction> jsonOutputFunctions = new LinkedHashMap<>();
 
     private final Session session;
     private final Map<NodeRef<Parameter>, Expression> parameters;
@@ -346,6 +347,7 @@ public class ExpressionAnalyzer
     private final Function<Expression, Type> getPreanalyzedType;
     private final Function<Node, ResolvedWindow> getResolvedWindow;
     private final List<Field> sourceFields = new ArrayList<>();
+    private final FunctionResolver functionResolver;
 
     private ExpressionAnalyzer(
             PlannerContext plannerContext,
@@ -397,9 +399,10 @@ public class ExpressionAnalyzer
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.getPreanalyzedType = requireNonNull(getPreanalyzedType, "getPreanalyzedType is null");
         this.getResolvedWindow = requireNonNull(getResolvedWindow, "getResolvedWindow is null");
+        this.functionResolver = plannerContext.getFunctionResolver(warningCollector);
     }
 
-    public Map<NodeRef<Expression>, ResolvedFunction> getResolvedFunctions()
+    public Map<NodeRef<Node>, ResolvedFunction> getResolvedFunctions()
     {
         return unmodifiableMap(resolvedFunctions);
     }
@@ -431,11 +434,6 @@ public class ExpressionAnalyzer
     public Map<NodeRef<Expression>, Type> getExpressionCoercions()
     {
         return unmodifiableMap(expressionCoercions);
-    }
-
-    public Set<NodeRef<Expression>> getTypeOnlyCoercions()
-    {
-        return unmodifiableSet(typeOnlyCoercions);
     }
 
     public Map<NodeRef<Expression>, Type> getSortKeyCoercionsForFrameBoundCalculation()
@@ -495,6 +493,42 @@ public class ExpressionAnalyzer
     {
         Visitor visitor = new Visitor(baseScope, warningCollector);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
+    }
+
+    private RowType analyzeJsonPathInvocation(JsonTable node, Scope scope, CorrelationSupport correlationSupport)
+    {
+        Visitor visitor = new Visitor(scope, warningCollector);
+        List<Type> inputTypes = visitor.analyzeJsonPathInvocation("JSON_TABLE", node, node.getJsonPathInvocation(), new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope, correlationSupport)));
+        return (RowType) inputTypes.get(2);
+    }
+
+    private Type analyzeJsonValueExpression(ValueColumn column, JsonPathAnalysis pathAnalysis, Scope scope, CorrelationSupport correlationSupport)
+    {
+        Visitor visitor = new Visitor(scope, warningCollector);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        return visitor.analyzeJsonValueExpression(
+                column,
+                pathAnalysis,
+                Optional.of(column.getType()),
+                pathInvocationArgumentTypes,
+                column.getEmptyBehavior(),
+                column.getEmptyDefault(),
+                column.getErrorBehavior(),
+                column.getErrorDefault(),
+                new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope, correlationSupport)));
+    }
+
+    private Type analyzeJsonQueryExpression(QueryColumn column, Scope scope)
+    {
+        Visitor visitor = new Visitor(scope, warningCollector);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        return visitor.analyzeJsonQueryExpression(
+                column,
+                column.getWrapperBehavior(),
+                column.getQuotesBehavior(),
+                pathInvocationArgumentTypes,
+                Optional.of(column.getType()),
+                Optional.of(column.getFormat()));
     }
 
     private void analyzeWindow(ResolvedWindow window, Scope scope, Node originalNode, CorrelationSupport correlationSupport)
@@ -563,7 +597,7 @@ public class ExpressionAnalyzer
         return patternAggregations;
     }
 
-    public Map<NodeRef<Expression>, JsonPathAnalysis> getJsonPathAnalyses()
+    public Map<NodeRef<Node>, JsonPathAnalysis> getJsonPathAnalyses()
     {
         return jsonPathAnalyses;
     }
@@ -573,7 +607,7 @@ public class ExpressionAnalyzer
         return jsonInputFunctions;
     }
 
-    public Map<NodeRef<Expression>, ResolvedFunction> getJsonOutputFunctions()
+    public Map<NodeRef<Node>, ResolvedFunction> getJsonOutputFunctions()
     {
         return jsonOutputFunctions;
     }
@@ -758,7 +792,7 @@ public class ExpressionAnalyzer
             for (RowType.Field rowField : rowType.getFields()) {
                 if (fieldName.equalsIgnoreCase(rowField.getName().orElse(null))) {
                     if (foundFieldName) {
-                        throw semanticException(AMBIGUOUS_NAME, field, "Ambiguous row field reference: " + fieldName);
+                        throw semanticException(AMBIGUOUS_NAME, field, "Ambiguous row field reference: %s", fieldName);
                     }
                     foundFieldName = true;
                     rowFieldType = rowField.getType();
@@ -839,7 +873,7 @@ public class ExpressionAnalyzer
 
             Type type;
             if (node.getFalseValue().isPresent()) {
-                type = coerceToSingleType(context, node, "Result types for IF must be the same: %s vs %s", node.getTrueValue(), node.getFalseValue().get());
+                type = coerceToSingleType(context, node, "Result types for IF must be the same", node.getTrueValue(), node.getFalseValue().get());
             }
             else {
                 type = process(node.getTrueValue(), context);
@@ -904,14 +938,14 @@ public class ExpressionAnalyzer
             }
 
             if (commonType != operandType) {
-                addOrReplaceExpressionCoercion(node.getOperand(), operandType, commonType);
+                addOrReplaceExpressionCoercion(node.getOperand(), commonType);
             }
 
             for (int i = 0; i < whenOperandTypes.size(); i++) {
                 Type whenOperandType = whenOperandTypes.get(i);
                 if (!whenOperandType.equals(commonType)) {
                     Expression whenOperand = whenClauses.get(i).getOperand();
-                    addOrReplaceExpressionCoercion(whenOperand, whenOperandType, commonType);
+                    addOrReplaceExpressionCoercion(whenOperand, commonType);
                 }
             }
         }
@@ -996,7 +1030,7 @@ public class ExpressionAnalyzer
                 if (!indexType.equals(INTEGER)) {
                     throw semanticException(TYPE_MISMATCH, node.getIndex(), "Subscript expression on ROW requires integer index, found %s", indexType);
                 }
-                int indexValue = toIntExact(((LongLiteral) node.getIndex()).getValue());
+                int indexValue = toIntExact(((LongLiteral) node.getIndex()).getParsedValue());
                 if (indexValue <= 0) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Invalid subscript index: %s. ROW indices start at 1", indexValue);
                 }
@@ -1027,13 +1061,6 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitCharLiteral(CharLiteral node, StackableAstVisitorContext<Context> context)
-        {
-            CharType type = CharType.createCharType(node.length());
-            return setExpressionType(node, type);
-        }
-
-        @Override
         protected Type visitBinaryLiteral(BinaryLiteral node, StackableAstVisitorContext<Context> context)
         {
             return setExpressionType(node, VARBINARY);
@@ -1042,7 +1069,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLongLiteral(LongLiteral node, StackableAstVisitorContext<Context> context)
         {
-            if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
+            if (node.getParsedValue() >= Integer.MIN_VALUE && node.getParsedValue() <= Integer.MAX_VALUE) {
                 return setExpressionType(node, INTEGER);
             }
 
@@ -1063,7 +1090,7 @@ public class ExpressionAnalyzer
                 parseResult = Decimals.parse(node.getValue());
             }
             catch (RuntimeException e) {
-                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid decimal literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid DECIMAL literal", node.getValue());
             }
             return setExpressionType(node, parseResult.getType());
         }
@@ -1077,37 +1104,45 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitGenericLiteral(GenericLiteral node, StackableAstVisitorContext<Context> context)
         {
-            Type type = uncheckedCacheGet(varcharCastableTypeCache, node.getType(), () -> {
-                Type resolvedType;
-                try {
-                    resolvedType = plannerContext.getTypeManager().fromSqlType(node.getType());
-                }
-                catch (TypeNotFoundException e) {
-                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown resolvedType: %s", node.getType());
-                }
+            return setExpressionType(
+                    node,
+                    switch (node.getType()) {
+                        case String value when value.equalsIgnoreCase("CHAR") -> CharType.createCharType(node.getValue().length());
+                        case String value when value.equalsIgnoreCase("TIME") -> processTimeLiteral(node);
+                        case String value when value.equalsIgnoreCase("TIMESTAMP") -> processTimestampLiteral(node);
+                        default -> {
+                            Type type = uncheckedCacheGet(varcharCastableTypeCache, node.getType(), () -> {
+                                Type resolvedType;
+                                try {
+                                    resolvedType = plannerContext.getTypeManager().fromSqlType(node.getType());
+                                }
+                                catch (TypeNotFoundException e) {
+                                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown resolvedType: %s", node.getType());
+                                }
 
-                if (!JSON.equals(resolvedType)) {
-                    try {
-                        plannerContext.getMetadata().getCoercion(session, VARCHAR, resolvedType);
-                    }
-                    catch (IllegalArgumentException e) {
-                        throw semanticException(INVALID_LITERAL, node, "No literal form for resolvedType %s", resolvedType);
-                    }
-                }
-                return resolvedType;
-            });
-            try {
-                literalInterpreter.evaluate(node, type);
-            }
-            catch (RuntimeException e) {
-                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid %s literal", node.getValue(), type.getDisplayName());
-            }
+                                if (!JSON.equals(resolvedType)) {
+                                    try {
+                                        plannerContext.getMetadata().getCoercion(VARCHAR, resolvedType);
+                                    }
+                                    catch (IllegalArgumentException e) {
+                                        throw semanticException(INVALID_LITERAL, node, "No literal form for resolvedType %s", resolvedType);
+                                    }
+                                }
+                                return resolvedType;
+                            });
+                            try {
+                                literalInterpreter.evaluate(node, type);
+                            }
+                            catch (RuntimeException e) {
+                                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid %s literal", node.getValue(), type.getDisplayName().toUpperCase(ENGLISH));
+                            }
 
-            return setExpressionType(node, type);
+                            yield type;
+                        }
+                    });
         }
 
-        @Override
-        protected Type visitTimeLiteral(TimeLiteral node, StackableAstVisitorContext<Context> context)
+        private Type processTimeLiteral(GenericLiteral node)
         {
             Type type;
             try {
@@ -1126,14 +1161,13 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
             catch (IllegalArgumentException e) {
-                throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid time literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid TIME literal", node.getValue());
             }
 
-            return setExpressionType(node, type);
+            return type;
         }
 
-        @Override
-        protected Type visitTimestampLiteral(TimestampLiteral node, StackableAstVisitorContext<Context> context)
+        private Type processTimestampLiteral(GenericLiteral node)
         {
             Type type;
             try {
@@ -1152,10 +1186,10 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
             catch (Exception e) {
-                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid timestamp literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid TIMESTAMP literal", node.getValue());
             }
 
-            return setExpressionType(node, type);
+            return type;
         }
 
         @Override
@@ -1172,7 +1206,7 @@ public class ExpressionAnalyzer
                 literalInterpreter.evaluate(node, type);
             }
             catch (RuntimeException e) {
-                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid interval literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid INTERVAL literal", node.getValue());
             }
             return setExpressionType(node, type);
         }
@@ -1186,8 +1220,9 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
+            boolean isAggregation = functionResolver.isAggregationFunction(session, node.getName(), accessControl);
             boolean isRowPatternCount = context.getContext().isPatternRecognition() &&
-                    plannerContext.getMetadata().isAggregationFunction(session, node.getName()) &&
+                    isAggregation &&
                     node.getName().getSuffix().equalsIgnoreCase("count");
             // argument of the form `label.*` is only allowed for row pattern count function
             node.getArguments().stream()
@@ -1201,7 +1236,7 @@ public class ExpressionAnalyzer
             if (context.getContext().isPatternRecognition() && isPatternRecognitionFunction(node)) {
                 return analyzePatternRecognitionFunction(node, context);
             }
-            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
+            if (context.getContext().isPatternRecognition() && isAggregation) {
                 analyzePatternAggregation(node);
                 patternAggregations.add(NodeRef.of(node));
             }
@@ -1210,7 +1245,7 @@ public class ExpressionAnalyzer
                 if (!context.getContext().isPatternRecognition()) {
                     throw semanticException(INVALID_PROCESSING_MODE, processingMode, "%s semantics is not supported out of pattern recognition context", processingMode.getMode());
                 }
-                if (!plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
+                if (!isAggregation) {
                     throw semanticException(INVALID_PROCESSING_MODE, processingMode, "%s semantics is supported only for FIRST(), LAST() and aggregation functions. Actual: %s", processingMode.getMode(), node.getName());
                 }
             }
@@ -1223,14 +1258,15 @@ public class ExpressionAnalyzer
                 windowFunctions.add(NodeRef.of(node));
             }
             else {
-                if (node.isDistinct() && !plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
+                if (node.isDistinct() && !isAggregation) {
                     throw semanticException(FUNCTION_NOT_AGGREGATE, node, "DISTINCT is not supported for non-aggregation functions");
                 }
             }
 
             if (node.getFilter().isPresent()) {
                 Expression expression = node.getFilter().get();
-                process(expression, context);
+                Type type = process(expression, context);
+                coerceType(expression, type, BOOLEAN, "Filter expression");
             }
 
             List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
@@ -1243,18 +1279,18 @@ public class ExpressionAnalyzer
                 Expression expression = arguments.get(0);
                 Type expressionType = process(expression, context);
                 if (!(expressionType instanceof VarcharType)) {
-                    throw semanticException(TYPE_MISMATCH, node, format("Expected expression of varchar, but '%s' has %s type", expression, expressionType.getDisplayName()));
+                    throw semanticException(TYPE_MISMATCH, node, "Expected expression of varchar, but '%s' has %s type", expression, expressionType.getDisplayName());
                 }
             }
 
             // must run after arguments are processed and labels are recorded
-            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
+            if (context.getContext().isPatternRecognition() && isAggregation) {
                 validateAggregationLabelConsistency(node);
             }
 
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, node.getName(), argumentTypes);
+                function = functionResolver.resolveFunction(session, node.getName(), argumentTypes, accessControl);
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -1269,15 +1305,15 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
 
-            if (function.getSignature().getName().equalsIgnoreCase(ArrayConstructor.NAME)) {
+            if (function.getSignature().getName().equals(ARRAY_CONSTRUCTOR_NAME)) {
                 // After optimization, array constructor is rewritten to a function call.
                 // For historic reasons array constructor is allowed to have 254 arguments
                 if (node.getArguments().size() > 254) {
-                    throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for array constructor", function.getSignature().getName());
+                    throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for array constructor");
                 }
             }
             else if (node.getArguments().size() > 127) {
-                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.getSignature().getName());
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.getSignature().getName().getFunctionName());
             }
 
             if (node.getOrderBy().isPresent()) {
@@ -1293,7 +1329,9 @@ public class ExpressionAnalyzer
             for (int i = 0; i < argumentTypes.size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = signature.getArgumentTypes().get(i);
-                requireNonNull(expectedType, format("Type '%s' not found", signature.getArgumentTypes().get(i)));
+                if (expectedType == null) {
+                    throw new NullPointerException(format("Type '%s' not found", signature.getArgumentTypes().get(i)));
+                }
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
@@ -1306,17 +1344,7 @@ public class ExpressionAnalyzer
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), node.getName().toString());
-
             resolvedFunctions.put(NodeRef.of(node), function);
-
-            FunctionMetadata functionMetadata = plannerContext.getMetadata().getFunctionMetadata(session, function);
-            if (functionMetadata.isDeprecated()) {
-                warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION,
-                        format("Use of deprecated function: %s: %s",
-                                functionMetadata.getSignature().getName(),
-                                functionMetadata.getDescription())));
-            }
 
             Type type = signature.getReturnType();
             return setExpressionType(node, type);
@@ -1491,7 +1519,7 @@ public class ExpressionAnalyzer
                     }
                 }
                 else {
-                    throw semanticException(NOT_SUPPORTED, frame, "Unsupported frame type: " + frame.getType());
+                    throw semanticException(NOT_SUPPORTED, frame, "Unsupported frame type: %s", frame.getType());
                 }
             }
         }
@@ -1539,7 +1567,7 @@ public class ExpressionAnalyzer
                 operatorType = ADD;
             }
             try {
-                function = plannerContext.getMetadata().resolveOperator(session, operatorType, ImmutableList.of(sortKeyType, offsetValueType));
+                function = plannerContext.getMetadata().resolveOperator(operatorType, ImmutableList.of(sortKeyType, offsetValueType));
             }
             catch (TrinoException e) {
                 ErrorCode errorCode = e.getErrorCode();
@@ -1683,7 +1711,7 @@ public class ExpressionAnalyzer
                         if (!(node.getArguments().get(1) instanceof LongLiteral)) {
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "%s pattern recognition navigation function requires a number as the second argument", node.getName());
                         }
-                        long offset = ((LongLiteral) node.getArguments().get(1)).getValue();
+                        long offset = ((LongLiteral) node.getArguments().get(1)).getParsedValue();
                         if (offset < 0) {
                             throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "%s pattern recognition navigation function requires a non-negative number as the second argument (actual: %s)", node.getName(), offset);
                         }
@@ -1930,7 +1958,7 @@ public class ExpressionAnalyzer
         private void checkNoNestedAggregations(FunctionCall node)
         {
             extractExpressions(node.getArguments(), FunctionCall.class).stream()
-                    .filter(function -> plannerContext.getMetadata().isAggregationFunction(session, function.getName()))
+                    .filter(function -> functionResolver.isAggregationFunction(session, function.getName(), accessControl))
                     .findFirst()
                     .ifPresent(aggregation -> {
                         throw semanticException(
@@ -2010,7 +2038,7 @@ public class ExpressionAnalyzer
             List<Type> actualTypes = argumentTypes.build();
 
             String functionName = node.getSpecification().getFunctionName();
-            ResolvedFunction function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(functionName), fromTypes(actualTypes));
+            ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction(functionName, fromTypes(actualTypes));
 
             List<Type> expectedTypes = function.getSignature().getArgumentTypes();
             checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
@@ -2024,9 +2052,6 @@ public class ExpressionAnalyzer
                 Type expectedTrimCharType = expectedTypes.get(1);
                 coerceType(node.getTrimCharacter().get(), actualTrimCharType, expectedTrimCharType, "trim character argument of trim function");
             }
-
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), functionName);
-
             resolvedFunctions.put(NodeRef.of(node), function);
 
             return setExpressionType(node, function.getSignature().getReturnType());
@@ -2045,7 +2070,7 @@ public class ExpressionAnalyzer
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
+                    plannerContext.getMetadata().resolveBuiltinFunction(FormatFunction.NAME, fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (TrinoException e) {
                     ErrorCode errorCode = e.getErrorCode();
@@ -2091,7 +2116,7 @@ public class ExpressionAnalyzer
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType) &&
-                            !(type.equals(INTERVAL_YEAR_MONTH))) {
+                            !type.equals(INTERVAL_YEAR_MONTH)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                     break;
@@ -2099,7 +2124,7 @@ public class ExpressionAnalyzer
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType) &&
-                            !(type.equals(INTERVAL_DAY_TIME))) {
+                            !type.equals(INTERVAL_DAY_TIME)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                     break;
@@ -2115,7 +2140,7 @@ public class ExpressionAnalyzer
                             !(type instanceof TimestampWithTimeZoneType) &&
                             !(type instanceof TimeType) &&
                             !(type instanceof TimeWithTimeZoneType) &&
-                            !(type.equals(INTERVAL_DAY_TIME))) {
+                            !type.equals(INTERVAL_DAY_TIME)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                     break;
@@ -2161,13 +2186,13 @@ public class ExpressionAnalyzer
             }
 
             if (!valueType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getValue(), valueType, commonType.get());
+                addOrReplaceExpressionCoercion(node.getValue(), commonType.get());
             }
             if (!minType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getMin(), minType, commonType.get());
+                addOrReplaceExpressionCoercion(node.getMin(), commonType.get());
             }
             if (!maxType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getMax(), maxType, commonType.get());
+                addOrReplaceExpressionCoercion(node.getMax(), commonType.get());
             }
 
             return setExpressionType(node, BOOLEAN);
@@ -2201,9 +2226,9 @@ public class ExpressionAnalyzer
             }
 
             Type value = process(node.getExpression(), context);
-            if (!value.equals(UNKNOWN) && !node.isTypeOnly()) {
+            if (!value.equals(UNKNOWN)) {
                 try {
-                    plannerContext.getMetadata().getCoercion(session, value, type);
+                    plannerContext.getMetadata().getCoercion(value, type);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
@@ -2411,7 +2436,7 @@ public class ExpressionAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Lambda expression in pattern recognition context is not yet supported");
             }
 
-            verifyNoAggregateWindowOrGroupingFunctions(session, plannerContext.getMetadata(), node.getBody(), "Lambda expression");
+            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, node.getBody(), "Lambda expression");
             if (!context.getContext().isExpectingLambda()) {
                 throw semanticException(TYPE_MISMATCH, node, "Lambda expression should always be used inside a function");
             }
@@ -2421,7 +2446,7 @@ public class ExpressionAnalyzer
 
             if (types.size() != lambdaArguments.size()) {
                 throw semanticException(INVALID_PARAMETER_USAGE, node,
-                        format("Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size()));
+                        "Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size());
             }
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
@@ -2520,7 +2545,7 @@ public class ExpressionAnalyzer
             // resolve function
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_EXISTS_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveBuiltinFunction(JSON_EXISTS_FUNCTION_NAME, fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -2528,7 +2553,6 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_EXISTS_FUNCTION_NAME);
             resolvedFunctions.put(NodeRef.of(node), function);
             Type type = function.getSignature().getReturnType();
 
@@ -2539,15 +2563,38 @@ public class ExpressionAnalyzer
         public Type visitJsonValue(JsonValue node, StackableAstVisitorContext<Context> context)
         {
             List<Type> pathInvocationArgumentTypes = analyzeJsonPathInvocation("JSON_VALUE", node, node.getJsonPathInvocation(), context);
+            Type returnedType = analyzeJsonValueExpression(
+                    node,
+                    jsonPathAnalyses.get(NodeRef.of(node)),
+                    node.getReturnedType(),
+                    pathInvocationArgumentTypes,
+                    node.getEmptyBehavior(),
+                    node.getEmptyDefault(),
+                    Optional.of(node.getErrorBehavior()),
+                    node.getErrorDefault(),
+                    context);
+            return setExpressionType(node, returnedType);
+        }
 
+        private Type analyzeJsonValueExpression(
+                Node node,
+                JsonPathAnalysis pathAnalysis,
+                Optional<DataType> declaredReturnedType,
+                List<Type> pathInvocationArgumentTypes,
+                JsonValue.EmptyOrErrorBehavior emptyBehavior,
+                Optional<Expression> declaredEmptyDefault,
+                Optional<JsonValue.EmptyOrErrorBehavior> errorBehavior,
+                Optional<Expression> declaredErrorDefault,
+                StackableAstVisitorContext<Context> context)
+        {
             // validate returned type
             Type returnedType = VARCHAR; // default
-            if (node.getReturnedType().isPresent()) {
+            if (declaredReturnedType.isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(node.getReturnedType().get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(declaredReturnedType.get()));
                 }
                 catch (TypeNotFoundException e) {
-                    throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());
+                    throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
                 }
             }
 
@@ -2557,14 +2604,13 @@ public class ExpressionAnalyzer
                     !isDateTimeType(returnedType) ||
                     returnedType.equals(INTERVAL_DAY_TIME) ||
                     returnedType.equals(INTERVAL_YEAR_MONTH)) {
-                throw semanticException(TYPE_MISMATCH, node, "Invalid return type of function JSON_VALUE: " + node.getReturnedType().get());
+                throw semanticException(TYPE_MISMATCH, node, "Invalid return type of function JSON_VALUE: %s", declaredReturnedType.get());
             }
 
-            JsonPathAnalysis pathAnalysis = jsonPathAnalyses.get(NodeRef.of(node));
             Type resultType = pathAnalysis.getType(pathAnalysis.getPath());
             if (resultType != null && !resultType.equals(returnedType)) {
                 try {
-                    plannerContext.getMetadata().getCoercion(session, resultType, returnedType);
+                    plannerContext.getMetadata().getCoercion(resultType, returnedType);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Return type of JSON path: %s incompatible with return type of function JSON_VALUE: %s", resultType, returnedType);
@@ -2572,20 +2618,23 @@ public class ExpressionAnalyzer
             }
 
             // validate default values for empty and error behavior
-            if (node.getEmptyDefault().isPresent()) {
-                Expression emptyDefault = node.getEmptyDefault().get();
-                if (node.getEmptyBehavior() != DEFAULT) {
-                    throw semanticException(INVALID_FUNCTION_ARGUMENT, emptyDefault, "Default value specified for %s ON EMPTY behavior", node.getEmptyBehavior());
+            if (declaredEmptyDefault.isPresent()) {
+                Expression emptyDefault = declaredEmptyDefault.get();
+                if (emptyBehavior != DEFAULT) {
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, emptyDefault, "Default value specified for %s ON EMPTY behavior", emptyBehavior);
                 }
                 Type type = process(emptyDefault, context);
                 // this would normally be done after function resolution, but we know that the default expression is always coerced to the returnedType
                 coerceType(emptyDefault, type, returnedType, "Function JSON_VALUE default ON EMPTY result");
             }
 
-            if (node.getErrorDefault().isPresent()) {
-                Expression errorDefault = node.getErrorDefault().get();
-                if (node.getErrorBehavior() != DEFAULT) {
-                    throw semanticException(INVALID_FUNCTION_ARGUMENT, errorDefault, "Default value specified for %s ON ERROR behavior", node.getErrorBehavior());
+            if (declaredErrorDefault.isPresent()) {
+                Expression errorDefault = declaredErrorDefault.get();
+                if (errorBehavior.isEmpty()) {
+                    throw new IllegalStateException("error default specified without error behavior specified");
+                }
+                if (errorBehavior.orElseThrow() != DEFAULT) {
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, errorDefault, "Default value specified for %s ON ERROR behavior", errorBehavior.orElseThrow());
                 }
                 Type type = process(errorDefault, context);
                 // this would normally be done after function resolution, but we know that the default expression is always coerced to the returnedType
@@ -2604,7 +2653,7 @@ public class ExpressionAnalyzer
             // resolve function
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_VALUE_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveBuiltinFunction(JSON_VALUE_FUNCTION_NAME, fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -2612,24 +2661,33 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_VALUE_FUNCTION_NAME);
             resolvedFunctions.put(NodeRef.of(node), function);
-            Type type = function.getSignature().getReturnType();
 
-            return setExpressionType(node, type);
+            return function.getSignature().getReturnType();
         }
 
         @Override
         public Type visitJsonQuery(JsonQuery node, StackableAstVisitorContext<Context> context)
         {
             List<Type> pathInvocationArgumentTypes = analyzeJsonPathInvocation("JSON_QUERY", node, node.getJsonPathInvocation(), context);
+            Type returnedType = analyzeJsonQueryExpression(
+                    node,
+                    node.getWrapperBehavior(),
+                    node.getQuotesBehavior(),
+                    pathInvocationArgumentTypes,
+                    node.getReturnedType(),
+                    node.getOutputFormat());
+            return setExpressionType(node, returnedType);
+        }
 
-            // validate wrapper and quotes behavior
-            if ((node.getWrapperBehavior() == CONDITIONAL || node.getWrapperBehavior() == UNCONDITIONAL) && node.getQuotesBehavior().isPresent()) {
-                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "%s QUOTES behavior specified with WITH %s ARRAY WRAPPER behavior", node.getQuotesBehavior().get(), node.getWrapperBehavior());
-            }
-
+        private Type analyzeJsonQueryExpression(
+                Node node,
+                JsonQuery.ArrayWrapperBehavior wrapperBehavior,
+                Optional<JsonQuery.QuotesBehavior> quotesBehavior,
+                List<Type> pathInvocationArgumentTypes,
+                Optional<DataType> declaredReturnedType,
+                Optional<JsonFormat> declaredOutputFormat)
+        {
             // wrapper behavior, empty behavior and error behavior will be passed as arguments to function
             // quotes behavior is handled by the corresponding output function
             List<Type> argumentTypes = ImmutableList.<Type>builder()
@@ -2639,10 +2697,15 @@ public class ExpressionAnalyzer
                     .add(TINYINT) // error behavior: enum encoded as integer value
                     .build();
 
+            // validate wrapper and quotes behavior
+            if ((wrapperBehavior == CONDITIONAL || wrapperBehavior == UNCONDITIONAL) && quotesBehavior.isPresent()) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "%s QUOTES behavior specified with WITH %s ARRAY WRAPPER behavior", quotesBehavior.get(), wrapperBehavior);
+            }
+
             // resolve function
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_QUERY_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveBuiltinFunction(JSON_QUERY_FUNCTION_NAME, fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -2650,20 +2713,19 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_QUERY_FUNCTION_NAME);
             resolvedFunctions.put(NodeRef.of(node), function);
 
             // analyze returned type and format
             Type returnedType = VARCHAR; // default
-            if (node.getReturnedType().isPresent()) {
+            if (declaredReturnedType.isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(node.getReturnedType().get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(declaredReturnedType.get()));
                 }
                 catch (TypeNotFoundException e) {
-                    throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());
+                    throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
                 }
             }
-            JsonFormat outputFormat = node.getOutputFormat().orElse(JsonFormat.JSON); // default
+            JsonFormat outputFormat = declaredOutputFormat.orElse(JsonFormat.JSON); // default
 
             // resolve function to format output
             ResolvedFunction outputFunction = getOutputFunction(returnedType, outputFormat, node);
@@ -2673,18 +2735,24 @@ public class ExpressionAnalyzer
             Type outputType = outputFunction.getSignature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
-                    plannerContext.getMetadata().getCoercion(session, outputType, returnedType);
+                    plannerContext.getMetadata().getCoercion(outputType, returnedType);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", outputType, returnedType);
                 }
             }
 
-            return setExpressionType(node, returnedType);
+            return returnedType;
         }
 
-        private List<Type> analyzeJsonPathInvocation(String functionName, Expression node, JsonPathInvocation jsonPathInvocation, StackableAstVisitorContext<Context> context)
+        private List<Type> analyzeJsonPathInvocation(String functionName, Node node, JsonPathInvocation jsonPathInvocation, StackableAstVisitorContext<Context> context)
         {
+            jsonPathInvocation.getPathName().ifPresent(pathName -> {
+                if (!(node instanceof JsonTable)) {
+                    throw semanticException(INVALID_PATH, pathName, "JSON path name is not allowed in %s function", functionName);
+                }
+            });
+
             // ANALYZE THE CONTEXT ITEM
             // analyze context item type
             Expression inputExpression = jsonPathInvocation.getInputExpression();
@@ -2759,12 +2827,12 @@ public class ExpressionAnalyzer
                     }
                     else {
                         try {
-                            plannerContext.getMetadata().getCoercion(session, parameterType, VARCHAR);
+                            plannerContext.getMetadata().getCoercion(parameterType, VARCHAR);
                         }
                         catch (OperatorNotFoundException e) {
                             throw semanticException(NOT_SUPPORTED, node, "Unsupported type of JSON path parameter: %s", parameterType.getDisplayName());
                         }
-                        addOrReplaceExpressionCoercion(parameter, parameterType, VARCHAR);
+                        addOrReplaceExpressionCoercion(parameter, VARCHAR);
                         passedType = VARCHAR;
                     }
                 }
@@ -2782,7 +2850,6 @@ public class ExpressionAnalyzer
             Map<String, Type> typesMap = types.buildOrThrow();
             JsonPathAnalysis pathAnalysis = new JsonPathAnalyzer(
                     plannerContext.getMetadata(),
-                    session,
                     createConstantAnalyzer(plannerContext, accessControl, session, ExpressionAnalyzer.this.parameters, WarningCollector.NOOP))
                     .analyzeJsonPath(jsonPathInvocation.getJsonPath(), typesMap);
             jsonPathAnalyses.put(NodeRef.of(node), pathAnalysis);
@@ -2795,23 +2862,23 @@ public class ExpressionAnalyzer
 
         private ResolvedFunction getInputFunction(Type type, JsonFormat format, Node node)
         {
-            QualifiedName name = switch (format) {
+            String name = switch (format) {
                 case JSON -> {
                     if (UNKNOWN.equals(type) || isCharacterStringType(type)) {
-                        yield QualifiedName.of(VARCHAR_TO_JSON);
+                        yield VARCHAR_TO_JSON;
                     }
                     if (isStringType(type)) {
-                        yield QualifiedName.of(VARBINARY_TO_JSON);
+                        yield VARBINARY_TO_JSON;
                     }
-                    throw semanticException(TYPE_MISMATCH, node, format("Cannot read input of type %s as JSON using formatting %s", type, format));
+                    throw semanticException(TYPE_MISMATCH, node, "Cannot read input of type %s as JSON using formatting %s", type, format);
                 }
-                case UTF8 -> QualifiedName.of(VARBINARY_UTF8_TO_JSON);
-                case UTF16 -> QualifiedName.of(VARBINARY_UTF16_TO_JSON);
-                case UTF32 -> QualifiedName.of(VARBINARY_UTF32_TO_JSON);
+                case UTF8 -> VARBINARY_UTF8_TO_JSON;
+                case UTF16 -> VARBINARY_UTF16_TO_JSON;
+                case UTF32 -> VARBINARY_UTF32_TO_JSON;
             };
 
             try {
-                return plannerContext.getMetadata().resolveFunction(session, name, fromTypes(type, BOOLEAN));
+                return plannerContext.getMetadata().resolveBuiltinFunction(name, fromTypes(type, BOOLEAN));
             }
             catch (TrinoException e) {
                 throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot read input of type %s as JSON using formatting %s", type, format), e);
@@ -2820,38 +2887,38 @@ public class ExpressionAnalyzer
 
         private ResolvedFunction getOutputFunction(Type type, JsonFormat format, Node node)
         {
-            QualifiedName name = switch (format) {
+            String name = switch (format) {
                 case JSON -> {
                     if (isCharacterStringType(type)) {
-                        yield QualifiedName.of(JSON_TO_VARCHAR);
+                        yield JSON_TO_VARCHAR;
                     }
                     if (isStringType(type)) {
-                        yield QualifiedName.of(JSON_TO_VARBINARY);
+                        yield JSON_TO_VARBINARY;
                     }
-                    throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
+                    throw semanticException(TYPE_MISMATCH, node, "Cannot output JSON value as %s using formatting %s", type, format);
                 }
                 case UTF8 -> {
                     if (!VARBINARY.equals(type)) {
-                        throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
+                        throw semanticException(TYPE_MISMATCH, node, "Cannot output JSON value as %s using formatting %s", type, format);
                     }
-                    yield QualifiedName.of(JSON_TO_VARBINARY_UTF8);
+                    yield JSON_TO_VARBINARY_UTF8;
                 }
                 case UTF16 -> {
                     if (!VARBINARY.equals(type)) {
-                        throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
+                        throw semanticException(TYPE_MISMATCH, node, "Cannot output JSON value as %s using formatting %s", type, format);
                     }
-                    yield QualifiedName.of(JSON_TO_VARBINARY_UTF16);
+                    yield JSON_TO_VARBINARY_UTF16;
                 }
                 case UTF32 -> {
                     if (!VARBINARY.equals(type)) {
-                        throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
+                        throw semanticException(TYPE_MISMATCH, node, "Cannot output JSON value as %s using formatting %s", type, format);
                     }
-                    yield QualifiedName.of(JSON_TO_VARBINARY_UTF32);
+                    yield JSON_TO_VARBINARY_UTF32;
                 }
             };
 
             try {
-                return plannerContext.getMetadata().resolveFunction(session, name, fromTypes(JSON_2016, TINYINT, BOOLEAN));
+                return plannerContext.getMetadata().resolveBuiltinFunction(name, fromTypes(JSON_2016, TINYINT, BOOLEAN));
             }
             catch (TrinoException e) {
                 throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot output JSON value as %s using formatting %s", type, format), e);
@@ -2920,12 +2987,12 @@ public class ExpressionAnalyzer
 
                     if (!isStringType(valueType) && !isNumericType(valueType) && !valueType.equals(BOOLEAN)) {
                         try {
-                            plannerContext.getMetadata().getCoercion(session, valueType, VARCHAR);
+                            plannerContext.getMetadata().getCoercion(valueType, VARCHAR);
                         }
                         catch (OperatorNotFoundException e) {
                             throw semanticException(NOT_SUPPORTED, node, "Unsupported type of value passed to JSON_OBJECT function: %s", valueType.getDisplayName());
                         }
-                        addOrReplaceExpressionCoercion(value, valueType, VARCHAR);
+                        addOrReplaceExpressionCoercion(value, VARCHAR);
                         valueType = VARCHAR;
                     }
                 }
@@ -2944,7 +3011,7 @@ public class ExpressionAnalyzer
             List<Type> argumentTypes = ImmutableList.of(keysRowType, valuesRowType, BOOLEAN, BOOLEAN);
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_OBJECT_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveBuiltinFunction(JSON_OBJECT_FUNCTION_NAME, fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -2952,7 +3019,6 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_OBJECT_FUNCTION_NAME);
             resolvedFunctions.put(NodeRef.of(node), function);
 
             // analyze returned type and format
@@ -2975,7 +3041,7 @@ public class ExpressionAnalyzer
             Type outputType = outputFunction.getSignature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
-                    plannerContext.getMetadata().getCoercion(session, outputType, returnedType);
+                    plannerContext.getMetadata().getCoercion(outputType, returnedType);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Cannot return type %s from JSON_OBJECT function", returnedType);
@@ -3033,12 +3099,12 @@ public class ExpressionAnalyzer
 
                     if (!isStringType(elementType) && !isNumericType(elementType) && !elementType.equals(BOOLEAN)) {
                         try {
-                            plannerContext.getMetadata().getCoercion(session, elementType, VARCHAR);
+                            plannerContext.getMetadata().getCoercion(elementType, VARCHAR);
                         }
                         catch (OperatorNotFoundException e) {
                             throw semanticException(NOT_SUPPORTED, node, "Unsupported type of value passed to JSON_ARRAY function: %s", elementType.getDisplayName());
                         }
-                        addOrReplaceExpressionCoercion(element, elementType, VARCHAR);
+                        addOrReplaceExpressionCoercion(element, VARCHAR);
                         elementType = VARCHAR;
                     }
                 }
@@ -3055,7 +3121,7 @@ public class ExpressionAnalyzer
             List<Type> argumentTypes = ImmutableList.of(elementsRowType, BOOLEAN);
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_ARRAY_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveBuiltinFunction(JSON_ARRAY_FUNCTION_NAME, fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -3063,7 +3129,6 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_ARRAY_FUNCTION_NAME);
             resolvedFunctions.put(NodeRef.of(node), function);
 
             // analyze returned type and format
@@ -3086,7 +3151,7 @@ public class ExpressionAnalyzer
             Type outputType = outputFunction.getSignature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
-                    plannerContext.getMetadata().getCoercion(session, outputType, returnedType);
+                    plannerContext.getMetadata().getCoercion(outputType, returnedType);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Cannot return type %s from JSON_ARRAY function", returnedType);
@@ -3105,7 +3170,7 @@ public class ExpressionAnalyzer
 
             BoundSignature operatorSignature;
             try {
-                operatorSignature = plannerContext.getMetadata().resolveOperator(session, operatorType, argumentTypes.build()).getSignature();
+                operatorSignature = plannerContext.getMetadata().resolveOperator(operatorType, argumentTypes.build()).getSignature();
             }
             catch (OperatorNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());
@@ -3127,7 +3192,7 @@ public class ExpressionAnalyzer
                 if (!typeCoercion.canCoerce(actualType, expectedType)) {
                     throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to a %s (actual: %s)", message, expectedType, actualType);
                 }
-                addOrReplaceExpressionCoercion(expression, actualType, expectedType);
+                addOrReplaceExpressionCoercion(expression, expectedType);
             }
         }
 
@@ -3155,15 +3220,15 @@ public class ExpressionAnalyzer
                     && typeCoercion.canCoerce(secondType, superTypeOptional.get())) {
                 Type superType = superTypeOptional.get();
                 if (!firstType.equals(superType)) {
-                    addOrReplaceExpressionCoercion(first, firstType, superType);
+                    addOrReplaceExpressionCoercion(first, superType);
                 }
                 if (!secondType.equals(superType)) {
-                    addOrReplaceExpressionCoercion(second, secondType, superType);
+                    addOrReplaceExpressionCoercion(second, superType);
                 }
                 return superType;
             }
 
-            throw semanticException(TYPE_MISMATCH, node, message, firstType, secondType);
+            throw semanticException(TYPE_MISMATCH, node, "%s: %s vs %s", message, firstType, secondType);
         }
 
         private Type coerceToSingleType(StackableAstVisitorContext<Context> context, String description, List<Expression> expressions)
@@ -3184,12 +3249,12 @@ public class ExpressionAnalyzer
             for (Type type : types) {
                 Optional<Type> newSuperType = typeCoercion.getCommonSuperType(superType, type);
                 if (newSuperType.isEmpty()) {
-                    throw semanticException(TYPE_MISMATCH, Iterables.get(typeExpressions.get(type), 0).getNode(), format(
+                    throw semanticException(TYPE_MISMATCH, Iterables.get(typeExpressions.get(type), 0).getNode(),
                             "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
                             description,
                             superType,
                             type,
-                            typeExpressions.keySet()));
+                            typeExpressions.keySet());
                 }
                 superType = newSuperType.get();
             }
@@ -3200,34 +3265,28 @@ public class ExpressionAnalyzer
 
                 if (!type.equals(superType)) {
                     if (!typeCoercion.canCoerce(type, superType)) {
-                        throw semanticException(TYPE_MISMATCH, Iterables.get(coercionCandidates, 0).getNode(), format(
+                        throw semanticException(TYPE_MISMATCH, Iterables.get(coercionCandidates, 0).getNode(),
                                 "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
                                 description,
                                 superType,
                                 type,
-                                typeExpressions.keySet()));
+                                typeExpressions.keySet());
                     }
-                    addOrReplaceExpressionsCoercion(coercionCandidates, type, superType);
+                    addOrReplaceExpressionsCoercion(coercionCandidates, superType);
                 }
             }
 
             return superType;
         }
 
-        private void addOrReplaceExpressionCoercion(Expression expression, Type type, Type superType)
+        private void addOrReplaceExpressionCoercion(Expression expression, Type superType)
         {
-            addOrReplaceExpressionsCoercion(ImmutableList.of(NodeRef.of(expression)), type, superType);
+            addOrReplaceExpressionsCoercion(ImmutableList.of(NodeRef.of(expression)), superType);
         }
 
-        private void addOrReplaceExpressionsCoercion(Collection<NodeRef<Expression>> expressions, Type type, Type superType)
+        private void addOrReplaceExpressionsCoercion(Collection<NodeRef<Expression>> expressions, Type superType)
         {
             expressions.forEach(expression -> expressionCoercions.put(expression, superType));
-            if (typeCoercion.isTypeOnlyCoercion(type, superType)) {
-                typeOnlyCoercions.addAll(expressions);
-            }
-            else {
-                typeOnlyCoercions.removeAll(expressions);
-            }
         }
     }
 
@@ -3385,7 +3444,6 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getWindowFunctions());
     }
@@ -3418,7 +3476,6 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getWindowFunctions());
     }
@@ -3447,9 +3504,110 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getWindowFunctions());
+    }
+
+    public static ParametersTypeAndAnalysis analyzeJsonPathInvocation(
+            JsonTable node,
+            Session session,
+            PlannerContext plannerContext,
+            StatementAnalyzerFactory statementAnalyzerFactory,
+            AccessControl accessControl,
+            Scope scope,
+            Analysis analysis,
+            WarningCollector warningCollector,
+            CorrelationSupport correlationSupport)
+    {
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        RowType parametersRowType = analyzer.analyzeJsonPathInvocation(node, scope, correlationSupport);
+        updateAnalysis(analysis, analyzer, session, accessControl);
+        return new ParametersTypeAndAnalysis(
+                parametersRowType,
+                new ExpressionAnalysis(
+                        analyzer.getExpressionTypes(),
+                        analyzer.getExpressionCoercions(),
+                        analyzer.getSubqueryInPredicates(),
+                        analyzer.getSubqueries(),
+                        analyzer.getExistsSubqueries(),
+                        analyzer.getColumnReferences(),
+                        analyzer.getQuantifiedComparisons(),
+                        analyzer.getWindowFunctions()));
+    }
+
+    public record ParametersTypeAndAnalysis(RowType parametersType, ExpressionAnalysis expressionAnalysis) {}
+
+    public static TypeAndAnalysis analyzeJsonValueExpression(
+            ValueColumn column,
+            JsonPathAnalysis pathAnalysis,
+            Session session,
+            PlannerContext plannerContext,
+            StatementAnalyzerFactory statementAnalyzerFactory,
+            AccessControl accessControl,
+            Scope scope,
+            Analysis analysis,
+            WarningCollector warningCollector,
+            CorrelationSupport correlationSupport)
+    {
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        Type type = analyzer.analyzeJsonValueExpression(column, pathAnalysis, scope, correlationSupport);
+        updateAnalysis(analysis, analyzer, session, accessControl);
+        return new TypeAndAnalysis(type, new ExpressionAnalysis(
+                analyzer.getExpressionTypes(),
+                analyzer.getExpressionCoercions(),
+                analyzer.getSubqueryInPredicates(),
+                analyzer.getSubqueries(),
+                analyzer.getExistsSubqueries(),
+                analyzer.getColumnReferences(),
+                analyzer.getQuantifiedComparisons(),
+                analyzer.getWindowFunctions()));
+    }
+
+    public static Type analyzeJsonQueryExpression(
+            QueryColumn column,
+            Session session,
+            PlannerContext plannerContext,
+            StatementAnalyzerFactory statementAnalyzerFactory,
+            AccessControl accessControl,
+            Scope scope,
+            Analysis analysis,
+            WarningCollector warningCollector)
+    {
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        Type type = analyzer.analyzeJsonQueryExpression(column, scope);
+        updateAnalysis(analysis, analyzer, session, accessControl);
+        return type;
+    }
+
+    public static void analyzeExpressionWithoutSubqueries(
+            Session session,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            Scope scope,
+            Analysis analysis,
+            Expression expression,
+            ErrorCodeSupplier errorCode,
+            String message,
+            WarningCollector warningCollector,
+            CorrelationSupport correlationSupport)
+    {
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(
+                plannerContext,
+                accessControl,
+                (node, ignored) -> {
+                    throw semanticException(errorCode, node, "%s", message);
+                },
+                session,
+                TypeProvider.empty(),
+                analysis.getParameters(),
+                warningCollector,
+                analysis.isDescribe(),
+                analysis::getType,
+                analysis::getWindow);
+        analyzer.analyze(expression, scope, correlationSupport);
+
+        updateAnalysis(analysis, analyzer, session, accessControl);
+        analysis.addExpressionFields(expression, analyzer.getSourceFields());
     }
 
     public static ExpressionAnalysis analyzeWindow(
@@ -3476,7 +3634,6 @@ public class ExpressionAnalyzer
                 analyzer.getSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getWindowFunctions());
     }
@@ -3486,7 +3643,6 @@ public class ExpressionAnalyzer
         analysis.addTypes(analyzer.getExpressionTypes());
         analysis.addCoercions(
                 analyzer.getExpressionCoercions(),
-                analyzer.getTypeOnlyCoercions(),
                 analyzer.getSortKeyCoercionsForFrameBoundCalculation(),
                 analyzer.getSortKeyCoercionsForFrameBoundComparison());
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
@@ -3559,7 +3715,7 @@ public class ExpressionAnalyzer
                 session,
                 TypeProvider.empty(),
                 parameters,
-                node -> semanticException(errorCode, node, message),
+                node -> semanticException(errorCode, node, "%s", message),
                 warningCollector,
                 isDescribe);
     }
@@ -3692,4 +3848,6 @@ public class ExpressionAnalyzer
             return label;
         }
     }
+
+    public record TypeAndAnalysis(Type type, ExpressionAnalysis analysis) {}
 }

@@ -16,8 +16,6 @@ package io.trino.plugin.elasticsearch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.BaseEncoding;
-import com.google.common.net.HostAndPort;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.plan.LimitNode;
@@ -27,14 +25,13 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
-import org.apache.http.HttpHost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -42,97 +39,83 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public abstract class BaseElasticsearchConnectorTest
         extends BaseConnectorTest
 {
-    private final String image;
     private final String catalogName;
-    private ElasticsearchServer elasticsearch;
-    protected RestHighLevelClient client;
+    private ElasticsearchServer server;
+    private RestHighLevelClient client;
 
-    BaseElasticsearchConnectorTest(String image, String catalogName)
+    BaseElasticsearchConnectorTest(ElasticsearchServer server, String catalogName)
     {
-        this.image = image;
+        this.server = requireNonNull(server, "server is null");
         this.catalogName = catalogName;
+        this.client = server.getClient();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer(image, ImmutableMap.of());
-
-        HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
-
         return createElasticsearchQueryRunner(
-                elasticsearch.getAddress(),
+                server,
                 TpchTable.getTables(),
                 ImmutableMap.of(),
-                ImmutableMap.of("elasticsearch.legacy-pass-through-query.enabled", "true"),
+                ImmutableMap.of(),
                 3,
                 catalogName);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
             throws IOException
     {
-        elasticsearch.stop();
-        elasticsearch = null;
+        server.stop();
+        server = null;
         client.close();
         client = null;
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_LIMIT_PUSHDOWN:
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_CREATE_SCHEMA:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE:
-            case SUPPORTS_RENAME_TABLE:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-
-            case SUPPORTS_INSERT:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_ADD_COLUMN,
+                    SUPPORTS_COMMENT_ON_COLUMN,
+                    SUPPORTS_COMMENT_ON_TABLE,
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_CREATE_SCHEMA,
+                    SUPPORTS_CREATE_TABLE,
+                    SUPPORTS_CREATE_VIEW,
+                    SUPPORTS_DELETE,
+                    SUPPORTS_INSERT,
+                    SUPPORTS_LIMIT_PUSHDOWN,
+                    SUPPORTS_MERGE,
+                    SUPPORTS_RENAME_COLUMN,
+                    SUPPORTS_RENAME_TABLE,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_UPDATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     /**
      * This method overrides the default values used for the data provider
-     * of the test {@link AbstractTestQueries#testLargeIn(int)} by taking
+     * of the test {@link AbstractTestQueries#testLargeIn()} by taking
      * into account that by default Elasticsearch supports only up to `1024`
      * clauses in query.
      * <p>
@@ -142,13 +125,9 @@ public abstract class BaseElasticsearchConnectorTest
      * @return the amount of clauses to be used in large queries
      */
     @Override
-    protected Object[][] largeInValuesCountData()
+    protected List<Integer> largeInValuesCountData()
     {
-        return new Object[][] {
-                {200},
-                {500},
-                {1000}
-        };
+        return ImmutableList.of(200, 500, 1000);
     }
 
     @Test
@@ -168,15 +147,12 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
     }
 
-    /**
-     * The column metadata for the Elasticsearch connector tables are provided
-     * based on the column name in alphabetical order.
-     */
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        // The column metadata for the Elasticsearch connector tables are provided
+        // based on the column name in alphabetical order.
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("clerk", "varchar", "", "")
                 .row("comment", "varchar", "", "")
                 .row("custkey", "bigint", "", "")
@@ -187,8 +163,6 @@ public abstract class BaseElasticsearchConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("totalprice", "real", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
@@ -214,6 +188,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -235,20 +210,7 @@ public abstract class BaseElasticsearchConnectorTest
     @Override
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("clerk", "varchar", "", "")
-                .row("comment", "varchar", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderdate", "timestamp(3)", "", "")
-                .row("orderkey", "bigint", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("shippriority", "bigint", "", "")
-                .row("totalprice", "real", "", "")
-                .build();
-
-        assertEquals(expected, actual);
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
     @Test
@@ -665,7 +627,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .row(null, null, "\"Check out the bi-weekly Trino Community Broadcast https://trino.io/broadcast/\"", null, null, null, "5309")
                 .build();
 
-        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
 
         MaterializedResult nestedRows = computeActual("" +
                 "SELECT " +
@@ -684,7 +646,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .row(null, null, "\"Join the Trino Slack: https://trino.io/slack.html\"", null, null, null, "867")
                 .build();
 
-        assertEquals(nestedRows.getMaterializedRows(), nestedExpected.getMaterializedRows());
+        assertThat(nestedRows.getMaterializedRows()).isEqualTo(nestedExpected.getMaterializedRows());
 
         MaterializedResult arrayRows = computeActual("" +
                 "SELECT " +
@@ -703,7 +665,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .row(null, null, "\"If you like Presto, you'll love Trino: https://trino.io/slack.html\"", null, null, null, "321")
                 .build();
 
-        assertEquals(arrayRows.getMaterializedRows(), arrayExpected.getMaterializedRows());
+        assertThat(arrayRows.getMaterializedRows()).isEqualTo(arrayExpected.getMaterializedRows());
 
         MaterializedResult rawRows = computeActual("" +
                 "SELECT " +
@@ -722,7 +684,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .row(null, null, "\"The founders and core contributors of Presto, and are now working on Trino: https://trino.io/blog/2020/12/27/announcing-trino.html\"", null, null, null, "654")
                 .build();
 
-        assertEquals(rawRows.getMaterializedRows(), rawRowsExpected.getMaterializedRows());
+        assertThat(rawRows.getMaterializedRows()).isEqualTo(rawRowsExpected.getMaterializedRows());
     }
 
     @Test
@@ -826,7 +788,7 @@ public abstract class BaseElasticsearchConnectorTest
         assertThat(rows.getTypes())
                 .hasOnlyElementsOfType(VarcharType.class);
 
-        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
 
         deleteIndex(indexName);
     }
@@ -885,7 +847,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .row("\"dGVzdA==\"", "true", "123")
                 .build();
 
-        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
         assertThat(rows.getTypes())
                 .hasOnlyElementsOfType(VarcharType.class);
 
@@ -1081,6 +1043,30 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("text_column", "soome%text")
                 .buildOrThrow());
 
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "中文")
+                .put("text_column", "中文")
+                .buildOrThrow());
+
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "こんにちは")
+                .put("text_column", "こんにちは")
+                .buildOrThrow());
+
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "안녕하세요")
+                .put("text_column", "안녕하세요")
+                .buildOrThrow());
+
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "Привет")
+                .put("text_column", "Привет")
+                .buildOrThrow());
+
         assertThat(query("" +
                 "SELECT " +
                 "keyword_column " +
@@ -1102,6 +1088,38 @@ public abstract class BaseElasticsearchConnectorTest
                 "FROM " + indexName + " " +
                 "WHERE keyword_column LIKE 'soome$%%' ESCAPE '$'"))
                 .matches("VALUES VARCHAR 'soome%text'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE '中%'"))
+                .matches("VALUES VARCHAR '中文'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE 'こんに%'"))
+                .matches("VALUES VARCHAR 'こんにちは'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE '안녕하%'"))
+                .matches("VALUES VARCHAR '안녕하세요'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE 'При%'"))
+                .matches("VALUES VARCHAR 'Привет'")
                 .isFullyPushedDown();
     }
 
@@ -1179,7 +1197,7 @@ public abstract class BaseElasticsearchConnectorTest
                         123456.78d)
                 .build();
 
-        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
     }
 
     @Test
@@ -1209,7 +1227,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .row(1L)
                 .build();
 
-        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
     }
 
     @Test
@@ -1406,13 +1424,12 @@ public abstract class BaseElasticsearchConnectorTest
                 .buildOrThrow());
 
         // Trino query filters in the engine, so the rounding (dependent on scaling factor) does not impact results
-        assertEquals(
-                computeActual("" +
-                        "SELECT " +
-                        "text_column, " +
-                        "scaled_float_column " +
-                        "FROM scaled_float_type WHERE scaled_float_column = 123.46"),
-                resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
+        assertThat(query("""
+                SELECT text_column, scaled_float_column
+                FROM scaled_float_type
+                WHERE scaled_float_column = 123.46
+                """))
+                .matches(resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
                         .row("bar", 123.46d)
                         .build());
     }
@@ -1455,7 +1472,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .row(1.0f, 1.0d, 1, 1L)
                 .build();
 
-        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
     }
 
     @Test
@@ -1651,7 +1668,7 @@ public abstract class BaseElasticsearchConnectorTest
                         LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
                 .build();
 
-        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
     }
 
     @Test
@@ -1721,19 +1738,13 @@ public abstract class BaseElasticsearchConnectorTest
                         LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
                 .build();
 
-        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
     }
 
     @Test
     public void testQueryString()
     {
-        MaterializedResult actual = computeActual("SELECT count(*) FROM \"orders: +packages -slyly\"");
-
-        MaterializedResult expected = resultBuilder(getSession(), ImmutableList.of(BIGINT))
-                .row(1639L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQuery("SELECT count(*) FROM \"orders: +packages -slyly\"", "VALUES 1639");
     }
 
     @Test
@@ -1809,7 +1820,8 @@ public abstract class BaseElasticsearchConnectorTest
         testSelectInformationSchemaColumns();
     }
 
-    @Test(enabled = false) // TODO (https://github.com/trinodb/trino/issues/2428)
+    @Test // TODO (https://github.com/trinodb/trino/issues/2428)
+    @Disabled
     public void testMultiIndexAlias()
             throws IOException
     {
@@ -1819,49 +1831,6 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT count(*) FROM multi_alias",
                 "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
-    }
-
-    @Test
-    public void testPassthroughQuery()
-    {
-        @Language("JSON")
-        String query = "{\n" +
-                "    \"size\": 0,\n" +
-                "    \"aggs\" : {\n" +
-                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
-                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
-                "    }\n" +
-                "}";
-
-        assertQuery(
-                format("WITH data(r) AS (" +
-                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                        "   FROM \"orders$query:%s\") " +
-                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                        "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8))),
-                "VALUES (60000, 449872500)");
-
-        // assert that query pass-through returns the same result as the raw_query table function
-        assertThat(query(format("WITH data(r) AS (" +
-                "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                "   FROM \"orders$query:%s\") " +
-                "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8)))))
-                .matches(format("WITH data(r) AS (" +
-                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                        format("   FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "                        schema => 'tpch', " +
-                        "                        index => 'orders', " +
-                        "                        query => '%s'))) " +
-                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                        "FROM data", query));
-
-        assertQueryFails(
-                "SELECT * FROM \"orders$query:invalid-base32-encoding\"",
-                "Elasticsearch query for 'orders' is not base32-encoded correctly");
-        assertQueryFails(
-                format("SELECT * FROM \"orders$query:%s\"", BaseEncoding.base32().encode("invalid json".getBytes(UTF_8))),
-                "Elasticsearch query for 'orders' is not valid JSON");
     }
 
     @Test
@@ -1881,7 +1850,7 @@ public abstract class BaseElasticsearchConnectorTest
         createIndex(indexName, mappings);
 
         assertQuery(format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", indexName), "VALUES ('dummy_column')");
-        assertTrue(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(indexName));
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains(indexName);
         assertQueryReturnsEmptyResult("SELECT * FROM " + indexName);
     }
 
@@ -1943,6 +1912,27 @@ public abstract class BaseElasticsearchConnectorTest
                         "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)",
                 "VALUES ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA']");
 
+        // use aggregations
+        @Language("JSON")
+        String query = "{\n" +
+                "    \"size\": 0,\n" +
+                "    \"aggs\" : {\n" +
+                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
+                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
+                "    }\n" +
+                "}";
+
+        assertQuery(
+                format("WITH data(r) AS (" +
+                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
+                        "   FROM TABLE(%s.system.raw_query(" +
+                        "                        schema => 'tpch', " +
+                        "                        index => 'orders', " +
+                        "                        query => '%s'))) " +
+                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
+                        "FROM data", catalogName, query),
+                "VALUES (60000, 449872500)");
+
         // no matches
         assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
                         format("FROM TABLE(%s.system.raw_query(", catalogName) +
@@ -1952,68 +1942,78 @@ public abstract class BaseElasticsearchConnectorTest
                 "VALUES '[]'");
 
         // syntax error
-        assertThatThrownBy(() -> query("SELECT * " +
+        assertThat(query("SELECT * " +
                 format("FROM TABLE(%s.system.raw_query(", catalogName) +
                 "schema => 'tpch', " +
                 "index => 'nation', " +
                 "query => 'wrong syntax')) t(result)"))
-                .hasMessageContaining("json_parse_exception");
+                .failure().hasMessageContaining("json_parse_exception");
     }
 
     protected void assertTableDoesNotExist(String name)
     {
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
-        assertFalse(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name));
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name)).isFalse();
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
-    protected abstract String indexEndpoint(String index, String docId);
+    protected String indexEndpoint(String index, String docId)
+    {
+        return format("/%s/_doc/%s", index, docId);
+    }
 
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
         String json = new ObjectMapper().writeValueAsString(document);
         String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
-        client.getLowLevelClient()
-                .performRequest("PUT", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
+
+        Request request = new Request("PUT", endpoint);
+        request.setJsonEntity(json);
+
+        client.getLowLevelClient().performRequest(request);
     }
 
     private void addAlias(String index, String alias)
             throws IOException
     {
         client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+                .performRequest(new Request("PUT", format("/%s/_alias/%s", index, alias)));
 
         refreshIndex(alias);
     }
 
-    protected abstract String indexMapping(@Language("JSON") String properties);
+    protected String indexMapping(@Language("JSON") String properties)
+    {
+        return "{\"mappings\": " + properties + "}";
+    }
 
     private void createIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient().performRequest("PUT", "/" + indexName);
+        client.getLowLevelClient().performRequest(new Request("PUT", "/" + indexName));
     }
 
     private void createIndex(String indexName, @Language("JSON") String properties)
             throws IOException
     {
         String mappings = indexMapping(properties);
-        client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
+
+        Request request = new Request("PUT", "/" + indexName);
+        request.setJsonEntity(mappings);
+
+        client.getLowLevelClient().performRequest(request);
     }
 
     private void refreshIndex(String index)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("GET", format("/%s/_refresh", index));
+        client.getLowLevelClient().performRequest(new Request("GET", format("/%s/_refresh", index)));
     }
 
     private void deleteIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("DELETE", "/" + indexName);
+        client.getLowLevelClient().performRequest(new Request("DELETE", "/" + indexName));
     }
 }

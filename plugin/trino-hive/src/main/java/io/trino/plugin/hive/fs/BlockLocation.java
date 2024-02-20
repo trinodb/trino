@@ -13,56 +13,40 @@
  */
 package io.trino.plugin.hive.fs;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.FileEntry;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
+import io.trino.filesystem.FileEntry.Block;
 
-import javax.annotation.Nullable;
-
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Objects.requireNonNull;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 
 public class BlockLocation
 {
+    private static final long INSTANCE_SIZE = instanceSize(BlockLocation.class);
+
+    /**
+     * Number of hosts will be low compared to potential number of splits. Host
+     * set will also be limited and slowly changing even in most extreme cases.
+     * Interning host names allows to have significant memory savings on coordinator.
+     */
+    private static final Interner<String> HOST_INTERNER = Interners.newWeakInterner();
+
     private final List<String> hosts;
     private final long offset;
     private final long length;
 
-    public static List<BlockLocation> fromHiveBlockLocations(@Nullable org.apache.hadoop.fs.BlockLocation[] blockLocations)
+    public BlockLocation(Block block)
     {
-        if (blockLocations == null) {
-            return ImmutableList.of();
-        }
-
-        return Arrays.stream(blockLocations)
-                .map(BlockLocation::new)
+        this.hosts = block.hosts().stream()
+                .map(HOST_INTERNER::intern)
                 .collect(toImmutableList());
-    }
-
-    public BlockLocation(FileEntry.BlockLocation blockLocation)
-    {
-        this.hosts = ImmutableList.copyOf(blockLocation.hosts());
-        this.offset = blockLocation.offset();
-        this.length = blockLocation.length();
-    }
-
-    public BlockLocation(org.apache.hadoop.fs.BlockLocation blockLocation)
-    {
-        requireNonNull(blockLocation, "blockLocation is null");
-        try {
-            this.hosts = ImmutableList.copyOf(blockLocation.getHosts());
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        this.offset = blockLocation.getOffset();
-        this.length = blockLocation.getLength();
+        this.offset = block.offset();
+        this.length = block.length();
     }
 
     public List<String> getHosts()
@@ -78,6 +62,12 @@ public class BlockLocation
     public long getLength()
     {
         return length;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // host names are interned (shared)
+        return INSTANCE_SIZE + sizeOfObjectArray(hosts.size());
     }
 
     @Override

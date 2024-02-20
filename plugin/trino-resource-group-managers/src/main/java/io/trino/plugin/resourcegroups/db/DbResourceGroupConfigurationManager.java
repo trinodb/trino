@@ -17,6 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
@@ -32,13 +34,10 @@ import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -181,7 +180,7 @@ public class DbResourceGroupConfigurationManager
     {
         List<ResourceGroupGlobalProperties> globalProperties = dao.getResourceGroupGlobalProperties();
         checkState(globalProperties.size() <= 1, "There is more than one cpu_quota_period");
-        return (!globalProperties.isEmpty()) ? globalProperties.get(0).getCpuQuotaPeriod() : Optional.empty();
+        return !globalProperties.isEmpty() ? globalProperties.get(0).getCpuQuotaPeriod() : Optional.empty();
     }
 
     @VisibleForTesting

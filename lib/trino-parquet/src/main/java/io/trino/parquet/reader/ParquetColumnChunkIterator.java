@@ -18,6 +18,8 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetCorruptionException;
+import io.trino.parquet.ParquetDataSourceId;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.format.DataPageHeader;
@@ -27,8 +29,6 @@ import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -42,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 public final class ParquetColumnChunkIterator
         implements Iterator<Page>
 {
+    private final ParquetDataSourceId dataSourceId;
     private final Optional<String> fileCreatedBy;
     private final ColumnDescriptor descriptor;
     private final ColumnChunkMetaData metadata;
@@ -52,12 +53,14 @@ public final class ParquetColumnChunkIterator
     private int dataPageCount;
 
     public ParquetColumnChunkIterator(
+            ParquetDataSourceId dataSourceId,
             Optional<String> fileCreatedBy,
             ColumnDescriptor descriptor,
             ColumnChunkMetaData metadata,
             ChunkedInputStream input,
             @Nullable OffsetIndex offsetIndex)
     {
+        this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -84,7 +87,7 @@ public final class ParquetColumnChunkIterator
             switch (pageHeader.type) {
                 case DICTIONARY_PAGE:
                     if (dataPageCount != 0) {
-                        throw new ParquetCorruptionException("Column (%s) has a dictionary page after the first position in column chunk", descriptor);
+                        throw new ParquetCorruptionException(dataSourceId, "Column (%s) has a dictionary page after the first position in column chunk", descriptor);
                     }
                     result = readDictionaryPage(pageHeader, pageHeader.getUncompressed_page_size(), pageHeader.getCompressed_page_size());
                     break;

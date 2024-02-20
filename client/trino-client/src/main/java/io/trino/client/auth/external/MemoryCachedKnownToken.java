@@ -13,7 +13,7 @@
  */
 package io.trino.client.auth.external;
 
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;

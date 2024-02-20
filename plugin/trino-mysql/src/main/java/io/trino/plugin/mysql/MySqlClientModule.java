@@ -19,6 +19,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.mysql.cj.jdbc.Driver;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
@@ -29,7 +30,7 @@ import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.sql.SQLException;
 import java.util.Properties;
@@ -55,14 +56,15 @@ public class MySqlClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MySqlConfig mySqlConfig)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MySqlConfig mySqlConfig, OpenTelemetry openTelemetry)
             throws SQLException
     {
         return new DriverConnectionFactory(
                 new Driver(),
                 config.getConnectionUrl(),
                 getConnectionProperties(mySqlConfig),
-                credentialProvider);
+                credentialProvider,
+                openTelemetry);
     }
 
     public static Properties getConnectionProperties(MySqlConfig mySqlConfig)
@@ -74,11 +76,11 @@ public class MySqlClientModule
         connectionProperties.setProperty("tinyInt1isBit", "false");
         connectionProperties.setProperty("rewriteBatchedStatements", "true");
 
-        // Try to make MySQL timestamps work (See https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-time-instants.html)
-        // without relying on server time zone (which may be configured to be totally unusable).
-        // TODO (https://github.com/trinodb/trino/issues/15668) rethink how timestamps are mapped. Also, probably worth adding tests
-        //  with MySQL server with a non-UTC system zone.
-        connectionProperties.setProperty("connectionTimeZone", "UTC");
+        // connectionTimeZone = LOCAL means the JDBC driver uses the JVM zone as the session zone
+        // forceConnectionTimeZoneToSession = true means that the server side connection zone is changed to match local JVM zone
+        // https://dev.mysql.com/doc/connector-j/8.1/en/connector-j-time-instants.html (Solution 2b)
+        connectionProperties.setProperty("connectionTimeZone", "LOCAL");
+        connectionProperties.setProperty("forceConnectionTimeZoneToSession", "true");
 
         if (mySqlConfig.isAutoReconnect()) {
             connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));

@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
@@ -42,7 +42,6 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -59,6 +58,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
@@ -75,7 +75,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcRecordReader
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcRecordReader.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(OrcRecordReader.class);
 
     private final OrcDataSource orcDataSource;
 
@@ -237,7 +237,7 @@ public class OrcRecordReader
                 .mapToLong(StripeInformation::getNumberOfRows)
                 .sum();
 
-        this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
+        this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slice::copy));
 
         this.currentStripeMemoryContext = this.memoryUsage.newAggregatedMemoryContext();
         // The streamReadersMemoryContext covers the StreamReader local buffer sizes, plus leaf node StreamReaders'
@@ -479,7 +479,7 @@ public class OrcRecordReader
 
     public Map<String, Slice> getUserMetadata()
     {
-        return ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
+        return ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slice::copy));
     }
 
     private boolean advanceToNextRowGroup()
@@ -571,6 +571,8 @@ public class OrcRecordReader
         orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
     }
 
+    @SuppressWarnings("FormatStringAnnotation")
+    @FormatMethod
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
             throws OrcCorruptionException
     {

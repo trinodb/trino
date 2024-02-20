@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
@@ -26,8 +27,6 @@ import io.trino.operator.OperatorStats;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
@@ -634,6 +633,10 @@ public class StageStats
         if (isScheduled && totalDrivers != 0) {
             progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
         }
+        OptionalDouble runningPercentage = OptionalDouble.empty();
+        if (isScheduled && totalDrivers != 0) {
+            progressPercentage = OptionalDouble.of(min(100, (runningDrivers * 100.0) / totalDrivers));
+        }
 
         return new BasicStageStats(
                 isScheduled,
@@ -659,7 +662,8 @@ public class StageStats
                 failedScheduledTime,
                 fullyBlocked,
                 blockedReasons,
-                progressPercentage);
+                progressPercentage,
+                runningPercentage);
     }
 
     public static StageStats createInitial()

@@ -15,14 +15,12 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.Objects;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -85,10 +83,9 @@ public class HiveBasicStatistics
         return onDiskDataSizeInBytes;
     }
 
-    public HiveBasicStatistics withAdjustedRowCount(long adjustment)
+    public HiveBasicStatistics withEmptyRowCount()
     {
-        checkArgument(rowCount.isPresent(), "rowCount isn't present");
-        return new HiveBasicStatistics(fileCount, OptionalLong.of(rowCount.getAsLong() + adjustment), inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
+        return new HiveBasicStatistics(fileCount, OptionalLong.empty(), inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
     }
 
     @Override

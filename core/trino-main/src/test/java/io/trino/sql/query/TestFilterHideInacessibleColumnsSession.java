@@ -23,7 +23,7 @@ import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.sql.planner.OptimizerConfig;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

@@ -13,22 +13,20 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.operator.aggregation.TypedSet;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
+import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
@@ -38,12 +36,12 @@ import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 @Description("Intersects elements of the two given arrays")
 public final class ArrayIntersectFunction
 {
-    private final PageBuilder pageBuilder;
+    private final BufferedArrayValueBuilder arrayValueBuilder;
 
     @TypeParameter("E")
     public ArrayIntersectFunction(@TypeParameter("E") Type elementType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
     }
 
     @TypeParameter("E")
@@ -74,27 +72,21 @@ public final class ArrayIntersectFunction
             return rightArray;
         }
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        TypedSet rightTypedSet = createDistinctTypedSet(type, elementIsDistinctFrom, elementHashCode, rightPositionCount, "array_intersect");
+        BlockSet rightSet = new BlockSet(type, elementIsDistinctFrom, elementHashCode, rightPositionCount);
         for (int i = 0; i < rightPositionCount; i++) {
-            rightTypedSet.add(rightArray, i);
+            rightSet.add(rightArray, i);
         }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
 
         // The intersected set can have at most rightPositionCount elements
-        TypedSet intersectTypedSet = createDistinctTypedSet(type, elementIsDistinctFrom, elementHashCode, blockBuilder, rightPositionCount, "array_intersect");
+        BlockSet intersectSet = new BlockSet(type, elementIsDistinctFrom, elementHashCode, rightSet.size());
         for (int i = 0; i < leftPositionCount; i++) {
-            if (rightTypedSet.contains(leftArray, i)) {
-                intersectTypedSet.add(leftArray, i);
+            if (rightSet.contains(leftArray, i)) {
+                intersectSet.add(leftArray, i);
             }
         }
 
-        pageBuilder.declarePositions(intersectTypedSet.size());
-
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - intersectTypedSet.size(), intersectTypedSet.size());
+        return arrayValueBuilder.build(
+                intersectSet.size(),
+                blockBuilder -> intersectSet.getAllWithSizeLimit(blockBuilder, "array_intersect", MAX_FUNCTION_MEMORY));
     }
 }

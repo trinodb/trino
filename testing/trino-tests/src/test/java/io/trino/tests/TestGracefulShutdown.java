@@ -24,13 +24,17 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.testing.TestingTrinoServer.TestShutdownAction;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.execution.QueryState.FINISHED;
@@ -38,11 +42,13 @@ import static io.trino.memory.TestMemoryManager.createQueryRunner;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // run single threaded to avoid creating multiple query runners at once
 public class TestGracefulShutdown
 {
     private static final long SHUTDOWN_TIMEOUT_MILLIS = 240_000;
@@ -53,19 +59,20 @@ public class TestGracefulShutdown
 
     private ListeningExecutorService executor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         executor = MoreExecutors.listeningDecorator(newCachedThreadPool());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void shutdown()
     {
         executor.shutdownNow();
     }
 
-    @Test(timeOut = SHUTDOWN_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(value = SHUTDOWN_TIMEOUT_MILLIS, unit = TimeUnit.MILLISECONDS)
     public void testShutdown()
             throws Exception
     {
@@ -104,12 +111,12 @@ public class TestGracefulShutdown
 
             List<BasicQueryInfo> queryInfos = queryRunner.getCoordinator().getQueryManager().getQueries();
             for (BasicQueryInfo info : queryInfos) {
-                assertEquals(info.getState(), FINISHED);
+                assertThat(info.getState()).isEqualTo(FINISHED);
             }
 
             TestShutdownAction shutdownAction = (TestShutdownAction) worker.getShutdownAction();
             shutdownAction.waitForShutdownComplete(SHUTDOWN_TIMEOUT_MILLIS);
-            assertTrue(shutdownAction.isWorkerShutdown());
+            assertThat(shutdownAction.isWorkerShutdown()).isTrue();
         }
     }
 

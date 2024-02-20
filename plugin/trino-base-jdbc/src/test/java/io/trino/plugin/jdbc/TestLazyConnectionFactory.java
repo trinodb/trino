@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.inject.Guice;
+import com.google.inject.Injector;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import org.h2.Driver;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.util.concurrent.ThreadLocalRandom;
@@ -30,11 +32,15 @@ public class TestLazyConnectionFactory
     public void testNoConnectionIsCreated()
             throws Exception
     {
-        ConnectionFactory failingConnectionFactory = session -> {
-            throw new AssertionError("Expected no connection creation");
-        };
+        Injector injector = Guice.createInjector(binder -> {
+            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).toInstance(
+                    session -> {
+                        throw new AssertionError("Expected no connection creation");
+                    });
+            binder.install(new RetryingConnectionFactoryModule());
+        });
 
-        try (LazyConnectionFactory lazyConnectionFactory = new LazyConnectionFactory(failingConnectionFactory);
+        try (LazyConnectionFactory lazyConnectionFactory = injector.getInstance(LazyConnectionFactory.class);
                 Connection ignored = lazyConnectionFactory.openConnection(SESSION)) {
             // no-op
         }
@@ -47,8 +53,13 @@ public class TestLazyConnectionFactory
         BaseJdbcConfig config = new BaseJdbcConfig()
                 .setConnectionUrl(format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong()));
 
-        try (DriverConnectionFactory h2ConnectionFactory = new DriverConnectionFactory(new Driver(), config, new EmptyCredentialProvider());
-                LazyConnectionFactory lazyConnectionFactory = new LazyConnectionFactory(h2ConnectionFactory)) {
+        Injector injector = Guice.createInjector(binder -> {
+            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).toInstance(
+                    new DriverConnectionFactory(new Driver(), config, new EmptyCredentialProvider()));
+            binder.install(new RetryingConnectionFactoryModule());
+        });
+
+        try (LazyConnectionFactory lazyConnectionFactory = injector.getInstance(LazyConnectionFactory.class)) {
             Connection connection = lazyConnectionFactory.openConnection(SESSION);
             connection.close();
             assertThatThrownBy(() -> connection.createStatement())

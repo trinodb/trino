@@ -13,27 +13,27 @@
  */
 package io.trino.tests.product.sqlserver;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.query.QueryResult;
+import io.trino.tests.product.TestGroups;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TestGroups.SQL_SERVER;
 import static io.trino.tests.product.sqlserver.SqlServerDataTypesTableDefinition.SQLSERVER_INSERT;
 import static io.trino.tests.product.sqlserver.TestConstants.KEY_SPACE;
 import static io.trino.tests.product.utils.QueryExecutors.onSqlServer;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInsert
         extends ProductTest
@@ -49,14 +49,14 @@ public class TestInsert
     private static final String MASTER = "master";
     private static final String INSERT_TABLE_NAME = format("%s.%s", KEY_SPACE, SQLSERVER_INSERT.getName());
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void dropTestTables()
     {
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", INSERT_TABLE_NAME));
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {TestGroups.SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testInsertMin()
     {
         String sql = format(
@@ -76,7 +76,7 @@ public class TestInsert
                 row(Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE, Double.MIN_VALUE, "a   ", "aa", Double.MIN_VALUE, Date.valueOf("1970-01-01")));
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {TestGroups.SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testInsertMax()
     {
         String sql = format(
@@ -97,7 +97,7 @@ public class TestInsert
                         Date.valueOf("9999-12-31")));
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {TestGroups.SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testInsertNull()
     {
         String sql = format(

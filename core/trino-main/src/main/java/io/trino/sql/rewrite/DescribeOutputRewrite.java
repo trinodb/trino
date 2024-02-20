@@ -14,7 +14,9 @@
 package io.trino.sql.rewrite;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.type.FixedWidthType;
@@ -25,6 +27,7 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Limit;
@@ -33,18 +36,19 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
-import static io.trino.sql.ParsingUtil.createParsingOptions;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.row;
@@ -52,6 +56,7 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
@@ -73,20 +78,33 @@ public final class DescribeOutputRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        return (Statement) new Visitor(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector).process(node, null);
     }
 
     private static final class Visitor
             extends AstVisitor<Node, Void>
     {
+        private static final Query EMPTY_OUTPUT = createDesctibeOutputQuery(
+                new Row[] {row(
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                        new Cast(new NullLiteral(), toSqlType(BIGINT)),
+                        new Cast(new NullLiteral(), toSqlType(BOOLEAN)))},
+                Optional.of(new Limit(new LongLiteral("0"))));
+
         private final Session session;
         private final SqlParser parser;
         private final AnalyzerFactory analyzerFactory;
         private final List<Expression> parameters;
         private final Map<NodeRef<Parameter>, Expression> parameterLookup;
         private final WarningCollector warningCollector;
+        private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
         public Visitor(
                 Session session,
@@ -94,7 +112,8 @@ public final class DescribeOutputRewrite
                 AnalyzerFactory analyzerFactory,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                PlanOptimizersStatsCollector planOptimizersStatsCollector)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = requireNonNull(parser, "parser is null");
@@ -102,24 +121,28 @@ public final class DescribeOutputRewrite
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         }
 
         @Override
         protected Node visitDescribeOutput(DescribeOutput node, Void context)
         {
             String sqlString = session.getPreparedStatement(node.getName().getValue());
-            Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
+            Statement statement = parser.createStatement(sqlString);
 
-            Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector);
+            Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector);
             Analysis analysis = analyzer.analyze(statement, DESCRIBE);
 
             Optional<Node> limit = Optional.empty();
             Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createDescribeOutputRow(field, analysis)).toArray(Row[]::new);
             if (rows.length == 0) {
-                NullLiteral nullLiteral = new NullLiteral();
-                rows = new Row[] {row(nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral)};
-                limit = Optional.of(new Limit(new LongLiteral("0")));
+                return EMPTY_OUTPUT;
             }
+            return createDesctibeOutputQuery(rows, limit);
+        }
+
+        private static Query createDesctibeOutputQuery(Row[] rows, Optional<Node> limit)
+        {
             return simpleQuery(
                     selectList(
                             identifier("Column Name"),

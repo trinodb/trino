@@ -17,7 +17,7 @@ import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
@@ -26,7 +26,6 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,7 +52,7 @@ public class TestTpcds
                 // are padded with whitespace
                 .row("James               ", "Brown                         ", 4L, new BigDecimal("-7.00"))
                 .build();
-        assertEquals(expected, actual);
+        assertThat(actual).containsExactlyElementsOf(expected);
 
         actual = computeActual(
                 "SELECT c_first_name, c_last_name " +
@@ -62,7 +61,7 @@ public class TestTpcds
         expected = resultBuilder(getSession(), actual.getTypes())
                 .row("James               ", "Brown                         ")
                 .build();
-        assertEquals(expected, actual);
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     @Test

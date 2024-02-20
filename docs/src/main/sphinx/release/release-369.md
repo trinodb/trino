@@ -73,7 +73,7 @@
 
 * Add support for writing Bloom filters in ORC files. ({issue}`3939`)
 * Allow flushing the metadata cache for specific schemas, tables, or partitions
-  with the [flush_metadata_cache](hive_flush_metadata_cache) system procedure.
+  with the [flush_metadata_cache](hive-flush-metadata-cache) system procedure.
   ({issue}`10385`)
 * Add support for long lived AWS Security Token Service (STS) credentials for
   authentication with Glue catalog. ({issue}`10735`)

@@ -28,9 +28,8 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.SpillerFactory;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.TestingTaskContext;
-import io.trino.type.BlockTypeOperators;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -42,7 +41,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
-import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.List;
@@ -68,9 +66,9 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
-import static org.testng.Assert.assertEquals;
 
 @State(Thread)
 @OutputTimeUnit(MILLISECONDS)
@@ -81,12 +79,11 @@ import static org.testng.Assert.assertEquals;
 public class BenchmarkHashAndStreamingAggregationOperators
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators(TYPE_OPERATORS);
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
 
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
-    private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
-    private static final TestingAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), ImmutableList.of());
+    private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction("sum", fromTypes(BIGINT));
+    private static final TestingAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunction("count", ImmutableList.of());
 
     @State(Thread)
     public static class Context
@@ -266,7 +263,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,
                     JOIN_COMPILER,
-                    BLOCK_TYPE_OPERATORS,
+                    TYPE_OPERATORS,
                     Optional.empty());
         }
 
@@ -362,13 +359,13 @@ public class BenchmarkHashAndStreamingAggregationOperators
         context.groupByTypes = groupByTypes;
         context.setup();
 
-        assertEquals(TOTAL_PAGES, context.getPages().size());
+        assertThat(TOTAL_PAGES).isEqualTo(context.getPages().size());
         for (int i = 0; i < TOTAL_PAGES; i++) {
-            assertEquals(ROWS_PER_PAGE, context.getPages().get(i).getPositionCount());
+            assertThat(ROWS_PER_PAGE).isEqualTo(context.getPages().get(i).getPositionCount());
         }
 
         List<Page> outputPages = benchmark(context);
-        assertEquals(TOTAL_PAGES * ROWS_PER_PAGE / rowsPerGroup, outputPages.stream().mapToInt(Page::getPositionCount).sum());
+        assertThat(TOTAL_PAGES * ROWS_PER_PAGE / rowsPerGroup).isEqualTo(outputPages.stream().mapToInt(Page::getPositionCount).sum());
 
         context.cleanup();
     }

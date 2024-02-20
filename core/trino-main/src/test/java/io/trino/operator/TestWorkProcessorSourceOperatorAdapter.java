@@ -16,18 +16,18 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.Duration;
-import io.trino.Session;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
-import io.trino.operator.WorkProcessorSourceOperatorAdapter.AdapterWorkProcessorSourceOperatorFactory;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -36,18 +36,22 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestWorkProcessorSourceOperatorAdapter
 {
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         scheduledExecutor = newSingleThreadScheduledExecutor();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         scheduledExecutor.shutdownNow();
@@ -89,11 +93,11 @@ public class TestWorkProcessorSourceOperatorAdapter
     }
 
     private static class TestWorkProcessorOperatorFactory
-            implements AdapterWorkProcessorSourceOperatorFactory
+            implements WorkProcessorSourceOperatorFactory
     {
         @Override
         public WorkProcessorSourceOperator create(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)

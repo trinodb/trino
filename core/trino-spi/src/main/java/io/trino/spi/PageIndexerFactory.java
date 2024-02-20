@@ -19,5 +19,5 @@ import java.util.List;
 
 public interface PageIndexerFactory
 {
-    PageIndexer createPageIndexer(List<? extends Type> types);
+    PageIndexer createPageIndexer(List<Type> types);
 }

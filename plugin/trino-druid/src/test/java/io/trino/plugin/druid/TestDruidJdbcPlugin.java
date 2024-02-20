@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -28,6 +28,11 @@ public class TestDruidJdbcPlugin
     {
         Plugin plugin = new DruidJdbcPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:druid:test"), new TestingConnectorContext()).shutdown();
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:druid:test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
     }
 }

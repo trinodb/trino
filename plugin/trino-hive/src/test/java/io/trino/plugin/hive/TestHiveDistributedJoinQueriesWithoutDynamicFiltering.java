@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestJoinQueries;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * @see TestHiveDistributedJoinQueries for tests with dynamic filtering enabled

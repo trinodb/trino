@@ -20,6 +20,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -40,8 +41,10 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDecimalOperators
 {
     private QueryAssertions assertions;
@@ -145,22 +148,22 @@ public class TestDecimalOperators
                 .isEqualTo(decimal("12345678.123456789012345678901234567890", createDecimalType(38, 30)));
 
         // overflow tests
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "DECIMAL '.1'", "DECIMAL '99999999999999999999999999999999999999'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "DECIMAL '.1'", "DECIMAL '99999999999999999999999999999999999999'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "DECIMAL '1'", "DECIMAL '99999999999999999999999999999999999999'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "DECIMAL '1'", "DECIMAL '99999999999999999999999999999999999999'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '.1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '.1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '99999999999999999999999999999999999999'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '99999999999999999999999999999999999999'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "DECIMAL '-99999999999999999999999999999999999999'", "DECIMAL '-99999999999999999999999999999999999999'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "DECIMAL '-99999999999999999999999999999999999999'", "DECIMAL '-99999999999999999999999999999999999999'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         // max supported value for rescaling
@@ -170,7 +173,7 @@ public class TestDecimalOperators
                 .isEqualTo(decimal("9999999999999999999999999999999999999.9", createDecimalType(38, 1)));
 
         // 17015000000000000000000000000000000000 on the other hand is too large and rescaled to DECIMAL(38,1) it does not fit in in 127 bits
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "DECIMAL '17015000000000000000000000000000000000'", "DECIMAL '-7015000000000000000000000000000000000.1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "DECIMAL '17015000000000000000000000000000000000'", "DECIMAL '-7015000000000000000000000000000000000.1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
@@ -256,19 +259,19 @@ public class TestDecimalOperators
                 .isEqualTo(decimal("12345677.999999999999999999999999999999", createDecimalType(38, 30)));
 
         // overflow tests
-        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, "DECIMAL '-99999999999999999999999999999999999999'", "DECIMAL '1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "DECIMAL '-99999999999999999999999999999999999999'", "DECIMAL '1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, "DECIMAL '.1'", "DECIMAL '99999999999999999999999999999999999999'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "DECIMAL '.1'", "DECIMAL '99999999999999999999999999999999999999'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, "DECIMAL '-1'", "DECIMAL '99999999999999999999999999999999999999'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "DECIMAL '-1'", "DECIMAL '99999999999999999999999999999999999999'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '.1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "DECIMAL '99999999999999999999999999999999999999'", "DECIMAL '.1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, "DECIMAL '-99999999999999999999999999999999999999'", "DECIMAL '99999999999999999999999999999999999999'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "DECIMAL '-99999999999999999999999999999999999999'", "DECIMAL '99999999999999999999999999999999999999'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         // max supported value for rescaling
@@ -278,7 +281,7 @@ public class TestDecimalOperators
                 .isEqualTo(decimal("9999999999999999999999999999999999999.9", createDecimalType(38, 1)));
 
         // 17015000000000000000000000000000000000 on the other hand is too large and rescaled to DECIMAL(38,1) it does not fit in in 127 bits
-        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, "DECIMAL '17015000000000000000000000000000000000'", "DECIMAL '7015000000000000000000000000000000000.1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "DECIMAL '17015000000000000000000000000000000000'", "DECIMAL '7015000000000000000000000000000000000.1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
@@ -408,23 +411,23 @@ public class TestDecimalOperators
                 .isEqualTo(decimal(".01524157875323883675019051998750190521", createDecimalType(38, 38)));
 
         // scale exceeds max precision
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "DECIMAL '.1234567890123456789'", "DECIMAL '.12345678901234567890'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '.1234567890123456789'", "DECIMAL '.12345678901234567890'")::evaluate)
                 .hasMessage("line 1:8: DECIMAL scale must be in range [0, precision (38)]: 39");
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "DECIMAL '.1'", "DECIMAL '.12345678901234567890123456789012345678'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '.1'", "DECIMAL '.12345678901234567890123456789012345678'")::evaluate)
                 .hasMessage("line 1:8: DECIMAL scale must be in range [0, precision (38)]: 39");
 
         // runtime overflow tests
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "DECIMAL '12345678901234567890123456789012345678'", "DECIMAL '9'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567890123456789012345678'", "DECIMAL '9'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL '9'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL '9'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "DECIMAL '12345678901234567890123456789012345678'", "DECIMAL '-9'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '12345678901234567890123456789012345678'", "DECIMAL '-9'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL '-9'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL '-9'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThatThrownBy(() -> DecimalOperators.multiplyLongShortLong(Int128.valueOf("12345678901234567890123456789012345678"), 9))
@@ -665,29 +668,29 @@ public class TestDecimalOperators
                 .isEqualTo(decimal("0000000000000000000000000000000000.0344", createDecimalType(38, 4)));
 
         // runtime overflow
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "DECIMAL '12345678901234567890123456789012345678'", "DECIMAL '.1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "DECIMAL '12345678901234567890123456789012345678'", "DECIMAL '.1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL '.1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL '.1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "DECIMAL '12345678901234567890123456789012345678'", "DECIMAL '.12345678901234567890123456789012345678'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "DECIMAL '12345678901234567890123456789012345678'", "DECIMAL '.12345678901234567890123456789012345678'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "DECIMAL '1'", "DECIMAL '.12345678901234567890123456789012345678'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "DECIMAL '1'", "DECIMAL '.12345678901234567890123456789012345678'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         // division by zero tests
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "DECIMAL '1'", "DECIMAL '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "DECIMAL '1'", "DECIMAL '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0.0000000000000000000000000000000000000'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0.0000000000000000000000000000000000000'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "DECIMAL '1'", "DECIMAL '0.0000000000000000000000000000000000000'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "DECIMAL '1'", "DECIMAL '0.0000000000000000000000000000000000000'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
         assertThat(assertions.operator(DIVIDE, "CAST(1000 AS DECIMAL(38,8))", "CAST(25 AS DECIMAL(38,8))"))
@@ -926,19 +929,19 @@ public class TestDecimalOperators
                 .isEqualTo(decimal("00000000000000000000000000000000000000", createDecimalType(38)));
 
         // division by zero tests
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MODULUS, "DECIMAL '1'", "DECIMAL '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "DECIMAL '1'", "DECIMAL '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MODULUS, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MODULUS, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0.0000000000000000000000000000000000000'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "DECIMAL '1.000000000000000000000000000000000000'", "DECIMAL '0.0000000000000000000000000000000000000'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MODULUS, "DECIMAL '1'", "DECIMAL '0.0000000000000000000000000000000000000'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "DECIMAL '1'", "DECIMAL '0.0000000000000000000000000000000000000'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MODULUS, "DECIMAL '1'", "CAST(0 AS DECIMAL(38,0))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "DECIMAL '1'", "CAST(0 AS DECIMAL(38,0))")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 

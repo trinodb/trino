@@ -25,16 +25,15 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -54,7 +53,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
 
-    @BeforeClass
+    @BeforeAll
     public void setUpBeforeClass()
     {
         removeRedundantPredicateAboveTableScan = new RemoveRedundantPredicateAboveTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
@@ -147,8 +146,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 ImmutableList.of(
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                FunctionCallBuilder.resolve(tester().getSession(), tester().getMetadata())
-                                                        .setName(QualifiedName.of("rand"))
+                                                BuiltinFunctionCallBuilder.resolve(tester().getMetadata())
+                                                        .setName("rand")
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         new ComparisonExpression(
@@ -178,8 +177,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 LogicalExpression.and(
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                FunctionCallBuilder.resolve(tester().getSession(), tester().getMetadata())
-                                                        .setName(QualifiedName.of("rand"))
+                                                BuiltinFunctionCallBuilder.resolve(tester().getMetadata())
+                                                        .setName("rand")
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         new ComparisonExpression(
@@ -203,8 +202,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
                 .on(p -> p.filter(
                         new ComparisonExpression(
                                 EQUAL,
-                                FunctionCallBuilder.resolve(tester().getSession(), tester().getMetadata())
-                                        .setName(QualifiedName.of("rand"))
+                                BuiltinFunctionCallBuilder.resolve(tester().getMetadata())
+                                        .setName("rand")
                                         .build(),
                                 new GenericLiteral("BIGINT", "42")),
                         p.tableScan(

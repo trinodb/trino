@@ -36,16 +36,17 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTable;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class RedshiftQueryRunner
 {
@@ -70,7 +71,7 @@ public final class RedshiftQueryRunner
 
     private RedshiftQueryRunner() {}
 
-    public static DistributedQueryRunner createRedshiftQueryRunner(
+    public static QueryRunner createRedshiftQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
@@ -79,20 +80,43 @@ public final class RedshiftQueryRunner
         return createRedshiftQueryRunner(
                 createSession(),
                 extraProperties,
+                Map.of(),
                 connectorProperties,
-                tables);
+                tables,
+                queryRunner -> {});
     }
 
-    public static DistributedQueryRunner createRedshiftQueryRunner(
-            Session session,
+    public static QueryRunner createRedshiftQueryRunner(
             Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
+            Iterable<TpchTable<?>> tables,
+            Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
-        DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(session);
-        extraProperties.forEach(builder::addExtraProperty);
-        DistributedQueryRunner runner = builder.build();
+        return createRedshiftQueryRunner(
+                createSession(),
+                extraProperties,
+                coordinatorProperties,
+                connectorProperties,
+                tables,
+                additionalSetup);
+    }
+
+    public static QueryRunner createRedshiftQueryRunner(
+            Session session,
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            Consumer<QueryRunner> additionalSetup)
+            throws Exception
+    {
+        QueryRunner runner = DistributedQueryRunner.builder(session)
+                .setExtraProperties(extraProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .setAdditionalSetup(additionalSetup)
+                .build();
         try {
             runner.installPlugin(new TpchPlugin());
             runner.createCatalog(TPCH_CATALOG, "tpch", Map.of());
@@ -105,7 +129,7 @@ public final class RedshiftQueryRunner
             runner.installPlugin(new RedshiftPlugin());
             runner.createCatalog(TEST_CATALOG, CONNECTOR_NAME, properties);
 
-            executeInRedshift("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
+            executeInRedshiftWithRetry("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
             createUserIfNotExists(NON_GRANTED_USER, JDBC_PASSWORD);
             createUserIfNotExists(GRANTED_USER, JDBC_PASSWORD);
 
@@ -197,7 +221,7 @@ public final class RedshiftQueryRunner
 
     private static void copyFromS3(QueryRunner queryRunner, Session session, String name)
     {
-        String s3Path = format("%s/%s/%s.parquet", S3_TPCH_TABLES_ROOT, TPCH_CATALOG, name);
+        String s3Path = format("%s/%s/%s/%s/", S3_TPCH_TABLES_ROOT, TPCH_CATALOG, TINY_SCHEMA_NAME, name);
         log.info("Creating table %s in Redshift copying from %s", name, s3Path);
 
         // Create table in ephemeral Redshift cluster with no data
@@ -241,7 +265,7 @@ public final class RedshiftQueryRunner
             log.info("Checking column types on table %s", tpchTable.getTableName());
             MaterializedResult expectedColumns = queryRunner.execute(format("DESCRIBE %s.%s.%s", TPCH_CATALOG, TINY_SCHEMA_NAME, tpchTable.getTableName()));
             MaterializedResult actualColumns = queryRunner.execute("DESCRIBE " + tpchTable.getTableName());
-            assertEquals(actualColumns, expectedColumns);
+            assertThat(actualColumns).containsExactlyElementsOf(expectedColumns);
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to assert columns for TPC-H table " + tpchTable.getTableName(), e);
@@ -261,7 +285,7 @@ public final class RedshiftQueryRunner
     {
         Logging.initialize();
 
-        DistributedQueryRunner queryRunner = createRedshiftQueryRunner(
+        QueryRunner queryRunner = createRedshiftQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 ImmutableList.of());

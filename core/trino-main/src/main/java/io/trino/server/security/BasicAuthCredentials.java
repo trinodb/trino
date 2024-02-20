@@ -14,8 +14,7 @@
 package io.trino.server.security;
 
 import com.google.common.base.Splitter;
-
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.util.Base64;
 import java.util.List;

@@ -16,13 +16,13 @@ package io.trino.server.protocol;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.ProtocolHeaders;
-import io.trino.client.QueryResults;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryManager;
 import io.trino.operator.DirectExchangeClientSupplier;
@@ -31,23 +31,21 @@ import io.trino.server.ServerConfig;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.BlockEncodingSerde;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.container.AsyncResponse;
-import javax.ws.rs.container.Suspended;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.UriInfo;
+import jakarta.annotation.PreDestroy;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.container.AsyncResponse;
+import jakarta.ws.rs.container.Suspended;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.ResponseBuilder;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.net.URLEncoder;
 import java.util.Map.Entry;
@@ -62,13 +60,13 @@ import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
+import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
-import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/v1/statement/executing")
 public class ExecutingStatementResource
@@ -118,14 +116,10 @@ public class ExecutingStatementResource
         queryPurger.scheduleWithFixedDelay(
                 () -> {
                     try {
-                        for (Entry<QueryId, Query> entry : queries.entrySet()) {
+                        for (QueryId queryId : queries.keySet()) {
                             // forget about this query if the query manager is no longer tracking it
-                            try {
-                                queryManager.getQueryState(entry.getKey());
-                            }
-                            catch (NoSuchElementException e) {
-                                // query is no longer registered
-                                Query query = queries.remove(entry.getKey());
+                            if (!queryManager.hasQuery(queryId)) {
+                                Query query = queries.remove(queryId);
                                 if (query != null) {
                                     query.dispose();
                                 }
@@ -225,52 +219,56 @@ public class ExecutingStatementResource
         else {
             targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
         }
-        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize);
+        ListenableFuture<QueryResultsResponse> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize);
 
-        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
+        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, this::toResponse, directExecutor());
 
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
-    private Response toResponse(Query query, QueryResults queryResults)
+    private Response toResponse(QueryResultsResponse resultsResponse)
     {
-        ResponseBuilder response = Response.ok(queryResults);
+        ResponseBuilder response = Response.ok(resultsResponse.queryResults());
 
-        ProtocolHeaders protocolHeaders = query.getProtocolHeaders();
-        query.getSetCatalog().ifPresent(catalog -> response.header(protocolHeaders.responseSetCatalog(), catalog));
-        query.getSetSchema().ifPresent(schema -> response.header(protocolHeaders.responseSetSchema(), schema));
-        query.getSetPath().ifPresent(path -> response.header(protocolHeaders.responseSetPath(), path));
+        ProtocolHeaders protocolHeaders = resultsResponse.protocolHeaders();
+        resultsResponse.setCatalog().ifPresent(catalog -> response.header(protocolHeaders.responseSetCatalog(), catalog));
+        resultsResponse.setSchema().ifPresent(schema -> response.header(protocolHeaders.responseSetSchema(), schema));
+        resultsResponse.setPath().ifPresent(path -> response.header(protocolHeaders.responseSetPath(), path));
+        resultsResponse.setAuthorizationUser().ifPresent(authorizationUser -> response.header(protocolHeaders.responseSetAuthorizationUser(), authorizationUser));
+        if (resultsResponse.resetAuthorizationUser()) {
+            response.header(protocolHeaders.responseResetAuthorizationUser(), true);
+        }
 
         // add set session properties
-        query.getSetSessionProperties()
+        resultsResponse.setSessionProperties()
                 .forEach((key, value) -> response.header(protocolHeaders.responseSetSession(), key + '=' + urlEncode(value)));
 
         // add clear session properties
-        query.getResetSessionProperties()
+        resultsResponse.resetSessionProperties()
                 .forEach(name -> response.header(protocolHeaders.responseClearSession(), name));
 
         // add set roles
-        query.getSetRoles()
+        resultsResponse.setRoles()
                 .forEach((key, value) -> response.header(protocolHeaders.responseSetRole(), key + '=' + urlEncode(value.toString())));
 
         // add added prepare statements
-        for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
+        for (Entry<String, String> entry : resultsResponse.addedPreparedStatements().entrySet()) {
             String encodedKey = urlEncode(entry.getKey());
             String encodedValue = urlEncode(preparedStatementEncoder.encodePreparedStatementForHeader(entry.getValue()));
             response.header(protocolHeaders.responseAddedPrepare(), encodedKey + '=' + encodedValue);
         }
 
         // add deallocated prepare statements
-        for (String name : query.getDeallocatedPreparedStatements()) {
+        for (String name : resultsResponse.deallocatedPreparedStatements()) {
             response.header(protocolHeaders.responseDeallocatedPrepare(), urlEncode(name));
         }
 
         // add new transaction ID
-        query.getStartedTransactionId()
+        resultsResponse.startedTransactionId()
                 .ifPresent(transactionId -> response.header(protocolHeaders.responseStartedTransactionId(), transactionId));
 
         // add clear transaction ID directive
-        if (query.isClearTransactionId()) {
+        if (resultsResponse.clearTransactionId()) {
             response.header(protocolHeaders.responseClearTransactionId(), true);
         }
 

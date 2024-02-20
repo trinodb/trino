@@ -15,15 +15,14 @@ package io.trino.hive.formats;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.concurrent.ThreadLocalRandom;
 
-import static org.testng.Assert.assertEquals;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDataOutputStream
 {
@@ -120,8 +119,7 @@ public class TestDataOutputStream
     public void testEncodingBytes()
             throws Exception
     {
-        byte[] data = new byte[18000];
-        ThreadLocalRandom.current().nextBytes(data);
+        byte[] data = Slices.random(18000).byteArray();
 
         assertEncoding(sliceOutput -> sliceOutput.write(data), data);
         assertEncoding(sliceOutput -> sliceOutput.write(data, 0, 0), Arrays.copyOfRange(data, 0, 0));
@@ -138,9 +136,8 @@ public class TestDataOutputStream
     public void testEncodingSlice()
             throws Exception
     {
-        byte[] data = new byte[18000];
-        ThreadLocalRandom.current().nextBytes(data);
-        Slice slice = Slices.wrappedBuffer(data);
+        Slice slice = Slices.random(18000);
+        byte[] data = slice.byteArray();
 
         assertEncoding(sliceOutput -> sliceOutput.write(slice), data);
         assertEncoding(sliceOutput -> sliceOutput.write(slice, 0, 0), Arrays.copyOfRange(data, 0, 0));
@@ -181,10 +178,10 @@ public class TestDataOutputStream
         DataOutputStream output = new DataOutputStream(new ByteArrayOutputStream(0), bufferSize);
 
         long originalRetainedSize = output.getRetainedSize();
-        assertEquals(originalRetainedSize, ClassLayout.parseClass(DataOutputStream.class).instanceSize() + Slices.allocate(bufferSize).getRetainedSize());
+        assertThat(originalRetainedSize).isEqualTo(instanceSize(DataOutputStream.class) + Slices.allocate(bufferSize).getRetainedSize());
         output.writeLong(0);
         output.writeShort(0);
-        assertEquals(output.getRetainedSize(), originalRetainedSize);
+        assertThat(output.getRetainedSize()).isEqualTo(originalRetainedSize);
     }
 
     /**
@@ -218,12 +215,12 @@ public class TestDataOutputStream
         try (DataOutputStream dataOutputStream = new DataOutputStream(byteArrayOutputStream, 16384)) {
             dataOutputStream.writeZero(offset);
             operations.test(dataOutputStream);
-            assertEquals(dataOutputStream.longSize(), offset + output.length);
+            assertThat(dataOutputStream.longSize()).isEqualTo(offset + output.length);
         }
 
         byte[] expected = new byte[offset + output.length];
         System.arraycopy(output, 0, expected, offset, output.length);
-        assertEquals(byteArrayOutputStream.toByteArray(), expected);
+        assertThat(byteArrayOutputStream.toByteArray()).isEqualTo(expected);
     }
 
     private interface DataOutputTester

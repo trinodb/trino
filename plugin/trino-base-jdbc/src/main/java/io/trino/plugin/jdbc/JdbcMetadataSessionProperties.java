@@ -14,12 +14,11 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +33,7 @@ public class JdbcMetadataSessionProperties
 {
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String JOIN_PUSHDOWN_ENABLED = "join_pushdown_enabled";
+    public static final String COMPLEX_JOIN_PUSHDOWN_ENABLED = "complex_join_pushdown_enabled";
     public static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     public static final String TOPN_PUSHDOWN_ENABLED = "topn_pushdown_enabled";
     public static final String DOMAIN_COMPACTION_THRESHOLD = "domain_compaction_threshold";
@@ -54,6 +54,11 @@ public class JdbcMetadataSessionProperties
                         JOIN_PUSHDOWN_ENABLED,
                         "Enable join pushdown",
                         jdbcMetadataConfig.isJoinPushdownEnabled(),
+                        false))
+                .add(booleanProperty(
+                        COMPLEX_JOIN_PUSHDOWN_ENABLED,
+                        "Enable join pushdown with non-comparison expressions",
+                        jdbcMetadataConfig.isComplexJoinPushdownEnabled(),
                         false))
                 .add(booleanProperty(
                         AGGREGATION_PUSHDOWN_ENABLED,
@@ -88,6 +93,11 @@ public class JdbcMetadataSessionProperties
     public static boolean isJoinPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(JOIN_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isComplexJoinPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(COMPLEX_JOIN_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public static boolean isAggregationPushdownEnabled(ConnectorSession session)

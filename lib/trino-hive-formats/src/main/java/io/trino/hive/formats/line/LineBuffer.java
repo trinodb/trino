@@ -13,8 +13,6 @@
  */
 package io.trino.hive.formats.line;
 
-import org.openjdk.jol.info.ClassLayout;
-
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,14 +21,14 @@ import java.util.Arrays;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.primitives.Ints.constrainToRange;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
+import static java.lang.Math.clamp;
 
 public final class LineBuffer
         extends OutputStream
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LineBuffer.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(LineBuffer.class);
 
     private final int maxLength;
     private byte[] buffer;
@@ -114,7 +112,7 @@ public final class LineBuffer
             throw new IOException("Max line length exceeded: " + newLength);
         }
         if (buffer.length < newLength) {
-            int newSize = constrainToRange(buffer.length * 2, newLength, maxLength);
+            int newSize = clamp(buffer.length * 2L, newLength, maxLength);
             buffer = Arrays.copyOf(buffer, newSize);
         }
     }

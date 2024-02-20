@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -43,9 +44,10 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestBingTileFunctions
 {
     private QueryAssertions assertions;
@@ -72,8 +74,8 @@ public class TestBingTileFunctions
         ObjectMapper objectMapper = new ObjectMapper();
         BingTile tile = fromCoordinates(1, 2, 3);
         String json = objectMapper.writeValueAsString(tile);
-        assertEquals("{\"x\":1,\"y\":2,\"zoom\":3}", json);
-        assertEquals(tile, objectMapper.readerFor(BingTile.class).readValue(json));
+        assertThat("{\"x\":1,\"y\":2,\"zoom\":3}").isEqualTo(json);
+        assertThat(tile).isEqualTo(objectMapper.readerFor(BingTile.class).readValue(json));
     }
 
     @Test
@@ -106,27 +108,27 @@ public class TestBingTileFunctions
                 .isEqualTo("123030123010121");
 
         // Invalid calls: corrupt quadkeys
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile", "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile", "''")::evaluate)
                 .hasMessage("QuadKey must not be empty string");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile", "'test'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile", "'test'")::evaluate)
                 .hasMessage("Invalid QuadKey digit sequence: test");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile", "'12345'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile", "'12345'")::evaluate)
                 .hasMessage("Invalid QuadKey digit sequence: 12345");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile", "'101010101010101010101010101010100101010101001010'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile", "'101010101010101010101010101010100101010101001010'")::evaluate)
                 .hasMessage("QuadKey must be 23 characters or less");
 
         // Invalid calls: XY out of range
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile", "10", "2", "3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile", "10", "2", "3")::evaluate)
                 .hasMessage("XY coordinates for a Bing tile at zoom level 3 must be within [0, 8) range");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile", "2", "10", "3").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile", "2", "10", "3")::evaluate)
                 .hasMessage("XY coordinates for a Bing tile at zoom level 3 must be within [0, 8) range");
 
         // Invalid calls: zoom level out of range
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile", "2", "7", "37").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile", "2", "7", "37")::evaluate)
                 .hasMessage("Zoom level must be <= 23");
     }
 
@@ -151,18 +153,18 @@ public class TestBingTileFunctions
 
         // Invalid calls
         // Longitude out of range
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile_at", "30.12", "600", "15").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile_at", "30.12", "600", "15")::evaluate)
                 .hasMessage("Longitude must be between -180.0 and 180.0");
 
         // Latitude out of range
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile_at", "300.12", "60", "15").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile_at", "300.12", "60", "15")::evaluate)
                 .hasMessage("Latitude must be between -85.05112878 and 85.05112878");
 
         // Invalid zoom levels
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile_at", "30.12", "60", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile_at", "30.12", "60", "0")::evaluate)
                 .hasMessage("Zoom level must be > 0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tile_at", "30.12", "60", "40").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tile_at", "30.12", "60", "40")::evaluate)
                 .hasMessage("Zoom level must be <= 23");
     }
 
@@ -293,14 +295,14 @@ public class TestBingTileFunctions
     public void testBingTilesWithRadiusBadInput()
     {
         // Invalid radius
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tiles_around", "30.12", "60.0", "1", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tiles_around", "30.12", "60.0", "1", "-1")::evaluate)
                 .hasMessage("Radius must be >= 0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tiles_around", "30.12", "60.0", "1", "2000").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tiles_around", "30.12", "60.0", "1", "2000")::evaluate)
                 .hasMessage("Radius must be <= 1,000 km");
 
         // Too many tiles
-        assertTrinoExceptionThrownBy(() -> assertions.function("bing_tiles_around", "30.12", "60.0", "20", "100").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("bing_tiles_around", "30.12", "60.0", "20", "100")::evaluate)
                 .hasMessage("The number of tiles covering input rectangle exceeds the limit of 1M. Number of tiles: 36699364. Radius: 100.0 km. Zoom level: 20.");
     }
 
@@ -452,7 +454,7 @@ public class TestBingTileFunctions
 
         assertThat(assertions.function("ST_AsText", "ST_Centroid(bing_tile_polygon(bing_tile('123030123010121')))"))
                 .hasType(VARCHAR)
-                .isEqualTo("POINT (60.0018310442288 30.121372968273892)");
+                .isEqualTo("POINT (60.0018310546875 30.121372973521975)");
 
         // Check bottom right corner of a stack of tiles at different zoom levels
         assertThat(assertions.function("ST_AsText", "apply(bing_tile_polygon(bing_tile(1, 1, 1)), g -> ST_Point(ST_XMax(g), ST_YMin(g)))"))
@@ -636,7 +638,7 @@ public class TestBingTileFunctions
                 .hasMessage("Zoom level must be <= 23");
 
         // Input rectangle too large
-        assertTrinoExceptionThrownBy(() -> assertions.function("geometry_to_bing_tiles", "ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)'))", "16").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("geometry_to_bing_tiles", "ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)'))", "16")::evaluate)
                 .hasMessage("The number of tiles covering input rectangle exceeds the limit of 1M. Number of tiles: 370085804. Rectangle: xMin=0.00, yMin=0.00, xMax=80.00, yMax=80.00. Zoom level: 16.");
 
         assertThat(assertions.function("cardinality", "geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 5)"))
@@ -648,14 +650,14 @@ public class TestBingTileFunctions
         try (Stream<String> lines = Files.lines(Paths.get(filePath))) {
             largeWkt = lines.collect(onlyElement());
         }
-        assertTrinoExceptionThrownBy(() -> assertions.expression("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)")::evaluate)
                 .hasMessage("The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
 
         assertThat(assertions.expression("cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('" + largeWkt + "')), 16))"))
                 .isEqualTo(19939L);
 
         // Zoom level is too high
-        assertTrinoExceptionThrownBy(() -> assertions.function("geometry_to_bing_tiles", "ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))')", "20").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("geometry_to_bing_tiles", "ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))')", "20")::evaluate)
                 .hasMessage("The zoom level is too high to compute a set of covering Bing tiles.");
 
         assertThat(assertions.function("cardinality", "geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 14)"))

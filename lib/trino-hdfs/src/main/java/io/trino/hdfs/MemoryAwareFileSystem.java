@@ -14,13 +14,13 @@
 package io.trino.hdfs;
 
 import io.trino.memory.context.AggregatedMemoryContext;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.io.OutputStream;
 
 public interface MemoryAwareFileSystem
 {
-    OutputStream create(Path f, AggregatedMemoryContext memoryContext)
+    FSDataOutputStream create(Path f, AggregatedMemoryContext memoryContext)
             throws IOException;
 }

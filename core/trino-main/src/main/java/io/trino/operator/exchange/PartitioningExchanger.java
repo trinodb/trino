@@ -15,11 +15,10 @@ package io.trino.operator.exchange;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 import java.util.function.Consumer;

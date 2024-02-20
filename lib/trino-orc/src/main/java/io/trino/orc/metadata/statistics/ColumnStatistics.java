@@ -14,12 +14,12 @@
 package io.trino.orc.metadata.statistics;
 
 import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.statistics.BinaryStatisticsBuilder.mergeBinaryStatistics;
 import static io.trino.orc.metadata.statistics.BooleanStatisticsBuilder.mergeBooleanStatistics;
 import static io.trino.orc.metadata.statistics.DateStatisticsBuilder.mergeDateStatistics;
@@ -28,12 +28,11 @@ import static io.trino.orc.metadata.statistics.IntegerStatisticsBuilder.mergeInt
 import static io.trino.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
 import static io.trino.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
 import static io.trino.orc.metadata.statistics.TimestampStatisticsBuilder.mergeTimestampStatistics;
-import static java.lang.Math.toIntExact;
 
 public class ColumnStatistics
         implements Hashable
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ColumnStatistics.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ColumnStatistics.class);
 
     private final boolean hasNumberOfValues;
     private final long numberOfValues;

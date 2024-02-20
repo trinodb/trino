@@ -13,11 +13,9 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.Patterns;
 import io.trino.sql.planner.plan.RowNumberNode;
 
@@ -44,9 +42,9 @@ public class RowNumberStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> doCalculate(RowNumberNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    public Optional<PlanNodeStatsEstimate> doCalculate(RowNumberNode node, Context context)
     {
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
+        PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(node.getSource());
         if (sourceStats.isOutputRowCountUnknown()) {
             return Optional.empty();
         }

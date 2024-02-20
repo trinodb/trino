@@ -24,15 +24,15 @@ public interface FunctionDependencies
 {
     Type getType(TypeSignature typeSignature);
 
-    FunctionNullability getFunctionNullability(QualifiedFunctionName name, List<Type> parameterTypes);
+    FunctionNullability getFunctionNullability(CatalogSchemaFunctionName name, List<Type> parameterTypes);
 
     FunctionNullability getOperatorNullability(OperatorType operatorType, List<Type> parameterTypes);
 
     FunctionNullability getCastNullability(Type fromType, Type toType);
 
-    ScalarFunctionImplementation getScalarFunctionImplementation(QualifiedFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getScalarFunctionImplementation(CatalogSchemaFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention);
 
-    ScalarFunctionImplementation getScalarFunctionImplementationSignature(QualifiedFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getScalarFunctionImplementationSignature(CatalogSchemaFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention);
 
     ScalarFunctionImplementation getOperatorImplementation(OperatorType operatorType, List<Type> parameterTypes, InvocationConvention invocationConvention);
 

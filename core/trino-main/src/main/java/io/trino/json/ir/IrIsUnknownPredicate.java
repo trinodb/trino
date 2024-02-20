@@ -13,53 +13,19 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
-public class IrIsUnknownPredicate
-        extends IrPredicate
+public record IrIsUnknownPredicate(IrPredicate predicate)
+        implements IrPredicate
 {
-    private final IrPredicate predicate;
-
-    @JsonCreator
-    public IrIsUnknownPredicate(@JsonProperty("predicate") IrPredicate predicate)
+    public IrIsUnknownPredicate
     {
-        super();
-        this.predicate = requireNonNull(predicate, "predicate is null");
+        requireNonNull(predicate, "predicate is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrIsUnknownPredicate(this, context);
-    }
-
-    @JsonProperty
-    public IrPredicate getPredicate()
-    {
-        return predicate;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrIsUnknownPredicate other = (IrIsUnknownPredicate) obj;
-        return Objects.equals(this.predicate, other.predicate);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(predicate);
     }
 }

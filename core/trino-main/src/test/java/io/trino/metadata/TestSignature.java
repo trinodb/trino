@@ -22,14 +22,14 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSignature
 {
@@ -43,7 +43,6 @@ public class TestSignature
         JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
 
         Signature expected = Signature.builder()
-                .name("function")
                 .returnType(BIGINT)
                 .argumentType(BOOLEAN)
                 .argumentType(DOUBLE)
@@ -53,8 +52,7 @@ public class TestSignature
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);
 
-        assertEquals(actual.getName(), expected.getName());
-        assertEquals(actual.getReturnType(), expected.getReturnType());
-        assertEquals(actual.getArgumentTypes(), expected.getArgumentTypes());
+        assertThat(actual.getReturnType()).isEqualTo(expected.getReturnType());
+        assertThat(actual.getArgumentTypes()).isEqualTo(expected.getArgumentTypes());
     }
 }

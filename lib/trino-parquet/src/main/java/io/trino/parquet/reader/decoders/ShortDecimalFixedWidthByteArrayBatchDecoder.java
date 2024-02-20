@@ -78,6 +78,9 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
+            if (length == 0) {
+                return;
+            }
             int bytesOffSet = 0;
             int endOffset = offset + length;
             for (int i = offset; i < endOffset - 1; i++) {
@@ -106,6 +109,9 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
+            if (length == 0) {
+                return;
+            }
             int bytesOffSet = 0;
             int endOffset = offset + length;
             for (int i = offset; i < endOffset - 1; i++) {
@@ -133,6 +139,9 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
+            if (length == 0) {
+                return;
+            }
             int bytesOffSet = 0;
             int endOffset = offset + length;
             for (int i = offset; i < endOffset - 1; i++) {
@@ -246,29 +255,17 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
-            while (length > 7) {
-                long value = input.readLongUnsafe();
-
-                // We first shift the byte as left as possible. Then, when shifting back right,
-                // the sign bit will get propagated
-                values[offset] = value << 56 >> 56;
-                values[offset + 1] = value << 48 >> 56;
-                values[offset + 2] = value << 40 >> 56;
-                values[offset + 3] = value << 32 >> 56;
-                values[offset + 4] = value << 24 >> 56;
-                values[offset + 5] = value << 16 >> 56;
-                values[offset + 6] = value << 8 >> 56;
-                values[offset + 7] = value >> 56;
-
-                offset += 8;
-                length -= 8;
-            }
-
+            byte[] inputArr = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            int inputBytesRead = 0;
+            int outputOffset = offset;
             while (length > 0) {
                 // Implicit cast will propagate the sign bit correctly
-                values[offset++] = input.readByte();
+                values[outputOffset++] = inputArr[inputOffset + inputBytesRead];
+                inputBytesRead++;
                 length--;
             }
+            input.skip(inputBytesRead);
         }
     }
 }

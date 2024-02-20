@@ -13,27 +13,26 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.airlift.log.Logger;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
 import org.testng.annotations.Test;
 
-import javax.inject.Inject;
-
 import java.sql.SQLException;
 import java.util.function.Supplier;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.temporaryHiveTable;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHivePartitionSchemaEvolution
         extends HiveProductTest
@@ -44,7 +43,7 @@ public class TestHivePartitionSchemaEvolution
     @Named("databases.hive.enforce_non_transactional_tables")
     private boolean createTablesAsAcid;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void useColumnMappingByName()
             throws SQLException
     {

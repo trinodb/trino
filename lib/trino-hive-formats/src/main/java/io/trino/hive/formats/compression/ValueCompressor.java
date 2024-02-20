@@ -13,17 +13,33 @@
  */
 package io.trino.hive.formats.compression;
 
+import io.airlift.compress.hadoop.HadoopStreams;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 
-import java.io.Closeable;
 import java.io.IOException;
+import java.io.OutputStream;
 
-public interface ValueCompressor
-        extends Closeable
+import static java.util.Objects.requireNonNull;
+
+public final class ValueCompressor
 {
-    Slice compress(Slice slice)
-            throws IOException;
+    private final HadoopStreams hadoopStreams;
+    private final DynamicSliceOutput buffer;
 
-    @Override
-    default void close() {}
+    ValueCompressor(HadoopStreams hadoopStreams)
+    {
+        this.hadoopStreams = requireNonNull(hadoopStreams, "hadoopStreams is null");
+        this.buffer = new DynamicSliceOutput(1024);
+    }
+
+    public Slice compress(Slice slice)
+            throws IOException
+    {
+        buffer.reset();
+        try (OutputStream compressionStream = hadoopStreams.createOutputStream(buffer)) {
+            slice.getInput().transferTo(compressionStream);
+        }
+        return buffer.slice();
+    }
 }

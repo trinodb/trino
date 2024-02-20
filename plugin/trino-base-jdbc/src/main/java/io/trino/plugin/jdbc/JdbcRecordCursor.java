@@ -20,8 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -63,7 +62,7 @@ public class JdbcRecordCursor
     private ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -78,7 +77,12 @@ public class JdbcRecordCursor
         objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
 
         try {
-            connection = jdbcClient.getConnection(session, split, table);
+            if (table instanceof JdbcProcedureHandle procedureHandle) {
+                connection = jdbcClient.getConnection(session, split, procedureHandle);
+            }
+            else {
+                connection = jdbcClient.getConnection(session, split, (JdbcTableHandle) table);
+            }
 
             for (int i = 0; i < this.columnHandles.length; i++) {
                 JdbcColumnHandle columnHandle = columnHandles.get(i);
@@ -109,7 +113,12 @@ public class JdbcRecordCursor
                 }
             }
 
-            statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
+            if (table instanceof JdbcProcedureHandle procedureHandle) {
+                statement = jdbcClient.buildProcedure(session, connection, split, procedureHandle);
+            }
+            else {
+                statement = jdbcClient.buildSql(session, connection, split, (JdbcTableHandle) table, columnHandles);
+            }
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -259,7 +268,6 @@ public class JdbcRecordCursor
         }
     }
 
-    @SuppressWarnings("UnusedDeclaration")
     @Override
     public void close()
     {

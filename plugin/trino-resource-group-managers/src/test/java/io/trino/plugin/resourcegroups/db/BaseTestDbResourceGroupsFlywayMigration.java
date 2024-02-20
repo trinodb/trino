@@ -15,41 +15,33 @@ package io.trino.plugin.resourcegroups.db;
 
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.testcontainers.containers.JdbcDatabaseContainer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
+@Isolated
 public abstract class BaseTestDbResourceGroupsFlywayMigration
 {
-    protected JdbcDatabaseContainer<?> container;
-    protected Jdbi jdbi;
-
-    @BeforeClass
-    public final void setup()
-    {
-        container = startContainer();
-        jdbi = Jdbi.create(container.getJdbcUrl(), container.getUsername(), container.getPassword());
-    }
+    protected final JdbcDatabaseContainer<?> container = startContainer();
+    protected final Jdbi jdbi = Jdbi.create(container.getJdbcUrl(), container.getUsername(), container.getPassword());
 
     protected abstract JdbcDatabaseContainer<?> startContainer();
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void close()
     {
         container.close();
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void cleanup()
-    {
-        dropAllTables();
     }
 
     @Test
@@ -61,6 +53,8 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
                 .setConfigDbPassword(container.getPassword());
         FlywayMigration.migrate(config);
         verifyResourceGroupsSchema(0);
+
+        dropAllTables();
     }
 
     @Test
@@ -82,6 +76,8 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
         jdbiHandle.execute(t1Drop);
         jdbiHandle.execute(t2Drop);
         jdbiHandle.close();
+
+        dropAllTables();
     }
 
     protected void verifyResourceGroupsSchema(long expectedPropertiesCount)
@@ -96,7 +92,7 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
     {
         List<String> results = jdbi.withHandle(handle ->
                 handle.createQuery(sql).mapTo(String.class).list());
-        assertEquals(results.size(), expectedCount);
+        assertThat(results.size()).isEqualTo(expectedCount);
     }
 
     protected void dropAllTables()

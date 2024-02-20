@@ -30,7 +30,6 @@ import org.apache.hadoop.util.Progressable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -285,12 +284,7 @@ public class FileSystemTesting
         @Override
         public URI getUri()
         {
-            try {
-                return new URI("mock:///");
-            }
-            catch (URISyntaxException err) {
-                throw new IllegalArgumentException("huh?", err);
-            }
+            return URI.create("mock:///");
         }
 
         @Override

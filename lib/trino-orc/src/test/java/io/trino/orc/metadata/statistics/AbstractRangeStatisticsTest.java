@@ -13,8 +13,9 @@
  */
 package io.trino.orc.metadata.statistics;
 
+import static io.airlift.testing.EquivalenceTester.equivalenceTester;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractRangeStatisticsTest<R extends RangeStatistics<T>, T>
 {
@@ -28,6 +29,12 @@ public abstract class AbstractRangeStatisticsTest<R extends RangeStatistics<T>, 
         assertMinMaxStatistics(min, null);
         assertMinMaxStatistics(null, max);
 
+        assertMinMaxInverted(min, max);
+    }
+
+    @SuppressWarnings("ArgumentSelectionDefectChecker")
+    private void assertMinMaxInverted(T min, T max)
+    {
         if (!min.equals(max)) {
             assertThatThrownBy(() -> getCreateStatistics(max, min))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -37,16 +44,17 @@ public abstract class AbstractRangeStatisticsTest<R extends RangeStatistics<T>, 
 
     void assertRetainedSize(T min, T max, long expectedSizeInBytes)
     {
-        assertEquals(getCreateStatistics(min, max).getRetainedSizeInBytes(), expectedSizeInBytes);
+        assertThat(getCreateStatistics(min, max).getRetainedSizeInBytes()).isEqualTo(expectedSizeInBytes);
     }
 
     private void assertMinMaxStatistics(T min, T max)
     {
         R statistics = getCreateStatistics(min, max);
-        assertEquals(statistics.getMin(), min);
-        assertEquals(statistics.getMax(), max);
+        assertThat(statistics.getMin()).isEqualTo(min);
+        assertThat(statistics.getMax()).isEqualTo(max);
 
-        assertEquals(statistics, statistics);
-        assertEquals(statistics.hashCode(), statistics.hashCode());
+        equivalenceTester()
+                .addEquivalentGroup(statistics)
+                .check();
     }
 }

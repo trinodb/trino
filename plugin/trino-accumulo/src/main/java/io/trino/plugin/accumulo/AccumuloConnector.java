@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.accumulo;
 
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.accumulo.conf.AccumuloSessionProperties;
 import io.trino.plugin.accumulo.conf.AccumuloTableProperties;
@@ -27,8 +28,6 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;

@@ -23,6 +23,7 @@ import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -32,7 +33,6 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.Comment;
@@ -71,8 +71,6 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
-import javax.inject.Provider;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -97,7 +95,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.verifier.QueryType.CREATE;
 import static io.trino.verifier.QueryType.MODIFY;
 import static io.trino.verifier.QueryType.READ;
@@ -363,7 +360,7 @@ public class VerifyCommand
     static QueryType statementToQueryType(SqlParser parser, String sql)
     {
         try {
-            return statementToQueryType(parser.createStatement(sql, new ParsingOptions(AS_DOUBLE /* anything */)));
+            return statementToQueryType(parser.createStatement(sql));
         }
         catch (RuntimeException e) {
             throw new UnsupportedOperationException();

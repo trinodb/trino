@@ -13,8 +13,8 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -27,7 +27,7 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
-@AggregationFunction("arbitrary")
+@AggregationFunction(value = "any_value", alias = "arbitrary")
 @Description("Return an arbitrary non-null input value")
 public final class ArbitraryAggregationFunction
 {
@@ -37,7 +37,7 @@ public final class ArbitraryAggregationFunction
     @TypeParameter("T")
     public static void input(
             @AggregationState("T") InOut state,
-            @BlockPosition @SqlType("T") Block block,
+            @BlockPosition @SqlType("T") ValueBlock block,
             @BlockIndex int position)
             throws Throwable
     {

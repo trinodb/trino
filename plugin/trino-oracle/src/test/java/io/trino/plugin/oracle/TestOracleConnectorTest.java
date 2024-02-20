@@ -17,10 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
-
-import java.io.IOException;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
@@ -28,7 +27,9 @@ import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestOracleConnectorTest
         extends BaseOracleConnectorTest
 {
@@ -47,14 +48,14 @@ public class TestOracleConnectorTest
                         .put("connection-user", TEST_USER)
                         .put("connection-password", TEST_PASS)
                         .put("oracle.connection-pool.enabled", "false")
-                        .put("oracle.remarks-reporting.enabled", "false")
+                        .put("oracle.remarks-reporting.enabled", "true")
                         .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
-            throws IOException
+            throws Exception
     {
         Closeables.closeAll(oracleServer);
         oracleServer = null;
@@ -83,6 +84,18 @@ public class TestOracleConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return oracleServer::execute;
+        return new SqlExecutor() {
+            @Override
+            public boolean supportsMultiRowInsert()
+            {
+                return false;
+            }
+
+            @Override
+            public void execute(String sql)
+            {
+                oracleServer.execute(sql);
+            }
+        };
     }
 }

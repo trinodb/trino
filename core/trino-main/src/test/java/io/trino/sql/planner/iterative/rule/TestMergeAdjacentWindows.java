@@ -24,9 +24,8 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -47,9 +46,9 @@ public class TestMergeAdjacentWindows
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
-    private static final ResolvedFunction AVG = FUNCTION_RESOLUTION.resolveFunction(QualifiedName.of("avg"), fromTypes(DOUBLE));
-    private static final ResolvedFunction SUM = FUNCTION_RESOLUTION.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
-    private static final ResolvedFunction LAG = FUNCTION_RESOLUTION.resolveFunction(QualifiedName.of("lag"), fromTypes(DOUBLE));
+    private static final ResolvedFunction AVG = FUNCTION_RESOLUTION.resolveFunction("avg", fromTypes(DOUBLE));
+    private static final ResolvedFunction SUM = FUNCTION_RESOLUTION.resolveFunction("sum", fromTypes(DOUBLE));
+    private static final ResolvedFunction LAG = FUNCTION_RESOLUTION.resolveFunction("lag", fromTypes(DOUBLE));
 
     private static final String columnAAlias = "ALIAS_A";
     private static final ExpectedValueProvider<DataOrganizationSpecification> specificationA =
@@ -152,8 +151,8 @@ public class TestMergeAdjacentWindows
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall(AVG.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias)))
-                                        .addFunction(functionCall(SUM.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias))),
+                                        .addFunction(functionCall(AVG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias)))
+                                        .addFunction(functionCall(SUM.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias))),
                                 values(ImmutableMap.of(columnAAlias, 0))));
     }
 
@@ -190,8 +189,8 @@ public class TestMergeAdjacentWindows
                                         avgOutputAlias, PlanMatchPattern.expression(avgOutputAlias)),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationA)
-                                                .addFunction(lagOutputAlias, functionCall(LAG.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias, oneAlias)))
-                                                .addFunction(avgOutputAlias, functionCall(AVG.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias))),
+                                                .addFunction(lagOutputAlias, functionCall(LAG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias, oneAlias)))
+                                                .addFunction(avgOutputAlias, functionCall(AVG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         oneAlias, PlanMatchPattern.expression("CAST(1 AS bigint)"),

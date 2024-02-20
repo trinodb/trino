@@ -23,33 +23,47 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.TableVersion;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.aws.AwsApiCallStats;
+import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.io.FileIO;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /*
  * The test currently uses AWS Default Credential Provider Chain,
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  * on ways to set your AWS credentials which will be needed to run this test.
  */
+@TestInstance(PER_CLASS)
 public class TestIcebergGlueCatalogSkipArchive
         extends AbstractTestQueryFramework
 {
@@ -68,7 +82,6 @@ public class TestIcebergGlueCatalogSkipArchive
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.catalog.type", "glue")
-                                .put("iceberg.glue.skip-archive", "true")
                                 .put("hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath())
                                 .buildOrThrow())
                 .setSchemaInitializer(
@@ -78,7 +91,7 @@ public class TestIcebergGlueCatalogSkipArchive
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
     {
         assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
@@ -112,7 +125,12 @@ public class TestIcebergGlueCatalogSkipArchive
 
             // Add a new archive using Glue client
             Table glueTable = glueClient.getTable(new GetTableRequest().withDatabaseName(schemaName).withName(table.getName())).getTable();
-            TableInput tableInput = getTableInput(table.getName(), Optional.empty(), glueTable.getParameters());
+            Map<String, String> tableParameters = new HashMap<>(getTableParameters(glueTable));
+            String metadataLocation = tableParameters.remove(METADATA_LOCATION_PROP);
+            FileIO io = new ForwardingFileIo(getFileSystemFactory(getDistributedQueryRunner()).create(SESSION));
+            TableMetadata metadata = TableMetadataParser.read(io, io.newInputFile(metadataLocation));
+            boolean cacheTableMetadata = new IcebergGlueCatalogConfig().isCacheTableMetadata();
+            TableInput tableInput = getTableInput(TESTING_TYPE_MANAGER, table.getName(), Optional.empty(), metadata, metadataLocation, tableParameters, cacheTableMetadata);
             glueClient.updateTable(new UpdateTableRequest().withDatabaseName(schemaName).withTableInput(tableInput));
             assertThat(getTableVersions(schemaName, table.getName())).hasSize(2);
 

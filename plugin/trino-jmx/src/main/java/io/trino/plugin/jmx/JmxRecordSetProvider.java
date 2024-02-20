@@ -15,6 +15,7 @@ package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ColumnHandle;
@@ -27,7 +28,6 @@ import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 
-import javax.inject.Inject;
 import javax.management.Attribute;
 import javax.management.JMException;
 import javax.management.MBeanServer;
@@ -186,7 +186,7 @@ public class JmxRecordSetProvider
         ImmutableList.Builder<Integer> selectedColumns = ImmutableList.builder();
         for (int i = 0; i < columnHandles.size(); i++) {
             JmxColumnHandle column = columnHandles.get(i);
-            if (selectedColumnNames.contains((column.getColumnName()))) {
+            if (selectedColumnNames.contains(column.getColumnName())) {
                 selectedColumns.add(i);
             }
         }

@@ -19,18 +19,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.Session;
-import io.trino.collect.cache.NonEvictableCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.execution.NodeTaskMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.CatalogHandle;
-
-import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -44,8 +43,8 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 

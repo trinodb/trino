@@ -17,11 +17,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
@@ -38,6 +40,9 @@ public class DeltaLakeOutputTableHandle
     private final boolean external;
     private final Optional<String> comment;
     private final Optional<Boolean> changeDataFeedEnabled;
+    private final ColumnMappingMode columnMappingMode;
+    private final OptionalInt maxColumnId;
+    private final String schemaString;
     private final ProtocolEntry protocolEntry;
 
     @JsonCreator
@@ -50,6 +55,9 @@ public class DeltaLakeOutputTableHandle
             @JsonProperty("external") boolean external,
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("changeDataFeedEnabled") Optional<Boolean> changeDataFeedEnabled,
+            @JsonProperty("schemaString") String schemaString,
+            @JsonProperty("columnMappingMode") ColumnMappingMode columnMappingMode,
+            @JsonProperty("maxColumnId") OptionalInt maxColumnId,
             @JsonProperty("protocolEntry") ProtocolEntry protocolEntry)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -60,6 +68,9 @@ public class DeltaLakeOutputTableHandle
         this.external = external;
         this.comment = requireNonNull(comment, "comment is null");
         this.changeDataFeedEnabled = requireNonNull(changeDataFeedEnabled, "changeDataFeedEnabled is null");
+        this.schemaString = requireNonNull(schemaString, "schemaString is null");
+        this.columnMappingMode = requireNonNull(columnMappingMode, "columnMappingMode is null");
+        this.maxColumnId = requireNonNull(maxColumnId, "maxColumnId is null");
         this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
     }
 
@@ -92,7 +103,7 @@ public class DeltaLakeOutputTableHandle
     {
         return getInputColumns().stream()
                 .filter(column -> column.getColumnType() == PARTITION_KEY)
-                .map(DeltaLakeColumnHandle::getName)
+                .map(DeltaLakeColumnHandle::getColumnName)
                 .collect(toImmutableList());
     }
 
@@ -118,6 +129,24 @@ public class DeltaLakeOutputTableHandle
     public Optional<Boolean> getChangeDataFeedEnabled()
     {
         return changeDataFeedEnabled;
+    }
+
+    @JsonProperty
+    public String getSchemaString()
+    {
+        return schemaString;
+    }
+
+    @JsonProperty
+    public ColumnMappingMode getColumnMappingMode()
+    {
+        return columnMappingMode;
+    }
+
+    @JsonProperty
+    public OptionalInt getMaxColumnId()
+    {
+        return maxColumnId;
     }
 
     @JsonProperty

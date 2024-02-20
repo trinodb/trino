@@ -16,20 +16,19 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.trino.collect.cache.NonEvictableLoadingCache;
+import com.google.inject.Inject;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.plugin.base.security.UserNameProvider;
 import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.thrift.TException;
 
-import javax.inject.Inject;
-
 import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

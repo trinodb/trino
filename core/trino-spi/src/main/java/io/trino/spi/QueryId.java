@@ -15,6 +15,7 @@ package io.trino.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.errorprone.annotations.FormatMethod;
 
 import java.util.List;
 import java.util.Objects;
@@ -76,10 +77,6 @@ public final class QueryId
     // Check if the string matches [_a-z0-9]+ , but without the overhead of regex
     private static boolean isValidId(String id)
     {
-        if (id.length() == 0) {
-            return false;
-        }
-
         for (int i = 0; i < id.length(); i++) {
             char c = id.charAt(i);
             if (!(c == '_' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9')) {
@@ -107,12 +104,12 @@ public final class QueryId
         checkArgument(ids.size() == expectedParts, "Invalid %s %s", name, id);
 
         for (String part : ids) {
-            checkArgument(!part.isEmpty(), "Invalid id %s", id);
-            checkArgument(isValidId(part), "Invalid id %s", id);
+            validateId(part);
         }
         return ids;
     }
 
+    @FormatMethod
     private static void checkArgument(boolean condition, String message, Object... messageArgs)
     {
         if (!condition) {

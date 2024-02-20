@@ -34,12 +34,11 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.clearspring.analytics.util.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.Patterns.Limit.requiresPreSortedInputs;
@@ -121,7 +120,7 @@ public class ImplementLimitWithTies
         Symbol rankSymbol = symbolAllocator.newSymbol("rank_num", BIGINT);
 
         WindowNode.Function rankFunction = new WindowNode.Function(
-                metadata.resolveFunction(session, QualifiedName.of("rank"), ImmutableList.of()),
+                metadata.resolveBuiltinFunction("rank", ImmutableList.of()),
                 ImmutableList.of(),
                 DEFAULT_FRAME,
                 false);

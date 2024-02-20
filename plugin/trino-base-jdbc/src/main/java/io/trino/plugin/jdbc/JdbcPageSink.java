@@ -111,10 +111,10 @@ public class JdbcPageSink
                     .collect(toImmutableList());
         }
 
-        String insertSql = jdbcClient.buildInsertSql(handle, columnWriters);
+        String sinkSql = getSinkSql(jdbcClient, handle, columnWriters);
         try {
-            insertSql = remoteQueryModifier.apply(session, insertSql);
-            statement = connection.prepareStatement(insertSql);
+            sinkSql = remoteQueryModifier.apply(session, sinkSql);
+            statement = connection.prepareStatement(sinkSql);
         }
         catch (TrinoException e) {
             throw closeAllSuppress(e, connection);
@@ -126,6 +126,11 @@ public class JdbcPageSink
 
         // Making batch size configurable allows performance tuning for insert/write-heavy workloads over multiple connections.
         this.maxBatchSize = getWriteBatchSize(session);
+    }
+
+    protected String getSinkSql(JdbcClient jdbcClient, JdbcOutputTableHandle outputTableHandle, List<WriteFunction> columnWriters)
+    {
+        return jdbcClient.buildInsertSql(outputTableHandle, columnWriters);
     }
 
     @Override
@@ -215,7 +220,9 @@ public class JdbcPageSink
             throw new TrinoException(JDBC_ERROR, "Failed to insert data: " + firstNonNull(e.getMessage(), e), e);
         }
         // pass the successful page sink id
-        return completedFuture(ImmutableList.of(Slices.wrappedLongArray(pageSinkId.getId())));
+        Slice value = Slices.allocate(Long.BYTES);
+        value.setLong(0, pageSinkId.getId());
+        return completedFuture(ImmutableList.of(value));
     }
 
     @SuppressWarnings("unused")

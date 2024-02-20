@@ -24,7 +24,6 @@ import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -36,7 +35,6 @@ import static com.google.common.collect.Lists.cartesianProduct;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.anyOf;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.PREPARED;
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
@@ -59,6 +57,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.sql.JDBCType.VARCHAR;
 import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveBucketedTables
         extends HiveProductTest
@@ -303,14 +302,12 @@ public class TestHiveBucketedTables
         List<String> bucketV1NameOptions = ImmutableList.of(bucketV1);
         List<String> bucketV2NameOptions = ImmutableList.of(bucketV2Standard, bucketV2DirectInsert);
 
-        testBucketingVersion(BUCKETED_DEFAULT, value, false, (getHiveVersionMajor() < 3) ? bucketV1NameOptions : bucketV2NameOptions);
-        testBucketingVersion(BUCKETED_DEFAULT, value, true, (getHiveVersionMajor() < 3) ? bucketV1NameOptions : bucketV2NameOptions);
+        testBucketingVersion(BUCKETED_DEFAULT, value, false, bucketV2NameOptions);
+        testBucketingVersion(BUCKETED_DEFAULT, value, true, bucketV2NameOptions);
         testBucketingVersion(BUCKETED_V1, value, false, bucketV1NameOptions);
         testBucketingVersion(BUCKETED_V1, value, true, bucketV1NameOptions);
-        if (getHiveVersionMajor() >= 3) {
-            testBucketingVersion(BUCKETED_V2, value, false, bucketV2NameOptions);
-            testBucketingVersion(BUCKETED_V2, value, true, bucketV2NameOptions);
-        }
+        testBucketingVersion(BUCKETED_V2, value, false, bucketV2NameOptions);
+        testBucketingVersion(BUCKETED_V2, value, true, bucketV2NameOptions);
     }
 
     @Test(dataProvider = "testBucketingWithUnsupportedDataTypesDataProvider")
@@ -337,7 +334,7 @@ public class TestHiveBucketedTables
             QueryResult showCreateTableResult = onTrino().executeQuery("SHOW CREATE TABLE " + tableName);
             assertThat(showCreateTableResult)
                     .hasRowsCount(1);
-            Assertions.assertThat((String) showCreateTableResult.getOnlyValue())
+            assertThat((String) showCreateTableResult.getOnlyValue())
                     .matches(Pattern.compile(format("\\QCREATE TABLE hive.default.%s (\n" +
                                     "   n_integer integer,\n" +
                                     "   n_decimal decimal(9, 2),\n" +
@@ -460,7 +457,7 @@ public class TestHiveBucketedTables
     {
         switch (bucketingType) {
             case BUCKETED_DEFAULT:
-                return getHiveVersionMajor() < 3 ? "1" : "2";
+                return "2";
             case BUCKETED_V1:
                 return "1";
             case BUCKETED_V2:

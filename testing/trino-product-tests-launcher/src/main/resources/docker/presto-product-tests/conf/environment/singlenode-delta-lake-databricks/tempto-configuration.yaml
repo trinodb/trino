@@ -3,6 +3,7 @@ databases:
     jdbc_user: root
   delta:
     jdbc_driver_class: com.databricks.client.jdbc.Driver
+    jdbc_jar: /docker/jdbc/databricks-jdbc.jar
     schema: default
     prepare_statement:
       - USE ${databases.delta.schema}

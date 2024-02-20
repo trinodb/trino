@@ -16,7 +16,6 @@ package io.trino.orc.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.orc.metadata.statistics.ColumnStatistics;
 
 import java.util.List;
@@ -55,7 +54,7 @@ public class Footer
         this.types = requireNonNull(types, "types is null");
         this.fileStats = requireNonNull(fileStats, "fileStats is null");
         requireNonNull(userMetadata, "userMetadata is null");
-        this.userMetadata = ImmutableMap.copyOf(transformValues(userMetadata, Slices::copyOf));
+        this.userMetadata = ImmutableMap.copyOf(transformValues(userMetadata, Slice::copy));
         this.writerId = requireNonNull(writerId, "writerId is null");
     }
 
@@ -86,7 +85,7 @@ public class Footer
 
     public Map<String, Slice> getUserMetadata()
     {
-        return ImmutableMap.copyOf(transformValues(userMetadata, Slices::copyOf));
+        return ImmutableMap.copyOf(transformValues(userMetadata, Slice::copy));
     }
 
     public Optional<Integer> getWriterId()

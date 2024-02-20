@@ -13,10 +13,8 @@
  */
 package io.trino.spi.exchange;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
-import io.trino.spi.Experimental;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Service provider interface for an external exchange
@@ -38,7 +36,6 @@ import javax.annotation.concurrent.ThreadSafe;
  * data written by other instances must be safely discarded
  */
 @ThreadSafe
-@Experimental(eta = "2023-01-01")
 public interface ExchangeManager
 {
     /**
@@ -73,6 +70,11 @@ public interface ExchangeManager
      * @return {@link ExchangeSource} used by the engine to read data from an exchange
      */
     ExchangeSource createSource();
+
+    /**
+     * Provides information if Exchange implementation provided with this plugin supports concurrent reading and writing.
+     */
+    boolean supportsConcurrentReadAndWrite();
 
     /**
      * Shutdown the exchange manager by releasing any held resources such as

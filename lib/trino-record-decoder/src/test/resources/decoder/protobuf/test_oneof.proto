@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+message schema {
+    enum Number {
+        ZERO = 0;
+        ONE = 1;
+        TWO = 2;
+    };
+    message Row {
+        string string_column = 1;
+        uint32 integer_column = 2;
+        uint64 long_column = 3;
+        double double_column = 4;
+        float float_column = 5;
+        bool boolean_column = 6;
+        Number number_column = 7;
+        google.protobuf.Timestamp timestamp_column = 8;
+        bytes bytes_column = 9;
+    };
+    message NestedRow {
+        repeated Row nested_list = 1;
+        map<string, Row> nested_map = 2;
+        Row row = 3;
+    };
+    oneof testOneofColumn {
+        string stringColumn = 1;
+        uint32 integerColumn = 2;
+        uint64 longColumn = 3;
+        double doubleColumn = 4;
+        float floatColumn = 5;
+        bool booleanColumn = 6;
+        Number numberColumn = 7;
+        google.protobuf.Timestamp timestampColumn = 8;
+        bytes bytesColumn = 9;
+        Row rowColumn = 10;
+        NestedRow nestedRowColumn = 11;
+    }
+    oneof testOneofColumn2 {
+        string stringColumn2 = 12;
+        uint32 integerColumn2 = 23;
+    }
+    string column = 14;
+}

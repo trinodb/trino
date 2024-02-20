@@ -31,21 +31,29 @@ public class TestingTokenAwareMetastoreClientFactory
     private final DefaultThriftMetastoreClientFactory factory;
     private final HostAndPort address;
 
+    private final MetastoreClientAdapterProvider metastoreClientAdapterProvider;
+
     public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, HostAndPort address)
     {
-        this(socksProxy, address, TIMEOUT);
+        this(socksProxy, address, TIMEOUT, delegate -> delegate);
     }
 
     public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, HostAndPort address, Duration timeout)
     {
-        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, timeout, AUTHENTICATION, "localhost");
+        this(socksProxy, address, timeout, delegate -> delegate);
+    }
+
+    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, HostAndPort address, Duration timeout, MetastoreClientAdapterProvider metastoreClientAdapterProvider)
+    {
+        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, timeout, timeout, AUTHENTICATION, "localhost");
         this.address = requireNonNull(address, "address is null");
+        this.metastoreClientAdapterProvider = requireNonNull(metastoreClientAdapterProvider, "metastoreClientAdapterProvider is null");
     }
 
     @Override
     public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
             throws TException
     {
-        return factory.create(address, delegationToken);
+        return metastoreClientAdapterProvider.createThriftMetastoreClientAdapter(factory.create(address, delegationToken));
     }
 }

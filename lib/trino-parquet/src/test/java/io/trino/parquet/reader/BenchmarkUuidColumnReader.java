@@ -77,7 +77,9 @@ public class BenchmarkUuidColumnReader
     @Override
     protected void writeValue(ValuesWriter writer, long[] batch, int index)
     {
-        Slice slice = Slices.wrappedLongArray(batch, index * 2, 2);
+        Slice slice = Slices.allocate(Long.BYTES * 2);
+        slice.setLong(0, batch[index * 2]);
+        slice.setLong(SIZE_OF_LONG, batch[(index * 2) + 1]);
         writer.writeBytes(Binary.fromConstantByteArray(slice.getBytes()));
     }
 

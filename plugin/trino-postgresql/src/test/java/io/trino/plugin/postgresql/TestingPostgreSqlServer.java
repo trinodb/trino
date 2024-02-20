@@ -20,6 +20,8 @@ import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -36,13 +38,14 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
 import static io.trino.testing.containers.TestContainers.exposeFixedPorts;
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
 
 public class TestingPostgreSqlServer
-        implements Closeable
+        implements AutoCloseable
 {
     private static final String USER = "test";
     private static final String PASSWORD = "test";
@@ -57,6 +60,8 @@ public class TestingPostgreSqlServer
 
     private final PostgreSQLContainer<?> dockerContainer;
 
+    private final Closeable cleanup;
+
     public TestingPostgreSqlServer()
     {
         this(false);
@@ -65,7 +70,7 @@ public class TestingPostgreSqlServer
     public TestingPostgreSqlServer(boolean shouldExposeFixedPorts)
     {
         // Use the oldest supported PostgreSQL version
-        dockerContainer = new PostgreSQLContainer<>("postgres:10.20")
+        dockerContainer = new PostgreSQLContainer<>("postgres:11")
                 .withStartupAttempts(3)
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
@@ -74,9 +79,9 @@ public class TestingPostgreSqlServer
         if (shouldExposeFixedPorts) {
             exposeFixedPorts(dockerContainer);
         }
-        dockerContainer.start();
+        cleanup = startOrReuse(dockerContainer);
 
-        execute("CREATE SCHEMA tpch");
+        execute("CREATE SCHEMA IF NOT EXISTS tpch");
     }
 
     public void execute(@Language("SQL") String sql)
@@ -162,7 +167,12 @@ public class TestingPostgreSqlServer
     @Override
     public void close()
     {
-        dockerContainer.close();
+        try {
+            cleanup.close();
+        }
+        catch (IOException ioe) {
+            throw new UncheckedIOException(ioe);
+        }
     }
 
     @ResourcePresence

@@ -15,8 +15,7 @@ package io.trino.server;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-
-import javax.validation.constraints.Pattern;
+import jakarta.validation.constraints.Pattern;
 
 import java.util.Optional;
 

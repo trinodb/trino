@@ -19,10 +19,10 @@ import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -72,7 +72,7 @@ public final class TrinoThriftInteger
     }
 
     @Override
-    public Block toBlock(Type desiredType)
+    public ValueBlock toBlock(Type desiredType)
     {
         checkArgument(INTEGER.equals(desiredType), "type doesn't match: %s", desiredType);
         int numberOfRecords = numberOfRecords();

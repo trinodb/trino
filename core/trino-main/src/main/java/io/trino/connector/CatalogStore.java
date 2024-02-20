@@ -13,7 +13,7 @@
  */
 package io.trino.connector;
 
-import javax.annotation.concurrent.NotThreadSafe;
+import io.trino.annotation.NotThreadSafe;
 
 import java.util.Collection;
 import java.util.Map;

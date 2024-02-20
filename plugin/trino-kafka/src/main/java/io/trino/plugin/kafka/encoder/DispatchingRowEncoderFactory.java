@@ -14,13 +14,10 @@
 package io.trino.plugin.kafka.encoder;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
 
-import javax.inject.Inject;
-
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -35,9 +32,9 @@ public class DispatchingRowEncoderFactory
         this.factories = ImmutableMap.copyOf(requireNonNull(factories, "factories is null"));
     }
 
-    public RowEncoder create(ConnectorSession session, String dataFormat, Optional<String> dataSchema, List<EncoderColumnHandle> columnHandles)
+    public RowEncoder create(ConnectorSession session, RowEncoderSpec rowEncoderSpec)
     {
-        checkArgument(factories.containsKey(dataFormat), "unknown data format '%s'", dataFormat);
-        return factories.get(dataFormat).create(session, dataSchema, columnHandles);
+        checkArgument(factories.containsKey(rowEncoderSpec.dataFormat()), "unknown data format '%s'", rowEncoderSpec.dataFormat());
+        return factories.get(rowEncoderSpec.dataFormat()).create(session, rowEncoderSpec);
     }
 }

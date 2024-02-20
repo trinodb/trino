@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -38,8 +39,10 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestBigintOperators
 {
     private QueryAssertions assertions;
@@ -482,7 +485,7 @@ public class TestBigintOperators
     @Test
     public void testOverflowAdd()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, Long.toString(Long.MAX_VALUE), "BIGINT '1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, Long.toString(Long.MAX_VALUE), "BIGINT '1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint addition overflow: 9223372036854775807 + 1");
     }
@@ -490,7 +493,7 @@ public class TestBigintOperators
     @Test
     public void testUnderflowSubtract()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, Long.toString(Long.MIN_VALUE), "BIGINT '1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, Long.toString(Long.MIN_VALUE), "BIGINT '1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint subtraction overflow: -9223372036854775808 - 1");
     }
@@ -498,11 +501,11 @@ public class TestBigintOperators
     @Test
     public void testOverflowMultiply()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, Long.toString(Long.MAX_VALUE), "2").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, Long.toString(Long.MAX_VALUE), "2")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint multiplication overflow: 9223372036854775807 * 2");
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, Long.toString(Long.MIN_VALUE), "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, Long.toString(Long.MIN_VALUE), "-1")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint multiplication overflow: -9223372036854775808 * -1");
     }
@@ -510,7 +513,7 @@ public class TestBigintOperators
     @Test
     public void testOverflowDivide()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, Long.toString(Long.MIN_VALUE), "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, Long.toString(Long.MIN_VALUE), "-1")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint division overflow: -9223372036854775808 / -1");
     }
@@ -534,7 +537,7 @@ public class TestBigintOperators
     @Test
     public void testNegateOverflow()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.operator(NEGATION, Long.toString(Long.MIN_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(NEGATION, Long.toString(Long.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint negation overflow: -9223372036854775808");
     }

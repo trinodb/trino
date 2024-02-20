@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
@@ -28,8 +29,6 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Iterator;
 import java.util.List;
@@ -56,6 +55,7 @@ public class PipelineContext
     private final TaskContext taskContext;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
+    private final ScheduledExecutorService timeoutExecutor;
     private final int pipelineId;
 
     private final boolean inputPipeline;
@@ -106,7 +106,7 @@ public class PipelineContext
 
     private final MemoryTrackingContext pipelineMemoryContext;
 
-    public PipelineContext(int pipelineId, TaskContext taskContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, MemoryTrackingContext pipelineMemoryContext, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
+    public PipelineContext(int pipelineId, TaskContext taskContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, ScheduledExecutorService timeoutExecutor, MemoryTrackingContext pipelineMemoryContext, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
     {
         this.pipelineId = pipelineId;
         this.inputPipeline = inputPipeline;
@@ -115,6 +115,7 @@ public class PipelineContext
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
+        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.pipelineMemoryContext = requireNonNull(pipelineMemoryContext, "pipelineMemoryContext is null");
         // Initialize the local memory contexts with the ExchangeOperator tag as ExchangeOperator will do the local memory allocations
         pipelineMemoryContext.initializeLocalMemoryContexts(ExchangeOperator.class.getSimpleName());
@@ -157,6 +158,7 @@ public class PipelineContext
                 this,
                 notificationExecutor,
                 yieldExecutor,
+                timeoutExecutor,
                 pipelineMemoryContext.newMemoryTrackingContext(),
                 splitWeight);
         drivers.add(driverContext);
@@ -242,14 +244,14 @@ public class PipelineContext
         taskContext.start();
     }
 
-    public void failed(Throwable cause)
+    public void driverFailed(Throwable cause)
     {
         taskContext.failed(cause);
     }
 
-    public boolean isDone()
+    public boolean isTerminatingOrDone()
     {
-        return taskContext.isDone();
+        return taskContext.isTerminatingOrDone();
     }
 
     public synchronized ListenableFuture<Void> reserveSpill(long bytes)
@@ -316,6 +318,16 @@ public class PipelineContext
             stat.merge(driver.getOutputPositions());
         }
         return stat;
+    }
+
+    public long getWriterInputDataSize()
+    {
+        // Avoid using stream api due to performance reasons
+        long writerInputDataSize = 0;
+        for (DriverContext context : drivers) {
+            writerInputDataSize += context.getWriterInputDataSize();
+        }
+        return writerInputDataSize;
     }
 
     public long getPhysicalWrittenDataSize()

@@ -20,15 +20,17 @@ import io.trino.cli.ClientOptions.ClientResourceEstimate;
 import io.trino.cli.ClientOptions.ClientSessionProperty;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.client.ClientSession;
-import org.testng.annotations.Test;
+import io.trino.client.uri.TrinoUri;
+import org.junit.jupiter.api.Test;
 
+import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.Optional;
 
 import static io.trino.cli.Trino.createCommandLine;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestClientOptions
 {
@@ -37,90 +39,148 @@ public class TestClientOptions
     {
         Console console = createConsole();
         ClientOptions options = console.clientOptions;
-        assertEquals(options.krb5ServicePrincipalPattern, Optional.of("${SERVICE}@${HOST}"));
-        ClientSession session = options.toClientSession();
-        assertEquals(session.getServer().toString(), "http://localhost:8080");
-        assertEquals(session.getSource(), "trino-cli");
-        assertEquals(session.getTimeZone(), ZoneId.systemDefault());
+        assertThat(options.krb5ServicePrincipalPattern).isEqualTo(Optional.of("${SERVICE}@${HOST}"));
+        ClientSession session = options.toClientSession(options.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("http://localhost:8080");
+        assertThat(session.getSource()).isEqualTo("trino-cli");
+        assertThat(session.getTimeZone()).isEqualTo(ZoneId.systemDefault());
     }
 
     @Test
     public void testSource()
     {
         Console console = createConsole("--source=test");
-        ClientSession session = console.clientOptions.toClientSession();
-        assertEquals(session.getSource(), "test");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getSource()).isEqualTo("test");
     }
 
     @Test
     public void testTraceToken()
     {
         Console console = createConsole("--trace-token", "test token");
-        ClientSession session = console.clientOptions.toClientSession();
-        assertEquals(session.getTraceToken(), Optional.of("test token"));
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getTraceToken()).isEqualTo(Optional.of("test token"));
     }
 
     @Test
     public void testServerHostOnly()
     {
         Console console = createConsole("--server=test");
-        ClientSession session = console.clientOptions.toClientSession();
-        assertEquals(session.getServer().toString(), "http://test:80");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("http://test:80");
     }
 
     @Test
     public void testServerHostPort()
     {
         Console console = createConsole("--server=test:8888");
-        ClientSession session = console.clientOptions.toClientSession();
-        assertEquals(session.getServer().toString(), "http://test:8888");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("http://test:8888");
     }
 
     @Test
     public void testServerHttpUri()
     {
         Console console = createConsole("--server=http://test/foo");
-        ClientSession session = console.clientOptions.toClientSession();
-        assertEquals(session.getServer().toString(), "http://test/foo");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("http://test:80");
+        assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
+    }
+
+    @Test
+    public void testServerTrinoUri()
+    {
+        Console console = createConsole("--server=trino://test/foo");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("http://test:80");
+        assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
     }
 
     @Test
     public void testServerHttpsUri()
     {
         Console console = createConsole("--server=https://test/foo");
-        ClientSession session = console.clientOptions.toClientSession();
-        assertEquals(session.getServer().toString(), "https://test/foo");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("https://test:443");
+        assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
     }
 
     @Test
     public void testServer443Port()
     {
         Console console = createConsole("--server=test:443");
-        ClientSession session = console.clientOptions.toClientSession();
-        assertEquals(session.getServer().toString(), "https://test:443");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("https://test:443");
     }
 
     @Test
     public void testServerHttpsHostPort()
     {
         Console console = createConsole("--server=https://test:443");
-        ClientSession session = console.clientOptions.toClientSession();
-        assertEquals(session.getServer().toString(), "https://test:443");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("https://test:443");
     }
 
     @Test
     public void testServerHttpWithPort443()
     {
         Console console = createConsole("--server=http://test:443");
-        ClientSession session = console.clientOptions.toClientSession();
-        assertEquals(session.getServer().toString(), "http://test:443");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("http://test:443");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Unparseable port number: x:y")
+    @Test
     public void testInvalidServer()
     {
-        Console console = createConsole("--server=x:y");
-        console.clientOptions.toClientSession();
+        assertThatThrownBy(() -> {
+            Console console = createConsole("--server=x:y");
+            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Unparseable port number: x:y");
+    }
+
+    @Test
+    public void testServerAndURL()
+    {
+        assertThatThrownBy(() -> {
+            Console console = createConsole("--server=trino://server.example:80", "trino://server.example:80");
+            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Using both the URL parameter and the --server option is not allowed");
+    }
+
+    @Test
+    public void testURLHostOnly()
+    {
+        Console console = createConsole("test");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("http://test:80");
+    }
+
+    @Test
+    public void testURLParams()
+            throws SQLException
+    {
+        Console console = createConsole("trino://server.example:8080/my-catalog/my-schema?source=my-client");
+        TrinoUri uri = console.clientOptions.getTrinoUri();
+        ClientSession session = console.clientOptions.toClientSession(uri);
+        assertThat(session.getServer().toString()).isEqualTo("http://server.example:8080");
+        assertThat(session.getCatalog()).isEqualTo(Optional.of("my-catalog"));
+        assertThat(session.getSchema()).isEqualTo(Optional.of("my-schema"));
+        assertThat(uri.getSource()).isEqualTo(Optional.of("my-client"));
+    }
+
+    @Test
+    public void testURLPassword()
+    {
+        assertThatThrownBy(() -> {
+            Console console = createConsole("trino://server.example:80?password=invalid");
+            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Setting the password in the URL parameter is not allowed.*");
     }
 
     @Test
@@ -128,7 +188,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--output-format=JSON");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.outputFormat, OutputFormat.JSON);
+        assertThat(options.outputFormat).isEqualTo(OutputFormat.JSON);
     }
 
     @Test
@@ -136,7 +196,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--socks-proxy=abc:123");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.socksProxy, Optional.of(HostAndPort.fromParts("abc", 123)));
+        assertThat(options.socksProxy).isEqualTo(Optional.of(HostAndPort.fromParts("abc", 123)));
     }
 
     @Test
@@ -144,7 +204,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--client-request-timeout=7s");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.clientRequestTimeout, new Duration(7, SECONDS));
+        assertThat(options.clientRequestTimeout).isEqualTo(new Duration(7, SECONDS));
     }
 
     @Test
@@ -152,7 +212,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--resource-estimate", "resource1=1B", "--resource-estimate", "resource2=2.2h");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.resourceEstimates, ImmutableList.of(
+        assertThat(options.resourceEstimates).isEqualTo(ImmutableList.of(
                 new ClientResourceEstimate("resource1", "1B"),
                 new ClientResourceEstimate("resource2", "2.2h")));
     }
@@ -162,7 +222,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.bar=bar");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.extraCredentials, ImmutableList.of(
+        assertThat(options.extraCredentials).isEqualTo(ImmutableList.of(
                 new ClientOptions.ClientExtraCredential("test.token.foo", "foo"),
                 new ClientOptions.ClientExtraCredential("test.token.bar", "bar")));
     }
@@ -173,15 +233,15 @@ public class TestClientOptions
         Console console = createConsole("--session", "system=system-value", "--session", "catalog.name=catalog-property");
 
         ClientOptions options = console.clientOptions;
-        assertEquals(options.sessionProperties, ImmutableList.of(
+        assertThat(options.sessionProperties).isEqualTo(ImmutableList.of(
                 new ClientSessionProperty(Optional.empty(), "system", "system-value"),
                 new ClientSessionProperty(Optional.of("catalog"), "name", "catalog-property")));
 
         // special characters are allowed in the value
-        assertEquals(new ClientSessionProperty("foo=bar:=baz"), new ClientSessionProperty(Optional.empty(), "foo", "bar:=baz"));
+        assertThat(new ClientSessionProperty("foo=bar:=baz")).isEqualTo(new ClientSessionProperty(Optional.empty(), "foo", "bar:=baz"));
 
         // empty values are allowed
-        assertEquals(new ClientSessionProperty("foo="), new ClientSessionProperty(Optional.empty(), "foo", ""));
+        assertThat(new ClientSessionProperty("foo=")).isEqualTo(new ClientSessionProperty(Optional.empty(), "foo", ""));
     }
 
     @Test
@@ -190,10 +250,10 @@ public class TestClientOptions
         Console console = createConsole("--timezone=Europe/Vilnius");
 
         ClientOptions options = console.clientOptions;
-        assertEquals(options.timeZone, ZoneId.of("Europe/Vilnius"));
+        assertThat(options.timeZone).isEqualTo(ZoneId.of("Europe/Vilnius"));
 
-        ClientSession session = options.toClientSession();
-        assertEquals(session.getTimeZone(), ZoneId.of("Europe/Vilnius"));
+        ClientSession session = options.toClientSession(options.getTrinoUri());
+        assertThat(session.getTimeZone()).isEqualTo(ZoneId.of("Europe/Vilnius"));
     }
 
     @Test
@@ -202,47 +262,61 @@ public class TestClientOptions
         Console console = createConsole("--disable-compression");
 
         ClientOptions options = console.clientOptions;
-        assertTrue(options.disableCompression);
+        assertThat(options.disableCompression).isTrue();
 
-        ClientSession session = options.toClientSession();
-        assertTrue(session.isCompressionDisabled());
+        ClientSession session = options.toClientSession(options.getTrinoUri());
+        assertThat(session.isCompressionDisabled()).isTrue();
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QInvalid session property: foo.bar.baz=value\\E")
+    @Test
     public void testThreePartPropertyName()
     {
-        new ClientSessionProperty("foo.bar.baz=value");
+        assertThatThrownBy(() -> new ClientSessionProperty("foo.bar.baz=value"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid session property: foo.bar.baz=value");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property name is empty\\E")
+    @Test
     public void testEmptyPropertyName()
     {
-        new ClientSessionProperty("=value");
+        assertThatThrownBy(() -> new ClientSessionProperty("=value"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Session property name is empty");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property name contains spaces or is not ASCII: ☃\\E")
+    @Test
     public void testInvalidCharsetPropertyName()
     {
-        new ClientSessionProperty("\u2603=value");
+        assertThatThrownBy(() -> new ClientSessionProperty("\u2603=value"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Session property name contains spaces or is not ASCII: ☃");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property value contains spaces or is not ASCII: ☃\\E")
+    @Test
     public void testInvalidCharsetPropertyValue()
     {
-        new ClientSessionProperty("name=\u2603");
+        assertThatThrownBy(() -> new ClientSessionProperty("name=\u2603"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Session property value contains spaces or is not ASCII: ☃");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property catalog must not contain '=': name\\E")
+    @Test
     public void testEqualSignNoAllowedInPropertyCatalog()
     {
-        new ClientSessionProperty(Optional.of("cat=alog"), "name", "value");
+        assertThatThrownBy(() -> new ClientSessionProperty(Optional.of("cat=alog"), "name", "value"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Session property catalog must not contain '=': name");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QMultiple entries with same key: test.token.foo=bar and test.token.foo=foo\\E")
+    @Test
     public void testDuplicateExtraCredentialKey()
     {
-        Console console = createConsole("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.foo=bar");
-        console.clientOptions.toClientSession();
+        assertThatThrownBy(() -> {
+            Console console = createConsole("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.foo=bar");
+            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Multiple entries with same key: test.token.foo=bar and test.token.foo=foo");
     }
 
     private static Console createConsole(String... args)

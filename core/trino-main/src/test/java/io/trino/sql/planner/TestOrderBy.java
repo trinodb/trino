@@ -13,17 +13,28 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
+import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 
 public class TestOrderBy
         extends BasePlanTest
@@ -93,5 +104,52 @@ public class TestOrderBy
                         node(ExchangeNode.class,
                                 node(ValuesNode.class),
                                 node(ValuesNode.class))));
+    }
+
+    @Test
+    public void testRedundantOrderByInWith()
+    {
+        assertPlan("""
+                        WITH t(a) AS (
+                            SELECT * FROM (VALUES 2, 1) t(a)
+                            ORDER BY a)
+                        SELECT * FROM t
+                        """,
+                output(node(ValuesNode.class)));
+    }
+
+    @Test
+    public void testOrderByInWithLimit()
+    {
+        assertPlan("""
+                        WITH t(a) AS (
+                            SELECT * FROM (VALUES 2, 1) t(a)
+                            ORDER BY a
+                            LIMIT 1)
+                        SELECT * FROM t
+                        """,
+                output(
+                        topN(1, ImmutableList.of(sort("c", ASCENDING, LAST)), TopNNode.Step.FINAL,
+                                topN(1, ImmutableList.of(sort("c", ASCENDING, LAST)), TopNNode.Step.PARTIAL,
+                                        values("c")))));
+    }
+
+    @Test
+    public void testOrderByInWithOffset()
+    {
+        assertPlan("""
+                        WITH t(a) AS (
+                            SELECT * FROM (VALUES (2),(1)) t(a)
+                            ORDER BY a
+                            OFFSET 1)
+                        SELECT * FROM t
+                        """,
+                output(
+                        node(ProjectNode.class,
+                                node(FilterNode.class,
+                                        node(RowNumberNode.class,
+                                                exchange(LOCAL,
+                                                        sort(exchange(LOCAL,
+                                                                values("c")))))))));
     }
 }

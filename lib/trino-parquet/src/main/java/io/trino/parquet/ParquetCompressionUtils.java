@@ -40,7 +40,7 @@ public final class ParquetCompressionUtils
 
     private ParquetCompressionUtils() {}
 
-    public static Slice decompress(CompressionCodec codec, Slice input, int uncompressedSize)
+    public static Slice decompress(ParquetDataSourceId dataSourceId, CompressionCodec codec, Slice input, int uncompressedSize)
             throws IOException
     {
         requireNonNull(input, "input is null");
@@ -49,32 +49,27 @@ public final class ParquetCompressionUtils
             return EMPTY_SLICE;
         }
 
-        switch (codec) {
-            case GZIP:
-                return decompressGzip(input, uncompressedSize);
-            case SNAPPY:
-                return decompressSnappy(input, uncompressedSize);
-            case UNCOMPRESSED:
-                return input;
-            case LZO:
-                return decompressLZO(input, uncompressedSize);
-            case LZ4:
-                return decompressLz4(input, uncompressedSize);
-            case ZSTD:
-                return decompressZstd(input, uncompressedSize);
-            case BROTLI:
-            case LZ4_RAW:
-                // unsupported
-                break;
-        }
-        throw new ParquetCorruptionException("Codec not supported in Parquet: " + codec);
+        return switch (codec) {
+            case UNCOMPRESSED -> input;
+            case GZIP -> decompressGzip(input, uncompressedSize);
+            case SNAPPY -> decompressSnappy(input, uncompressedSize);
+            case LZO -> decompressLZO(input, uncompressedSize);
+            case LZ4 -> decompressLz4(input, uncompressedSize);
+            case ZSTD -> decompressZstd(input, uncompressedSize);
+            case BROTLI, LZ4_RAW -> throw new ParquetCorruptionException(dataSourceId, "Codec not supported in Parquet: %s", codec);
+        };
     }
 
     private static Slice decompressSnappy(Slice input, int uncompressedSize)
     {
-        byte[] buffer = new byte[uncompressedSize];
-        decompress(new SnappyDecompressor(), input, 0, input.length(), buffer, 0);
-        return wrappedBuffer(buffer);
+        // Snappy decompressor is more efficient if there's at least a long's worth of extra space
+        // in the output buffer
+        byte[] buffer = new byte[uncompressedSize + SIZE_OF_LONG];
+        int actualUncompressedSize = decompress(new SnappyDecompressor(), input, 0, input.length(), buffer, 0);
+        if (actualUncompressedSize != uncompressedSize) {
+            throw new IllegalArgumentException(format("Invalid uncompressedSize for SNAPPY input. Expected %s, actual: %s", uncompressedSize, actualUncompressedSize));
+        }
+        return wrappedBuffer(buffer, 0, uncompressedSize);
     }
 
     private static Slice decompressZstd(Slice input, int uncompressedSize)

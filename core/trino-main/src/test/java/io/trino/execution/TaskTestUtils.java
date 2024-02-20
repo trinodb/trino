@@ -16,6 +16,9 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.tracing.Tracing;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
@@ -23,17 +26,16 @@ import io.trino.event.SplitMonitor;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
-import io.trino.execution.TestSqlTaskManager.MockDirectExchangeClientSupplier;
+import io.trino.execution.BaseTestSqlTaskManager.MockDirectExchangeClientSupplier;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
-import io.trino.index.IndexManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Split;
 import io.trino.operator.PagesIndex;
-import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
+import io.trino.operator.index.IndexManager;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
@@ -43,6 +45,8 @@ import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.planner.CompilerConfig;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Partitioning;
@@ -68,7 +72,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 
 public final class TaskTestUtils
@@ -102,6 +105,7 @@ public final class TaskTestUtils
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
             ImmutableList.of(),
+            ImmutableList.of(),
             Optional.empty());
 
     public static final DynamicFilterId DYNAMIC_FILTER_SOURCE_ID = new DynamicFilterId("filter");
@@ -126,6 +130,7 @@ public final class TaskTestUtils
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
             ImmutableList.of(),
+            ImmutableList.of(),
             Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()
@@ -142,13 +147,13 @@ public final class TaskTestUtils
                 new NodeTaskMap(finalizerService)));
         NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(
                 nodeScheduler,
-                blockTypeOperators,
+                PLANNER_CONTEXT.getTypeOperators(),
                 CatalogServiceProvider.fail());
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
-                createTestingTypeAnalyzer(PLANNER_CONTEXT),
+                new IrTypeAnalyzer(PLANNER_CONTEXT),
                 Optional.empty(),
                 pageSourceManager,
                 new IndexManager(CatalogServiceProvider.fail()),
@@ -171,18 +176,19 @@ public final class TaskTestUtils
                 },
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(PLANNER_CONTEXT.getTypeOperators()),
-                new TrinoOperatorFactories(),
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
+                PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
-                new ExchangeManagerRegistry(),
-                new NodeVersion("test"));
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
+                new NodeVersion("test"),
+                new CompilerConfig());
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), splitAssignments, outputBuffers, ImmutableMap.of());
+        return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), splitAssignments, outputBuffers, ImmutableMap.of(), false);
     }
 
     public static SplitMonitor createTestSplitMonitor()

@@ -14,7 +14,6 @@
 package io.trino.tests.product.hive.util;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -52,16 +51,13 @@ public final class TableLocationUtils
     }
 
     public static String getTablePath(String tableName)
-            throws URISyntaxException
     {
         return getTablePath(tableName, 0);
     }
 
     public static String getTablePath(String tableName, int partitionColumns)
-            throws URISyntaxException
     {
         String location = getTableLocation(tableName, partitionColumns);
-        URI uri = new URI(location);
-        return uri.getPath();
+        return URI.create(location).getPath();
     }
 }

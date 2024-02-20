@@ -18,7 +18,7 @@ import io.trino.testing.MaterializedRow;
 
 import java.util.Map;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class DataFileRecord
 {
@@ -34,9 +34,10 @@ public class DataFileRecord
     private final Map<Integer, String> lowerBounds;
     private final Map<Integer, String> upperBounds;
 
+    @SuppressWarnings("unchecked")
     public static DataFileRecord toDataFileRecord(MaterializedRow row)
     {
-        assertEquals(row.getFieldCount(), 14);
+        assertThat(row.getFieldCount()).isEqualTo(14);
         return new DataFileRecord(
                 (int) row.getField(0),
                 (String) row.getField(1),

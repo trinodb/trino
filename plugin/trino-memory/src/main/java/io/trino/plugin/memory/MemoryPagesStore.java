@@ -14,13 +14,11 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -82,7 +80,7 @@ public class MemoryPagesStore
             Long tableId,
             int partNumber,
             int totalParts,
-            List<Integer> columnIndexes,
+            int[] columnIndexes,
             long expectedRows,
             OptionalLong limit,
             OptionalDouble sampleRatio)
@@ -111,7 +109,7 @@ public class MemoryPagesStore
                 page = page.getRegion(0, (int) (page.getPositionCount() - (totalRows - limit.getAsLong())));
                 done = true;
             }
-            partitionedPages.add(getColumns(page, columnIndexes));
+            partitionedPages.add(page.getColumns(columnIndexes));
         }
 
         return partitionedPages.build();
@@ -148,17 +146,6 @@ public class MemoryPagesStore
                 tableDataIterator.remove();
             }
         }
-    }
-
-    private static Page getColumns(Page page, List<Integer> columnIndexes)
-    {
-        Block[] outputBlocks = new Block[columnIndexes.size()];
-
-        for (int i = 0; i < columnIndexes.size(); i++) {
-            outputBlocks[i] = page.getBlock(columnIndexes.get(i));
-        }
-
-        return new Page(page.getPositionCount(), outputBlocks);
     }
 
     private static final class TableData

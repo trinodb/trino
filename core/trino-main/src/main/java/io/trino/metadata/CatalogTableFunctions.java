@@ -14,10 +14,9 @@
 package io.trino.metadata;
 
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.function.SchemaFunctionName;
-import io.trino.spi.ptf.ConnectorTableFunction;
-
-import javax.annotation.concurrent.ThreadSafe;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.util.Collection;
 import java.util.Map;

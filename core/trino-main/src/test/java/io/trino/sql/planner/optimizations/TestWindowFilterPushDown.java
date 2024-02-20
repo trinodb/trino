@@ -23,7 +23,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.planner.plan.WindowNode;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -301,7 +301,7 @@ public class TestWindowFilterPushDown
 
     private Session optimizeTopNRanking(boolean enabled)
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(this.getPlanTester().getDefaultSession())
                 .setSystemProperty(OPTIMIZE_TOP_N_RANKING, Boolean.toString(enabled))
                 .build();
     }

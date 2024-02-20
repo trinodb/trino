@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.util.SerdeConstants.UNION_TYPE_NAME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -25,6 +27,8 @@ import static java.util.stream.Collectors.joining;
 public final class UnionTypeInfo
         extends TypeInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(UnionTypeInfo.class);
+
     private final List<TypeInfo> objectTypeInfos;
 
     UnionTypeInfo(List<TypeInfo> objectTypeInfos)
@@ -62,5 +66,11 @@ public final class UnionTypeInfo
     public int hashCode()
     {
         return objectTypeInfos.hashCode();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(objectTypeInfos, TypeInfo::getRetainedSizeInBytes);
     }
 }

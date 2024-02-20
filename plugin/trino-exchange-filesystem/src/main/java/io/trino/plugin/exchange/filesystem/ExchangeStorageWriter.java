@@ -15,8 +15,7 @@ package io.trino.plugin.exchange.filesystem;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-
-import javax.annotation.concurrent.NotThreadSafe;
+import io.trino.annotation.NotThreadSafe;
 
 @NotThreadSafe
 public interface ExchangeStorageWriter

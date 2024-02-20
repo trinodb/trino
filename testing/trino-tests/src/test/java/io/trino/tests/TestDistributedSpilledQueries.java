@@ -19,26 +19,25 @@ import io.trino.SystemSessionProperties;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.Test;
+import io.trino.testing.QueryRunner;
 
 import java.nio.file.Paths;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.UUID.randomUUID;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDistributedSpilledQueries
         extends AbstractTestQueries
 {
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return createSpillingQueryRunner();
     }
 
-    public static DistributedQueryRunner createSpillingQueryRunner()
+    public static QueryRunner createSpillingQueryRunner()
             throws Exception
     {
         Session defaultSession = testSessionBuilder()
@@ -56,7 +55,7 @@ public class TestDistributedSpilledQueries
                 .put("memory-revoking-target", "0.0")
                 .buildOrThrow();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
                 .setNodeCount(2)
                 .setExtraProperties(extraProperties)
                 .build();
@@ -70,13 +69,5 @@ public class TestDistributedSpilledQueries
             queryRunner.close();
             throw e;
         }
-    }
-
-    // The spilling does not happen deterministically. TODO improve query and configuration so that it does.
-    @Test(invocationCount = 10, successPercentage = 20)
-    public void testExplainAnalyzeReportSpilledDataSize()
-    {
-        assertThat((String) computeActual("EXPLAIN ANALYZE SELECT sum(custkey) OVER (PARTITION BY orderkey) FROM orders").getOnlyValue())
-                .containsPattern(", Spilled: [1-9][0-9]*\\wB");
     }
 }

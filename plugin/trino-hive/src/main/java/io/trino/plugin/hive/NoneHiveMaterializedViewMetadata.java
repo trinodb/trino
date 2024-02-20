@@ -33,7 +33,13 @@ public class NoneHiveMaterializedViewMetadata
         implements HiveMaterializedViewMetadata
 {
     @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating materialized views");
     }
@@ -90,5 +96,11 @@ public class NoneHiveMaterializedViewMetadata
     public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view properties");
+    }
+
+    @Override
+    public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view column comment");
     }
 }

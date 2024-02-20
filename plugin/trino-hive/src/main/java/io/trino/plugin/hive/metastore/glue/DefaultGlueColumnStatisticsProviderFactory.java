@@ -14,8 +14,7 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
-
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import java.util.concurrent.Executor;
 

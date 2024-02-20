@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -34,7 +35,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
-import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.List;
@@ -50,10 +50,9 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -88,7 +87,7 @@ public class BenchmarkTopNOperator
             executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
             scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
-            List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE);
+            List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, DATE, DOUBLE);
             pages = createInputPages(Integer.valueOf(positionsPerPage), types);
             operatorFactory = TopNOperator.createOperatorFactory(
                     0,
@@ -189,7 +188,7 @@ public class BenchmarkTopNOperator
         context.setup();
 
         List<Page> outputPages = topN(context);
-        assertEquals(123, outputPages.stream().mapToInt(Page::getPositionCount).sum());
+        assertThat(123).isEqualTo(outputPages.stream().mapToInt(Page::getPositionCount).sum());
 
         context.cleanup();
     }

@@ -23,9 +23,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.orc.checkpoint.InputStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import io.trino.plugin.base.io.ChunkedSliceOutput;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,8 +37,9 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static java.lang.Math.max;
+import static java.lang.Math.clamp;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -47,7 +47,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcOutputBuffer
         extends SliceOutput
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(OrcOutputBuffer.class);
     private static final int INITIAL_BUFFER_SIZE = 256;
     private static final int DIRECT_FLUSH_SIZE = 32 * 1024;
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 4 * 1024;
@@ -275,6 +275,66 @@ public class OrcOutputBuffer
     }
 
     @Override
+    public void writeShorts(short[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = ensureBatchSize(length * Short.BYTES) / Short.BYTES;
+            slice.setShorts(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Short.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeInts(int[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = ensureBatchSize(length * Integer.BYTES) / Integer.BYTES;
+            slice.setInts(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Integer.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeLongs(long[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = ensureBatchSize(length * Long.BYTES) / Long.BYTES;
+            slice.setLongs(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Long.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeFloats(float[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = ensureBatchSize(length * Float.BYTES) / Float.BYTES;
+            slice.setFloats(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Float.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeDoubles(double[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = ensureBatchSize(length * Double.BYTES) / Double.BYTES;
+            slice.setDoubles(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Double.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
     public void writeBytes(InputStream in, int length)
             throws IOException
     {
@@ -396,7 +456,7 @@ public class OrcOutputBuffer
         }
 
         // grow the buffer size
-        int newBufferSize = min(max(slice.length() * 2, minWritableBytes), maxBufferSize);
+        int newBufferSize = clamp(slice.length() * 2L, minWritableBytes, maxBufferSize);
         if (neededBufferSize <= newBufferSize) {
             // we have capacity in the new buffer; just copy the data to the new buffer
             byte[] previousBuffer = buffer;
@@ -466,7 +526,7 @@ public class OrcOutputBuffer
         }
 
         while (length > 0) {
-            int chunkSize = Integer.min(length, buffer.length);
+            int chunkSize = min(length, buffer.length);
             writeChunkToOutputStream(bytes, bytesOffset, chunkSize);
             length -= chunkSize;
             bytesOffset += chunkSize;

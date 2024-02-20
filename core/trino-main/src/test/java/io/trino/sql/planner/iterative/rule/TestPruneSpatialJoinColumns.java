@@ -20,14 +20,18 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.SpatialJoinNode;
-import org.testng.annotations.Test;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.FunctionCall;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.TestPruneSpatialJoinChildrenColumns.TEST_ST_DISTANCE_FUNCTION;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 
 public class TestPruneSpatialJoinColumns
         extends BaseRuleTest
@@ -47,7 +51,10 @@ public class TestPruneSpatialJoinColumns
                                     p.values(a),
                                     p.values(b, r),
                                     ImmutableList.of(a, b, r),
-                                    expression("ST_Distance(a, b) <= r")));
+                                    new ComparisonExpression(
+                                            LESS_THAN_OR_EQUAL,
+                                            new FunctionCall(TEST_ST_DISTANCE_FUNCTION.toQualifiedName(), ImmutableList.of(a.toSymbolReference(), b.toSymbolReference())),
+                                            r.toSymbolReference())));
                 })
                 .matches(
                         strictProject(

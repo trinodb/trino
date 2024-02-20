@@ -13,14 +13,17 @@
  */
 package io.trino.metadata;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.connector.informationschema.InformationSchemaMetadata;
+import io.trino.connector.system.SystemTablesMetadata;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-
-import javax.annotation.concurrent.GuardedBy;
+import io.trino.tracing.TracingConnectorMetadata;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -29,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class CatalogTransaction
 {
+    private final Tracer tracer;
     private final CatalogHandle catalogHandle;
     private final Connector connector;
     private final ConnectorTransactionHandle transactionHandle;
@@ -37,10 +41,12 @@ public class CatalogTransaction
     private final AtomicBoolean finished = new AtomicBoolean();
 
     public CatalogTransaction(
+            Tracer tracer,
             CatalogHandle catalogHandle,
             Connector connector,
             ConnectorTransactionHandle transactionHandle)
     {
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connector = requireNonNull(connector, "connector is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
@@ -62,6 +68,7 @@ public class CatalogTransaction
         if (connectorMetadata == null) {
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
             connectorMetadata = connector.getMetadata(connectorSession, transactionHandle);
+            connectorMetadata = tracingConnectorMetadata(catalogHandle.getCatalogName(), connectorMetadata);
         }
         return connectorMetadata;
     }
@@ -84,5 +91,13 @@ public class CatalogTransaction
         if (finished.compareAndSet(false, true)) {
             connector.rollback(transactionHandle);
         }
+    }
+
+    private ConnectorMetadata tracingConnectorMetadata(String catalogName, ConnectorMetadata delegate)
+    {
+        if ((delegate instanceof SystemTablesMetadata) || (delegate instanceof InformationSchemaMetadata)) {
+            return delegate;
+        }
+        return new TracingConnectorMetadata(tracer, catalogName, delegate);
     }
 }

@@ -103,11 +103,13 @@ public class FileBasedSystemAccessControlModule
                 .setImpersonationRules(rules.getImpersonationRules())
                 .setPrincipalUserMatchRules(rules.getPrincipalUserMatchRules())
                 .setSystemInformationRules(rules.getSystemInformationRules())
+                .setAuthorizationRules(rules.getAuthorizationRules())
                 .setSchemaRules(rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)))
                 .setTableRules(rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)))
                 .setSessionPropertyRules(rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)))
                 .setCatalogSessionPropertyRules(rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)))
-                .setFunctionRules(rules.getFunctionRules().orElse(ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_ALL)))
+                .setFunctionRules(rules.getFunctionRules().orElse(ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_BUILTIN)))
+                .setProcedureRules(rules.getProcedureRules().orElse(ImmutableList.of(CatalogProcedureAccessControlRule.ALLOW_BUILTIN)))
                 .build();
     }
 

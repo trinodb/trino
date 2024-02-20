@@ -39,9 +39,8 @@ public final class DecimalSaturatedFloorCasts
 {
     private DecimalSaturatedFloorCasts() {}
 
-    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
+    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = new PolymorphicScalarFunctionBuilder(SATURATED_FLOOR_CAST, DecimalSaturatedFloorCasts.class)
             .signature(Signature.builder()
-                    .operatorType(SATURATED_FLOOR_CAST)
                     .argumentType(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
                     .returnType(new TypeSignature("decimal", typeVariable("result_precision"), typeVariable("result_scale")))
                     .build())
@@ -110,9 +109,8 @@ public final class DecimalSaturatedFloorCasts
 
     private static SqlScalarFunction decimalToGenericIntegerTypeSaturatedFloorCast(Type type, long minValue, long maxValue)
     {
-        return new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
+        return new PolymorphicScalarFunctionBuilder(SATURATED_FLOOR_CAST, DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
-                        .operatorType(SATURATED_FLOOR_CAST)
                         .argumentType(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
                         .returnType(type.getTypeSignature())
                         .build())
@@ -161,9 +159,8 @@ public final class DecimalSaturatedFloorCasts
 
     private static SqlScalarFunction genericIntegerTypeToDecimalSaturatedFloorCast(Type integerType)
     {
-        return new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
+        return new PolymorphicScalarFunctionBuilder(SATURATED_FLOOR_CAST, DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
-                        .operatorType(SATURATED_FLOOR_CAST)
                         .argumentType(integerType)
                         .returnType(new TypeSignature("decimal", typeVariable("result_precision"), typeVariable("result_scale")))
                         .build())

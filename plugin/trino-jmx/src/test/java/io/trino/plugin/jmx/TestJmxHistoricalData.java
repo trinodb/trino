@@ -15,13 +15,13 @@ package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Locale.ENGLISH;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJmxHistoricalData
 {
@@ -37,16 +37,16 @@ public class TestJmxHistoricalData
         List<Integer> bothColumns = ImmutableList.of(0, 1);
         List<Integer> secondColumn = ImmutableList.of(1);
 
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, bothColumns), ImmutableList.of());
+        assertThat(jmxHistoricalData.getRows(TABLE_NAME, bothColumns)).isEmpty();
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, bothColumns), ImmutableList.of(ImmutableList.<Object>of(42, "ala")));
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, secondColumn), ImmutableList.of(ImmutableList.<Object>of("ala")));
-        assertEquals(jmxHistoricalData.getRows(NOT_EXISTING_TABLE_NAME, bothColumns), ImmutableList.of());
+        assertThat(jmxHistoricalData.getRows(TABLE_NAME, bothColumns)).isEqualTo(ImmutableList.of(ImmutableList.<Object>of(42, "ala")));
+        assertThat(jmxHistoricalData.getRows(TABLE_NAME, secondColumn)).isEqualTo(ImmutableList.of(ImmutableList.<Object>of("ala")));
+        assertThat(jmxHistoricalData.getRows(NOT_EXISTING_TABLE_NAME, bothColumns)).isEmpty();
 
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, bothColumns).size(), MAX_ENTRIES);
+        assertThat(jmxHistoricalData.getRows(TABLE_NAME, bothColumns)).hasSize(MAX_ENTRIES);
     }
 
     @Test
@@ -55,16 +55,16 @@ public class TestJmxHistoricalData
         JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of(TABLE_NAME.toUpperCase(ENGLISH)), getPlatformMBeanServer());
 
         List<Integer> columns = ImmutableList.of(0);
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, columns), ImmutableList.of());
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(ENGLISH), columns), ImmutableList.of());
+        assertThat(jmxHistoricalData.getRows(TABLE_NAME, columns)).isEmpty();
+        assertThat(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(ENGLISH), columns)).isEmpty();
 
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42));
         jmxHistoricalData.addRow(TABLE_NAME.toUpperCase(ENGLISH), ImmutableList.of(44));
 
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, columns), ImmutableList.of(
-                ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(ENGLISH), columns), ImmutableList.of(
-                ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));
+        assertThat(jmxHistoricalData.getRows(TABLE_NAME, columns))
+                .isEqualTo(ImmutableList.of(ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));
+        assertThat(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(ENGLISH), columns))
+                .isEqualTo(ImmutableList.of(ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));
     }
 
     @Test
@@ -72,6 +72,6 @@ public class TestJmxHistoricalData
     {
         JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of("java.lang:type=c*"), getPlatformMBeanServer());
 
-        assertEquals(jmxHistoricalData.getTables(), ImmutableSet.of("java.lang:type=classloading", "java.lang:type=compilation"));
+        assertThat(jmxHistoricalData.getTables()).isEqualTo(ImmutableSet.of("java.lang:type=classloading", "java.lang:type=compilation"));
     }
 }

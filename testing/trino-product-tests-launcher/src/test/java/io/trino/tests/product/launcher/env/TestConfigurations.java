@@ -17,7 +17,7 @@ import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
 import io.trino.tests.product.launcher.suite.suites.Suite1;
 import io.trino.tests.product.launcher.suite.suites.Suite6NonGeneric;
 import io.trino.tests.product.launcher.suite.suites.SuiteTpcds;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.tests.product.launcher.Configurations.canonicalEnvironmentName;
 import static io.trino.tests.product.launcher.Configurations.nameForSuiteClass;

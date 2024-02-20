@@ -15,10 +15,11 @@ package io.trino.plugin.hive.util;
 
 import io.airlift.units.DataSize;
 import io.trino.spi.SplitWeight;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSizeBasedSplitWeightProvider
 {
@@ -26,9 +27,9 @@ public class TestSizeBasedSplitWeightProvider
     public void testSimpleProportions()
     {
         SizeBasedSplitWeightProvider provider = new SizeBasedSplitWeightProvider(0.01, DataSize.of(64, MEGABYTE));
-        assertEquals(provider.weightForSplitSizeInBytes(DataSize.of(64, MEGABYTE).toBytes()), SplitWeight.fromProportion(1));
-        assertEquals(provider.weightForSplitSizeInBytes(DataSize.of(32, MEGABYTE).toBytes()), SplitWeight.fromProportion(0.5));
-        assertEquals(provider.weightForSplitSizeInBytes(DataSize.of(16, MEGABYTE).toBytes()), SplitWeight.fromProportion(0.25));
+        assertThat(provider.weightForSplitSizeInBytes(DataSize.of(64, MEGABYTE).toBytes())).isEqualTo(SplitWeight.fromProportion(1));
+        assertThat(provider.weightForSplitSizeInBytes(DataSize.of(32, MEGABYTE).toBytes())).isEqualTo(SplitWeight.fromProportion(0.5));
+        assertThat(provider.weightForSplitSizeInBytes(DataSize.of(16, MEGABYTE).toBytes())).isEqualTo(SplitWeight.fromProportion(0.25));
     }
 
     @Test
@@ -37,21 +38,25 @@ public class TestSizeBasedSplitWeightProvider
         double minimumWeight = 0.05;
         DataSize targetSplitSize = DataSize.of(64, MEGABYTE);
         SizeBasedSplitWeightProvider provider = new SizeBasedSplitWeightProvider(minimumWeight, targetSplitSize);
-        assertEquals(provider.weightForSplitSizeInBytes(1), SplitWeight.fromProportion(minimumWeight));
+        assertThat(provider.weightForSplitSizeInBytes(1)).isEqualTo(SplitWeight.fromProportion(minimumWeight));
 
         DataSize largerThanTarget = DataSize.of(128, MEGABYTE);
-        assertEquals(provider.weightForSplitSizeInBytes(largerThanTarget.toBytes()), SplitWeight.standard());
+        assertThat(provider.weightForSplitSizeInBytes(largerThanTarget.toBytes())).isEqualTo(SplitWeight.standard());
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "^minimumWeight must be > 0 and <= 1, found: 1\\.01$")
+    @Test
     public void testInvalidMinimumWeight()
     {
-        new SizeBasedSplitWeightProvider(1.01, DataSize.of(64, MEGABYTE));
+        assertThatThrownBy(() -> new SizeBasedSplitWeightProvider(1.01, DataSize.of(64, MEGABYTE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("^minimumWeight must be > 0 and <= 1, found: 1\\.01$");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "^targetSplitSize must be > 0, found:.*$")
+    @Test
     public void testInvalidTargetSplitSize()
     {
-        new SizeBasedSplitWeightProvider(0.01, DataSize.ofBytes(0));
+        assertThatThrownBy(() -> new SizeBasedSplitWeightProvider(0.01, DataSize.ofBytes(0)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("^targetSplitSize must be > 0, found:.*$");
     }
 }

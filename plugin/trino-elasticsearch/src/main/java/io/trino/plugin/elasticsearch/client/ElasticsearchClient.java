@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
@@ -36,6 +37,8 @@ import io.trino.plugin.elasticsearch.AwsSecurityConfig;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import io.trino.plugin.elasticsearch.PasswordConfig;
 import io.trino.spi.TrinoException;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -59,15 +62,12 @@ import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 import javax.net.ssl.SSLContext;
 
 import java.io.File;
@@ -201,8 +201,7 @@ public class ElasticsearchClient
         RestClientBuilder builder = RestClient.builder(
                 config.getHosts().stream()
                         .map(httpHost -> new HttpHost(httpHost, config.getPort(), config.isTlsEnabled() ? "https" : "http"))
-                        .toArray(HttpHost[]::new))
-                .setMaxRetryTimeoutMillis(toIntExact(config.getMaxRetryTime().toMillis()));
+                        .toArray(HttpHost[]::new));
 
         builder.setHttpClientConfigCallback(ignored -> {
             RequestConfig requestConfig = RequestConfig.custom()
@@ -225,7 +224,7 @@ public class ElasticsearchClient
                 buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword())
                         .ifPresent(clientBuilder::setSSLContext);
 
-                if (config.isVerifyHostnames()) {
+                if (!config.isVerifyHostnames()) {
                     clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
                 }
             }

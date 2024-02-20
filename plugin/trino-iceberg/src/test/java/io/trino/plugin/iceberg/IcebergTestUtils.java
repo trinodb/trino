@@ -15,11 +15,10 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.local.LocalInputFile;
-import io.trino.orc.FileOrcDataSource;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
@@ -30,12 +29,11 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
+import io.trino.testing.QueryRunner;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -46,7 +44,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 
 public final class IcebergTestUtils
 {
@@ -57,29 +55,15 @@ public final class IcebergTestUtils
     {
         return Session.builder(session)
                 .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "10")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_page_size", "100B")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "100B")
+                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "1kB")
                 .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "10")
                 .build();
     }
 
-    public static boolean checkOrcFileSorting(String path, String sortColumnName)
+    public static boolean checkOrcFileSorting(TrinoFileSystem fileSystem, Location path, String sortColumnName)
     {
         return checkOrcFileSorting(() -> {
             try {
-                return new FileOrcDataSource(new File(path), new OrcReaderOptions());
-            }
-            catch (FileNotFoundException e) {
-                throw new UncheckedIOException(e);
-            }
-        }, sortColumnName);
-    }
-
-    public static boolean checkOrcFileSorting(TrinoFileSystemFactory fileSystemFactory, String path, String sortColumnName)
-    {
-        return checkOrcFileSorting(() -> {
-            try {
-                TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
                 return new TrinoOrcDataSource(fileSystem.newInputFile(path), new OrcReaderOptions(), new FileFormatDataSourceStats());
             }
             catch (IOException e) {
@@ -127,11 +111,6 @@ public final class IcebergTestUtils
         }
     }
 
-    public static boolean checkParquetFileSorting(String path, String sortColumnName)
-    {
-        return checkParquetFileSorting(new LocalInputFile(new File(path)), sortColumnName);
-    }
-
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static boolean checkParquetFileSorting(TrinoInputFile inputFile, String sortColumnName)
     {
@@ -159,5 +138,11 @@ public final class IcebergTestUtils
             previousMax = columnMetadata.getStatistics().genericGetMax();
         }
         return true;
+    }
+
+    public static TrinoFileSystemFactory getFileSystemFactory(QueryRunner queryRunner)
+    {
+        return ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG))
+                .getInjector().getInstance(TrinoFileSystemFactory.class);
     }
 }

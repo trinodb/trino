@@ -25,7 +25,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrCodeGenerator
@@ -57,7 +56,7 @@ public class OrCodeGenerator
             RowExpression term = terms.get(i);
             block.append(generator.generate(term));
 
-            IfStatement ifWasNull = new IfStatement(format("if term %s wasNull...", i))
+            IfStatement ifWasNull = new IfStatement("if term " + i + " wasNull...")
                     .condition(wasNull);
 
             ifWasNull.ifTrue()

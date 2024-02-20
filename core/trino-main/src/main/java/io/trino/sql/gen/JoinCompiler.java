@@ -16,6 +16,7 @@ package io.trino.sql.gen;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -34,7 +35,8 @@ import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.slice.SizeOf;
 import io.trino.Session;
-import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.operator.FlatHashStrategy;
 import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.join.BigintPagesHash;
@@ -54,11 +56,8 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.assertj.core.util.VisibleForTesting;
-import org.openjdk.jol.info.ClassLayout;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Constructor;
@@ -89,11 +88,13 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.airlift.bytecode.expression.BytecodeExpressions.setStatic;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.operator.FlatHashStrategyCompiler.compileFlatHashStrategy;
 import static io.trino.operator.join.JoinUtils.getSingleBigintJoinChannel;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
@@ -121,6 +122,8 @@ public class JoinCompiler
             CacheLoader.from(key ->
                     internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
+    private final NonEvictableLoadingCache<List<Type>, FlatHashStrategy> flatHashStrategies;
+
     @Inject
     public JoinCompiler(TypeOperators typeOperators)
     {
@@ -132,6 +135,11 @@ public class JoinCompiler
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.enableSingleChannelBigintLookupSource = enableSingleChannelBigintLookupSource;
+        this.flatHashStrategies = buildNonEvictableCache(
+                    CacheBuilder.newBuilder()
+                            .recordStats()
+                            .maximumSize(1000),
+                    CacheLoader.from(key -> compileFlatHashStrategy(key, typeOperators)));
     }
 
     @Managed
@@ -146,6 +154,12 @@ public class JoinCompiler
     public CacheStatsMBean getHashStrategiesStats()
     {
         return new CacheStatsMBean(hashStrategies);
+    }
+
+    // This should be in a separate cache, but it is convenient during the transition to keep this in the join compiler
+    public FlatHashStrategy getFlatHashStrategy(List<Type> types)
+    {
+        return flatHashStrategies.getUnchecked(ImmutableList.copyOf(types));
     }
 
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel, Optional<List<Integer>> outputChannels)
@@ -209,8 +223,7 @@ public class JoinCompiler
         FieldDefinition instanceSize = definition.declareField(a(PRIVATE, STATIC, FINAL), "INSTANCE_SIZE", long.class);
         definition.getClassInitializer()
                 .getBody()
-                .comment("INSTANCE_SIZE = ClassLayout.parseClass(%s.class).instanceSize()", definition.getName())
-                .append(setStatic(instanceSize, invokeStatic(ClassLayout.class, "parseClass", ClassLayout.class, constantClass(definition.getType())).invoke("instanceSize", long.class)));
+                .append(setStatic(instanceSize, invokeStatic(SizeOf.class, "instanceSize", int.class, constantClass(definition.getType())).cast(long.class)));
         return instanceSize;
     }
 
@@ -523,7 +536,7 @@ public class JoinCompiler
 
     private BytecodeNode typeHashCode(CallSiteBinder callSiteBinder, Type type, BytecodeExpression blockRef, BytecodeExpression blockPosition)
     {
-        MethodHandle hashCodeOperator = typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        MethodHandle hashCodeOperator = typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
         return new IfStatement()
                 .condition(blockRef.invoke("isNull", boolean.class, blockPosition))
                 .ifTrue(constantLong(0L))
@@ -1033,14 +1046,13 @@ public class JoinCompiler
             BytecodeExpression rightBlock,
             BytecodeExpression rightBlockPosition)
     {
-        MethodHandle equalOperator = typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
-        BytecodeExpression equalInvocation = invokeDynamic(
+        MethodHandle equalOperator = typeOperators.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        return invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(callSiteBinder.bind(equalOperator).getBindingId()),
                 "equal",
                 equalOperator.type(),
                 leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-        return BytecodeExpressions.equal(equalInvocation, getStatic(Boolean.class, "TRUE"));
     }
 
     public static class LookupSourceSupplierFactory

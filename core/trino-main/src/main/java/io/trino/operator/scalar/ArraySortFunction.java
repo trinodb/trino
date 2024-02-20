@@ -13,21 +13,20 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 
@@ -36,14 +35,14 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 public final class ArraySortFunction
 {
     public static final String NAME = "array_sort";
-    private final PageBuilder pageBuilder;
+    private final BufferedArrayValueBuilder arrayValueBuilder;
     private static final int INITIAL_LENGTH = 128;
     private final IntArrayList positions = new IntArrayList(INITIAL_LENGTH);
 
     @TypeParameter("E")
     public ArraySortFunction(@TypeParameter("E") Type elementType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
     }
 
     @TypeParameter("E")
@@ -52,7 +51,7 @@ public final class ArraySortFunction
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block block)
     {
@@ -78,17 +77,10 @@ public final class ArraySortFunction
             return (int) comparisonOperator.compare(block, left, block, right);
         });
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-
-        for (int i = 0; i < arrayLength; i++) {
-            type.appendTo(block, positions.getInt(i), blockBuilder);
-        }
-        pageBuilder.declarePositions(arrayLength);
-
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - arrayLength, arrayLength);
+        return arrayValueBuilder.build(arrayLength, elementBuilder -> {
+            for (int i = 0; i < arrayLength; i++) {
+                type.appendTo(block, positions.getInt(i), elementBuilder);
+            }
+        });
     }
 }

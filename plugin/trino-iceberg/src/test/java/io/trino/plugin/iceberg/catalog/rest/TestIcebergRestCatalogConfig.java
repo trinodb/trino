@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -31,7 +31,8 @@ public class TestIcebergRestCatalogConfig
                 .setBaseUri(null)
                 .setWarehouse(null)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.NONE)
-                .setSecurity(IcebergRestCatalogConfig.Security.NONE));
+                .setSecurity(IcebergRestCatalogConfig.Security.NONE)
+                .setVendedCredentialsEnabled(false));
     }
 
     @Test
@@ -42,13 +43,15 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.warehouse", "test_warehouse_identifier")
                 .put("iceberg.rest-catalog.security", "OAUTH2")
                 .put("iceberg.rest-catalog.session", "USER")
+                .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                 .buildOrThrow();
 
         IcebergRestCatalogConfig expected = new IcebergRestCatalogConfig()
                 .setBaseUri("http://localhost:1234")
                 .setWarehouse("test_warehouse_identifier")
                 .setSessionType(IcebergRestCatalogConfig.SessionType.USER)
-                .setSecurity(IcebergRestCatalogConfig.Security.OAUTH2);
+                .setSecurity(IcebergRestCatalogConfig.Security.OAUTH2)
+                .setVendedCredentialsEnabled(true);
 
         assertFullMapping(properties, expected);
     }

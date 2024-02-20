@@ -15,6 +15,7 @@ package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
@@ -23,8 +24,8 @@ import java.lang.invoke.MethodType;
 import java.util.Objects;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
@@ -51,8 +52,8 @@ public final class NullableValue
         this.value = value;
 
         if (type.isComparable()) {
-            this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL))
-                    .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
+            this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, NEVER_NULL, NEVER_NULL))
+                    .asType(MethodType.methodType(boolean.class, Object.class, Object.class));
             this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL))
                     .asType(MethodType.methodType(long.class, Object.class));
         }
@@ -73,8 +74,8 @@ public final class NullableValue
         return new NullableValue(type, null);
     }
 
-    // Jackson deserialization only
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static NullableValue fromSerializable(@JsonProperty("serializable") Serializable serializable)
     {
         Type type = serializable.getType();
@@ -147,7 +148,7 @@ public final class NullableValue
     private boolean valueEquals(Object otherValue)
     {
         try {
-            return ((Boolean) equalOperator.invokeExact(value, otherValue)) == Boolean.TRUE;
+            return (boolean) equalOperator.invokeExact(value, otherValue);
         }
         catch (Throwable throwable) {
             throw handleThrowable(throwable);

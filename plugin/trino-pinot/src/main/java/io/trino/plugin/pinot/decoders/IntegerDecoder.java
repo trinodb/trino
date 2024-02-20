@@ -14,6 +14,7 @@
 package io.trino.plugin.pinot.decoders;
 
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.IntArrayBlockBuilder;
 
 import java.util.function.Supplier;
 
@@ -28,7 +29,7 @@ public class IntegerDecoder
             output.appendNull();
         }
         else {
-            output.writeInt(((Number) value).intValue());
+            ((IntArrayBlockBuilder) output).writeInt(((Number) value).intValue());
         }
     }
 }

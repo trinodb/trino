@@ -20,13 +20,13 @@ import io.trino.operator.RowReferencePageManager.LoadCursor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -37,11 +37,13 @@ import static java.util.Objects.requireNonNull;
 public class GroupedTopNRankBuilder
         implements GroupedTopNBuilder
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedTopNRankBuilder.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(GroupedTopNRankBuilder.class);
 
     private final List<Type> sourceTypes;
     private final boolean produceRanking;
+    private final int[] groupByChannels;
     private final GroupByHash groupByHash;
+    private final PageWithPositionComparator comparator;
     private final RowReferencePageManager pageManager = new RowReferencePageManager();
     private final GroupedTopNRankAccumulator groupedTopNRankAccumulator;
 
@@ -51,14 +53,16 @@ public class GroupedTopNRankBuilder
             PageWithPositionEqualsAndHash equalsAndHash,
             int topN,
             boolean produceRanking,
+            int[] groupByChannels,
             GroupByHash groupByHash)
     {
         this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
         checkArgument(topN > 0, "topN must be > 0");
         this.produceRanking = produceRanking;
+        this.groupByChannels = requireNonNull(groupByChannels, "groupByChannels is null");
         this.groupByHash = requireNonNull(groupByHash, "groupByHash is null");
 
-        requireNonNull(comparator, "comparator is null");
+        this.comparator = requireNonNull(comparator, "comparator is null");
         requireNonNull(equalsAndHash, "equalsAndHash is null");
         groupedTopNRankAccumulator = new GroupedTopNRankAccumulator(
                 new RowIdComparisonHashStrategy()
@@ -99,9 +103,9 @@ public class GroupedTopNRankBuilder
     public Work<?> processPage(Page page)
     {
         return new TransformWork<>(
-                groupByHash.getGroupIds(page),
+                groupByHash.getGroupIds(page.getColumns(groupByChannels)),
                 groupIds -> {
-                    processPage(page, groupIds);
+                    processPage(page, groupByHash.getGroupCount(), groupIds);
                     return null;
                 });
     }
@@ -121,11 +125,16 @@ public class GroupedTopNRankBuilder
                 + groupedTopNRankAccumulator.sizeOf();
     }
 
-    private void processPage(Page newPage, GroupByIdBlock groupIds)
+    private void processPage(Page newPage, int groupCount, int[] groupIds)
     {
-        try (LoadCursor loadCursor = pageManager.add(newPage)) {
-            for (int position = 0; position < newPage.getPositionCount(); position++) {
-                long groupId = groupIds.getGroupId(position);
+        int firstPositionToAdd = groupedTopNRankAccumulator.findFirstPositionToAdd(newPage, groupCount, groupIds, comparator, pageManager);
+        if (firstPositionToAdd < 0) {
+            return;
+        }
+
+        try (LoadCursor loadCursor = pageManager.add(newPage, firstPositionToAdd)) {
+            for (int position = firstPositionToAdd; position < newPage.getPositionCount(); position++) {
+                int groupId = groupIds[position];
                 loadCursor.advance();
                 groupedTopNRankAccumulator.add(groupId, loadCursor);
             }
@@ -139,8 +148,8 @@ public class GroupedTopNRankBuilder
             extends AbstractIterator<Page>
     {
         private final PageBuilder pageBuilder;
-        private final long groupIdCount = groupByHash.getGroupCount();
-        private long currentGroupId = -1;
+        private final int groupIdCount = groupByHash.getGroupCount();
+        private int currentGroupId = -1;
         private final LongBigArray rowIdOutput = new LongBigArray();
         private final LongBigArray rankingOutput = new LongBigArray();
         private long currentGroupSize;

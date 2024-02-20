@@ -14,12 +14,11 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

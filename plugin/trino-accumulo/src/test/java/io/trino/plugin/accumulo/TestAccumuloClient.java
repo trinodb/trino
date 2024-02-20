@@ -24,9 +24,10 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.accumulo.core.client.Connector;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.HashMap;
 import java.util.List;
@@ -34,14 +35,16 @@ import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestAccumuloClient
 {
     private AccumuloClient client;
     private ZooKeeperMetadataManager zooKeeperMetadataManager;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
@@ -55,7 +58,7 @@ public class TestAccumuloClient
         client = new AccumuloClient(connector, config, zooKeeperMetadataManager, new AccumuloTableManager(connector), new IndexLookup(connector, new ColumnCardinalityCache(connector, config)));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         zooKeeperMetadataManager = null;
@@ -80,7 +83,7 @@ public class TestAccumuloClient
             properties.put("external", true);
             properties.put("column_mapping", "a:a:a,b::b,c:c:,d::");
             client.createTable(new ConnectorTableMetadata(tableName, columns, properties));
-            assertNotNull(client.getTable(tableName));
+            assertThat(client.getTable(tableName)).isNotNull();
         }
         finally {
             AccumuloTable table = zooKeeperMetadataManager.getTable(tableName);

@@ -18,7 +18,9 @@ import io.trino.Session;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
@@ -27,10 +29,9 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -44,7 +45,9 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -53,13 +56,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class BaseBigQueryTypeMapping
         extends AbstractTestQueryFramework
 {
-    private BigQueryQueryRunner.BigQuerySqlExecutor bigQuerySqlExecutor;
-
-    @BeforeClass(alwaysRun = true)
-    public void initBigQueryExecutor()
-    {
-        bigQuerySqlExecutor = new BigQueryQueryRunner.BigQuerySqlExecutor();
-    }
+    private final BigQueryQueryRunner.BigQuerySqlExecutor bigQuerySqlExecutor = new BigQueryQueryRunner.BigQuerySqlExecutor();
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
 
     @Test
     public void testBoolean()
@@ -103,8 +103,19 @@ public abstract class BaseBigQueryTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert("test.varbinary"));
     }
 
-    @Test(dataProvider = "bigqueryIntegerTypeProvider")
-    public void testInt64(String inputType)
+    @Test
+    public void testInt64()
+    {
+        testInt64("BYTEINT");
+        testInt64("TINYINT");
+        testInt64("SMALLINT");
+        testInt64("INTEGER");
+        testInt64("INT64");
+        testInt64("INT");
+        testInt64("BIGINT");
+    }
+
+    private void testInt64(String inputType)
     {
         SqlDataTypeTest.create()
                 .addRoundTrip(inputType, "-9223372036854775808", BIGINT, "-9223372036854775808")
@@ -113,21 +124,6 @@ public abstract class BaseBigQueryTypeMapping
                 .addRoundTrip(inputType, "NULL", BIGINT, "CAST(NULL AS BIGINT)")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.integer"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.integer"));
-    }
-
-    @DataProvider
-    public Object[][] bigqueryIntegerTypeProvider()
-    {
-        // BYTEINT, TINYINT, SMALLINT, INTEGER, INT and BIGINT are aliases for INT64 in BigQuery
-        return new Object[][] {
-                {"BYTEINT"},
-                {"TINYINT"},
-                {"SMALLINT"},
-                {"INTEGER"},
-                {"INT64"},
-                {"INT"},
-                {"BIGINT"},
-        };
     }
 
     @Test
@@ -376,23 +372,20 @@ public abstract class BaseBigQueryTypeMapping
                 .hasMessageContaining("SELECT * not allowed from relation that has no columns");
     }
 
-    @Test(dataProvider = "bigqueryUnsupportedBigNumericTypeProvider")
-    public void testUnsupportedBigNumericMapping(String unsupportedTypeName)
+    @Test
+    public void testUnsupportedBigNumericMapping()
+    {
+        testUnsupportedBigNumericMapping("BIGNUMERIC");
+        testUnsupportedBigNumericMapping("BIGNUMERIC(40,2)");
+    }
+
+    private void testUnsupportedBigNumericMapping(String unsupportedTypeName)
     {
         try (TestTable table = new TestTable(getBigQuerySqlExecutor(), "test.unsupported_bignumeric", format("(supported_column INT64, unsupported_column %s)", unsupportedTypeName))) {
             assertQuery(
                     "DESCRIBE " + table.getName(),
                     "VALUES ('supported_column', 'bigint', '', '')");
         }
-    }
-
-    @DataProvider
-    public Object[][] bigqueryUnsupportedBigNumericTypeProvider()
-    {
-        return new Object[][] {
-                {"BIGNUMERIC"},
-                {"BIGNUMERIC(40,2)"},
-        };
     }
 
     @Test
@@ -420,6 +413,22 @@ public abstract class BaseBigQueryTypeMapping
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.date"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test.date"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test.date"));
+    }
+
+    @Test
+    public void testBigQueryUnsupportedDate()
+    {
+        try (TestTable table = new TestTable(getBigQuerySqlExecutor(), "test.unsupported_date", "(col date)")) {
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES date '-0001-01-01'",
+                    "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got -0001-01-01");
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES date '0000-12-31'",
+                    "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got 0000-12-31");
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES date '10000-01-01'",
+                    "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got \\+10000-01-01");
+        }
     }
 
     @Test
@@ -529,41 +538,124 @@ public abstract class BaseBigQueryTypeMapping
     @Test
     public void testTimestampWithTimeZone()
     {
-        SqlDataTypeTest.create()
+        testTimestampWithTimeZone(UTC);
+        testTimestampWithTimeZone(jvmZone);
+
+        // using two non-JVM zones so that we don't need to worry what BigQuery system zone is
+        testTimestampWithTimeZone(vilnius);
+        testTimestampWithTimeZone(kathmandu);
+        testTimestampWithTimeZone(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampWithTimeZone(ZoneId zoneId)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId.getId()))
+                .build();
+
+        testTimestampWithTimeZone("TIMESTAMP(6) WITH TIME ZONE")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.timestamp_tz"))
+                .execute(getQueryRunner(), trinoCreateAsSelect(session, "test.timestamp_tz"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test.timestamp_tz"));
+
+        testTimestampWithTimeZone("TIMESTAMP")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.timestamp_tz"));
+    }
+
+    private SqlDataTypeTest testTimestampWithTimeZone(String inputType)
+    {
+        return SqlDataTypeTest.create()
                 // min value in BigQuery
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '0001-01-01 00:00:00.000000 UTC'",
+                .addRoundTrip(inputType, "TIMESTAMP '0001-01-01 00:00:00.000 UTC'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '0001-01-01 00:00:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000 Asia/Kathmandu'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 18:30:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000+02:17'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 21:43:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000-07:31'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 07:31:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'",
+                // before epoch
+                .addRoundTrip(inputType, "TIMESTAMP '1958-01-01 13:18:03.123 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 13:18:03.123000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123000 Asia/Kathmandu'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 07:48:03.123000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123000+02:17'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 11:01:03.123000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123000-07:31'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 20:49:03.123000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'",
+                .addRoundTrip(inputType, "TIMESTAMP '1958-01-01 13:18:03.123000 Asia/Kathmandu'",
+                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 07:48:03.123000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1969-12-31 23:59:59.999995 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 23:59:59.999995 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1969-12-31 23:59:59.999949 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 23:59:59.999949 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1969-12-31 23:59:59.999994 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 23:59:59.999994 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000000 Asia/Kathmandu'",
+                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 18:30:00.000000 UTC'")
+                // epoch
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
+                // after epoch
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.000000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.1 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.100000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.12 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.120000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.123 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.1234 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123400 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.12345 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123450 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123456 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:13:42.000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:13:42.000000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:13:42.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:13:42.123456 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1986-01-01 00:13:07.000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1986-01-01 00:13:07.000000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1986-01-01 00:13:07.456789 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1986-01-01 00:13:07.456789 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-03-25 03:17:17.000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-03-25 03:17:17.000000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-03-25 03:17:17.456789 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-03-25 03:17:17.456789 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-04-01 02:13:55.123 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-04-01 02:13:55.123000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-04-01 02:13:55.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-04-01 02:13:55.123456 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 01:33:17.456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 01:33:17.456000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 01:33:17.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 01:33:17.123456 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 03:33:33.333 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 03:33:33.333000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 03:33:33.333333 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 03:33:33.333333 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2019-03-18 10:01:17.987 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 10:01:17.987000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987000 Asia/Kathmandu'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 04:16:17.987000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987000+02:17'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 07:44:17.987000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987000-07:31'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 17:32:17.987000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2021-09-07 23:59:59.999999-00:00'",
+                .addRoundTrip(inputType, "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'")
                 // max value in BigQuery
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '9999-12-31 23:59:59.999999-00:00'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'")
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.timestamp_tz"));
-        // TODO (https://github.com/trinodb/trino/pull/12210) Add support for timestamp with time zone type in views
+                .addRoundTrip(inputType, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'");
+    }
+
+    @Test
+    public void testUnsupportedTimestampWithTimeZone()
+    {
+        try (TestTable table = new TestTable(getBigQuerySqlExecutor(), "test.unsupported_tz", "(col timestamp)")) {
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (timestamp '-2021-09-07 23:59:59.999999 UTC')", "Failed to insert rows.*");
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (timestamp '-0001-01-01 00:00:00.000000 UTC')", "Failed to insert rows.*");
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (timestamp '0000-12-31 23:59:59.999999 UTC')", "Failed to insert rows.*");
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (timestamp '10000-01-01 00:00:00.000000 UTC')", "Failed to insert rows.*");
+
+            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute("INSERT INTO " + table.getName() + " VALUES (timestamp '-2021-09-07 23:59:59.999999 UTC')"))
+                    .hasMessageContaining("Invalid TIMESTAMP literal");
+            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute("INSERT INTO " + table.getName() + " VALUES (timestamp '-0001-01-01 00:00:00.000000 UTC')"))
+                    .hasMessageContaining("Invalid TIMESTAMP literal");
+            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute("INSERT INTO " + table.getName() + " VALUES (timestamp '0000-12-31 23:59:59.999999 UTC')"))
+                    .hasMessageContaining("Invalid TIMESTAMP literal");
+            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute("INSERT INTO " + table.getName() + " VALUES (timestamp '10000-01-01 00:00:00.000000 UTC')"))
+                    .hasMessageContaining("Invalid TIMESTAMP literal");
+        }
     }
 
     @Test
@@ -601,6 +693,16 @@ public abstract class BaseBigQueryTypeMapping
                 .addRoundTrip("GEOGRAPHY", "NULL", VARCHAR, "CAST(NULL AS VARCHAR)")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.geography"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.geography"));
+    }
+
+    @Test
+    public void testJson()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("JSON", "JSON '{\"name\": \"Alice\", \"age\": 30}'", JSON, "JSON '{\"name\": \"Alice\", \"age\": 30}'")
+                .addRoundTrip("JSON", "NULL", JSON, "CAST(NULL AS JSON)")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.json"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.json"));
     }
 
     @Test

@@ -13,34 +13,27 @@
  */
 package io.trino.plugin.hive.fs;
 
-import io.airlift.units.Duration;
-import org.apache.hadoop.fs.Path;
-import org.testng.annotations.Test;
+import com.google.common.collect.ImmutableMap;
+import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.List;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // some tests may invalidate the whole cache affecting therefore other concurrent tests
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestCachingDirectoryLister
-        extends BaseCachingDirectoryListerTest<CachingDirectoryLister>
+        extends BaseCachingDirectoryListerTest
 {
     @Override
-    protected CachingDirectoryLister createDirectoryLister()
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        return new CachingDirectoryLister(Duration.valueOf("5m"), 1_000_000L, List.of("tpch.*"));
-    }
-
-    @Override
-    protected boolean isCached(CachingDirectoryLister directoryLister, Path path)
-    {
-        return directoryLister.isCached(path);
-    }
-
-    @Test
-    public void forceTestNgToRespectSingleThreaded()
-    {
-        // TODO: Remove after updating TestNG to 7.4.0+ (https://github.com/trinodb/trino/issues/8571)
-        // TestNG doesn't enforce @Test(singleThreaded = true) when tests are defined in base class. According to
-        // https://github.com/cbeust/testng/issues/2361#issuecomment-688393166 a workaround it to add a dummy test to the leaf test class.
+        return createQueryRunner(ImmutableMap.<String, String>builder()
+                .put("hive.allow-register-partition-procedure", "true")
+                .put("hive.recursive-directories", "true")
+                .put("hive.file-status-cache-expire-time", "5m")
+                .put("hive.file-status-cache.max-retained-size", "1MB")
+                .put("hive.file-status-cache-tables", "tpch.*")
+                .buildOrThrow());
     }
 }

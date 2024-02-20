@@ -22,8 +22,9 @@ import com.google.common.collect.Multisets;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.client.FailureException;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.planner.Plan;
@@ -39,14 +40,13 @@ import java.util.function.Supplier;
 
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertThatTrinoException;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public final class QueryAssertions
 {
@@ -58,13 +58,18 @@ public final class QueryAssertions
 
     public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count, Optional<Consumer<Plan>> planAssertion)
     {
+        if (queryRunner instanceof DistributedQueryRunner distributedQueryRunner) {
+            assertDistributedUpdate(distributedQueryRunner, session, sql, count, planAssertion);
+            return;
+        }
+
         long start = System.nanoTime();
         MaterializedResult results;
         Plan queryPlan;
         if (planAssertion.isPresent()) {
-            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql, WarningCollector.NOOP);
-            queryPlan = resultWithPlan.getQueryPlan();
-            results = resultWithPlan.getMaterializedResult().toTestTypes();
+            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql);
+            queryPlan = resultWithPlan.queryPlan().orElseThrow();
+            results = resultWithPlan.result().toTestTypes();
         }
         else {
             queryPlan = null;
@@ -87,10 +92,59 @@ public final class QueryAssertions
             if (count.isEmpty()) {
                 fail("expected no update count, but got " + results.getUpdateCount().getAsLong());
             }
-            assertEquals(results.getUpdateCount().getAsLong(), count.getAsLong(), "update count");
+            assertThat(results.getUpdateCount().getAsLong())
+                    .describedAs("update count")
+                    .isEqualTo(count.getAsLong());
         }
         else if (count.isPresent()) {
             fail("update count is not present");
+        }
+    }
+
+    private static void assertDistributedUpdate(DistributedQueryRunner distributedQueryRunner, Session session, @Language("SQL") String sql, OptionalLong count, Optional<Consumer<Plan>> planAssertion)
+    {
+        long start = System.nanoTime();
+        Plan queryPlan = null;
+        MaterializedResultWithPlan resultWithPlan = distributedQueryRunner.executeWithPlan(session, sql);
+        QueryId queryId = resultWithPlan.queryId();
+        MaterializedResult results = resultWithPlan.result().toTestTypes();
+        if (planAssertion.isPresent()) {
+            try {
+                queryPlan = distributedQueryRunner.getQueryPlan(queryId);
+            }
+            catch (RuntimeException e) {
+                fail("Failed to get query plan for query " + queryId, e);
+            }
+        }
+
+        Duration queryTime = nanosSince(start);
+        if (queryTime.compareTo(Duration.succinctDuration(1, SECONDS)) > 0) {
+            log.info("FINISHED query %s in Trino: %s", queryId, queryTime);
+        }
+
+        if (planAssertion.isPresent()) {
+            try {
+                planAssertion.get().accept(queryPlan);
+            }
+            catch (Exception e) {
+                fail("Plan assertion failed for query " + queryId, e);
+            }
+        }
+
+        if (results.getUpdateType().isEmpty()) {
+            fail("update type is not set for query " + queryId);
+        }
+
+        if (results.getUpdateCount().isPresent()) {
+            if (count.isEmpty()) {
+                fail("expected no update count, but got " + results.getUpdateCount().getAsLong() + " for query " + queryId);
+            }
+            assertThat(results.getUpdateCount().getAsLong())
+                    .describedAs("update count for query " + queryId)
+                    .isEqualTo(count.getAsLong());
+        }
+        else if (count.isPresent()) {
+            fail("update count is not present for query " + queryId);
         }
     }
 
@@ -129,14 +183,19 @@ public final class QueryAssertions
             boolean compareUpdate,
             Optional<Consumer<Plan>> planAssertion)
     {
+        if (actualQueryRunner instanceof DistributedQueryRunner distributedQueryRunner) {
+            assertDistributedQuery(distributedQueryRunner, session, actual, h2QueryRunner, expected, ensureOrdering, compareUpdate, planAssertion);
+            return;
+        }
+
         long start = System.nanoTime();
         MaterializedResult actualResults = null;
         Plan queryPlan = null;
         if (planAssertion.isPresent()) {
             try {
-                MaterializedResultWithPlan resultWithPlan = actualQueryRunner.executeWithPlan(session, actual, WarningCollector.NOOP);
-                queryPlan = resultWithPlan.getQueryPlan();
-                actualResults = resultWithPlan.getMaterializedResult().toTestTypes();
+                MaterializedResultWithPlan resultWithPlan = actualQueryRunner.executeWithPlan(session, actual);
+                queryPlan = resultWithPlan.queryPlan().orElseThrow();
+                actualResults = resultWithPlan.result().toTestTypes();
             }
             catch (RuntimeException ex) {
                 fail("Execution of 'actual' query failed: " + actual, ex);
@@ -187,20 +246,129 @@ public final class QueryAssertions
             if (actualResults.getUpdateCount().isEmpty()) {
                 fail("update count not present for query: \n" + actual);
             }
-            assertEquals(actualRows.size(), 1, "For query: \n " + actual + "\n:");
-            assertEquals(expectedRows.size(), 1, "For query: \n " + actual + "\n:");
+            assertThat(actualRows.size())
+                    .describedAs("For query: \n " + actual + "\n:")
+                    .isEqualTo(1);
+            assertThat(expectedRows.size())
+                    .describedAs("For query: \n " + actual + "\n:")
+                    .isEqualTo(1);
             MaterializedRow row = expectedRows.get(0);
-            assertEquals(row.getFieldCount(), 1, "For query: \n " + actual + "\n:");
-            assertEquals(row.getField(0), actualResults.getUpdateCount().getAsLong(), "For query: \n " + actual + "\n:");
+            assertThat(row.getFieldCount())
+                    .describedAs("For query: \n " + actual + "\n:")
+                    .isEqualTo(1);
+            assertThat(row.getField(0))
+                    .describedAs("For query: \n " + actual + "\n:")
+                    .isEqualTo(actualResults.getUpdateCount().getAsLong());
         }
 
         if (ensureOrdering) {
             if (!actualRows.equals(expectedRows)) {
-                assertEquals(actualRows, expectedRows, "For query: \n " + actual + "\n:");
+                assertThat(actualRows)
+                        .describedAs("For query: \n " + actual + "\n:")
+                        .isEqualTo(expectedRows);
             }
         }
         else {
             assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
+        }
+    }
+
+    private static void assertDistributedQuery(
+            DistributedQueryRunner distributedQueryRunner,
+            Session session,
+            @Language("SQL") String actual,
+            H2QueryRunner h2QueryRunner,
+            @Language("SQL") String expected,
+            boolean ensureOrdering,
+            boolean compareUpdate,
+            Optional<Consumer<Plan>> planAssertion)
+    {
+        long start = System.nanoTime();
+        QueryId queryId = null;
+        MaterializedResult actualResults = null;
+        try {
+            MaterializedResultWithPlan resultWithPlan = distributedQueryRunner.executeWithPlan(session, actual);
+            queryId = resultWithPlan.queryId();
+            actualResults = resultWithPlan.result().toTestTypes();
+        }
+        catch (RuntimeException ex) {
+            if (queryId == null && ex instanceof QueryFailedException queryFailedException) {
+                queryId = queryFailedException.getQueryId();
+            }
+            if (queryId != null) {
+                fail("Execution of 'actual' query " + queryId + " failed: " + actual, ex);
+            }
+            else {
+                fail("Execution of 'actual' query failed: " + actual, ex);
+            }
+        }
+        if (planAssertion.isPresent()) {
+            try {
+                planAssertion.get().accept(distributedQueryRunner.getQueryPlan(queryId));
+            }
+            catch (Throwable t) {
+                t.addSuppressed(new Exception(format("SQL: %s [QueryId: %s]", actual, queryId)));
+                throw t;
+            }
+        }
+        Duration actualTime = nanosSince(start);
+
+        long expectedStart = System.nanoTime();
+        MaterializedResult expectedResults = null;
+        try {
+            expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
+        }
+        catch (RuntimeException ex) {
+            fail("Execution of 'expected' query failed: " + expected, ex);
+        }
+        Duration totalTime = nanosSince(start);
+        if (totalTime.compareTo(Duration.succinctDuration(1, SECONDS)) > 0) {
+            log.info("FINISHED in Trino: %s, H2: %s, total: %s", actualTime, nanosSince(expectedStart), totalTime);
+        }
+
+        if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
+            if (actualResults.getUpdateType().isEmpty()) {
+                fail("update count present without update type for query " + queryId + ": \n" + actual);
+            }
+            if (!compareUpdate) {
+                fail("update type should not be present (use assertUpdate) for query " + queryId + ": \n" + actual);
+            }
+        }
+
+        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
+        List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
+
+        if (compareUpdate) {
+            if (actualResults.getUpdateType().isEmpty()) {
+                fail("update type not present for query " + queryId + ": \n" + actual);
+            }
+            if (actualResults.getUpdateCount().isEmpty()) {
+                fail("update count not present for query " + queryId + ": \n" + actual);
+            }
+            assertThat(actualRows.size())
+                    .describedAs("For query " + queryId + ": \n " + actual + "\n:")
+                    .isEqualTo(1);
+            assertThat(expectedRows.size())
+                    .describedAs("For query " + queryId + ": \n " + actual + "\n:")
+                    .isEqualTo(1);
+            MaterializedRow row = expectedRows.get(0);
+            assertThat(row.getFieldCount())
+                    .describedAs("For query " + queryId + ": \n " + actual + "\n:")
+                    .isEqualTo(1);
+            assertThat(row.getField(0))
+                    .describedAs("For query " + queryId + ": \n " + actual + "\n:")
+                    .isEqualTo(actualResults.getUpdateCount().getAsLong());
+        }
+
+        if (ensureOrdering) {
+            if (!actualRows.equals(expectedRows)) {
+                assertThat(actualRows)
+                        .describedAs("For query " + queryId + ": \n " + actual + "\n:")
+                        .isEqualTo(expectedRows);
+            }
+        }
+        else {
+            assertEqualsIgnoreOrder(actualRows, expectedRows, "For query " + queryId + ": \n " + actual);
         }
     }
 
@@ -225,8 +393,12 @@ public final class QueryAssertions
 
     public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected, String message)
     {
-        assertNotNull(actual, "actual is null");
-        assertNotNull(expected, "expected is null");
+        assertThat(actual)
+                .describedAs("actual is null")
+                .isNotNull();
+        assertThat(expected)
+                .describedAs("expected is null")
+                .isNotNull();
 
         ImmutableMultiset<?> actualSet = ImmutableMultiset.copyOf(actual);
         ImmutableMultiset<?> expectedSet = ImmutableMultiset.copyOf(expected);
@@ -274,6 +446,9 @@ public final class QueryAssertions
         try {
             queryRunner.execute(session, sql);
         }
+        catch (QueryFailedException e) {
+            fail(format("Expected query %s to succeed: %s", e.getQueryId(), sql), e);
+        }
         catch (RuntimeException e) {
             fail(format("Expected query to succeed: %s", sql), e);
         }
@@ -287,26 +462,33 @@ public final class QueryAssertions
     protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
-            queryRunner.execute(session, sql);
-            fail(format("Expected query to fail: %s", sql));
+            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql);
+            fail(format("Expected query to fail: %s [QueryId: %s]", sql, resultWithPlan.queryId()));
         }
         catch (RuntimeException exception) {
             exception.addSuppressed(new Exception("Query: " + sql));
-            assertThat(exception)
-                    .hasMessageMatching(expectedMessageRegExp)
-                    .satisfies(e -> assertThat(getTrinoExceptionCause(e)).hasMessageMatching(expectedMessageRegExp));
+            assertThatTrinoException(exception)
+                    .hasMessageMatching(expectedMessageRegExp);
         }
     }
 
     protected static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
     {
+        QueryId queryId = null;
         try {
-            MaterializedResult results = queryRunner.execute(session, sql).toTestTypes();
-            assertNotNull(results);
-            assertEquals(results.getRowCount(), 0);
+            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql);
+            queryId = resultWithPlan.queryId();
+            MaterializedResult results = resultWithPlan.result().toTestTypes();
+            assertThat(results).isNotNull();
+            assertThat(results.getRowCount()).isEqualTo(0);
         }
         catch (RuntimeException ex) {
-            fail("Execution of query failed: " + sql, ex);
+            if (queryId == null) {
+                fail("Execution of query failed: " + sql, ex);
+            }
+            else {
+                fail(format("Execution of query failed: %s [QueryId: %s]", sql, queryId), ex);
+            }
         }
     }
 
@@ -317,12 +499,9 @@ public final class QueryAssertions
             Session session,
             Iterable<TpchTable<?>> tables)
     {
-        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
-        long startTime = System.nanoTime();
         for (TpchTable<?> table : tables) {
             copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH), session);
         }
-        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
     public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
@@ -334,14 +513,13 @@ public final class QueryAssertions
     public static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
     {
         long start = System.nanoTime();
-        log.info("Running import for %s", table.getObjectName());
         @Language("SQL") String sql = format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", table.getObjectName(), table);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Imported %s rows from %s in %s", rows, table, nanosSince(start));
 
-        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue())
-                .as("Table is not loaded properly: %s", table)
-                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table.getObjectName()).getOnlyValue());
+        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table.getObjectName()).getOnlyValue())
+                .as("Table is not loaded properly: %s", table.getObjectName())
+                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue());
     }
 
     public static RuntimeException getTrinoExceptionCause(Throwable e)
@@ -361,16 +539,9 @@ public final class QueryAssertions
             return true;
         }
 
-        if (exception.getClass().getName().equals("io.trino.client.FailureInfo$FailureException")) {
-            try {
-                String originalClassName = exception.toString().split(":", 2)[0];
-                Class<? extends Throwable> originalClass = Class.forName(originalClassName).asSubclass(Throwable.class);
-                return TrinoException.class.isAssignableFrom(originalClass) ||
-                        ParsingException.class.isAssignableFrom(originalClass);
-            }
-            catch (ClassNotFoundException e) {
-                return false;
-            }
+        if (exception instanceof FailureException failureException) {
+            String type = failureException.getFailureInfo().getType();
+            return type.equals(TrinoException.class.getName()) || type.equals(ParsingException.class.getName());
         }
 
         return false;

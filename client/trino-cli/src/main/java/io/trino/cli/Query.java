@@ -91,6 +91,16 @@ public class Query
         return client.getSetPath();
     }
 
+    public Optional<String> getSetAuthorizationUser()
+    {
+        return client.getSetAuthorizationUser();
+    }
+
+    public boolean isResetAuthorizationUser()
+    {
+        return client.isResetAuthorizationUser();
+    }
+
     public Map<String, String> getSetSessionProperties()
     {
         return client.getSetSessionProperties();
@@ -347,6 +357,8 @@ public class Query
                 return new TsvPrinter(fieldNames, writer, true);
             case JSON:
                 return new JsonPrinter(fieldNames, writer);
+            case MARKDOWN:
+                return new MarkdownTablePrinter(columns, writer);
             case NULL:
                 return new NullPrinter();
         }

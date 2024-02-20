@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import com.google.inject.Inject;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -22,6 +24,7 @@ import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.HiveSessionProperties;
@@ -33,22 +36,16 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.parquet.format.CompressionCodec;
-import org.apache.parquet.hadoop.ParquetOutputFormat;
 import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
-import javax.inject.Inject;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.function.Supplier;
 
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
@@ -56,7 +53,6 @@ import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LE
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
-import static io.trino.plugin.hive.HiveSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetOptimizedWriterValidate;
 import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
@@ -90,34 +86,27 @@ public class ParquetFileWriterFactory
 
     @Override
     public Optional<FileWriter> createFileWriter(
-            Path path,
+            Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
-            Properties schema,
-            JobConf conf,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> schema,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
             boolean useAcidSchema,
             WriterKind writerKind)
     {
-        if (!HiveSessionProperties.isParquetOptimizedWriterEnabled(session)) {
-            return Optional.empty();
-        }
-
         if (!MAPRED_PARQUET_OUTPUT_FORMAT_CLASS.equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }
 
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
+                .setMaxPageValueCount(HiveSessionProperties.getParquetWriterPageValueCount(session))
                 .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
                 .build();
-
-        CompressionCodec compressionCodec = Optional.ofNullable(conf.get(ParquetOutputFormat.COMPRESSION))
-                .map(CompressionCodec::valueOf)
-                .orElse(CompressionCodec.GZIP);
 
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
@@ -128,11 +117,10 @@ public class ParquetFileWriterFactory
                 .mapToInt(inputColumnNames::indexOf)
                 .toArray();
 
-        String pathString = path.toString();
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(pathString);
+            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
 
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                     fileColumnTypes,
@@ -144,7 +132,7 @@ public class ParquetFileWriterFactory
             if (isParquetOptimizedWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
-                        TrinoInputFile inputFile = fileSystem.newInputFile(pathString);
+                        TrinoInputFile inputFile = fileSystem.newInputFile(location);
                         return new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), readStats);
                     }
                     catch (IOException e) {
@@ -154,7 +142,7 @@ public class ParquetFileWriterFactory
             }
 
             return Optional.of(new ParquetFileWriter(
-                    fileSystem.newOutputFile(pathString),
+                    fileSystem.newOutputFile(location),
                     rollbackAction,
                     fileColumnTypes,
                     fileColumnNames,
@@ -162,9 +150,10 @@ public class ParquetFileWriterFactory
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     fileInputColumnIndexes,
-                    compressionCodec,
+                    compressionCodec.getParquetCompressionCodec()
+                            // Ensured by the caller
+                            .orElseThrow(() -> new IllegalArgumentException("Unsupported compression codec for Parquet: " + compressionCodec)),
                     nodeVersion.toString(),
-                    isParquetOptimizedReaderEnabled(session),
                     Optional.of(parquetTimeZone),
                     validationInputFactory));
         }

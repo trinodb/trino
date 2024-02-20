@@ -27,4 +27,6 @@ public interface AccumulatorFactory
     GroupedAccumulator createGroupedAccumulator(List<Supplier<Object>> lambdaProviders);
 
     GroupedAccumulator createGroupedIntermediateAccumulator(List<Supplier<Object>> lambdaProviders);
+
+    AggregationMaskBuilder createAggregationMaskBuilder();
 }

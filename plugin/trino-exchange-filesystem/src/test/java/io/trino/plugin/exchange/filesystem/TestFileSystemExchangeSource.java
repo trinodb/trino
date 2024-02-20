@@ -14,7 +14,7 @@
 package io.trino.plugin.exchange.filesystem;
 
 import io.trino.plugin.exchange.filesystem.local.LocalFileSystemExchangeStorage;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletableFuture;
 

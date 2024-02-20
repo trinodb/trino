@@ -13,9 +13,8 @@
  */
 package io.trino.operator.join;
 
+import io.trino.annotation.NotThreadSafe;
 import io.trino.spi.Page;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 @NotThreadSafe
 public interface JoinFilterFunction

@@ -18,26 +18,30 @@ import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.type.RowType;
 
 import java.util.List;
 
 public class StructEncoding
         extends BlockEncoding
 {
+    private final RowType rowType;
     private final byte separator;
     private final boolean lastColumnTakesRest;
     private final List<TextColumnEncoding> structFields;
 
     public StructEncoding(
-            Type type,
+            RowType rowType,
             Slice nullSequence,
             byte separator,
             Byte escapeByte,
             boolean lastColumnTakesRest,
             List<TextColumnEncoding> structFields)
     {
-        super(type, nullSequence, escapeByte);
+        super(rowType, nullSequence, escapeByte);
+        this.rowType = rowType;
         this.separator = separator;
         this.lastColumnTakesRest = lastColumnTakesRest;
         this.structFields = structFields;
@@ -47,17 +51,19 @@ public class StructEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        Block row = block.getObject(position, Block.class);
+        SqlRow row = rowType.getObject(block, position);
+        int rawIndex = row.getRawIndex();
         for (int fieldIndex = 0; fieldIndex < structFields.size(); fieldIndex++) {
             if (fieldIndex > 0) {
                 output.writeByte(separator);
             }
 
-            if (row.isNull(fieldIndex)) {
+            Block fieldBlock = row.getRawFieldBlock(fieldIndex);
+            if (fieldBlock.isNull(rawIndex)) {
                 output.writeBytes(nullSequence);
             }
             else {
-                structFields.get(fieldIndex).encodeValueInto(row, fieldIndex, output);
+                structFields.get(fieldIndex).encodeValueInto(fieldBlock, rawIndex, output);
             }
         }
     }
@@ -67,37 +73,40 @@ public class StructEncoding
             throws FileCorruptionException
     {
         int end = offset + length;
-
-        BlockBuilder structBuilder = builder.beginBlockEntry();
-        int elementOffset = offset;
-        int fieldIndex = 0;
-        while (offset < end) {
-            byte currentByte = slice.getByte(offset);
-            if (currentByte == separator) {
-                decodeElementValueInto(fieldIndex, structBuilder, slice, elementOffset, offset - elementOffset);
-                elementOffset = offset + 1;
-                fieldIndex++;
-                if (lastColumnTakesRest && fieldIndex == structFields.size() - 1) {
-                    // no need to process the remaining bytes as they are all assigned to the last column
-                    break;
+        ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> {
+            int currentOffset = offset;
+            int elementOffset = currentOffset;
+            int fieldIndex = 0;
+            while (currentOffset < end) {
+                byte currentByte = slice.getByte(currentOffset);
+                if (currentByte == separator) {
+                    decodeElementValueInto(fieldIndex, fieldBuilders.get(fieldIndex), slice, elementOffset, currentOffset - elementOffset);
+                    elementOffset = currentOffset + 1;
+                    fieldIndex++;
+                    if (lastColumnTakesRest && fieldIndex == structFields.size() - 1) {
+                        // no need to process the remaining bytes as they are all assigned to the last column
+                        break;
+                    }
+                    if (fieldIndex == structFields.size()) {
+                        // this was the last field, so there is no more data to process
+                        return;
+                    }
                 }
+                else if (isEscapeByte(currentByte)) {
+                    // ignore the char after escape_char
+                    currentOffset++;
+                }
+                currentOffset++;
             }
-            else if (isEscapeByte(currentByte)) {
-                // ignore the char after escape_char
-                offset++;
-            }
-            offset++;
-        }
-        decodeElementValueInto(fieldIndex, structBuilder, slice, elementOffset, end - elementOffset);
-        fieldIndex++;
-
-        // missing fields are null
-        while (fieldIndex < structFields.size()) {
-            structBuilder.appendNull();
+            decodeElementValueInto(fieldIndex, fieldBuilders.get(fieldIndex), slice, elementOffset, end - elementOffset);
             fieldIndex++;
-        }
 
-        builder.closeEntry();
+            // missing fields are null
+            while (fieldIndex < structFields.size()) {
+                fieldBuilders.get(fieldIndex).appendNull();
+                fieldIndex++;
+            }
+        });
     }
 
     private void decodeElementValueInto(int fieldIndex, BlockBuilder builder, Slice slice, int offset, int length)

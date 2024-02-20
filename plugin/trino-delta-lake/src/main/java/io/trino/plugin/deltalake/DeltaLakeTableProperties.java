@@ -14,25 +14,21 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 
-import javax.inject.Inject;
-
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.deltalake.DeltaLakeConfig.MAX_READER_VERSION;
-import static io.trino.plugin.deltalake.DeltaLakeConfig.MAX_WRITER_VERSION;
-import static io.trino.plugin.deltalake.DeltaLakeConfig.MIN_READER_VERSION;
-import static io.trino.plugin.deltalake.DeltaLakeConfig.MIN_WRITER_VERSION;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
-import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -45,8 +41,7 @@ public class DeltaLakeTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String CHECKPOINT_INTERVAL_PROPERTY = "checkpoint_interval";
     public static final String CHANGE_DATA_FEED_ENABLED_PROPERTY = "change_data_feed_enabled";
-    public static final String READER_VERSION_PROPERTY = "reader_version";
-    public static final String WRITER_VERSION_PROPERTY = "writer_version";
+    public static final String COLUMN_MAPPING_MODE_PROPERTY = "column_mapping_mode";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -81,17 +76,17 @@ public class DeltaLakeTableProperties
                         "Enables storing change data feed entries",
                         null,
                         false))
-                .add(integerProperty(
-                        READER_VERSION_PROPERTY,
-                        "Reader version",
-                        null,
-                        value -> validateVersion(READER_VERSION_PROPERTY, value, MIN_READER_VERSION, MAX_READER_VERSION),
-                        false))
-                .add(integerProperty(
-                        WRITER_VERSION_PROPERTY,
-                        "Writer version",
-                        null,
-                        value -> validateVersion(WRITER_VERSION_PROPERTY, value, MIN_WRITER_VERSION, MAX_WRITER_VERSION),
+                .add(stringProperty(
+                        COLUMN_MAPPING_MODE_PROPERTY,
+                        "Column mapping mode. Possible values: [ID, NAME, NONE]",
+                        // TODO: Consider using 'name' by default. 'none' column mapping doesn't support some statements
+                        ColumnMappingMode.NONE.name(),
+                        value -> {
+                            EnumSet<ColumnMappingMode> allowed = EnumSet.of(ColumnMappingMode.ID, ColumnMappingMode.NAME, ColumnMappingMode.NONE);
+                            if (allowed.stream().map(Enum::name).noneMatch(mode -> mode.equalsIgnoreCase(value))) {
+                                throw new IllegalArgumentException(format("Invalid value [%s]. Valid values: [ID, NAME, NONE]", value));
+                            }
+                        },
                         false))
                 .build();
     }
@@ -129,22 +124,8 @@ public class DeltaLakeTableProperties
         return Optional.ofNullable((Boolean) tableProperties.get(CHANGE_DATA_FEED_ENABLED_PROPERTY));
     }
 
-    public static Optional<Integer> getReaderVersion(Map<String, Object> tableProperties)
+    public static ColumnMappingMode getColumnMappingMode(Map<String, Object> tableProperties)
     {
-        return Optional.ofNullable((Integer) tableProperties.get(READER_VERSION_PROPERTY));
-    }
-
-    public static Optional<Integer> getWriterVersion(Map<String, Object> tableProperties)
-    {
-        return Optional.ofNullable((Integer) tableProperties.get(WRITER_VERSION_PROPERTY));
-    }
-
-    private static void validateVersion(String propertyName, Object value, int minSupportedVersion, int maxSupportedVersion)
-    {
-        int version = (int) value;
-        if (version < minSupportedVersion || version > maxSupportedVersion) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format(
-                    "%s must be between %d and %d", propertyName, minSupportedVersion, maxSupportedVersion));
-        }
+        return ColumnMappingMode.valueOf(tableProperties.get(COLUMN_MAPPING_MODE_PROPERTY).toString().toUpperCase(ENGLISH));
     }
 }

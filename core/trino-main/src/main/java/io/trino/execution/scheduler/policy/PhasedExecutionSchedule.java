@@ -22,6 +22,7 @@ import com.google.common.graph.Graphs;
 import com.google.common.graph.MutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.execution.scheduler.StageExecution;
 import io.trino.execution.scheduler.StageExecution.State;
@@ -39,11 +40,9 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -312,7 +311,7 @@ public class PhasedExecutionSchedule
         private final QueryId queryId;
         private final Map<PlanFragmentId, PlanFragment> fragments;
         private final ImmutableSet.Builder<PlanFragmentId> nonLazyFragments = ImmutableSet.builder();
-        private final Map<PlanFragmentId, FragmentSubGraph> fragmentSubGraphs = new HashMap<>();
+        private final Set<PlanFragmentId> processedFragments = new HashSet<>();
 
         public Visitor(QueryId queryId, Collection<PlanFragment> fragments)
         {
@@ -341,20 +340,17 @@ public class PhasedExecutionSchedule
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
 
-            // process fragments (starting from root)
-            fragments.keySet().stream()
+            // process output fragment
+            PlanFragmentId outputFragmentId = fragments.keySet().stream()
                     .filter(fragmentId -> !remoteSources.contains(fragmentId))
-                    .forEach(this::processFragment);
+                    .collect(onlyElement());
+            processFragment(outputFragmentId);
         }
 
         public FragmentSubGraph processFragment(PlanFragmentId planFragmentId)
         {
-            if (fragmentSubGraphs.containsKey(planFragmentId)) {
-                return fragmentSubGraphs.get(planFragmentId);
-            }
-
+            verify(processedFragments.add(planFragmentId), "fragment %s was already processed", planFragmentId);
             FragmentSubGraph subGraph = processFragment(fragments.get(planFragmentId));
-            verify(fragmentSubGraphs.put(planFragmentId, subGraph) == null, "fragment %s was already processed", planFragmentId);
             sortedFragments.add(planFragmentId);
             return subGraph;
         }

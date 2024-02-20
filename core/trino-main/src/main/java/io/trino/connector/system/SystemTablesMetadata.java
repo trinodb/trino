@@ -163,7 +163,7 @@ public class SystemTablesMetadata
             // TODO (https://github.com/trinodb/trino/issues/3647) indicate the table scan is empty
         }
         table = new SystemTableHandle(table.getSchemaName(), table.getTableName(), newDomain);
-        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
+        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), constraint.getExpression(), false));
     }
 
     private Constraint effectiveConstraint(TupleDomain<ColumnHandle> oldDomain, Constraint newConstraint, TupleDomain<ColumnHandle> effectiveDomain)

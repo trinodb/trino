@@ -17,8 +17,8 @@ import io.trino.spi.block.ArrayBlockEncoding;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.block.ByteArrayBlockEncoding;
 import io.trino.spi.block.DictionaryBlockEncoding;
+import io.trino.spi.block.Fixed12BlockEncoding;
 import io.trino.spi.block.Int128ArrayBlockEncoding;
-import io.trino.spi.block.Int96ArrayBlockEncoding;
 import io.trino.spi.block.IntArrayBlockEncoding;
 import io.trino.spi.block.LazyBlockEncoding;
 import io.trino.spi.block.LongArrayBlockEncoding;
@@ -26,8 +26,6 @@ import io.trino.spi.block.MapBlockEncoding;
 import io.trino.spi.block.RowBlockEncoding;
 import io.trino.spi.block.RunLengthBlockEncoding;
 import io.trino.spi.block.ShortArrayBlockEncoding;
-import io.trino.spi.block.SingleMapBlockEncoding;
-import io.trino.spi.block.SingleRowBlockEncoding;
 import io.trino.spi.block.VariableWidthBlockEncoding;
 
 import java.util.Map;
@@ -48,14 +46,12 @@ public final class BlockEncodingManager
         addBlockEncoding(new ShortArrayBlockEncoding());
         addBlockEncoding(new IntArrayBlockEncoding());
         addBlockEncoding(new LongArrayBlockEncoding());
-        addBlockEncoding(new Int96ArrayBlockEncoding());
+        addBlockEncoding(new Fixed12BlockEncoding());
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
         addBlockEncoding(new MapBlockEncoding());
-        addBlockEncoding(new SingleMapBlockEncoding());
         addBlockEncoding(new RowBlockEncoding());
-        addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
     }

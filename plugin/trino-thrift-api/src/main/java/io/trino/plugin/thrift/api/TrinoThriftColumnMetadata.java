@@ -18,8 +18,7 @@ import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.TypeManager;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 import java.util.Optional;

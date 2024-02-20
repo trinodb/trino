@@ -16,12 +16,12 @@ package io.trino.plugin.accumulo.model;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.apache.accumulo.core.data.Range;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAccumuloSplit
 {
@@ -53,8 +53,8 @@ public class TestAccumuloSplit
 
     private static void assertSplit(AccumuloSplit actual, AccumuloSplit expected)
     {
-        assertEquals(actual.getAddresses(), expected.getAddresses());
-        assertEquals(actual.getHostPort(), expected.getHostPort());
-        assertEquals(actual.getRanges(), expected.getRanges());
+        assertThat(actual.getAddresses()).isEqualTo(expected.getAddresses());
+        assertThat(actual.getHostPort()).isEqualTo(expected.getHostPort());
+        assertThat(actual.getRanges()).isEqualTo(expected.getRanges());
     }
 }

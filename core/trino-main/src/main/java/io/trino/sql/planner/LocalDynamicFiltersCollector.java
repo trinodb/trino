@@ -18,6 +18,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.Session;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -26,9 +27,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.DynamicFilterId;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +47,6 @@ import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-@ThreadSafe
 public class LocalDynamicFiltersCollector
 {
     private final Session session;

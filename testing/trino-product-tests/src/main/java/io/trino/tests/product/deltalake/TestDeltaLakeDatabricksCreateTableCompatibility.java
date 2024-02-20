@@ -14,7 +14,7 @@
 package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -36,9 +35,12 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumn
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnDelta;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeDatabricksCreateTableCompatibility
@@ -46,10 +48,9 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
 {
     private DatabricksVersion databricksRuntimeVersion;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
-        super.setUp();
         databricksRuntimeVersion = getDatabricksRuntimeVersion().orElseThrow();
     }
 
@@ -257,9 +258,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                 tableDirectory));
 
         try {
-            assertThat(onTrino().executeQuery("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'delta' AND schema_name = 'default' AND table_name = '" + tableName + "'"))
-                    .containsOnly(row("test comment"));
-
+            assertEquals(getTableCommentOnTrino("default", tableName), "test comment");
             assertEquals(getTableCommentOnDelta("default", tableName), "test comment");
         }
         finally {
@@ -313,16 +312,94 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testCreateTableWithDuplicatedColumnNames()
+    {
+        String tableName = "test_dl_create_table_with_duplicated_column_names_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        try {
+            assertThatThrownBy(() -> onDelta().executeQuery(
+                    "CREATE TABLE default." + tableName + " (col INT, COL int) USING DELTA LOCATION 's3://" + bucketName + "/" + tableDirectory + "'"))
+                    .hasMessageMatching("(?s).*(Found duplicate column|The column `col` already exists).*");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testCreateTableWithUnsupportedPartitionType()
+    {
+        String tableName = "test_dl_create_table_with_unsupported_column_types_" + randomNameSuffix();
+        String tableLocation = "s3://%s/databricks-compatibility-test-%s".formatted(bucketName, tableName);
+        try {
+            assertThatThrownBy(() -> onTrino().executeQuery("" +
+                    "CREATE TABLE delta.default." + tableName + "(a INT, part ARRAY(INT)) WITH (partitioned_by = ARRAY['part'], location = '" + tableLocation + "')"))
+                    .hasMessageContaining("Using array, map or row type on partitioned columns is unsupported");
+            assertThatThrownBy(() -> onTrino().executeQuery("" +
+                    "CREATE TABLE delta.default." + tableName + "(a INT, part MAP(INT,INT)) WITH (partitioned_by = ARRAY['part'], location = '" + tableLocation + "')"))
+                    .hasMessageContaining("Using array, map or row type on partitioned columns is unsupported");
+            assertThatThrownBy(() -> onTrino().executeQuery("" +
+                    "CREATE TABLE delta.default." + tableName + "(a INT, part ROW(field INT)) WITH (partitioned_by = ARRAY['part'], location = '" + tableLocation + "')"))
+                    .hasMessageContaining("Using array, map or row type on partitioned columns is unsupported");
+
+            assertThatThrownBy(() -> onDelta().executeQuery(
+                    "CREATE TABLE default." + tableName + "(a INT, part ARRAY<INT>) USING DELTA PARTITIONED BY (part) LOCATION '" + tableLocation + "'"))
+                    .hasMessageMatching("(?s).*(Cannot use .* for partition column|Using column part of type .* as a partition column is not supported).*");
+            assertThatThrownBy(() -> onDelta().executeQuery(
+                    "CREATE TABLE default." + tableName + "(a INT, part MAP<INT,INT>) USING DELTA PARTITIONED BY (part) LOCATION '" + tableLocation + "'"))
+                    .hasMessageMatching("(?s).*(Cannot use .* for partition column|Using column part of type .* as a partition column is not supported).*");
+            assertThatThrownBy(() -> onDelta().executeQuery(
+                    "CREATE TABLE default." + tableName + "(a INT, part STRUCT<field: INT>) USING DELTA PARTITIONED BY (part) LOCATION '" + tableLocation + "'"))
+                    .hasMessageMatching("(?s).*(Cannot use .* for partition column|Using column part of type .* as a partition column is not supported).*");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testCreateTableWithAllPartitionColumns()
+    {
+        String tableName = "test_dl_create_table_with_all_partition_columns_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        try {
+            assertThatThrownBy(() -> onTrino().executeQuery("" +
+                    "CREATE TABLE delta.default." + tableName + "(part int)" +
+                    "WITH (partitioned_by = ARRAY['part'], location = 's3://" + bucketName + "/" + tableDirectory + "')"))
+                    .hasMessageContaining("Using all columns for partition columns is unsupported");
+            assertThatThrownBy(() -> onTrino().executeQuery("" +
+                    "CREATE TABLE delta.default." + tableName + "(part int, another_part int)" +
+                    "WITH (partitioned_by = ARRAY['part', 'another_part'], location = 's3://" + bucketName + "/" + tableDirectory + "')"))
+                    .hasMessageContaining("Using all columns for partition columns is unsupported");
+
+            assertThatThrownBy(() -> onDelta().executeQuery("" +
+                    "CREATE TABLE default." + tableName + "(part int)" +
+                    "USING DELTA " +
+                    "PARTITIONED BY (part)" +
+                    "LOCATION 's3://" + bucketName + "/" + tableDirectory + "'"))
+                    .hasMessageContaining("Cannot use all columns for partition columns");
+            assertThatThrownBy(() -> onDelta().executeQuery("" +
+                    "CREATE TABLE default." + tableName + "(part int, another_part int)" +
+                    "USING DELTA " +
+                    "PARTITIONED BY (part, another_part)" +
+                    "LOCATION 's3://" + bucketName + "/" + tableDirectory + "'"))
+                    .hasMessageContaining("Cannot use all columns for partition columns");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
     private String getDatabricksDefaultTableProperties()
     {
-        if (databricksRuntimeVersion.equals(DATABRICKS_113_RUNTIME_VERSION)) {
+        if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
-                    "  'delta.minReaderVersion' = '1',\n" +
-                    "  'delta.minWriterVersion' = '2')\n";
-        }
-        if (databricksRuntimeVersion.equals(DATABRICKS_104_RUNTIME_VERSION)) {
-            return "TBLPROPERTIES (\n" +
-                    "  'Type' = 'EXTERNAL',\n" +
                     "  'delta.minReaderVersion' = '1',\n" +
                     "  'delta.minWriterVersion' = '2')\n";
         }

@@ -13,11 +13,13 @@
  */
 package io.trino.tests.product.launcher.env;
 
+import jakarta.annotation.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Spec;
 
 import java.io.File;
+import java.nio.file.Path;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
@@ -39,8 +41,8 @@ public final class EnvironmentOptions
     @Option(names = "--server-package", paramLabel = "<package>", description = "Path to Trino server package " + DEFAULT_VALUE, defaultValue = "${server.module}/target/${server.name}-${project.version}.tar.gz")
     public File serverPackage;
 
-    @Option(names = "--without-trino", description = "Do not start " + COORDINATOR)
-    public boolean withoutTrinoMaster;
+    @Option(names = {"--without-trino", "--no-coordinator"}, description = "Do not start " + COORDINATOR)
+    public boolean withoutCoordinator;
 
     public boolean bindPorts = true;
     int bindPortsBase;
@@ -48,14 +50,21 @@ public final class EnvironmentOptions
     @Option(names = "--debug", description = "Open Java debug ports")
     public boolean debug;
 
+    @Option(names = "--tracing", description = "Automatic collection of OpenTracing data")
+    public boolean tracing;
+
     @Option(names = "--output", description = "Container output handling mode: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "PRINT")
     public DockerContainer.OutputMode output;
 
     @Option(names = "--launcher-bin", paramLabel = "<launcher bin>", description = "Launcher bin path (used to display run commands)", defaultValue = "${launcher.bin}", hidden = true)
     public String launcherBin;
 
-    @Option(names = "--trino-jdk-version", paramLabel = "<trino-jdk-version>", description = "JDK to use for running Trino: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ZULU_17")
-    public SupportedTrinoJdk jdkVersion = SupportedTrinoJdk.ZULU_17;
+    @Option(names = "--trino-jdk-version", paramLabel = "<trino-jdk-version>", description = "JDK to use for running Trino " + DEFAULT_VALUE)
+    public String jdkProvider = "temurin21";
+
+    @Option(names = "--jdk-tmp-download-path", paramLabel = "<jdk-tmp-download-path>", defaultValue = "${env:PTL_TMP_DOWNLOAD_PATH:-${sys:java.io.tmpdir}/ptl-tmp-download}", description = "Path to use to download JDK distributions " + DEFAULT_VALUE)
+    @Nullable
+    public Path jdkDownloadPath;
 
     @Option(names = "--bind", description = "Bind exposed container ports to host ports, possible values: " + BIND_ON_HOST + ", " + DO_NOT_BIND + ", [port base number] " + DEFAULT_VALUE, defaultValue = BIND_ON_HOST, arity = "0..1", fallbackValue = BIND_ON_HOST)
     public void setBindOnHost(String value)

@@ -20,14 +20,17 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestHumanReadableSeconds
 {
     private QueryAssertions assertions;
@@ -100,15 +103,14 @@ public class TestHumanReadableSeconds
                 .isEqualTo("2 hours, 13 minutes, 23 seconds");
 
         assertThat(assertions.function("human_readable_seconds", "NULL"))
-                .hasType(VARCHAR)
-                .isEqualTo((Object) null);
+                .isNull(VARCHAR);
 
         // check for NaN
-        assertTrinoExceptionThrownBy(() -> assertions.function("human_readable_seconds", "0.0E0 / 0.0E0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("human_readable_seconds", "0.0E0 / 0.0E0")::evaluate)
                 .hasMessage("Invalid argument found: NaN");
 
         // check for infinity
-        assertTrinoExceptionThrownBy(() -> assertions.function("human_readable_seconds", "1.0E0 / 0.0E0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("human_readable_seconds", "1.0E0 / 0.0E0")::evaluate)
                 .hasMessage("Invalid argument found: Infinity");
     }
 }

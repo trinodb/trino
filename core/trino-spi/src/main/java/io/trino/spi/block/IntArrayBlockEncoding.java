@@ -13,10 +13,8 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -37,31 +35,32 @@ public class IntArrayBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        int positionCount = block.getPositionCount();
+        IntArrayBlock intArrayBlock = (IntArrayBlock) block;
+        int positionCount = intArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, block);
+        encodeNullsAsBits(sliceOutput, intArrayBlock);
 
-        if (!block.mayHaveNull()) {
-            sliceOutput.writeBytes(getValuesSlice(block));
+        if (!intArrayBlock.mayHaveNull()) {
+            sliceOutput.writeInts(intArrayBlock.getRawValues(), intArrayBlock.getRawValuesOffset(), intArrayBlock.getPositionCount());
         }
         else {
             int[] valuesWithoutNull = new int[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = block.getInt(i, 0);
-                if (!block.isNull(i)) {
+                valuesWithoutNull[nonNullPositionCount] = intArrayBlock.getInt(i);
+                if (!intArrayBlock.isNull(i)) {
                     nonNullPositionCount++;
                 }
             }
 
             sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeBytes(Slices.wrappedIntArray(valuesWithoutNull, 0, nonNullPositionCount));
+            sliceOutput.writeInts(valuesWithoutNull, 0, nonNullPositionCount);
         }
     }
 
     @Override
-    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
+    public IntArrayBlock readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
 
@@ -69,13 +68,13 @@ public class IntArrayBlockEncoding
         int[] values = new int[positionCount];
 
         if (valueIsNullPacked == null) {
-            sliceInput.readBytes(Slices.wrappedIntArray(values));
+            sliceInput.readInts(values);
             return new IntArrayBlock(0, positionCount, null, values);
         }
         boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
 
         int nonNullPositionCount = sliceInput.readInt();
-        sliceInput.readBytes(Slices.wrappedIntArray(values, 0, nonNullPositionCount));
+        sliceInput.readInts(values, 0, nonNullPositionCount);
         int position = nonNullPositionCount - 1;
 
         // Handle Last (positionCount % 8) values
@@ -104,17 +103,5 @@ public class IntArrayBlockEncoding
             // Do nothing if there are only nulls
         }
         return new IntArrayBlock(0, positionCount, valueIsNull, values);
-    }
-
-    private Slice getValuesSlice(Block block)
-    {
-        if (block instanceof IntArrayBlock) {
-            return ((IntArrayBlock) block).getValuesSlice();
-        }
-        if (block instanceof IntArrayBlockBuilder) {
-            return ((IntArrayBlockBuilder) block).getValuesSlice();
-        }
-
-        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }

@@ -26,9 +26,8 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.type.FunctionType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -37,8 +36,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeterminismEvaluator
 {
@@ -48,31 +46,31 @@ public class TestDeterminismEvaluator
     public void testSanity()
     {
         Metadata metadata = functionResolution.getMetadata();
-        assertFalse(DeterminismEvaluator.isDeterministic(function("rand"), metadata));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("random"), metadata));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())),
-                metadata));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("uuid"), metadata));
-        assertTrue(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))), metadata));
-        assertTrue(DeterminismEvaluator.isDeterministic(
+        assertThat(DeterminismEvaluator.isDeterministic(function("rand"), metadata)).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(function("random"), metadata)).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())),
+                metadata)).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(function("uuid"), metadata)).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata)).isTrue();
+        assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))), metadata)).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "abs",
                         ImmutableList.of(DOUBLE),
                         ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))))),
-                metadata));
-        assertTrue(DeterminismEvaluator.isDeterministic(
+                metadata)).isTrue();
+        assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
                         ImmutableList.of(lambda("a", comparison(GREATER_THAN, input("a"), new LongLiteral("0"))))),
-                metadata));
-        assertFalse(DeterminismEvaluator.isDeterministic(
+                metadata)).isTrue();
+        assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
                         ImmutableList.of(lambda("a", comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(input("a"))), new LongLiteral("0"))))),
-                metadata));
+                metadata)).isFalse();
     }
 
     private FunctionCall function(String name)
@@ -83,7 +81,7 @@ public class TestDeterminismEvaluator
     private FunctionCall function(String name, List<Type> types, List<Expression> arguments)
     {
         return functionResolution
-                .functionCallBuilder(QualifiedName.of(name))
+                .functionCallBuilder(name)
                 .setArguments(types, arguments)
                 .build();
     }

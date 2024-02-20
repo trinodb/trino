@@ -21,8 +21,9 @@ import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.Type;
 
 public class MapEncoding
         extends BlockEncoding
@@ -37,7 +38,7 @@ public class MapEncoding
     private BlockBuilder keyBlockBuilder;
 
     public MapEncoding(
-            Type type,
+            MapType mapType,
             Slice nullSequence,
             byte elementSeparator,
             byte keyValueSeparator,
@@ -45,8 +46,8 @@ public class MapEncoding
             TextColumnEncoding keyEncoding,
             TextColumnEncoding valueEncoding)
     {
-        super(type, nullSequence, escapeByte);
-        this.mapType = (MapType) type;
+        super(mapType, nullSequence, escapeByte);
+        this.mapType = mapType;
         this.elementSeparator = elementSeparator;
         this.keyValueSeparator = keyValueSeparator;
         this.keyEncoding = keyEncoding;
@@ -59,10 +60,14 @@ public class MapEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        Block map = block.getObject(position, Block.class);
+        SqlMap sqlMap = mapType.getObject(block, position);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         boolean first = true;
-        for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
-            if (map.isNull(elementIndex)) {
+        for (int elementIndex = 0; elementIndex < sqlMap.getSize(); elementIndex++) {
+            if (rawKeyBlock.isNull(rawOffset + elementIndex)) {
                 throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Map must never contain null keys");
             }
 
@@ -70,13 +75,13 @@ public class MapEncoding
                 output.writeByte(elementSeparator);
             }
             first = false;
-            keyEncoding.encodeValueInto(map, elementIndex, output);
+            keyEncoding.encodeValueInto(rawKeyBlock, rawOffset + elementIndex, output);
             output.writeByte(keyValueSeparator);
-            if (map.isNull(elementIndex + 1)) {
+            if (rawValueBlock.isNull(rawOffset + elementIndex)) {
                 output.writeBytes(nullSequence);
             }
             else {
-                valueEncoding.encodeValueInto(map, elementIndex + 1, output);
+                valueEncoding.encodeValueInto(rawValueBlock, rawOffset + elementIndex, output);
             }
         }
     }
@@ -94,9 +99,10 @@ public class MapEncoding
         boolean[] distinctKeys = distinctMapKeys.selectDistinctKeys(keyBlock);
 
         // add the distinct entries to the map
-        BlockBuilder mapBuilder = builder.beginBlockEntry();
-        processEntries(slice, offset, length, new DistinctEntryDecoder(distinctKeys, keyBlock, mapBuilder));
-        builder.closeEntry();
+        ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
+            DistinctEntryDecoder entryDecoder = new DistinctEntryDecoder(distinctKeys, keyBlock, keyBuilder, valueBuilder);
+            processEntries(slice, offset, length, entryDecoder);
+        });
     }
 
     private void processEntries(Slice slice, int offset, int length, EntryDecoder entryDecoder)
@@ -182,14 +188,16 @@ public class MapEncoding
     {
         private final boolean[] distinctKeys;
         private final Block keyBlock;
-        private final BlockBuilder mapBuilder;
+        private final BlockBuilder keyBuilder;
+        private final BlockBuilder valueBuilder;
         private int entryPosition;
 
-        public DistinctEntryDecoder(boolean[] distinctKeys, Block keyBlock, BlockBuilder mapBuilder)
+        public DistinctEntryDecoder(boolean[] distinctKeys, Block keyBlock, BlockBuilder keyBuilder, BlockBuilder valueBuilder)
         {
             this.distinctKeys = distinctKeys;
             this.keyBlock = keyBlock;
-            this.mapBuilder = mapBuilder;
+            this.keyBuilder = keyBuilder;
+            this.valueBuilder = valueBuilder;
         }
 
         @Override
@@ -197,13 +205,13 @@ public class MapEncoding
                 throws FileCorruptionException
         {
             if (distinctKeys[entryPosition]) {
-                mapType.getKeyType().appendTo(keyBlock, entryPosition, mapBuilder);
+                mapType.getKeyType().appendTo(keyBlock, entryPosition, keyBuilder);
 
                 if (hasValue && !isNullSequence(slice, valueOffset, valueLength)) {
-                    valueEncoding.decodeValueInto(mapBuilder, slice, valueOffset, valueLength);
+                    valueEncoding.decodeValueInto(valueBuilder, slice, valueOffset, valueLength);
                 }
                 else {
-                    mapBuilder.appendNull();
+                    valueBuilder.appendNull();
                 }
             }
             entryPosition++;

@@ -13,39 +13,23 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
 import java.util.Optional;
 
-public class IrContextVariable
-        extends IrPathNode
+import static java.util.Objects.requireNonNull;
+
+public record IrContextVariable(Optional<Type> type)
+        implements IrPathNode
 {
-    @JsonCreator
-    public IrContextVariable(@JsonProperty("type") Optional<Type> type)
+    public IrContextVariable
     {
-        super(type);
+        requireNonNull(type, "type is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrContextVariable(this, context);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        return obj != null && getClass() == obj.getClass();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.testing.datatype;
 
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 
@@ -38,7 +39,7 @@ public class CreateAndInsertDataSetup
     }
 
     @Override
-    public TestTable setupTemporaryRelation(List<ColumnSetup> inputs)
+    public TemporaryRelation setupTemporaryRelation(List<ColumnSetup> inputs)
     {
         TestTable testTable = createTestTable(inputs);
         try {

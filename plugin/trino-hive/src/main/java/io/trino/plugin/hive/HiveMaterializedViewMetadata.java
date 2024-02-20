@@ -25,7 +25,13 @@ import java.util.concurrent.CompletableFuture;
 
 public interface HiveMaterializedViewMetadata
 {
-    void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
+    void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting);
 
     void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
@@ -44,4 +50,6 @@ public interface HiveMaterializedViewMetadata
     void renameMaterializedView(ConnectorSession session, SchemaTableName existingViewName, SchemaTableName newViewName);
 
     void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties);
+
+    void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment);
 }

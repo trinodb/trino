@@ -13,21 +13,30 @@
  */
 package io.trino.hdfs;
 
+import com.google.cloud.hadoop.repackaged.gcs.com.google.api.services.storage.Storage;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
+import io.airlift.log.Logger;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.hadoop.HadoopNative;
 import io.trino.hdfs.authentication.GenericExceptionAction;
 import io.trino.hdfs.authentication.HdfsAuthentication;
+import io.trino.hdfs.gcs.GcsStorageFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.ConnectorIdentity;
+import jakarta.annotation.PreDestroy;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileSystemManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 
-import javax.inject.Inject;
-
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Optional;
 
+import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
@@ -37,23 +46,49 @@ public class HdfsEnvironment
         FileSystemManager.registerCache(TrinoFileSystemCache.INSTANCE);
     }
 
+    private static final Logger log = Logger.get(HdfsEnvironment.class);
+
+    private final OpenTelemetry openTelemetry;
     private final HdfsConfiguration hdfsConfiguration;
     private final HdfsAuthentication hdfsAuthentication;
     private final Optional<FsPermission> newDirectoryPermissions;
     private final boolean newFileInheritOwnership;
     private final boolean verifyChecksum;
+    private final Optional<GcsStorageFactory> gcsStorageFactory;
+
+    @VisibleForTesting
+    public HdfsEnvironment(HdfsConfiguration hdfsConfiguration, HdfsConfig config, HdfsAuthentication hdfsAuthentication)
+    {
+        this(OpenTelemetry.noop(), hdfsConfiguration, config, hdfsAuthentication, Optional.empty());
+    }
 
     @Inject
     public HdfsEnvironment(
+            OpenTelemetry openTelemetry,
             HdfsConfiguration hdfsConfiguration,
             HdfsConfig config,
-            HdfsAuthentication hdfsAuthentication)
+            HdfsAuthentication hdfsAuthentication,
+            Optional<GcsStorageFactory> gcsStorageFactory)
     {
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
         this.newFileInheritOwnership = config.isNewFileInheritOwnership();
         this.verifyChecksum = config.isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
         this.newDirectoryPermissions = config.getNewDirectoryFsPermissions();
+        this.gcsStorageFactory = requireNonNull(gcsStorageFactory, "gcsStorageFactory is null");
+    }
+
+    @PreDestroy
+    public void shutdown()
+            throws IOException
+    {
+        // shut down if running in an isolated classloader
+        if (!getClass().getClassLoader().equals(Plugin.class.getClassLoader())) {
+            FileSystemFinalizerService.shutdown();
+            stopFileSystemStatsThread();
+            TrinoFileSystemCache.INSTANCE.closeAll();
+        }
     }
 
     public Configuration getConfiguration(HdfsContext context, Path path)
@@ -70,11 +105,16 @@ public class HdfsEnvironment
     public FileSystem getFileSystem(ConnectorIdentity identity, Path path, Configuration configuration)
             throws IOException
     {
-        return hdfsAuthentication.doAs(identity, () -> {
-            FileSystem fileSystem = path.getFileSystem(configuration);
-            fileSystem.setVerifyChecksum(verifyChecksum);
-            return fileSystem;
-        });
+        try (var ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            return hdfsAuthentication.doAs(identity, () -> {
+                FileSystem fileSystem = path.getFileSystem(configuration);
+                fileSystem.setVerifyChecksum(verifyChecksum);
+                if (getRawFileSystem(fileSystem) instanceof OpenTelemetryAwareFileSystem fs) {
+                    fs.setOpenTelemetry(openTelemetry);
+                }
+                return fileSystem;
+            });
+        }
     }
 
     public Optional<FsPermission> getNewDirectoryPermissions()
@@ -90,11 +130,27 @@ public class HdfsEnvironment
     public <R, E extends Exception> R doAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
             throws E
     {
-        return hdfsAuthentication.doAs(identity, action);
+        try (var ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            return hdfsAuthentication.doAs(identity, action);
+        }
     }
 
-    public void doAs(ConnectorIdentity identity, Runnable action)
+    public Storage createGcsStorage(HdfsContext context, Path path)
     {
-        hdfsAuthentication.doAs(identity, action);
+        return gcsStorageFactory
+                .orElseThrow(() -> new IllegalStateException("GcsStorageFactory not set"))
+                .create(this, context, path);
+    }
+
+    private static void stopFileSystemStatsThread()
+    {
+        try {
+            Field field = FileSystem.Statistics.class.getDeclaredField("STATS_DATA_CLEANER");
+            field.setAccessible(true);
+            ((Thread) field.get(null)).interrupt();
+        }
+        catch (ReflectiveOperationException | RuntimeException e) {
+            log.error(e, "Error stopping file system stats thread");
+        }
     }
 }

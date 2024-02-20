@@ -14,12 +14,11 @@
 package io.trino.util;
 
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
@@ -31,15 +32,15 @@ import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
-import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.SCALE_WRITERS;
+import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
-import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -55,16 +56,15 @@ public class TestInsert
         extends BasePlanTest
 {
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("mock")
                 .setSchema("schema");
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
-        queryRunner.createCatalog(
-                "mock",
-                MockConnectorFactory.builder()
+        PlanTester planTester = PlanTester.create(sessionBuilder.build());
+        planTester.installPlugin(
+                new MockConnectorPlugin(MockConnectorFactory.builder()
                         .withGetTableHandle((session, schemaTableName) -> {
                             if (schemaTableName.getTableName().equals("test_table_preferred_partitioning")) {
                                 return new MockConnectorTableHandle(schemaTableName);
@@ -105,9 +105,9 @@ public class TestInsert
 
                             return Optional.empty();
                         })
-                        .build(),
-                ImmutableMap.of());
-        return queryRunner;
+                        .build()));
+        planTester.createCatalog("mock", "mock", ImmutableMap.of());
+        return planTester;
     }
 
     @Test
@@ -118,10 +118,9 @@ public class TestInsert
                 withForcedPreferredPartitioning(),
                 anyTree(
                         node(TableWriterNode.class,
-                                anyTree(
-                                        exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                        anyTree(values("column1", "column2"))))))));
+                                exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                                values("column1", "column2"))))));
     }
 
     @Test
@@ -166,10 +165,9 @@ public class TestInsert
                 withForcedPreferredPartitioning(),
                 anyTree(
                         node(TableWriterNode.class,
-                                anyTree(
-                                        exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                        anyTree(values("column1", "column2"))))))));
+                                exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                                values("column1", "column2"))))));
     }
 
     @Test
@@ -251,57 +249,24 @@ public class TestInsert
         };
     }
 
-    @Test
-    public void testCreateTableAsSelectWithPreferredPartitioningThreshold()
-    {
-        assertDistributedPlan(
-                "CREATE TABLE new_test_table_preferred_partitioning (column1, column2) AS SELECT * FROM (VALUES (1, 2)) t(column1, column2)",
-                withPreferredPartitioningThreshold(),
-                anyTree(
-                        node(TableWriterNode.class,
-                                // round robin
-                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
-                                        values("column1", "column2")))));
-        assertDistributedPlan(
-                "CREATE TABLE new_test_table_preferred_partitioning (column1, column2) AS SELECT * FROM (VALUES (1, 2), (3,4)) t(column1, column2)",
-                withPreferredPartitioningThreshold(),
-                anyTree(
-                        node(TableWriterNode.class,
-                                anyTree(
-                                        exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                        anyTree(values("column1", "column2"))))))));
-    }
-
     private Session withForcedPreferredPartitioning()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "16")
-                .setSystemProperty(TASK_WRITER_COUNT, "16")
-                .build();
-    }
-
-    private Session withPreferredPartitioningThreshold()
-    {
-        return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "2")
-                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "16")
-                .setSystemProperty(TASK_WRITER_COUNT, "16")
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, "16")
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, "16")
                 .build();
     }
 
     private Session withoutPreferredPartitioning()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
-                .setSystemProperty(TASK_WRITER_COUNT, "16")
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "2") // force parallel plan even on test nodes with single CPU
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, "16")
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, "2") // force parallel plan even on test nodes with single CPU
                 .build();
     }
 }

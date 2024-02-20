@@ -16,6 +16,7 @@ package io.trino.orc;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -65,7 +66,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcReader
 {
-    public static final int MAX_BATCH_SIZE = 8196;
+    public static final int MAX_BATCH_SIZE = 8 * 1024;
     public static final int INITIAL_BATCH_SIZE = 1;
     public static final int BATCH_SIZE_GROWTH_FACTOR = 2;
 
@@ -126,7 +127,7 @@ public class OrcReader
     {
         this.options = requireNonNull(options, "options is null");
         this.orcDataSource = orcDataSource;
-        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader());
+        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader(options));
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
 
@@ -393,6 +394,8 @@ public class OrcReader
         }
     }
 
+    @SuppressWarnings("FormatStringAnnotation")
+    @FormatMethod
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
             throws OrcCorruptionException
     {

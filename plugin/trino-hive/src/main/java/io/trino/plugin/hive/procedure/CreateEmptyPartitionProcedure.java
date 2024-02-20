@@ -14,9 +14,12 @@
 package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveInsertTableHandle;
 import io.trino.plugin.hive.HiveMetastoreClosure;
@@ -35,9 +38,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.ArrayType;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -110,46 +110,49 @@ public class CreateEmptyPartitionProcedure
         checkProcedureArgument(partitionValues != null, "partition_values cannot be null");
 
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(session.getIdentity(), true);
-        HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
-        if (tableHandle == null) {
-            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schemaName, tableName)));
+        hiveMetadata.beginQuery(session);
+        try (UncheckedCloseable ignore = () -> hiveMetadata.cleanupQuery(session)) {
+            HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
+            if (tableHandle == null) {
+                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schemaName, tableName)));
+            }
+
+            accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schemaName, tableName));
+
+            List<String> actualPartitionColumnNames = tableHandle.getPartitionColumns().stream()
+                    .map(HiveColumnHandle::getName)
+                    .collect(toImmutableList());
+
+            if (!Objects.equals(partitionColumnNames, actualPartitionColumnNames)) {
+                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Provided partition column names do not match actual partition column names: " + actualPartitionColumnNames);
+            }
+
+            HiveMetastoreClosure metastore = hiveMetadata.getMetastore().unsafeGetRawHiveMetastoreClosure();
+            if (metastore.getPartition(schemaName, tableName, partitionValues).isPresent()) {
+                throw new TrinoException(ALREADY_EXISTS, "Partition already exists");
+            }
+            HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
+            String partitionName = makePartName(actualPartitionColumnNames, partitionValues);
+
+            WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
+            Slice serializedPartitionUpdate = Slices.wrappedBuffer(
+                    partitionUpdateJsonCodec.toJsonBytes(
+                            new PartitionUpdate(
+                                    partitionName,
+                                    UpdateMode.NEW,
+                                    writeInfo.writePath().toString(),
+                                    writeInfo.targetPath().toString(),
+                                    ImmutableList.of(),
+                                    0,
+                                    0,
+                                    0)));
+
+            hiveMetadata.finishInsert(
+                    session,
+                    hiveInsertTableHandle,
+                    ImmutableList.of(serializedPartitionUpdate),
+                    ImmutableList.of());
+            hiveMetadata.commit();
         }
-
-        accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schemaName, tableName));
-
-        List<String> actualPartitionColumnNames = tableHandle.getPartitionColumns().stream()
-                .map(HiveColumnHandle::getName)
-                .collect(toImmutableList());
-
-        if (!Objects.equals(partitionColumnNames, actualPartitionColumnNames)) {
-            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Provided partition column names do not match actual partition column names: " + actualPartitionColumnNames);
-        }
-
-        HiveMetastoreClosure metastore = hiveMetadata.getMetastore().unsafeGetRawHiveMetastoreClosure();
-        if (metastore.getPartition(schemaName, tableName, partitionValues).isPresent()) {
-            throw new TrinoException(ALREADY_EXISTS, "Partition already exists");
-        }
-        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
-        String partitionName = makePartName(actualPartitionColumnNames, partitionValues);
-
-        WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
-        Slice serializedPartitionUpdate = Slices.wrappedBuffer(
-                partitionUpdateJsonCodec.toJsonBytes(
-                        new PartitionUpdate(
-                                partitionName,
-                                UpdateMode.NEW,
-                                writeInfo.getWritePath(),
-                                writeInfo.getTargetPath(),
-                                ImmutableList.of(),
-                                0,
-                                0,
-                                0)));
-
-        hiveMetadata.finishInsert(
-                session,
-                hiveInsertTableHandle,
-                ImmutableList.of(serializedPartitionUpdate),
-                ImmutableList.of());
-        hiveMetadata.commit();
     }
 }

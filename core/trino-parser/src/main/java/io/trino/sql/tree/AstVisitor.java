@@ -13,7 +13,7 @@
  */
 package io.trino.sql.tree;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public abstract class AstVisitor<R, C>
 {
@@ -102,6 +102,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitExecuteImmediate(ExecuteImmediate node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitDescribeOutput(DescribeOutput node, C context)
     {
         return visitStatement(node, context);
@@ -182,12 +187,17 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
-    protected R visitGenericLiteral(GenericLiteral node, C context)
+    protected R visitSetSessionAuthorization(SetSessionAuthorization node, C context)
     {
-        return visitLiteral(node, context);
+        return visitStatement(node, context);
     }
 
-    protected R visitTimeLiteral(TimeLiteral node, C context)
+    protected R visitResetSessionAuthorization(ResetSessionAuthorization node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitGenericLiteral(GenericLiteral node, C context)
     {
         return visitLiteral(node, context);
     }
@@ -272,11 +282,6 @@ public abstract class AstVisitor<R, C>
         return visitSetOperation(node, context);
     }
 
-    protected R visitTimestampLiteral(TimestampLiteral node, C context)
-    {
-        return visitLiteral(node, context);
-    }
-
     protected R visitWhenClause(WhenClause node, C context)
     {
         return visitExpression(node, context);
@@ -318,11 +323,6 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitStringLiteral(StringLiteral node, C context)
-    {
-        return visitLiteral(node, context);
-    }
-
-    protected R visitCharLiteral(CharLiteral node, C context)
     {
         return visitLiteral(node, context);
     }
@@ -682,6 +682,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitDropNotNullConstraint(DropNotNullConstraint node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitSetTableAuthorization(SetTableAuthorization node, C context)
     {
         return visitStatement(node, context);
@@ -862,17 +867,7 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
-    protected R visitCube(Cube node, C context)
-    {
-        return visitGroupingElement(node, context);
-    }
-
     protected R visitGroupingSets(GroupingSets node, C context)
-    {
-        return visitGroupingElement(node, context);
-    }
-
-    protected R visitRollup(Rollup node, C context)
     {
         return visitGroupingElement(node, context);
     }
@@ -1157,12 +1152,187 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitJsonObjectMember(JsonObjectMember node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitJsonArray(JsonArray node, C context)
     {
         return visitExpression(node, context);
     }
 
+    protected R visitJsonArrayElement(JsonArrayElement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitEmptyTableTreatment(EmptyTableTreatment node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitJsonTable(JsonTable node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitOrdinalityColumn(OrdinalityColumn node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitValueColumn(ValueColumn node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitQueryColumn(QueryColumn node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitNestedColumns(NestedColumns node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPlanParentChild(PlanParentChild node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPlanSiblings(PlanSiblings node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPlanLeaf(PlanLeaf node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitJsonTableDefaultPlan(JsonTableDefaultPlan node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitCreateFunction(CreateFunction node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropFunction(DropFunction node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitFunctionSpecification(FunctionSpecification node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitParameterDeclaration(ParameterDeclaration node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitReturnClause(ReturnsClause node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitLanguageCharacteristic(LanguageCharacteristic node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitDeterministicCharacteristic(DeterministicCharacteristic node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitNullInputCharacteristic(NullInputCharacteristic node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitSecurityCharacteristic(SecurityCharacteristic node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitCommentCharacteristic(CommentCharacteristic node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitReturnStatement(ReturnStatement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitCompoundStatement(CompoundStatement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitVariableDeclaration(VariableDeclaration node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitAssignmentStatement(AssignmentStatement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitCaseStatement(CaseStatement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitCaseStatementWhenClause(CaseStatementWhenClause node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitIfStatement(IfStatement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitElseClause(ElseClause node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitElseIfClause(ElseIfClause node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitIterateStatement(IterateStatement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitLeaveStatement(LeaveStatement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitWhileStatement(WhileStatement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitLoopStatement(LoopStatement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitRepeatStatement(RepeatStatement node, C context)
     {
         return visitNode(node, context);
     }

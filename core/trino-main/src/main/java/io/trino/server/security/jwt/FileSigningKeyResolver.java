@@ -14,6 +14,7 @@
 package io.trino.server.security.jwt;
 
 import com.google.common.base.CharMatcher;
+import com.google.inject.Inject;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
@@ -23,7 +24,6 @@ import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.SecurityException;
 
 import javax.crypto.spec.SecretKeySpec;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -75,12 +75,12 @@ public class FileSigningKeyResolver
     }
 
     @Override
-    public Key resolveSigningKey(JwsHeader header, String plaintext)
+    public Key resolveSigningKey(JwsHeader header, byte[] plaintext)
     {
         return getKey(header);
     }
 
-    private Key getKey(JwsHeader<?> header)
+    private Key getKey(JwsHeader header)
     {
         SignatureAlgorithm algorithm = SignatureAlgorithm.forName(header.getAlgorithm());
 
@@ -93,7 +93,7 @@ public class FileSigningKeyResolver
         return key.getKey(algorithm);
     }
 
-    private static String getKeyId(JwsHeader<?> header)
+    private static String getKeyId(JwsHeader header)
     {
         String keyId = header.getKeyId();
         if (keyId == null) {
@@ -109,7 +109,7 @@ public class FileSigningKeyResolver
         return loadKeyFile(new File(keyFile.replace(KEY_ID_VARIABLE, keyId)));
     }
 
-    public static LoadedKey loadKeyFile(File file)
+    private static LoadedKey loadKeyFile(File file)
     {
         if (!file.canRead()) {
             throw new SecurityException("Unknown signing key ID");

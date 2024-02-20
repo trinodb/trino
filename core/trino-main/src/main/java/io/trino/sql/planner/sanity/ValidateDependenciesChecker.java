@@ -19,8 +19,8 @@ import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -69,6 +69,7 @@ import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -85,6 +86,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -103,7 +105,7 @@ public final class ValidateDependenciesChecker
     public void validate(PlanNode plan,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
@@ -799,6 +801,12 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
+        public Void visitTableUpdate(TableUpdateNode node, Set<Symbol> boundSymbols)
+        {
+            return null;
+        }
+
+        @Override
         public Void visitStatisticsWriterNode(StatisticsWriterNode node, Set<Symbol> boundSymbols)
         {
             node.getSource().accept(this, boundSymbols); // visit child
@@ -885,10 +893,15 @@ public final class ValidateDependenciesChecker
                     .addAll(createInputs(node.getInput(), boundSymbols))
                     .build();
 
-            for (Expression expression : node.getSubqueryAssignments().getExpressions()) {
-                Set<Symbol> dependencies = extractUnique(expression);
-                checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
-            }
+            List<Symbol> dependencies = node.getSubqueryAssignments().values().stream()
+                    .flatMap(assignment -> switch (assignment) {
+                        case ApplyNode.In in -> Stream.of(in.value(), in.reference());
+                        case ApplyNode.QuantifiedComparison comparison -> Stream.of(comparison.value(), comparison.reference());
+                        case ApplyNode.Exists unused -> Stream.empty();
+                    })
+                    .toList();
+
+            checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
 
             return null;
         }

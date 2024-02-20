@@ -33,7 +33,6 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Collections2.orderedPermutations;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class IrRowPatternToProgramRewriter
@@ -200,7 +199,7 @@ public class IrRowPatternToProgramRewriter
 
         private void loopingQuantified(IrRowPattern pattern, boolean greedy, int min)
         {
-            checkArgument(min >= 0, "invalid min value: " + min);
+            checkArgument(min >= 0, "invalid min value: %s", min);
 
             if (min == 0) {
                 int startSplitPosition = instructions.size();
@@ -243,7 +242,7 @@ public class IrRowPatternToProgramRewriter
 
         private void rangeQuantified(IrRowPattern pattern, boolean greedy, int min, int max)
         {
-            checkArgument(min <= max, format("invalid range: (%s, %s)", min, max));
+            checkArgument(min <= max, "invalid range: (%s, %s)", min, max);
 
             for (int i = 0; i < min; i++) {
                 process(pattern);

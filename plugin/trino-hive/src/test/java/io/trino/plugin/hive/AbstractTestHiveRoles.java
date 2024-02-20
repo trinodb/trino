@@ -22,8 +22,8 @@ import io.trino.spi.type.Type;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,9 +36,10 @@ import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 abstract class AbstractTestHiveRoles
         extends AbstractTestQueryFramework
 {
@@ -58,8 +59,7 @@ abstract class AbstractTestHiveRoles
                 .build();
     }
 
-    @AfterMethod(alwaysRun = true)
-    public void afterMethod()
+    private void cleanup()
     {
         for (String role : listRoles()) {
             executeFromAdmin(dropRoleSql(role));
@@ -70,8 +70,9 @@ abstract class AbstractTestHiveRoles
     public void testCreateRole()
     {
         executeFromAdmin(createRoleSql("role1"));
-        assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
-        assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
+        assertThat(listRoles()).isEqualTo(ImmutableSet.of("role1", "admin"));
+        assertThat(listRoles()).isEqualTo(ImmutableSet.of("role1", "admin"));
+        cleanup();
     }
 
     @Test
@@ -79,12 +80,14 @@ abstract class AbstractTestHiveRoles
     {
         executeFromAdmin(createRoleSql("duplicate_role"));
         assertQueryFails(createAdminSession(), createRoleSql("duplicate_role"), ".*?Role 'duplicate_role' already exists");
+        cleanup();
     }
 
     @Test
     public void testCreateRoleWithAdminOption()
     {
         assertQueryFails(createAdminSession(), "CREATE ROLE role1 WITH ADMIN admin" + optionalCatalogDeclaration(), ".*?Hive Connector does not support WITH ADMIN statement");
+        cleanup();
     }
 
     @Test
@@ -94,21 +97,24 @@ abstract class AbstractTestHiveRoles
         assertQueryFails(createAdminSession(), createRoleSql("default"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
         assertQueryFails(createAdminSession(), createRoleSql("none"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
         assertQueryFails(createAdminSession(), createRoleSql("None"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
+        cleanup();
     }
 
     @Test
     public void testCreateRoleByNonAdminUser()
     {
         assertQueryFails(createUserSession("non_admin_user"), createRoleSql("role1"), "Access Denied: Cannot create role role1");
+        cleanup();
     }
 
     @Test
     public void testDropRole()
     {
         executeFromAdmin(createRoleSql("role1"));
-        assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
+        assertThat(listRoles()).isEqualTo(ImmutableSet.of("role1", "admin"));
         executeFromAdmin(dropRoleSql("role1"));
-        assertEquals(listRoles(), ImmutableSet.of("admin"));
+        assertThat(listRoles()).isEqualTo(ImmutableSet.of("admin"));
+        cleanup();
     }
 
     @Test
@@ -147,6 +153,7 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(createRoleSql("role1"));
         executeFromAdmin(grantRoleToUserSql("role1", "user"));
         assertContains(listApplicableRoles("user"), applicableRoles("user", "USER", "role1", "NO"));
+        cleanup();
     }
 
     @Test
@@ -159,6 +166,7 @@ abstract class AbstractTestHiveRoles
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "NO",
                 "role1", "ROLE", "role2", "NO"));
+        cleanup();
     }
 
     @Test
@@ -171,6 +179,7 @@ abstract class AbstractTestHiveRoles
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "YES",
                 "role1", "ROLE", "role2", "YES"));
+        cleanup();
     }
 
     @Test
@@ -189,6 +198,7 @@ abstract class AbstractTestHiveRoles
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "YES",
                 "role1", "ROLE", "role2", "YES"));
+        cleanup();
     }
 
     @Test
@@ -201,6 +211,7 @@ abstract class AbstractTestHiveRoles
         assertQueryFails(
                 grantRoleToRoleSql("grant_revoke_role_existing_1", "grant_revoke_role_existing_2"),
                 ".*?Role 'grant_revoke_role_existing_2' does not exist in catalog '.*'");
+        cleanup();
     }
 
     @Test
@@ -212,6 +223,7 @@ abstract class AbstractTestHiveRoles
 
         executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+        cleanup();
     }
 
     @Test
@@ -229,6 +241,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "public", "NO",
                 "user", "USER", "role1", "NO"));
+        cleanup();
     }
 
     @Test
@@ -240,6 +253,7 @@ abstract class AbstractTestHiveRoles
 
         executeFromAdmin(dropRoleSql("role1"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+        cleanup();
     }
 
     @Test
@@ -258,6 +272,7 @@ abstract class AbstractTestHiveRoles
 
         executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+        cleanup();
     }
 
     @Test
@@ -278,6 +293,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "public", "NO",
                 "user", "USER", "role1", "NO"));
+        cleanup();
     }
 
     @Test
@@ -298,6 +314,7 @@ abstract class AbstractTestHiveRoles
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "public", "NO",
                 "user", "USER", "role1", "NO"));
+        cleanup();
     }
 
     @Test
@@ -316,6 +333,7 @@ abstract class AbstractTestHiveRoles
         assertContains(listApplicableRoles("user"), applicableRoles(
                 "user", "USER", "role1", "NO",
                 "role1", "ROLE", "role2", "NO"));
+        cleanup();
     }
 
     @Test
@@ -342,6 +360,7 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
         executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
+        cleanup();
     }
 
     @Test
@@ -459,6 +478,7 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(dropRoleSql("set_role_2"));
         executeFromAdmin(dropRoleSql("set_role_3"));
         executeFromAdmin(dropRoleSql("set_role_4"));
+        cleanup();
     }
 
     private Set<String> listRoles()

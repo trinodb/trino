@@ -15,7 +15,7 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import io.trino.hive.thrift.metastore.GetOpenTxnsResponse;
 import io.trino.hive.thrift.metastore.TableValidWriteIds;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.util.BitSet;

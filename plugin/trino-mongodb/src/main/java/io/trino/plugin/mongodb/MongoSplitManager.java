@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.HostAddress;
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -24,19 +23,17 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 
-import javax.inject.Inject;
-
-import java.util.List;
+import static java.util.Objects.requireNonNull;
 
 public class MongoSplitManager
         implements ConnectorSplitManager
 {
-    private final List<HostAddress> addresses;
+    private final MongoServerDetailsProvider serverDetailsProvider;
 
     @Inject
-    public MongoSplitManager(MongoSession session)
+    public MongoSplitManager(MongoServerDetailsProvider serverDetailsProvider)
     {
-        this.addresses = session.getAddresses();
+        this.serverDetailsProvider = requireNonNull(serverDetailsProvider, "serverDetailsProvider is null");
     }
 
     @Override
@@ -47,8 +44,8 @@ public class MongoSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        MongoSplit split = new MongoSplit(addresses);
+        MongoSplit split = new MongoSplit(serverDetailsProvider.getServerAddress());
 
-        return new FixedSplitSource(ImmutableList.of(split));
+        return new FixedSplitSource(split);
     }
 }

@@ -14,6 +14,8 @@
 package io.trino.util;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
@@ -35,5 +37,21 @@ public final class MoreMaps
                 .map(Map::entrySet)
                 .flatMap(Collection::stream)
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, merger));
+    }
+
+    // this help function should only be used when the map contains null value
+    // otherwise, use ImmutableMap.of()
+    public static <K, V> Map<K, V> asMap(List<K> keyList, List<V> valueList)
+    {
+        if (keyList.size() != valueList.size()) {
+            throw new AssertionError("keyList should have same size with valueList");
+        }
+        Map<K, V> map = new HashMap<>();
+        for (int i = 0; i < keyList.size(); i++) {
+            if (map.put(keyList.get(i), valueList.get(i)) != null) {
+                throw new AssertionError("keyList should have same size with valueList");
+            }
+        }
+        return map;
     }
 }

@@ -40,7 +40,7 @@ class ApacheParquetByteUnpacker
             input.readBytes(buffer, 0, byteWidth);
             delegate.unpack32Values(buffer, 0, outputBuffer, 0);
             for (int j = 0; j < 32; j++) {
-                output[i + j] += output[i + j - 1] + (byte) outputBuffer[j];
+                output[i + j] += (byte) (output[i + j - 1] + (byte) outputBuffer[j]);
             }
         }
     }

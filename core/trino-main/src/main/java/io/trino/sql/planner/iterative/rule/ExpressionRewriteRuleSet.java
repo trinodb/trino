@@ -18,7 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.OrderingScheme;
+import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.sql.planner.OrderingTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -39,7 +40,6 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.NullOrdering;
@@ -176,10 +176,11 @@ public class ExpressionRewriteRuleSet
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
+                CatalogSchemaFunctionName name = aggregation.getResolvedFunction().getSignature().getName();
                 FunctionCall call = (FunctionCall) rewriter.rewrite(
                         new FunctionCall(
                                 Optional.empty(),
-                                QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName()),
+                                aggregation.getResolvedFunction().toQualifiedName(),
                                 Optional.empty(),
                                 aggregation.getFilter().map(symbol -> new SymbolReference(symbol.getName())),
                                 aggregation.getOrderingScheme().map(orderBy -> new OrderBy(orderBy.getOrderBy().stream()
@@ -194,14 +195,14 @@ public class ExpressionRewriteRuleSet
                                 aggregation.getArguments()),
                         context);
                 verify(
-                        QualifiedName.of(extractFunctionName(call.getName())).equals(QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName())),
+                        extractFunctionName(call.getName()).equals(name),
                         "Aggregation function name changed");
                 Aggregation newAggregation = new Aggregation(
                         aggregation.getResolvedFunction(),
                         call.getArguments(),
                         call.isDistinct(),
                         call.getFilter().map(Symbol::from),
-                        call.getOrderBy().map(OrderingScheme::fromOrderBy),
+                        call.getOrderBy().map(OrderingTranslator::fromOrderBy),
                         aggregation.getMask());
                 aggregations.put(entry.getKey(), newAggregation);
                 if (!aggregation.equals(newAggregation)) {

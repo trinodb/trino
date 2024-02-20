@@ -13,11 +13,14 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
@@ -25,9 +28,13 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -37,6 +44,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SessionCatalog;
@@ -49,32 +57,43 @@ import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
 
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
-import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static java.util.function.Function.identity;
 
 public class TrinoRestCatalog
         implements TrinoCatalog
 {
+    private static final int PER_QUERY_CACHE_SIZE = 1000;
+
     private final RESTSessionCatalog restSessionCatalog;
     private final CatalogName catalogName;
     private final SessionType sessionType;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
 
-    private final Map<String, Table> tableCache = new ConcurrentHashMap<>();
+    private final Cache<SchemaTableName, Table> tableCache = EvictableCacheBuilder.newBuilder()
+            .maximumSize(PER_QUERY_CACHE_SIZE)
+            .build();
 
     public TrinoRestCatalog(
             RESTSessionCatalog restSessionCatalog,
@@ -164,16 +183,7 @@ public class TrinoRestCatalog
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
     {
         SessionContext sessionContext = convert(session);
-        List<Namespace> namespaces;
-
-        if (namespace.isPresent() && namespaceExists(session, namespace.get())) {
-            namespaces = ImmutableList.of(Namespace.of(namespace.get()));
-        }
-        else {
-            namespaces = listNamespaces(session).stream()
-                    .map(Namespace::of)
-                    .collect(toImmutableList());
-        }
+        List<Namespace> namespaces = listNamespaces(session, namespace);
 
         ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
         for (Namespace restNamespace : namespaces) {
@@ -188,6 +198,36 @@ public class TrinoRestCatalog
             }
         }
         return tables.build();
+    }
+
+    @Override
+    public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace)
+    {
+        // views and materialized views are currently not supported
+        verify(listViews(session, namespace).isEmpty(), "Unexpected views support");
+        verify(listMaterializedViews(session, namespace).isEmpty(), "Unexpected views support");
+        return listTables(session, namespace).stream()
+                .collect(toImmutableMap(identity(), ignore -> RelationType.TABLE));
+    }
+
+    @Override
+    public Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> namespace,
+            UnaryOperator<Set<SchemaTableName>> relationFilter,
+            Predicate<SchemaTableName> isRedirected)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<Iterator<RelationCommentMetadata>> streamRelationComments(
+            ConnectorSession session,
+            Optional<String> namespace,
+            UnaryOperator<Set<SchemaTableName>> relationFilter,
+            Predicate<SchemaTableName> isRedirected)
+    {
+        return Optional.empty();
     }
 
     @Override
@@ -209,15 +249,36 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation)
+    public Transaction newCreateOrReplaceTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
     {
-        throw new TrinoException(NOT_SUPPORTED, "registerTable is not supported for Iceberg REST catalog");
+        return restSessionCatalog.buildTable(convert(session), toIdentifier(schemaTableName), schema)
+                .withPartitionSpec(partitionSpec)
+                .withSortOrder(sortOrder)
+                .withLocation(location)
+                .withProperties(properties)
+                .createOrReplaceTransaction();
+    }
+
+    @Override
+    public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
+    {
+        restSessionCatalog.registerTable(convert(session), toIdentifier(tableName), tableMetadata.metadataFileLocation());
     }
 
     @Override
     public void unregisterTable(ConnectorSession session, SchemaTableName tableName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "unregisterTable is not supported for Iceberg REST catalogs");
+        if (!restSessionCatalog.dropTable(convert(session), toIdentifier(tableName))) {
+            throw new TableNotFoundException(tableName);
+        }
+        invalidateTableCache(tableName);
     }
 
     @Override
@@ -226,6 +287,15 @@ public class TrinoRestCatalog
         if (!restSessionCatalog.purgeTable(convert(session), toIdentifier(schemaTableName))) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to drop table: %s", schemaTableName));
         }
+        invalidateTableCache(schemaTableName);
+    }
+
+    @Override
+    public void dropCorruptedTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        // Since it is currently not possible to obtain the table location, even if we drop the table from the metastore,
+        // it is still impossible to delete the table location.
+        throw new TrinoException(NOT_SUPPORTED, "Cannot drop corrupted table %s from Iceberg REST catalog".formatted(schemaTableName));
     }
 
     @Override
@@ -237,26 +307,34 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to rename table %s to %s", from, to), e);
         }
+        invalidateTableCache(from);
     }
 
     @Override
     public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         try {
-            return tableCache.computeIfAbsent(
-                    schemaTableName.toString(),
-                    key -> {
+            return uncheckedCacheGet(
+                    tableCache,
+                    schemaTableName,
+                    () -> {
                         BaseTable baseTable = (BaseTable) restSessionCatalog.loadTable(convert(session), toIdentifier(schemaTableName));
                         // Creating a new base table is necessary to adhere to Trino's expectations for quoted table names
                         return new BaseTable(baseTable.operations(), quotedTableName(schemaTableName));
                     });
         }
-        catch (NoSuchTableException e) {
-            throw new TableNotFoundException(schemaTableName, e);
+        catch (UncheckedExecutionException e) {
+            if (e.getCause() instanceof NoSuchTableException) {
+                throw new TableNotFoundException(schemaTableName, e.getCause());
+            }
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to load table: %s", schemaTableName), e.getCause());
         }
-        catch (RuntimeException e) {
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to load table: %s", schemaTableName), e);
-        }
+    }
+
+    @Override
+    public Map<SchemaTableName, List<ColumnMetadata>> tryGetColumnMetadata(ConnectorSession session, List<SchemaTableName> tables)
+    {
+        return ImmutableMap.of();
     }
 
     @Override
@@ -269,6 +347,7 @@ public class TrinoRestCatalog
         else {
             icebergTable.updateProperties().set(TABLE_COMMENT, comment.get()).commit();
         }
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -283,7 +362,7 @@ public class TrinoRestCatalog
         if (databaseLocation.endsWith("/")) {
             return databaseLocation + tableName;
         }
-        return join("/", databaseLocation, tableName);
+        return appendPath(databaseLocation, tableName);
     }
 
     private String createLocationForTable(String baseTableName)
@@ -350,9 +429,21 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
+            boolean replace,
+            boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg REST catalog");
+    }
+
+    @Override
+    public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "updateMaterializedViewColumnComment is not supported for Iceberg REST catalog");
     }
 
     @Override
@@ -365,6 +456,18 @@ public class TrinoRestCatalog
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
+    }
+
+    @Override
+    public Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
     }
 
     @Override
@@ -382,7 +485,7 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String hiveCatalogName)
     {
         return Optional.empty();
     }
@@ -402,7 +505,7 @@ public class TrinoRestCatalog
     private SessionCatalog.SessionContext convert(ConnectorSession session)
     {
         return switch (sessionType) {
-            case NONE -> SessionCatalog.SessionContext.createEmpty();
+            case NONE -> new SessionContext(randomUUID().toString(), null, null, ImmutableMap.of(), session.getIdentity());
             case USER -> {
                 String sessionId = format("%s-%s", session.getUser(), session.getSource().orElse("default"));
 
@@ -429,13 +532,29 @@ public class TrinoRestCatalog
                         .put(OAuth2Properties.JWT_TOKEN_TYPE, subjectJwt)
                         .buildOrThrow();
 
-                yield new SessionCatalog.SessionContext(sessionId, session.getUser(), credentials, properties);
+                yield new SessionCatalog.SessionContext(sessionId, session.getUser(), credentials, properties, session.getIdentity());
             }
         };
+    }
+
+    private void invalidateTableCache(SchemaTableName schemaTableName)
+    {
+        tableCache.invalidate(schemaTableName);
     }
 
     private static TableIdentifier toIdentifier(SchemaTableName schemaTableName)
     {
         return TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+    }
+
+    private List<Namespace> listNamespaces(ConnectorSession session, Optional<String> namespace)
+    {
+        if (namespace.isEmpty()) {
+            return listNamespaces(session).stream()
+                    .map(Namespace::of)
+                    .collect(toImmutableList());
+        }
+
+        return ImmutableList.of(Namespace.of(namespace.get()));
     }
 }

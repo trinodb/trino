@@ -15,9 +15,8 @@ package io.trino.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.connector.SortOrder;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
@@ -71,10 +70,6 @@ public final class JdbcSortItem
     @Override
     public String toString()
     {
-        return new StringBuilder()
-                .append(column)
-                .append(" ")
-                .append(sortOrder)
-                .toString();
+        return column + " " + sortOrder;
     }
 }

@@ -14,18 +14,13 @@
 package io.trino.plugin.mongodb;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
-import io.airlift.configuration.validation.FileExists;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
-
-import java.io.File;
-import java.util.Optional;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 @DefunctConfig({"mongodb.connection-per-host", "mongodb.socket-keep-alive", "mongodb.seeds", "mongodb.credentials"})
 public class MongoClientConfig
@@ -41,10 +36,6 @@ public class MongoClientConfig
     private int socketTimeout;
     private int maxConnectionIdleTime;
     private boolean tlsEnabled;
-    private File keystorePath;
-    private String keystorePassword;
-    private File truststorePath;
-    private String truststorePassword;
 
     // query configurations
     private int cursorBatchSize; // use driver default
@@ -53,15 +44,8 @@ public class MongoClientConfig
     private WriteConcernType writeConcern = WriteConcernType.ACKNOWLEDGED;
     private String requiredReplicaSetName;
     private String implicitRowFieldPrefix = "_pos";
-
-    @AssertTrue(message = "'mongodb.tls.keystore-path', 'mongodb.tls.keystore-password', 'mongodb.tls.truststore-path' and 'mongodb.tls.truststore-password' must be empty when TLS is disabled")
-    public boolean isValidTlsConfig()
-    {
-        if (!tlsEnabled) {
-            return keystorePath == null && keystorePassword == null && truststorePath == null && truststorePassword == null;
-        }
-        return true;
-    }
+    private boolean projectionPushDownEnabled = true;
+    private boolean allowLocalScheduling;
 
     @NotNull
     public String getSchemaCollection()
@@ -243,56 +227,6 @@ public class MongoClientConfig
         return this;
     }
 
-    public Optional<@FileExists File> getKeystorePath()
-    {
-        return Optional.ofNullable(keystorePath);
-    }
-
-    @Config("mongodb.tls.keystore-path")
-    public MongoClientConfig setKeystorePath(File keystorePath)
-    {
-        this.keystorePath = keystorePath;
-        return this;
-    }
-
-    public Optional<String> getKeystorePassword()
-    {
-        return Optional.ofNullable(keystorePassword);
-    }
-
-    @Config("mongodb.tls.keystore-password")
-    @ConfigSecuritySensitive
-    public MongoClientConfig setKeystorePassword(String keystorePassword)
-    {
-        this.keystorePassword = keystorePassword;
-        return this;
-    }
-
-    public Optional<@FileExists File> getTruststorePath()
-    {
-        return Optional.ofNullable(truststorePath);
-    }
-
-    @Config("mongodb.tls.truststore-path")
-    public MongoClientConfig setTruststorePath(File truststorePath)
-    {
-        this.truststorePath = truststorePath;
-        return this;
-    }
-
-    public Optional<String> getTruststorePassword()
-    {
-        return Optional.ofNullable(truststorePassword);
-    }
-
-    @Config("mongodb.tls.truststore-password")
-    @ConfigSecuritySensitive
-    public MongoClientConfig setTruststorePassword(String truststorePassword)
-    {
-        this.truststorePassword = truststorePassword;
-        return this;
-    }
-
     @Min(0)
     public int getMaxConnectionIdleTime()
     {
@@ -303,6 +237,32 @@ public class MongoClientConfig
     public MongoClientConfig setMaxConnectionIdleTime(int maxConnectionIdleTime)
     {
         this.maxConnectionIdleTime = maxConnectionIdleTime;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushDownEnabled;
+    }
+
+    @Config("mongodb.projection-pushdown-enabled")
+    @ConfigDescription("Read only required fields from a row type")
+    public MongoClientConfig setProjectionPushdownEnabled(boolean projectionPushDownEnabled)
+    {
+        this.projectionPushDownEnabled = projectionPushDownEnabled;
+        return this;
+    }
+
+    public boolean isAllowLocalScheduling()
+    {
+        return allowLocalScheduling;
+    }
+
+    @Config("mongodb.allow-local-scheduling")
+    @ConfigDescription("Assign MongoDB splits to a specific host if worker and MongoDB share the same cluster")
+    public MongoClientConfig setAllowLocalScheduling(boolean allowLocalScheduling)
+    {
+        this.allowLocalScheduling = allowLocalScheduling;
         return this;
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -24,12 +25,11 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.spi.connector.DynamicFilter.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
@@ -60,7 +60,7 @@ public final class MemorySplitManager
 
         List<MemoryDataFragment> dataFragments = metadata.getDataFragments(table.getId());
 
-        int totalRows = 0;
+        long totalRows = 0;
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
 
@@ -129,6 +129,15 @@ public final class MemorySplitManager
                 return delegate.isFinished();
             }
             return false;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("delay", delay)
+                    .add("delegate", delegate)
+                    .toString();
         }
     }
 }

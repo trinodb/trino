@@ -96,9 +96,8 @@ public class DateAdd
                 delta = (delta % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
                 break;
             default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
         }
-
         return TimeOperators.add(picos, delta);
     }
 }

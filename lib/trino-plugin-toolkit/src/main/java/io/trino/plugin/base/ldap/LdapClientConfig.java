@@ -19,10 +19,9 @@ import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 import java.io.File;
 import java.util.Optional;

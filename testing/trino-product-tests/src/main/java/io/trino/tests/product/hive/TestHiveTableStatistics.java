@@ -32,10 +32,10 @@ import java.util.Objects;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.anyOf;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
@@ -44,6 +44,7 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MA
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveTableStatistics
         extends HiveProductTest
@@ -239,14 +240,14 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
         assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -272,7 +273,7 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -333,12 +334,12 @@ public class TestHiveTableStatistics
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
         onTrino().executeQuery("CALL system.flush_metadata_cache()");
 
-        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
-                row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
-                row("p_name", 109.0, 5.0, 0.0, null, null, null),
-                row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
-                row("p_comment", 1197.0, 5.0, 0.0, null, null, null),
-                row(null, null, null, null, 15.0, null, null));
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
+                row("p_nationkey", null, anyOf(4., 5.), 0.0, null, "8", "21"),
+                row("p_name", 31.0, 5.0, 0.0, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
+                row("p_comment", 351.0, 5.0, 0.0, null, null, null),
+                row(null, null, null, null, 5.0, null, null));
 
         assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -347,12 +348,12 @@ public class TestHiveTableStatistics
                 row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
-                row("p_nationkey", null, anyOf(4., 5.), 0.0, null, "8", "21"),
-                row("p_name", 31.0, 5.0, 0.0, null, null, null),
-                row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
-                row("p_comment", 351.0, 5.0, 0.0, null, null, null),
-                row(null, null, null, null, 5.0, null, null));
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
+                row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
+                row("p_name", 109.0, 5.0, 0.0, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
+                row("p_comment", 1197.0, 5.0, 0.0, null, null, null),
+                row(null, null, null, null, 15.0, null, null));
     }
 
     @Test
@@ -371,14 +372,14 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
         assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -404,7 +405,7 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -731,14 +732,14 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
         assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -763,7 +764,7 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -808,14 +809,14 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
         assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -840,7 +841,7 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -1089,9 +1090,9 @@ public class TestHiveTableStatistics
                     row("c_decimal_w_params", null, 2.0, 0.4, null, "345.67", "345.678"),
                     row("c_timestamp", null, 2.0, 0.4, null, null, null),
                     row("c_date", null, 2.0, 0.4, null, "2015-05-08", "2015-06-10"),
-                    row("c_string", 32.0, 2.0, 0.4, null, null, null),
-                    row("c_varchar", 29.0, 2.0, 0.4, null, null, null),
-                    row("c_char", 17.0, 2.0, 0.4, null, null, null),
+                    row("c_string", 32.0001, 2.0, 0.4, null, null, null),
+                    row("c_varchar", 29.0001, 2.0, 0.4, null, null, null),
+                    row("c_char", 17.0001, 2.0, 0.4, null, null, null),
                     row("c_boolean", null, 2.0, 0.4, null, null, null),
                     row("c_binary", 39.0, null, 0.4, null, null, null),
                     row(null, null, null, null, 5.0, null, null)));
@@ -1421,15 +1422,15 @@ public class TestHiveTableStatistics
 
             // sanity check that there are no statistics
             assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
-                    row("p", null, null, null, null, null, null),
+                    row("p", null, 1.0, 0.0, null, "1", "1"),
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
             assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
-                    row("p", null, null, null, null, null, null),
+                    row("p", null, 1.0, 0.0, null, "2", "2"),
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
             assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
-                    row("p", null, null, null, null, null, null),
+                    row("p", null, 2.0, 0.0, null, "1", "2"),
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
 
@@ -1456,6 +1457,43 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 7.0, null, null));
         }
         finally {
+            onHive().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testEmptyPartitionedHiveStatistics()
+    {
+        String tableName = "test_empty_partitioned_hive_" + randomNameSuffix();
+        try {
+            onHive().executeQuery(format("CREATE TABLE %s (a INT) PARTITIONED BY (p INT)", tableName));
+
+            // disable computation of statistics
+            onHive().executeQuery("set hive.stats.autogather=false");
+
+            onHive().executeQuery(format("INSERT INTO TABLE %s PARTITION (p=1) VALUES (11),(12),(13),(14)", tableName));
+            onHive().executeQuery(format("INSERT INTO TABLE %s PARTITION (p=2) VALUES (21),(22),(23)", tableName));
+
+            String showStatsPartitionOne = format("SHOW STATS FOR (SELECT * FROM %s WHERE p = 1)", tableName);
+            String showStatsPartitionTwo = format("SHOW STATS FOR (SELECT * FROM %s WHERE p = 2)", tableName);
+            String showStatsWholeTable = format("SHOW STATS FOR %s", tableName);
+
+            assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
+                    row("p", null, 1.0, 0.0, null, "1", "1"),
+                    row("a", null, null, null, null, null, null),
+                    row(null, null, null, null, null, null, null));
+            assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
+                    row("p", null, 1.0, 0.0, null, "2", "2"),
+                    row("a", null, null, null, null, null, null),
+                    row(null, null, null, null, null, null, null));
+            assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
+                    row("p", null, 2.0, 0.0, null, "1", "2"),
+                    row("a", null, null, null, null, null, null),
+                    row(null, null, null, null, null, null, null));
+        }
+        finally {
+            // enable computation of statistics
+            onHive().executeQuery("set hive.stats.autogather=true");
             onHive().executeQuery("DROP TABLE " + tableName);
         }
     }

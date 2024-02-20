@@ -18,7 +18,9 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.spi.Mergeable;
 import io.trino.spi.Unstable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
@@ -85,7 +87,7 @@ public class Metrics
 
     public static class Accumulator
     {
-        private final Map<String, Metric<?>> merged = new HashMap<>();
+        private final Map<String, List<Metric<?>>> groupedMetrics = new HashMap<>();
 
         private Accumulator()
         {
@@ -94,22 +96,25 @@ public class Metrics
         public Accumulator add(Metrics metrics)
         {
             metrics.getMetrics().forEach((key, value) ->
-                    merged.merge(key, value, Accumulator::merge));
+                    groupedMetrics.computeIfAbsent(key, ignored -> new ArrayList<>()).add(value));
             return this;
-        }
-
-        @SuppressWarnings({"rawtypes", "unchecked"})
-        private static Metric<?> merge(Metric<?> a, Metric<?> b)
-        {
-            return (Metric<?>) ((Metric) a).mergeWith(b);
         }
 
         public Metrics get()
         {
-            if (merged.isEmpty()) {
+            if (groupedMetrics.isEmpty()) {
                 return EMPTY;
             }
+
+            Map<String, Metric<?>> merged = new HashMap<>();
+            groupedMetrics.forEach((key, values) -> merged.put(key, merge(values.get(0), values.subList(1, values.size()))));
             return new Metrics(merged);
+        }
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        private static Metric<?> merge(Metric<?> a, List<Metric<?>> b)
+        {
+            return (Metric<?>) ((Metric) a).mergeWith(b);
         }
     }
 }

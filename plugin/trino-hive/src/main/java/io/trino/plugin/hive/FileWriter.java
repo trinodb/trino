@@ -16,7 +16,6 @@ package io.trino.plugin.hive;
 import io.trino.spi.Page;
 
 import java.io.Closeable;
-import java.util.Optional;
 
 public interface FileWriter
 {
@@ -34,9 +33,4 @@ public interface FileWriter
     void rollback();
 
     long getValidationCpuNanos();
-
-    default Optional<Runnable> getVerificationTask()
-    {
-        return Optional.empty();
-    }
 }

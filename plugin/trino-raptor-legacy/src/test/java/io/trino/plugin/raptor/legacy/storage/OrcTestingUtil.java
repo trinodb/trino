@@ -32,7 +32,7 @@ import java.util.List;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class OrcTestingUtil
 {
@@ -58,7 +58,7 @@ final class OrcTestingUtil
                 .orElseThrow(() -> new RuntimeException("File is empty"));
 
         List<String> columnNames = orcReader.getColumnNames();
-        assertEquals(columnNames.size(), columnIds.size());
+        assertThat(columnNames.size()).isEqualTo(columnIds.size());
 
         return orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),

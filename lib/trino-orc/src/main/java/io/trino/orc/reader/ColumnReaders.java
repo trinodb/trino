@@ -33,6 +33,7 @@ import static io.trino.spi.type.TimeType.TIME_MICROS;
 public final class ColumnReaders
 {
     public static final String ICEBERG_BINARY_TYPE = "iceberg.binary-type";
+    public static final String ICEBERG_LONG_TYPE = "iceberg.long-type";
 
     private ColumnReaders() {}
 
@@ -47,13 +48,13 @@ public final class ColumnReaders
     {
         if (type instanceof TimeType) {
             if (!type.equals(TIME_MICROS) || column.getColumnType() != LONG ||
-                    !"TIME".equals(column.getAttributes().get("iceberg.long-type"))) {
+                    !"TIME".equals(column.getAttributes().get(ICEBERG_LONG_TYPE))) {
                 throw invalidStreamType(column, type);
             }
             return new TimeColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
         }
         if (type instanceof UuidType) {
-            checkArgument(column.getColumnType() == BINARY, "UUID type can only be read from BINARY column but got " + column);
+            checkArgument(column.getColumnType() == BINARY, "UUID type can only be read from BINARY column but got %s", column);
             checkArgument(
                     "UUID".equals(column.getAttributes().get(ICEBERG_BINARY_TYPE)),
                     "Expected ORC column for UUID data to be annotated with %s=UUID: %s",

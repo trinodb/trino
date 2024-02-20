@@ -63,7 +63,7 @@ public final class TeradataStringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice char2HexInt(@SqlType(StandardTypes.VARCHAR) Slice string)
     {
-        Slice utf16 = Slices.wrappedBuffer(UTF_16BE.encode(string.toStringUtf8()));
+        Slice utf16 = Slices.wrappedHeapBuffer(UTF_16BE.encode(string.toStringUtf8()));
         String encoded = BaseEncoding.base16().encode(utf16.getBytes());
         return Slices.utf8Slice(encoded);
     }

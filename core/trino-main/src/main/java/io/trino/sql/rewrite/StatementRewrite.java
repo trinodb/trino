@@ -14,15 +14,15 @@
 package io.trino.sql.rewrite;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Statement;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -46,7 +46,8 @@ public final class StatementRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         for (Rewrite rewrite : rewrites) {
             node = requireNonNull(
@@ -56,7 +57,8 @@ public final class StatementRewrite
                             node,
                             parameters,
                             parameterLookup,
-                            warningCollector),
+                            warningCollector,
+                            planOptimizersStatsCollector),
                     "Statement rewrite returned null");
         }
         return node;
@@ -70,6 +72,7 @@ public final class StatementRewrite
                 Statement node,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
-                WarningCollector warningCollector);
+                WarningCollector warningCollector,
+                PlanOptimizersStatsCollector planOptimizersStatsCollector);
     }
 }

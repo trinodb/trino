@@ -13,10 +13,10 @@
  */
 package io.trino.server.ui;
 
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Response;
 
-import static javax.ws.rs.core.Response.Status.NOT_FOUND;
+import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 
 public class NoWebUiAuthenticationFilter
         implements WebUiAuthenticationFilter

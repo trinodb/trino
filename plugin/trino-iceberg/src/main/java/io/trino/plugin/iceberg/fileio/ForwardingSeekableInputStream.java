@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.fileio;
 
+import io.trino.filesystem.TrinoInputStream;
 import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.IOException;
@@ -23,9 +24,9 @@ import static java.util.Objects.requireNonNull;
 public class ForwardingSeekableInputStream
         extends SeekableInputStream
 {
-    private final io.trino.filesystem.SeekableInputStream stream;
+    private final TrinoInputStream stream;
 
-    public ForwardingSeekableInputStream(io.trino.filesystem.SeekableInputStream stream)
+    public ForwardingSeekableInputStream(TrinoInputStream stream)
     {
         this.stream = requireNonNull(stream, "stream is null");
     }

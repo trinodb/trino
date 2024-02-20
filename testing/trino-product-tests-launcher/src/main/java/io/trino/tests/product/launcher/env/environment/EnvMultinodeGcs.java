@@ -14,15 +14,13 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
-import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,6 +39,7 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.configur
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.attribute.PosixFilePermissions.fromString;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -57,14 +56,12 @@ public class EnvMultinodeGcs
 {
     private final String gcsTestDirectory = "env_multinode_gcs_" + UUID.randomUUID();
     private final DockerFiles dockerFiles;
-    private final String hadoopImageVersion;
 
     @Inject
-    public EnvMultinodeGcs(DockerFiles dockerFiles, StandardMultinode multinode, Hadoop hadoop, EnvironmentConfig environmentConfig)
+    public EnvMultinodeGcs(DockerFiles dockerFiles, StandardMultinode multinode, Hadoop hadoop)
     {
         super(ImmutableList.of(multinode, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        this.hadoopImageVersion = environmentConfig.getHadoopImagesVersion();
     }
 
     @Override
@@ -73,11 +70,13 @@ public class EnvMultinodeGcs
         String gcpBase64EncodedCredentials = requireEnv("GCP_CREDENTIALS_KEY");
         String gcpStorageBucket = requireEnv("GCP_STORAGE_BUCKET");
 
+        byte[] gcpCredentialsBytes = Base64.getDecoder().decode(gcpBase64EncodedCredentials);
+        String gcpCredentials = new String(gcpCredentialsBytes, UTF_8);
         File gcpCredentialsFile;
         try {
             gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".xml", PosixFilePermissions.asFileAttribute(fromString("rw-r--r--"))).toFile();
             gcpCredentialsFile.deleteOnExit();
-            Files.write(gcpCredentialsFile.toPath(), Base64.getDecoder().decode(gcpBase64EncodedCredentials));
+            Files.write(gcpCredentialsFile.toPath(), gcpCredentialsBytes);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -85,7 +84,6 @@ public class EnvMultinodeGcs
 
         String containerGcpCredentialsFile = CONTAINER_TRINO_ETC + "gcp-credentials.json";
         builder.configureContainer(HADOOP, container -> {
-            container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImageVersion);
             container.withCopyFileToContainer(
                     forHostPath(getCoreSiteOverrideXml(containerGcpCredentialsFile)),
                     "/docker/presto-product-tests/conf/environment/multinode-gcs/core-site-overrides.xml");
@@ -99,21 +97,17 @@ public class EnvMultinodeGcs
         });
 
         builder.configureContainer(COORDINATOR, container -> container
-                .withCopyFileToContainer(forHostPath(gcpCredentialsFile.toPath()), containerGcpCredentialsFile)
-                .withEnv("GCP_CREDENTIALS_FILE_PATH", containerGcpCredentialsFile));
+                .withEnv("GCP_CREDENTIALS", gcpCredentials));
 
         builder.configureContainer(WORKER, container -> container
-                .withCopyFileToContainer(forHostPath(gcpCredentialsFile.toPath()), containerGcpCredentialsFile)
-                .withEnv("GCP_CREDENTIALS_FILE_PATH", containerGcpCredentialsFile));
+                .withEnv("GCP_CREDENTIALS", gcpCredentials));
 
         builder.configureContainer(TESTS, container -> container
-                .withCopyFileToContainer(forHostPath(gcpCredentialsFile.toPath()), containerGcpCredentialsFile)
-                .withEnv("GCP_CREDENTIALS_FILE_PATH", containerGcpCredentialsFile)
                 .withEnv("GCP_STORAGE_BUCKET", gcpStorageBucket)
                 .withEnv("GCP_TEST_DIRECTORY", gcsTestDirectory));
 
         builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/hive.properties")), CONTAINER_TRINO_HIVE_PROPERTIES);
-        builder.addConnector("delta", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/delta.properties")), CONTAINER_TRINO_ETC + "/catalog/delta.properties");
+        builder.addConnector("delta_lake", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/delta.properties")), CONTAINER_TRINO_ETC + "/catalog/delta.properties");
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/iceberg.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg.properties");
 
         configureTempto(builder, dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-gcs/"));

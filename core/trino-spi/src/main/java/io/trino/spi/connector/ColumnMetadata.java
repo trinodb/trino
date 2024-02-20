@@ -14,8 +14,7 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

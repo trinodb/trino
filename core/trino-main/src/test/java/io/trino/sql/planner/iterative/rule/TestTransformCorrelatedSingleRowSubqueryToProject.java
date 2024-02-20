@@ -21,7 +21,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.NullLiteral;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -61,7 +61,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                                         ImmutableList.of())))))
                 .matches(project(
                         ImmutableMap.of(
-                                ("l_expr2"), PlanMatchPattern.expression("l_nationkey + 1"),
+                                "l_expr2", PlanMatchPattern.expression("l_nationkey + 1"),
                                 "l_nationkey", PlanMatchPattern.expression("l_nationkey")),
                         tableScan("nation", ImmutableMap.of("l_nationkey", "nationkey"))));
     }

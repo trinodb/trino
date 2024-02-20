@@ -13,25 +13,24 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 public interface HiveFileWriterFactory
 {
     Optional<FileWriter> createFileWriter(
-            Path path,
+            Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
-            Properties schema,
-            JobConf conf,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> schema,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,

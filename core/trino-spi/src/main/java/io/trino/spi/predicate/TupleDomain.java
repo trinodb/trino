@@ -16,9 +16,9 @@ package io.trino.spi.predicate;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,8 +40,8 @@ import java.util.function.ToLongFunction;
 import java.util.stream.Collector;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
@@ -55,7 +55,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
  */
 public final class TupleDomain<T>
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TupleDomain.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TupleDomain.class);
 
     private static final TupleDomain<?> NONE = new TupleDomain<>(Optional.empty());
     private static final TupleDomain<?> ALL = new TupleDomain<>(Optional.of(emptyMap()));
@@ -168,12 +168,9 @@ public final class TupleDomain<T>
                         })));
     }
 
-    /*
-     * This method is for JSON serialization only. Do not use.
-     * It's marked as @Deprecated to help avoid usage, and not because we plan to remove it.
-     */
-    @Deprecated
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
+    @Deprecated // Discourage usages in SPI consumers
     public static <T> TupleDomain<T> fromColumnDomains(@JsonProperty("columnDomains") Optional<List<ColumnDomain<T>>> columnDomains)
     {
         if (columnDomains.isEmpty()) {
@@ -183,12 +180,9 @@ public final class TupleDomain<T>
                 .collect(toLinkedMap(ColumnDomain::getColumn, ColumnDomain::getDomain)));
     }
 
-    /*
-     * This method is for JSON serialization only. Do not use.
-     * It's marked as @Deprecated to help avoid usage, and not because we plan to remove it.
-     */
-    @Deprecated
     @JsonProperty
+    @DoNotCall // For JSON serialization only
+    @Deprecated // Discourage usages in SPI consumers
     public Optional<List<ColumnDomain<T>>> getColumnDomains()
     {
         return domains.map(map -> map.entrySet().stream()
@@ -234,6 +228,21 @@ public final class TupleDomain<T>
     public Optional<Map<T, Domain>> getDomains()
     {
         return domains;
+    }
+
+    public Domain getDomain(T column, Type type)
+    {
+        if (domains.isEmpty()) {
+            return Domain.none(type);
+        }
+        Domain domain = domains.get().get(column);
+        if (domain != null && !domain.getType().equals(type)) {
+            throw new IllegalArgumentException("Provided type %s does not match domain type %s for column %s".formatted(type, domain.getType(), column));
+        }
+        if (domain == null) {
+            return Domain.all(type);
+        }
+        return domain;
     }
 
     /**

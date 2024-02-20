@@ -14,8 +14,8 @@
 package io.trino.sql.jsonpath;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.jsonpath.JsonPathBaseVisitor;
-import io.trino.jsonpath.JsonPathParser;
+import io.trino.grammar.jsonpath.JsonPathBaseVisitor;
+import io.trino.grammar.jsonpath.JsonPathParser;
 import io.trino.sql.jsonpath.tree.AbsMethod;
 import io.trino.sql.jsonpath.tree.ArithmeticBinary;
 import io.trino.sql.jsonpath.tree.ArithmeticBinary.Operator;
@@ -27,6 +27,7 @@ import io.trino.sql.jsonpath.tree.ComparisonPredicate;
 import io.trino.sql.jsonpath.tree.ConjunctionPredicate;
 import io.trino.sql.jsonpath.tree.ContextVariable;
 import io.trino.sql.jsonpath.tree.DatetimeMethod;
+import io.trino.sql.jsonpath.tree.DescendantMemberAccessor;
 import io.trino.sql.jsonpath.tree.DisjunctionPredicate;
 import io.trino.sql.jsonpath.tree.DoubleMethod;
 import io.trino.sql.jsonpath.tree.ExistsPredicate;
@@ -166,6 +167,20 @@ public class PathTreeBuilder
     {
         PathNode base = visit(context.accessorExpression());
         return new MemberAccessor(base, Optional.empty());
+    }
+
+    @Override
+    public PathNode visitDescendantMemberAccessor(JsonPathParser.DescendantMemberAccessorContext context)
+    {
+        PathNode base = visit(context.accessorExpression());
+        String key;
+        if (context.stringLiteral() != null) {
+            key = unquote(context.stringLiteral().getText());
+        }
+        else {
+            key = context.identifier().getText();
+        }
+        return new DescendantMemberAccessor(base, key);
     }
 
     @Override

@@ -134,7 +134,11 @@ public class Catalog
             transactionHandle = connector.beginTransaction(isolationLevel, readOnly, autoCommitContext);
         }
 
-        return new CatalogTransaction(connectorServices.getCatalogHandle(), connector, transactionHandle);
+        return new CatalogTransaction(
+                connectorServices.getTracer(),
+                connectorServices.getCatalogHandle(),
+                connector,
+                transactionHandle);
     }
 
     @Override

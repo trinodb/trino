@@ -14,6 +14,7 @@
 package io.trino.matching;
 
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 public class Captures
 {
@@ -71,14 +72,9 @@ public class Captures
         }
 
         Captures captures = (Captures) o;
-
-        if (capture != null ? !capture.equals(captures.capture) : captures.capture != null) {
-            return false;
-        }
-        if (value != null ? !value.equals(captures.value) : captures.value != null) {
-            return false;
-        }
-        return tail != null ? tail.equals(captures.tail) : captures.tail == null;
+        return Objects.equals(capture, captures.capture)
+                && Objects.equals(value, captures.value)
+                && Objects.equals(tail, captures.tail);
     }
 
     @Override

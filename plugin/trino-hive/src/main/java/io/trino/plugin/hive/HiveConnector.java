@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Injector;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -28,7 +29,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.TableProcedureMetadata;
-import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
@@ -46,6 +48,7 @@ import static java.util.Objects.requireNonNull;
 public class HiveConnector
         implements Connector
 {
+    private final Injector injector;
     private final LifeCycleManager lifeCycleManager;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
@@ -53,7 +56,6 @@ public class HiveConnector
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
     private final Set<Procedure> procedures;
     private final Set<TableProcedureMetadata> tableProcedures;
-    private final Set<EventListener> eventListeners;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
@@ -65,9 +67,12 @@ public class HiveConnector
     private final ClassLoader classLoader;
 
     private final HiveTransactionManager transactionManager;
+    private final Set<ConnectorTableFunction> connectorTableFunctions;
+    private final FunctionProvider functionProvider;
     private final boolean singleStatementWritesOnly;
 
     public HiveConnector(
+            Injector injector,
             LifeCycleManager lifeCycleManager,
             HiveTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
@@ -76,7 +81,6 @@ public class HiveConnector
             ConnectorNodePartitioningProvider nodePartitioningProvider,
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures,
-            Set<EventListener> eventListeners,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
@@ -84,9 +88,12 @@ public class HiveConnector
             List<PropertyMetadata<?>> analyzeProperties,
             List<PropertyMetadata<?>> materializedViewProperties,
             Optional<ConnectorAccessControl> accessControl,
+            Set<ConnectorTableFunction> connectorTableFunctions,
+            FunctionProvider functionProvider,
             boolean singleStatementWritesOnly,
             ClassLoader classLoader)
     {
+        this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -95,7 +102,6 @@ public class HiveConnector
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
-        this.eventListeners = ImmutableSet.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
         this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
@@ -105,6 +111,8 @@ public class HiveConnector
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.materializedViewProperties = requireNonNull(materializedViewProperties, "materializedViewProperties is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "connectorTableFunctions is null"));
+        this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
         this.singleStatementWritesOnly = singleStatementWritesOnly;
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
@@ -184,12 +192,6 @@ public class HiveConnector
     }
 
     @Override
-    public Iterable<EventListener> getEventListeners()
-    {
-        return eventListeners;
-    }
-
-    @Override
     public ConnectorAccessControl getAccessControl()
     {
         return accessControl.orElseThrow(UnsupportedOperationException::new);
@@ -229,8 +231,25 @@ public class HiveConnector
     }
 
     @Override
+    public Optional<FunctionProvider> getFunctionProvider()
+    {
+        return Optional.of(functionProvider);
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return connectorTableFunctions;
+    }
+
+    @Override
     public Set<TableProcedureMetadata> getTableProcedures()
     {
         return tableProcedures;
+    }
+
+    public Injector getInjector()
+    {
+        return injector;
     }
 }

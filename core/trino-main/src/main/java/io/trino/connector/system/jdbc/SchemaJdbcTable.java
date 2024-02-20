@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system.jdbc;
 
+import com.google.inject.Inject;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -24,17 +25,14 @@ import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
-import javax.inject.Inject;
-
-import java.util.Optional;
-
-import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
+import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class SchemaJdbcTable
@@ -43,8 +41,8 @@ public class SchemaJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "schemas");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_schem", createUnboundedVarcharType())
-            .column("table_catalog", createUnboundedVarcharType())
+            .column("table_schem", VARCHAR)
+            .column("table_catalog", VARCHAR)
             .build();
 
     private final Metadata metadata;
@@ -66,11 +64,17 @@ public class SchemaJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = ((FullConnectorSession) connectorSession).getSession();
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 1);
-
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+
+        Domain schemaDomain = constraint.getDomain(0, VARCHAR);
+        Domain catalogDomain = constraint.getDomain(1, VARCHAR);
+
+        if (isImpossibleObjectName(catalogDomain) || isImpossibleObjectName(schemaDomain)) {
+            return table.build().cursor();
+        }
+
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
             for (String schema : listSchemas(session, metadata, accessControl, catalog)) {
                 table.addRow(schema, catalog);
             }

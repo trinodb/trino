@@ -13,12 +13,12 @@
  */
 package io.trino.parquet.reader.flat;
 
+import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.decoders.RleBitPackingHybridDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoder;
 import io.trino.spi.block.Block;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 
@@ -94,5 +94,25 @@ public final class DictionaryDecoder<T>
     public int getDictionarySize()
     {
         return dictionarySize;
+    }
+
+    public interface DictionaryDecoderProvider<T>
+    {
+        DictionaryDecoder<T> create(DictionaryPage dictionaryPage, boolean isNonNull);
+    }
+
+    public static <BufferType> DictionaryDecoder<BufferType> getDictionaryDecoder(
+            DictionaryPage dictionaryPage,
+            ColumnAdapter<BufferType> columnAdapter,
+            ValueDecoder<BufferType> plainValuesDecoder,
+            boolean isNonNull)
+    {
+        int size = dictionaryPage.getDictionarySize();
+        // Extra value is added to the end of the dictionary for nullable columns because
+        // parquet dictionary page does not include null but Trino DictionaryBlock's dictionary does
+        BufferType dictionary = columnAdapter.createBuffer(size + (isNonNull ? 0 : 1));
+        plainValuesDecoder.init(new SimpleSliceInputStream(dictionaryPage.getSlice()));
+        plainValuesDecoder.read(dictionary, 0, size);
+        return new DictionaryDecoder<>(dictionary, columnAdapter, size, isNonNull);
     }
 }

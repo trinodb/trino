@@ -15,21 +15,20 @@ package io.trino.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.connector.ConnectorName;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableProperties;
-import io.trino.metadata.TableSchema;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Map;
 import java.util.Optional;
@@ -86,13 +85,14 @@ public class TableInfo
 
     private static TableInfo extract(Session session, Metadata metadata, TableScanNode node)
     {
-        TableSchema tableSchema = metadata.getTableSchema(session, node.getTable());
+        CatalogSchemaTableName tableName = metadata.getTableName(session, node.getTable());
         TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
         Optional<String> connectorName = metadata.listCatalogs(session).stream()
-                .filter(catalogInfo -> catalogInfo.getCatalogName().equals(tableSchema.getCatalogName()))
+                .filter(catalogInfo -> catalogInfo.getCatalogName().equals(tableName.getCatalogName()))
                 .map(CatalogInfo::getConnectorName)
                 .map(ConnectorName::toString)
                 .findFirst();
-        return new TableInfo(connectorName, tableSchema.getQualifiedName(), tableProperties.getPredicate());
+        QualifiedObjectName objectName = new QualifiedObjectName(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName(), tableName.getSchemaTableName().getTableName());
+        return new TableInfo(connectorName, objectName, tableProperties.getPredicate());
     }
 }

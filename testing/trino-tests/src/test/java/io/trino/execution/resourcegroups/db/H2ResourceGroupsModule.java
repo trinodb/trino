@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfig;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
 import io.trino.plugin.resourcegroups.db.ForEnvironment;
@@ -24,8 +25,6 @@ import io.trino.plugin.resourcegroups.db.H2DaoProvider;
 import io.trino.plugin.resourcegroups.db.ResourceGroupsDao;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
-
-import javax.inject.Singleton;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 

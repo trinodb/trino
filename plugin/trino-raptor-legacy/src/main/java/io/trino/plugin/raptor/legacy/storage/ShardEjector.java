@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy.storage;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
@@ -24,12 +25,10 @@ import io.trino.plugin.raptor.legacy.metadata.ShardManager;
 import io.trino.plugin.raptor.legacy.metadata.ShardMetadata;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.util.ArrayDeque;

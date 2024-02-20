@@ -25,18 +25,18 @@ import io.trino.parquet.reader.flat.RowRangesIterator;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.io.ParquetDecodingException;
-
-import javax.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
-import static io.trino.parquet.reader.decoders.ValueDecoders.getDictionaryDecoder;
+import static io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import static io.trino.parquet.reader.flat.RowRangesIterator.createRowRangesIterator;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -49,6 +49,7 @@ public abstract class AbstractColumnReader<BufferType>
     protected final PrimitiveField field;
     protected final ValueDecodersProvider<BufferType> decodersProvider;
     protected final ColumnAdapter<BufferType> columnAdapter;
+    private final DictionaryDecoderProvider<BufferType> dictionaryDecoderProvider;
 
     protected PageReader pageReader;
     protected RowRangesIterator rowRanges;
@@ -59,10 +60,12 @@ public abstract class AbstractColumnReader<BufferType>
     public AbstractColumnReader(
             PrimitiveField field,
             ValueDecodersProvider<BufferType> decodersProvider,
+            DictionaryDecoderProvider<BufferType> dictionaryDecoderProvider,
             ColumnAdapter<BufferType> columnAdapter)
     {
         this.field = requireNonNull(field, "field is null");
         this.decodersProvider = requireNonNull(decodersProvider, "decoders is null");
+        this.dictionaryDecoderProvider = requireNonNull(dictionaryDecoderProvider, "dictionaryDecoderProvider is null");
         this.columnAdapter = requireNonNull(columnAdapter, "columnAdapter is null");
     }
 
@@ -78,11 +81,7 @@ public abstract class AbstractColumnReader<BufferType>
         // For dictionary based encodings - https://github.com/apache/parquet-format/blob/master/Encodings.md
         if (dictionaryPage != null) {
             log.debug("field %s, readDictionaryPage %s", field, dictionaryPage);
-            dictionaryDecoder = getDictionaryDecoder(
-                    dictionaryPage,
-                    columnAdapter,
-                    decodersProvider.create(PLAIN, field),
-                    isNonNull());
+            dictionaryDecoder = dictionaryDecoderProvider.create(dictionaryPage, isNonNull());
             produceDictionaryBlock = shouldProduceDictionaryBlock(rowRanges);
         }
         this.rowRanges = createRowRangesIterator(rowRanges);
@@ -105,7 +104,7 @@ public abstract class AbstractColumnReader<BufferType>
             valueDecoder = dictionaryDecoder;
         }
         else {
-            valueDecoder = decodersProvider.create(encoding, field);
+            valueDecoder = decodersProvider.create(encoding);
         }
         valueDecoder.init(new SimpleSliceInputStream(data));
         return valueDecoder;
@@ -152,9 +151,7 @@ public abstract class AbstractColumnReader<BufferType>
         //   2. Number of dictionary entries exceeds a threshold (Integer.MAX_VALUE for parquet-mr by default).
         // Trino dictionary blocks are produced only when the entire column chunk is dictionary encoded
         if (pageReader.hasOnlyDictionaryEncodedPages()) {
-            // TODO: DictionaryBlocks are currently restricted to variable width types where dictionary processing is most beneficial.
-            //   Dictionary processing for other data types can be enabled after validating improvements on benchmarks.
-            if (!(field.getType() instanceof AbstractVariableWidthType)) {
+            if (!shouldProduceDictionaryForType(field.getType())) {
                 return false;
             }
             requireNonNull(dictionaryDecoder, "dictionaryDecoder is null");
@@ -164,6 +161,13 @@ public abstract class AbstractColumnReader<BufferType>
                     .orElse(true);
         }
         return false;
+    }
+
+    static boolean shouldProduceDictionaryForType(Type type)
+    {
+        // TODO: DictionaryBlocks are currently restricted to variable width and date types where dictionary processing is most beneficial.
+        //   Dictionary processing for other data types can be enabled after validating improvements on benchmarks.
+        return type instanceof AbstractVariableWidthType || type instanceof DateType;
     }
 
     private static long getMaxDictionaryBlockSize(Block dictionary, long batchSize)

@@ -23,6 +23,7 @@ import io.trino.operator.join.JoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -30,7 +31,6 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.index.strtree.STRtree;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
@@ -38,13 +38,13 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.join.JoinUtils.channelsToPages;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class PagesRTreeIndex
@@ -64,7 +64,7 @@ public class PagesRTreeIndex
 
     public static final class GeometryWithPosition
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GeometryWithPosition.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(GeometryWithPosition.class);
 
         private final OGCGeometry ogcGeometry;
         private final int partition;
@@ -137,16 +137,19 @@ public class PagesRTreeIndex
      * for each of these addresses to apply additional join filters.
      */
     @Override
-    public int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel)
+    public int[] findJoinPositions(int position, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel)
     {
-        Block probeGeometryBlock = probe.getBlock(probeGeometryChannel);
+        Block probeBlock = probe.getBlock(probeGeometryChannel);
+        VariableWidthBlock probeGeometryBlock = (VariableWidthBlock) probeBlock.getUnderlyingValueBlock();
+        int probePosition = probeBlock.getUnderlyingValuePosition(position);
+
         if (probeGeometryBlock.isNull(probePosition)) {
             return EMPTY_ADDRESSES;
         }
 
-        int probePartition = probePartitionChannel.map(channel -> toIntExact(INTEGER.getLong(probe.getBlock(channel), probePosition))).orElse(-1);
+        int probePartition = probePartitionChannel.map(channel -> INTEGER.getInt(probe.getBlock(channel), probePosition)).orElse(-1);
 
-        Slice slice = probeGeometryBlock.getSlice(probePosition, 0, probeGeometryBlock.getSliceLength(probePosition));
+        Slice slice = probeGeometryBlock.getSlice(probePosition);
         OGCGeometry probeGeometry = deserialize(slice);
         verifyNotNull(probeGeometry);
         if (probeGeometry.isEmpty()) {
@@ -175,7 +178,7 @@ public class PagesRTreeIndex
             }
         });
 
-        return matchingPositions.toIntArray(null);
+        return matchingPositions.toIntArray();
     }
 
     private boolean testReferencePoint(Envelope probeEnvelope, OGCGeometry buildGeometry, int partition)

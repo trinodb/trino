@@ -14,63 +14,53 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.spi.HostAddress;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public class InternalHiveSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(InternalHiveSplit.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(Properties.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(OptionalInt.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(InternalHiveSplit.class) + instanceSize(OptionalInt.class);
+    private static final int INTEGER_INSTANCE_SIZE = instanceSize(Integer.class);
 
     private final String path;
     private final long end;
     private final long estimatedFileSize;
     private final long fileModifiedTime;
-    private final Properties schema;
+    private final Map<String, String> schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<InternalHiveBlock> blocks;
     private final String partitionName;
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
-    // This supplier returns an unused statementId, to guarantee that created split
-    // files do not collide.  Successive calls return the next sequential integer,
-    // starting with zero.
-    private final Supplier<Integer> statementIdSupplier;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
-    private final TableToPartitionMapping tableToPartitionMapping;
+    private final Map<Integer, HiveTypeName> hiveColumnCoercions;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<BucketValidation> bucketValidation;
-    private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
     private final BooleanSupplier partitionMatchSupplier;
 
     private long start;
     private int currentBlockIndex;
-    private int statementId;
 
     public InternalHiveSplit(
             String partitionName,
@@ -79,18 +69,16 @@ public class InternalHiveSplit
             long end,
             long estimatedFileSize,
             long fileModifiedTime,
-            Properties schema,
+            Map<String, String> schema,
             List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
-            Supplier<Integer> statementIdSupplier,
             boolean splittable,
             boolean forceLocalScheduling,
-            TableToPartitionMapping tableToPartitionMapping,
+            Map<Integer, HiveTypeName> hiveColumnCoercions,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
-            boolean s3SelectPushdownEnabled,
             Optional<AcidInfo> acidInfo,
             BooleanSupplier partitionMatchSupplier)
     {
@@ -104,8 +92,7 @@ public class InternalHiveSplit
         requireNonNull(blocks, "blocks is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
-        requireNonNull(statementIdSupplier, "statementIdSupplier is null");
-        requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
+        requireNonNull(hiveColumnCoercions, "hiveColumnCoercions is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
@@ -122,14 +109,11 @@ public class InternalHiveSplit
         this.blocks = ImmutableList.copyOf(blocks);
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
-        this.statementIdSupplier = statementIdSupplier;
-        this.statementId = statementIdSupplier.get();
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
-        this.tableToPartitionMapping = tableToPartitionMapping;
+        this.hiveColumnCoercions = ImmutableMap.copyOf(hiveColumnCoercions);
         this.bucketConversion = bucketConversion;
         this.bucketValidation = bucketValidation;
-        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
         this.partitionMatchSupplier = partitionMatchSupplier;
     }
@@ -159,12 +143,7 @@ public class InternalHiveSplit
         return fileModifiedTime;
     }
 
-    public boolean isS3SelectPushdownEnabled()
-    {
-        return s3SelectPushdownEnabled;
-    }
-
-    public Properties getSchema()
+    public Map<String, String> getSchema()
     {
         return schema;
     }
@@ -189,11 +168,6 @@ public class InternalHiveSplit
         return tableBucketNumber;
     }
 
-    public int getStatementId()
-    {
-        return statementId;
-    }
-
     public boolean isSplittable()
     {
         return splittable;
@@ -204,9 +178,9 @@ public class InternalHiveSplit
         return forceLocalScheduling;
     }
 
-    public TableToPartitionMapping getTableToPartitionMapping()
+    public Map<Integer, HiveTypeName> getHiveColumnCoercions()
     {
-        return tableToPartitionMapping;
+        return hiveColumnCoercions;
     }
 
     public Optional<BucketConversion> getBucketConversion()
@@ -232,7 +206,6 @@ public class InternalHiveSplit
 
     public void increaseStart(long value)
     {
-        statementId = statementIdSupplier.get();
         start += value;
         if (start == currentBlock().getEnd()) {
             currentBlockIndex++;
@@ -250,7 +223,7 @@ public class InternalHiveSplit
                 estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes) +
                 estimatedSizeOf(blocks, InternalHiveBlock::getEstimatedSizeInBytes) +
                 estimatedSizeOf(partitionName) +
-                tableToPartitionMapping.getEstimatedSizeInBytes();
+                estimatedSizeOf(hiveColumnCoercions, (Integer key) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes);
         return toIntExact(result);
     }
 
@@ -277,9 +250,8 @@ public class InternalHiveSplit
 
     public static class InternalHiveBlock
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(InternalHiveBlock.class).instanceSize());
-        private static final int HOST_ADDRESS_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HostAddress.class).instanceSize() +
-                ClassLayout.parseClass(String.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(InternalHiveBlock.class);
+        private static final int HOST_ADDRESS_INSTANCE_SIZE = instanceSize(HostAddress.class);
 
         private final long start;
         private final long end;

@@ -13,7 +13,9 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
 import io.airlift.units.Duration;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
@@ -31,7 +33,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Lists.reverse;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.util.MoreMaps.mergeMaps;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -51,15 +52,21 @@ public final class PlanNodeStatsSummarizer
 
     public static Map<PlanNodeId, PlanNodeStats> aggregateTaskStats(List<TaskInfo> taskInfos)
     {
-        Map<PlanNodeId, PlanNodeStats> aggregatedStats = new HashMap<>();
+        ListMultimap<PlanNodeId, PlanNodeStats> groupedStats = ArrayListMultimap.create();
         List<PlanNodeStats> planNodeStats = taskInfos.stream()
                 .map(TaskInfo::getStats)
                 .flatMap(taskStats -> getPlanNodeStats(taskStats).stream())
                 .collect(toList());
         for (PlanNodeStats stats : planNodeStats) {
-            aggregatedStats.merge(stats.getPlanNodeId(), stats, PlanNodeStats::mergeWith);
+            groupedStats.put(stats.getPlanNodeId(), stats);
         }
-        return aggregatedStats;
+
+        ImmutableMap.Builder<PlanNodeId, PlanNodeStats> aggregatedStatsBuilder = ImmutableMap.builder();
+        for (PlanNodeId planNodeId : groupedStats.keySet()) {
+            List<PlanNodeStats> groupedPlanNodeStats = groupedStats.get(planNodeId);
+            aggregatedStatsBuilder.put(planNodeId, groupedPlanNodeStats.get(0).mergeWith(groupedPlanNodeStats.subList(1, groupedPlanNodeStats.size())));
+        }
+        return aggregatedStatsBuilder.buildOrThrow();
     }
 
     private static List<PlanNodeStats> getPlanNodeStats(TaskStats taskStats)
@@ -141,7 +148,7 @@ public final class PlanNodeStatsSummarizer
 
             // Gather output statistics
             processedNodes.clear();
-            for (OperatorStats operatorStats : reverse(pipelineStats.getOperatorSummaries())) {
+            for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries().reversed()) {
                 PlanNodeId planNodeId = operatorStats.getPlanNodeId();
 
                 // An "internal" pipeline like a hash build, links to another pipeline which is the actual output for this plan node

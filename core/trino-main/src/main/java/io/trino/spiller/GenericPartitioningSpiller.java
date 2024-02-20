@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.SpillContext;
@@ -25,8 +26,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -80,7 +79,7 @@ public class GenericPartitioningSpiller
         requireNonNull(memoryContext, "memoryContext is null");
         closer.register(memoryContext::close);
         this.memoryContext = memoryContext;
-        int partitionCount = partitionFunction.getPartitionCount();
+        int partitionCount = partitionFunction.partitionCount();
 
         ImmutableList.Builder<PageBuilder> pageBuilders = ImmutableList.builder();
         spillers = new ArrayList<>(partitionCount);

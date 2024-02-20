@@ -19,7 +19,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 
 public class TestUnionWithReplicatedJoin
-        extends TestUnion
+        extends BaseTestUnion
 {
     public TestUnionWithReplicatedJoin()
     {

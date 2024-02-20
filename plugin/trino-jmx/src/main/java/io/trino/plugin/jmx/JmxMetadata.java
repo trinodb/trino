@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -36,7 +37,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 
-import javax.inject.Inject;
 import javax.management.JMException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
@@ -287,7 +287,7 @@ public class JmxMetadata
 
         JmxTableHandle newTableHandle = new JmxTableHandle(tableHandle.getTableName(), tableHandle.getObjectNames(), tableHandle.getColumnHandles(), tableHandle.isLiveData(), newDomain);
 
-        return Optional.of(new ConstraintApplicationResult<>(newTableHandle, TupleDomain.withColumnDomains(otherDomains), false));
+        return Optional.of(new ConstraintApplicationResult<>(newTableHandle, TupleDomain.withColumnDomains(otherDomains), constraint.getExpression(), false));
     }
 
     private static Type getColumnType(MBeanAttributeInfo attribute)

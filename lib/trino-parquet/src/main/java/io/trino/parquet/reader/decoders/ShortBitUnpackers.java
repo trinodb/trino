@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.reader.decoders;
 
-import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -871,7 +870,7 @@ public final class ShortBitUnpackers
         @Override
         public void unpack(short[] output, int outputOffset, SimpleSliceInputStream input, int length)
         {
-            input.readBytes(Slices.wrappedShortArray(output, outputOffset, length), 0, length * Short.BYTES);
+            input.readShorts(output, outputOffset, length);
         }
     }
 

@@ -13,38 +13,33 @@
  */
 package io.trino.sql.query;
 
+import io.trino.Session;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.charset.Charset;
 
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJsonArrayFunction
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -104,8 +99,9 @@ public class TestJsonArrayFunction
                 .matches("VALUES VARCHAR '[{\"a\":1}]'");
 
         // malformed string to be read as JSON
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_array('[...' FORMAT JSON)"))
+                .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR);
 
         // duplicate key inside the formatted element: only one entry is retained
@@ -132,8 +128,9 @@ public class TestJsonArrayFunction
                 .matches("VALUES VARCHAR '[\"2001-01-31\"]'");
 
         // HyperLogLog cannot be cast to varchar
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_array(approx_set(1))"))
+                .failure()
                 .hasErrorCode(NOT_SUPPORTED);
     }
 
@@ -194,5 +191,25 @@ public class TestJsonArrayFunction
         assertThat(assertions.query(
                 "SELECT json_array(true RETURNING varbinary FORMAT JSON ENCODING UTF32)"))
                 .matches("VALUES " + varbinaryLiteral);
+    }
+
+    @Test
+    public void testNestedAggregation()
+    {
+        assertThat(assertions.query("""
+                SELECT json_array('x', max(a))
+                FROM (VALUES ('abc'), ('def')) t(a)
+                """))
+                .matches("VALUES VARCHAR '[\"x\",\"def\"]'");
+    }
+
+    @Test
+    public void testParameters()
+    {
+        Session session = Session.builder(assertions.getDefaultSession())
+                .addPreparedStatement("my_query", "SELECT json_array(?, ?)")
+                .build();
+        assertThat(assertions.query(session, "EXECUTE my_query USING 'a', 1"))
+                .matches("VALUES VARCHAR '[\"a\",1]'");
     }
 }

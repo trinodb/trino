@@ -18,12 +18,15 @@ import io.airlift.concurrent.MoreFutures;
 import io.trino.hdfs.authentication.ImpersonatingHdfsAuthentication;
 import io.trino.hdfs.authentication.SimpleHadoopAuthentication;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,19 +37,19 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotSame;
-import static org.testng.Assert.assertSame;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestFileSystemCache
 {
-    @BeforeMethod(alwaysRun = true)
-    @AfterClass(alwaysRun = true)
+    @BeforeEach
+    @AfterAll
     public void cleanup()
             throws IOException
     {
@@ -65,22 +68,23 @@ public class TestFileSystemCache
         ConnectorIdentity otherUserId = ConnectorIdentity.ofUser("other_user");
         FileSystem fs1 = getFileSystem(environment, userId);
         FileSystem fs2 = getFileSystem(environment, userId);
-        assertSame(fs1, fs2);
+        assertThat(fs1).isSameAs(fs2);
 
         FileSystem fs3 = getFileSystem(environment, otherUserId);
-        assertNotSame(fs1, fs3);
+        assertThat(fs1).isNotSameAs(fs3);
 
         FileSystem fs4 = getFileSystem(environment, otherUserId);
-        assertSame(fs3, fs4);
+        assertThat(fs3).isSameAs(fs4);
 
         FileSystem.closeAll();
 
         FileSystem fs5 = getFileSystem(environment, userId);
-        assertNotSame(fs5, fs1);
+        assertThat(fs5).isNotSameAs(fs1);
     }
 
     @Test
-    public void testFileSystemCacheException() throws IOException
+    public void testFileSystemCacheException()
+            throws IOException
     {
         HdfsEnvironment environment = new HdfsEnvironment(
                 new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
@@ -89,17 +93,18 @@ public class TestFileSystemCache
 
         int maxCacheSize = 1000;
         for (int i = 0; i < maxCacheSize; i++) {
-            assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), i);
+            assertThat(TrinoFileSystemCacheStats.instance().getCacheSize()).isEqualTo(i);
             getFileSystem(environment, ConnectorIdentity.ofUser("user" + i));
         }
-        assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), maxCacheSize);
+        assertThat(TrinoFileSystemCacheStats.instance().getCacheSize()).isEqualTo(maxCacheSize);
         assertThatThrownBy(() -> getFileSystem(environment, ConnectorIdentity.ofUser("user" + maxCacheSize)))
                 .isInstanceOf(IOException.class)
                 .hasMessage("FileSystem max cache size has been reached: " + maxCacheSize);
     }
 
     @Test
-    public void testFileSystemCacheConcurrency() throws InterruptedException, ExecutionException, IOException
+    public void testFileSystemCacheConcurrency()
+            throws InterruptedException, ExecutionException, IOException
     {
         int numThreads = 20;
         List<Callable<Void>> callableTasks = new ArrayList<>();
@@ -113,22 +118,25 @@ public class TestFileSystemCache
         }
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
-        assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), 0);
+        assertThat(TrinoFileSystemCacheStats.instance().getCacheSize()).isEqualTo(0);
         executor.invokeAll(callableTasks).forEach(MoreFutures::getFutureValue);
         executor.shutdown();
-        assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), 0, "Cache size is non zero");
+        assertThat(TrinoFileSystemCacheStats.instance().getCacheSize())
+                .describedAs("Cache size is non zero")
+                .isEqualTo(0);
     }
 
     private static FileSystem getFileSystem(HdfsEnvironment environment, ConnectorIdentity identity)
             throws IOException
     {
-        return environment.getFileSystem(identity, new Path("/"), newEmptyConfiguration());
+        return environment.getFileSystem(identity, new Path("/"), new Configuration(false));
     }
 
     @FunctionalInterface
     public interface FileSystemConsumer
     {
-        void consume(FileSystem fileSystem) throws IOException;
+        void consume(FileSystem fileSystem)
+                throws IOException;
     }
 
     private static class FileSystemCloser
@@ -136,7 +144,8 @@ public class TestFileSystemCache
     {
         @Override
         @SuppressModernizer
-        public void consume(FileSystem fileSystem) throws IOException
+        public void consume(FileSystem fileSystem)
+                throws IOException
         {
             fileSystem.close();  /* triggers fscache.remove() */
         }
@@ -164,7 +173,8 @@ public class TestFileSystemCache
         }
 
         @Override
-        public Void call() throws IOException
+        public Void call()
+                throws IOException
         {
             for (int i = 0; i < getCallsPerInvocation; i++) {
                 FileSystem fs = getFileSystem(environment, ConnectorIdentity.ofUser("user" + random.nextInt(userCount)));

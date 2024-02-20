@@ -13,7 +13,7 @@
  */
 package io.trino.spi;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -25,8 +25,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static java.util.Arrays.asList;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStandardErrorCode
 {
@@ -37,9 +36,11 @@ public class TestStandardErrorCode
     {
         Set<Integer> codes = new HashSet<>();
         for (StandardErrorCode code : StandardErrorCode.values()) {
-            assertTrue(codes.add(code(code)), "Code already exists: " + code);
+            assertThat(codes.add(code(code)))
+                    .describedAs("Code already exists: " + code)
+                    .isTrue();
         }
-        assertEquals(codes.size(), StandardErrorCode.values().length);
+        assertThat(codes).hasSize(StandardErrorCode.values().length);
     }
 
     @Test
@@ -55,7 +56,7 @@ public class TestStandardErrorCode
     {
         Iterator<StandardErrorCode> iterator = asList(StandardErrorCode.values()).iterator();
 
-        assertTrue(iterator.hasNext());
+        assertThat(iterator.hasNext()).isTrue();
         int previous = code(iterator.next());
 
         while (iterator.hasNext()) {
@@ -63,7 +64,9 @@ public class TestStandardErrorCode
             int current = code(code);
             assertGreaterThan(current, previous, "Code is out of order: " + code);
             if (code != GENERIC_INTERNAL_ERROR && code != GENERIC_INSUFFICIENT_RESOURCES && code != UNSUPPORTED_TABLE_TYPE) {
-                assertEquals(current, previous + 1, "Code is not sequential: " + code);
+                assertThat(current)
+                        .describedAs("Code is not sequential: " + code)
+                        .isEqualTo(previous + 1);
             }
             previous = current;
         }

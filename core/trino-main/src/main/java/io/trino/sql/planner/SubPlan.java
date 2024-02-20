@@ -15,10 +15,9 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 

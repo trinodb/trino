@@ -16,18 +16,25 @@ package io.trino.execution.buffer;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import javax.crypto.SecretKey;
 
@@ -37,6 +44,9 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.PagesSerdeFactory.createCompressor;
+import static io.trino.execution.buffer.PagesSerdeFactory.createDecompressor;
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
 import static io.trino.operator.PageAssertions.assertPageEquals;
@@ -45,20 +55,23 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPagesSerde
 {
     private BlockEncodingSerde blockEncodingSerde;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         blockEncodingSerde = null;
@@ -123,25 +136,23 @@ public class TestPagesSerde
 
     private void testRoundTrip(List<Type> types, List<Page> pages, int blockSizeInBytes)
     {
-        // without compression, encryption
-        testRoundTrip(types, pages, false, false, blockSizeInBytes);
-        // with compression, without encryption
-        testRoundTrip(types, pages, true, false, blockSizeInBytes);
-        // without compression, with encryption
-        testRoundTrip(types, pages, false, true, blockSizeInBytes);
-        // with compression, encryption
-        testRoundTrip(types, pages, true, true, blockSizeInBytes);
+        // without encryption
+        testRoundTrip(types, pages, false, blockSizeInBytes);
+        // with encryption
+        testRoundTrip(types, pages, true, blockSizeInBytes);
     }
 
-    private void testRoundTrip(List<Type> types, List<Page> pages, boolean compressionEnabled, boolean encryptionEnabled, int blockSizeInBytes)
+    private void testRoundTrip(List<Type> types, List<Page> pages, boolean encryptionEnabled, int blockSizeInBytes)
     {
         Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
-        PageSerializer serializer = new PageSerializer(blockEncodingSerde, compressionEnabled, encryptionKey, blockSizeInBytes);
-        PageDeserializer deserializer = new PageDeserializer(blockEncodingSerde, compressionEnabled, encryptionKey, blockSizeInBytes);
-        for (Page page : pages) {
-            Slice serialized = serializer.serialize(page);
-            Page deserialized = deserializer.deserialize(serialized);
-            assertPageEquals(types, deserialized, page);
+        for (CompressionCodec compressionCodec : CompressionCodec.values()) {
+            PageSerializer serializer = new PageSerializer(blockEncodingSerde, createCompressor(compressionCodec), encryptionKey, blockSizeInBytes);
+            PageDeserializer deserializer = new PageDeserializer(blockEncodingSerde, createDecompressor(compressionCodec), encryptionKey, blockSizeInBytes);
+            for (Page page : pages) {
+                Slice serialized = serializer.serialize(page);
+                Page deserialized = deserializer.deserialize(serialized);
+                assertPageEquals(types, deserialized, page);
+            }
         }
     }
 
@@ -176,20 +187,20 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
-        assertEquals(pageSize, 40);
+        assertThat(pageSize).isEqualTo(40);
 
         // page with one value
         BIGINT.writeLong(builder, 123);
         pageSize = 35; // Now we have moved to the normal block implementation so the page size overhead is 35
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(BIGINT), page) - pageSize;
-        assertEquals(firstValueSize, 9); // value size + value overhead
+        assertThat(firstValueSize).isEqualTo(9); // value size + value overhead
 
         // page with two values
         BIGINT.writeLong(builder, 456);
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(BIGINT), page) - (pageSize + firstValueSize);
-        assertEquals(secondValueSize, 8); // value size (value overhead is shared with previous value)
+        assertThat(secondValueSize).isEqualTo(8); // value size (value overhead is shared with previous value)
     }
 
     @Test
@@ -200,25 +211,25 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertEquals(pageSize, 48);
+        assertThat(pageSize).isEqualTo(48);
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
         pageSize = 44; // Now we have moved to the normal block implementation so the page size overhead is 44
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
-        assertEquals(firstValueSize, 8 + 5); // length + nonNullsCount + "alice"
+        assertThat(firstValueSize).isEqualTo(8 + 5); // length + nonNullsCount + "alice"
 
         // page with two values
         VARCHAR.writeString(builder, "bob");
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - (pageSize + firstValueSize);
-        assertEquals(secondValueSize, 4 + 3); // length + "bob" (null shared with first entry)
+        assertThat(secondValueSize).isEqualTo(4 + 3); // length + "bob" (null shared with first entry)
     }
 
     private int serializedSize(List<? extends Type> types, Page expectedPage)
     {
-        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, false);
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, NONE);
         PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
         PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
@@ -230,10 +241,122 @@ public class TestPagesSerde
             assertPageEquals(types, pageIterator.next(), expectedPage);
         }
         else {
-            assertEquals(expectedPage.getPositionCount(), 0);
+            assertThat(expectedPage.getPositionCount()).isEqualTo(0);
         }
-        assertFalse(pageIterator.hasNext());
+        assertThat(pageIterator.hasNext()).isFalse();
 
         return slice.length();
+    }
+
+    @Test
+    public void testDeserializationWithRollover()
+    {
+        // test non-zero rollover when refilling buffer on deserialization
+        for (int blockSize = 100; blockSize < 500; blockSize += 101) {
+            for (int numberOfEntries = 500; numberOfEntries < 1000; numberOfEntries += 99) {
+                testDeserializationWithRollover(blockSize, numberOfEntries);
+            }
+        }
+    }
+
+    private void testDeserializationWithRollover(int blockSize, int numberOfEntries)
+    {
+        testDeserializationWithRollover(false, numberOfEntries, blockSize);
+        testDeserializationWithRollover(true, numberOfEntries, blockSize);
+    }
+
+    private void testDeserializationWithRollover(boolean encryptionEnabled, int numberOfEntries, int blockSize)
+    {
+        RolloverBlockSerde blockSerde = new RolloverBlockSerde();
+        Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
+        for (CompressionCodec compressionCodec : CompressionCodec.values()) {
+            PageSerializer serializer = new PageSerializer(blockSerde, createCompressor(compressionCodec), encryptionKey, blockSize);
+            PageDeserializer deserializer = new PageDeserializer(blockSerde, createDecompressor(compressionCodec), encryptionKey, blockSize);
+
+            Page page = createTestPage(numberOfEntries);
+            Slice serialized = serializer.serialize(page);
+            Page deserialized = deserializer.deserialize(serialized);
+            assertThat(deserialized.getChannelCount()).isEqualTo(1);
+
+            VariableWidthBlock expected = (VariableWidthBlock) page.getBlock(0);
+            VariableWidthBlock actual = (VariableWidthBlock) deserialized.getBlock(0);
+
+            assertThat(actual.getRawSlice().getBytes()).isEqualTo(expected.getRawSlice().getBytes());
+        }
+    }
+
+    private static Page createTestPage(int numberOfEntries)
+    {
+        Slice slice = Slices.allocate(Integer.BYTES + numberOfEntries * Long.BYTES);
+        SliceOutput out = slice.getOutput();
+        out.writeInt(numberOfEntries);
+        for (int i = 0; i < numberOfEntries; i++) {
+            out.writeLong(i);
+        }
+        return new Page(new VariableWidthBlock(1, slice, new int[] {0, slice.length()}, Optional.empty()));
+    }
+
+    private static class RolloverBlockSerde
+            implements BlockEncodingSerde
+    {
+        @Override
+        public Block readBlock(SliceInput input)
+        {
+            int numberOfEntries = input.readInt();
+
+            Slice slice = Slices.allocate(Integer.BYTES + numberOfEntries * Long.BYTES);
+            SliceOutput out = slice.getOutput();
+            out.writeInt(numberOfEntries);
+            for (int i = 0; i < numberOfEntries; ++i) {
+                // read 8 bytes at a time
+                out.writeLong(input.readLong());
+            }
+            return new VariableWidthBlock(1, slice, new int[] {0, slice.length()}, Optional.empty());
+        }
+
+        @Override
+        public void writeBlock(SliceOutput output, Block block)
+        {
+            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+            Slice slice = variableWidthBlock.getSlice(0);
+
+            int numberOfEntries = slice.getInt(0);
+            output.writeInt(numberOfEntries);
+
+            int offset = 4;
+            for (int i = 0; i < numberOfEntries; ++i) {
+                long value = slice.getLong(offset);
+                offset += 8;
+                long b7 = value >> 56 & 0xffL;
+                long b6 = value >> 48 & 0xffL;
+                long b5 = value >> 40 & 0xffL;
+                long b4 = value >> 32 & 0xffL;
+                long b3 = value >> 24 & 0xffL;
+                long b2 = value >> 16 & 0xffL;
+                long b1 = value >> 8 & 0xffL;
+                long b0 = value & 0xffL;
+                // write one byte at a time
+                output.writeByte((int) b0);
+                output.writeByte((int) b1);
+                output.writeByte((int) b2);
+                output.writeByte((int) b3);
+                output.writeByte((int) b4);
+                output.writeByte((int) b5);
+                output.writeByte((int) b6);
+                output.writeByte((int) b7);
+            }
+        }
+
+        @Override
+        public Type readType(SliceInput sliceInput)
+        {
+            throw new RuntimeException("not implemented");
+        }
+
+        @Override
+        public void writeType(SliceOutput sliceOutput, Type type)
+        {
+            throw new RuntimeException("not implemented");
+        }
     }
 }

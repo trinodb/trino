@@ -20,7 +20,7 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -47,7 +47,9 @@ public class TestHiveConnectorFactory
 
     private static void assertCreateConnector(String metastoreUri)
     {
-        Map<String, String> config = ImmutableMap.of("hive.metastore.uri", metastoreUri);
+        Map<String, String> config = ImmutableMap.of(
+                "bootstrap.quiet", "true",
+                "hive.metastore.uri", metastoreUri);
 
         Connector connector = new HiveConnectorFactory().create("hive-test", config, new TestingConnectorContext());
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true, true);

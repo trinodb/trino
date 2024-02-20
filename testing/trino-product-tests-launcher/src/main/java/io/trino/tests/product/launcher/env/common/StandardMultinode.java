@@ -14,15 +14,15 @@
 package io.trino.tests.product.launcher.env.common;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Debug;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.ServerPackage;
-import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
-
-import javax.inject.Inject;
+import io.trino.tests.product.launcher.env.Tracing;
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 
 import java.io.File;
 import java.util.List;
@@ -43,8 +43,9 @@ public class StandardMultinode
     private final DockerFiles.ResourceProvider configDir;
     private final String imagesVersion;
     private final File serverPackage;
-    private final SupportedTrinoJdk jdkVersion;
+    private final JdkProvider jdkProvider;
     private final boolean debug;
+    private final boolean tracing;
 
     @Inject
     public StandardMultinode(
@@ -52,16 +53,18 @@ public class StandardMultinode
             DockerFiles dockerFiles,
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage,
-            SupportedTrinoJdk jdkVersion,
-            @Debug boolean debug)
+            JdkProvider jdkProvider,
+            @Debug boolean debug,
+            @Tracing boolean tracing)
     {
         this.standard = requireNonNull(standard, "standard is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.configDir = dockerFiles.getDockerFilesHostDirectory("common/standard-multinode");
         this.imagesVersion = environmentConfig.getImagesVersion();
-        this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
+        this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
+        this.tracing = tracing;
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
     }
 
@@ -82,7 +85,7 @@ public class StandardMultinode
     @SuppressWarnings("resource")
     private DockerContainer createTrinoWorker()
     {
-        return createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, WORKER)
+        return createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, WORKER)
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
     }
 }

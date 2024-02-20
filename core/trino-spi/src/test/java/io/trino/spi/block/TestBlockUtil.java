@@ -13,24 +13,33 @@
  */
 package io.trino.spi.block;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
-import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestBlockUtil
 {
     @Test
     public void testCalculateNewArraySize()
     {
-        assertEquals(BlockUtil.calculateNewArraySize(200), 300);
-        assertEquals(BlockUtil.calculateNewArraySize(Integer.MAX_VALUE), MAX_ARRAY_SIZE);
-        try {
-            BlockUtil.calculateNewArraySize(MAX_ARRAY_SIZE);
-        }
-        catch (IllegalArgumentException e) {
-            assertEquals(e.getMessage(), format("Cannot grow array beyond '%s'", MAX_ARRAY_SIZE));
-        }
+        assertThat(calculateNewArraySize(200)).isEqualTo(300);
+        assertThat(calculateNewArraySize(200, 10)).isEqualTo(300);
+        assertThat(calculateNewArraySize(200, 500)).isEqualTo(500);
+
+        assertThat(calculateNewArraySize(MAX_ARRAY_SIZE - 1)).isEqualTo(MAX_ARRAY_SIZE);
+        assertThat(calculateNewArraySize(10, MAX_ARRAY_SIZE)).isEqualTo(MAX_ARRAY_SIZE);
+
+        assertThat(calculateNewArraySize(1, 0)).isEqualTo(64);
+
+        assertThatThrownBy(() -> calculateNewArraySize(Integer.MAX_VALUE))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> calculateNewArraySize(0, Integer.MAX_VALUE))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> calculateNewArraySize(MAX_ARRAY_SIZE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Cannot grow array beyond size %d".formatted(MAX_ARRAY_SIZE));
     }
 }

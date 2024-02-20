@@ -15,24 +15,23 @@ package io.trino.plugin.exchange.hdfs;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,7 +46,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -144,11 +143,18 @@ public class HadoopFileSystemExchangeStorage
     {
     }
 
+    private static Configuration newEmptyConfiguration()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(HadoopFileSystemExchangeStorage.class.getClassLoader())) {
+            return new Configuration(false);
+        }
+    }
+
     @ThreadSafe
     private static class HadoopExchangeStorageReader
             implements ExchangeStorageReader
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HadoopExchangeStorageReader.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(HadoopExchangeStorageReader.class);
 
         private final FileSystem fileSystem;
         @GuardedBy("this")
@@ -175,8 +181,13 @@ public class HadoopFileSystemExchangeStorage
                 return null;
             }
 
-            if (sliceInput != null && sliceInput.isReadable()) {
-                return sliceInput.readSlice(sliceInput.readInt());
+            if (sliceInput != null) {
+                if (sliceInput.isReadable()) {
+                    return sliceInput.readSlice(sliceInput.readInt());
+                }
+                else {
+                    sliceInput.close();
+                }
             }
 
             ExchangeSourceFile sourceFile = sourceFiles.poll();
@@ -232,7 +243,7 @@ public class HadoopFileSystemExchangeStorage
     private static class HadoopExchangeStorageWriter
             implements ExchangeStorageWriter
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HadoopExchangeStorageReader.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(HadoopExchangeStorageReader.class);
         private final OutputStream outputStream;
 
         public HadoopExchangeStorageWriter(FileSystem fileSystem, URI file)

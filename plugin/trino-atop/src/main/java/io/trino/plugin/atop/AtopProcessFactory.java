@@ -16,12 +16,11 @@ package io.trino.plugin.atop;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
 import io.trino.spi.TrinoException;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
+import jakarta.annotation.PreDestroy;
 
 import java.io.BufferedReader;
 import java.io.IOException;

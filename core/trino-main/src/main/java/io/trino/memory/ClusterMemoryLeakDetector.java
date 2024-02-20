@@ -15,13 +15,12 @@ package io.trino.memory;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.QueryId;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;

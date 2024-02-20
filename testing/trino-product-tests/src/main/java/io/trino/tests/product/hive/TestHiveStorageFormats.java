@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.tempto.ProductTest;
@@ -28,13 +29,10 @@ import io.trino.tempto.query.QueryExecutor.QueryParam;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.utils.JdbcDriverUtils;
-import org.apache.parquet.hadoop.ParquetWriter;
-import org.assertj.core.api.Assertions;
+import org.apache.parquet.column.ParquetProperties;
 import org.assertj.core.api.SoftAssertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import javax.inject.Named;
 
 import java.sql.Connection;
 import java.sql.JDBCType;
@@ -60,7 +58,6 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
@@ -79,6 +76,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveStorageFormats
         extends ProductTest
@@ -244,8 +242,7 @@ public class TestHiveStorageFormats
     {
         return new StorageFormat[] {
                 storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")),
-                storageFormat("PARQUET"),
-                storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_writer_enabled", "true")),
+                storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_writer_validation_percentage", "100")),
                 storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("SEQUENCEFILE"),
@@ -294,7 +291,7 @@ public class TestHiveStorageFormats
     {
         String formatsDescription = (String) onTrino().executeQuery("SELECT description FROM system.metadata.table_properties WHERE catalog_name = CURRENT_CATALOG AND property_name = 'format'").getOnlyValue();
         Pattern pattern = Pattern.compile("Hive storage format for the table. Possible values: \\[([A-Z]+(, [A-z]+)+)]");
-        Assertions.assertThat(formatsDescription).matches(pattern);
+        assertThat(formatsDescription).matches(pattern);
         Matcher matcher = pattern.matcher(formatsDescription);
         verify(matcher.matches());
 
@@ -308,9 +305,11 @@ public class TestHiveStorageFormats
                 .filter(format -> !"REGEX".equals(format))
                 // TODO when using JSON serde Hive fails with ClassNotFoundException: org.apache.hive.hcatalog.data.JsonSerDe
                 .filter(format -> !"JSON".equals(format))
+                // OPENX is not supported in Hive by default
+                .filter(format -> !"OPENX_JSON".equals(format))
                 .collect(toImmutableSet());
 
-        Assertions.assertThat(ImmutableSet.copyOf(storageFormats()))
+        assertThat(ImmutableSet.copyOf(storageFormats()))
                 .isEqualTo(allFormatsToTest);
     }
 
@@ -619,8 +618,8 @@ public class TestHiveStorageFormats
             catch (QueryExecutionException e) {
                 if ("AVRO".equals(format)) {
                     // TODO (https://github.com/trinodb/trino/issues/9285) Some versions of Hive cannot read Avro nested structs written by Trino
-                    Assertions.assertThat(e.getCause())
-                            .hasToString("java.sql.SQLException: java.io.IOException: org.apache.avro.AvroTypeException: Found default.record_1, expecting union");
+                    assertThat(e.getCause())
+                            .hasToString("java.sql.SQLException: java.io.IOException: org.apache.avro.AvroTypeException: Found record_1, expecting union");
                 }
                 else {
                     throw e;
@@ -776,26 +775,13 @@ public class TestHiveStorageFormats
     @Test(groups = STORAGE_FORMATS_DETAILED)
     public void testLargeParquetInsert()
     {
-        DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
+        DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE / 4);
         runLargeInsert(storageFormat(
                 "PARQUET",
                 ImmutableMap.of(
                         "hive.parquet_writer_page_size", reducedRowGroupSize.toBytesValueString(),
                         "task_scale_writers_enabled", "false",
-                        "task_writer_count", "1")));
-    }
-
-    @Test(groups = STORAGE_FORMATS_DETAILED)
-    public void testLargeParquetInsertWithNativeWriter()
-    {
-        DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
-        runLargeInsert(storageFormat(
-                "PARQUET",
-                ImmutableMap.of(
-                        "hive.parquet_optimized_writer_enabled", "true",
-                        "hive.parquet_writer_page_size", reducedRowGroupSize.toBytesValueString(),
-                        "task_scale_writers_enabled", "false",
-                        "task_writer_count", "1")));
+                        "task_min_writer_count", "1")));
     }
 
     @Test(groups = STORAGE_FORMATS_DETAILED)
@@ -1019,7 +1005,7 @@ public class TestHiveStorageFormats
     {
         try {
             // create more than one split
-            setSessionProperty(connection, "task_writer_count", "4");
+            setSessionProperty(connection, "task_min_writer_count", "4");
             setSessionProperty(connection, "task_scale_writers_enabled", "false");
             setSessionProperty(connection, "redistribute_writes", "false");
             for (Map.Entry<String, String> sessionProperty : sessionProperties.entrySet()) {

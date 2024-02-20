@@ -17,10 +17,9 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.spi.NodeManager;
-
-import javax.inject.Singleton;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 

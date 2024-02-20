@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -26,9 +28,6 @@ import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.plugin.base.metrics.TDigestHistogram;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Collection;

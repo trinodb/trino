@@ -13,12 +13,14 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestShortDecimalType
         extends AbstractTestType
@@ -30,7 +32,7 @@ public class TestShortDecimalType
         super(SHORT_DECIMAL_TYPE, SqlDecimal.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = SHORT_DECIMAL_TYPE.createBlockBuilder(null, 15);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);
@@ -44,12 +46,33 @@ public class TestShortDecimalType
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 3321);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 3321);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 4321);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
         return ((long) value) + 1;
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

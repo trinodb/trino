@@ -21,6 +21,7 @@ import com.datastax.oss.driver.internal.core.metadata.token.RandomToken;
 import com.datastax.oss.driver.internal.core.metadata.token.RandomTokenRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.cassandra.util.HostAddressFactory;
 import io.trino.spi.HostAddress;
@@ -35,8 +36,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
 
-import javax.inject.Inject;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,6 +44,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.plugin.cassandra.CassandraSessionProperties.getSplitsPerNode;
+import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -103,7 +103,7 @@ public class CassandraSplitManager
 
         if (partitions.isEmpty()) {
             log.debug("No partitions matched predicates for table %s", connectorTableHandle);
-            return new FixedSplitSource(ImmutableList.of());
+            return emptySplitSource();
         }
 
         // if this is an unpartitioned table, split into equal ranges

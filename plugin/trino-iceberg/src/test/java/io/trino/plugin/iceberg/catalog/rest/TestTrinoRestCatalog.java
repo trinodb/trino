@@ -21,12 +21,14 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.assertj.core.util.Files;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
@@ -60,6 +62,7 @@ public class TestTrinoRestCatalog
         return new TrinoRestCatalog(restSessionCatalog, new CatalogName(catalogName), NONE, "test", useUniqueTableLocations);
     }
 
+    @Test
     @Override
     public void testView()
     {
@@ -67,6 +70,7 @@ public class TestTrinoRestCatalog
                 .hasMessageContaining("createView is not supported for Iceberg REST catalog");
     }
 
+    @Test
     @Override
     public void testNonLowercaseNamespace()
     {
@@ -89,9 +93,10 @@ public class TestTrinoRestCatalog
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
                     PLANNER_CONTEXT.getTypeManager(),
+                    CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    connectorIdentity -> {
+                    (connectorIdentity, fileIoProperties) -> {
                         throw new UnsupportedOperationException();
                     },
                     new TableStatisticsWriter(new NodeVersion("test-version")));

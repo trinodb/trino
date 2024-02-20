@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Warning
@@ -70,7 +69,7 @@ public final class Warning
     @Override
     public String toString()
     {
-        return format("%s, %s", warningCode, message);
+        return warningCode + ", " + message;
     }
 
     public static final class Code

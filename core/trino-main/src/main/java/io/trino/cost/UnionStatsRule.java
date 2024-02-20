@@ -15,11 +15,9 @@
 package io.trino.cost;
 
 import com.google.common.collect.ListMultimap;
-import io.trino.Session;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.UnionNode;
 
@@ -46,14 +44,14 @@ public class UnionStatsRule
     }
 
     @Override
-    protected final Optional<PlanNodeStatsEstimate> doCalculate(UnionNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    protected final Optional<PlanNodeStatsEstimate> doCalculate(UnionNode node, Context context)
     {
         checkArgument(!node.getSources().isEmpty(), "Empty Union is not supported");
 
         Optional<PlanNodeStatsEstimate> estimate = Optional.empty();
         for (int i = 0; i < node.getSources().size(); i++) {
             PlanNode source = node.getSources().get(i);
-            PlanNodeStatsEstimate sourceStats = statsProvider.getStats(source);
+            PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(source);
 
             PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, node.getSymbolMapping(), i);
 

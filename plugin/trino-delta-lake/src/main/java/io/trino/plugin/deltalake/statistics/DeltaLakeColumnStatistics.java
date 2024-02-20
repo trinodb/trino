@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake.statistics;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.slice.Slices;
 import io.airlift.stats.cardinality.HyperLogLog;
 
@@ -29,7 +30,8 @@ public class DeltaLakeColumnStatistics
     private final HyperLogLog ndvSummary;
 
     @JsonCreator
-    public static DeltaLakeColumnStatistics create(
+    @DoNotCall // For JSON deserialization only
+    public static DeltaLakeColumnStatistics fromJson(
             @JsonProperty("totalSizeInBytes") OptionalLong totalSizeInBytes,
             @JsonProperty("ndvSummary") String ndvSummaryBase64)
     {

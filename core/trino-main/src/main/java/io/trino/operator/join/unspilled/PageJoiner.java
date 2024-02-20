@@ -24,8 +24,7 @@ import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.unspilled.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.util.List;
@@ -110,6 +109,7 @@ public class PageJoiner
         }
         if (probe == null) {
             probe = joinProbeFactory.createJoinProbe(probePage, lookupSource);
+            statisticsCounter.recordCreateProbe();
         }
 
         processProbe(lookupSource);
@@ -147,11 +147,50 @@ public class PageJoiner
                 }
                 statisticsCounter.recordProbe(joinSourcePositions);
             }
+
+            if (handleRleProbe()) {
+                break;
+            }
+
             if (!advanceProbePosition()) {
                 break;
             }
         }
         while (!yieldSignal.isSet());
+    }
+
+    /**
+     * @return true if run length encoded probe has been handled and probe page processing is now finished
+     */
+    private boolean handleRleProbe()
+    {
+        if (!probe.areProbeJoinChannelsRunLengthEncoded()) {
+            return false;
+        }
+
+        if (probe.getPosition() != 0) {
+            // RLE probe can be handled only after first row is processed
+            return false;
+        }
+
+        if (pageBuilder.getPositionCount() == 0) {
+            // skip matching of other probe rows since first
+            // row from RLE probe did not produce any matches
+            probe.finish();
+            statisticsCounter.recordRleProbe();
+            return true;
+        }
+
+        if (pageBuilder.getPositionCount() == 1) {
+            // repeat probe join key match
+            pageBuilder.repeatBuildRow();
+            probe.finish();
+            statisticsCounter.recordRleProbe();
+            return true;
+        }
+
+        // process probe row by row since there are multiple matches per probe join key
+        return false;
     }
 
     /**

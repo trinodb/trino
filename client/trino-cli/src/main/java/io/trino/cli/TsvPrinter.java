@@ -20,7 +20,7 @@ import java.io.Writer;
 import java.util.Iterator;
 import java.util.List;
 
-import static io.trino.cli.CsvPrinter.formatValue;
+import static io.trino.cli.FormatUtils.formatValue;
 import static java.util.Objects.requireNonNull;
 
 public class TsvPrinter
@@ -65,7 +65,7 @@ public class TsvPrinter
         StringBuilder sb = new StringBuilder();
         Iterator<?> iter = row.iterator();
         while (iter.hasNext()) {
-            String s = formatValue(iter.next());
+            String s = formatValue(iter.next(), "", -1);
 
             for (int i = 0; i < s.length(); i++) {
                 escapeCharacter(sb, s.charAt(i));

@@ -14,7 +14,7 @@
 package io.trino.sql.planner.planprinter;
 
 import io.trino.operator.WindowInfo;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;

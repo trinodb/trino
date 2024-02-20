@@ -16,13 +16,12 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.net.HostAndPort;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.FailureAwareThriftMetastoreClient.Callback;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
+import jakarta.annotation.Nullable;
 import org.apache.thrift.TException;
-
-import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Comparator;
@@ -64,11 +63,6 @@ public class StaticTokenAwareMetastoreClientFactory
                 "%s cannot be used together with %s authentication",
                 HIVE_METASTORE_USERNAME,
                 authenticationConfig.getAuthenticationType());
-    }
-
-    public StaticTokenAwareMetastoreClientFactory(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
-    {
-        this(metastoreUris, metastoreUsername, clientFactory, Ticker.systemTicker());
     }
 
     private StaticTokenAwareMetastoreClientFactory(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory, Ticker ticker)

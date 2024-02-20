@@ -37,19 +37,22 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.Expression;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 
@@ -62,7 +65,7 @@ public class TestUnaliasSymbolReferences
         String probeTable = "supplier";
         String buildTable = "nation";
         assertOptimizedPlan(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
                 (p, session, metadata) -> {
                     ColumnHandle column = new TpchColumnHandle("nationkey", BIGINT);
                     Symbol buildColumnSymbol = p.symbol("nationkey");
@@ -79,8 +82,8 @@ public class TestUnaliasSymbolReferences
                                     TRUE_LITERAL, // additional filter to test recursive call
                                     p.filter(
                                             ExpressionUtils.and(
-                                                    dynamicFilterExpression(metadata, session, probeColumn1, dynamicFilterId1),
-                                                    dynamicFilterExpression(metadata, session, probeColumn2, dynamicFilterId2)),
+                                                    dynamicFilterExpression(metadata, probeColumn1, dynamicFilterId1),
+                                                    dynamicFilterExpression(metadata, probeColumn2, dynamicFilterId2)),
                                             p.tableScan(
                                                     tableHandle(probeTable),
                                                     ImmutableList.of(probeColumn1, probeColumn2),
@@ -112,40 +115,65 @@ public class TestUnaliasSymbolReferences
                                 project(tableScan(buildTable, ImmutableMap.of("column", "nationkey"))))));
     }
 
+    @Test
+    public void testGroupIdGroupingSetsDeduplicated()
+    {
+        assertOptimizedPlan(
+                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
+                (p, session, metadata) -> {
+                    Symbol symbol = p.symbol("symbol");
+                    Symbol alias1 = p.symbol("alias1");
+                    Symbol alias2 = p.symbol("alias2");
+
+                    return p.groupId(ImmutableList.of(ImmutableList.of(alias1, alias2)),
+                            ImmutableList.of(),
+                            p.symbol("groupId"),
+                            p.project(
+                                    Assignments.of(alias1, symbol.toSymbolReference(), alias2, symbol.toSymbolReference()),
+                                    p.values(symbol)));
+                },
+                groupId(
+                        ImmutableList.of(ImmutableList.of("symbol")),
+                        "groupId",
+                        project(values("symbol"))));
+    }
+
     private void assertOptimizedPlan(PlanOptimizer optimizer, PlanCreator planCreator, PlanMatchPattern pattern)
     {
-        LocalQueryRunner queryRunner = getQueryRunner();
-        queryRunner.inTransaction(session -> {
-            Metadata metadata = queryRunner.getMetadata();
+        PlanTester planTester = getPlanTester();
+        planTester.inTransaction(session -> {
+            Metadata metadata = planTester.getPlannerContext().getMetadata();
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-            PlanBuilder planBuilder = new PlanBuilder(idAllocator, metadata, session);
+            PlanBuilder planBuilder = new PlanBuilder(idAllocator, planTester.getPlannerContext(), session);
 
             SymbolAllocator symbolAllocator = new SymbolAllocator();
             PlanNode plan = planCreator.create(planBuilder, session, metadata);
             PlanNode optimized = optimizer.optimize(
                     plan,
-                    session,
-                    planBuilder.getTypes(),
-                    symbolAllocator,
-                    idAllocator,
-                    WarningCollector.NOOP,
-                    new CachingTableStatsProvider(metadata, session));
+                    new PlanOptimizer.Context(
+                            session,
+                            planBuilder.getTypes(),
+                            symbolAllocator,
+                            idAllocator,
+                            WarningCollector.NOOP,
+                            createPlanOptimizersStatsCollector(),
+                            new CachingTableStatsProvider(metadata, session)));
 
             Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
-            PlanAssert.assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actual, pattern);
+            PlanAssert.assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), planTester.getStatsCalculator(), actual, pattern);
             return null;
         });
     }
 
-    private Expression dynamicFilterExpression(Metadata metadata, Session session, Symbol symbol, DynamicFilterId id)
+    private Expression dynamicFilterExpression(Metadata metadata, Symbol symbol, DynamicFilterId id)
     {
-        return createDynamicFilterExpression(session, metadata, id, BigintType.BIGINT, symbol.toSymbolReference());
+        return createDynamicFilterExpression(metadata, id, BigintType.BIGINT, symbol.toSymbolReference());
     }
 
     private TableHandle tableHandle(String tableName)
     {
-        return getQueryRunner().getTableHandle(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, tableName);
+        return getPlanTester().getTableHandle(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, tableName);
     }
 
     interface PlanCreator

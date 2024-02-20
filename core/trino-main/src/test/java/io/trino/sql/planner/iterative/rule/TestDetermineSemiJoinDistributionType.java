@@ -22,12 +22,14 @@ import io.trino.cost.TaskCountEstimator;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.iterative.rule.test.RuleAssert;
+import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 
@@ -42,8 +44,11 @@ import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDetermineSemiJoinDistributionType
 {
     private static final CostComparator COST_COMPARATOR = new CostComparator(1, 1, 1);
@@ -51,7 +56,7 @@ public class TestDetermineSemiJoinDistributionType
 
     private RuleTester tester;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         tester = RuleTester.builder()
@@ -59,7 +64,7 @@ public class TestDetermineSemiJoinDistributionType
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         tester.close();
@@ -357,12 +362,12 @@ public class TestDetermineSemiJoinDistributionType
                         filter("true", values(ImmutableMap.of("B1", 0)))));
     }
 
-    private RuleAssert assertDetermineSemiJoinDistributionType()
+    private RuleBuilder assertDetermineSemiJoinDistributionType()
     {
         return assertDetermineSemiJoinDistributionType(COST_COMPARATOR);
     }
 
-    private RuleAssert assertDetermineSemiJoinDistributionType(CostComparator costComparator)
+    private RuleBuilder assertDetermineSemiJoinDistributionType(CostComparator costComparator)
     {
         return tester.assertThat(new DetermineSemiJoinDistributionType(costComparator, new TaskCountEstimator(() -> NODES_COUNT)));
     }

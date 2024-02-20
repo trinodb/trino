@@ -24,7 +24,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import java.util.Map;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusConnectorFactory
@@ -40,7 +40,7 @@ public class PrometheusConnectorFactory
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         try {
             // A plugin is not required to use Guice; it is just very convenient

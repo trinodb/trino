@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.SessionRepresentation;
 import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
@@ -32,14 +33,13 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.sql.analyzer.Output;
 import io.trino.transaction.TransactionId;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -60,6 +60,8 @@ public class QueryInfo
     private final Optional<String> setCatalog;
     private final Optional<String> setSchema;
     private final Optional<String> setPath;
+    private final Optional<String> setAuthorizationUser;
+    private final boolean resetAuthorizationUser;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
     private final Map<String, SelectedRole> setRoles;
@@ -97,6 +99,8 @@ public class QueryInfo
             @JsonProperty("setCatalog") Optional<String> setCatalog,
             @JsonProperty("setSchema") Optional<String> setSchema,
             @JsonProperty("setPath") Optional<String> setPath,
+            @JsonProperty("setAuthorizationUser") Optional<String> setAuthorizationUser,
+            @JsonProperty("resetAuthorizationUser") boolean resetAuthorizationUser,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
             @JsonProperty("setRoles") Map<String, SelectedRole> setRoles,
@@ -129,6 +133,7 @@ public class QueryInfo
         requireNonNull(setCatalog, "setCatalog is null");
         requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setPath, "setPath is null");
+        requireNonNull(setAuthorizationUser, "setAuthorizationUser is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
         requireNonNull(addedPreparedStatements, "addedPreparedStatements is null");
@@ -158,6 +163,8 @@ public class QueryInfo
         this.setCatalog = setCatalog;
         this.setSchema = setSchema;
         this.setPath = setPath;
+        this.setAuthorizationUser = setAuthorizationUser;
+        this.resetAuthorizationUser = resetAuthorizationUser;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
         this.setRoles = ImmutableMap.copyOf(setRoles);
@@ -209,6 +216,18 @@ public class QueryInfo
     }
 
     @JsonProperty
+    public OptionalDouble getProgressPercentage()
+    {
+        return queryStats.getProgressPercentage();
+    }
+
+    @JsonProperty
+    public OptionalDouble getRunningPercentage()
+    {
+        return queryStats.getRunningPercentage();
+    }
+
+    @JsonProperty
     public URI getSelf()
     {
         return self;
@@ -254,6 +273,18 @@ public class QueryInfo
     public Optional<String> getSetPath()
     {
         return setPath;
+    }
+
+    @JsonProperty
+    public Optional<String> getSetAuthorizationUser()
+    {
+        return setAuthorizationUser;
+    }
+
+    @JsonProperty
+    public boolean isResetAuthorizationUser()
+    {
+        return resetAuthorizationUser;
     }
 
     @JsonProperty

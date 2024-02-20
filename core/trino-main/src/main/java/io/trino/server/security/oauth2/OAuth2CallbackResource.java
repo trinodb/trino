@@ -13,26 +13,25 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.server.security.ResourceSecurity;
-
-import javax.inject.Inject;
-import javax.ws.rs.CookieParam;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Cookie;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
+import jakarta.ws.rs.CookieParam;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.Cookie;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.oauth2.NonceCookie.NONCE_COOKIE;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
+import static jakarta.ws.rs.core.MediaType.TEXT_HTML;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.MediaType.TEXT_HTML;
-import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 
 @Path(CALLBACK_ENDPOINT)
 public class OAuth2CallbackResource

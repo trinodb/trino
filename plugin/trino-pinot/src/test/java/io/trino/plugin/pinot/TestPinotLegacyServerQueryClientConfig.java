@@ -16,7 +16,7 @@ package io.trino.plugin.pinot;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.trino.plugin.pinot.client.PinotLegacyServerQueryClientConfig;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 

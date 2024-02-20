@@ -28,6 +28,7 @@ import org.jline.reader.ParsedLine;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -99,13 +100,10 @@ public class TableNameCompleter
 
     public void populateCache()
     {
-        String schemaName = queryRunner.getSession().getSchema();
-        if (schemaName != null) {
-            executor.execute(() -> {
-                functionCache.refresh(schemaName);
-                tableCache.refresh(schemaName);
-            });
-        }
+        queryRunner.getSession().getSchema().ifPresent(schemaName -> executor.execute(() -> {
+            functionCache.refresh(schemaName);
+            tableCache.refresh(schemaName);
+        }));
     }
 
     @Override
@@ -114,21 +112,22 @@ public class TableNameCompleter
         String buffer = line.word().substring(0, line.wordCursor());
         int blankPos = findLastBlank(buffer);
         String prefix = buffer.substring(blankPos + 1);
-        String schemaName = queryRunner.getSession().getSchema();
+        Optional<String> schemaName = queryRunner.getSession().getSchema();
 
-        if (schemaName != null) {
-            List<String> functionNames = functionCache.getIfPresent(schemaName);
-            List<String> tableNames = tableCache.getIfPresent(schemaName);
+        if (!schemaName.isPresent()) {
+            return;
+        }
+        List<String> functionNames = functionCache.getIfPresent(schemaName.get());
+        List<String> tableNames = tableCache.getIfPresent(schemaName.get());
 
-            if (functionNames != null) {
-                for (String name : filterResults(functionNames, prefix)) {
-                    candidates.add(new Candidate(name));
-                }
+        if (functionNames != null) {
+            for (String name : filterResults(functionNames, prefix)) {
+                candidates.add(new Candidate(name));
             }
-            if (tableNames != null) {
-                for (String name : filterResults(tableNames, prefix)) {
-                    candidates.add(new Candidate(name));
-                }
+        }
+        if (tableNames != null) {
+            for (String name : filterResults(tableNames, prefix)) {
+                candidates.add(new Candidate(name));
             }
         }
     }

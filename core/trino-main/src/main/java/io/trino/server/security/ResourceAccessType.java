@@ -14,11 +14,10 @@
 package io.trino.server.security;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.server.security.ResourceSecurity.AccessType;
 import io.trino.server.security.ResourceSecurityBinder.StaticResourceAccessTypeLoader;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ResourceInfo;
+import jakarta.ws.rs.container.ResourceInfo;
 
 import java.lang.reflect.Method;
 import java.util.List;

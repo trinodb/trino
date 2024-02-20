@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system.jdbc;
 
+import com.google.inject.Inject;
 import io.trino.metadata.TypeRegistry;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -25,8 +26,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 
-import javax.inject.Inject;
-
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 
@@ -36,7 +35,7 @@ import static io.trino.connector.system.jdbc.ColumnJdbcTable.numPrecRadix;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class TypesJdbcTable
@@ -45,19 +44,19 @@ public class TypesJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "types");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("type_name", createUnboundedVarcharType())
+            .column("type_name", VARCHAR)
             .column("data_type", BIGINT)
             .column("precision", BIGINT)
-            .column("literal_prefix", createUnboundedVarcharType())
-            .column("literal_suffix", createUnboundedVarcharType())
-            .column("create_params", createUnboundedVarcharType())
+            .column("literal_prefix", VARCHAR)
+            .column("literal_suffix", VARCHAR)
+            .column("create_params", VARCHAR)
             .column("nullable", BIGINT)
             .column("case_sensitive", BOOLEAN)
             .column("searchable", BIGINT)
             .column("unsigned_attribute", BOOLEAN)
             .column("fixed_prec_scale", BOOLEAN)
             .column("auto_increment", BOOLEAN)
-            .column("local_type_name", createUnboundedVarcharType())
+            .column("local_type_name", VARCHAR)
             .column("minimum_scale", BIGINT)
             .column("maximum_scale", BIGINT)
             .column("sql_data_type", BIGINT)

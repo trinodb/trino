@@ -14,9 +14,8 @@
 package io.trino.plugin.exchange.filesystem;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.io.IOException;

@@ -21,9 +21,8 @@ import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -43,7 +42,7 @@ public class TestSwapAdjacentWindowsBySpecifications
 
     public TestSwapAdjacentWindowsBySpecifications()
     {
-        resolvedFunction = new TestingFunctionResolution().resolveFunction(QualifiedName.of("avg"), fromTypes(BIGINT));
+        resolvedFunction = new TestingFunctionResolution().resolveFunction("avg", fromTypes(BIGINT));
     }
 
     @Test

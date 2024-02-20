@@ -13,9 +13,10 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -28,7 +29,6 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.util.concurrent.ThreadLocalRandom;
@@ -86,18 +86,18 @@ public class BenchmarkArrayEqualOperator
         private static Block[] createChannels(int positionCount, int arraySize, ArrayType arrayType)
         {
             ThreadLocalRandom random = ThreadLocalRandom.current();
-            BlockBuilder leftBlockBuilder = arrayType.createBlockBuilder(null, positionCount);
-            BlockBuilder rightBlockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder leftBlockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder rightBlockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                BlockBuilder leftEntryBuilder = leftBlockBuilder.beginBlockEntry();
-                BlockBuilder rightEntryBuilder = rightBlockBuilder.beginBlockEntry();
-                for (int i = 0; i < arraySize - 1; i++) {
-                    addElement(arrayType.getElementType(), random, leftEntryBuilder, rightEntryBuilder, true);
-                }
-                // last element has a 50% chance of being equal
-                addElement(arrayType.getElementType(), random, leftEntryBuilder, rightEntryBuilder, random.nextBoolean());
-                leftBlockBuilder.closeEntry();
-                rightBlockBuilder.closeEntry();
+                leftBlockBuilder.buildEntry(leftElementBuilder -> {
+                    rightBlockBuilder.buildEntry(rightElementBuilder -> {
+                        for (int i = 0; i < arraySize - 1; i++) {
+                            addElement(arrayType.getElementType(), random, leftElementBuilder, rightElementBuilder, true);
+                        }
+                        // last element has a 50% chance of being equal
+                        addElement(arrayType.getElementType(), random, leftElementBuilder, rightElementBuilder, random.nextBoolean());
+                    });
+                });
             }
             return new Block[] {leftBlockBuilder.build(), rightBlockBuilder.build()};
         }

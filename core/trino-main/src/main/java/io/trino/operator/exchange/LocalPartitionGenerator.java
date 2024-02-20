@@ -36,7 +36,7 @@ public class LocalPartitionGenerator
     }
 
     @Override
-    public int getPartitionCount()
+    public int partitionCount()
     {
         return partitionCount;
     }

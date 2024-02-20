@@ -14,10 +14,10 @@
 package io.trino.plugin.password.ldap;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.plugin.base.ldap.LdapClient;
 import io.trino.plugin.base.ldap.LdapQuery;
 
-import javax.inject.Inject;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 

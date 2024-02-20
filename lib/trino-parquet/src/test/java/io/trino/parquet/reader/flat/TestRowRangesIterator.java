@@ -15,14 +15,14 @@ package io.trino.parquet.reader.flat;
 
 import com.google.common.base.VerifyException;
 import io.trino.parquet.reader.FilteredRowRanges;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.OptionalLong;
 
 import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
-import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRange;
-import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRanges;
+import static io.trino.parquet.reader.TestingRowRanges.toRowRange;
+import static io.trino.parquet.reader.TestingRowRanges.toRowRanges;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

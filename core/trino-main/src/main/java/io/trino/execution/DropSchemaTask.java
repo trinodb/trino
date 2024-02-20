@@ -14,24 +14,21 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.security.AccessControl;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.Expression;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -63,10 +60,6 @@ public class DropSchemaTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        if (statement.isCascade()) {
-            throw new TrinoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP SCHEMA");
-        }
-
         Session session = stateMachine.getSession();
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
@@ -77,13 +70,13 @@ public class DropSchemaTask
             return immediateVoidFuture();
         }
 
-        if (!isSchemaEmpty(session, schema, metadata)) {
+        if (!statement.isCascade() && !isSchemaEmpty(session, schema, metadata)) {
             throw semanticException(SCHEMA_NOT_EMPTY, statement, "Cannot drop non-empty schema '%s'", schema.getSchemaName());
         }
 
         accessControl.checkCanDropSchema(session.toSecurityContext(), schema);
 
-        metadata.dropSchema(session, schema);
+        metadata.dropSchema(session, schema, statement.isCascade());
 
         return immediateVoidFuture();
     }

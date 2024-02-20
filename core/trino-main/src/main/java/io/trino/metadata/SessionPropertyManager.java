@@ -24,7 +24,7 @@ import io.trino.SystemSessionPropertiesProvider;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
@@ -41,8 +41,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -57,7 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstantExpression;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -221,9 +220,8 @@ public final class SessionPropertyManager
         Object value = evaluateConstantExpression(rewritten, expectedType, plannerContext, session, accessControl, parameters);
 
         // convert to object value type of SQL type
-        BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);
-        writeNativeValue(expectedType, blockBuilder, value);
-        Object objectValue = expectedType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
+        Block block = writeNativeValue(expectedType, value);
+        Object objectValue = expectedType.getObjectValue(session.toConnectorSession(), block, 0);
 
         if (objectValue == null) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property value must not be null");

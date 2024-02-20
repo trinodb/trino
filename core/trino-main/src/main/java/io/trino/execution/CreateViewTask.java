@@ -14,7 +14,9 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -27,8 +29,6 @@ import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Expression;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -92,7 +92,7 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, bindParameters(statement, parameters), stateMachine.getWarningCollector())
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, bindParameters(statement, parameters), stateMachine.getWarningCollector(), stateMachine.getPlanOptimizersStatsCollector())
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
@@ -112,7 +112,11 @@ public class CreateViewTask
                 session.getSchema(),
                 columns,
                 statement.getComment(),
-                owner);
+                owner,
+                session.getPath().getPath().stream()
+                        // system path elements currently are not stored
+                        .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))
+                        .collect(toImmutableList()));
 
         metadata.createView(session, name, definition, statement.isReplace());
 

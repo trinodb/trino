@@ -15,7 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
