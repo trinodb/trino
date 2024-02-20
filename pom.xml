@@ -2370,6 +2370,9 @@
                                 </includes>
                             </bannedDependencies>
                             <requireProfileIdsExist />
+                            <requirePropertyDiverges>
+                                <property>project.description</property>
+                            </requirePropertyDiverges>
                         </rules>
                     </configuration>
                 </plugin>
