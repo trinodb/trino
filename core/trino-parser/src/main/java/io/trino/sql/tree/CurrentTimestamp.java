@@ -21,22 +21,22 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public final class CurrentTime
+public final class CurrentTimestamp
         extends Expression
 {
     private final Optional<Integer> precision;
 
-    public CurrentTime(NodeLocation location, int precision)
+    public CurrentTimestamp(NodeLocation location, int precision)
     {
         this(location, Optional.of(precision));
     }
 
-    public CurrentTime(NodeLocation location)
+    public CurrentTimestamp(NodeLocation location)
     {
         this(location, Optional.empty());
     }
 
-    private CurrentTime(NodeLocation location, Optional<Integer> precision)
+    private CurrentTimestamp(NodeLocation location, Optional<Integer> precision)
     {
         super(Optional.of(location));
 
@@ -52,7 +52,7 @@ public final class CurrentTime
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitCurrentTime(this, context);
+        return visitor.visitCurrentTimestamp(this, context);
     }
 
     @Override
@@ -70,7 +70,7 @@ public final class CurrentTime
         if ((o == null) || (getClass() != o.getClass())) {
             return false;
         }
-        CurrentTime that = (CurrentTime) o;
+        CurrentTimestamp that = (CurrentTimestamp) o;
         return Objects.equals(precision, that.precision);
     }
 
@@ -87,7 +87,7 @@ public final class CurrentTime
             return false;
         }
 
-        CurrentTime otherNode = (CurrentTime) other;
+        CurrentTimestamp otherNode = (CurrentTimestamp) other;
         return Objects.equals(precision, otherNode.precision);
     }
 }

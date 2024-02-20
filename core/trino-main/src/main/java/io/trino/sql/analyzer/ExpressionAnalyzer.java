@@ -73,9 +73,11 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CurrentCatalog;
+import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DecimalLiteral;
@@ -111,6 +113,8 @@ import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
@@ -162,7 +166,6 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -230,6 +233,7 @@ import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -650,33 +654,49 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitCurrentDate(CurrentDate node, StackableAstVisitorContext<Context> context)
+        {
+            return setExpressionType(node, DATE);
+        }
+
+        @Override
         protected Type visitCurrentTime(CurrentTime node, StackableAstVisitorContext<Context> context)
         {
-            return switch (node.getFunction()) {
-                case DATE -> {
-                    checkArgument(node.getPrecision() == null);
-                    yield setExpressionType(node, DATE);
-                }
-                case TIME -> {
-                    if (node.getPrecision() != null) {
-                        yield setExpressionType(node, createTimeWithTimeZoneType(node.getPrecision()));
-                    }
-                    yield setExpressionType(node, TIME_TZ_MILLIS);
-                }
-                case LOCALTIME -> {
-                    if (node.getPrecision() != null) {
-                        yield setExpressionType(node, createTimeType(node.getPrecision()));
-                    }
-                    yield setExpressionType(node, TIME_MILLIS);
-                }
-                case TIMESTAMP -> setExpressionType(node, createTimestampWithTimeZoneType(firstNonNull(node.getPrecision(), TimestampWithTimeZoneType.DEFAULT_PRECISION)));
-                case LOCALTIMESTAMP -> {
-                    if (node.getPrecision() != null) {
-                        yield setExpressionType(node, createTimestampType(node.getPrecision()));
-                    }
-                    yield setExpressionType(node, TIMESTAMP_MILLIS);
-                }
-            };
+            return setExpressionType(
+                    node,
+                    node.getPrecision()
+                            .map(TimeWithTimeZoneType::createTimeWithTimeZoneType)
+                            .orElse(TIME_TZ_MILLIS));
+        }
+
+        @Override
+        protected Type visitCurrentTimestamp(CurrentTimestamp node, StackableAstVisitorContext<Context> context)
+        {
+            return setExpressionType(
+                    node,
+                    node.getPrecision()
+                            .map(TimestampWithTimeZoneType::createTimestampWithTimeZoneType)
+                            .orElse(TIMESTAMP_TZ_MILLIS));
+        }
+
+        @Override
+        protected Type visitLocalTime(LocalTime node, StackableAstVisitorContext<Context> context)
+        {
+            return setExpressionType(
+                    node,
+                    node.getPrecision()
+                            .map(TimeType::createTimeType)
+                            .orElse(TIME_MILLIS));
+        }
+
+        @Override
+        protected Type visitLocalTimestamp(LocalTimestamp node, StackableAstVisitorContext<Context> context)
+        {
+            return setExpressionType(
+                    node,
+                    node.getPrecision()
+                            .map(TimestampType::createTimestampType)
+                            .orElse(TIMESTAMP_MILLIS));
         }
 
         @Override

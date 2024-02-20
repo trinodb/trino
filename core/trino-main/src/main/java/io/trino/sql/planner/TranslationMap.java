@@ -39,9 +39,11 @@ import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CurrentCatalog;
+import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
@@ -66,6 +68,8 @@ import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
@@ -455,6 +459,21 @@ public class TranslationMap
             }
 
             @Override
+            public Expression rewriteCurrentDate(CurrentDate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                return coerceIfNecessary(
+                        node,
+                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                        .setName("current_date")
+                        .build());
+            }
+
+            @Override
             public Expression rewriteCurrentTime(CurrentTime node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 Optional<SymbolReference> mapped = tryGetMapping(node);
@@ -462,29 +481,60 @@ public class TranslationMap
                     return coerceIfNecessary(node, mapped.get());
                 }
 
-                FunctionCall call = switch (node.getFunction()) {
-                    case DATE -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("current_date")
-                            .build();
-                    case TIME -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                return coerceIfNecessary(
+                        node,
+                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                             .setName("$current_time")
                             .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
-                            .build();
-                    case LOCALTIME -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                            .setName("$localtime")
-                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
-                            .build();
-                    case TIMESTAMP -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                            .build());
+            }
+
+            @Override
+            public Expression rewriteCurrentTimestamp(CurrentTimestamp node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                return coerceIfNecessary(
+                        node,
+                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                             .setName("$current_timestamp")
                             .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
-                            .build();
-                    case LOCALTIMESTAMP -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                            .build());
+            }
+
+            @Override
+            public Expression rewriteLocalTime(LocalTime node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                return coerceIfNecessary(
+                        node,
+                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                            .setName("$localtime")
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
+                            .build());
+            }
+
+            @Override
+            public Expression rewriteLocalTimestamp(LocalTimestamp node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                return coerceIfNecessary(
+                        node,
+                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                             .setName("$localtimestamp")
                             .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
-                            .build();
-                };
-
-                return coerceIfNecessary(node, call);
+                            .build());
             }
 
             @Override

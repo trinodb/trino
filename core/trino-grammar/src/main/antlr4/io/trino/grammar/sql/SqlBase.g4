@@ -588,11 +588,11 @@ primaryExpression
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
-    | name=CURRENT_DATE                                                                   #specialDateTimeFunction
-    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #specialDateTimeFunction
-    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #specialDateTimeFunction
-    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #specialDateTimeFunction
-    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
+    | name=CURRENT_DATE                                                                   #currentDate
+    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #currentTime
+    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #currentTimestamp
+    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #localTime
+    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #localTimestamp
     | name=CURRENT_USER                                                                   #currentUser
     | name=CURRENT_CATALOG                                                                #currentCatalog
     | name=CURRENT_SCHEMA                                                                 #currentSchema
