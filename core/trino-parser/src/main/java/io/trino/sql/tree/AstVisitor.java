@@ -37,7 +37,27 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitCurrentDate(CurrentDate node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitCurrentTime(CurrentTime node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitCurrentTimestamp(CurrentTimestamp node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitLocalTime(LocalTime node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitLocalTimestamp(LocalTimestamp node, C context)
     {
         return visitExpression(node, context);
     }
