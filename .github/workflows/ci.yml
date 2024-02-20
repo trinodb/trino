@@ -1103,6 +1103,7 @@ jobs:
             - suite-gcs
             - suite-clients
             - suite-functions
+            - suite-synapse
             - suite-tpch
             - suite-tpcds
             - suite-storage-formats-detailed
@@ -1197,6 +1198,9 @@ jobs:
           DATABRICKS_TOKEN:
           GCP_CREDENTIALS_KEY:
           GCP_STORAGE_BUCKET:
+          SYNAPSE_ENDPOINT:
+          SYNAPSE_USER:
+          SYNAPSE_PASSWORD:
           TESTCONTAINERS_NEVER_PULL: true
         run: |
           # converts filtered YAML file into JSON
@@ -1260,6 +1264,9 @@ jobs:
           DATABRICKS_133_JDBC_URL: ${{ secrets.DATABRICKS_133_JDBC_URL }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          SYNAPSE_ENDPOINT: ${{ secrets.SYNAPSE_ENDPOINT }}
+          SYNAPSE_USER: ${{ secrets.SYNAPSE_USER }}
+          SYNAPSE_PASSWORD: ${{ secrets.SYNAPSE_PASSWORD }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
         run: |

@@ -308,6 +308,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/synapse">
+        <artifact id="${project.groupId}:starburst-synapse:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/teradata-functions">
         <artifact id="${project.groupId}:trino-teradata-functions:zip:${project.version}">
             <unpack />
