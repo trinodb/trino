@@ -56,7 +56,7 @@ public class AccumuloModule
         binder.bind(AccumuloConnector.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadata.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(AccumuloClient.class).in(Scopes.SINGLETON);
+        binder.bind(AccumuloMetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloPageSinkProvider.class).in(Scopes.SINGLETON);

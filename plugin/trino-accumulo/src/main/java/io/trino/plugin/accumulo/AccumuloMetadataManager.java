@@ -83,9 +83,9 @@ import static java.util.Objects.requireNonNull;
  * This class is the main access point for the Trino connector to interact with Accumulo.
  * It is responsible for creating tables, dropping tables, retrieving table metadata, and getting the ConnectorSplits from a table.
  */
-public class AccumuloClient
+public class AccumuloMetadataManager
 {
-    private static final Logger LOG = Logger.get(AccumuloClient.class);
+    private static final Logger LOG = Logger.get(AccumuloMetadataManager.class);
     private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private final ZooKeeperMetadataManager metaManager;
@@ -96,7 +96,7 @@ public class AccumuloClient
     private final String username;
 
     @Inject
-    public AccumuloClient(
+    public AccumuloMetadataManager(
             Connector connector,
             AccumuloConfig config,
             ZooKeeperMetadataManager metaManager,
