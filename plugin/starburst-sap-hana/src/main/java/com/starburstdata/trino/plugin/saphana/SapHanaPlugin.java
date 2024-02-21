@@ -25,6 +25,11 @@ public class SapHanaPlugin
 
     private final LicenseManager licenseManager;
 
+    public SapHanaPlugin()
+    {
+        this(() -> true);
+    }
+
     public SapHanaPlugin(LicenseManager licenseManager)
     {
         this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");

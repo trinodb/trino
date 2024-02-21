@@ -22,7 +22,7 @@ public class TestSapHanaPlugin
     @Test
     public void testCreateConnector()
     {
-        Plugin plugin = new TestingSapHanaPlugin();
+        Plugin plugin = new SapHanaPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "jdbc:sap:test"), new TestingConnectorContext())
                 .shutdown();
