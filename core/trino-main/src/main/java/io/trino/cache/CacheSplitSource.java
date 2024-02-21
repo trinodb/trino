@@ -76,13 +76,13 @@ public class CacheSplitSource
         ImmutableList.Builder<Split> newBatch = ImmutableList.builder();
         for (Split split : batch.getSplits()) {
             Optional<CacheSplitId> splitId = splitManager.getCacheSplitId(split.getConnectorSplit());
-            if (!split.getAddresses().isEmpty() || splitId.isEmpty()) {
+            if (!split.isRemotelyAccessible() || splitId.isEmpty()) {
                 newBatch.add(
                         new Split(
                                 split.getCatalogHandle(),
                                 split.getConnectorSplit(),
                                 splitId,
-                                // do not override connector provided split addresses
+                                // do not override connector provided split addresses when split is not remotely accessible
                                 Optional.empty(),
                                 Optional.empty(),
                                 split.getFailoverHappened()));
