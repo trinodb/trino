@@ -40,6 +40,8 @@ env:
   # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
   # This value should be greater than the time taken for the longest image pull.
   TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
+  # Use Starburst pull-through cache for Docker images
+  TESTCONTAINER_DOCKER_PULL_THROUGH_REGISTRY: 843985043183.dkr.ecr.us-east-1.amazonaws.com/docker-hub/
   # used by actions/cache to retry the download after this time: https://github.com/actions/cache/blob/main/workarounds.md#cache-segment-restore-timeout
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
   CI_SKIP_SECRETS_PRESENCE_CHECKS: ${{ secrets.CI_SKIP_SECRETS_PRESENCE_CHECKS }}
