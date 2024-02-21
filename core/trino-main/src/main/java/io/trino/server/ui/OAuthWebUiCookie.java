@@ -30,16 +30,16 @@ public final class OAuthWebUiCookie
 
     private OAuthWebUiCookie() {}
 
-    public static NewCookie create(String token, Instant tokenExpiration)
+    public static NewCookie[] create(String token, Instant tokenExpiration)
     {
-        return new NewCookie.Builder(OAUTH2_COOKIE)
-            .path(UI_LOCATION)
-            .domain(null)
-            .value(token)
-            .expiry(Date.from(tokenExpiration))
-            .secure(true)
-            .httpOnly(true)
-            .build();
+        return new NewCookie[] {new NewCookie.Builder(OAUTH2_COOKIE)
+                .path(UI_LOCATION)
+                .domain(null)
+                .value(token)
+                .expiry(Date.from(tokenExpiration))
+                .secure(true)
+                .httpOnly(true)
+                .build()};
     }
 
     public static Optional<String> read(Cookie cookie)
@@ -49,9 +49,9 @@ public final class OAuthWebUiCookie
                 .filter(not(String::isBlank));
     }
 
-    public static NewCookie delete()
+    public static NewCookie[] delete()
     {
-        return new NewCookie.Builder(OAUTH2_COOKIE)
+        return new NewCookie[] {new NewCookie.Builder(OAUTH2_COOKIE)
                 .value("delete")
                 .path(UI_LOCATION)
                 .domain(null)
@@ -59,6 +59,6 @@ public final class OAuthWebUiCookie
                 .expiry(null)
                 .secure(true)
                 .httpOnly(true)
-                .build();
+                .build()};
     }
 }

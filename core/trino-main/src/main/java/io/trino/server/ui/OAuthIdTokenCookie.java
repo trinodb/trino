@@ -30,16 +30,16 @@ public final class OAuthIdTokenCookie
 
     private OAuthIdTokenCookie() {}
 
-    public static NewCookie create(String token, Instant tokenExpiration)
+    public static NewCookie[] create(String token, Instant tokenExpiration)
     {
-        return new NewCookie.Builder(ID_TOKEN_COOKIE)
+        return new NewCookie[] {new NewCookie.Builder(ID_TOKEN_COOKIE)
                 .value(token)
                 .path(UI_LOCATION)
                 .domain(null)
                 .expiry(Date.from(tokenExpiration))
                 .secure(true)
                 .httpOnly(true)
-                .build();
+                .build()};
     }
 
     public static Optional<String> read(Cookie cookie)
@@ -49,15 +49,15 @@ public final class OAuthIdTokenCookie
                 .filter(not(String::isBlank));
     }
 
-    public static NewCookie delete()
+    public static NewCookie[] delete()
     {
-        return new NewCookie.Builder(ID_TOKEN_COOKIE)
+        return new NewCookie[] {new NewCookie.Builder(ID_TOKEN_COOKIE)
                 .value("delete")
                 .path(UI_LOCATION)
                 .domain(null)
                 .maxAge(0)
                 .secure(true)
                 .httpOnly(true)
-                .build();
+                .build()};
     }
 }
