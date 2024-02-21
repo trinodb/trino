@@ -15,33 +15,17 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.util.PageListBuilder;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SystemTable;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-import org.apache.iceberg.DataTask;
-import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
-import org.apache.iceberg.io.CloseableIterable;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.iceberg.IcebergUtil.buildTableScan;
-import static io.trino.plugin.iceberg.IcebergUtil.columnNameToPositionInSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
@@ -50,10 +34,8 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataTableType.SNAPSHOTS;
 
 public class SnapshotsTable
-        implements SystemTable
+        extends BaseSystemTable
 {
-    private final ConnectorTableMetadata tableMetadata;
-    private final Table icebergTable;
     private static final String COMMITTED_AT_COLUMN_NAME = "committed_at";
     private static final String SNAPSHOT_ID_COLUMN_NAME = "snapshot_id";
     private static final String PARENT_ID_COLUMN_NAME = "parent_id";
@@ -63,10 +45,18 @@ public class SnapshotsTable
 
     public SnapshotsTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable)
     {
-        requireNonNull(typeManager, "typeManager is null");
+        super(
+                requireNonNull(icebergTable, "icebergTable is null"),
+                createConnectorTableMetadata(
+                        requireNonNull(tableName, "tableName is null"),
+                        requireNonNull(typeManager, "typeManager is null")),
+                SNAPSHOTS);
+    }
 
-        this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
-        tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
+    private static ConnectorTableMetadata createConnectorTableMetadata(SchemaTableName tableName, TypeManager typeManager)
+    {
+        return new ConnectorTableMetadata(
+                tableName,
                 ImmutableList.<ColumnMetadata>builder()
                         .add(new ColumnMetadata(COMMITTED_AT_COLUMN_NAME, TIMESTAMP_TZ_MILLIS))
                         .add(new ColumnMetadata(SNAPSHOT_ID_COLUMN_NAME, BIGINT))
@@ -78,53 +68,7 @@ public class SnapshotsTable
     }
 
     @Override
-    public Distribution getDistribution()
-    {
-        return Distribution.SINGLE_COORDINATOR;
-    }
-
-    @Override
-    public ConnectorTableMetadata getTableMetadata()
-    {
-        return tableMetadata;
-    }
-
-    @Override
-    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
-    {
-        return new FixedPageSource(buildPages(tableMetadata, session, icebergTable));
-    }
-
-    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, ConnectorSession session, Table icebergTable)
-    {
-        PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
-
-        TableScan tableScan = buildTableScan(icebergTable, SNAPSHOTS);
-        TimeZoneKey timeZoneKey = session.getTimeZoneKey();
-
-        Map<String, Integer> columnNameToPosition = columnNameToPositionInSchema(tableScan.schema());
-
-        try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
-            fileScanTasks.forEach(fileScanTask -> addRows((DataTask) fileScanTask, pagesBuilder, timeZoneKey, columnNameToPosition));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-
-        return pagesBuilder.build();
-    }
-
-    private static void addRows(DataTask dataTask, PageListBuilder pagesBuilder, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
-    {
-        try (CloseableIterable<StructLike> dataRows = dataTask.rows()) {
-            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, dataTaskRow, timeZoneKey, columnNameToPositionInSchema));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private static void addRow(PageListBuilder pagesBuilder, StructLike structLike, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
+    protected void addRow(PageListBuilder pagesBuilder, StructLike structLike, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
     {
         pagesBuilder.beginRow();
 
