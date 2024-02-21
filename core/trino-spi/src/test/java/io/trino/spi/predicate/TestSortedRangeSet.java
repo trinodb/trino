@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.LongStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -226,32 +227,98 @@ public class TestSortedRangeSet
     @Test
     public void testOverlaps()
     {
-        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.all(BIGINT))).isTrue();
-        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.none(BIGINT))).isFalse();
-        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(BIGINT, 0L))).isTrue();
-        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isTrue();
-        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isTrue();
-        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)))).isTrue();
+        assertOverlaps(SortedRangeSet.all(BIGINT), SortedRangeSet.all(BIGINT));
+        assertDoesNotOverlap(SortedRangeSet.all(BIGINT), SortedRangeSet.none(BIGINT));
+        assertOverlaps(SortedRangeSet.all(BIGINT), SortedRangeSet.of(BIGINT, 0L));
+        assertOverlaps(SortedRangeSet.all(BIGINT), SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        assertOverlaps(SortedRangeSet.all(BIGINT), SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
+        assertOverlaps(SortedRangeSet.all(BIGINT), SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)));
 
-        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.all(BIGINT))).isFalse();
-        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.none(BIGINT))).isFalse();
-        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(BIGINT, 0L))).isFalse();
-        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isFalse();
-        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isFalse();
-        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)))).isFalse();
+        assertDoesNotOverlap(SortedRangeSet.none(BIGINT), SortedRangeSet.all(BIGINT));
+        assertDoesNotOverlap(SortedRangeSet.none(BIGINT), SortedRangeSet.none(BIGINT));
+        assertDoesNotOverlap(SortedRangeSet.none(BIGINT), SortedRangeSet.of(BIGINT, 0L));
+        assertDoesNotOverlap(SortedRangeSet.none(BIGINT), SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        assertDoesNotOverlap(SortedRangeSet.none(BIGINT), SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
+        assertDoesNotOverlap(SortedRangeSet.none(BIGINT), SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)));
 
-        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.all(BIGINT))).isTrue();
-        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.none(BIGINT))).isFalse();
-        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(BIGINT, 0L))).isTrue();
-        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isTrue();
-        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isFalse();
-        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)))).isFalse();
+        assertOverlaps(SortedRangeSet.of(BIGINT, 0L), SortedRangeSet.all(BIGINT));
+        assertDoesNotOverlap(SortedRangeSet.of(BIGINT, 0L), SortedRangeSet.none(BIGINT));
+        assertOverlaps(SortedRangeSet.of(BIGINT, 0L), SortedRangeSet.of(BIGINT, 0L));
+        assertOverlaps(SortedRangeSet.of(BIGINT, 0L), SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        assertDoesNotOverlap(SortedRangeSet.of(BIGINT, 0L), SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
+        assertDoesNotOverlap(SortedRangeSet.of(BIGINT, 0L), SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)));
 
-        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 1L)))).isTrue();
-        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 2L)))).isFalse();
-        assertThat(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isTrue();
-        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).overlaps(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)))).isTrue();
-        assertThat(SortedRangeSet.of(Range.lessThan(BIGINT, 0L)).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isFalse();
+        assertOverlaps(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)), SortedRangeSet.of(Range.equal(BIGINT, 1L)));
+        assertDoesNotOverlap(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)), SortedRangeSet.of(Range.equal(BIGINT, 2L)));
+        assertOverlaps(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)), SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
+        assertOverlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)), SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)));
+        assertDoesNotOverlap(SortedRangeSet.of(Range.lessThan(BIGINT, 0L)), SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
+
+        // distinct values
+        SortedRangeSet testRangeSet = SortedRangeSet.of(BIGINT, 500L, LongStream.range(501, 1001).boxed().filter(i -> i % 4 == 0).toList().toArray());
+        // beginning of set
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 500L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 499L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 400L, LongStream.range(401, 500).boxed().filter(i -> i % 15 == 0).toList().toArray()));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 515L, LongStream.range(530, 550).boxed().filter(i -> i % 15 == 0).toList().toArray()));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 100L, false, 399L, false), Range.range(BIGINT, 400L, false, 499L, false)));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 100L, false, 399L, false), Range.range(BIGINT, 400L, false, 501L, false)));
+        // end of set
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 1000L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 1001L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 965L, LongStream.range(966, 1100).boxed().filter(i -> i % 15 == 0).toList().toArray()));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 955L, LongStream.range(956, 1100).boxed().filter(i -> i % 15 == 0).toList().toArray()));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 1001L, LongStream.range(1002L, 1100).boxed().toList().toArray()));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 1000L, false, 1399L, false), Range.range(BIGINT, 1400L, false, 1499L, false)));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 999L, false, 1399L, false), Range.range(BIGINT, 1400L, false, 1501L, false)));
+
+        // middle of set
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 768L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 769L));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 715L, LongStream.range(730, 800).boxed().filter(i -> i % 15 == 0).toList().toArray()));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 715L, LongStream.range(730, 780).boxed().filter(i -> i % 15 == 0).toList().toArray()));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 768L, false, 772L, false), Range.range(BIGINT, 772L, false, 776L, false)));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 764L, false, 770L, false), Range.range(BIGINT, 772L, false, 776L, false)));
+
+        // ranges
+        testRangeSet = SortedRangeSet.of(
+                Range.range(BIGINT, 499L, false, 505L, false), LongStream.range(100, 201).filter(i -> i % 10 == 0)
+                        .mapToObj(i -> Range.range(BIGINT, i * 5, false, (i + 1) * 5, false)).toList().toArray(Range[]::new));
+        // beginning of set
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 500L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 499L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 400L, LongStream.range(401, 500).boxed().toList().toArray()));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 520L, 540L, 551L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 100L, false, 399L, false), Range.range(BIGINT, 400L, false, 499L, false)));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 100L, false, 399L, false), Range.range(BIGINT, 400L, false, 501L, false)));
+        // end of set
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 1001L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 1005L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 965L, LongStream.range(966, 1100).boxed().filter(i -> i % 15 == 0).toList().toArray()));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 950L, 970L, 999L, 1001L, 1006L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 1005L, LongStream.range(1006L, 1100).boxed().toList().toArray()));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 1005L, false, 1399L, false), Range.range(BIGINT, 1400L, false, 1499L, false)));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 999L, false, 1399L, false), Range.range(BIGINT, 1400L, false, 1501L, false)));
+
+        // middle of set
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 754L));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 755L));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 715L, LongStream.range(730, 800).boxed().toList().toArray()));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(BIGINT, 715L, LongStream.range(730, 780).boxed().filter(i -> i % 15 == 0).toList().toArray()));
+        assertDoesNotOverlap(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 768L, false, 772L, false), Range.range(BIGINT, 772L, false, 776L, false)));
+        assertOverlaps(testRangeSet, SortedRangeSet.of(Range.range(BIGINT, 750L, false, 770L, false), Range.range(BIGINT, 772L, false, 776L, false)));
+    }
+
+    private void assertOverlaps(SortedRangeSet first, SortedRangeSet second)
+    {
+        assertThat(first.overlaps(second)).isTrue();
+        assertThat(second.overlaps(first)).isTrue();
+    }
+
+    private void assertDoesNotOverlap(SortedRangeSet first, SortedRangeSet second)
+    {
+        assertThat(first.overlaps(second)).isFalse();
+        assertThat(second.overlaps(first)).isFalse();
     }
 
     @Test
