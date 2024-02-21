@@ -39,7 +39,7 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.getDeleteCookie;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.getDeleteCookies;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.redirectFromSuccessfulLoginResponse;
 import static jakarta.ws.rs.core.MediaType.TEXT_HTML;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -89,7 +89,7 @@ public class LoginResource
             return Response.seeOther(DISABLED_LOCATION_URI).build();
         }
 
-        Optional<NewCookie> authenticationCookie = formWebUiAuthenticationManager.checkLoginCredentials(username, password, securityContext.isSecure());
+        Optional<NewCookie[]> authenticationCookie = formWebUiAuthenticationManager.checkLoginCredentials(username, password, securityContext.isSecure());
         if (authenticationCookie.isEmpty()) {
             // authentication failed, redirect back to the login page
             return Response.seeOther(LOGIN_FORM_URI).build();
@@ -113,7 +113,7 @@ public class LoginResource
             redirectLocation = DISABLED_LOCATION_URI;
         }
         return Response.seeOther(redirectLocation)
-                .cookie(getDeleteCookie(securityContext.isSecure()))
+                .cookie(getDeleteCookies(httpHeaders.getCookies(), securityContext.isSecure()))
                 .build();
     }
 }
