@@ -1,0 +1,1 @@
+{"Records":[{"eventVersion":"1.08","apiVersion":"2015-12-01","tlsDetails":{"tlsVersion":"TLSv1.2","cipherSuite":"ECDHE-RSA-AES128-SHA","clientProvidedHostHeader":"elasticloadbalancing.eu-west-1.amazonaws.com"}},{"eventTime":"2022-08-31T23:51:45Z","requestParameters":{"pageSize":400}}]}

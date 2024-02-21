@@ -1,0 +1,2 @@
+{ "id": 1, "intervals": { "a": { "endTime": 211 }, "b": { "endTime": 221 }}}
+{ "id": 2, "intervals": { "a": { "startTime": 112 }, "b": { "startTime": 122 }}}

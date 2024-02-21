@@ -40,6 +40,7 @@
         <module>core/trino-spi</module>
         <module>docs</module>
         <module>lib/starburst-license</module>
+        <module>lib/starburst-schema-discovery</module>
         <module>lib/starburst-testing-auto-configuration</module>
         <module>lib/trino-array</module>
         <module>lib/trino-cache</module>

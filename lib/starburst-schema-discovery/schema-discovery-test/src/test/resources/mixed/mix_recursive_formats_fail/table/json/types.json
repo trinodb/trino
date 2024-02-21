@@ -1,0 +1,1 @@
+{"bool": true, "int": 1234, "long": 21474836478, "double": 10.10, "bigdecimal": 21474836478.21474836478, "string_bool": "true", "string_int": "123",  "string_long": "21474836478", "string_double":  "10.10", "string_bigdecimal": "21474836478.21474836478", "date": "2015-08-20 15:57:00", "text": "blah blah blah"}
