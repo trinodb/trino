@@ -43,9 +43,9 @@ public final class OAuthIdTokenCookie
                 .build()};
     }
 
-    public static Optional<String> read(Cookie cookie)
+    public static Optional<String> read(Map<String, Cookie> availableCookies)
     {
-        return Optional.ofNullable(cookie)
+        return Optional.ofNullable(availableCookies.get(ID_TOKEN_COOKIE))
                 .map(Cookie::getValue)
                 .filter(not(String::isBlank));
     }

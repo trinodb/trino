@@ -43,9 +43,9 @@ public final class OAuthWebUiCookie
                 .build()};
     }
 
-    public static Optional<String> read(Cookie cookie)
+    public static Optional<String> read(Map<String, Cookie> availableCookies)
     {
-        return Optional.ofNullable(cookie)
+        return Optional.ofNullable(availableCookies.get(OAUTH2_COOKIE))
                 .map(Cookie::getValue)
                 .filter(not(String::isBlank));
     }
