@@ -500,6 +500,9 @@ public class HiveMetadata
             return null;
         }
 
+        if (isSomeKindOfAView(table)) {
+            return null;
+        }
         if (isDeltaLakeTable(table)) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Delta Lake table '%s'", tableName));
         }
