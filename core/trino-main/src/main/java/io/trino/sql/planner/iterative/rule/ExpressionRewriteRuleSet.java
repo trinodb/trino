@@ -33,7 +33,9 @@ import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
+import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
@@ -45,14 +47,12 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.NullOrdering;
 import io.trino.sql.tree.SymbolReference;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.filter;
@@ -436,64 +436,46 @@ public class ExpressionRewriteRuleSet
         {
             boolean rewritten = false;
 
-            List<Symbol> newLayout = pointers.getLayout();
-            List<ValuePointer> newPointers = pointers.getValuePointers();
-            Set<Symbol> newClassifierSymbols = pointers.getClassifierSymbols();
-            Set<Symbol> newMatchNumberSymbols = pointers.getMatchNumberSymbols();
-
             // rewrite top-level expression
             Expression newExpression = rewriter.rewrite(pointers.getExpression(), context);
             if (!pointers.getExpression().equals(newExpression)) {
                 rewritten = true;
-                // prune unused symbols from layout and value pointers
-                Set<Symbol> newSymbols = SymbolsExtractor.extractUnique(newExpression);
-                List<Symbol> layout = pointers.getLayout();
-                ImmutableList.Builder<Symbol> newLayoutBuilder = ImmutableList.builder();
-                ImmutableList.Builder<ValuePointer> newPointersBuilder = ImmutableList.builder();
-                for (int i = 0; i < layout.size(); i++) {
-                    if (newSymbols.contains(layout.get(i))) {
-                        newLayoutBuilder.add(layout.get(i));
-                        newPointersBuilder.add(pointers.getValuePointers().get(i));
-                    }
-                }
-                newLayout = newLayoutBuilder.build();
-                newPointers = newPointersBuilder.build();
-                newClassifierSymbols = pointers.getClassifierSymbols().stream()
-                        .filter(newSymbols::contains)
-                        .collect(toImmutableSet());
-                newMatchNumberSymbols = pointers.getMatchNumberSymbols().stream()
-                        .filter(newSymbols::contains)
-                        .collect(toImmutableSet());
             }
-            // process all aggregation arguments in remaining value pointers
-            ImmutableList.Builder<ValuePointer> newPointersBuilder = ImmutableList.builder();
-            for (ValuePointer pointer : newPointers) {
-                if (pointer instanceof ScalarValuePointer) {
-                    newPointersBuilder.add(pointer);
-                }
-                else {
-                    AggregationValuePointer aggregationPointer = (AggregationValuePointer) pointer;
 
-                    ImmutableList.Builder<Expression> newArguments = ImmutableList.builder();
-                    for (Expression argument : aggregationPointer.getArguments()) {
-                        Expression newArgument = rewriter.rewrite(argument, context);
-                        if (!newArgument.equals(argument)) {
-                            rewritten = true;
+            // prune unused symbols
+            ImmutableList.Builder<ExpressionAndValuePointers.Assignment> newAssignments = ImmutableList.builder();
+
+            Set<Symbol> newSymbols = SymbolsExtractor.extractUnique(newExpression);
+            for (ExpressionAndValuePointers.Assignment assignment : pointers.getAssignments()) {
+                if (newSymbols.contains(assignment.symbol())) {
+                    ValuePointer newPointer = switch (assignment.valuePointer()) {
+                        case ClassifierValuePointer pointer -> pointer;
+                        case MatchNumberValuePointer pointer -> pointer;
+                        case ScalarValuePointer pointer -> pointer;
+                        case AggregationValuePointer pointer -> {
+                            ImmutableList.Builder<Expression> newArguments = ImmutableList.builder();
+                            for (Expression argument : pointer.getArguments()) {
+                                Expression newArgument = rewriter.rewrite(argument, context);
+                                if (!newArgument.equals(argument)) {
+                                    rewritten = true;
+                                }
+                                newArguments.add(newArgument);
+                            }
+                            yield new AggregationValuePointer(
+                                    pointer.getFunction(),
+                                    pointer.getSetDescriptor(),
+                                    newArguments.build(),
+                                    pointer.getClassifierSymbol(),
+                                    pointer.getMatchNumberSymbol());
                         }
-                        newArguments.add(newArgument);
-                    }
-                    newPointersBuilder.add(new AggregationValuePointer(
-                            aggregationPointer.getFunction(),
-                            aggregationPointer.getSetDescriptor(),
-                            newArguments.build(),
-                            aggregationPointer.getClassifierSymbol(),
-                            aggregationPointer.getMatchNumberSymbol()));
+                    };
+
+                    newAssignments.add(new ExpressionAndValuePointers.Assignment(assignment.symbol(), newPointer));
                 }
             }
-            newPointers = newPointersBuilder.build();
 
             if (rewritten) {
-                return Optional.of(new ExpressionAndValuePointers(newExpression, newLayout, newPointers, newClassifierSymbols, newMatchNumberSymbols));
+                return Optional.of(new ExpressionAndValuePointers(newExpression, newAssignments.build()));
             }
 
             return Optional.empty();

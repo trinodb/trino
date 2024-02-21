@@ -71,15 +71,12 @@ public class LogicalIndexExtractor
 {
     public static ExpressionAndValuePointers rewrite(Expression expression, Map<IrLabel, Set<IrLabel>> subsets, SymbolAllocator symbolAllocator, Metadata metadata)
     {
-        ImmutableList.Builder<Symbol> layout = ImmutableList.builder();
-        ImmutableList.Builder<ValuePointer> valuePointers = ImmutableList.builder();
-        ImmutableSet.Builder<Symbol> classifierSymbols = ImmutableSet.builder();
-        ImmutableSet.Builder<Symbol> matchNumberSymbols = ImmutableSet.builder();
+        ImmutableList.Builder<ExpressionAndValuePointers.Assignment> assignments = ImmutableList.builder();
 
-        Visitor visitor = new Visitor(subsets, layout, valuePointers, classifierSymbols, matchNumberSymbols, symbolAllocator, metadata);
+        Visitor visitor = new Visitor(subsets, assignments, symbolAllocator, metadata);
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(visitor, expression, LogicalIndexContext.DEFAULT);
 
-        return new ExpressionAndValuePointers(rewritten, layout.build(), valuePointers.build(), classifierSymbols.build(), matchNumberSymbols.build());
+        return new ExpressionAndValuePointers(rewritten, assignments.build());
     }
 
     private LogicalIndexExtractor() {}
@@ -88,27 +85,18 @@ public class LogicalIndexExtractor
             extends ExpressionRewriter<LogicalIndexContext>
     {
         private final Map<IrLabel, Set<IrLabel>> subsets;
-        private final ImmutableList.Builder<Symbol> layout;
-        private final ImmutableList.Builder<ValuePointer> valuePointers;
-        private final ImmutableSet.Builder<Symbol> classifierSymbols;
-        private final ImmutableSet.Builder<Symbol> matchNumberSymbols;
+        private final ImmutableList.Builder<ExpressionAndValuePointers.Assignment> assignments;
         private final SymbolAllocator symbolAllocator;
         private final Metadata metadata;
 
         public Visitor(
                 Map<IrLabel, Set<IrLabel>> subsets,
-                ImmutableList.Builder<Symbol> layout,
-                ImmutableList.Builder<ValuePointer> valuePointers,
-                ImmutableSet.Builder<Symbol> classifierSymbols,
-                ImmutableSet.Builder<Symbol> matchNumberSymbols,
+                ImmutableList.Builder<ExpressionAndValuePointers.Assignment> assignments,
                 SymbolAllocator symbolAllocator,
                 Metadata metadata)
         {
             this.subsets = requireNonNull(subsets, "subsets is null");
-            this.layout = requireNonNull(layout, "layout is null");
-            this.valuePointers = requireNonNull(valuePointers, "valuePointers is null");
-            this.classifierSymbols = requireNonNull(classifierSymbols, "classifierSymbols is null");
-            this.matchNumberSymbols = requireNonNull(matchNumberSymbols, "matchNumberSymbols is null");
+            this.assignments = requireNonNull(assignments, "assignments is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
         }
@@ -124,12 +112,11 @@ public class LogicalIndexExtractor
         {
             Symbol referenced = Symbol.from(node.getReference().orElseThrow());
             Symbol reallocated = symbolAllocator.newSymbol(referenced);
-            layout.add(reallocated);
             Set<IrLabel> labels = subsets.get(irLabel(node.getLabel()));
             if (labels == null) {
                 labels = ImmutableSet.of(irLabel(node.getLabel()));
             }
-            valuePointers.add(new ScalarValuePointer(context.withLabels(labels).toLogicalIndexPointer(), referenced));
+            assignments.add(new ExpressionAndValuePointers.Assignment(reallocated, new ScalarValuePointer(context.withLabels(labels).toLogicalIndexPointer(), referenced)));
             return reallocated.toSymbolReference();
         }
 
@@ -139,8 +126,7 @@ public class LogicalIndexExtractor
             // symbol reference with no label prefix is implicitly prefixed with a universal row pattern variable (matches every label)
             // it is encoded as empty label set
             Symbol reallocated = symbolAllocator.newSymbol(Symbol.from(node));
-            layout.add(reallocated);
-            valuePointers.add(new ScalarValuePointer(context.withLabels(ImmutableSet.of()).toLogicalIndexPointer(), Symbol.from(node)));
+            assignments.add(new ExpressionAndValuePointers.Assignment(reallocated, new ScalarValuePointer(context.withLabels(ImmutableSet.of()).toLogicalIndexPointer(), Symbol.from(node))));
             return reallocated.toSymbolReference();
         }
 
@@ -163,7 +149,6 @@ public class LogicalIndexExtractor
                 Type type = resolvedFunction.getSignature().getReturnType();
 
                 Symbol aggregationSymbol = symbolAllocator.newSymbol(node, type);
-                layout.add(aggregationSymbol);
 
                 Symbol classifierSymbol = symbolAllocator.newSymbol("classifier", VARCHAR);
                 Symbol matchNumberSymbol = symbolAllocator.newSymbol("match_number", BIGINT);
@@ -178,7 +163,7 @@ public class LogicalIndexExtractor
                         classifierSymbol,
                         matchNumberSymbol);
 
-                valuePointers.add(descriptor);
+                assignments.add(new ExpressionAndValuePointers.Assignment(aggregationSymbol, descriptor));
 
                 return aggregationSymbol.toSymbolReference();
             }
@@ -256,7 +241,6 @@ public class LogicalIndexExtractor
         private Expression rewriteClassifierFunction(FunctionCall node, LogicalIndexContext context)
         {
             Symbol classifierSymbol = symbolAllocator.newSymbol("classifier", VARCHAR);
-            layout.add(classifierSymbol);
 
             Set<IrLabel> labels = ImmutableSet.of();
             if (!node.getArguments().isEmpty()) {
@@ -268,19 +252,16 @@ public class LogicalIndexExtractor
             }
 
             // pass the new symbol as input symbol. It will be used to identify classifier function.
-            valuePointers.add(new ScalarValuePointer(context.withLabels(labels).toLogicalIndexPointer(), classifierSymbol));
-            classifierSymbols.add(classifierSymbol);
+            assignments.add(new ExpressionAndValuePointers.Assignment(classifierSymbol, new ClassifierValuePointer(context.withLabels(labels).toLogicalIndexPointer())));
             return classifierSymbol.toSymbolReference();
         }
 
         private Expression rewriteMatchNumberFunction()
         {
             Symbol matchNumberSymbol = symbolAllocator.newSymbol("match_number", BIGINT);
-            layout.add(matchNumberSymbol);
             // pass default LogicalIndexPointer. It will not be accessed. match_number() is constant in the context of a match.
             // pass the new symbol as input symbol. It will be used to identify match number function.
-            valuePointers.add(new ScalarValuePointer(LogicalIndexContext.DEFAULT.toLogicalIndexPointer(), matchNumberSymbol));
-            matchNumberSymbols.add(matchNumberSymbol);
+            assignments.add(new ExpressionAndValuePointers.Assignment(matchNumberSymbol, new MatchNumberValuePointer()));
             return matchNumberSymbol.toSymbolReference();
         }
 

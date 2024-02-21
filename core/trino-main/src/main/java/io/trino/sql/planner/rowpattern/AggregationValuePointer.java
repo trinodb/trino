@@ -27,8 +27,8 @@ import java.util.Objects;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class AggregationValuePointer
-        extends ValuePointer
+public final class AggregationValuePointer
+        implements ValuePointer
 {
     private final ResolvedFunction function;
     private final AggregatedSetDescriptor setDescriptor;

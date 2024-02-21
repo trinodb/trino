@@ -46,7 +46,9 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
+import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
@@ -330,49 +332,40 @@ public class SymbolMapper
         // Map only the input symbols of ValuePointers. These are the symbols produced by the source node.
         // Other symbols present in the ExpressionAndValuePointers structure are synthetic unique symbols
         // with no outer usage or dependencies.
-        ImmutableList.Builder<ValuePointer> newValuePointers = ImmutableList.builder();
-        for (ValuePointer valuePointer : expressionAndValuePointers.getValuePointers()) {
-            if (valuePointer instanceof ScalarValuePointer scalarValuePointer) {
-                Symbol inputSymbol = scalarValuePointer.getInputSymbol();
-                if (expressionAndValuePointers.getClassifierSymbols().contains(inputSymbol) || expressionAndValuePointers.getMatchNumberSymbols().contains(inputSymbol)) {
-                    newValuePointers.add(scalarValuePointer);
-                }
-                else {
-                    newValuePointers.add(new ScalarValuePointer(scalarValuePointer.getLogicalIndexPointer(), map(inputSymbol)));
-                }
-            }
-            else {
-                AggregationValuePointer aggregationValuePointer = (AggregationValuePointer) valuePointer;
-
-                List<Expression> newArguments = aggregationValuePointer.getArguments().stream()
-                        .map(expression -> ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-                        {
-                            @Override
-                            public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        ImmutableList.Builder<ExpressionAndValuePointers.Assignment> newAssignments = ImmutableList.builder();
+        for (ExpressionAndValuePointers.Assignment assignment : expressionAndValuePointers.getAssignments()) {
+            ValuePointer newPointer = switch (assignment.valuePointer()) {
+                case ClassifierValuePointer pointer -> pointer;
+                case MatchNumberValuePointer pointer -> pointer;
+                case ScalarValuePointer pointer -> new ScalarValuePointer(pointer.getLogicalIndexPointer(), map(pointer.getInputSymbol()));
+                case AggregationValuePointer pointer -> {
+                    List<Expression> newArguments = pointer.getArguments().stream()
+                            .map(expression -> ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
                             {
-                                if (Symbol.from(node).equals(aggregationValuePointer.getClassifierSymbol()) || Symbol.from(node).equals(aggregationValuePointer.getMatchNumberSymbol())) {
-                                    return node;
+                                @Override
+                                public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                                {
+                                    if (Symbol.from(node).equals(pointer.getClassifierSymbol()) || Symbol.from(node).equals(pointer.getMatchNumberSymbol())) {
+                                        return node;
+                                    }
+                                    return map(node);
                                 }
-                                return map(node);
-                            }
-                        }, expression))
-                        .collect(toImmutableList());
+                            }, expression))
+                            .collect(toImmutableList());
 
-                newValuePointers.add(new AggregationValuePointer(
-                        aggregationValuePointer.getFunction(),
-                        aggregationValuePointer.getSetDescriptor(),
-                        newArguments,
-                        aggregationValuePointer.getClassifierSymbol(),
-                        aggregationValuePointer.getMatchNumberSymbol()));
-            }
+                    yield new AggregationValuePointer(
+                            pointer.getFunction(),
+                            pointer.getSetDescriptor(),
+                            newArguments,
+                            pointer.getClassifierSymbol(),
+                            pointer.getMatchNumberSymbol());
+                }
+            };
+
+            newAssignments.add(new ExpressionAndValuePointers.Assignment(assignment.symbol(), newPointer));
         }
 
-        return new ExpressionAndValuePointers(
-                expressionAndValuePointers.getExpression(),
-                expressionAndValuePointers.getLayout(),
-                newValuePointers.build(),
-                expressionAndValuePointers.getClassifierSymbols(),
-                expressionAndValuePointers.getMatchNumberSymbols());
+        return new ExpressionAndValuePointers(expressionAndValuePointers.getExpression(), newAssignments.build());
     }
 
     public TableFunctionProcessorNode map(TableFunctionProcessorNode node, PlanNode source)
