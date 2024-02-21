@@ -410,6 +410,30 @@
                                     <old>method &lt;T&gt; T io.trino.spi.block.RunLengthEncodedBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
                                 </item>
                                 <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.security.AccessDeniedException::denyGrantExecuteFunctionPrivilege(java.lang.String, io.trino.spi.security.Identity, io.trino.spi.security.TrinoPrincipal)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.security.AccessDeniedException::denySelectView(java.lang.String)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.security.AccessDeniedException::denySelectView(java.lang.String, java.lang.String)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.security.AccessDeniedException::denySetViewComment(java.lang.String)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.security.AccessDeniedException::denySetViewComment(java.lang.String, java.lang.String)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.security.AccessDeniedException::denyShowRoleAuthorizationDescriptors()</old>
+                                </item>
+                                <item>
                                     <code>java.method.addedToInterface</code>
                                     <new>method void io.trino.spi.block.BlockBuilder::resetTo(int)</new>
                                 </item>
