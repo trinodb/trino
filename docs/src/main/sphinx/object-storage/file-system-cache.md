@@ -134,6 +134,15 @@ enable and configure caching for the specific catalogs.
     smaller values are less efficient since they result in more individual downloads.
 :::
 
+## Monitoring
+
+The cache exposes the
+[Alluxio JMX client metrics](https://docs.alluxio.io/ee-da/user/stable/en/reference/Metrics-List.html#client-metrics)
+under the `org.alluxio` package, and metrics on external reads and cache reads under
+`io.trino.filesystem.alluxio.AlluxioCacheStats`.
+
+The cache code uses [OpenTelemetry tracing](/admin/opentelemetry).
+
 ## Recommendations
 
 The speed of the local cache storage is crucial to the performance of the cache.
