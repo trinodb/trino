@@ -114,7 +114,7 @@ public class DistributedQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final AtomicInteger concurrentQueries = new AtomicInteger();
-    private boolean spansValid = true;
+    private volatile boolean spansValid = true;
 
     private boolean closed;
 
