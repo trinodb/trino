@@ -214,30 +214,6 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.connector.ConnectorMaterializedViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;io.trino.spi.connector.CatalogSchemaTableName&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;, java.util.Map&lt;java.lang.String, java.lang.Object&gt;)</old>
-                                    <new>method void io.trino.spi.connector.ConnectorMaterializedViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;io.trino.spi.connector.CatalogSchemaTableName&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Map&lt;java.lang.String, java.lang.Object&gt; io.trino.spi.connector.ConnectorMaterializedViewDefinition::getProperties()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.connector.ConnectorMetadata::createMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorMaterializedViewDefinition, boolean, boolean)</old>
-                                    <new>method void io.trino.spi.connector.ConnectorMetadata::createMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorMaterializedViewDefinition, java.util.Map&lt;java.lang.String, java.lang.Object&gt;, boolean, boolean)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;)</old>
-                                    <new>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, java.util.List&lt;java.lang.String&gt;)</new>
-                                </item>
-                                <item>
-                                    <code>java.class.nowFinal</code>
-                                    <old>class io.trino.spi.Location</old>
-                                    <new>class io.trino.spi.Location</new>
-                                </item>
-                                <item>
                                     <code>java.method.removed</code>
                                     <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.Block::getChildren()</old>
                                 </item>
