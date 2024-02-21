@@ -143,6 +143,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
@@ -434,7 +435,7 @@ public class TestingTrinoServer
         Set<ServerLoadableComponent> loadableComponents = injector.getInstance(Key.get(new TypeLiteral<>() {}));
         loadableComponents.forEach(ServerLoadableComponent::load);
 
-        injector.getInstance(Announcer.class).forceAnnounce();
+        getFutureValue(injector.getInstance(Announcer.class).forceAnnounce());
 
         refreshNodes();
     }
