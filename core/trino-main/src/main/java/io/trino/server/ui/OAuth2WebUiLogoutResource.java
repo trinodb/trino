@@ -60,8 +60,8 @@ public class OAuth2WebUiLogoutResource
                 .build();
 
         return Response.seeOther(auth2Client.getLogoutEndpoint(idToken, callBackUri).orElse(callBackUri))
-                .cookie(OAuthIdTokenCookie.delete())
-                .cookie(delete())
+                .cookie(OAuthIdTokenCookie.delete(httpHeaders.getCookies()))
+                .cookie(delete(httpHeaders.getCookies()))
                 .build();
     }
 
