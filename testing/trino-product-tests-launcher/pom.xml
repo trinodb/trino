@@ -102,6 +102,10 @@
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>starburst-trino-testing</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
@@ -323,6 +327,12 @@
                                     <type>jar</type>
                                     <outputDirectory>${project.build.directory}</outputDirectory>
                                     <destFileName>hive-jdbc.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.sap.cloud.db.jdbc</groupId>
+                                    <artifactId>ngdbc</artifactId>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>com.databricks</groupId>

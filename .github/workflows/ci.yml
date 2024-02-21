@@ -1103,6 +1103,7 @@ jobs:
             - suite-gcs
             - suite-clients
             - suite-functions
+            - suite-sap-hana
             - suite-synapse
             - suite-snowflake
             - suite-stargate
@@ -1237,6 +1238,13 @@ jobs:
         with:
           cache: false
           download_dependencies: false
+      - name: Run ECR login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
+          login-docker: true
       - name: Product tests artifact
         uses: actions/download-artifact@v4
         with:

@@ -264,6 +264,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.sap.cloud.db.jdbc</groupId>
+            <artifactId>ngdbc</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-protobuf-types</artifactId>
             <!-- This is under Confluent Community License and we use it under runtime scope only for tests -->

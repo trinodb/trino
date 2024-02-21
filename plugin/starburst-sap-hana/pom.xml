@@ -87,7 +87,6 @@
         <dependency>
             <groupId>com.sap.cloud.db.jdbc</groupId>
             <artifactId>ngdbc</artifactId>
-            <version>2.17.12</version>
             <!-- The driver's license doesn't allow redistribution (https://starburstdata.atlassian.net/browse/SEP-4063), hence provided scope -->
             <scope>provided</scope>
         </dependency>
