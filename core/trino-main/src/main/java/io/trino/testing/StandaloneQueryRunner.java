@@ -68,7 +68,7 @@ public final class StandaloneQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final AtomicInteger concurrentQueries = new AtomicInteger();
-    private boolean spansValid = true;
+    private volatile boolean spansValid = true;
 
     public StandaloneQueryRunner(Session defaultSession)
     {
