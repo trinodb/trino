@@ -33,9 +33,9 @@ public class ConstraintApplicationResult<T>
     /**
      * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
      * as the connector may be unable to provide good table statistics for {@code handle}.
-     *
-     * @deprecated use {@link #ConstraintApplicationResult(boolean, java.util.List)}
+     * @deprecated Use {@link #ConstraintApplicationResult(Object, TupleDomain, ConnectorExpression, boolean)}.
      */
+    @Deprecated
     public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, boolean precalculateStatistics)
     {
         this(false, List.of(new Alternative<>(handle, remainingFilter, Optional.empty(), precalculateStatistics)));
