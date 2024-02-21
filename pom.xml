@@ -2265,7 +2265,7 @@
         <repository>
             <id>iceberg-release-candidate</id>
             <name>Iceberg Release Candidate</name>
-            <url>https://repository.apache.org/content/repositories/orgapacheiceberg-1151/</url>
+            <url>https://repository.apache.org/content/repositories/orgapacheiceberg-1152/</url>
         </repository>
     </repositories>
 

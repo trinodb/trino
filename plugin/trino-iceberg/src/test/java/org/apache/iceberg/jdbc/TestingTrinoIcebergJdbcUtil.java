@@ -16,7 +16,7 @@ package org.apache.iceberg.jdbc;
 
 public final class TestingTrinoIcebergJdbcUtil
 {
-    public static final String CREATE_CATALOG_TABLE = JdbcUtil.CREATE_CATALOG_SQL;
+    public static final String CREATE_CATALOG_TABLE = JdbcUtil.V0_CREATE_CATALOG_SQL;
     public static final String CREATE_NAMESPACE_PROPERTIES_TABLE = JdbcUtil.CREATE_NAMESPACE_PROPERTIES_TABLE_SQL;
 
     private TestingTrinoIcebergJdbcUtil() {}
