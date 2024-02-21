@@ -196,11 +196,16 @@ public class TestDynamoDbTypeMapping
         String nuPogodi = "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!";
 
         SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'text_a'", createVarcharType(10), "CAST('text_a' AS varchar(10))")
+                .addRoundTrip("varchar(10)", "NULL", createVarcharType(10), "CAST(NULL AS varchar(10))")
+                .addRoundTrip("varchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
+                .addRoundTrip("varchar(65535)", "'text_d'", createVarcharType(65535), "CAST('text_d' AS varchar(65535))")
                 .addRoundTrip("varchar(" + sampleUnicodeText.length() + ")", "'" + sampleUnicodeText + "'", createVarcharType(sampleUnicodeText.length()), "CAST('" + sampleUnicodeText + "' AS varchar(" + sampleUnicodeText.length() + "))")
                 .addRoundTrip("varchar(32)", "'" + sampleUnicodeText + "'", createVarcharType(32), "CAST('" + sampleUnicodeText + "' AS varchar(32))")
-                .addRoundTrip("varchar(16000)", "'" + sampleUnicodeText + "'", createVarcharType(16000), "CAST('" + sampleUnicodeText + "' AS varchar(16000))")
+                .addRoundTrip("varchar(20000)", "'" + sampleUnicodeText + "'", createVarcharType(20000), "CAST('" + sampleUnicodeText + "' AS varchar(20000))")
                 .addRoundTrip("varchar(1)", "'" + sampleFourByteUnicodeCharacter + "'", createVarcharType(1), "CAST('" + sampleFourByteUnicodeCharacter + "' AS varchar(1))")
                 .addRoundTrip("varchar(77)", "'" + nuPogodi + "'", createVarcharType(77), "CAST('" + nuPogodi + "' AS varchar(77))")
+                .addRoundTrip("varchar(10485760)", "'text_f'", createVarcharType(10485760), "CAST('text_f' AS varchar(10485760))") // too long for a char in Trino
                 .execute(getQueryRunner(), dynamoDbCreateAndInsert("test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
