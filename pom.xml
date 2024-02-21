@@ -2300,6 +2300,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.5.2</version>
                     <configuration>
                         <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                     </configuration>
