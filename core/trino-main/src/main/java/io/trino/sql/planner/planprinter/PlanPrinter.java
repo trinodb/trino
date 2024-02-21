@@ -124,10 +124,11 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
+import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
-import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -1029,37 +1030,22 @@ public class PlanPrinter
 
         private void appendValuePointers(NodeRepresentation nodeOutput, ExpressionAndValuePointers expressionAndPointers)
         {
-            for (int i = 0; i < expressionAndPointers.getLayout().size(); i++) {
-                Symbol symbol = expressionAndPointers.getLayout().get(i);
-                if (expressionAndPointers.getMatchNumberSymbols().contains(symbol)) {
-                    // match_number does not use the value pointer. It is constant per match.
-                    continue;
-                }
-                ValuePointer pointer = expressionAndPointers.getValuePointers().get(i);
+            for (ExpressionAndValuePointers.Assignment assignment : expressionAndPointers.getAssignments()) {
+                String value = switch (assignment.valuePointer()) {
+                    case AggregationValuePointer pointer -> format(
+                            "%s%s(%s)%s",
+                            pointer.getSetDescriptor().isRunning() ? "RUNNING " : "FINAL ",
+                            formatFunctionName(pointer.getFunction()),
+                            Joiner.on(", ").join(anonymizeExpressions(pointer.getArguments())),
+                            pointer.getSetDescriptor().getLabels().stream()
+                                    .map(IrLabel::getName)
+                                    .collect(joining(", ", "{", "}")));
+                    case ScalarValuePointer pointer -> format("%s[%s]", anonymizer.anonymize(pointer.getInputSymbol()), formatLogicalIndexPointer(pointer.getLogicalIndexPointer()));
+                    case ClassifierValuePointer pointer -> format("%s[%s]", "classifier", formatLogicalIndexPointer(pointer.getLogicalIndexPointer()));
+                    case MatchNumberValuePointer pointer -> "match_number";
+                };
 
-                if (pointer instanceof ScalarValuePointer scalarPointer) {
-                    String sourceSymbolName = expressionAndPointers.getClassifierSymbols().contains(symbol)
-                            ? "classifier"
-                            : anonymizer.anonymize(scalarPointer.getInputSymbol());
-                    nodeOutput.appendDetails("%s%s := %s[%s]", indentString(1), anonymizer.anonymize(symbol), sourceSymbolName, formatLogicalIndexPointer(scalarPointer.getLogicalIndexPointer()));
-                }
-                else if (pointer instanceof AggregationValuePointer aggregationPointer) {
-                    String processingMode = aggregationPointer.getSetDescriptor().isRunning() ? "RUNNING " : "FINAL ";
-                    String arguments = Joiner.on(", ").join(anonymizeExpressions(aggregationPointer.getArguments()));
-                    String labels = aggregationPointer.getSetDescriptor().getLabels().stream()
-                            .map(IrLabel::getName)
-                            .collect(joining(", ", "{", "}"));
-                    nodeOutput.appendDetails("%s%s := %s%s(%s)%s",
-                            indentString(1),
-                            anonymizer.anonymize(symbol),
-                            processingMode,
-                            formatFunctionName(aggregationPointer.getFunction()),
-                            arguments,
-                            labels);
-                }
-                else {
-                    throw new UnsupportedOperationException("unexpected ValuePointer type: " + pointer.getClass().getSimpleName());
-                }
+                nodeOutput.appendDetails("%s%s := %s", indentString(1), anonymizer.anonymize(assignment.symbol()), value);
             }
         }
 

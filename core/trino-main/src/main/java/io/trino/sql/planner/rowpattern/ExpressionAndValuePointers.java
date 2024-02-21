@@ -16,37 +16,30 @@ package io.trino.sql.planner.rowpattern;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionAndValuePointers
 {
-    public static final ExpressionAndValuePointers TRUE = new ExpressionAndValuePointers(TRUE_LITERAL, ImmutableList.of(), ImmutableList.of(), ImmutableSet.of(), ImmutableSet.of());
+    public static final ExpressionAndValuePointers TRUE = new ExpressionAndValuePointers(TRUE_LITERAL, ImmutableList.of());
 
     private final Expression expression;
-    private final List<Symbol> layout;
-    private final List<ValuePointer> valuePointers;
-    private final Set<Symbol> classifierSymbols;
-    private final Set<Symbol> matchNumberSymbols;
+    private final List<Assignment> assignments;
 
     @JsonCreator
-    public ExpressionAndValuePointers(Expression expression, List<Symbol> layout, List<ValuePointer> valuePointers, Set<Symbol> classifierSymbols, Set<Symbol> matchNumberSymbols)
+    public ExpressionAndValuePointers(Expression expression, List<Assignment> assignments)
     {
         this.expression = requireNonNull(expression, "expression is null");
-        this.layout = requireNonNull(layout, "layout is null");
-        this.valuePointers = requireNonNull(valuePointers, "valuePointers is null");
-        checkArgument(layout.size() == valuePointers.size(), "layout and valuePointers sizes don't match");
-        this.classifierSymbols = requireNonNull(classifierSymbols, "classifierSymbols is null");
-        this.matchNumberSymbols = requireNonNull(matchNumberSymbols, "matchNumberSymbols is null");
+        this.assignments = ImmutableList.copyOf(assignments);
     }
 
     @JsonProperty
@@ -56,45 +49,33 @@ public class ExpressionAndValuePointers
     }
 
     @JsonProperty
-    public List<Symbol> getLayout()
+    public List<Assignment> getAssignments()
     {
-        return layout;
-    }
-
-    @JsonProperty
-    public List<ValuePointer> getValuePointers()
-    {
-        return valuePointers;
-    }
-
-    @JsonProperty
-    public Set<Symbol> getClassifierSymbols()
-    {
-        return classifierSymbols;
-    }
-
-    @JsonProperty
-    public Set<Symbol> getMatchNumberSymbols()
-    {
-        return matchNumberSymbols;
+        return assignments;
     }
 
     public List<Symbol> getInputSymbols()
     {
-        ImmutableList.Builder<Symbol> inputSymbols = ImmutableList.builder();
+        Set<Symbol> localInputs = assignments.stream()
+                .filter(assignment -> assignment.valuePointer() instanceof ClassifierValuePointer || assignment.valuePointer() instanceof MatchNumberValuePointer)
+                .map(Assignment::symbol)
+                .collect(toImmutableSet());
 
-        for (ValuePointer valuePointer : valuePointers) {
-            if (valuePointer instanceof ScalarValuePointer pointer) {
-                Symbol symbol = pointer.getInputSymbol();
-                if (!classifierSymbols.contains(symbol) && !matchNumberSymbols.contains(symbol)) {
-                    inputSymbols.add(symbol);
+        ImmutableList.Builder<Symbol> inputSymbols = ImmutableList.builder();
+        for (Assignment assignment : assignments) {
+            switch (assignment.valuePointer()) {
+                case ScalarValuePointer pointer -> {
+                    Symbol symbol = pointer.getInputSymbol();
+                    if (!localInputs.contains(symbol)) {
+                        inputSymbols.add(symbol);
+                    }
                 }
-            }
-            else if (valuePointer instanceof AggregationValuePointer) {
-                inputSymbols.addAll(((AggregationValuePointer) valuePointer).getInputSymbols());
-            }
-            else {
-                throw new UnsupportedOperationException("unexpected ValuePointer type: " + valuePointer.getClass().getSimpleName());
+                case AggregationValuePointer pointer -> {
+                    inputSymbols.addAll(pointer.getInputSymbols().stream()
+                            .filter(symbol -> !localInputs.contains(symbol))
+                            .collect(Collectors.toList()));
+                }
+                default -> {}
             }
         }
 
@@ -112,15 +93,14 @@ public class ExpressionAndValuePointers
         }
         ExpressionAndValuePointers o = (ExpressionAndValuePointers) obj;
         return Objects.equals(expression, o.expression) &&
-                Objects.equals(layout, o.layout) &&
-                Objects.equals(valuePointers, o.valuePointers) &&
-                Objects.equals(classifierSymbols, o.classifierSymbols) &&
-                Objects.equals(matchNumberSymbols, o.matchNumberSymbols);
+                Objects.equals(assignments, o.assignments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(expression, layout, valuePointers, classifierSymbols, matchNumberSymbols);
+        return Objects.hash(expression, assignments);
     }
+
+    public record Assignment(Symbol symbol, ValuePointer valuePointer) {}
 }

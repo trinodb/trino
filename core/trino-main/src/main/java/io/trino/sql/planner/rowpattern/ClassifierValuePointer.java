@@ -15,23 +15,20 @@ package io.trino.sql.planner.rowpattern;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.sql.planner.Symbol;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ScalarValuePointer
+public final class ClassifierValuePointer
         implements ValuePointer
 {
     private final LogicalIndexPointer logicalIndexPointer;
-    private final Symbol inputSymbol;
 
     @JsonCreator
-    public ScalarValuePointer(LogicalIndexPointer logicalIndexPointer, Symbol inputSymbol)
+    public ClassifierValuePointer(LogicalIndexPointer logicalIndexPointer)
     {
         this.logicalIndexPointer = requireNonNull(logicalIndexPointer, "logicalIndexPointer is null");
-        this.inputSymbol = requireNonNull(inputSymbol, "inputSymbol is null");
     }
 
     @JsonProperty
@@ -40,29 +37,22 @@ public final class ScalarValuePointer
         return logicalIndexPointer;
     }
 
-    @JsonProperty
-    public Symbol getInputSymbol()
-    {
-        return inputSymbol;
-    }
-
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ScalarValuePointer o = (ScalarValuePointer) obj;
-        return Objects.equals(logicalIndexPointer, o.logicalIndexPointer) &&
-                Objects.equals(inputSymbol, o.inputSymbol);
+        ClassifierValuePointer that = (ClassifierValuePointer) o;
+        return Objects.equals(logicalIndexPointer, that.logicalIndexPointer);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(logicalIndexPointer, inputSymbol);
+        return Objects.hash(logicalIndexPointer);
     }
 }

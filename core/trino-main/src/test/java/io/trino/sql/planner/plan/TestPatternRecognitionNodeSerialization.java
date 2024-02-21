@@ -30,8 +30,10 @@ import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.plan.WindowNode.Function;
 import io.trino.sql.planner.rowpattern.AggregatedSetDescriptor;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
+import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrConcatenation;
@@ -118,26 +120,26 @@ public class TestPatternRecognitionNodeSerialization
         provider.setJsonDeserializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser())));
         JsonCodec<ExpressionAndValuePointers> codec = new JsonCodecFactory(provider).jsonCodec(ExpressionAndValuePointers.class);
 
-        assertJsonRoundTrip(codec, new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of(), ImmutableList.of(), ImmutableSet.of(), ImmutableSet.of()));
+        assertJsonRoundTrip(codec, new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()));
 
         assertJsonRoundTrip(codec, new ExpressionAndValuePointers(
                 new IfExpression(
                         new ComparisonExpression(GREATER_THAN, new SymbolReference("classifier"), new SymbolReference("x")),
                         new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()),
                         new ArithmeticUnaryExpression(MINUS, new SymbolReference("match_number"))),
-                ImmutableList.of(new Symbol("classifier"), new Symbol("x"), new Symbol("match_number")),
                 ImmutableList.of(
-                        new ScalarValuePointer(
-                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), false, true, 1, -1),
-                                new Symbol("input_symbol_a")),
-                        new ScalarValuePointer(
-                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("B")), true, false, 2, 1),
-                                new Symbol("input_symbol_a")),
-                        new ScalarValuePointer(
-                                new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
-                                new Symbol("input_symbol_a"))),
-                ImmutableSet.of(new Symbol("classifier")),
-                ImmutableSet.of(new Symbol("match_number"))));
+                        new ExpressionAndValuePointers.Assignment(
+                                new Symbol("classifier"),
+                                new ClassifierValuePointer(
+                                        new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), false, true, 1, -1))),
+                        new ExpressionAndValuePointers.Assignment(
+                                new Symbol("x"),
+                                new ScalarValuePointer(
+                                        new LogicalIndexPointer(ImmutableSet.of(new IrLabel("B")), true, false, 2, 1),
+                                        new Symbol("input_symbol_a"))),
+                        new ExpressionAndValuePointers.Assignment(
+                                new Symbol("match_number"),
+                                new MatchNumberValuePointer()))));
     }
 
     @Test
@@ -151,7 +153,7 @@ public class TestPatternRecognitionNodeSerialization
         JsonCodec<Measure> codec = new JsonCodecFactory(provider).jsonCodec(Measure.class);
 
         assertJsonRoundTrip(codec, new Measure(
-                new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of(), ImmutableList.of(), ImmutableSet.of(), ImmutableSet.of()),
+                new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()),
                 BOOLEAN));
 
         assertJsonRoundTrip(codec, new Measure(
@@ -160,19 +162,20 @@ public class TestPatternRecognitionNodeSerialization
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("match_number"), new SymbolReference("x")),
                                 new GenericLiteral("BIGINT", "10"),
                                 new ArithmeticUnaryExpression(MINUS, new SymbolReference("y"))),
-                        ImmutableList.of(new Symbol("match_number"), new Symbol("x"), new Symbol("y")),
                         ImmutableList.of(
-                                new ScalarValuePointer(
-                                        new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
-                                        new Symbol("input_symbol_a")),
-                                new ScalarValuePointer(
-                                        new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A")), false, true, 1, -1),
-                                        new Symbol("input_symbol_a")),
-                                new ScalarValuePointer(
-                                        new LogicalIndexPointer(ImmutableSet.of(new IrLabel("B")), false, true, 1, -1),
-                                        new Symbol("input_symbol_b"))),
-                        ImmutableSet.of(),
-                        ImmutableSet.of(new Symbol("match_number"))),
+                                new ExpressionAndValuePointers.Assignment(
+                                        new Symbol("match_number"),
+                                        new MatchNumberValuePointer()),
+                                new ExpressionAndValuePointers.Assignment(
+                                        new Symbol("x"),
+                                        new ScalarValuePointer(
+                                                new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
+                                                new Symbol("input_symbol_a"))),
+                                new ExpressionAndValuePointers.Assignment(
+                                        new Symbol("y"),
+                                        new ScalarValuePointer(
+                                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("B")), false, true, 1, -1),
+                                                new Symbol("input_symbol_b"))))),
                 BIGINT));
     }
 
@@ -208,7 +211,7 @@ public class TestPatternRecognitionNodeSerialization
                                 false)),
                 ImmutableMap.of(
                         new Symbol("measure"),
-                        new Measure(new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of(), ImmutableList.of(), ImmutableSet.of(), ImmutableSet.of()), BOOLEAN)),
+                        new Measure(new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()), BOOLEAN)),
                 Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())),
                 WINDOW,
                 Optional.of(new IrLabel("B")),
@@ -219,8 +222,8 @@ public class TestPatternRecognitionNodeSerialization
                         new IrLabel("U"), ImmutableSet.of(new IrLabel("A"), new IrLabel("B")),
                         new IrLabel("V"), ImmutableSet.of(new IrLabel("B"), new IrLabel("C"))),
                 ImmutableMap.of(
-                        new IrLabel("B"), new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of(), ImmutableList.of(), ImmutableSet.of(), ImmutableSet.of()),
-                        new IrLabel("C"), new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of(), ImmutableList.of(), ImmutableSet.of(), ImmutableSet.of())));
+                        new IrLabel("B"), new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()),
+                        new IrLabel("C"), new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of())));
 
         PatternRecognitionNode roundtripNode = codec.fromJson(codec.toJson(node));
 
