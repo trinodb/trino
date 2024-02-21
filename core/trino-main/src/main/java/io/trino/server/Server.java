@@ -177,9 +177,6 @@ public class Server
 
             injector.getInstance(optionalKey(OAuth2Client.class)).ifPresent(OAuth2Client::load);
 
-            Set<ServerLoadableComponent> loadableComponents = injector.getInstance(Key.get(new TypeLiteral<>() {}));
-            loadableComponents.forEach(ServerLoadableComponent::load);
-
             injector.getInstance(Announcer.class).start();
 
             injector.getInstance(StartupStatus.class).startupComplete();
