@@ -104,12 +104,15 @@ public class RevokeTask
     private void executeRevokeOnTable(Session session, Revoke statement)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName());
-        RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
-        if (redirection.tableHandle().isEmpty()) {
-            throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
-        }
-        if (redirection.redirectedTableName().isPresent()) {
-            throw semanticException(NOT_SUPPORTED, statement, "Table %s is redirected to %s and REVOKE is not supported with table redirections", tableName, redirection.redirectedTableName().get());
+
+        if (!metadata.isMaterializedView(session, tableName) && !metadata.isView(session, tableName)) {
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
+            if (redirection.tableHandle().isEmpty()) {
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+            }
+            if (redirection.redirectedTableName().isPresent()) {
+                throw semanticException(NOT_SUPPORTED, statement, "Table %s is redirected to %s and REVOKE is not supported with table redirections", tableName, redirection.redirectedTableName().get());
+            }
         }
 
         Set<Privilege> privileges = parseStatementPrivileges(statement, statement.getPrivileges());
