@@ -131,7 +131,7 @@ public class GcsFileSystem
         try {
             List<ListenableFuture<?>> batchFutures = new ArrayList<>();
 
-            for (List<Blob> blobBatch : partition(getPage(gcsLocation).iterateAll(), batchSize)) {
+            for (List<Blob> blobBatch : partition(getPage(gcsLocation, true).iterateAll(), batchSize)) {
                 StorageBatch batch = storage.batch();
                 for (Blob blob : blobBatch) {
                     batch.delete(blob.getBlobId());
@@ -156,9 +156,22 @@ public class GcsFileSystem
     public FileIterator listFiles(Location location)
             throws IOException
     {
+        return listFiles(location, true);
+    }
+
+    @Override
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return listFiles(location, true);
+    }
+
+    public FileIterator listFiles(Location location, Boolean isRecursive)
+            throws IOException
+    {
         GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));
         try {
-            return new GcsFileIterator(gcsLocation, getPage(gcsLocation));
+            return new GcsFileIterator(gcsLocation, getPage(gcsLocation, isRecursive));
         }
         catch (RuntimeException e) {
             throw handleGcsException(e, "listing files", gcsLocation);
@@ -180,12 +193,15 @@ public class GcsFileSystem
         checkState(!gcsLocation.path().endsWith("/"), "Location path ends with a slash: %s", gcsLocation);
     }
 
-    private Page<Blob> getPage(GcsLocation location, BlobListOption... blobListOptions)
+    private Page<Blob> getPage(GcsLocation location, Boolean isRecursive, BlobListOption... blobListOptions)
     {
         List<BlobListOption> optionsBuilder = new ArrayList<>();
 
         if (!location.path().isEmpty()) {
             optionsBuilder.add(BlobListOption.prefix(location.path()));
+        }
+        if (!isRecursive) {
+            optionsBuilder.add(BlobListOption.delimiter("/"));
         }
         Arrays.stream(blobListOptions).forEach(optionsBuilder::add);
         optionsBuilder.add(pageSize(this.pageSize));
@@ -249,7 +265,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));
         try {
-            Page<Blob> page = getPage(gcsLocation, currentDirectory(), matchGlob(gcsLocation.path() + "*/"));
+            Page<Blob> page = getPage(gcsLocation, true, currentDirectory(), matchGlob(gcsLocation.path() + "*/"));
             Iterator<Blob> blobIterator = Iterators.filter(page.iterateAll().iterator(), blob -> blob.isDirectory());
             ImmutableSet.Builder<Location> locationBuilder = ImmutableSet.builder();
             while (blobIterator.hasNext()) {

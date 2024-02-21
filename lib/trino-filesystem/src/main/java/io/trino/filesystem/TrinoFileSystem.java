@@ -154,6 +154,27 @@ public interface TrinoFileSystem
             throws IOException;
 
     /**
+     * Lists all files within the specified directory recursively or non-recursively .Default
+     * implementation is recursively. The location can be empty,
+     * listing all files in the file system, otherwise the location must end with a slash. If the
+     * location does not exist, an empty iterator is returned.
+     * <p>
+     * For hierarchical file systems, if the path is not a directory, an exception is
+     * raised.
+     * For hierarchical file systems, if the path does not reference an existing
+     * directory, an empty iterator is returned. For blob file systems, all blobs
+     * that start with the location are listed. In the rare case that a blob exists with the
+     * exact name of the prefix, it is not included in the results.
+     * <p>
+     * The returned FileEntry locations will start with the specified location exactly.
+     *
+     * @param location the directory to list
+     * @throws IllegalArgumentException if location is not valid for this file system
+     */
+    FileIterator listFilesNonRecursively(Location location)
+            throws IOException;
+
+    /**
      * Checks if a directory exists at the specified location. For all file system types,
      * this returns <tt>true</tt> if the location is empty (the root of the file system)
      * or if any files exist within the directory, as determined by {@link #listFiles(Location)}.

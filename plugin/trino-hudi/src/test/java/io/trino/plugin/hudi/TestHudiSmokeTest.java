@@ -30,6 +30,7 @@ import java.time.ZonedDateTime;
 import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_DATA_WITH_HASHING_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -326,6 +327,12 @@ public class TestHudiSmokeTest
                 session,
                 "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE name LIKE '%1'",
                 "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+    }
+
+    @Test
+    public void testStockDataMORwithHashingTableCount()
+    {
+        assertQuery("SELECT count(1) FROM " + STOCK_DATA_WITH_HASHING_MOR, "SELECT * FROM VALUES ('99')"); // for non-recursive metadata dir testing
     }
 
     @Test

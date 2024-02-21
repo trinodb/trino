@@ -1,0 +1,16 @@
+{
+  "version" : 0,
+  "partitionPath" : "2018/08/31",
+  "instant" : "20231215180153407",
+  "numBuckets" : 64,
+  "seqNo" : 2,
+  "nodes" : [ {
+    "value" : 33554432,
+    "fileIdPrefix" : "1882bdfa-0e68-40bc-be4d-b8979f9ff7ee",
+    "tag" : "NORMAL"
+  }, {
+    "value" : 100663296,
+    "fileIdPrefix" : "e524521d-3910-46ed-8b37-0dd5ec01f954",
+    "tag" : "NORMAL"
+  } ]
+}

@@ -237,11 +237,24 @@ public class AzureFileSystem
     public FileIterator listFiles(Location location)
             throws IOException
     {
+        return listFiles(location, true);
+    }
+
+    @Override
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return listFiles(location, false);
+    }
+
+    public FileIterator listFiles(Location location, Boolean isRecursive)
+            throws IOException
+    {
         AzureLocation azureLocation = new AzureLocation(location);
         try {
             // blob API returns directories as blobs, so it cannot be used when Gen2 is enabled
             return isHierarchicalNamespaceEnabled(azureLocation)
-                    ? listGen2Files(azureLocation)
+                    ? listGen2Files(azureLocation, isRecursive)
                     : listBlobFiles(azureLocation);
         }
         catch (RuntimeException e) {
@@ -249,13 +262,13 @@ public class AzureFileSystem
         }
     }
 
-    private FileIterator listGen2Files(AzureLocation location)
+    private FileIterator listGen2Files(AzureLocation location, boolean isRecursive)
             throws IOException
     {
         DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location);
         PagedIterable<PathItem> pathItems;
         if (location.path().isEmpty()) {
-            pathItems = fileSystemClient.listPaths(new ListPathsOptions().setRecursive(true), null);
+            pathItems = fileSystemClient.listPaths(new ListPathsOptions().setRecursive(isRecursive), null);
         }
         else {
             DataLakeDirectoryClient directoryClient = fileSystemClient.getDirectoryClient(location.path());
