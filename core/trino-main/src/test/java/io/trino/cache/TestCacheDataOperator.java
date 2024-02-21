@@ -42,7 +42,6 @@ import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.cache.SignatureKey;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.metrics.Metrics;
@@ -52,7 +51,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.testing.TestingSplit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -81,6 +79,7 @@ import static io.trino.testing.PlanTester.getTupleDomainJsonCodec;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSplit.createRemoteSplit;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -162,8 +161,7 @@ public class TestCacheDataOperator
         PlanSignature signature = createPlanSignature("sig");
         Page bigPage = createPage(ImmutableList.of(BIGINT), 1, Optional.empty(), ImmutableList.of(createLongSequenceBlock(0, 128)));
         Page smallPage = createPage(ImmutableList.of(BIGINT), 1, Optional.empty(), ImmutableList.of(createLongSequenceBlock(0, 16)));
-        ConnectorSplit connectorSplit = new TestingSplit(false, ImmutableList.of());
-        Split split = new Split(TEST_CATALOG_HANDLE, connectorSplit);
+        Split split = new Split(TEST_CATALOG_HANDLE, createRemoteSplit());
         AtomicInteger operatorIdAllocator = new AtomicInteger();
         CacheDataOperator.CacheDataOperatorFactory cacheDataOperatorFactory = new CacheDataOperator.CacheDataOperatorFactory(
                 operatorIdAllocator.incrementAndGet(),
@@ -234,8 +232,7 @@ public class TestCacheDataOperator
 
     private void createAndRunDriver(int start, int end, CacheDriverFactory cacheDriverFactory)
     {
-        ConnectorSplit connectorSplit = new TestingSplit(false, ImmutableList.of());
-        Split split = new Split(TEST_CATALOG_HANDLE, connectorSplit);
+        Split split = new Split(TEST_CATALOG_HANDLE, createRemoteSplit());
         for (int i = start; i < end; i++) {
             CacheSplitId splitId = new CacheSplitId(String.format("split_%d", i));
             DriverContext driverContext = createTaskContext(Executors.newSingleThreadExecutor(), Executors.newScheduledThreadPool(1), TEST_SESSION)

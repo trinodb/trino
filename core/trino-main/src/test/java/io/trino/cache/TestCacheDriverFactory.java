@@ -54,7 +54,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.testing.TestingSplit;
 import io.trino.testing.TestingTaskContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,6 +90,7 @@ import static io.trino.testing.PlanTester.getTupleDomainJsonCodec;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSplit.createRemoteSplit;
 import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -103,7 +103,7 @@ public class TestCacheDriverFactory
     private static final Session TEST_SESSION = testSessionBuilder().build();
     private static final SignatureKey SIGNATURE_KEY = new SignatureKey("key");
     private static final CacheSplitId SPLIT_ID = new CacheSplitId("split");
-    private static final ScheduledSplit SPLIT = new ScheduledSplit(0, new PlanNodeId("id"), new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of())));
+    private static final ScheduledSplit SPLIT = new ScheduledSplit(0, new PlanNodeId("id"), new Split(TEST_CATALOG_HANDLE, createRemoteSplit()));
     private final PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
     private TestSplitCache splitCache;
     private CacheManagerRegistry registry;
@@ -144,6 +144,14 @@ public class TestCacheDriverFactory
         // expect driver for original plan because cacheSplit is empty
         CacheDriverFactory cacheDriverFactory = createCacheDriverFactory(new TestPageSourceProvider(), signature, operatorIdAllocator);
         Driver driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.empty());
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
+
+        // expect driver for original plan because split got scheduled on non-preferred node
+        cacheDriverFactory = createCacheDriverFactory(new TestPageSourceProvider(), signature, operatorIdAllocator);
+        driver = cacheDriverFactory.createDriver(
+                createDriverContext(),
+                new ScheduledSplit(0, planNodeIdAllocator.getNextId(), new Split(TEST_CATALOG_HANDLE, createRemoteSplit()).withFailoverHappened(true)),
+                Optional.of(new CacheSplitId("split")));
         assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
 
         // expect driver for original plan because dynamic filter filters data completely
