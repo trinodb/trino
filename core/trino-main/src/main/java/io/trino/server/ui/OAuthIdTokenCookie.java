@@ -18,6 +18,7 @@ import jakarta.ws.rs.core.NewCookie;
 
 import java.time.Instant;
 import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
@@ -49,7 +50,7 @@ public final class OAuthIdTokenCookie
                 .filter(not(String::isBlank));
     }
 
-    public static NewCookie[] delete()
+    public static NewCookie[] delete(Map<String, Cookie> availableCookies)
     {
         return new NewCookie[] {new NewCookie.Builder(ID_TOKEN_COOKIE)
                 .value("delete")
