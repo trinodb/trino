@@ -20,10 +20,8 @@ import com.azure.core.util.TracingOptions;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
-import com.azure.storage.blob.models.AccountKind;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
-import com.azure.storage.blob.models.StorageAccountInfo;
 import com.azure.storage.common.Utility;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.DataLakeFileClient;
@@ -456,13 +454,13 @@ public class AzureFileSystem
     private boolean isHierarchicalNamespaceEnabled(AzureLocation location)
             throws IOException
     {
-        StorageAccountInfo accountInfo = createBlobContainerClient(location).getServiceClient().getAccountInfo();
-
-        AccountKind accountKind = accountInfo.getAccountKind();
-        if (accountKind != AccountKind.STORAGE_V2) {
-            throw new IOException("Unsupported account kind '%s': %s".formatted(accountKind, location));
+        try {
+            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location);
+            return fileSystemClient.getDirectoryClient("/").exists();
         }
-        return accountInfo.isHierarchicalNamespaceEnabled();
+        catch (RuntimeException e) {
+            throw new IOException("Checking whether hierarchical namespace is enabled for the location %s failed".formatted(location), e);
+        }
     }
 
     private BlobClient createBlobClient(AzureLocation location)
