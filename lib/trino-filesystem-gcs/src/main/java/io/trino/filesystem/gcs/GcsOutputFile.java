@@ -37,8 +37,8 @@ import static java.util.Objects.requireNonNull;
 public class GcsOutputFile
         implements TrinoOutputFile
 {
-    private static final Storage.BlobTargetOption[] DOES_NOT_EXIST_TARGET_OPTION = {Storage.BlobTargetOption.doesNotExist()};
-    private static final Storage.BlobTargetOption[] EMPTY_TARGET_OPTIONS = {};
+    private static final BlobTargetOption[] DOES_NOT_EXIST_TARGET_OPTION = {BlobTargetOption.doesNotExist()};
+    private static final BlobTargetOption[] EMPTY_TARGET_OPTIONS = {};
 
     private final GcsLocation location;
     private final Storage storage;
