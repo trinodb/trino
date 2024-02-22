@@ -183,26 +183,34 @@ properties:
 * - `hive.metastore.thrift.txn-lock-max-wait`
   - Maximum time to wait to acquire hive transaction lock.
   - `10m`
-* - ``hive.metastore.http.client.bearer-token``
-  - Bearer token used to authenticate with the metastore service
-    when https transport mode is used. This must not be set when
-    using http url.
-  -
-* - ``hive.metastore.http.client.additional-headers``
-  - Additional headers which can be sent to the metastore service
-    http thrift requests when using the http transport mode. These
-    headers must be comma-separated and delimited using ``:``. E.g
-    header1:value1,header2:value2 sends two headers header1 and
-    header2 with their values as value1 and value2 respectively.
-    If you need to use a comma(``,``) or colon(``:``) in a header name
-    or value, escape it using a backslash (``\``).
-  -
-* - ``hive.metastore.http.client.authentication.type``
-  - The authentication type to be used for the http metastore client.
-    Currently, the only supported type is ``BEARER``. When set to ``BEARER``
-    the token configured in ``hive.metastore.http.client.bearer-token``
-    is used to authenticate the client to the http metastore service.
-  -
+:::
+
+Use the following configuration properties for HTTP client transport mode, so
+when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
+
+:::{list-table} Thrift metastore HTTP configuration properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `hive.metastore.http.client.authentication.type`
+  - The authentication type to use with the HTTP client transport mode. When set
+    to the only supported value of `BEARER`, the token configured in
+    `hive.metastore.http.client.bearer-token` is used to authenticate to the
+    metastore service.
+* - `hive.metastore.http.client.bearer-token`
+  - Bearer token to use for authentication with the metastore service when HTTPS
+    transport mode is used by using a `https://` protocol in
+    `hive.metastore.uri`. This must not be set with `http://`.
+* - `hive.metastore.http.client.additional-headers`
+  - Additional headers to send with metastore service requests. These headers
+    must be comma-separated and delimited using `:`. For example,
+    `header1:value1,header2:value2` sends two headers `header1` and `header2`
+    with the values as `value1` and `value2`. Escape comma (`,`) or colon(`:`)
+    characters in a header name or value with a backslash (`\`). Use
+    `X-Databricks-Unity-Catalog-Name=[catalog_name]` to configure the required
+    header values for Unity catalog.
 :::
 
 (hive-glue-metastore)=
