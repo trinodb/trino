@@ -179,7 +179,7 @@
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.accumulo.version>3.0.0</dep.accumulo.version>
-        <dep.airlift.version>241</dep.airlift.version>
+        <dep.airlift.version>242</dep.airlift.version>
         <dep.alluxio.version>310</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.avro.version>1.11.3</dep.avro.version>
@@ -275,14 +275,6 @@
                 <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-bom</artifactId>
                 <version>15.0.0</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.eclipse.jetty</groupId>
-                <artifactId>jetty-bom</artifactId>
-                <version>11.0.20</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -1672,6 +1664,12 @@
             </dependency>
 
             <dependency>
+                <groupId>jakarta.servlet</groupId>
+                <artifactId>jakarta.servlet-api</artifactId>
+                <version>6.0.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
                 <version>4.13.2</version>
@@ -1795,6 +1793,10 @@
                     <exclusion>
                         <groupId>org.apache.zookeeper</groupId>
                         <artifactId>zookeeper</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-servlet</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>

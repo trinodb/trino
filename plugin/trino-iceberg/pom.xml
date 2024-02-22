@@ -330,6 +330,12 @@
         </dependency>
 
         <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
             <version>5.2.3</version>
@@ -347,12 +353,6 @@
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-bundled-guava</artifactId>
             <version>${dep.iceberg.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.jetty.toolchain</groupId>
-            <artifactId>jetty-jakarta-servlet-api</artifactId>
             <scope>runtime</scope>
         </dependency>
 
