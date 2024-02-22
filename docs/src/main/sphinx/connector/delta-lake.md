@@ -626,6 +626,7 @@ metadata table name to the table name:
 SELECT * FROM "test_table$history"
 ```
 
+(delta-lake-history-table)=
 ##### `$history` table
 
 The `$history` table provides a log of the metadata changes performed on
@@ -723,6 +724,37 @@ directly or used in conditional statements.
   : Date and time of the last modification of the file for this row.
 - `$file_size`
   : Size of the file for this row.
+
+### Replace tables
+
+The connector supports replacing a table, in case the table already exists, as
+an atomic operation. Atomic table replacement creates a new snapshot with the
+new table definition and keeps the existing table history. See
+{ref}`delta-lake-history-table` in metadata tables.
+
+To replace a table, use `CREATE OR REPLACE TABLE` and/or `CREATE OR REPLACE
+TABLE AS`. For more information on creating tables, see {doc}`CREATE TABLE
+</sql/create-table>` and {doc}`CREATE TABLE AS </sql/create-table-as>`. These
+statements do not support changing table formats defined by the `type` table
+property.
+
+After replacement, the table definition is completely new and separate from the
+old table.
+
+For example, a table `example_table` can be replaced by a completely new
+definition:
+
+```
+CREATE TABLE example_table (
+    a BIGINT,
+    b DATE,
+    c BIGINT)
+WITH (partitioning = ARRAY['a']);
+
+CREATE OR REPLACE TABLE example_table
+WITH (sorted_by = ARRAY['a'])
+AS SELECT * from another_table;
+```
 
 (delta-lake-fte-support)=
 

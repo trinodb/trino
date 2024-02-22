@@ -783,6 +783,7 @@ SELECT * FROM "test_table$properties"
 write.format.default   | PARQUET  |
 ```
 
+(iceberg-history-table)=
 ##### `$history` table
 
 The `$history` table provides a log of the metadata changes performed on the
@@ -1300,32 +1301,39 @@ ORDER BY committed_at DESC
 
 (iceberg-create-or-replace)=
 
-#### Replacing tables
+#### Replace tables
 
-The connector supports replacing a table as an atomic operation. Atomic table
-replacement creates a new snapshot with the new table definition (see
-{doc}`/sql/create-table` and {doc}`/sql/create-table-as`), but keeps table history.
+The connector supports replacing a table, in case the table already exists, as
+an atomic operation. Atomic table replacement creates a new snapshot with the
+new table definition and keeps the existing table history. See
+{ref}`iceberg-history-table` in metadata tables.
 
-The new table after replacement is completely new and separate from the old table.
-Only the name of the table remains identical. Earlier snapshots can be retrieved 
-through Iceberg's [time travel](iceberg-time-travel).
+To replace a table, use `CREATE OR REPLACE TABLE` and/or `CREATE OR REPLACE
+TABLE AS`. For more information on creating tables, see {doc}`CREATE TABLE
+</sql/create-table>` and {doc}`CREATE TABLE AS </sql/create-table-as>`. These
+statements do not support changing table formats defined by the `type` table
+property.
 
-For example a partitioned table `my_table` can be replaced by completely new
-definition.
+Earlier snapshots of the table can be queried through
+{ref}`iceberg-time-travel`.
+
+After replacement, the table definition is completely new and separate from the
+old table.
+
+For example, a table `example_table` can be replaced by a completely new
+definition:
 
 ```
-CREATE TABLE my_table (
+CREATE TABLE example_table (
     a BIGINT,
     b DATE,
     c BIGINT)
 WITH (partitioning = ARRAY['a']);
 
-CREATE OR REPLACE TABLE my_table
+CREATE OR REPLACE TABLE example_table
 WITH (sorted_by = ARRAY['a'])
 AS SELECT * from another_table;
 ```
-
-Earlier snapshots can be retrieved through Iceberg's [time travel](iceberg-time-travel).
 
 (iceberg-time-travel)=
 
