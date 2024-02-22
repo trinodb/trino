@@ -17,7 +17,6 @@ import com.google.api.gax.retrying.RetrySettings;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
@@ -89,7 +88,14 @@ public class GcsStorageFactory
                 }
             }
             else {
-                credentials = jsonGoogleCredential.orElseThrow(() -> new VerifyException("GCS credentials not configured"));
+                credentials = jsonGoogleCredential.orElseGet(() -> {
+                    try {
+                        return GoogleCredentials.getApplicationDefault();
+                    }
+                    catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                });
             }
             StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
             if (projectId != null) {
