@@ -100,7 +100,7 @@ public class GcsOutputFile
         try {
             BlobTargetOption[] blobTargetOptions = EMPTY_TARGET_OPTIONS;
             if (!overwrite) {
-                if (!getBlob(storage, location).isEmpty()) {
+                if (getBlob(storage, location).isPresent()) {
                     throw new FileAlreadyExistsException("File %s already exists".formatted(location));
                 }
                 blobTargetOptions = DOES_NOT_EXIST_TARGET_OPTION;
