@@ -53,7 +53,7 @@ public class PatternRecognitionBuilder
     private final Map<Symbol, Map.Entry<String, Type>> measures = new HashMap<>();
     private Optional<WindowNode.Frame> commonBaseFrame = Optional.empty();
     private RowsPerMatch rowsPerMatch = ONE;
-    private Optional<IrLabel> skipToLabel = Optional.empty();
+    private Set<IrLabel> skipToLabels = ImmutableSet.of();
     private SkipToPosition skipToPosition = PAST_LAST;
     private boolean initial = true;
     private IrRowPattern pattern;
@@ -103,10 +103,10 @@ public class PatternRecognitionBuilder
         return this;
     }
 
-    public PatternRecognitionBuilder skipTo(SkipToPosition position, IrLabel label)
+    public PatternRecognitionBuilder skipTo(SkipToPosition position, Set<IrLabel> labels)
     {
         this.skipToPosition = position;
-        this.skipToLabel = Optional.of(label);
+        this.skipToLabels = ImmutableSet.copyOf(labels);
         return this;
     }
 
@@ -166,11 +166,10 @@ public class PatternRecognitionBuilder
                         .collect(toImmutableMap(Map.Entry::getKey, entry -> measure(entry.getValue()))),
                 commonBaseFrame,
                 rowsPerMatch,
-                skipToLabel,
+                skipToLabels,
                 skipToPosition,
                 initial,
                 pattern,
-                subsets,
                 variableDefinitions.buildOrThrow());
     }
 

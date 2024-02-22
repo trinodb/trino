@@ -319,11 +319,10 @@ public class SymbolMapper
                 newMeasures.buildOrThrow(),
                 node.getCommonBaseFrame().map(this::map),
                 node.getRowsPerMatch(),
-                node.getSkipToLabel(),
+                node.getSkipToLabels(),
                 node.getSkipToPosition(),
                 node.isInitial(),
                 node.getPattern(),
-                node.getSubsets(),
                 newVariableDefinitions.buildOrThrow());
     }
 

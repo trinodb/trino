@@ -1011,15 +1011,9 @@ public class PlanPrinter
             if (node.getRowsPerMatch() != WINDOW) {
                 nodeOutput.appendDetails("%s", formatRowsPerMatch(node.getRowsPerMatch()));
             }
-            nodeOutput.appendDetails("%s", formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
+            nodeOutput.appendDetails("%s", formatSkipTo(node.getSkipToPosition(), node.getSkipToLabels()));
             nodeOutput.appendDetails("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK");
-            nodeOutput.appendDetails("subsets[%s]", node.getSubsets().entrySet().stream()
-                    .map(subset -> subset.getKey().getName() +
-                            " := " +
-                            subset.getValue().stream()
-                                    .map(IrLabel::getName)
-                                    .collect(joining(", ", "{", "}")))
-                    .collect(joining(", ")));
+
             for (Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
                 nodeOutput.appendDetails("%s := %s", entry.getKey().getName(), anonymizer.anonymize(unresolveFunctions(entry.getValue().getExpression())));
                 appendValuePointers(nodeOutput, entry.getValue());
@@ -1107,13 +1101,13 @@ public class PlanPrinter
             };
         }
 
-        private String formatSkipTo(SkipToPosition position, Optional<IrLabel> label)
+        private String formatSkipTo(SkipToPosition position, Set<IrLabel> labels)
         {
             return switch (position) {
                 case PAST_LAST -> "AFTER MATCH SKIP PAST LAST ROW";
                 case NEXT -> "AFTER MATCH SKIP TO NEXT ROW";
-                case FIRST -> "AFTER MATCH SKIP TO FIRST " + label.get().getName();
-                case LAST -> "AFTER MATCH SKIP TO LAST " + label.get().getName();
+                case FIRST -> "AFTER MATCH SKIP TO FIRST " + labels; // TODO: ir
+                case LAST -> "AFTER MATCH SKIP TO LAST " + labels; // TODO: ir
             };
         }
 
