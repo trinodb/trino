@@ -235,16 +235,21 @@ public abstract class BaseElasticsearchConnectorTest
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword IS NULL");
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword = '10' OR null_keyword IS NULL");
 
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, 32)");
-        assertQuery("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301)");
+        assertThat("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL")
+                .matches("VALUES (1301, 32)");
+        assertThat("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL")
+                .matches("VALUES (1301)");
 
         // not null filter
         // filtered column is selected
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword IS NOT NULL", "VALUES (1301, 32)");
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL", "VALUES (1301, 32)");
+        assertThat("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword IS NOT NULL")
+                .matches("VALUES (1301, 32)");
+        assertThat("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL")
+                .matches("VALUES (1301, 32)");
 
         // filtered column is not selected
-        assertQuery("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL", "VALUES (1301)");
+        assertThat("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL")
+                .matches("VALUES (1301)");
 
         indexName = "null_predicate2";
         properties = "" +
@@ -262,19 +267,24 @@ public abstract class BaseElasticsearchConnectorTest
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword = '10' OR null_keyword IS NOT NULL");
 
         // filtered column is selected
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword IS NULL", "VALUES (1301, NULL)");
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL)");
+        assertThat("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword IS NULL")
+                .matches("VALUES (1301, NULL)");
+        assertThat("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL")
+                .matches("VALUES (1301, NULL)");
 
         // filtered column is not selected
-        assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301)");
+        assertThat("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL")
+                .matches("VALUES (1301)");
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("null_keyword", 32)
                 .put("custkey", 1302)
                 .buildOrThrow());
 
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL), (1302, 32)");
-        assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301), (1302)");
+        assertThat("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL")
+                .matches("VALUES (1301, NULL), (1302, 32)");
+        assertThat("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL")
+                .matches("VALUES (1301), (1302)");
     }
 
     @Test
@@ -288,9 +298,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("fields.fieldb", "valueb")
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT name, fields.fielda, fields.fieldb FROM data",
-                "VALUES ('nestfield', 32, 'valueb')");
+        assertThat("SELECT name, fields.fielda, fields.fieldb FROM data")
+                .matches("VALUES ('nestfield', 32, 'valueb')");
     }
 
     @Test
@@ -304,9 +313,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("conflict", "conflict2")
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT * FROM name_conflict",
-                "VALUES ('value')");
+        assertThat("SELECT * FROM name_conflict")
+                .matches("VALUES ('value')");
     }
 
     @Test
@@ -432,9 +440,8 @@ public abstract class BaseElasticsearchConnectorTest
                         .build())
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT a.b.y[1], c.f[1].g[2], c.f[2].g[1], j[2], k[1] FROM test_arrays",
-                "VALUES ('hello', 20, 30, 60, NULL)");
+        assertThat("SELECT a.b.y[1], c.f[1].g[2], c.f[2].g[1], j[2], k[1] FROM test_arrays")
+                .matches("VALUES ('hello', 20, 30, 60, NULL)");
     }
 
     @Test
@@ -919,9 +926,8 @@ public abstract class BaseElasticsearchConnectorTest
 
         index(indexName, ImmutableMap.of("a", ImmutableList.of("foo", "bar")));
 
-        assertQuery(
-                "SELECT a FROM test_mixed_arrays",
-                "VALUES NULL, ARRAY['hello'], ARRAY['foo', 'bar']");
+        assertThat("SELECT a FROM test_mixed_arrays")
+                .matches("VALUES NULL, ARRAY['hello'], ARRAY['foo', 'bar']");
     }
 
     @Test
@@ -955,9 +961,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("double_column", "")
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT byte_column, short_column, integer_column, long_column, float_column, scaled_float_column, double_column FROM emptynumeric",
-                "VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
+        assertThat("SELECT byte_column, short_column, integer_column, long_column, float_column, scaled_float_column, double_column FROM emptynumeric")
+                .matches("VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
 
         deleteIndex(indexName);
     }
@@ -974,9 +979,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("fields.fieldb", ImmutableMap.of())
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT name, fields.fielda FROM emptyobject",
-                "VALUES ('stringfield', 32)");
+        assertThat("SELECT name, fields.fielda FROM emptyobject")
+                .matches("VALUES ('stringfield', 32)");
     }
 
     @Test
@@ -1004,9 +1008,8 @@ public abstract class BaseElasticsearchConnectorTest
         index(indexName,
                 ImmutableMap.of("a.b.c", "value4"));
 
-        assertQuery(
-                "SELECT a.b.c FROM nested_variants",
-                "VALUES 'value1', 'value2', 'value3', 'value4'");
+        assertThat("SELECT a.b.c FROM nested_variants")
+                .matches("VALUES 'value1', 'value2', 'value3', 'value4'");
     }
 
     @Test
@@ -1076,10 +1079,10 @@ public abstract class BaseElasticsearchConnectorTest
                 .isFullyPushedDown();
 
         assertThat(query("" +
-                 "SELECT " +
-                 "text_column " +
-                 "FROM " + indexName + " " +
-                 "WHERE text_column LIKE 's_.m%ex\\t'"))
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE text_column LIKE 's_.m%ex\\t'"))
                 .matches("VALUES VARCHAR 'so.me tex\\t'");
 
         assertThat(query("" +
@@ -1370,10 +1373,10 @@ public abstract class BaseElasticsearchConnectorTest
 
         // Trino query filters in the engine, so the rounding (dependent on scaling factor) does not impact results
         assertThat(query("""
-                SELECT text_column, scaled_float_column
-                FROM scaled_float_type
-                WHERE scaled_float_column = 123.46
-                """))
+                         SELECT text_column, scaled_float_column
+                         FROM scaled_float_type
+                         WHERE scaled_float_column = 123.46
+                         """))
                 .matches(resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
                         .row("bar", 123.46d)
                         .build());
@@ -1463,81 +1466,134 @@ public abstract class BaseElasticsearchConnectorTest
                 .buildOrThrow());
 
         // _score column
-        assertQuery("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0", "VALUES 1");
+        assertThat("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0")
+                .matches("VALUES 1");
 
         // boolean
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = true", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = false", "VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE boolean_column = true")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE boolean_column = false")
+                .matches("VALUES 0");
 
         // tinyint
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column = 1", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column > 1", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column < 1", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column < 10", "VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE byte_column = 1")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE byte_column = 0")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE byte_column > 1")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE byte_column < 1")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE byte_column > 0")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE byte_column < 10")
+                .matches("VALUES 1");
 
         // smallint
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column = 2", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column > 2", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column < 2", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column < 10", "VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE short_column = 2")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE short_column > 2")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE short_column < 2")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE short_column = 0")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE short_column > 0")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE short_column < 10")
+                .matches("VALUES 1");
 
         // integer
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column = 3", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column > 3", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column < 3", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column < 10", "VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE integer_column = 3")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE integer_column > 3")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE integer_column < 3")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE integer_column = 0")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE integer_column > 0")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE integer_column < 10")
+                .matches("VALUES 1");
 
         // bigint
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column = 4", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column > 4", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column < 4", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column < 10", "VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE long_column = 4")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE long_column > 4")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE long_column < 4")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE long_column = 0")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE long_column > 0")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE long_column < 10")
+                .matches("VALUES 1");
 
         // real
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column = 1.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column > 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column < 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column = 0.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column > 0.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column < 10.0", "VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE float_column = 1.0")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE float_column > 1.0")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE float_column < 1.0")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE float_column = 0.0")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE float_column > 0.0")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE float_column < 10.0")
+                .matches("VALUES 1");
 
         // double
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column = 1.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column > 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column < 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column = 0.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column > 0.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column < 10.0", "VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE double_column = 1.0")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE double_column > 1.0")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE double_column < 1.0")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE double_column = 0.0")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE double_column > 0.0")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE double_column < 10.0")
+                .matches("VALUES 1");
 
         // varchar
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'cool'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'bar'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some text'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some'", "VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'cool'")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'bar'")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some text'")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some'")
+                .matches("VALUES 0");
 
         // binary
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'CAFE'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'ABCD'", "VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'CAFE'")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'ABCD'")
+                .matches("VALUES 0");
 
         // timestamp
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-01 00:00:00'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-02 00:00:00'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2001-01-01 00:00:00'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2030-01-01 00:00:00'", "VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-01 00:00:00'")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2019-10-01 00:00:00'")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2019-10-01 00:00:00'")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-02 00:00:00'")
+                .matches("VALUES 0");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2001-01-01 00:00:00'")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2030-01-01 00:00:00'")
+                .matches("VALUES 1");
 
         // ipaddress
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv4_column = IPADDRESS '1.2.3.4'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv6_column = IPADDRESS '2001:db8::1:0:0:1'", "VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE ipv4_column = IPADDRESS '1.2.3.4'")
+                .matches("VALUES 1");
+        assertThat("SELECT count(*) FROM filter_pushdown WHERE ipv6_column = IPADDRESS '2001:db8::1:0:0:1'")
+                .matches("VALUES 1");
     }
 
     @Test
@@ -1689,7 +1745,8 @@ public abstract class BaseElasticsearchConnectorTest
     @Test
     public void testQueryString()
     {
-        assertQuery("SELECT count(*) FROM \"orders: +packages -slyly\"", "VALUES 1639");
+        assertThat("SELECT count(*) FROM \"orders: +packages -slyly\"")
+                .matches("VALUES 1639");
     }
 
     @Test
@@ -1702,13 +1759,11 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("AGE", 32)
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT name, age FROM mixed_case",
-                "VALUES ('john', 32)");
+        assertThat("SELECT name, age FROM mixed_case")
+                .matches("VALUES ('john', 32)");
 
-        assertQuery(
-                "SELECT name, age FROM mixed_case WHERE name = 'john'",
-                "VALUES ('john', 32)");
+        assertThat("SELECT name, age FROM mixed_case WHERE name = 'john'")
+                .matches("VALUES ('john', 32)");
     }
 
     @Test
@@ -1726,12 +1781,10 @@ public abstract class BaseElasticsearchConnectorTest
         createIndex(indexName, properties);
         index(indexName, ImmutableMap.of("numeric_keyword", 20));
 
-        assertQuery(
-                "SELECT numeric_keyword FROM numeric_keyword",
-                "VALUES 20");
-        assertQuery(
-                "SELECT numeric_keyword FROM numeric_keyword where numeric_keyword = '20'",
-                "VALUES 20");
+        assertThat("SELECT numeric_keyword FROM numeric_keyword")
+                .matches("VALUES 20");
+        assertThat("SELECT numeric_keyword FROM numeric_keyword where numeric_keyword = '20'")
+                .matches("VALUES 20");
     }
 
     @Test
@@ -1748,9 +1801,8 @@ public abstract class BaseElasticsearchConnectorTest
         String aliasName = format("alias_%s", randomNameSuffix());
         addAlias("orders", aliasName);
 
-        assertQuery(
-                "SELECT count(*) FROM " + aliasName,
-                "SELECT count(*) FROM orders");
+        assertThat("SELECT count(*) FROM " + aliasName)
+                .matches("SELECT count(*) FROM orders");
     }
 
     @Test
@@ -1773,9 +1825,8 @@ public abstract class BaseElasticsearchConnectorTest
         addAlias("nation", "multi_alias");
         addAlias("region", "multi_alias");
 
-        assertQuery(
-                "SELECT count(*) FROM multi_alias",
-                "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
+        assertThat("SELECT count(*) FROM multi_alias")
+                .matches("SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
     }
 
     @Test
@@ -1794,7 +1845,8 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mappings);
 
-        assertQuery(format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", indexName), "VALUES ('dummy_column')");
+        assertThat(format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", indexName))
+                .matches("VALUES ('dummy_column')");
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains(indexName);
         assertQueryReturnsEmptyResult("SELECT * FROM " + indexName);
     }
@@ -1831,12 +1883,12 @@ public abstract class BaseElasticsearchConnectorTest
     public void testQueryTableFunction()
     {
         // select single record
-        assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
-                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "schema => 'tpch', " +
-                        "index => 'nation', " +
-                        "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)",
-                "VALUES '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
+        assertThat("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "schema => 'tpch', " +
+                "index => 'nation', " +
+                "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)")
+                .matches("VALUES '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
 
         // parameters
         Session session = Session.builder(getSession())
@@ -1850,12 +1902,12 @@ public abstract class BaseElasticsearchConnectorTest
                 "VALUES '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
 
         // select multiple records by range. Use array wrapper to wrap multiple results
-        assertQuery("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
-                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "schema => 'tpch', " +
-                        "index => 'nation', " +
-                        "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)",
-                "VALUES ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA']");
+        assertThat("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "schema => 'tpch', " +
+                "index => 'nation', " +
+                "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)")
+                .matches("VALUES ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA']");
 
         // use aggregations
         @Language("JSON")
@@ -1867,24 +1919,23 @@ public abstract class BaseElasticsearchConnectorTest
                 "    }\n" +
                 "}";
 
-        assertQuery(
-                format("WITH data(r) AS (" +
-                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                        "   FROM TABLE(%s.system.raw_query(" +
-                        "                        schema => 'tpch', " +
-                        "                        index => 'orders', " +
-                        "                        query => '%s'))) " +
-                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                        "FROM data", catalogName, query),
-                "VALUES (60000, 449872500)");
+        assertThat(format("WITH data(r) AS (" +
+                "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
+                "   FROM TABLE(%s.system.raw_query(" +
+                "                        schema => 'tpch', " +
+                "                        index => 'orders', " +
+                "                        query => '%s'))) " +
+                "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
+                "FROM data", catalogName, query))
+                .matches("VALUES (60000, 449872500)");
 
         // no matches
-        assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
-                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "schema => 'tpch', " +
-                        "index => 'nation', " +
-                        "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)",
-                "VALUES '[]'");
+        assertThat("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "schema => 'tpch', " +
+                "index => 'nation', " +
+                "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)")
+                .matches("VALUES '[]'");
 
         // syntax error
         assertThat(query("SELECT * " +
