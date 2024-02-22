@@ -76,6 +76,16 @@ public interface Connector
     }
 
     /**
+     * Provide a pageSourceProviderFactory to create stateful instances of PageSourceProvider per query.
+     * If not implemented a singleton instance returned by getPageSourceProvider will be used for all queries.
+     */
+    default ConnectorPageSourceProviderFactory getPageSourceProviderFactory()
+    {
+        ConnectorPageSourceProvider pageSourceProvider = getPageSourceProvider();
+        return () -> pageSourceProvider;
+    }
+
+    /**
      * @throws UnsupportedOperationException if this connector does not support reading tables record at a time
      */
     default ConnectorRecordSetProvider getRecordSetProvider()

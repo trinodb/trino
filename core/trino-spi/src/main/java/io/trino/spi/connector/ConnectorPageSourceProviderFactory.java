@@ -11,13 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.delete;
+package io.trino.spi.connector;
 
-import io.trino.plugin.iceberg.IcebergColumnHandle;
+import java.io.Closeable;
 
-import java.util.List;
-
-public interface DeleteFilter
+public interface ConnectorPageSourceProviderFactory
+        extends Closeable
 {
-    RowPredicate createPredicate(List<IcebergColumnHandle> columns, long dataSequenceNumber);
+    ConnectorPageSourceProvider createPageSourceProvider();
+
+    @Override
+    default void close() {}
 }

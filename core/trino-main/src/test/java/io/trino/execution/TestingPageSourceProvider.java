@@ -20,6 +20,7 @@ import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -34,11 +35,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class TestingPageSourceProvider
-        implements ConnectorPageSourceProvider
+        implements ConnectorPageSourceProviderFactory, ConnectorPageSourceProvider
 {
     public TestingPageSourceProvider()
     {
         System.out.println();
+    }
+
+    @Override
+    public ConnectorPageSourceProvider createPageSourceProvider()
+    {
+        return this;
     }
 
     @Override

@@ -48,6 +48,7 @@ public class IcebergSplit
     private final String partitionDataJson;
     private final List<DeleteFile> deletes;
     private final SplitWeight splitWeight;
+    private final long dataSequenceNumber;
     private final Map<String, String> fileIoProperties;
     private final List<HostAddress> addresses;
 
@@ -63,7 +64,8 @@ public class IcebergSplit
             @JsonProperty("partitionDataJson") String partitionDataJson,
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
-            @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties)
+            @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties,
+            @JsonProperty("dataSequenceNumber") long dataSequenceNumber)
     {
         this(
                 path,
@@ -77,7 +79,8 @@ public class IcebergSplit
                 deletes,
                 splitWeight,
                 fileIoProperties,
-                ImmutableList.of());
+                ImmutableList.of(),
+                dataSequenceNumber);
     }
 
     public IcebergSplit(
@@ -92,7 +95,8 @@ public class IcebergSplit
             List<DeleteFile> deletes,
             SplitWeight splitWeight,
             Map<String, String> fileIoProperties,
-            List<HostAddress> addresses)
+            List<HostAddress> addresses,
+            long dataSequenceNumber)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -106,6 +110,7 @@ public class IcebergSplit
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
         this.addresses = requireNonNull(addresses, "addresses is null");
+        this.dataSequenceNumber = dataSequenceNumber;
     }
 
     @Override
@@ -180,6 +185,12 @@ public class IcebergSplit
     public SplitWeight getSplitWeight()
     {
         return splitWeight;
+    }
+
+    @JsonProperty
+    public long getDataSequenceNumber()
+    {
+        return dataSequenceNumber;
     }
 
     @JsonProperty

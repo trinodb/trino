@@ -14,16 +14,13 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.VerifyException;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Inject;
-import io.airlift.slice.Slice;
-import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -53,14 +50,10 @@ import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.ReaderProjectionsAdapter;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
-import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
-import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
-import io.trino.plugin.iceberg.delete.DeleteFilter;
-import io.trino.plugin.iceberg.delete.EqualityDeleteFilter;
-import io.trino.plugin.iceberg.delete.PositionDeleteFilter;
+import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.Page;
@@ -79,9 +72,7 @@ import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
-import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -94,7 +85,6 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
-import org.apache.iceberg.StructLike;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.mapping.MappedField;
@@ -102,10 +92,7 @@ import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.parquet.ParquetSchemaUtil;
-import org.apache.iceberg.types.Conversions;
-import org.apache.iceberg.types.TypeUtil;
-import org.apache.iceberg.util.StructLikeSet;
-import org.apache.iceberg.util.StructProjection;
+import org.apache.iceberg.util.StructLikeMap;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
@@ -114,12 +101,9 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.roaringbitmap.longlong.LongBitmapDataProvider;
-import org.roaringbitmap.longlong.Roaring64Bitmap;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -177,8 +161,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
-import static io.trino.plugin.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
-import static io.trino.plugin.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ICEBERG_BINARY_TYPE;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
@@ -205,8 +187,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
-import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
-import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -226,20 +206,23 @@ public class IcebergPageSourceProvider
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
+    private final Object deleteManagersLock;
+    private HashMap<Integer, StructLikeMap<DeleteManager>> deleteManagers;
+    private DeleteManager unpartitionedTableDeleteManager;
 
-    @Inject
     public IcebergPageSourceProvider(
             IcebergFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            OrcReaderConfig orcReaderConfig,
-            ParquetReaderConfig parquetReaderConfig,
+            OrcReaderOptions orcReaderOptions,
+            ParquetReaderOptions parquetReaderOptions,
             TypeManager typeManager)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.orcReaderOptions = orcReaderConfig.toOrcReaderOptions();
-        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
+        this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
+        this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.deleteManagersLock = new Object();
     }
 
     @Override
@@ -279,6 +262,7 @@ public class IcebergPageSourceProvider
                 split.getPartitionDataJson(),
                 split.getFileFormat(),
                 split.getFileIoProperties(),
+                split.getDataSequenceNumber(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
     }
 
@@ -299,6 +283,7 @@ public class IcebergPageSourceProvider
             String partitionDataJson,
             IcebergFileFormat fileFormat,
             Map<String, String> fileIoProperties,
+            long dataSequenceNumber,
             Optional<NameMapping> nameMapping)
     {
         Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
@@ -395,20 +380,16 @@ public class IcebergPageSourceProvider
                 .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toList()))
                 .orElse(requiredColumns);
 
-        Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> {
-            List<DeleteFilter> deleteFilters = readDeletes(
-                    session,
-                    fileSystem,
-                    tableSchema,
-                    readColumns,
-                    path,
-                    deletes,
-                    readerPageSourceWithRowPositions.getStartRowPosition(),
-                    readerPageSourceWithRowPositions.getEndRowPosition());
-            return deleteFilters.stream()
-                    .map(filter -> filter.createPredicate(readColumns))
-                    .reduce(RowPredicate::and);
-        });
+        Supplier<Optional<RowPredicate>> deletePredicate =
+                Suppliers.memoize(() -> getDeleteManager(partitionSpec, partitionData).getDeletePredicate(tableSchema,
+                        path,
+                        dataSequenceNumber,
+                        deletes,
+                        readerPageSourceWithRowPositions.getStartRowPosition(),
+                        readerPageSourceWithRowPositions.getEndRowPosition(),
+                        readColumns,
+                        typeManager,
+                        (deleteFile, deleteColumns, tupleDomain) -> openDeletes(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
 
         return new IcebergPageSource(
                 icebergColumns,
@@ -416,6 +397,24 @@ public class IcebergPageSourceProvider
                 dataPageSource.get(),
                 projectionsAdapter,
                 deletePredicate);
+    }
+
+    private DeleteManager getDeleteManager(PartitionSpec partitionSpec, PartitionData partitionData)
+    {
+        synchronized (deleteManagersLock) {
+            if (partitionSpec.isUnpartitioned()) {
+                if (unpartitionedTableDeleteManager == null) {
+                    unpartitionedTableDeleteManager = new DeleteManager();
+                }
+                return unpartitionedTableDeleteManager;
+            }
+            if (deleteManagers == null && partitionSpec.isPartitioned()) {
+                deleteManagers = new HashMap<>();
+            }
+            StructLikeMap<DeleteManager> deleteManagersForPartition =
+                    deleteManagers.computeIfAbsent(partitionSpec.specId(), (key) -> StructLikeMap.create(partitionSpec.partitionType()));
+            return deleteManagersForPartition.computeIfAbsent(partitionData, partition -> new DeleteManager());
+        }
     }
 
     private TupleDomain<IcebergColumnHandle> getEffectivePredicate(
@@ -455,90 +454,6 @@ public class IcebergPageSourceProvider
         }
 
         return requiredColumns.build();
-    }
-
-    private List<DeleteFilter> readDeletes(
-            ConnectorSession session,
-            TrinoFileSystem fileSystem,
-            Schema schema,
-            List<IcebergColumnHandle> readColumns,
-            String dataFilePath,
-            List<DeleteFile> deleteFiles,
-            Optional<Long> startRowPosition,
-            Optional<Long> endRowPosition)
-    {
-        verify(startRowPosition.isPresent() == endRowPosition.isPresent(), "startRowPosition and endRowPosition must be specified together");
-
-        Slice targetPath = utf8Slice(dataFilePath);
-        List<DeleteFilter> filters = new ArrayList<>();
-        LongBitmapDataProvider deletedRows = new Roaring64Bitmap();
-        Map<Set<Integer>, EqualityDeleteSet> deletesSetByFieldIds = new HashMap<>();
-
-        IcebergColumnHandle deleteFilePath = getColumnHandle(DELETE_FILE_PATH, typeManager);
-        IcebergColumnHandle deleteFilePos = getColumnHandle(DELETE_FILE_POS, typeManager);
-        List<IcebergColumnHandle> deleteColumns = ImmutableList.of(deleteFilePath, deleteFilePos);
-        TupleDomain<IcebergColumnHandle> deleteDomain = TupleDomain.fromFixedValues(ImmutableMap.of(deleteFilePath, NullableValue.of(VARCHAR, targetPath)));
-        if (startRowPosition.isPresent()) {
-            Range positionRange = Range.range(deleteFilePos.getType(), startRowPosition.get(), true, endRowPosition.get(), true);
-            TupleDomain<IcebergColumnHandle> positionDomain = TupleDomain.withColumnDomains(ImmutableMap.of(deleteFilePos, Domain.create(ValueSet.ofRanges(positionRange), false)));
-            deleteDomain = deleteDomain.intersect(positionDomain);
-        }
-
-        for (DeleteFile delete : deleteFiles) {
-            if (delete.content() == POSITION_DELETES) {
-                if (startRowPosition.isPresent()) {
-                    byte[] lowerBoundBytes = delete.getLowerBounds().get(DELETE_FILE_POS.fieldId());
-                    Optional<Long> positionLowerBound = Optional.ofNullable(lowerBoundBytes)
-                            .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
-
-                    byte[] upperBoundBytes = delete.getUpperBounds().get(DELETE_FILE_POS.fieldId());
-                    Optional<Long> positionUpperBound = Optional.ofNullable(upperBoundBytes)
-                            .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
-
-                    if ((positionLowerBound.isPresent() && positionLowerBound.get() > endRowPosition.get()) ||
-                            (positionUpperBound.isPresent() && positionUpperBound.get() < startRowPosition.get())) {
-                        continue;
-                    }
-                }
-
-                try (ConnectorPageSource pageSource = openDeletes(session, fileSystem, delete, deleteColumns, deleteDomain)) {
-                    readPositionDeletes(pageSource, targetPath, deletedRows);
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            }
-            else if (delete.content() == EQUALITY_DELETES) {
-                Set<Integer> fieldIds = ImmutableSet.copyOf(delete.equalityFieldIds());
-                verify(!fieldIds.isEmpty(), "equality field IDs are missing");
-                Schema deleteSchema = TypeUtil.select(schema, fieldIds);
-                List<IcebergColumnHandle> columns = deleteSchema.columns().stream()
-                        .map(column -> getColumnHandle(column, typeManager))
-                        .collect(toImmutableList());
-
-                EqualityDeleteSet equalityDeleteSet = deletesSetByFieldIds.computeIfAbsent(fieldIds, key -> new EqualityDeleteSet(deleteSchema, schemaFromHandles(readColumns)));
-
-                try (ConnectorPageSource pageSource = openDeletes(session, fileSystem, delete, columns, TupleDomain.all())) {
-                    readEqualityDeletes(pageSource, columns, equalityDeleteSet::add);
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            }
-            else {
-                throw new VerifyException("Unknown delete content: " + delete.content());
-            }
-        }
-
-        if (!deletedRows.isEmpty()) {
-            filters.add(new PositionDeleteFilter(deletedRows));
-        }
-
-        for (EqualityDeleteSet equalityDeleteSet : deletesSetByFieldIds.values()) {
-            filters.add(new EqualityDeleteFilter(equalityDeleteSet::contains));
-        }
-
-        return filters;
     }
 
     private ConnectorPageSource openDeletes(
@@ -1568,12 +1483,12 @@ public class IcebergPageSourceProvider
                 private int prefixLength;
 
                 @Override
-                public DereferenceChain computeNext()
+                public IcebergPageSourceProvider.DereferenceChain computeNext()
                 {
                     if (prefixLength > path.size()) {
                         return endOfData();
                     }
-                    return new DereferenceChain(baseColumnIdentity, path.subList(0, prefixLength++));
+                    return new IcebergPageSourceProvider.DereferenceChain(baseColumnIdentity, path.subList(0, prefixLength++));
                 }
             };
         }
@@ -1597,29 +1512,6 @@ public class IcebergPageSourceProvider
         public int hashCode()
         {
             return Objects.hash(baseColumnIdentity, path);
-        }
-    }
-
-    @NotThreadSafe
-    private static class EqualityDeleteSet
-    {
-        private final StructLikeSet deleteSet;
-        private final StructProjection projection;
-
-        public EqualityDeleteSet(Schema deleteSchema, Schema dataSchema)
-        {
-            this.deleteSet = StructLikeSet.create(deleteSchema.asStruct());
-            this.projection = StructProjection.create(dataSchema, deleteSchema);
-        }
-
-        public void add(StructLike row)
-        {
-            deleteSet.add(row);
-        }
-
-        public boolean contains(StructLike row)
-        {
-            return deleteSet.contains(projection.wrap(row));
         }
     }
 }

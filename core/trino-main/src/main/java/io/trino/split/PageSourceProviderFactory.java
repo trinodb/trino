@@ -11,13 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.delete;
+package io.trino.split;
 
-import io.trino.plugin.iceberg.IcebergColumnHandle;
+import io.trino.spi.connector.CatalogHandle;
 
-import java.util.List;
-
-public interface DeleteFilter
+public interface PageSourceProviderFactory
 {
-    RowPredicate createPredicate(List<IcebergColumnHandle> columns, long dataSequenceNumber);
+    PageSourceProvider createPageSourceProvider(CatalogHandle catalogHandle);
 }

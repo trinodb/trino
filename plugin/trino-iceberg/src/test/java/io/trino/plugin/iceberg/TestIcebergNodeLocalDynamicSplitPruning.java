@@ -147,7 +147,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     PartitionData.toJson(new PartitionData(new Object[] {})),
                     ImmutableList.of(),
                     SplitWeight.standard(),
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    0);
 
             String tablePath = inputFile.location().fileName();
             TableHandle tableHandle = new TableHandle(
@@ -263,7 +264,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     PartitionData.toJson(new PartitionData(new Object[] {dateColumnValue})),
                     ImmutableList.of(),
                     SplitWeight.standard(),
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    0);
 
             String tablePath = inputFile.location().fileName();
             TableHandle tableHandle = new TableHandle(
@@ -413,7 +415,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     PartitionData.toJson(new PartitionData(new Object[] {yearColumnValue})),
                     ImmutableList.of(),
                     SplitWeight.standard(),
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    0);
 
             String tablePath = inputFile.location().fileName();
             // Simulate the situation where `month` column is added at a later phase as partitioning column
@@ -512,20 +515,22 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             DynamicFilter dynamicFilter)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        IcebergPageSourceProvider provider = new IcebergPageSourceProvider(
+
+        try (IcebergPageSourceProviderFactory providerFactory = new IcebergPageSourceProviderFactory(
                 new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
-                TESTING_TYPE_MANAGER);
-
-        return provider.createPageSource(
-                transaction,
-                getSession(icebergConfig),
-                split,
-                tableHandle.getConnectorHandle(),
-                columns,
-                dynamicFilter);
+                TESTING_TYPE_MANAGER)) {
+            var provider = providerFactory.createPageSourceProvider();
+            return provider.createPageSource(
+                    transaction,
+                    getSession(icebergConfig),
+                    split,
+                    tableHandle.getConnectorHandle(),
+                    columns,
+                    dynamicFilter);
+        }
     }
 
     private static TestingConnectorSession getSession(IcebergConfig icebergConfig)

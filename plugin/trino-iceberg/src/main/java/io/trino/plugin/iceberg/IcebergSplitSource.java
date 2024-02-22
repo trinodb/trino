@@ -522,7 +522,8 @@ public class IcebergSplitSource
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(clamp((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight, 1.0)),
                 fileIoProperties,
-                cachingHostAddressProvider.getHosts(task.file().path().toString(), ImmutableList.of()));
+                cachingHostAddressProvider.getHosts(task.file().path().toString(), ImmutableList.of()),
+                task.file().dataSequenceNumber());
     }
 
     private static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)

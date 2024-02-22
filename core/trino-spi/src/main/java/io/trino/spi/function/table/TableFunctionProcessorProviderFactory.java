@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.delete;
+package io.trino.spi.function.table;
 
-import io.trino.plugin.iceberg.IcebergColumnHandle;
+import io.trino.spi.Experimental;
 
-import java.util.List;
-
-public interface DeleteFilter
+@Experimental(eta = "2023-07-31")
+public interface TableFunctionProcessorProviderFactory
 {
-    RowPredicate createPredicate(List<IcebergColumnHandle> columns, long dataSequenceNumber);
+    TableFunctionProcessorProvider createTableFunctionProcessorProvider();
 }
