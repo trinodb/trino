@@ -66,11 +66,10 @@ public class PatternRecognitionNode
     */
     private final Optional<Frame> commonBaseFrame;
     private final RowsPerMatch rowsPerMatch;
-    private final Optional<IrLabel> skipToLabel;
+    private final Set<IrLabel> skipToLabels;
     private final SkipToPosition skipToPosition;
     private final boolean initial;
     private final IrRowPattern pattern;
-    private final Map<IrLabel, Set<IrLabel>> subsets;
     private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
 
     @JsonCreator
@@ -85,11 +84,10 @@ public class PatternRecognitionNode
             @JsonProperty("measures") Map<Symbol, Measure> measures,
             @JsonProperty("commonBaseFrame") Optional<Frame> commonBaseFrame,
             @JsonProperty("rowsPerMatch") RowsPerMatch rowsPerMatch,
-            @JsonProperty("skipToLabel") Optional<IrLabel> skipToLabel,
+            @JsonProperty("skipToLabels") Set<IrLabel> skipToLabels,
             @JsonProperty("skipToPosition") SkipToPosition skipToPosition,
             @JsonProperty("initial") boolean initial,
             @JsonProperty("pattern") IrRowPattern pattern,
-            @JsonProperty("subsets") Map<IrLabel, Set<IrLabel>> subsets,
             @JsonProperty("variableDefinitions") Map<IrLabel, ExpressionAndValuePointers> variableDefinitions)
 
     {
@@ -111,10 +109,8 @@ public class PatternRecognitionNode
         checkArgument(rowsPerMatch != WINDOW || commonBaseFrame.isPresent(), "Common base frame is required for pattern recognition in window");
         checkArgument(initial || rowsPerMatch == WINDOW, "Pattern search mode SEEK is only supported in window");
         commonBaseFrame.ifPresent(frame -> checkArgument(frame.getType() == ROWS && frame.getStartType() == CURRENT_ROW, "Invalid common base frame for pattern recognition in window"));
-        requireNonNull(skipToLabel, "skipToLabel is null");
         requireNonNull(skipToPosition, "skipToPosition is null");
         requireNonNull(pattern, "pattern is null");
-        requireNonNull(subsets, "subsets is null");
         requireNonNull(variableDefinitions, "variableDefinitions is null");
 
         this.source = source;
@@ -126,11 +122,10 @@ public class PatternRecognitionNode
         this.measures = ImmutableMap.copyOf(measures);
         this.commonBaseFrame = commonBaseFrame;
         this.rowsPerMatch = rowsPerMatch;
-        this.skipToLabel = skipToLabel;
+        this.skipToLabels = ImmutableSet.copyOf(skipToLabels);
         this.skipToPosition = skipToPosition;
         this.initial = initial;
         this.pattern = pattern;
-        this.subsets = subsets;
         this.variableDefinitions = ImmutableMap.copyOf(variableDefinitions);
     }
 
@@ -227,9 +222,9 @@ public class PatternRecognitionNode
     }
 
     @JsonProperty
-    public Optional<IrLabel> getSkipToLabel()
+    public Set<IrLabel> getSkipToLabels()
     {
-        return skipToLabel;
+        return skipToLabels;
     }
 
     @JsonProperty
@@ -248,12 +243,6 @@ public class PatternRecognitionNode
     public IrRowPattern getPattern()
     {
         return pattern;
-    }
-
-    @JsonProperty
-    public Map<IrLabel, Set<IrLabel>> getSubsets()
-    {
-        return subsets;
     }
 
     @JsonProperty
@@ -282,11 +271,10 @@ public class PatternRecognitionNode
                 measures,
                 commonBaseFrame,
                 rowsPerMatch,
-                skipToLabel,
+                skipToLabels,
                 skipToPosition,
                 initial,
                 pattern,
-                subsets,
                 variableDefinitions);
     }
 

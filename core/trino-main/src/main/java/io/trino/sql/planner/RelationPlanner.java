@@ -629,11 +629,10 @@ class RelationPlanner
                 components.getMeasures(),
                 Optional.empty(),
                 rowsPerMatch,
-                components.getSkipToLabel(),
+                components.getSkipToLabels(),
                 components.getSkipToPosition(),
                 components.isInitial(),
                 components.getPattern(),
-                components.getSubsets(),
                 components.getVariableDefinitions());
 
         return new RelationPlan(planNode, analysis.getScope(node), outputLayout.build(), outerContext);
@@ -660,13 +659,13 @@ class RelationPlanner
             List<VariableDefinition> variableDefinitions)
     {
         // rewrite subsets
-        ImmutableMap.Builder<IrLabel, Set<IrLabel>> rewrittenSubsets = ImmutableMap.builder();
+        ImmutableMap.Builder<IrLabel, Set<IrLabel>> rewrittenSubsetsBuilder = ImmutableMap.builder();
         for (SubsetDefinition subsetDefinition : subsets) {
             IrLabel label = irLabel(subsetDefinition.getName());
             Set<IrLabel> elements = subsetDefinition.getIdentifiers().stream()
                     .map(RelationPlanner::irLabel)
                     .collect(toImmutableSet());
-            rewrittenSubsets.put(label, elements);
+            rewrittenSubsetsBuilder.put(label, elements);
         }
 
         // NOTE: There might be aggregate functions in measure definitions and variable definitions.
@@ -682,11 +681,12 @@ class RelationPlanner
         // rewrite measures
         ImmutableMap.Builder<Symbol, Measure> rewrittenMeasures = ImmutableMap.builder();
         ImmutableList.Builder<Symbol> measureOutputs = ImmutableList.builder();
+        ImmutableMap<IrLabel, Set<IrLabel>> rewrittenSubsets = rewrittenSubsetsBuilder.buildOrThrow();
         for (MeasureDefinition measureDefinition : measures) {
             Type type = analysis.getType(measureDefinition.getExpression());
             Symbol symbol = symbolAllocator.newSymbol(measureDefinition.getName().getValue().toLowerCase(ENGLISH), type);
             Expression expression = expressionRewrite.apply(measureDefinition.getExpression());
-            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.buildOrThrow(), symbolAllocator, plannerContext.getMetadata());
+            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets, symbolAllocator, plannerContext.getMetadata());
             rewrittenMeasures.put(symbol, new Measure(measure, type));
             measureOutputs.add(symbol);
         }
@@ -699,7 +699,7 @@ class RelationPlanner
         for (VariableDefinition variableDefinition : variableDefinitions) {
             IrLabel label = irLabel(variableDefinition.getName());
             Expression expression = expressionRewrite.apply(variableDefinition.getExpression());
-            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.buildOrThrow(), symbolAllocator, plannerContext.getMetadata());
+            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets, symbolAllocator, plannerContext.getMetadata());
             rewrittenVariableDefinitions.put(label, definition);
         }
         // add `true` definition for undefined labels
@@ -707,11 +707,15 @@ class RelationPlanner
             rewrittenVariableDefinitions.put(irLabel(label), ExpressionAndValuePointers.TRUE);
         }
 
+        Set<IrLabel> skipToLabels = skipTo.flatMap(SkipTo::getIdentifier)
+                .map(RelationPlanner::irLabel)
+                .map(label -> rewrittenSubsets.getOrDefault(label, ImmutableSet.of(label)))
+                .orElse(ImmutableSet.of());
+
         return new PatternRecognitionComponents(
-                rewrittenSubsets.buildOrThrow(),
                 rewrittenMeasures.buildOrThrow(),
                 measureOutputs.build(),
-                skipTo.flatMap(SkipTo::getIdentifier).map(RelationPlanner::irLabel),
+                skipToLabels,
                 mapSkipToPosition(skipTo.map(SkipTo::getPosition).orElse(PAST_LAST)),
                 searchMode.map(mode -> mode.getMode() == INITIAL).orElse(TRUE),
                 rewrittenPattern,
@@ -1811,38 +1815,30 @@ class RelationPlanner
 
     public static class PatternRecognitionComponents
     {
-        private final Map<IrLabel, Set<IrLabel>> subsets;
         private final Map<Symbol, Measure> measures;
         private final List<Symbol> measureOutputs;
-        private final Optional<IrLabel> skipToLabel;
+        private final Set<IrLabel> skipToLabels;
         private final SkipToPosition skipToPosition;
         private final boolean initial;
         private final IrRowPattern pattern;
         private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
 
         public PatternRecognitionComponents(
-                Map<IrLabel, Set<IrLabel>> subsets,
                 Map<Symbol, Measure> measures,
                 List<Symbol> measureOutputs,
-                Optional<IrLabel> skipToLabel,
+                Set<IrLabel> skipToLabels,
                 SkipToPosition skipToPosition,
                 boolean initial,
                 IrRowPattern pattern,
                 Map<IrLabel, ExpressionAndValuePointers> variableDefinitions)
         {
-            this.subsets = requireNonNull(subsets, "subsets is null");
             this.measures = requireNonNull(measures, "measures is null");
             this.measureOutputs = requireNonNull(measureOutputs, "measureOutputs is null");
-            this.skipToLabel = requireNonNull(skipToLabel, "skipToLabel is null");
+            this.skipToLabels = ImmutableSet.copyOf(skipToLabels);
             this.skipToPosition = requireNonNull(skipToPosition, "skipToPosition is null");
             this.initial = initial;
             this.pattern = requireNonNull(pattern, "pattern is null");
             this.variableDefinitions = requireNonNull(variableDefinitions, "variableDefinitions is null");
-        }
-
-        public Map<IrLabel, Set<IrLabel>> getSubsets()
-        {
-            return subsets;
         }
 
         public Map<Symbol, Measure> getMeasures()
@@ -1855,9 +1851,9 @@ class RelationPlanner
             return measureOutputs;
         }
 
-        public Optional<IrLabel> getSkipToLabel()
+        public Set<IrLabel> getSkipToLabels()
         {
-            return skipToLabel;
+            return skipToLabels;
         }
 
         public SkipToPosition getSkipToPosition()
