@@ -78,7 +78,7 @@ public interface TrinoFileSystem
 
     /**
      * Deletes the specified file. The file location path cannot be empty, and must not end with
-     * a slash or whitespace. If the file is a director, an exception is raised. If the file does
+     * a slash or whitespace. If the file is a directory, an exception is raised. If the file does
      * not exist, this method is a noop.
      *
      * @throws IllegalArgumentException if location is not valid for this file system
