@@ -55,11 +55,13 @@ public interface CacheManager
          * Output of `cachedSplitA` can be used to derive output of matching `cachedSplitB`
          * (with corresponding {@link PlanSignature}) as long as `cachedSplitB.predicate` is a strict
          * subset of `cachedSplitA.predicate`. To do so, `cachedSplitB.predicate` must be
-         * applied on output of `cachedSplitA`.
+         * applied on output of `cachedSplitA`. Before serialization as a cache key, predicate
+         * needs to be normalized using {@link io.trino.plugin.base.cache.CacheUtils#normalizeTupleDomain(TupleDomain)}.
          * @param unenforcedPredicate Unenforced (best-effort) predicate that should be applied on cached rows.
          * Output of `cachedSplitA` can be used to derive output of matching `cachedSplitB`
          * (with corresponding {@link PlanSignature}) as long as `cachedSplitB.unenforcedPredicate`
-         * is a subset of `cachedSplitA.unenforcedPredicate`.
+         * is a subset of `cachedSplitA.unenforcedPredicate`. Before serialization as a cache key, predicate
+         * needs to be normalized using {@link io.trino.plugin.base.cache.CacheUtils#normalizeTupleDomain(TupleDomain)}.
          * @return cached pages for a given split.
          */
         Optional<ConnectorPageSource> loadPages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate);

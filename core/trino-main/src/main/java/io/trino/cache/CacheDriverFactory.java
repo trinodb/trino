@@ -155,8 +155,8 @@ public class CacheDriverFactory
         }
 
         // load data from cache
-        TupleDomain<CacheColumnId> normalizedDynamicPredicate = normalizeTupleDomain(dynamicPredicate.transformKeys(dynamicFilterColumnMapping::get));
-        Optional<ConnectorPageSource> pageSource = splitCache.loadPages(splitId, signaturePredicate, normalizedDynamicPredicate);
+        TupleDomain<CacheColumnId> signatureDynamicPredicate = dynamicPredicate.transformKeys(dynamicFilterColumnMapping::get);
+        Optional<ConnectorPageSource> pageSource = splitCache.loadPages(splitId, signaturePredicate, signatureDynamicPredicate);
         if (pageSource.isPresent()) {
             cacheStats.recordCacheHit();
             return new DriverFactoryWithCacheContext(
@@ -172,7 +172,7 @@ public class CacheDriverFactory
         // try storing results instead
         // if splits are too large to be cached then do not try caching data as it adds extra computational cost
         if (cachingRatio > THRASHING_CACHE_THRESHOLD) {
-            Optional<ConnectorPageSink> pageSink = splitCache.storePages(splitId, signaturePredicate, normalizedDynamicPredicate);
+            Optional<ConnectorPageSink> pageSink = splitCache.storePages(splitId, signaturePredicate, signatureDynamicPredicate);
             if (pageSink.isPresent()) {
                 return new DriverFactoryWithCacheContext(
                         alternatives.get(STORE_PAGES_ALTERNATIVE),
