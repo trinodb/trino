@@ -70,7 +70,12 @@ public class TableAwarePageSourceProvider
         }
         return connectorAlternativePageSourceProvider
                 .map(factory -> {
-                    ConnectorPageSource pageSource = factory.createPageSource(tableHandle.getTransaction(), session.toConnectorSession(tableHandle.getCatalogHandle()), columns, dynamicFilter);
+                    ConnectorPageSource pageSource = factory.createPageSource(
+                            tableHandle.getTransaction(),
+                            session.toConnectorSession(tableHandle.getCatalogHandle()),
+                            columns,
+                            dynamicFilter,
+                            !split.getFailoverHappened());
                     return dynamicRowFilteringPageSourceProvider.createPageSource(pageSource, session, columns, dynamicFilter);
                 })
                 .orElseGet(() -> pageSourceProvider.createPageSource(session, split, tableHandle, columns, dynamicFilter));

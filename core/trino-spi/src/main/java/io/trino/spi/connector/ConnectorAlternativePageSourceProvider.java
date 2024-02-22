@@ -27,7 +27,8 @@ public interface ConnectorAlternativePageSourceProvider
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter);
+            DynamicFilter dynamicFilter,
+            boolean splitAddressEnforced);
 
     /**
      * Closes this page source provider.

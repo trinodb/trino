@@ -63,7 +63,7 @@ public class MockPlanAlternativeChooser
         int alternative = (planAlternativeSplit.getSplitNumber() + 1) % alternatives.size();
         ConnectorTableHandle table = alternatives.get(alternative);
         checkArgument(alternative == 0 || table instanceof MockPlanAlternativeTableHandle, "Not the trivial alternative, expected a MockPlanAlternativeTableHandle");
-        return new Choice(alternative, (transaction, session1, columns, dynamicFilter) ->
+        return new Choice(alternative, (transaction, session1, columns, dynamicFilter, splitAddressEnforced) ->
                 createPageSource(transaction, session1, planAlternativeSplit, table, columns, dynamicFilter));
     }
 

@@ -43,7 +43,7 @@ public class AlternativeChooser
     public Choice chooseAlternative(Session session, Split split, Collection<TableHandle> alternatives)
     {
         if (split.getConnectorSplit() instanceof EmptySplit) {
-            return new Choice(alternatives.iterator().next(), (transaction, session1, columns, dynamicFilter) -> {
+            return new Choice(alternatives.iterator().next(), (transaction, session1, columns, dynamicFilter, splitAddressEnforced) -> {
                 throw new UnsupportedOperationException("Cannot create page source for empty split");
             });
         }
