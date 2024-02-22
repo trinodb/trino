@@ -786,6 +786,7 @@ SELECT * FROM "test_table$properties"
 write.format.default   | PARQUET  |
 ```
 
+(iceberg-history-table)=
 ##### `$history` table
 
 The `$history` table provides a log of the metadata changes performed on the
@@ -1348,33 +1349,25 @@ ORDER BY committed_at DESC
 ```
 
 (iceberg-create-or-replace)=
+#### Replace tables
 
-#### Replacing tables
+The connector supports replacing an existing table, as an atomic operation.
+Atomic table replacement creates a new snapshot with the new table definition as
+part of the [table history](#iceberg-history-table).
 
-The connector supports replacing a table as an atomic operation. Atomic table
-replacement creates a new snapshot with the new table definition (see
-{doc}`/sql/create-table` and {doc}`/sql/create-table-as`), but keeps table history.
+To replace a table, use [`CREATE OR REPLACE TABLE`](/sql/create-table) or
+[`CREATE OR REPLACE TABLE AS`](/sql/create-table-as).
 
-The new table after replacement is completely new and separate from the old table.
-Only the name of the table remains identical. Earlier snapshots can be retrieved
-through Iceberg's [time travel](iceberg-time-travel).
+Earlier snapshots of the table can be queried through [](iceberg-time-travel).
 
-For example a partitioned table `my_table` can be replaced by completely new
-definition.
+In the following example, a table `example_table` can be replaced by a
+completely new definition and data from the source table:
 
-```
-CREATE TABLE my_table (
-    a BIGINT,
-    b DATE,
-    c BIGINT)
-WITH (partitioning = ARRAY['a']);
-
-CREATE OR REPLACE TABLE my_table
+```sql
+CREATE OR REPLACE TABLE example_table
 WITH (sorted_by = ARRAY['a'])
-AS SELECT * from another_table;
+AS SELECT * FROM another_table;
 ```
-
-Earlier snapshots can be retrieved through Iceberg's [time travel](iceberg-time-travel).
 
 (iceberg-time-travel)=
 
