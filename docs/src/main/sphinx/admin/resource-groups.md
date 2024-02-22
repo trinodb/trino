@@ -132,7 +132,7 @@ are reflected automatically for incoming queries.
   {ref}`scheduleweight-example`.
 
 - `jmxExport` (optional): If true, group statistics are exported to JMX for monitoring.
-  Defaults to `false`.
+  Defaults to `true`.
 
 - `subGroups` (optional): list of sub-groups.
 
