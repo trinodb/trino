@@ -96,11 +96,10 @@ public class PrunePattenRecognitionColumns
                 referencedMeasures,
                 patternRecognitionNode.getCommonBaseFrame(),
                 patternRecognitionNode.getRowsPerMatch(),
-                patternRecognitionNode.getSkipToLabel(),
+                patternRecognitionNode.getSkipToLabels(),
                 patternRecognitionNode.getSkipToPosition(),
                 patternRecognitionNode.isInitial(),
                 patternRecognitionNode.getPattern(),
-                patternRecognitionNode.getSubsets(),
                 patternRecognitionNode.getVariableDefinitions()));
     }
 

@@ -1550,14 +1550,11 @@ public class LocalExecutionPlanner
             List<MeasureComputationSupplier> measureComputations = measuresBuilder.build();
 
             // 6. prepare SKIP TO navigation
-            Optional<LogicalIndexNavigation> skipToNavigation = node.getSkipToLabel().map(label -> {
-                Set<IrLabel> labels = node.getSubsets().get(label);
-                if (labels == null) {
-                    labels = ImmutableSet.of(label);
-                }
+            Optional<LogicalIndexNavigation> skipToNavigation = Optional.empty();
+            if (!node.getSkipToLabels().isEmpty()) {
                 boolean last = node.getSkipToPosition().equals(LAST);
-                return new LogicalIndexPointer(labels, last, false, 0, 0).toLogicalIndexNavigation(mapping);
-            });
+                skipToNavigation = Optional.of(new LogicalIndexPointer(node.getSkipToLabels(), last, false, 0, 0).toLogicalIndexNavigation(mapping));
+            }
 
             // 7. pass additional info like: rowsPerMatch, skipToPosition, initial to the WindowPartition factory supplier
             PartitionerSupplier partitionerSupplier = new PatternRecognitionPartitionerSupplier(

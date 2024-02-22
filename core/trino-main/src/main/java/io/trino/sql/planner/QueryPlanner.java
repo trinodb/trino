@@ -1879,11 +1879,10 @@ class QueryPlanner
                         components.getMeasures(),
                         Optional.of(baseFrame),
                         WINDOW,
-                        components.getSkipToLabel(),
+                        components.getSkipToLabels(),
                         components.getSkipToPosition(),
                         components.isInitial(),
                         components.getPattern(),
-                        components.getSubsets(),
                         components.getVariableDefinitions()));
     }
 
@@ -2012,11 +2011,10 @@ class QueryPlanner
                         components.getMeasures(),
                         Optional.of(baseFrame),
                         WINDOW,
-                        components.getSkipToLabel(),
+                        components.getSkipToLabels(),
                         components.getSkipToPosition(),
                         components.isInitial(),
                         components.getPattern(),
-                        components.getSubsets(),
                         components.getVariableDefinitions()));
     }
 

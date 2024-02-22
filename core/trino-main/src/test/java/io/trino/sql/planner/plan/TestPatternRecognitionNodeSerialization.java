@@ -214,13 +214,10 @@ public class TestPatternRecognitionNodeSerialization
                         new Measure(new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()), BOOLEAN)),
                 Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())),
                 WINDOW,
-                Optional.of(new IrLabel("B")),
+                ImmutableSet.of(new IrLabel("B")),
                 LAST,
                 true,
                 new IrConcatenation(ImmutableList.of(new IrLabel("A"), new IrLabel("B"), new IrLabel("C"))),
-                ImmutableMap.of(
-                        new IrLabel("U"), ImmutableSet.of(new IrLabel("A"), new IrLabel("B")),
-                        new IrLabel("V"), ImmutableSet.of(new IrLabel("B"), new IrLabel("C"))),
                 ImmutableMap.of(
                         new IrLabel("B"), new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()),
                         new IrLabel("C"), new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of())));
@@ -229,11 +226,10 @@ public class TestPatternRecognitionNodeSerialization
 
         assertThat(roundtripNode.getMeasures()).isEqualTo(node.getMeasures());
         assertThat(roundtripNode.getRowsPerMatch()).isEqualTo(node.getRowsPerMatch());
-        assertThat(roundtripNode.getSkipToLabel()).isEqualTo(node.getSkipToLabel());
+        assertThat(roundtripNode.getSkipToLabels()).isEqualTo(node.getSkipToLabels());
         assertThat(roundtripNode.getSkipToPosition()).isEqualTo(node.getSkipToPosition());
         assertThat(roundtripNode.isInitial()).isEqualTo(node.isInitial());
         assertThat(roundtripNode.getPattern()).isEqualTo(node.getPattern());
-        assertThat(roundtripNode.getSubsets()).isEqualTo(node.getSubsets());
         assertThat(roundtripNode.getVariableDefinitions()).isEqualTo(node.getVariableDefinitions());
     }
 

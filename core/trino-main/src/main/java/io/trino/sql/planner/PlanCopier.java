@@ -316,11 +316,10 @@ public final class PlanCopier
                     node.getMeasures(),
                     node.getCommonBaseFrame(),
                     node.getRowsPerMatch(),
-                    node.getSkipToLabel(),
+                    node.getSkipToLabels(),
                     node.getSkipToPosition(),
                     node.isInitial(),
                     node.getPattern(),
-                    node.getSubsets(),
                     node.getVariableDefinitions());
         }
 

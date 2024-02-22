@@ -476,11 +476,10 @@ public class AddLocalExchanges
                     node.getMeasures(),
                     node.getCommonBaseFrame(),
                     node.getRowsPerMatch(),
-                    node.getSkipToLabel(),
+                    node.getSkipToLabels(),
                     node.getSkipToPosition(),
                     node.isInitial(),
                     node.getPattern(),
-                    node.getSubsets(),
                     node.getVariableDefinitions());
 
             return deriveProperties(result, child.getProperties());

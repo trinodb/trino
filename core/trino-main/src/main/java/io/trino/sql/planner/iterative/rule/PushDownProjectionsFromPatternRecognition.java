@@ -102,11 +102,10 @@ public class PushDownProjectionsFromPatternRecognition
                 rewrittenMeasureDefinitions,
                 node.getCommonBaseFrame(),
                 node.getRowsPerMatch(),
-                node.getSkipToLabel(),
+                node.getSkipToLabels(),
                 node.getSkipToPosition(),
                 node.isInitial(),
                 node.getPattern(),
-                node.getSubsets(),
                 rewrittenVariableDefinitions);
 
         return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), patternRecognitionNode, ImmutableSet.copyOf(node.getOutputSymbols())).orElse(patternRecognitionNode));
