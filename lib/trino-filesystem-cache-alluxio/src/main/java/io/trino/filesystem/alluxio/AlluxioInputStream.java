@@ -36,6 +36,7 @@ import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
 import static java.lang.Integer.max;
 import static java.lang.Math.addExact;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
@@ -119,7 +120,7 @@ public class AlluxioInputStream
         if (position >= fileLength) {
             return -1;
         }
-        int bytesRead = doRead(bytes, offset, length);
+        int bytesRead = doRead(bytes, offset, toIntExact(min(fileLength - position, length)));
         position += bytesRead;
         return bytesRead;
     }
