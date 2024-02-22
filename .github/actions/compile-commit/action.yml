@@ -41,7 +41,7 @@ runs:
 
         # For building with Maven we need MAVEN_OPTS to equal MAVEN_INSTALL_OPTS
         export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-        $MAVEN package \
+        $MAVEN install \
           ${MAVEN_COMPILE_COMMITS} `# defaults, kept in sync with ci.yml` \
           -Dair.check.skip-all=false -Dair.check.skip-basic=true -Dair.check.skip-extended=true -Dair.check.skip-checkstyle=false \
           ${MAVEN_GIB}
