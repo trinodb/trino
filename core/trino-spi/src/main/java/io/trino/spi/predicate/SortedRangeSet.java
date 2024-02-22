@@ -20,6 +20,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
@@ -425,6 +426,31 @@ public final class SortedRangeSet
                 sortedRanges,
                 lastIndex)
                 .toRange();
+    }
+
+    public SortedRangeSet normalize()
+    {
+        if (sortedRanges instanceof DictionaryBlock dictionary) {
+            // unwrap dictionary block
+            int[] positions = new int[dictionary.getPositionCount()];
+            for (int position = 0; position < positions.length; position++) {
+                positions[position] = dictionary.getUnderlyingValuePosition(position);
+            }
+            return new SortedRangeSet(type, inclusive, dictionary.getUnderlyingValueBlock().copyPositions(positions, 0, positions.length));
+        }
+
+        if (sortedRanges instanceof RunLengthEncodedBlock rleBlock) {
+            // unwrap RLE block
+            int[] positions = new int[rleBlock.getPositionCount()];
+            Arrays.fill(positions, 0);
+            return new SortedRangeSet(type, inclusive, rleBlock.getUnderlyingValueBlock().copyPositions(positions, 0, positions.length));
+        }
+
+        if (!(sortedRanges instanceof ValueBlock)) {
+            throw new IllegalStateException("Unexpected block type " + sortedRanges.getClass().getSimpleName());
+        }
+
+        return this;
     }
 
     private Range getRange(int rangeIndex)

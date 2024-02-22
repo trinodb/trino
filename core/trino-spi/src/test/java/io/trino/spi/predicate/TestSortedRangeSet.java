@@ -18,6 +18,9 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.TestingBlockJsonSerde;
 import io.trino.spi.type.TestingTypeDeserializer;
@@ -32,6 +35,7 @@ import java.util.Optional;
 import java.util.stream.LongStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -599,6 +603,37 @@ public class TestSortedRangeSet
         assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(BIGINT, 0L))).isEqualTo(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
         assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isEqualTo(SortedRangeSet.of(Range.range(BIGINT, 0L, false, 1L, false), Range.greaterThan(BIGINT, 1L)));
         assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isEqualTo(SortedRangeSet.none(BIGINT));
+    }
+
+    @Test
+    public void testNormalizeDictionarySortedRanges()
+    {
+        SortedRangeSet values = (SortedRangeSet) ValueSet.of(BIGINT, 0L, -1L);
+
+        // make sure normalization preserves equality of TupleDomains
+        SortedRangeSet normalizedValues = values.normalize();
+        assertThat(normalizedValues).isEqualTo(values);
+        assertBlockEquals(BIGINT, normalizedValues.getSortedRanges(), values.getSortedRanges());
+        assertThat(values.getSortedRanges()).isInstanceOf(DictionaryBlock.class);
+        assertThat(normalizedValues.getSortedRanges()).isInstanceOf(LongArrayBlock.class);
+
+        // further normalization shouldn't change SortedRangeSet underlying block
+        SortedRangeSet doubleNormalizedValues = normalizedValues.normalize();
+        assertThat(doubleNormalizedValues.getSortedRanges()).isInstanceOf(LongArrayBlock.class);
+        assertBlockEquals(BIGINT, doubleNormalizedValues.getSortedRanges(), normalizedValues.getSortedRanges());
+    }
+
+    @Test
+    public void testNormalizeRleSortedRanges()
+    {
+        SortedRangeSet values = (SortedRangeSet) ValueSet.of(BIGINT, 0L);
+
+        // make sure normalization preserves equality of TupleDomains
+        SortedRangeSet normalizedValues = values.normalize();
+        assertThat(normalizedValues).isEqualTo(values);
+        assertBlockEquals(BIGINT, normalizedValues.getSortedRanges(), values.getSortedRanges());
+        assertThat(values.getSortedRanges()).isInstanceOf(RunLengthEncodedBlock.class);
+        assertThat(normalizedValues.getSortedRanges()).isInstanceOf(LongArrayBlock.class);
     }
 
     @Test

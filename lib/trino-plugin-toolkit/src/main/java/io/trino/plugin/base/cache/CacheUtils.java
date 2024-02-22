@@ -52,9 +52,7 @@ public final class CacheUtils
                             Domain domain = entry.getValue();
                             if (domain.getValues() instanceof SortedRangeSet values) {
                                 // normalize sorted range set
-                                domain = Domain.create(
-                                        SortedRangeSet.copyOf(values.getType(), values.getOrderedRanges()),
-                                        domain.isNullAllowed());
+                                domain = Domain.create(values.normalize(), domain.isNullAllowed());
                             }
                             return domain;
                         })));
