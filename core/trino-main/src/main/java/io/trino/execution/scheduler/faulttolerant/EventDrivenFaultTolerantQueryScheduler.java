@@ -118,6 +118,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.ref.SoftReference;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -127,6 +128,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -673,6 +675,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private static final long SCHEDULER_MAX_DEBUG_INFO_FREQUENCY_MILLIS = MINUTES.toMillis(10);
         private static final long SCHEDULER_STALLED_DURATION_ON_TIME_EXCEEDED_THRESHOLD_MILLIS = SECONDS.toMillis(30);
         private static final int EVENTS_DEBUG_INFOS_PER_BUCKET = 10;
+        private static final int TASK_FAILURES_LOG_SIZE = 5;
 
         private final QueryStateMachine queryStateMachine;
         private final Metadata metadata;
@@ -711,6 +714,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final Stopwatch noEventsStopwatch = Stopwatch.createUnstarted();
         private final Stopwatch debugInfoStopwatch = Stopwatch.createUnstarted();
         private final Optional<EventDebugInfos> eventDebugInfos;
+        private final Queue<Map.Entry<TaskId, RuntimeException>> taskFailures = new ArrayDeque<>(TASK_FAILURES_LOG_SIZE);
 
         private boolean started;
         private boolean runtimeAdaptivePartitioningApplied;
@@ -1032,6 +1036,11 @@ public class EventDrivenFaultTolerantQueryScheduler
                     RuntimeException failure = failureCause == null ?
                             new TrinoException(GENERIC_INTERNAL_ERROR, "stage failed due to unknown error: %s".formatted(execution.getStageId())) :
                             failureCause.toException();
+
+                    taskFailures.forEach(taskFailure -> {
+                        failure.addSuppressed(new RuntimeException("Task " + taskFailure.getKey() + " failed", taskFailure.getValue()));
+                    });
+
                     queryStateMachine.transitionToFailed(failure);
                     return true;
                 }
@@ -1490,6 +1499,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 };
                 StageExecution execution = new StageExecution(
                         taskDescriptorStorage,
+                        taskFailures,
                         stage,
                         taskSource,
                         sinkPartitioningScheme,
@@ -1896,6 +1906,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     public static class StageExecution
     {
         private final TaskDescriptorStorage taskDescriptorStorage;
+        private final Queue<Map.Entry<TaskId, RuntimeException>> taskFailures;
 
         private final SqlStage stage;
         private final EventDrivenTaskSource taskSource;
@@ -1938,6 +1949,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private StageExecution(
                 TaskDescriptorStorage taskDescriptorStorage,
+                Queue<Map.Entry<TaskId, RuntimeException>> taskFailures,
                 SqlStage stage,
                 EventDrivenTaskSource taskSource,
                 FaultTolerantPartitioningScheme sinkPartitioningScheme,
@@ -1953,6 +1965,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 DynamicFilterService dynamicFilterService)
         {
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
+            this.taskFailures = requireNonNull(taskFailures, "taskFailures is null");
             this.stage = requireNonNull(stage, "stage is null");
             this.taskSource = requireNonNull(taskSource, "taskSource is null");
             this.sinkPartitioningScheme = requireNonNull(sinkPartitioningScheme, "sinkPartitioningScheme is null");
@@ -2452,6 +2465,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return ImmutableList.of();
             }
 
+            recordTaskFailureInLog(taskId, failure);
+
             if (!partition.isSealed()) {
                 // don't reschedule speculative tasks
                 return ImmutableList.of();
@@ -2576,6 +2591,14 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             checkArgument(noMorePartitions, "noMorePartitions not set yet");
             return nextPartitionId++;
+        }
+
+        private void recordTaskFailureInLog(TaskId taskId, RuntimeException failure)
+        {
+            if (taskFailures.size() == Scheduler.TASK_FAILURES_LOG_SIZE) {
+                taskFailures.remove();
+            }
+            taskFailures.add(Map.entry(taskId, failure));
         }
 
         public MemoryRequirements getMemoryRequirements(int partitionId)
