@@ -38,6 +38,17 @@
         </dependency>
     </dependencies>
 
+    <!-- Needed for provisio to resolve transitive dependencies for server assembly -->
+    <repositories>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>confluent</id>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
+
     <build>
         <plugins>
             <plugin>
