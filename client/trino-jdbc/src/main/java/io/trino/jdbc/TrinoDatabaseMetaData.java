@@ -953,7 +953,7 @@ public class TrinoDatabaseMetaData
                 "FROM system.jdbc.tables");
 
         List<String> filters = new ArrayList<>();
-        emptyStringEqualsFilter(filters, "TABLE_CAT", catalog);
+        emptyStringEqualsFilter(filters, "TABLE_CAT", effectiveCatalog(catalog));
         emptyStringLikeFilter(filters, "TABLE_SCHEM", schemaPattern);
         optionalStringLikeFilter(filters, "TABLE_NAME", tableNamePattern);
         optionalStringInFilter(filters, "TABLE_TYPE", types);
@@ -1011,7 +1011,7 @@ public class TrinoDatabaseMetaData
                 "FROM system.jdbc.columns");
 
         List<String> filters = new ArrayList<>();
-        emptyStringEqualsFilter(filters, "TABLE_CAT", catalog);
+        emptyStringEqualsFilter(filters, "TABLE_CAT", effectiveCatalog(catalog));
         emptyStringLikeFilter(filters, "TABLE_SCHEM", schemaPattern);
         optionalStringLikeFilter(filters, "TABLE_NAME", tableNamePattern);
         optionalStringLikeFilter(filters, "COLUMN_NAME", columnNamePattern);
@@ -1393,7 +1393,7 @@ public class TrinoDatabaseMetaData
                 "FROM system.jdbc.schemas");
 
         List<String> filters = new ArrayList<>();
-        emptyStringEqualsFilter(filters, "TABLE_CATALOG", catalog);
+        emptyStringEqualsFilter(filters, "TABLE_CATALOG", effectiveCatalog(catalog));
         optionalStringLikeFilter(filters, "TABLE_SCHEM", schemaPattern);
         buildFilters(query, filters);
 
@@ -1650,5 +1650,14 @@ public class TrinoDatabaseMetaData
             }
         }
         out.append('\'');
+    }
+
+    private String effectiveCatalog(String catalog)
+            throws SQLException
+    {
+        if (connection.getAssumeNullCatalogMeansCurrentCatalog() && catalog == null) {
+            return connection.getCatalog();
+        }
+        return catalog;
     }
 }
