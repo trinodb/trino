@@ -50,6 +50,13 @@ public abstract class AbstractTestOzoneFileSystem
         fileSystemFactory = null;
     }
 
+    // Can't find a way to create exclusively in Ozone createKey api
+    // it can be done with createFile() but it use hierarchical fs semantics
+    protected boolean isCreateExclusive()
+    {
+        return false;
+    }
+
     @Override
     protected final boolean isHierarchical()
     {
@@ -71,14 +78,9 @@ public abstract class AbstractTestOzoneFileSystem
     @Override
     protected void verifyFileSystemIsEmpty()
     {
+        // TODO
 //        String bucket = new GcsLocation(rootLocation).bucket();
 //        assertThat(storage.list(bucket).iterateAll()).isEmpty();
-    }
-
-    @Override
-    protected final boolean supportsCreateExclusive()
-    {
-        return true;
     }
 
     @Override
