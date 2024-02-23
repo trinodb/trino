@@ -29,7 +29,6 @@ class OzoneOutputFile
     private final OzoneLocation location;
     private final ObjectStore store;
 
-
     public OzoneOutputFile(OzoneLocation location, ObjectStore store)
     {
         this.location = requireNonNull(location, "location is null");

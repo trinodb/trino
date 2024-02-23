@@ -75,7 +75,6 @@ Memo:
 Trino FS related:
 * https://github.com/trinodb/trino/blob/4829f69019029c521c8454161dfe278dc267a662/lib/trino-filesystem-s3/src/main/java/io/trino/filesystem/s3/S3OutputFile.java#L43
 is this assumption true? Gcs/Azure/HDFS/LocalFS return FileAlreadyExistsException. S3 is always Overwrite.
-Azure enforce until data is written (overwrite)
 * deleteFile() { location.verifyValidFileLocation(); }exist in azure and s3, but not gcs
 * which ops are not required to impl for object storaged type of access is not clearly defined
 renameFile() is implemented for azure, but not s3 and gcs
