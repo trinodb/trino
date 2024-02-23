@@ -20,14 +20,15 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
-import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class OzoneFileSystem
         implements TrinoFileSystem
@@ -106,6 +107,7 @@ public class OzoneFileSystem
     public Optional<Boolean> directoryExists(Location location)
             throws IOException
     {
+        // TODO: is listFiles() needed?
         return Optional.empty();
     }
 
@@ -131,8 +133,20 @@ public class OzoneFileSystem
     public Set<Location> listDirectories(Location location)
             throws IOException
     {
-        // TODO
-        throw new UnsupportedOperationException();
+        // TODO: is this needed for blob storage?
+        // TOOD: handle volume and bucket listing
+        // see org.apache.hadoop.fs.ozone.BasicRootedOzoneClientAdapterImpl#listStatus
+        OzoneLocation ozoneLocation = new OzoneLocation(location);
+        OzoneVolume ozoneVolume = objectStore.getVolume(ozoneLocation.volume());
+        OzoneBucket bucket = ozoneVolume.getBucket(ozoneLocation.bucket());
+        // TODO: int OZONE_FS_LISTING_PAGE_SIZE_DEFAULT = 1024;
+        // TODO: isPartialPrefix?
+        return bucket.listStatus(ozoneLocation.key(), false, "", 1024)
+                .stream()
+                .filter(OzoneFileStatus::isDirectory)
+                .map(OzoneFileStatus::getPath)
+                .map(Location::of)
+                .collect(toImmutableSet());
     }
 
     @Override

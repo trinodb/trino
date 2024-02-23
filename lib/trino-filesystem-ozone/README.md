@@ -78,7 +78,8 @@ is this assumption true? Gcs/Azure/HDFS/LocalFS return FileAlreadyExistsExceptio
 Azure enforce until data is written (overwrite)
 * deleteFile() { location.verifyValidFileLocation(); }exist in azure and s3, but not gcs
 * which ops are not required to impl for object storaged type of access is not clearly defined
-renameFile() is implemented for azure, but not s3 and gcs 
+renameFile() is implemented for azure, but not s3 and gcs
+directoryExists() should return Optional.empty() for blob according to comment, but s3/gcs/azure all do a list file ops. Is this needed?
 
 
 
