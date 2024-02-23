@@ -18,6 +18,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
@@ -61,7 +62,8 @@ class OzoneTrinoOutputStream
             OzoneVolume ozoneVolume = store.getVolume(location.volume());
             OzoneBucket bucket = ozoneVolume.getBucket(location.bucket());
             // TODO
-            ReplicationConfig replicationConfig = RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.valueOf(3));
+//            ReplicationConfig replicationConfig = RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.valueOf(3));
+            ReplicationConfig replicationConfig = StandaloneReplicationConfig.getInstance(HddsProtos.ReplicationFactor.valueOf(1));;
             OzoneOutputStream ozoneOutputStream = bucket.createFile(location.key(), 0, replicationConfig, overwrite, true);
 
             // TODO It is not clear if the buffered stream helps or hurts... the underlying implementation seems to copy every write to a byte buffer so small writes will suffer

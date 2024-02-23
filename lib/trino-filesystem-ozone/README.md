@@ -1,5 +1,8 @@
 # PoC only. Use at your own risk.
 
+https://github.com/apache/ozone/pull/5993
+Needs `--add-opens=java.base/java.nio=ALL-UNNAMED`
+
 # Overall
 ```
 Legacy (File system style access):
@@ -114,7 +117,7 @@ aws s3api --endpoint http://192.168.49.2:30194 list-objects --bucket bucket1
 
 
 
-➜  minikube minikube service s3g-public
+➜  minikube service s3g-public
 |-----------|------------|-------------|---------------------------|
 | NAMESPACE |    NAME    | TARGET PORT |            URL            |
 |-----------|------------|-------------|---------------------------|
@@ -123,7 +126,7 @@ aws s3api --endpoint http://192.168.49.2:30194 list-objects --bucket bucket1
 🎉  Opening service default/s3g-public in default browser...
 ➜  minikube Gtk-Message: 22:09:50.897: Not loading module "atk-bridge": The functionality is provided by GTK natively. Please try to not load it.
 
-➜  minikube minikube service om-public
+➜  minikube service om-public
 |-----------|-----------|----------------|---------------------------|
 | NAMESPACE |   NAME    |  TARGET PORT   |            URL            |
 |-----------|-----------|----------------|---------------------------|

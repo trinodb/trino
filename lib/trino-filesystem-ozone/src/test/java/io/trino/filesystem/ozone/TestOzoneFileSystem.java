@@ -20,6 +20,7 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -28,7 +29,15 @@ import java.util.Iterator;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestOzoneFileSystem
+        extends AbstractTestOzoneFileSystem
 {
+    @BeforeAll
+    void setup()
+            throws IOException
+    {
+        initialize("");
+    }
+
     @Test
     void test()
             throws IOException
@@ -44,18 +53,12 @@ public class TestOzoneFileSystem
 //        objectStore.createVolume("assets");
         // Let us verify that the volume got created.
         OzoneVolume assets = objectStore.getVolume("s3v");
-//        // Let us create a bucket called videos.
-//        assets.createBucket("videos");
 
         OzoneBucket bucket1 = assets.getBucket("bucket1");
 
         Iterator<? extends OzoneKey> iterator = bucket1.listKeys("/");
         while (iterator.hasNext()) {
             OzoneKey next = iterator.next();
-            next.getMetadata().forEach((a, b) -> {
-                System.out.println(a);
-                System.out.println(b);
-            });
             System.out.println(next.getBucketName());
             System.out.println(next.getBucketName());
         }
