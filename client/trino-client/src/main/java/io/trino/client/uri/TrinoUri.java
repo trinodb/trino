@@ -66,6 +66,7 @@ import static io.trino.client.uri.ConnectionProperties.ACCESS_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.trino.client.uri.ConnectionProperties.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
 import static io.trino.client.uri.ConnectionProperties.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
+import static io.trino.client.uri.ConnectionProperties.ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG;
 import static io.trino.client.uri.ConnectionProperties.CLIENT_INFO;
 import static io.trino.client.uri.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.client.uri.ConnectionProperties.DISABLE_COMPRESSION;
@@ -170,6 +171,7 @@ public class TrinoUri
     private Optional<Map<String, String>> sessionProperties;
     private Optional<String> source;
     private Optional<Boolean> explicitPrepare;
+    private Optional<Boolean> assumeNullCatalogMeansCurrentCatalog;
 
     private Optional<String> catalog = Optional.empty();
     private Optional<String> schema = Optional.empty();
@@ -223,7 +225,8 @@ public class TrinoUri
             Optional<String> traceToken,
             Optional<Map<String, String>> sessionProperties,
             Optional<String> source,
-            Optional<Boolean> explicitPrepare)
+            Optional<Boolean> explicitPrepare,
+            Optional<Boolean> assumeNullCatalogMeansCurrentCatalog)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
@@ -277,6 +280,7 @@ public class TrinoUri
         this.sessionProperties = SESSION_PROPERTIES.getValueOrDefault(urlProperties, sessionProperties);
         this.source = SOURCE.getValueOrDefault(urlProperties, source);
         this.explicitPrepare = EXPLICIT_PREPARE.getValueOrDefault(urlProperties, explicitPrepare);
+        this.assumeNullCatalogMeansCurrentCatalog = ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG.getValueOrDefault(urlProperties, assumeNullCatalogMeansCurrentCatalog);
 
         properties = buildProperties();
 
@@ -423,6 +427,7 @@ public class TrinoUri
         this.sessionProperties = SESSION_PROPERTIES.getValue(properties);
         this.source = SOURCE.getValue(properties);
         this.explicitPrepare = EXPLICIT_PREPARE.getValue(properties);
+        this.assumeNullCatalogMeansCurrentCatalog = ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG.getValue(properties);
 
         // enable SSL by default for the trino schema and the standard port
         useSecureConnection = ssl.orElse(uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443));
@@ -533,6 +538,11 @@ public class TrinoUri
     public Optional<Boolean> getExplicitPrepare()
     {
         return explicitPrepare;
+    }
+
+    public Optional<Boolean> getAssumeNullCatalogMeansCurrentCatalog()
+    {
+        return assumeNullCatalogMeansCurrentCatalog;
     }
 
     public boolean isCompressionDisabled()
@@ -941,6 +951,7 @@ public class TrinoUri
         private Map<String, String> sessionProperties;
         private String source;
         private Boolean explicitPrepare;
+        private Boolean assumeNullCatalogMeansCurrentCatalog;
 
         private Builder() {}
 
@@ -1235,6 +1246,12 @@ public class TrinoUri
             return this;
         }
 
+        public Builder setAssumeNullCatalogMeansCurrentCatalog(Boolean assumeNullCatalogMeansCurrentCatalog)
+        {
+            this.assumeNullCatalogMeansCurrentCatalog = requireNonNull(assumeNullCatalogMeansCurrentCatalog, "assumeNullCatalogMeansCurrentCatalog is null");
+            return this;
+        }
+
         public TrinoUri build()
                 throws SQLException
         {
@@ -1284,7 +1301,8 @@ public class TrinoUri
                     Optional.ofNullable(traceToken),
                     Optional.ofNullable(sessionProperties),
                     Optional.ofNullable(source),
-                    Optional.ofNullable(explicitPrepare));
+                    Optional.ofNullable(explicitPrepare),
+                    Optional.ofNullable(assumeNullCatalogMeansCurrentCatalog));
         }
     }
 }
