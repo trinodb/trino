@@ -212,21 +212,15 @@ public class PatternRecognitionAnalyzer
                 });
     }
 
-    public static void validateNoMatchNumber(List<MeasureDefinition> measures, List<VariableDefinition> variableDefinitions, Set<NodeRef<FunctionCall>> patternRecognitionFunctions)
+    public static void validateNoMatchNumber(Expression expression, Set<NodeRef<FunctionCall>> patternRecognitionFunctions)
     {
-        List<Expression> expressions = Streams.concat(
-                measures.stream()
-                        .map(MeasureDefinition::getExpression),
-                variableDefinitions.stream()
-                        .map(VariableDefinition::getExpression))
-                .collect(toImmutableList());
-        expressions.forEach(expression -> preOrder(expression)
+        preOrder(expression)
                 .filter(child -> patternRecognitionFunctions.contains(NodeRef.of(child)))
                 .filter(child -> ((FunctionCall) child).getName().getSuffix().equalsIgnoreCase("MATCH_NUMBER"))
                 .findFirst()
                 .ifPresent(matchNumber -> {
                     throw semanticException(INVALID_PATTERN_RECOGNITION_FUNCTION, matchNumber, "MATCH_NUMBER function is not supported in window");
-                }));
+                });
     }
 
     private static String label(Identifier identifier)
