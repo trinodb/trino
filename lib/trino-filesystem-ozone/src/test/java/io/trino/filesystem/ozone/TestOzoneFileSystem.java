@@ -25,6 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Iterator;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -43,7 +45,7 @@ public class TestOzoneFileSystem
             throws IOException
     {
         OzoneConfiguration conf = new OzoneConfiguration();
-        OzoneClient ozoneClient = OzoneClientFactory.getRpcClient("192.168.49.2", 31193, conf);
+        OzoneClient ozoneClient = OzoneClientFactory.getRpcClient("127.0.1.1", 9862, conf);
 
         // Get a reference to the ObjectStore using the client
         ObjectStore objectStore = ozoneClient.getObjectStore();
@@ -59,8 +61,17 @@ public class TestOzoneFileSystem
         Iterator<? extends OzoneKey> iterator = bucket1.listKeys("/");
         while (iterator.hasNext()) {
             OzoneKey next = iterator.next();
+            System.out.println(next.getVolumeName());
             System.out.println(next.getBucketName());
-            System.out.println(next.getBucketName());
+            System.out.println(next.getName());
+            System.out.println(next.getCreationTime());
+            System.out.println(next.getDataSize());
+            System.out.println(next.getModificationTime());
+            System.out.println(next.getReplicationConfig());
+            if (next.isFile()) {
+                byte[] bytes = bucket1.readFile(next.getName()).readAllBytes();
+                System.out.println(new String(bytes, StandardCharsets.UTF_8));
+            }
         }
     }
 }

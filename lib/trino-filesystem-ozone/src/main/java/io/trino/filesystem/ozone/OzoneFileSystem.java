@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
 
 import java.io.IOException;
@@ -29,6 +30,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 
 public class OzoneFileSystem
         implements TrinoFileSystem
@@ -72,7 +74,15 @@ public class OzoneFileSystem
         OzoneLocation ozoneLocation = new OzoneLocation(location);
         OzoneVolume ozoneVolume = objectStore.getVolume(ozoneLocation.volume());
         OzoneBucket bucket = ozoneVolume.getBucket(ozoneLocation.bucket());
-        bucket.deleteKey(ozoneLocation.key());
+        try {
+            bucket.deleteKey(ozoneLocation.key());
+        }
+        catch (OMException e) {
+            if (e.getResult().equals(KEY_NOT_FOUND)) {
+                return;
+            }
+            throw e;
+        }
     }
 
     @Override

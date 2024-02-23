@@ -61,7 +61,7 @@ public class OzoneFileSystemFactory
     {
         OzoneConfiguration conf = new OzoneConfiguration();
         try {
-            OzoneClient ozoneClient = OzoneClientFactory.getRpcClient("192.168.49.2", 31193, conf);
+            OzoneClient ozoneClient = OzoneClientFactory.getRpcClient("127.0.0.1", 9862, conf);
             ObjectStore objectStore = ozoneClient.getObjectStore();
             return new OzoneFileSystem(objectStore);
         }

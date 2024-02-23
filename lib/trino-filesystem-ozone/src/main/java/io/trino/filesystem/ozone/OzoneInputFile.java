@@ -19,8 +19,10 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
+import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.om.exceptions.OMException;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -28,6 +30,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 
 public class OzoneInputFile
         implements TrinoInputFile
@@ -85,7 +88,17 @@ public class OzoneInputFile
     public boolean exists()
             throws IOException
     {
-        // TODO
+        OzoneVolume ozoneVolume = storage.getVolume(location.volume());
+        OzoneBucket bucket = ozoneVolume.getBucket(location.bucket());
+        try {
+            bucket.headObject(location.key());
+        }
+        catch (OMException e) {
+            if (e.getResult().equals(KEY_NOT_FOUND)) {
+                return false;
+            }
+            throw e;
+        }
         return true;
     }
 

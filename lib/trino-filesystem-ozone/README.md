@@ -84,21 +84,29 @@ renameFile() is implemented for azure, but not s3 and gcs
 directoryExists() should return Optional.empty() for blob according to comment, but s3/gcs/azure all do a list file ops. Is this needed?
 
 
+# Setup Ozone using docker compose
+docker run apache/ozone cat docker-compose.yaml > docker-compose.yaml
+docker run apache/ozone cat docker-config > docker-config
+docker compose up -d
 
+Add ports to om
+```
+      ports:
+         - 9862:9862
+```
 # Setup Ozone using minikube
+This didn't work. Trino cannot connecto to data node because they only have k8s internal ip.  
+
 export AWS_ACCESS_KEY_ID=testuser/scm@EXAMPLE.COM
 export AWS_SECRET_ACCESS_KEY=xyz
 
-aws s3api --endpoint http://192.168.49.2:30194 create-bucket --bucket=wordcount
-
-
-aws s3api --endpoint http://192.168.49.2:30194 create-bucket --bucket=bucket1
+aws s3api --endpoint http://localhost:9878/ create-bucket --bucket=bucket1
 ls -1 > /tmp/testfile
 
-aws s3api --endpoint http://192.168.49.2:30194 put-object --bucket bucket1 --key s3://bucket1/testfile --body /tmp/testfile
+aws s3api --endpoint http://localhost:9878/ put-object --bucket bucket1 --key s3://bucket1/testfile --body /tmp/testfile
 
 
-aws s3api --endpoint http://192.168.49.2:30194 list-objects --bucket bucket1
+aws s3api --endpoint http://localhost:9878/ list-objects --bucket bucket1
 ```
 {
     "Contents": [
@@ -121,7 +129,7 @@ aws s3api --endpoint http://192.168.49.2:30194 list-objects --bucket bucket1
 |-----------|------------|-------------|---------------------------|
 | NAMESPACE |    NAME    | TARGET PORT |            URL            |
 |-----------|------------|-------------|---------------------------|
-| default   | s3g-public | rest/9878   | http://192.168.49.2:30194 |
+| default   | s3g-public | rest/9878   | http://localhost:9878/ |
 |-----------|------------|-------------|---------------------------|
 🎉  Opening service default/s3g-public in default browser...
 ➜  minikube Gtk-Message: 22:09:50.897: Not loading module "atk-bridge": The functionality is provided by GTK natively. Please try to not load it.
