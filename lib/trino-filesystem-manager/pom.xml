@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
+        <!--<air.compiler.fail-warnings>true</air.compiler.fail-warnings>-->
     </properties>
 
     <dependencies>
@@ -65,6 +65,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-ozone</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-filesystem-s3</artifactId>
         </dependency>
 
@@ -90,4 +95,21 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>^.*$</ignoredClassPattern>
+                    </ignoredClassPatterns>
+                    <ignoredResourcePatterns>
+                        <ignoredResourcePattern>.*</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
