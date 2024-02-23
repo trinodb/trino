@@ -72,6 +72,8 @@ Memo:
   * o3fs://     => supports operations only at a single bucket
   * S3 Protocol => can only access "/s3v" volume
 
+Trino FS related:
+
 
 # Setup Ozone using minikube
 export AWS_ACCESS_KEY_ID=testuser/scm@EXAMPLE.COM

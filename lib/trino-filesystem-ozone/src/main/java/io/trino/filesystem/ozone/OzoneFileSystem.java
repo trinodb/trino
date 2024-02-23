@@ -24,6 +24,7 @@ import org.apache.hadoop.ozone.client.OzoneVolume;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 public class OzoneFileSystem
@@ -40,13 +41,14 @@ public class OzoneFileSystem
     public TrinoInputFile newInputFile(Location location)
     {
         OzoneLocation ozoneLocation = new OzoneLocation(location);
-        throw new UnsupportedOperationException();
+        return new OzoneInputFile(ozoneLocation, objectStore, OptionalLong.empty());
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        throw new UnsupportedOperationException();
+        OzoneLocation ozoneLocation = new OzoneLocation(location);
+        return new OzoneInputFile(ozoneLocation, objectStore, OptionalLong.of(length));
     }
 
     @Override
@@ -112,6 +114,9 @@ public class OzoneFileSystem
     public void renameDirectory(Location source, Location target)
             throws IOException
     {
+        // Ozone with File System Optimization should support this op, with the cost of some performance penalty
+        // Object storage style access should not implement this
+        // See: https://ozone.apache.org/docs/current/feature/prefixfso.html
         throw new IOException("Ozone does not support directory renames");
     }
 
@@ -119,6 +124,7 @@ public class OzoneFileSystem
     public Set<Location> listDirectories(Location location)
             throws IOException
     {
+        // TODO
         throw new UnsupportedOperationException();
     }
 

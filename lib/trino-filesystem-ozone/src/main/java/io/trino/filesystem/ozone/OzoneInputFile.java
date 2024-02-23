@@ -37,11 +37,11 @@ public class OzoneInputFile
     private OptionalLong length;
     private Optional<Instant> lastModified = Optional.empty();
 
-    public OzoneInputFile(OzoneLocation location, ObjectStore storage)
+    public OzoneInputFile(OzoneLocation location, ObjectStore storage, OptionalLong length)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
-        this.length = OptionalLong.empty();
+        this.length = length;
     }
 
     @Override
