@@ -244,6 +244,7 @@ import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareK
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
+import static io.trino.sql.analyzer.PatternRecognitionAnalyzer.validateNoMatchNumber;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -1440,15 +1441,13 @@ public class ExpressionAnalyzer
                         if (!type.equals(BOOLEAN)) {
                             throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
                         }
+                        validateNoMatchNumber(expression, patternRecognitionFunctions);
                     }
                     for (MeasureDefinition measureDefinition : frame.getMeasures()) {
                         Expression expression = measureDefinition.getExpression();
                         process(expression, new StackableAstVisitorContext<>(context.getContext().patternRecognition(analysis.getAllLabels())));
+                        validateNoMatchNumber(expression, patternRecognitionFunctions);
                     }
-
-                    // validate pattern recognition expressions: MATCH_NUMBER() is not allowed in window
-                    // this must run after the expressions in MEASURES and DEFINE are analyzed, and the patternRecognitionFunctions are recorded
-                    PatternRecognitionAnalyzer.validateNoMatchNumber(frame.getMeasures(), frame.getVariableDefinitions(), patternRecognitionFunctions);
 
                     // TODO prohibited nesting: pattern recognition in frame end expression(?)
                 }
