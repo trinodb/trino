@@ -86,6 +86,12 @@ public class TestHdfsFileSystemHdfs
     }
 
     @Override
+    protected boolean supportsIncompleteWriteNoClobber()
+    {
+        return false;
+    }
+
+    @Override
     protected TrinoFileSystem getFileSystem()
     {
         return fileSystem;
