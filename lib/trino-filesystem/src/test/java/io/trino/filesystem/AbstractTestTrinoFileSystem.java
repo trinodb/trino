@@ -45,15 +45,21 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(Lifecycle.PER_CLASS)
@@ -88,6 +94,11 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     protected boolean supportsRenameFile()
+    {
+        return true;
+    }
+
+    protected boolean supportsIncompleteWriteNoClobber()
     {
         return true;
     }
@@ -1219,6 +1230,130 @@ public abstract class AbstractTestTrinoFileSystem
             return createLocation("").appendSuffix("/");
         }
         return createLocation(path);
+    }
+
+    @Test
+    void testFileDoesNotExistUntilClosed()
+            throws Exception
+    {
+        if (!supportsIncompleteWriteNoClobber()) {
+            abort("skipped");
+        }
+        Location location = getRootLocation().appendPath("testFileDoesNotExistUntilClosed-%s".formatted(UUID.randomUUID()));
+        getFileSystem().deleteFile(location);
+        try (OutputStream out = getFileSystem().newOutputFile(location).create()) {
+            assertFalse(fileExistsInListing(location));
+            assertFalse(fileExists(location));
+            out.write("test".getBytes(UTF_8));
+            assertFalse(fileExistsInListing(location));
+            assertFalse(fileExists(location));
+        }
+        assertTrue(fileExistsInListing(location));
+        assertTrue(fileExists(location));
+        getFileSystem().deleteFile(location);
+    }
+
+    @Test
+    public void testLargeFileDoesNotExistUntilClosed()
+            throws IOException
+    {
+        if (!supportsIncompleteWriteNoClobber()) {
+            abort("skipped");
+        }
+        Location location = getRootLocation().appendPath("testLargeFileDoesNotExistUntilClosed-%s".formatted(UUID.randomUUID()));
+        getFileSystem().deleteFile(location);
+        try (OutputStream outputStream = getFileSystem().newOutputFile(location).create()) {
+            // Write a 17 MB file to ensure the data is flushed to storage by exceeding the buffer size
+            byte[] bytes = getBytes();
+            int target = 17 * MEGABYTE;
+            int count = 0;
+            while (count < target) {
+                outputStream.write(bytes);
+                count += bytes.length;
+                if (count + bytes.length >= target) {
+                    assertFalse(fileExistsInListing(location));
+                    assertFalse(fileExists(location));
+                }
+            }
+        }
+        assertTrue(fileExistsInListing(location));
+        assertTrue(fileExists(location));
+        getFileSystem().deleteFile(location);
+    }
+
+    @Test
+    public void testLargeFileIsNotOverwrittenUntilClosed()
+            throws IOException
+    {
+        if (!supportsIncompleteWriteNoClobber()) {
+            abort("skipped");
+        }
+        Location location = getRootLocation().appendPath("testLargeFileIsNotOverwrittenUntilClosed-%s".formatted(UUID.randomUUID()));
+        try (OutputStream outputStream = getFileSystem().newOutputFile(location).createOrOverwrite()) {
+            outputStream.write("test".getBytes(UTF_8));
+        }
+        TrinoInputFile inputFile = getFileSystem().newInputFile(location);
+        int fileSize = toIntExact(inputFile.length());
+        @SuppressWarnings("NumericCastThatLosesPrecision")
+        byte[] fileBytes = new byte[fileSize];
+        assertEquals(fileSize, readFile(inputFile, fileBytes));
+        assertEquals("test", new String(fileBytes, UTF_8));
+        try (OutputStream outputStream = getFileSystem().newOutputFile(location).createOrOverwrite()) {
+            // Write a 17 MB file to ensure data is flushed to storage by exceeding the buffer size
+            byte[] bytes = getBytes();
+            int target = 17 * MEGABYTE;
+            int count = 0;
+            while (count < target) {
+                outputStream.write(bytes);
+                count += bytes.length;
+                if (count + bytes.length >= target) {
+                    assertEquals(fileSize, readFile(inputFile, fileBytes));
+                    assertEquals("test", new String(fileBytes, UTF_8));
+                }
+            }
+        }
+        assertTrue(fileExistsInListing(location));
+        assertTrue(fileExists(location));
+        getFileSystem().deleteFile(location);
+    }
+
+    private static byte[] getBytes()
+    {
+        @SuppressWarnings("NumericCastThatLosesPrecision")
+        byte[] bytes = new byte[8192];
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] = (byte) i;
+        }
+        assertThat(MEGABYTE % bytes.length).isEqualTo(0);
+        return bytes;
+    }
+
+    private boolean fileExistsInListing(Location location)
+            throws IOException
+    {
+        FileIterator fileIterator = getFileSystem().listFiles(getRootLocation());
+        while (fileIterator.hasNext()) {
+            FileEntry fileEntry = fileIterator.next();
+            if (fileEntry.location().equals(location)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean fileExists(Location location)
+            throws IOException
+    {
+        return getFileSystem().newInputFile(location).exists();
+    }
+
+    private int readFile(TrinoInputFile inputFile, byte[] destination)
+            throws IOException
+    {
+        try (InputStream inputStream = inputFile.newStream()) {
+            checkState(destination.length >= inputFile.length(), "destination is smaller than file");
+            return inputStream.readNBytes(destination, 0, toIntExact(inputFile.length()));
+        }
     }
 
     private String readLocation(Location path)
