@@ -20,9 +20,11 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
+import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -86,14 +88,18 @@ public class OzoneFileSystem
     public void renameFile(Location source, Location target)
             throws IOException
     {
-        throw new UnsupportedOperationException();
+        // blob storage doesn't need to implement this
+        throw new IOException("Ozone does not support directory renames");
     }
 
     @Override
     public FileIterator listFiles(Location location)
             throws IOException
     {
-        throw new UnsupportedOperationException();
+        OzoneLocation ozoneLocation = new OzoneLocation(location);
+        OzoneVolume ozoneVolume = objectStore.getVolume(ozoneLocation.volume());
+        OzoneBucket bucket = ozoneVolume.getBucket(ozoneLocation.bucket());
+        return new OzoneFileIterator(ozoneLocation, bucket.listKeys(ozoneLocation.key()));
     }
 
     @Override
