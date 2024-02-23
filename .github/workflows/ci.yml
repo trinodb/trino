@@ -572,13 +572,13 @@ jobs:
         env:
           ABFS_FLAT_ACCOUNT: todo
           ABFS_FLAT_ACCESS_KEY: todo
-          ABFS_ACCOUNT: todo
-          ABFS_ACCESS_KEY: todo
+          ABFS_HIERARCHICAL_ACCOUNT: todo
+          ABFS_HIERARCHICAL_ACCESS_KEY: todo
         # todo(https://github.com/trinodb/trino/issues/18998) Enable when we have env variables in place
         if: >-
           false &&
           contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_FLAT_ACCOUNT != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_ACCOUNT != '' || env.ABFS_ACCESS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_FLAT_ACCOUNT != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCOUNT != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: GCS FileSystem Cloud Tests
