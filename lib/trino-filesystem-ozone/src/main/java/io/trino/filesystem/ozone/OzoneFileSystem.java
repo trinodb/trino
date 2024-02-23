@@ -54,7 +54,8 @@ public class OzoneFileSystem
     @Override
     public TrinoOutputFile newOutputFile(Location location)
     {
-        throw new UnsupportedOperationException();
+        OzoneLocation ozoneLocation = new OzoneLocation(location);
+        return new OzoneOutputFile(ozoneLocation, objectStore);
     }
 
     @Override

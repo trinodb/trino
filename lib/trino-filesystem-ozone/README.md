@@ -73,6 +73,9 @@ Memo:
   * S3 Protocol => can only access "/s3v" volume
 
 Trino FS related:
+* https://github.com/trinodb/trino/blob/4829f69019029c521c8454161dfe278dc267a662/lib/trino-filesystem-s3/src/main/java/io/trino/filesystem/s3/S3OutputFile.java#L43
+is this assumption true? Gcs/Azure/HDFS/LocalFS return FileAlreadyExistsException. S3 is always Overwrite.
+Azure enforce until data is written (overwrite)
 
 
 # Setup Ozone using minikube
