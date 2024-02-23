@@ -113,6 +113,7 @@ public class TrinoConnection
     private final Call.Factory httpCallFactory;
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
     private boolean useExplicitPrepare = true;
+    private boolean assumeNullCatalogMeansCurrentCatalog;
 
     TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory)
     {
@@ -147,6 +148,7 @@ public class TrinoConnection
         sessionProperties.putAll(uri.getSessionProperties());
 
         uri.getExplicitPrepare().ifPresent(value -> this.useExplicitPrepare = value);
+        uri.getAssumeNullCatalogMeansCurrentCatalog().ifPresent(value -> this.assumeNullCatalogMeansCurrentCatalog = value);
     }
 
     @Override
@@ -918,5 +920,10 @@ public class TrinoConnection
     public boolean useExplicitPrepare()
     {
         return this.useExplicitPrepare;
+    }
+
+    public boolean getAssumeNullCatalogMeansCurrentCatalog()
+    {
+        return this.assumeNullCatalogMeansCurrentCatalog;
     }
 }
