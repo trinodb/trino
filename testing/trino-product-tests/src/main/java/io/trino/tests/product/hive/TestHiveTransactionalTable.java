@@ -91,7 +91,7 @@ public class TestHiveTransactionalTable
     private static final Pattern ORIGINAL_FILE_MATCHER = Pattern.compile(".*/\\d+_\\d+(_[^/]+)?$");
 
     private static final String ACID_CORRUPTION_DIRECTORY_ISSUE = "https://github.com/trinodb/trino/issues/16315";
-    private static final String ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN = "Hive table .* is corrupt. Found sub-directory in bucket directory for partition";
+    private static final String ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN = "Found file in sub-directory of ACID directory";
 
     @Inject
     private TestHiveMetastoreClientFactory testHiveMetastoreClientFactory;
@@ -99,6 +99,7 @@ public class TestHiveTransactionalTable
     @Inject
     private HdfsClient hdfsClient;
 
+    @Flaky(issue = ACID_CORRUPTION_DIRECTORY_ISSUE, match = ACID_CORRUPTION_DIRECTORY_RETRY_PATTERN)
     @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, timeOut = TEST_TIMEOUT)
     public void testReadFullAcid()
     {
