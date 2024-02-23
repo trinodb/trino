@@ -58,7 +58,7 @@ public class OzoneInputFile
     public TrinoInputStream newStream()
             throws IOException
     {
-        return new TrinoOzoneInputStream(location, storage);
+        return new OzoneTrinoInputStream(location, storage);
     }
 
     @Override

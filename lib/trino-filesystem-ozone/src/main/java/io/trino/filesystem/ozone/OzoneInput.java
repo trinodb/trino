@@ -121,9 +121,4 @@ final class OzoneInput
     {
         return location.toString();
     }
-
-    private int readNBytes(OzoneInputStream inputStream, byte[] buffer, int bufferOffset, int bufferLength)
-            throws IOException
-    {
-    }
 }
