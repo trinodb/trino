@@ -23,11 +23,13 @@ import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Collections;
 
 import static java.lang.Math.min;
 import static java.util.Objects.checkFromIndexSize;
@@ -62,9 +64,11 @@ class OzoneTrinoOutputStream
             OzoneVolume ozoneVolume = store.getVolume(location.volume());
             OzoneBucket bucket = ozoneVolume.getBucket(location.bucket());
             // TODO
-//            ReplicationConfig replicationConfig = RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.valueOf(3));
+//            ReplicationConfig replicationConfig = RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.valueOf(1));
+//            OzoneDataStreamOutput ozoneOutputStream = bucket.createStreamKey(location.key(), 0, replicationConfig, Collections.emptyMap());
+            // createMultipartKey?
             ReplicationConfig replicationConfig = StandaloneReplicationConfig.getInstance(HddsProtos.ReplicationFactor.valueOf(1));;
-            OzoneOutputStream ozoneOutputStream = bucket.createFile(location.key(), 0, replicationConfig, overwrite, true);
+            OzoneOutputStream ozoneOutputStream = bucket.createKey(location.key(), 0, replicationConfig, Collections.emptyMap());
 
             // TODO It is not clear if the buffered stream helps or hurts... the underlying implementation seems to copy every write to a byte buffer so small writes will suffer
             stream = new BufferedOutputStream(ozoneOutputStream, BUFFER_SIZE);

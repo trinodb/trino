@@ -18,12 +18,14 @@ import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
+import org.apache.hadoop.ozone.om.exceptions.OMException;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 
 public class OzoneTrinoInputStream
         extends TrinoInputStream
@@ -38,7 +40,15 @@ public class OzoneTrinoInputStream
         this.location = requireNonNull(location, "location is null");
         OzoneVolume ozoneVolume = requireNonNull(store, "store is null").getVolume(location.volume());
         OzoneBucket bucket = ozoneVolume.getBucket(location.bucket());
-        stream = bucket.readKey(location.key());
+        try {
+            stream = bucket.readKey(location.key());
+        }
+        catch (OMException e) {
+            if (e.getResult().equals(KEY_NOT_FOUND)) {
+                throw new FileNotFoundException(location.toString());
+            }
+            throw e;
+        }
     }
 
     @Override

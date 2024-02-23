@@ -32,8 +32,8 @@ class OzoneOutputFile
     public OzoneOutputFile(OzoneLocation location, ObjectStore store)
     {
         this.location = requireNonNull(location, "location is null");
-        location.location().verifyValidFileLocation();
         this.store = requireNonNull(store, "blobClient is null");
+        location.location().verifyValidFileLocation();
     }
 
     @Override

@@ -15,6 +15,8 @@ package io.trino.filesystem.ozone;
 
 import io.airlift.log.Logging;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
+import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.spi.security.ConnectorIdentity;
@@ -84,4 +86,16 @@ public abstract class AbstractTestOzoneFileSystem
     {
         return false;
     }
+
+    @AfterAll
+    void tearDown()
+            throws IOException
+    {
+        FileIterator fileIterator = fileSystem.listFiles(rootLocation);
+        while(fileIterator.hasNext()) {
+            FileEntry next = fileIterator.next();
+            fileSystem.deleteFile(next.location());
+        }
+    }
+
 }

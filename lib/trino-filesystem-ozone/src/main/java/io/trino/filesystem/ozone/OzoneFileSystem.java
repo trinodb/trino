@@ -69,7 +69,8 @@ public class OzoneFileSystem
     {
         // is this needed?
         // exist in azure and s3, but not gcs
-        location.verifyValidFileLocation();
+         location.verifyValidFileLocation();
+        // also, blob storage should allow tailing '/' in filename? or is it not supported?
 
         OzoneLocation ozoneLocation = new OzoneLocation(location);
         OzoneVolume ozoneVolume = objectStore.getVolume(ozoneLocation.volume());
@@ -100,7 +101,7 @@ public class OzoneFileSystem
             throws IOException
     {
         // blob storage doesn't need to implement this
-        throw new IOException("Ozone does not support directory renames");
+        throw new IOException("Ozone does not support renames");
     }
 
     @Override

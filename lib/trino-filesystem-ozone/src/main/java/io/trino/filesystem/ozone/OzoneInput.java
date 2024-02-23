@@ -19,12 +19,15 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
+import org.apache.hadoop.ozone.om.exceptions.OMException;
 
 import java.io.EOFException;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 
 final class OzoneInput
         implements TrinoInput
@@ -45,7 +48,16 @@ final class OzoneInput
     {
         OzoneVolume ozoneVolume = storage.getVolume(location.volume());
         OzoneBucket bucket = ozoneVolume.getBucket(location.bucket());
-        OzoneKeyDetails key = bucket.getKey(location.key());
+        OzoneKeyDetails key;
+        try {
+            key = bucket.getKey(location.key());
+        }
+        catch (OMException e) {
+            if (e.getResult().equals(KEY_NOT_FOUND)) {
+                throw new FileNotFoundException(location.toString());
+            }
+            throw e;
+        }
         long fileSize = key.getDataSize();
 
         ensureOpen();
@@ -79,7 +91,16 @@ final class OzoneInput
     {
         OzoneVolume ozoneVolume = storage.getVolume(location.volume());
         OzoneBucket bucket = ozoneVolume.getBucket(location.bucket());
-        OzoneKeyDetails key = bucket.getKey(location.key());
+        OzoneKeyDetails key;
+        try {
+            key = bucket.getKey(location.key());
+        }
+        catch (OMException e) {
+            if (e.getResult().equals(KEY_NOT_FOUND)) {
+                throw new FileNotFoundException(location.toString());
+            }
+            throw e;
+        }
         long fileSize = key.getDataSize();
 
         ensureOpen();

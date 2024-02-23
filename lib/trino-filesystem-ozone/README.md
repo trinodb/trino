@@ -74,6 +74,8 @@ Memo:
   * ofs://      => supports operations across all volumes and buckets and provides a full view of all the volume/buckets
   * o3fs://     => supports operations only at a single bucket
   * S3 Protocol => can only access "/s3v" volume
+* Ozone failed on https://github.com/trinodb/trino/blob/30348401c447691237c57a5f6d6c95eef87560fc/lib/trino-filesystem/src/test/java/io/trino/filesystem/AbstractTestTrinoFileSystem.java#L1258
+"java.io.UncheckedIOException: NOT_A_FILE org.apache.hadoop.ozone.om.exceptions.OMException: Can not create file: bucket1/level0/level1 as there is already file in the given path"
 
 Trino FS related:
 * https://github.com/trinodb/trino/blob/4829f69019029c521c8454161dfe278dc267a662/lib/trino-filesystem-s3/src/main/java/io/trino/filesystem/s3/S3OutputFile.java#L43
@@ -100,10 +102,12 @@ This didn't work. Trino cannot connecto to data node because they only have k8s 
 export AWS_ACCESS_KEY_ID=testuser/scm@EXAMPLE.COM
 export AWS_SECRET_ACCESS_KEY=xyz
 
+aws s3api --endpoint http://localhost:9878/ delete-bucket --bucket=bucket1
 aws s3api --endpoint http://localhost:9878/ create-bucket --bucket=bucket1
 ls -1 > /tmp/testfile
 
 aws s3api --endpoint http://localhost:9878/ put-object --bucket bucket1 --key s3://bucket1/testfile --body /tmp/testfile
+aws s3api --endpoint http://localhost:9878/ put-object --bucket bucket1 --key s3://bucket1/testfile/test --body /tmp/testfile
 
 
 aws s3api --endpoint http://localhost:9878/ list-objects --bucket bucket1
@@ -148,8 +152,9 @@ http://192.168.49.2:31193]
 
 # TODO
 What's the diff between readFile() and readKey()?
-=> looks like readFile is newer, is optimized and better
+=> looks like readFile is newer, is optimized and better?
 => fs.open() is using readFile
+for blob storage should use key i guess
 ```
   public OzoneInputStream readFile(String volumeName, String bucketName,
       String keyName) throws IOException {
