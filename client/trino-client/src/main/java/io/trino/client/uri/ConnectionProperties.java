@@ -100,6 +100,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, String> HOSTNAME_IN_CERTIFICATE = new HostnameInCertificate();
     public static final ConnectionProperty<String, ZoneId> TIMEZONE = new TimeZone();
     public static final ConnectionProperty<String, Boolean> EXPLICIT_PREPARE = new ExplicitPrepare();
+    public static final ConnectionProperty<String, Boolean> ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG = new AssumeNullCatalogMeansCurrentCatalog();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             .add(USER)
@@ -146,6 +147,7 @@ final class ConnectionProperties
             .add(HOSTNAME_IN_CERTIFICATE)
             .add(TIMEZONE)
             .add(EXPLICIT_PREPARE)
+            .add(ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG)
             .build();
 
     private static final Map<String, ConnectionProperty<?, ?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -725,6 +727,15 @@ final class ConnectionProperties
         public ExplicitPrepare()
         {
             super(PropertyName.EXPLICIT_PREPARE, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class AssumeNullCatalogMeansCurrentCatalog
+            extends AbstractConnectionProperty<String, Boolean>
+    {
+        public AssumeNullCatalogMeansCurrentCatalog()
+        {
+            super(PropertyName.ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
