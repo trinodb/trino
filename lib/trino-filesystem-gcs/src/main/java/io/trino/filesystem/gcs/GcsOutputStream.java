@@ -14,7 +14,6 @@
 package io.trino.filesystem.gcs;
 
 import com.google.cloud.WriteChannel;
-import com.google.cloud.storage.Blob;
 import com.google.common.primitives.Ints;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
@@ -40,13 +39,13 @@ public class GcsOutputStream
     private long writtenBytes;
     private boolean closed;
 
-    public GcsOutputStream(GcsLocation location, Blob blob, AggregatedMemoryContext memoryContext, long writeBlockSizeBytes)
+    public GcsOutputStream(GcsLocation location, WriteChannel writeChannel, AggregatedMemoryContext memoryContext, long writeBlockSizeBytes)
     {
         this.location = requireNonNull(location, "location is null");
         checkArgument(writeBlockSizeBytes >= 0, "writeBlockSizeBytes is negative");
         this.writeBlockSizeBytes = writeBlockSizeBytes;
         this.memoryContext = memoryContext.newLocalMemoryContext(GcsOutputStream.class.getSimpleName());
-        this.writeChannel = blob.writer();
+        this.writeChannel = requireNonNull(writeChannel, "writeChannel is null");
         this.writeChannel.setChunkSize(Ints.saturatedCast(writeBlockSizeBytes));
     }
 
