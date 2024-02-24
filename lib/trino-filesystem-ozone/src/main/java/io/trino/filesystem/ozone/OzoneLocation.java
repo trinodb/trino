@@ -13,46 +13,54 @@
  */
 package io.trino.filesystem.ozone;
 
+import com.google.common.base.Splitter;
 import io.trino.filesystem.Location;
 
+import java.util.Objects;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 // https://ozone.apache.org/docs/1.4.0/interface.html
-// ofs supports operations across all volumes and buckets, same as o3:// ?
 // ofs://om1/
-// ofs://om3:9862/
-// ofs://omservice/
-// ofs://omservice/volume1/
-// ofs://omservice/volume1/bucket1/
-// ofs://omservice/volume1/bucket1/dir1
-// ofs://omservice/volume1/bucket1/dir1/key1
-// ofs://omservice/tmp/
-// ofs://omservice/tmp/key1
+//ofs://om3:9862/
+//ofs://omservice/
+//ofs://omservice/volume1/
+//ofs://omservice/volume1/bucket1/
+//ofs://omservice/volume1/bucket1/dir1
+//ofs://omservice/volume1/bucket1/dir1/key1
 //
-// o3fs supports operations only at a single bucket
-// o3fs://bucket.volume.om-host.example.com/key
-// o3fs://bucket.volume.om-host.example.com:6789/key
-// <property>
+//ofs://omservice/tmp/
+//ofs://omservice/tmp/key1
+//ofs://om-host.example.com
+//<property>
+//  <name>fs.defaultFS</name>
+//  <value>ofs://omservice</value>
+//</property>
+//ozone fs -mkdir -p /volume1/bucket1
+//ozone fs -mkdir -p ofs://omservice/volume1/bucket1/dir1/
+//---
+//<property>
 //  <name>fs.defaultFS</name>
 //  <value>o3fs://bucket.volume</value>
-// </property>
-// o3fs://key1
-// o3fs://dir1/key1
-// o3fs://bucket.volume.om-host.example.com:5678/key
+//</property>
+//o3fs://bucket.volume.om-host.example.com:5678/key
+//
+//hdfs dfs -ls o3fs://bucket.volume.om-host.example.com/key
+//hdfs dfs -ls o3fs://bucket.volume.om-host.example.com:6789/key
 
-// (schema)(server:port)/volume/bucket/key
-// schema: 'o3://'
-// /volume1/bucket1/dir1/key1
+// TODO: Location work well with the above syntax
+// Now only support: o3://volume/bucket/key
 record OzoneLocation(Location location)
 {
     OzoneLocation
     {
         requireNonNull(location, "location is null");
         checkArgument(location.scheme().isPresent(), "No scheme for Ozone location: %s", location);
-        checkArgument(Set.of("o3", "ofs", "o3fs").contains(location.scheme().get()), "Wrong scheme for Ozone location: %s", location);
+        // TODO: support ofs, o3fs or not
+        // checkArgument(Set.of("o3", "ofs", "o3fs").contains(location.scheme().get()), "Wrong scheme for Ozone location: %s", location);
+        checkArgument("o3".equals(location.scheme().get()), "Wrong scheme for Ozone location: %s", location);
         checkArgument(location.host().isPresent(), "No bucket for Ozone location: %s", location);
         checkArgument(location.userInfo().isEmpty(), "Ozone location contains user info: %s", location);
         checkArgument(location.port().isEmpty(), "Ozone location contains port: %s", location);
@@ -65,17 +73,19 @@ record OzoneLocation(Location location)
 
     public String volume()
     {
-        return "s3v";
+        return location.host().orElseThrow();
     }
 
     public String bucket()
     {
-        return "bucket1";
+        Splitter splitter = Splitter.on('/').limit(2);
+        return splitter.splitToList(location.path()).getFirst();
     }
 
     public String key()
     {
-        return location.path();
+        Splitter splitter = Splitter.on('/').limit(2);
+        return splitter.splitToList(location.path()).getLast();
     }
 
     @Override
@@ -86,6 +96,6 @@ record OzoneLocation(Location location)
 
     public Location baseLocation()
     {
-        return Location.of("%s://%s/".formatted(scheme(), bucket()));
+        return Location.of("%s://%s/%s".formatted(scheme(), volume(), bucket()));
     }
 }

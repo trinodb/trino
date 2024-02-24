@@ -188,3 +188,91 @@ for blob storage should use key i guess
   }
 
 ```
+
+---
+
+```
+AbstractS3
+    protected final Location getRootLocation()
+    {
+        return Location.of("s3://%s/".formatted(bucket()));
+    }
+S3Minio
+  bucket = "test-bucket-test-s3-file-system-minio";
+S3Mock
+  bucket = "test-bucket"
+TestS3FileSystemLocalStack
+  BUCKET = "test-bucket";
+AwsS3
+  bucket = environmentVariable("EMPTY_S3_BUCKET");
+  
+AbstractGcs
+this.rootLocation = Location.of("gs://%s/".formatted(bucket));
+bucketName =  BUCKET_NAME_PREFIX "gcloud-test-bucket-temp-" + UUID.randomUUID().toString();
+
+AbstractTestAzureFileSystem
+        containerName = "test-%s-%s".formatted(accountKind.name().toLowerCase(ROOT), randomUUID());
+        rootLocation = Location.of("abfs://%s@%s.dfs.core.windows.net/".formatted(containerName, account));
+        
+AbstractOzone
+        this.rootLocation = Location.of("o3://%s/%s/".formatted("s3v", "bucket1"));
+```
+
+```
+tempBlob.location = "o3://s3v/bucket1/test/.././/file"
+
+fs.createOrOverwrite(TEST_BLOB_CONTENT_PREFIX "test blob content for " + tempBlob.location().toString());
+
+"test blob content for o3://s3v/bucket1/test/.././/file"
+
+{
+    "Contents": [
+        {
+            "Key": "bucket1/test/.././/file",
+            "LastModified": "2024-02-24T06:44:32.579000+00:00",
+            "ETag": "2024-02-24T06:44:32.579Z",
+            "Size": 54,
+            "StorageClass": "REDUCED_REDUNDANCY"
+        }
+    ],
+    "RequestCharged": null
+}
+
+!normalizesListFilesResult() = true ??
+assertThat(listPath("test/..")).containsExactly(tempBlob.location());
+
+path = "test/.."
+fs.listFiles("test/..")
+
+fileEntry.location = "o3://bucket1/bucket1/test/.././/file"
+fileEntry.length() == 54
+```
+
+```
+ofs://om1/
+ofs://om3:9862/
+ofs://omservice/
+ofs://omservice/volume1/
+ofs://omservice/volume1/bucket1/
+ofs://omservice/volume1/bucket1/dir1
+ofs://omservice/volume1/bucket1/dir1/key1
+
+ofs://omservice/tmp/
+ofs://omservice/tmp/key1
+ofs://om-host.example.com
+<property>
+  <name>fs.defaultFS</name>
+  <value>ofs://omservice</value>
+</property>
+ozone fs -mkdir -p /volume1/bucket1
+ozone fs -mkdir -p ofs://omservice/volume1/bucket1/dir1/
+---
+<property>
+  <name>fs.defaultFS</name>
+  <value>o3fs://bucket.volume</value>
+</property>
+o3fs://bucket.volume.om-host.example.com:5678/key
+
+hdfs dfs -ls o3fs://bucket.volume.om-host.example.com/key
+hdfs dfs -ls o3fs://bucket.volume.om-host.example.com:6789/key
+```

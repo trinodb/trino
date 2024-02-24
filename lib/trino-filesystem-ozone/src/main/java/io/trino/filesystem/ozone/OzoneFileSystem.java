@@ -169,6 +169,7 @@ public class OzoneFileSystem
                 .stream()
                 .filter(OzoneFileStatus::isDirectory)
                 .map(OzoneFileStatus::getPath)
+                .map(baseLocation::appendPath)
                 .map(Location::of)
                 .collect(toImmutableSet());
     }
