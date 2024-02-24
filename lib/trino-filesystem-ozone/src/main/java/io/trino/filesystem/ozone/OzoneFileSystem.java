@@ -123,10 +123,6 @@ public class OzoneFileSystem
         OzoneLocation ozoneLocation = new OzoneLocation(location);
         OzoneVolume ozoneVolume = objectStore.getVolume(ozoneLocation.volume());
         OzoneBucket bucket = ozoneVolume.getBucket(ozoneLocation.bucket());
-        Iterator<? extends OzoneKey> iterator = bucket.listKeys(ozoneLocation.key());
-        while (iterator.hasNext()) {
-            System.out.println(iterator.next().getName());
-        }
         // why?
         String key = ozoneLocation.key();
         if (!key.isEmpty() && !key.endsWith("/")) {
