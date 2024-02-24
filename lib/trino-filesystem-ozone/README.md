@@ -277,7 +277,8 @@ hdfs dfs -ls o3fs://bucket.volume.om-host.example.com/key
 hdfs dfs -ls o3fs://bucket.volume.om-host.example.com:6789/key
 ```
 
-NullPointerException when testing listDirectory "/"
+NullPointerException when testing listDirectory "/" and shadow=true
+`bucket.listKeys("/", null, true);`
 ```
 2024-02-24 12:07:19 WARN  Server:3107 - IPC Server handler 74 on default port 9862, call Call#990 Retry#8 org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol.submitRequest from 172.18.0.1:48850 / 172.18.0.1:48850
 java.lang.NullPointerException
@@ -308,3 +309,6 @@ java.lang.NullPointerException
 
 
 ```
+
+io.trino.filesystem.Location.appendPath(o3://vol/bucket/, dir) didn't work, because .path() returns "bucket/"
+results in "o3://vol/bucket/bucket/dir"

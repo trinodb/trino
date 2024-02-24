@@ -127,14 +127,33 @@ public class OzoneFileSystem
         OzoneLocation ozoneLocation = new OzoneLocation(location);
         OzoneVolume ozoneVolume = objectStore.getVolume(ozoneLocation.volume());
         OzoneBucket bucket = ozoneVolume.getBucket(ozoneLocation.bucket());
-        return new OzoneFileIterator(ozoneLocation, bucket.listKeys(ozoneLocation.key()));
+        Iterator<? extends OzoneKey> iterator = bucket.listKeys(ozoneLocation.key());
+        while (iterator.hasNext()) {
+            System.out.println(iterator.next().getName());
+        }
+        // why?
+        String key = ozoneLocation.key();
+        if (!key.isEmpty() && !key.endsWith("/")) {
+            key += "/";
+        }
+        // is this ozone bug?
+        if (key.equals("/")) {
+            return FileIterator.empty();
+        }
+        return new OzoneFileIterator(ozoneLocation, bucket.listKeys(key));
     }
 
     @Override
     public Optional<Boolean> directoryExists(Location location)
             throws IOException
     {
-        // TODO: is listFiles() needed?
+        OzoneLocation ozoneLocation = new OzoneLocation(location);
+        if (ozoneLocation.key().isEmpty()) {
+            return Optional.of(true);
+        }
+        if (listFiles(location).hasNext()) {
+            return Optional.of(true);
+        }
         return Optional.empty();
     }
 
