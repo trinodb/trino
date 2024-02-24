@@ -98,7 +98,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
-import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_TABLE_ERROR;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_OPERATION;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_DATE;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_TIME;
@@ -221,13 +221,16 @@ public class BigQueryMetadata
                                 () -> tableNames.add(new SchemaTableName(client.toSchemaName(DatasetId.of(projectId, tableId.getDataset())), tableId.getTable())));
             }
         }
-        catch (BigQueryException e) {
-            if (e.getCode() == 404 && e.getMessage().contains("Not found: Dataset")) {
+        catch (TrinoException e) {
+            if (e.getErrorCode() == BIGQUERY_LISTING_TABLE_ERROR.toErrorCode() &&
+                    e.getCause() instanceof BigQueryException bigQueryException &&
+                    bigQueryException.getCode() == 404 &&
+                    bigQueryException.getMessage().contains("Not found: Dataset")) {
                 // Dataset not found error is ignored because listTables is used for metadata queries (SELECT FROM information_schema)
                 log.debug("Dataset disappeared during listing operation: %s", remoteSchemaName);
             }
             else {
-                throw new TrinoException(BIGQUERY_LISTING_DATASET_ERROR, "Exception happened during listing BigQuery dataset: " + remoteSchemaName, e);
+                throw e;
             }
         }
         return tableNames.build();
