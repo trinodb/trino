@@ -222,6 +222,12 @@ public final class DynamoDbQueryRunner
             return this;
         }
 
+        public Builder enablePredicatePushdown()
+        {
+            addConnectorProperties(ImmutableMap.of("dynamodb.predicate-pushdown-enabled", "true"));
+            return this;
+        }
+
         public Builder enableDriverLogging()
         {
             addConnectorProperties(ImmutableMap.of("dynamodb.driver-logging.enabled", "true"));

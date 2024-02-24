@@ -37,6 +37,7 @@ public class TestDynamoDbConnectorTest
         server = closeAfterClass(new TestingDynamoDbServer());
         return DynamoDbQueryRunner.builder(server.getEndpointUrl(), server.getSchemaDirectory())
                 .setFirstColumnAsPrimaryKeyEnabled(true)
+                .enablePredicatePushdown()
                 .build();
     }
 
@@ -53,6 +54,7 @@ public class TestDynamoDbConnectorTest
             case SUPPORTS_PREDICATE_PUSHDOWN:
             case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
+                return true;
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
             case SUPPORTS_ARRAY:
             case SUPPORTS_LIMIT_PUSHDOWN:

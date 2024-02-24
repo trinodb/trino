@@ -57,6 +57,7 @@ public class DynamoDbConfig
     private boolean flattenObjectsEnabled;
     private int flattenArrayElementCount;
     private boolean isFirstColumnAsPrimaryKeyEnabled;
+    private boolean isPredicatePushdownEnabled;
     private String endpointUrl;
     private boolean isDriverLoggingEnabled;
     private String driverLoggingLocation = JAVA_IO_TMPDIR.value() + "/dynamodb.log";
@@ -197,6 +198,19 @@ public class DynamoDbConfig
     public DynamoDbConfig setFirstColumnAsPrimaryKeyEnabled(boolean isFirstColumnAsPrimaryKeyEnabled)
     {
         this.isFirstColumnAsPrimaryKeyEnabled = isFirstColumnAsPrimaryKeyEnabled;
+        return this;
+    }
+
+    public boolean isPredicatePushdownEnabled()
+    {
+        return isPredicatePushdownEnabled;
+    }
+
+    @Config("dynamodb.predicate-pushdown-enabled")
+    @ConfigDescription("True to enable partial predicate pushdown. Default false.")
+    public DynamoDbConfig setPredicatePushdownEnabled(boolean isPredicatePushdownEnabled)
+    {
+        this.isPredicatePushdownEnabled = isPredicatePushdownEnabled;
         return this;
     }
 

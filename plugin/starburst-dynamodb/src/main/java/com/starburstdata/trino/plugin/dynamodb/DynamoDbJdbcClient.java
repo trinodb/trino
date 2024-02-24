@@ -25,6 +25,8 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -84,6 +86,7 @@ import static io.trino.plugin.jdbc.ColumnMapping.longMapping;
 import static io.trino.plugin.jdbc.ColumnMapping.sliceMapping;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
@@ -119,8 +122,29 @@ public class DynamoDbJdbcClient
 {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
 
+    private static final PredicatePushdownController DYNAMODB_BOOLEAN_PARTIAL_PUSHDOWN = (session, domain) -> {
+        if (domain.getValues().isSingleValue()) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+        return DISABLE_PUSHDOWN.apply(session, domain);
+    };
+
+    private static final PredicatePushdownController DYNAMODB_PARTIAL_PUSHDOWN = (session, domain) -> {
+        if ((!domain.isNullAllowed() && domain.getValues().isAll()) || domain.isOnlyNull()) {
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+        if (domain.getValues().complement().isSingleValue()) {
+            return new DomainPushdownResult(domain, domain);
+        }
+        if (domain.isNullAllowed()) {
+            return new DomainPushdownResult(domain, domain);
+        }
+        return FULL_PUSHDOWN.apply(session, domain);
+    };
+
     private final File schemaDirectory;
     private final boolean isFirstKeyAsPrimaryKeyEnabled;
+    private final boolean isPredicatePushdownEnabled;
 
     // These properties are needed to drop a table using the AWS SDK. CData driver does not support dropping tables
     private final Optional<String> endpointUrl;
@@ -142,6 +166,7 @@ public class DynamoDbJdbcClient
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
         this.schemaDirectory = new File(requireNonNull(dynamoDbConfig, "dynamoDbConfig is null").getSchemaDirectory());
         this.isFirstKeyAsPrimaryKeyEnabled = dynamoDbConfig.isFirstColumnAsPrimaryKeyEnabled();
+        this.isPredicatePushdownEnabled = dynamoDbConfig.isPredicatePushdownEnabled();
         this.endpointUrl = dynamoDbConfig.getEndpointUrl();
         this.accessKey = dynamoDbConfig.getAwsAccessKey();
         this.secretAccessKey = dynamoDbConfig.getAwsSecretKey();
@@ -421,21 +446,22 @@ public class DynamoDbJdbcClient
     {
         // CData driver returns predicates where you compare to null as 'true', e.g. value != 123 is true when "value" is null
         // Trino treats this as false and causes correctness issues when these predicates are pushed down to the driver
-        // Therefore all pushdowns are disabled
+        // Therefore all predicates are pushed down for specific datatype except non-equality operator and datatype specific unsupported operators.
+        // For some of the types, it was tricky to create a test table in DynamoDB which returns as a specific type in Trino.
         switch (typeHandle.getJdbcType()) {
             case Types.BIT:
             case Types.BOOLEAN:
                 // Error if pushdown is enabled (besides the null issue):
                 // Invalid FilterExpression: Incorrect operand type for operator or function; operator or function: <=, operand type: BOOL.
-                return Optional.of(booleanMapping(BOOLEAN, ResultSet::getBoolean, booleanWriteFunction(), DISABLE_PUSHDOWN));
+                return Optional.of(booleanMapping(BOOLEAN, ResultSet::getBoolean, booleanWriteFunction(), isPredicatePushdownEnabled ? DYNAMODB_BOOLEAN_PARTIAL_PUSHDOWN : DISABLE_PUSHDOWN));
             case Types.TINYINT:
                 return Optional.of(longMapping(TINYINT, ResultSet::getByte, tinyintWriteFunction(), DISABLE_PUSHDOWN));
             case Types.SMALLINT:
                 return Optional.of(longMapping(SMALLINT, ResultSet::getShort, smallintWriteFunction(), DISABLE_PUSHDOWN));
             case Types.INTEGER:
-                return Optional.of(longMapping(INTEGER, ResultSet::getInt, integerWriteFunction(), DISABLE_PUSHDOWN));
+                return Optional.of(longMapping(INTEGER, ResultSet::getInt, integerWriteFunction(), isPredicatePushdownEnabled ? DYNAMODB_PARTIAL_PUSHDOWN : DISABLE_PUSHDOWN));
             case Types.BIGINT:
-                return Optional.of(longMapping(BIGINT, ResultSet::getLong, bigintWriteFunction(), DISABLE_PUSHDOWN));
+                return Optional.of(longMapping(BIGINT, ResultSet::getLong, bigintWriteFunction(), isPredicatePushdownEnabled ? DYNAMODB_PARTIAL_PUSHDOWN : DISABLE_PUSHDOWN));
             case Types.REAL:
             case Types.FLOAT:
                 return Optional.of(longMapping(REAL, (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)), realWriteFunction(), DISABLE_PUSHDOWN));
@@ -461,7 +487,7 @@ public class DynamoDbJdbcClient
         return Optional.empty();
     }
 
-    public static ColumnMapping defaultVarcharColumnMapping(int columnSize)
+    public ColumnMapping defaultVarcharColumnMapping(int columnSize)
     {
         if (columnSize > VarcharType.MAX_LENGTH) {
             return varcharColumnMapping(createUnboundedVarcharType());
@@ -469,9 +495,9 @@ public class DynamoDbJdbcClient
         return varcharColumnMapping(createVarcharType(columnSize));
     }
 
-    public static ColumnMapping varcharColumnMapping(VarcharType varcharType)
+    public ColumnMapping varcharColumnMapping(VarcharType varcharType)
     {
-        return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), DISABLE_PUSHDOWN);
+        return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), isPredicatePushdownEnabled ? DYNAMODB_PARTIAL_PUSHDOWN : DISABLE_PUSHDOWN);
     }
 
     public static SliceReadFunction varbinaryReadFunction()

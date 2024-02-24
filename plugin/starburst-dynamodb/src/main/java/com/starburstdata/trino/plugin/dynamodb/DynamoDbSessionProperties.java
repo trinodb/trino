@@ -31,6 +31,7 @@ public class DynamoDbSessionProperties
     public static final String GENERATE_SCHEMA_FILES = "generate_schema_files";
     public static final String FLATTEN_OBJECTS_ENABLED = "flatten_objects_enabled";
     public static final String FLATTEN_ARRAY_ELEMENT_COUNT = "flatten_arrays_element_count";
+    public static final String ENABLE_PREDICATE_PUSHDOWN = "enable_predicate_pushdown";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -61,6 +62,11 @@ public class DynamoDbSessionProperties
                                 throw new TrinoException(CONFIGURATION_INVALID, FLATTEN_ARRAY_ELEMENT_COUNT + " must be between 0 and 256");
                             }
                         },
+                        false))
+                .add(booleanProperty(
+                        ENABLE_PREDICATE_PUSHDOWN,
+                        "True to enable partial predicate pushdown.",
+                        dynamoDbConfig.isPredicatePushdownEnabled(),
                         false))
                 .build();
     }
