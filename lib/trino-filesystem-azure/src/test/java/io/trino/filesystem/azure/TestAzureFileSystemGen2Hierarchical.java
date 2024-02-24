@@ -17,6 +17,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
+import java.io.IOException;
+
 import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.HIERARCHICAL;
 
 @TestInstance(Lifecycle.PER_CLASS)
@@ -25,6 +27,7 @@ class TestAzureFileSystemGen2Hierarchical
 {
     @BeforeAll
     void setup()
+            throws IOException
     {
         initializeWithAccessKey(getRequiredEnvironmentVariable("ABFS_HIERARCHICAL_ACCOUNT"), getRequiredEnvironmentVariable("ABFS_HIERARCHICAL_ACCESS_KEY"), HIERARCHICAL);
     }
