@@ -15,6 +15,9 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.time.Duration;
 
 import static org.apache.commons.io.FileUtils.deleteDirectory;
@@ -26,6 +29,7 @@ public class TestingDynamoDbServer
 
     private final GenericContainer<?> dockerContainer;
     private final File schemaDirectory;
+    private final DynamoDbConfig config;
 
     public TestingDynamoDbServer()
     {
@@ -41,6 +45,12 @@ public class TestingDynamoDbServer
         catch (IOException e) {
             throw new RuntimeException("Failed to create temporary directory for schemas", e);
         }
+        config = new DynamoDbConfig()
+                .setAwsAccessKey("access-key")
+                .setAwsSecretKey("secret-key")
+                .setAwsRegion("us-east-2")
+                .setSchemaDirectory(schemaDirectory.getAbsolutePath())
+                .setEndpointUrl(getEndpointUrl());
     }
 
     public String getEndpointUrl()
@@ -51,6 +61,17 @@ public class TestingDynamoDbServer
     public File getSchemaDirectory()
     {
         return schemaDirectory;
+    }
+
+    public void execute(String sql)
+    {
+        try (Connection connection = DriverManager.getConnection(DynamoDbConnectionFactory.getConnectionUrl(config));
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to execute statement: " + sql, e);
+        }
     }
 
     @Override

@@ -10,10 +10,11 @@
 package com.starburstdata.trino.plugin.dynamodb;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.testing.BaseConnectorTest;
+import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.SqlExecutor;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -22,18 +23,27 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDynamoDbConnectorTest
-        extends BaseConnectorTest
+        extends BaseJdbcConnectorTest
 {
+    private TestingDynamoDbServer server;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingDynamoDbServer server = closeAfterClass(new TestingDynamoDbServer());
+        server = closeAfterClass(new TestingDynamoDbServer());
         return DynamoDbQueryRunner.builder(server.getEndpointUrl(), server.getSchemaDirectory())
                 .setFirstColumnAsPrimaryKeyEnabled(true)
                 .build();
+    }
+
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return server::execute;
     }
 
     @Override
@@ -41,6 +51,7 @@ public class TestDynamoDbConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_PREDICATE_PUSHDOWN:
+            case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
             case SUPPORTS_ARRAY:
@@ -73,6 +84,7 @@ public class TestDynamoDbConnectorTest
             case SUPPORTS_MERGE:
             case SUPPORTS_UPDATE:
             case SUPPORTS_ROW_TYPE:
+            case SUPPORTS_NATIVE_QUERY:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -172,5 +184,13 @@ public class TestDynamoDbConnectorTest
         assertThat(e).hasMessageContaining(
                 "SQL compilation error: Non-nullable column 'C_VARCHAR' cannot be added to non-empty table " +
                         "'TEST_ADD_NOTNULL_.*' unless it has a non-null default value\\.");
+    }
+
+    @Test
+    @Override
+    public void testCharTrailingSpace()
+    {
+        assertThatThrownBy(super::testCharTrailingSpace)
+                .hasMessageMatching("Failed to execute statement: CREATE TABLE amazondynamodb.* \\(x char\\(10\\)\\)");
     }
 }
