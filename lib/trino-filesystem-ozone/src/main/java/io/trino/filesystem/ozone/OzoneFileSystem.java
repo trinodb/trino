@@ -20,11 +20,15 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
+import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -93,7 +97,16 @@ public class OzoneFileSystem
         OzoneLocation ozoneLocation = new OzoneLocation(location);
         OzoneVolume ozoneVolume = objectStore.getVolume(ozoneLocation.volume());
         OzoneBucket bucket = ozoneVolume.getBucket(ozoneLocation.bucket());
-        bucket.deleteDirectory(ozoneLocation.key(), true);
+
+        String key = ozoneLocation.key();
+        if (!key.isEmpty() && !key.endsWith("/")) {
+            key += "/";
+        }
+
+        Iterator<? extends OzoneKey> iterator = bucket.listKeys(key);
+        List<String> keyList = new ArrayList<>();
+        iterator.forEachRemaining(f -> keyList.add(f.getName()));
+        bucket.deleteKeys(keyList);
     }
 
     @Override
