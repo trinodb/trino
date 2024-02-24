@@ -17,8 +17,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
-import java.io.IOException;
-
 import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.FLAT;
 
 @TestInstance(Lifecycle.PER_CLASS)
@@ -27,8 +25,7 @@ class TestAzureFileSystemGen2Flat
 {
     @BeforeAll
     void setup()
-            throws IOException
     {
-        initialize(getRequiredEnvironmentVariable("ABFS_FLAT_ACCOUNT"), getRequiredEnvironmentVariable("ABFS_FLAT_ACCESS_KEY"), FLAT);
+        initializeWithAccessKey(getRequiredEnvironmentVariable("ABFS_FLAT_ACCOUNT"), getRequiredEnvironmentVariable("ABFS_FLAT_ACCESS_KEY"), FLAT);
     }
 }

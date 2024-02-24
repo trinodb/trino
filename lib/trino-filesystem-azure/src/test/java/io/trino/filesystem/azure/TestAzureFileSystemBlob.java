@@ -17,8 +17,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
-import java.io.IOException;
-
 import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.BLOB;
 
 @TestInstance(Lifecycle.PER_CLASS)
@@ -27,8 +25,7 @@ class TestAzureFileSystemBlob
 {
     @BeforeAll
     void setup()
-            throws IOException
     {
-        initialize(getRequiredEnvironmentVariable("ABFS_BLOB_ACCOUNT"), getRequiredEnvironmentVariable("ABFS_BLOB_ACCESS_KEY"), BLOB);
+        initializeWithAccessKey(getRequiredEnvironmentVariable("ABFS_BLOB_ACCOUNT"), getRequiredEnvironmentVariable("ABFS_BLOB_ACCESS_KEY"), BLOB);
     }
 }
