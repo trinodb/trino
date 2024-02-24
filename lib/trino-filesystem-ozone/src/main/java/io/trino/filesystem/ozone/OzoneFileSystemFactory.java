@@ -28,25 +28,18 @@ import java.io.IOException;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class OzoneFileSystemFactory
         implements TrinoFileSystemFactory
 {
-    private final int readBlockSizeBytes;
-    private final long writeBlockSizeBytes;
-    private final int pageSize;
-    private final int batchSize;
     private final ListeningExecutorService executorService;
 
     @Inject
     public OzoneFileSystemFactory(OzoneFileSystemConfig config)
     {
-        this.readBlockSizeBytes = toIntExact(config.getReadBlockSize().toBytes());
-        this.writeBlockSizeBytes = config.getWriteBlockSize().toBytes();
-        this.pageSize = config.getPageSize();
-        this.batchSize = config.getBatchSize();
+        requireNonNull(config.getWriteBlockSize());
         this.executorService = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("trino-filesystem-gcs-%S")));
     }
 

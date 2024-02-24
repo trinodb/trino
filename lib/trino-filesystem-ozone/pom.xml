@@ -43,6 +43,12 @@
             <artifactId>units</artifactId>
         </dependency>
 
+        <!--        <dependency>-->
+        <!--            <groupId>io.dropwizard.metrics</groupId>-->
+        <!--            <artifactId>metrics-core</artifactId>-->
+        <!--            <version>3.2.5</version>-->
+        <!--        </dependency>-->
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
@@ -63,9 +69,30 @@
             <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
+        <!-- Caused by: java.lang.NoClassDefFoundError: Could not initialize class org.apache.commons.configuration2.interpol
+        .ConfigurationInterpolator$DefaultPrefixLookupsHolder-->
+        <!-- Caused by: java.lang.ExceptionInInitializerError: Exception java.lang.NoClassDefFoundError: org/apache/commons/text/lookup/StringLookupFactory-->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-configuration2</artifactId>
+            <version>2.8.0</version>
+        </dependency>
+
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.ozone</groupId>-->
+        <!--            <artifactId>hdds-client</artifactId>-->
+        <!--            <version>1.4.0</version>-->
+        <!--            <exclusions>-->
+        <!--                <exclusion>-->
+        <!--                    <groupId>javax.annotation</groupId>-->
+        <!--                    <artifactId>javax.annotation-api</artifactId>-->
+        <!--                </exclusion>-->
+        <!--            </exclusions>-->
+        <!--        </dependency>-->
+
         <dependency>
             <groupId>org.apache.ozone</groupId>
-            <artifactId>hdds-client</artifactId>
+            <artifactId>hdds-common</artifactId>
             <version>1.4.0</version>
             <exclusions>
                 <exclusion>
@@ -73,18 +100,6 @@
                     <artifactId>javax.annotation-api</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-configuration2</artifactId>
-            <version>2.1.1</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.dropwizard.metrics</groupId>
-            <artifactId>metrics-core</artifactId>
-            <version>3.2.5</version>
         </dependency>
 
         <dependency>
@@ -146,18 +161,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!--        <dependency>-->
-        <!--            <groupId>io.opentelemetry</groupId>-->
-        <!--            <artifactId>opentelemetry-opencensus-shim</artifactId>-->
-        <!--            <scope>runtime</scope>-->
-        <!--        </dependency>-->
-
-        <!--        <dependency>-->
-        <!--            <groupId>io.airlift</groupId>-->
-        <!--            <artifactId>junit-extensions</artifactId>-->
-        <!--            <scope>test</scope>-->
-        <!--        </dependency>-->
-
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
@@ -193,6 +196,15 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredDependencies>
+                        <ignoredDependency>org.apache.commons:commons-configuration2</ignoredDependency>
+                    </ignoredDependencies>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>

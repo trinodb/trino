@@ -20,20 +20,16 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
-import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.junit.jupiter.api.AfterAll;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Iterator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -70,6 +66,7 @@ public abstract class AbstractTestOzoneFileSystem
 
     // Can't find a way to create exclusively in Ozone createKey api
     // it can be done with createFile() but it use hierarchical fs semantics
+    @Override
     protected boolean isCreateExclusive()
     {
         return false;
@@ -117,10 +114,28 @@ public abstract class AbstractTestOzoneFileSystem
             throws IOException
     {
         FileIterator fileIterator = fileSystem.listFiles(rootLocation);
-        while(fileIterator.hasNext()) {
+        while (fileIterator.hasNext()) {
             FileEntry next = fileIterator.next();
             fileSystem.deleteFile(next.location());
         }
     }
 
+    @Override
+    protected Location createLocation(String path)
+    {
+        if (path.isEmpty()) {
+            return getRootLocation();
+        }
+        // TODO: remove this hack, path should not contains rootLocation
+        // Fix this: https://github.com/trinodb/trino/blob/30348401c447691237c57a5f6d6c95eef87560fc/lib/trino-filesystem/src/test/java/io/trino/filesystem/AbstractTestTrinoFileSystem.java#L988
+        // eg.
+        // Let's say the rootLocation is `/work`
+        // foo is a file in `/work/foo`
+        // calling createLocation(foo.path()) doesn't make sense
+        if (path.startsWith(getRootLocation().path())) {
+            return getRootLocation().appendPath(path.substring(getRootLocation().path().length()));
+        }
+
+        return getRootLocation().appendPath(path);
+    }
 }

@@ -19,11 +19,11 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
-import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Optional;
@@ -45,15 +45,13 @@ public class OzoneInputFile
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
         this.length = length;
+        location.location().verifyValidFileLocation();
     }
 
     @Override
     public TrinoInput newInput()
             throws IOException
     {
-        OzoneVolume ozoneVolume = storage.getVolume(location.volume());
-        OzoneBucket bucket = ozoneVolume.getBucket(location.bucket());
-
         return new OzoneInput(location, storage);
     }
 
@@ -113,10 +111,20 @@ public class OzoneInputFile
     {
         OzoneVolume ozoneVolume = storage.getVolume(location.volume());
         OzoneBucket bucket = ozoneVolume.getBucket(location.bucket());
-        OzoneKeyDetails key = bucket.getKey(location.key());
         try {
-            length = OptionalLong.of(key.getDataSize());
-            lastModified = Optional.of(key.getModificationTime());
+            OzoneKeyDetails key = bucket.getKey(location.key());
+            if (length.isEmpty()) {
+                length = OptionalLong.of(key.getDataSize());
+            }
+            if (lastModified.isEmpty()) {
+                lastModified = Optional.of(key.getModificationTime());
+            }
+        }
+        catch (OMException e) {
+            if (e.getResult().equals(KEY_NOT_FOUND)) {
+                throw new FileNotFoundException(location.toString());
+            }
+            throw e;
         }
         catch (RuntimeException e) {
             // TODO

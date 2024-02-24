@@ -16,9 +16,6 @@ package io.trino.filesystem.ozone;
 import com.google.common.base.Splitter;
 import io.trino.filesystem.Location;
 
-import java.util.Objects;
-import java.util.Set;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 

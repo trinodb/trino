@@ -24,7 +24,6 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,10 +32,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 
 public class OzoneFileSystem
@@ -76,7 +72,7 @@ public class OzoneFileSystem
     {
         // is this needed?
         // exist in azure and s3, but not gcs
-         location.verifyValidFileLocation();
+        location.verifyValidFileLocation();
         // also, blob storage should allow tailing '/' in filename? or is it not supported?
 
         OzoneLocation ozoneLocation = new OzoneLocation(location);
@@ -196,41 +192,39 @@ public class OzoneFileSystem
         // This cause NullPointerException in OzoneManager (server side)
         // 2024-02-24 12:07:19 WARN  Server:3107 - IPC Server handler 74 on default port 9862, call Call#990 Retry#8 org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol.submitRequest from 172.18.0.1:48850 / 172.18.0.1:48850
         //java.lang.NullPointerException
-        //	at org.apache.hadoop.ozone.om.helpers.OzoneFSUtils.isFile(OzoneFSUtils.java:92)
-        //	at org.apache.hadoop.ozone.om.KeyManagerImpl.findKeyInDbWithIterator(KeyManagerImpl.java:1707)
-        //	at org.apache.hadoop.ozone.om.KeyManagerImpl.listStatus(KeyManagerImpl.java:1607)
-        //	at org.apache.hadoop.ozone.om.OmMetadataReader.listStatus(OmMetadataReader.java:240)
-        //	at org.apache.hadoop.ozone.om.OzoneManager.listStatus(OzoneManager.java:3672)
-        //	at org.apache.hadoop.ozone.om.OzoneManager.listStatusLight(OzoneManager.java:3682)
-        //	at org.apache.hadoop.ozone.protocolPB.OzoneManagerRequestHandler.listStatusLight(OzoneManagerRequestHandler.java:1243)
-        //	at org.apache.hadoop.ozone.protocolPB.OzoneManagerRequestHandler.handleReadRequest(OzoneManagerRequestHandler.java:282)
-        //	at org.apache.hadoop.ozone.protocolPB.OzoneManagerProtocolServerSideTranslatorPB.submitReadRequestToOM(OzoneManagerProtocolServerSideTranslatorPB.java:265)
-        //	at org.apache.hadoop.ozone.protocolPB.OzoneManagerProtocolServerSideTranslatorPB.internalProcessRequest(OzoneManagerProtocolServerSideTranslatorPB.java:211)
-        //	at org.apache.hadoop.ozone.protocolPB.OzoneManagerProtocolServerSideTranslatorPB.processRequest(OzoneManagerProtocolServerSideTranslatorPB.java:171)
-        //	at org.apache.hadoop.hdds.server.OzoneProtocolMessageDispatcher.processRequest(OzoneProtocolMessageDispatcher.java:89)
-        //	at org.apache.hadoop.ozone.protocolPB.OzoneManagerProtocolServerSideTranslatorPB.submitRequest(OzoneManagerProtocolServerSideTranslatorPB.java:162)
-        //	at org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos$OzoneManagerService$2.callBlockingMethod(OzoneManagerProtocolProtos.java)
-        //	at org.apache.hadoop.ipc.ProtobufRpcEngine$Server.processCall(ProtobufRpcEngine.java:484)
-        //	at org.apache.hadoop.ipc.ProtobufRpcEngine2$Server$ProtoBufRpcInvoker.call(ProtobufRpcEngine2.java:595)
-        //	at org.apache.hadoop.ipc.ProtobufRpcEngine2$Server$ProtoBufRpcInvoker.call(ProtobufRpcEngine2.java:573)
-        //	at org.apache.hadoop.ipc.RPC$Server.call(RPC.java:1227)
-        //	at org.apache.hadoop.ipc.Server$RpcCall.run(Server.java:1094)
-        //	at org.apache.hadoop.ipc.Server$RpcCall.run(Server.java:1017)
-        //	at java.base/java.security.AccessController.doPrivileged(Native Method)
-        //	at java.base/javax.security.auth.Subject.doAs(Subject.java:423)
-        //	at org.apache.hadoop.security.UserGroupInformation.doAs(UserGroupInformation.java:1899)
-        //	at org.apache.hadoop.ipc.Server$Handler.run(Server.java:3048)
+        // at org.apache.hadoop.ozone.om.helpers.OzoneFSUtils.isFile(OzoneFSUtils.java:92)
+        // at org.apache.hadoop.ozone.om.KeyManagerImpl.findKeyInDbWithIterator(KeyManagerImpl.java:1707)
+        // at org.apache.hadoop.ozone.om.KeyManagerImpl.listStatus(KeyManagerImpl.java:1607)
+        // at org.apache.hadoop.ozone.om.OmMetadataReader.listStatus(OmMetadataReader.java:240)
+        // at org.apache.hadoop.ozone.om.OzoneManager.listStatus(OzoneManager.java:3672)
+        // at org.apache.hadoop.ozone.om.OzoneManager.listStatusLight(OzoneManager.java:3682)
+        // at org.apache.hadoop.ozone.protocolPB.OzoneManagerRequestHandler.listStatusLight(OzoneManagerRequestHandler.java:1243)
+        // at org.apache.hadoop.ozone.protocolPB.OzoneManagerRequestHandler.handleReadRequest(OzoneManagerRequestHandler.java:282)
+        // at org.apache.hadoop.ozone.protocolPB.OzoneManagerProtocolServerSideTranslatorPB.submitReadRequestToOM(OzoneManagerProtocolServerSideTranslatorPB.java:265)
+        // at org.apache.hadoop.ozone.protocolPB.OzoneManagerProtocolServerSideTranslatorPB.internalProcessRequest(OzoneManagerProtocolServerSideTranslatorPB.java:211)
+        // at org.apache.hadoop.ozone.protocolPB.OzoneManagerProtocolServerSideTranslatorPB.processRequest(OzoneManagerProtocolServerSideTranslatorPB.java:171)
+        // at org.apache.hadoop.hdds.server.OzoneProtocolMessageDispatcher.processRequest(OzoneProtocolMessageDispatcher.java:89)
+        // at org.apache.hadoop.ozone.protocolPB.OzoneManagerProtocolServerSideTranslatorPB.submitRequest(OzoneManagerProtocolServerSideTranslatorPB.java:162)
+        // at org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos$OzoneManagerService$2.callBlockingMethod(OzoneManagerProtocolProtos.java)
+        // at org.apache.hadoop.ipc.ProtobufRpcEngine$Server.processCall(ProtobufRpcEngine.java:484)
+        // at org.apache.hadoop.ipc.ProtobufRpcEngine2$Server$ProtoBufRpcInvoker.call(ProtobufRpcEngine2.java:595)
+        // at org.apache.hadoop.ipc.ProtobufRpcEngine2$Server$ProtoBufRpcInvoker.call(ProtobufRpcEngine2.java:573)
+        // at org.apache.hadoop.ipc.RPC$Server.call(RPC.java:1227)
+        // at org.apache.hadoop.ipc.Server$RpcCall.run(Server.java:1094)
+        // at org.apache.hadoop.ipc.Server$RpcCall.run(Server.java:1017)
+        // at java.base/java.security.AccessController.doPrivileged(Native Method)
+        // at java.base/javax.security.auth.Subject.doAs(Subject.java:423)
+        // at org.apache.hadoop.security.UserGroupInformation.doAs(UserGroupInformation.java:1899)
+        // at org.apache.hadoop.ipc.Server$Handler.run(Server.java:3048)
         if (locationKey.equals("/")) {
             return ImmutableSet.of();
         }
 
         ImmutableSet.Builder<Location> builder = ImmutableSet.builder();
-        Iterator<? extends OzoneKey> iteratorNotShadow = bucket.listKeys(locationKey, null, false);
         Iterator<? extends OzoneKey> iteratorShadow = bucket.listKeys(locationKey, null, true);
         while (iteratorShadow.hasNext()) {
             OzoneKey key = iteratorShadow.next();
             if (!key.isFile()) {
-                String name = key.getName();
                 builder.add(baseLocation.appendPath(key.getName()));
             }
         }

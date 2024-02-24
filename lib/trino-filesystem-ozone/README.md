@@ -310,5 +310,18 @@ java.lang.NullPointerException
 
 ```
 
-io.trino.filesystem.Location.appendPath(o3://vol/bucket/, dir) didn't work, because .path() returns "bucket/"
-results in "o3://vol/bucket/bucket/dir"
+io.trino.filesystem.AbstractTestTrinoFileSystem#testDirectoryExists Error:
+Can append path in o3://, because path contains bucket.
+
+Location loc1 = "o3://vol/bucket/foo/file1"
+Location loc2 = "o3://vol/bucket
+
+String path1 = loc1.path()  // path1 = "bucket/foo/file1"
+loc2.appendPath(loc1.path)  // "o3://vol/bucket/bucket/foo/file1"
+
+--
+
+Let's say the rootLocation is `/work`.
+In `/work` there is file a file foo (`/work/foo`)
+createLocation(foo.path()) doesn't make sense
+

@@ -17,20 +17,19 @@ import io.trino.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOzoneLocation
 {
     @Test
     public void testValidUri()
     {
-        assertS3Uri("o3://vol1/bucket1/x", "vol1", "bucket1", "x");
-        assertS3Uri("o3://vol1/bucket2/xyz/fooBAR", "vol1", "bucket2", "xyz/fooBAR");
-        assertS3Uri("o3://vol1/bucket1/xyz/../foo", "vol1", "bucket1", "xyz/../foo");
-        assertS3Uri("o3://vol1/bucket2/..", "vol1", "bucket2", "..");
-        assertS3Uri("o3://vol2/bucket1/xyz/%41%xx", "vol2", "bucket1", "xyz/%41%xx");
-        assertS3Uri("o3://vol2/bucket2///what", "vol2", "bucket2", "//what");
-        assertS3Uri("o3://vol2/bucket1///what//", "vol2", "bucket1", "//what//");
+        assertOzoneUri("o3://vol1/bucket1/x", "vol1", "bucket1", "x");
+        assertOzoneUri("o3://vol1/bucket2/xyz/fooBAR", "vol1", "bucket2", "xyz/fooBAR");
+        assertOzoneUri("o3://vol1/bucket1/xyz/../foo", "vol1", "bucket1", "xyz/../foo");
+        assertOzoneUri("o3://vol1/bucket2/..", "vol1", "bucket2", "..");
+        assertOzoneUri("o3://vol2/bucket1/xyz/%41%xx", "vol2", "bucket1", "xyz/%41%xx");
+        assertOzoneUri("o3://vol2/bucket2///what", "vol2", "bucket2", "//what");
+        assertOzoneUri("o3://vol2/bucket1///what//", "vol2", "bucket1", "//what//");
     }
 
     @Test
@@ -62,13 +61,13 @@ public class TestOzoneLocation
 //                .hasMessage("Wrong scheme for S3 location: blah://vol/xyz");
     }
 
-    private static void assertS3Uri(String uri, String volume, String bucket, String key)
+    private static void assertOzoneUri(String uri, String volume, String bucket, String key)
     {
         var location = Location.of(uri);
-        var OzoneLocation = new OzoneLocation(location);
-        assertThat(OzoneLocation.location()).as("location").isEqualTo(location);
-        assertThat(OzoneLocation.volume()).as("volume").isEqualTo(volume);
-        assertThat(OzoneLocation.bucket()).as("bucket").isEqualTo(bucket);
-        assertThat(OzoneLocation.key()).as("key").isEqualTo(key);
+        var ozoneLocation = new OzoneLocation(location);
+        assertThat(ozoneLocation.location()).as("location").isEqualTo(location);
+        assertThat(ozoneLocation.volume()).as("volume").isEqualTo(volume);
+        assertThat(ozoneLocation.bucket()).as("bucket").isEqualTo(bucket);
+        assertThat(ozoneLocation.key()).as("key").isEqualTo(key);
     }
 }

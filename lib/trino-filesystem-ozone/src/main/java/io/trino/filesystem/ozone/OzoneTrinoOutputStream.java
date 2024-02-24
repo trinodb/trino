@@ -16,14 +16,12 @@ package io.trino.filesystem.ozone;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneVolume;
-import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 
 import java.io.BufferedOutputStream;
@@ -67,7 +65,7 @@ class OzoneTrinoOutputStream
 //            ReplicationConfig replicationConfig = RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.valueOf(1));
 //            OzoneDataStreamOutput ozoneOutputStream = bucket.createStreamKey(location.key(), 0, replicationConfig, Collections.emptyMap());
             // createMultipartKey?
-            ReplicationConfig replicationConfig = StandaloneReplicationConfig.getInstance(HddsProtos.ReplicationFactor.valueOf(1));;
+            ReplicationConfig replicationConfig = StandaloneReplicationConfig.getInstance(HddsProtos.ReplicationFactor.valueOf(1));
             OzoneOutputStream ozoneOutputStream = bucket.createKey(location.key(), 0, replicationConfig, Collections.emptyMap());
 
             // TODO It is not clear if the buffered stream helps or hurts... the underlying implementation seems to copy every write to a byte buffer so small writes will suffer

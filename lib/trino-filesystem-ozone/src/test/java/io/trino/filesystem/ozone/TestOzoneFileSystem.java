@@ -26,7 +26,6 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Iterator;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -41,7 +40,7 @@ public class TestOzoneFileSystem
     }
 
     @Test
-    void test()
+    void localSetupTest()
             throws IOException
     {
         OzoneConfiguration conf = new OzoneConfiguration();
