@@ -96,6 +96,6 @@ record OzoneLocation(Location location)
 
     public Location baseLocation()
     {
-        return Location.of("%s://%s/%s".formatted(scheme(), volume(), bucket()));
+        return Location.of("%s://%s/%s/".formatted(scheme(), volume(), bucket()));
     }
 }
