@@ -13,12 +13,11 @@
  */
 package io.trino.filesystem.ozone;
 
-import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
-import jakarta.annotation.PreDestroy;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneClient;
@@ -26,27 +25,17 @@ import org.apache.hadoop.ozone.client.OzoneClientFactory;
 
 import java.io.IOException;
 
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class OzoneFileSystemFactory
         implements TrinoFileSystemFactory
 {
-    private final ListeningExecutorService executorService;
+    private final HostAndPort endpoint;
 
     @Inject
     public OzoneFileSystemFactory(OzoneFileSystemConfig config)
     {
-        requireNonNull(config.getWriteBlockSize());
-        this.executorService = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("trino-filesystem-gcs-%S")));
-    }
-
-    @PreDestroy
-    public void stop()
-    {
-        executorService.shutdownNow();
+        endpoint = requireNonNull(config.getEndpoint());
     }
 
     @Override
@@ -54,7 +43,7 @@ public class OzoneFileSystemFactory
     {
         OzoneConfiguration conf = new OzoneConfiguration();
         try {
-            OzoneClient ozoneClient = OzoneClientFactory.getRpcClient("127.0.0.1", 9862, conf);
+            OzoneClient ozoneClient = OzoneClientFactory.getRpcClient(endpoint.getHost(), endpoint.getPort(), conf);
             ObjectStore objectStore = ozoneClient.getObjectStore();
             return new OzoneFileSystem(objectStore);
         }

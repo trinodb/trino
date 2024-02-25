@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.ozone;
 
+import com.google.common.net.HostAndPort;
 import io.airlift.log.Logging;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.FileEntry;
@@ -46,7 +47,9 @@ public abstract class AbstractTestOzoneFileSystem
     {
         Logging.initialize();
         OzoneFileSystemConfig config = new OzoneFileSystemConfig();
+        config.setEndpoint(HostAndPort.fromParts("localhost", 9862));
         this.rootLocation = Location.of("o3://%s/%s/".formatted("s3v", "bucket1"));
+
         fileSystemFactory = new OzoneFileSystemFactory(config);
         fileSystem = fileSystemFactory.create((ConnectorIdentity) null);
 
