@@ -68,6 +68,13 @@ public abstract class AbstractTestAzureFileSystem
         initialize(account, new AzureAuthAccessKey(accountKey), accountKind);
     }
 
+    protected void initializeWithOAuth(String account, String tenantId, String clientId, String clientSecret, AccountKind accountKind)
+            throws IOException
+    {
+        String clientEndpoint = "https://login.microsoftonline.com/%s/oauth2/v2.0/token".formatted(tenantId);
+        initialize(account, new AzureAuthOauth(clientEndpoint, tenantId, clientId, clientSecret), accountKind);
+    }
+
     private void initialize(String account, AzureAuth azureAuth, AccountKind accountKind)
             throws IOException
     {
