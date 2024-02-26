@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -221,6 +222,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogNam
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isIncrementalRefreshEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isQueryPartitionFilterRequired;
@@ -319,6 +321,7 @@ public class IcebergMetadata
 
     private static final Integer DELETE_BATCH_SIZE = 1000;
     public static final int GET_METADATA_BATCH_SIZE = 1000;
+    private static final MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=");
 
     private final TypeManager typeManager;
     private final CatalogHandle trinoCatalogHandle;
@@ -330,6 +333,7 @@ public class IcebergMetadata
     private final Map<IcebergTableHandle, TableStatistics> tableStatisticsCache = new ConcurrentHashMap<>();
 
     private Transaction transaction;
+    private Map<SchemaTableName, Long> fromSnapshotsForRefresh = new HashMap<>();
 
     public IcebergMetadata(
             TypeManager typeManager,
@@ -2817,7 +2821,47 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         beginTransaction(icebergTable);
 
+        fromSnapshotsForRefresh = getFromSnapshotsForIncrementalRefresh(session, sourceTableHandles, icebergTable);
+
         return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
+    }
+
+    private Map<SchemaTableName, Long> getFromSnapshotsForIncrementalRefresh(ConnectorSession session, List<ConnectorTableHandle> sourceTableHandles, Table icebergTable)
+    {
+        Map<SchemaTableName, Long> fromSnapshotsForRefresh = new HashMap<>();
+        if (!isIncrementalRefreshEnabled(session)) {
+            return fromSnapshotsForRefresh;
+        }
+
+        if (sourceTableHandles.stream().anyMatch(t -> !(t instanceof IcebergTableHandle))) {
+            // Incremental refresh is only supported when all backing tables are Iceberg tables
+            return fromSnapshotsForRefresh;
+        }
+
+        Optional<String> dependencies = Optional.ofNullable(icebergTable.currentSnapshot())
+                .map(Snapshot::summary)
+                .map(summary -> summary.get(DEPENDS_ON_TABLES));
+        if (dependencies.isEmpty()) {
+            return fromSnapshotsForRefresh;
+        }
+
+        boolean useIncrementalRefresh = !Boolean.parseBoolean(icebergTable.properties().get("materialized-view.incremental-refresh.contains-group-by"))
+                && !Boolean.parseBoolean(icebergTable.properties().get("materialized-view.incremental-refresh.contains-join"))
+                && !Boolean.parseBoolean(icebergTable.properties().get("materialized-view.incremental-refresh.contains-window"))
+                && !Boolean.parseBoolean(icebergTable.properties().get("materialized-view.incremental-refresh.contains-distinct"))
+                && !Boolean.parseBoolean(icebergTable.properties().get("materialized-view.incremental-refresh.contains-select-function"))
+                && !Boolean.parseBoolean(icebergTable.properties().get("materialized-view.incremental-refresh.contains-predicate-function"));
+        if (!useIncrementalRefresh) {
+            return fromSnapshotsForRefresh;
+        }
+
+        Map<String, String> baseTableToSnapshot = MAP_SPLITTER.split(dependencies.get());
+        for (Map.Entry<String, String> baseTable : baseTableToSnapshot.entrySet()) {
+            String[] schemaTable = baseTable.getKey().split("\\.");
+            long snapshot = Long.parseLong(baseTable.getValue());
+            fromSnapshotsForRefresh.put(new SchemaTableName(schemaTable[0], schemaTable[1]), snapshot);
+        }
+        return fromSnapshotsForRefresh;
     }
 
     @Override
@@ -2833,10 +2877,17 @@ public class IcebergMetadata
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
 
         Table icebergTable = transaction.table();
-        // delete before insert .. simulating overwrite
-        transaction.newDelete()
-                .deleteFromRowFilter(Expressions.alwaysTrue())
-                .commit();
+        boolean isFullRefresh = fromSnapshotsForRefresh.isEmpty();
+        if (isFullRefresh) {
+            // delete before insert .. simulating overwrite
+            log.info("Performing full MV refresh for storage table: %s", table.getName());
+            transaction.newDelete()
+                    .deleteFromRowFilter(Expressions.alwaysTrue())
+                    .commit();
+        }
+        else {
+            log.info("Performing incremental MV refresh for storage table: %s", table.getName());
+        }
 
         List<CommitTaskData> commitTasks = fragments.stream()
                 .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
@@ -3098,6 +3149,16 @@ public class IcebergMetadata
     public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return WriterScalingOptions.ENABLED;
+    }
+
+    public Optional<Long> getIncrementalRefreshFromSnapshot(SchemaTableName schemaTableName)
+    {
+        return Optional.ofNullable(fromSnapshotsForRefresh.get(schemaTableName));
+    }
+
+    public void disableIncrementalRefresh()
+    {
+        fromSnapshotsForRefresh.clear();
     }
 
     private static CollectedStatistics processComputedTableStatistics(Table table, Collection<ComputedStatistics> computedStatistics)

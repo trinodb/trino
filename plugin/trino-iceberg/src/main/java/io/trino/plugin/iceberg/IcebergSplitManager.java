@@ -30,8 +30,13 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.CombinedScanTask;
+import org.apache.iceberg.DataOperations;
+import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Scan;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
+import org.apache.iceberg.util.SnapshotUtil;
 
 import java.util.concurrent.ExecutorService;
 
@@ -83,19 +88,18 @@ public class IcebergSplitManager
             return emptySplitSource();
         }
 
-        Table icebergTable = transactionManager.get(transaction, session.getIdentity()).getIcebergTable(session, table.getSchemaTableName());
+        IcebergMetadata icebergMetadata = transactionManager.get(transaction, session.getIdentity());
+        Table icebergTable = icebergMetadata.getIcebergTable(session, table.getSchemaTableName());
         Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
 
-        TableScan tableScan = icebergTable.newScan()
-                .useSnapshot(table.getSnapshotId().get())
-                .planWith(executor);
+        Scan scan = getScan(icebergMetadata, icebergTable, table, executor);
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 fileSystemFactory,
                 session,
                 table,
                 icebergTable.io().properties(),
-                tableScan,
+                scan,
                 table.getMaxScannedFileSize(),
                 dynamicFilter,
                 dynamicFilteringWaitTimeout,
@@ -106,6 +110,36 @@ public class IcebergSplitManager
                 cachingHostAddressProvider);
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, IcebergSplitManager.class.getClassLoader());
+    }
+
+    private Scan<?, FileScanTask, CombinedScanTask> getScan(IcebergMetadata icebergMetadata, Table icebergTable, IcebergTableHandle table, ExecutorService executor)
+    {
+        Long fromSnapshot = icebergMetadata.getIncrementalRefreshFromSnapshot(table.getSchemaTableName()).orElse(null);
+        if (fromSnapshot != null) {
+            // check if fromSnapshot is still part of the table's snapshot history
+            boolean containsFromSnapshot = SnapshotUtil.isAncestorOf(icebergTable, fromSnapshot);
+            if (containsFromSnapshot) {
+                boolean containsDelete = false;
+                for (Snapshot snapshot : SnapshotUtil.ancestorsBetween(icebergTable, icebergTable.currentSnapshot().snapshotId(), fromSnapshot)) {
+                    if (snapshot.operation().equals(DataOperations.OVERWRITE) || snapshot.operation().equals(DataOperations.DELETE)) {
+                        containsDelete = true;
+                        break;
+                    }
+                }
+                if (!containsDelete) {
+                    return icebergTable.newIncrementalAppendScan().fromSnapshotExclusive(fromSnapshot).planWith(executor);
+                }
+                else {
+                    // the snapshot range contains deletes, so we cannot do an incremental refresh. Fall back to full refresh.
+                    icebergMetadata.disableIncrementalRefresh();
+                }
+            }
+            else {
+                // fromSnapshot is missing (could be due to snapshot expiration or rollback). Fall back to full refresh.
+                icebergMetadata.disableIncrementalRefresh();
+            }
+        }
+        return icebergTable.newScan().useSnapshot(table.getSnapshotId().get()).planWith(executor);
     }
 
     @Override

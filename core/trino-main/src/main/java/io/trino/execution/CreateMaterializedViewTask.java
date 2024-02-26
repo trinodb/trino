@@ -34,13 +34,20 @@ import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.Join;
+import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.QuerySpecification;
+import io.trino.sql.tree.SingleColumn;
 
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -134,6 +141,36 @@ public class CreateMaterializedViewTask
                 accessControl,
                 parameterLookup,
                 true);
+
+        if (statement.getQuery().getQueryBody() instanceof QuerySpecification specification) {
+            specification.getGroupBy().ifPresent(g -> properties.put("materialized-view.incremental-refresh.contains-group-by", "true"));
+            specification.getFrom().filter(from -> from instanceof Join).ifPresent(f -> properties.put("materialized-view.incremental-refresh.contains-join", "true"));
+            if (specification.getSelect().isDistinct()) {
+                properties.put("materialized-view.incremental-refresh.contains-distinct", "true");
+            }
+            if (!specification.getWindows().isEmpty()) {
+                properties.put("materialized-view.incremental-refresh.contains-window", "true");
+            }
+            if (specification.getSelect().getSelectItems().stream()
+                    .filter(child -> child instanceof SingleColumn)
+                    .map(child -> (SingleColumn) child)
+                    .anyMatch(child -> child.getExpression() instanceof FunctionCall)) {
+                properties.put("materialized-view.incremental-refresh.contains-select-function", "true");
+            }
+            if (specification.getWhere().isPresent()) {
+                Queue<Node> queue = new ArrayDeque<>();
+                Expression predicateRoot = specification.getWhere().get();
+                queue.add(predicateRoot);
+                while (!queue.isEmpty()) {
+                    Node predicateNode = queue.remove();
+                    if (predicateNode instanceof FunctionCall) {
+                        properties.put("materialized-view.incremental-refresh.contains-predicate-function", "true");
+                        break;
+                    }
+                    queue.addAll(predicateNode.getChildren());
+                }
+            }
+        }
 
         Optional<Duration> gracePeriod = statement.getGracePeriod()
                 .map(expression -> {

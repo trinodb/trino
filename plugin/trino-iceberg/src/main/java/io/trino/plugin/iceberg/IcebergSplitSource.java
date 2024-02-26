@@ -44,11 +44,12 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
+import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
@@ -113,7 +114,7 @@ public class IcebergSplitSource
     private final ConnectorSession session;
     private final IcebergTableHandle tableHandle;
     private final Map<String, String> fileIoProperties;
-    private final TableScan tableScan;
+    private final Scan<?, FileScanTask, CombinedScanTask> tableScan;
     private final Optional<Long> maxScannedFileSizeInBytes;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
     private final DynamicFilter dynamicFilter;
@@ -146,7 +147,7 @@ public class IcebergSplitSource
             ConnectorSession session,
             IcebergTableHandle tableHandle,
             Map<String, String> fileIoProperties,
-            TableScan tableScan,
+            Scan<?, FileScanTask, CombinedScanTask> tableScan,
             Optional<DataSize> maxScannedFileSize,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
@@ -225,9 +226,9 @@ public class IcebergSplitSource
             Expression filterExpression = toIcebergExpression(effectivePredicate);
             // Use stats to populate fileStatisticsDomain if there are predicated columns. Otherwise, skip them.
             boolean requiresColumnStats = !predicatedColumnIds.isEmpty();
-            TableScan scan = tableScan.filter(filterExpression);
+            Scan scan = (Scan) tableScan.filter(filterExpression);
             if (requiresColumnStats) {
-                scan = scan.includeColumnStats();
+                scan = (Scan) scan.includeColumnStats();
             }
             this.fileScanIterable = closer.register(scan.planFiles());
             this.targetSplitSize = getSplitSize(session)

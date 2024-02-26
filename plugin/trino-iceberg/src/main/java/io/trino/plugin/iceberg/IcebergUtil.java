@@ -684,6 +684,9 @@ public final class IcebergUtil
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
         propertiesBuilder.put(FORMAT_VERSION, Integer.toString(IcebergTableProperties.getFormatVersion(tableMetadata.getProperties())));
 
+        // for MV storage tables, persist any extra properties
+        setMaterializedViewProperties(tableMetadata, propertiesBuilder);
+
         // iceberg ORC format bloom filter properties used by create table
         List<String> columns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());
         if (!columns.isEmpty()) {
@@ -697,6 +700,24 @@ public final class IcebergUtil
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
         return propertiesBuilder.buildOrThrow();
+    }
+
+    private static void setMaterializedViewProperties(ConnectorTableMetadata tableMetadata, ImmutableMap.Builder<String, String> propertiesBuilder)
+    {
+        setBooleanProp(tableMetadata, propertiesBuilder, "materialized-view.incremental-refresh.contains-group-by");
+        setBooleanProp(tableMetadata, propertiesBuilder, "materialized-view.incremental-refresh.contains-join");
+        setBooleanProp(tableMetadata, propertiesBuilder, "materialized-view.incremental-refresh.contains-window");
+        setBooleanProp(tableMetadata, propertiesBuilder, "materialized-view.incremental-refresh.contains-distinct");
+        setBooleanProp(tableMetadata, propertiesBuilder, "materialized-view.incremental-refresh.contains-select-function");
+        setBooleanProp(tableMetadata, propertiesBuilder, "materialized-view.incremental-refresh.contains-predicate-function");
+    }
+
+    private static void setBooleanProp(ConnectorTableMetadata tableMetadata, ImmutableMap.Builder<String, String> propertiesBuilder, String propertyName)
+    {
+        Object prop = tableMetadata.getProperties().get(propertyName);
+        if (prop instanceof String) {
+            propertiesBuilder.put(propertyName, (String) prop);
+        }
     }
 
     /**

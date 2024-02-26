@@ -26,14 +26,15 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Property;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.PropertyUtil.evaluateProperties;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 abstract class AbstractCatalogPropertyManager
 {
@@ -72,7 +73,7 @@ abstract class AbstractCatalogPropertyManager
                 includeAllProperties);
         return nullableValues.entrySet().stream()
                 .filter(entry -> entry.getValue().isPresent())
-                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
+                .collect(toMap(Entry::getKey, entry -> entry.getValue().orElseThrow(), (n1, n2) -> n1, HashMap::new));
     }
 
     public Map<String, Optional<Object>> getNullableProperties(

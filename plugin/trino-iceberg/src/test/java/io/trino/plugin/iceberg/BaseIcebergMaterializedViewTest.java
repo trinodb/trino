@@ -592,7 +592,7 @@ public abstract class BaseIcebergMaterializedViewTest
 
         // Insert into the base table
         assertUpdate("INSERT INTO base_table5 VALUES (3, DATE '2019-09-09'), (4, DATE '2019-09-10'), (5, DATE '2019-09-10')", 3);
-        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_level2", 3);
+        assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_level2", 2);
 
         // Refreshing the 2nd level (outer-most) materialized view does not refresh the 1st level (inner) materialized view.
         assertThat(getExplainPlan("SELECT * FROM materialized_view_level1", ExplainType.Type.IO))
@@ -779,7 +779,7 @@ public abstract class BaseIcebergMaterializedViewTest
         return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
     }
 
-    private TableMetadata getStorageTableMetadata(String materializedViewName)
+    protected TableMetadata getStorageTableMetadata(String materializedViewName)
     {
         QueryRunner queryRunner = getQueryRunner();
         TrinoFileSystem fileSystemFactory = ((IcebergConnector) queryRunner.getCoordinator().getConnector("iceberg")).getInjector()
