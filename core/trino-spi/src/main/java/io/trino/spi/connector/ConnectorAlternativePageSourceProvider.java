@@ -30,6 +30,16 @@ public interface ConnectorAlternativePageSourceProvider
             DynamicFilter dynamicFilter,
             boolean splitAddressEnforced);
 
+    @Deprecated
+    default ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
+    {
+        return createPageSource(transaction, session, columns, dynamicFilter, true);
+    }
+
     /**
      * Closes this page source provider.
      * There will be no more calls to the {@link #createPageSource} once this method is called.
