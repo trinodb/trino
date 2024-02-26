@@ -21,7 +21,6 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.IOException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestGcsFileSystemGcs
@@ -36,15 +35,15 @@ public class TestGcsFileSystemGcs
 
     @Test
     void testCreateFileRetry()
+            throws Exception
     {
         // Note: this test is meant to expose flakiness
         // Without retries it may fail non-deterministically.
         // Retries are enabled in the default GcsFileSystemConfig.
         // In practice this may happen between 7 and 20 retries.
-        assertThatNoException().isThrownBy(() -> {
-            for (int i = 1; i <= 30; i++) {
-                TrinoOutputFile outputFile = getFileSystem().newOutputFile(getRootLocation().appendPath("testFile"));
-                outputFile.createOrOverwrite("test".getBytes(UTF_8));
-            }});
+        for (int i = 1; i <= 30; i++) {
+            TrinoOutputFile outputFile = getFileSystem().newOutputFile(getRootLocation().appendPath("testFile"));
+            outputFile.createOrOverwrite("test".getBytes(UTF_8));
+        }
     }
 }
