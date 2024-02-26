@@ -1,0 +1,152 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "c7d9252e-2989-4041-803c-bf4d0dae273c",
+  "location" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/customer",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1678866132348,
+  "last-column-id" : 18,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "c_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "c_customer_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "c_current_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "c_current_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "c_current_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "c_first_shipto_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "c_first_sales_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "c_salutation",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "c_first_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "c_last_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "c_preferred_cust_flag",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "c_birth_day",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "c_birth_month",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 14,
+      "name" : "c_birth_year",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 15,
+      "name" : "c_birth_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "c_login",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "c_email_address",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "c_last_review_date_sk",
+      "required" : false,
+      "type" : "long"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 497222046221833446,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 497222046221833446,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 497222046221833446,
+    "timestamp-ms" : 1678866132348,
+    "summary" : {
+      "operation" : "append",
+      "trino_query_id" : "20230315_074151_00043_9f4mz",
+      "added-data-files" : "12",
+      "added-records" : "12000000",
+      "added-files-size" : "447132995",
+      "changed-partition-count" : "1",
+      "total-records" : "12000000",
+      "total-files-size" : "447132995",
+      "total-data-files" : "12",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/customer/metadata/snap-497222046221833446-1-94caaa8a-6674-4c6a-84e2-1025ea03170b.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1678866132348,
+    "snapshot-id" : 497222046221833446
+  } ],
+  "metadata-log" : [ ]
+}

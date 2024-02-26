@@ -1,0 +1,375 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "0c9c9645-89b0-449d-90ad-1cea704a6427",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/date_dim",
+  "last-updated-ms" : 1663708812751,
+  "last-column-id" : 28,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "d_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "d_date_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "d_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "d_month_seq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "d_week_seq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 6,
+      "name" : "d_quarter_seq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 7,
+      "name" : "d_year",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "d_dow",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "d_moy",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 10,
+      "name" : "d_dom",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "d_qoy",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "d_fy_year",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "d_fy_quarter_seq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 14,
+      "name" : "d_fy_week_seq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 15,
+      "name" : "d_day_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "d_quarter_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "d_holiday",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "d_weekend",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "d_following_holiday",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "d_first_dom",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 21,
+      "name" : "d_last_dom",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 22,
+      "name" : "d_same_day_ly",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 23,
+      "name" : "d_same_day_lq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 24,
+      "name" : "d_current_day",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 25,
+      "name" : "d_current_week",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 26,
+      "name" : "d_current_month",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 27,
+      "name" : "d_current_quarter",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 28,
+      "name" : "d_current_year",
+      "required" : false,
+      "type" : "string"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "d_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "d_date_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "d_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "d_month_seq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "d_week_seq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 6,
+      "name" : "d_quarter_seq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 7,
+      "name" : "d_year",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "d_dow",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "d_moy",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 10,
+      "name" : "d_dom",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "d_qoy",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "d_fy_year",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "d_fy_quarter_seq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 14,
+      "name" : "d_fy_week_seq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 15,
+      "name" : "d_day_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "d_quarter_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "d_holiday",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "d_weekend",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "d_following_holiday",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "d_first_dom",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 21,
+      "name" : "d_last_dom",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 22,
+      "name" : "d_same_day_ly",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 23,
+      "name" : "d_same_day_lq",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 24,
+      "name" : "d_current_day",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 25,
+      "name" : "d_current_week",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 26,
+      "name" : "d_current_month",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 27,
+      "name" : "d_current_quarter",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 28,
+      "name" : "d_current_year",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.22.ndv" : "73023",
+    "trino.stats.ndv.2.ndv" : "71926",
+    "trino.stats.ndv.7.ndv" : "201",
+    "trino.stats.ndv.27.ndv" : "2",
+    "trino.stats.ndv.19.ndv" : "2",
+    "trino.stats.ndv.18.ndv" : "2",
+    "trino.stats.ndv.14.ndv" : "10536",
+    "trino.stats.ndv.23.ndv" : "72827",
+    "trino.stats.ndv.8.ndv" : "7",
+    "trino.stats.ndv.21.ndv" : "2468",
+    "trino.stats.ndv.3.ndv" : "71148",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.17.ndv" : "2",
+    "trino.stats.ndv.13.ndv" : "806",
+    "trino.stats.ndv.26.ndv" : "2",
+    "trino.stats.ndv.16.ndv" : "792",
+    "trino.stats.ndv.4.ndv" : "2391",
+    "trino.stats.ndv.5.ndv" : "10536",
+    "trino.stats.ndv.9.ndv" : "12",
+    "trino.stats.ndv.12.ndv" : "201",
+    "trino.stats.ndv.25.ndv" : "1",
+    "trino.stats.ndv.10.ndv" : "31",
+    "trino.stats.ndv.1.ndv" : "73040",
+    "trino.stats.ndv.28.ndv" : "2",
+    "trino.stats.ndv.15.ndv" : "7",
+    "trino.stats.ndv.6.ndv" : "806",
+    "trino.stats.ndv.20.ndv" : "2411",
+    "trino.stats.ndv.24.ndv" : "1",
+    "trino.stats.ndv.11.ndv" : "4"
+  },
+  "current-snapshot-id" : 6005541327418396024,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 6005541327418396024,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 6005541327418396024,
+    "timestamp-ms" : 1648044132397,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "6",
+      "added-records" : "73049",
+      "added-files-size" : "341839",
+      "changed-partition-count" : "1",
+      "total-records" : "73049",
+      "total-files-size" : "341839",
+      "total-data-files" : "6",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/date_dim/metadata/snap-6005541327418396024-1-bb63012b-2c05-49f9-8772-77377306deb3.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648044132397,
+    "snapshot-id" : 6005541327418396024
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648044132397,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/date_dim/metadata/00000-c9f22d0f-a868-4050-b25d-66520adcbd3e.metadata.json"
+  } ]
+}

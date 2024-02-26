@@ -1,0 +1,100 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "1e8c8e4c-3aba-4f65-895e-a80c377af3ec",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/income_band",
+  "last-updated-ms" : 1663709501081,
+  "last-column-id" : 3,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "ib_income_band_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "ib_lower_bound",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 3,
+      "name" : "ib_upper_bound",
+      "required" : false,
+      "type" : "int"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "ib_income_band_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "ib_lower_bound",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 3,
+      "name" : "ib_upper_bound",
+      "required" : false,
+      "type" : "int"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.2.ndv" : "20",
+    "trino.stats.ndv.1.ndv" : "20",
+    "trino.stats.ndv.3.ndv" : "20",
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 9031488788150469094,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 9031488788150469094,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 9031488788150469094,
+    "timestamp-ms" : 1648060876421,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "4",
+      "added-records" : "20",
+      "added-files-size" : "2253",
+      "changed-partition-count" : "1",
+      "total-records" : "20",
+      "total-files-size" : "2253",
+      "total-data-files" : "4",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/income_band/metadata/snap-9031488788150469094-1-1015ac44-d82e-4a05-a038-65fde8ef6da3.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648060876421,
+    "snapshot-id" : 9031488788150469094
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648060876421,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/income_band/metadata/00000-651b83d6-e34c-44c1-b96d-7c9f6d01ddc0.metadata.json"
+  } ]
+}

@@ -1,0 +1,172 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "32f5919b-bee9-439f-b597-a6c98eb55c4c",
+  "location" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/item",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1678866169022,
+  "last-column-id" : 22,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "i_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "i_item_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "i_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "i_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "i_item_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "i_current_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 7,
+      "name" : "i_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 8,
+      "name" : "i_brand_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "i_brand",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "i_class_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "i_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "i_category_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "i_category",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "i_manufact_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 15,
+      "name" : "i_manufact",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "i_size",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "i_formulation",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "i_color",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "i_units",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "i_container",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "i_manager_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 22,
+      "name" : "i_product_name",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 4551617743668210082,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 4551617743668210082,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 4551617743668210082,
+    "timestamp-ms" : 1678866169022,
+    "summary" : {
+      "operation" : "append",
+      "trino_query_id" : "20230315_074245_00053_9f4mz",
+      "added-data-files" : "1",
+      "added-records" : "300000",
+      "added-files-size" : "17538306",
+      "changed-partition-count" : "1",
+      "total-records" : "300000",
+      "total-files-size" : "17538306",
+      "total-data-files" : "1",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/item/metadata/snap-4551617743668210082-1-7e50169e-0264-44be-8503-dfa9dbed5fd4.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1678866169022,
+    "snapshot-id" : 4551617743668210082
+  } ],
+  "metadata-log" : [ ]
+}

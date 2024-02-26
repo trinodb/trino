@@ -1,0 +1,77 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "3619eaf8-7a83-4e06-bfb8-3134dedda283",
+  "location" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/reason",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1678866176782,
+  "last-column-id" : 3,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "r_reason_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "r_reason_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "r_reason_desc",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 7858783715254064031,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 7858783715254064031,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 7858783715254064031,
+    "timestamp-ms" : 1678866176782,
+    "summary" : {
+      "operation" : "append",
+      "trino_query_id" : "20230315_074255_00057_9f4mz",
+      "added-data-files" : "1",
+      "added-records" : "65",
+      "added-files-size" : "1260",
+      "changed-partition-count" : "1",
+      "total-records" : "65",
+      "total-files-size" : "1260",
+      "total-data-files" : "1",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/reason/metadata/snap-7858783715254064031-1-b535d285-879e-414d-aa40-feb600797de4.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1678866176782,
+    "snapshot-id" : 7858783715254064031
+  } ],
+  "metadata-log" : [ ]
+}

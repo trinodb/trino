@@ -1,0 +1,353 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "a7ec3f43-0f20-4a6e-a292-b708fad47fa1",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/web_site",
+  "last-updated-ms" : 1663712294915,
+  "last-column-id" : 26,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "web_site_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "web_site_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "web_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "web_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "web_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "web_open_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "web_close_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "web_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "web_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "web_mkt_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "web_mkt_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "web_mkt_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "web_market_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "web_company_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 15,
+      "name" : "web_company_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "web_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "web_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "web_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "web_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "web_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "web_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 22,
+      "name" : "web_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 23,
+      "name" : "web_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 24,
+      "name" : "web_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 25,
+      "name" : "web_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    }, {
+      "id" : 26,
+      "name" : "web_tax_percentage",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "web_site_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "web_site_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "web_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "web_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "web_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "web_open_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "web_close_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "web_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "web_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "web_mkt_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "web_mkt_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "web_mkt_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "web_market_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "web_company_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 15,
+      "name" : "web_company_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "web_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "web_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "web_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "web_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "web_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "web_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 22,
+      "name" : "web_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 23,
+      "name" : "web_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 24,
+      "name" : "web_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 25,
+      "name" : "web_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    }, {
+      "id" : 26,
+      "name" : "web_tax_percentage",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.22.ndv" : "18",
+    "trino.stats.ndv.7.ndv" : "18",
+    "trino.stats.ndv.2.ndv" : "27",
+    "trino.stats.ndv.19.ndv" : "38",
+    "trino.stats.ndv.18.ndv" : "20",
+    "trino.stats.ndv.14.ndv" : "6",
+    "trino.stats.ndv.23.ndv" : "32",
+    "trino.stats.ndv.8.ndv" : "1",
+    "trino.stats.ndv.21.ndv" : "24",
+    "trino.stats.ndv.3.ndv" : "4",
+    "write.format.default" : "PARQUET",
+    "trino.stats.ndv.17.ndv" : "52",
+    "trino.stats.ndv.13.ndv" : "45",
+    "trino.stats.ndv.26.ndv" : "13",
+    "trino.stats.ndv.16.ndv" : "35",
+    "trino.stats.ndv.4.ndv" : "3",
+    "trino.stats.ndv.5.ndv" : "9",
+    "trino.stats.ndv.9.ndv" : "39",
+    "trino.stats.ndv.12.ndv" : "38",
+    "trino.stats.ndv.25.ndv" : "4",
+    "trino.stats.ndv.10.ndv" : "6",
+    "trino.stats.ndv.1.ndv" : "54",
+    "trino.stats.ndv.15.ndv" : "6",
+    "trino.stats.ndv.6.ndv" : "27",
+    "trino.stats.ndv.20.ndv" : "30",
+    "trino.stats.ndv.24.ndv" : "1",
+    "trino.stats.ndv.11.ndv" : "39"
+  },
+  "current-snapshot-id" : 2353247371984755424,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 2353247371984755424,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 2353247371984755424,
+    "timestamp-ms" : 1648057335913,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "1",
+      "added-records" : "54",
+      "added-files-size" : "10836",
+      "changed-partition-count" : "1",
+      "total-records" : "54",
+      "total-files-size" : "10836",
+      "total-data-files" : "1",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/web_site/metadata/snap-2353247371984755424-1-8c3481ac-9183-4c42-9afa-c8c18af931ba.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648057335913,
+    "snapshot-id" : 2353247371984755424
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648057335913,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/web_site/metadata/00000-e9b46674-579c-4c24-aaca-f6c5915f3f3f.metadata.json"
+  } ]
+}

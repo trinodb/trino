@@ -1,0 +1,397 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "d85aca1b-be12-4f51-852b-c31ff385323e",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/call_center",
+  "last-updated-ms" : 1663708753439,
+  "last-column-id" : 30,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "cc_call_center_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "cc_call_center_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "cc_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "cc_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "cc_closed_date_sk",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 6,
+      "name" : "cc_open_date_sk",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 7,
+      "name" : "cc_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "cc_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "cc_employees",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 10,
+      "name" : "cc_sq_ft",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "cc_hours",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "cc_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "cc_mkt_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 14,
+      "name" : "cc_mkt_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "cc_mkt_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "cc_market_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "cc_division",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 18,
+      "name" : "cc_division_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "cc_company_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "cc_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "cc_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 22,
+      "name" : "cc_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 23,
+      "name" : "cc_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 24,
+      "name" : "cc_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 25,
+      "name" : "cc_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 26,
+      "name" : "cc_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 27,
+      "name" : "cc_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 28,
+      "name" : "cc_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 29,
+      "name" : "cc_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    }, {
+      "id" : 30,
+      "name" : "cc_tax_percentage",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "cc_call_center_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "cc_call_center_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "cc_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "cc_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "cc_closed_date_sk",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 6,
+      "name" : "cc_open_date_sk",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 7,
+      "name" : "cc_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "cc_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "cc_employees",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 10,
+      "name" : "cc_sq_ft",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "cc_hours",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "cc_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "cc_mkt_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 14,
+      "name" : "cc_mkt_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "cc_mkt_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "cc_market_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "cc_division",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 18,
+      "name" : "cc_division_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "cc_company_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "cc_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "cc_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 22,
+      "name" : "cc_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 23,
+      "name" : "cc_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 24,
+      "name" : "cc_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 25,
+      "name" : "cc_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 26,
+      "name" : "cc_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 27,
+      "name" : "cc_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 28,
+      "name" : "cc_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 29,
+      "name" : "cc_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    }, {
+      "id" : 30,
+      "name" : "cc_tax_percentage",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.22.ndv" : "11",
+    "trino.stats.ndv.7.ndv" : "21",
+    "trino.stats.ndv.2.ndv" : "21",
+    "trino.stats.ndv.27.ndv" : "19",
+    "trino.stats.ndv.19.ndv" : "6",
+    "trino.stats.ndv.30.ndv" : "12",
+    "trino.stats.ndv.18.ndv" : "6",
+    "trino.stats.ndv.14.ndv" : "36",
+    "trino.stats.ndv.23.ndv" : "18",
+    "trino.stats.ndv.8.ndv" : "3",
+    "trino.stats.ndv.21.ndv" : "21",
+    "trino.stats.ndv.3.ndv" : "4",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.17.ndv" : "6",
+    "trino.stats.ndv.13.ndv" : "6",
+    "trino.stats.ndv.26.ndv" : "14",
+    "trino.stats.ndv.16.ndv" : "35",
+    "trino.stats.ndv.4.ndv" : "3",
+    "trino.stats.ndv.5.ndv" : "0",
+    "trino.stats.ndv.29.ndv" : "4",
+    "trino.stats.ndv.9.ndv" : "30",
+    "trino.stats.ndv.12.ndv" : "28",
+    "trino.stats.ndv.25.ndv" : "16",
+    "trino.stats.ndv.10.ndv" : "31",
+    "trino.stats.ndv.1.ndv" : "42",
+    "trino.stats.ndv.28.ndv" : "1",
+    "trino.stats.ndv.15.ndv" : "33",
+    "trino.stats.ndv.6.ndv" : "21",
+    "trino.stats.ndv.20.ndv" : "21",
+    "trino.stats.ndv.24.ndv" : "17",
+    "trino.stats.ndv.11.ndv" : "3"
+  },
+  "current-snapshot-id" : 651404939180126625,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 651404939180126625,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 651404939180126625,
+    "timestamp-ms" : 1648044104056,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "1",
+      "added-records" : "42",
+      "added-files-size" : "8500",
+      "changed-partition-count" : "1",
+      "total-records" : "42",
+      "total-files-size" : "8500",
+      "total-data-files" : "1",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/call_center/metadata/snap-651404939180126625-1-bc37e8c9-cfc9-4231-b46d-141e70e1c9bf.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648044104056,
+    "snapshot-id" : 651404939180126625
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648044104056,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/call_center/metadata/00000-171fe748-d5dc-4de2-9232-760132c5bf33.metadata.json"
+  } ]
+}

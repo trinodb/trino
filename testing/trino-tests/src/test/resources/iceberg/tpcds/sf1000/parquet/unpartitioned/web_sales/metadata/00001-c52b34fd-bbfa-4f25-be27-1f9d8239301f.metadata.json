@@ -1,0 +1,441 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "f8ffcb48-4023-4d30-9f9a-627d972d975b",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/web_sales",
+  "last-updated-ms" : 1663712288011,
+  "last-column-id" : 34,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "ws_sold_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "ws_sold_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "ws_ship_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "ws_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "ws_bill_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "ws_bill_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "ws_bill_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "ws_bill_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "ws_ship_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "ws_ship_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 11,
+      "name" : "ws_ship_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 12,
+      "name" : "ws_ship_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 13,
+      "name" : "ws_web_page_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 14,
+      "name" : "ws_web_site_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 15,
+      "name" : "ws_ship_mode_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 16,
+      "name" : "ws_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 17,
+      "name" : "ws_promo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 18,
+      "name" : "ws_order_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 19,
+      "name" : "ws_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 20,
+      "name" : "ws_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 21,
+      "name" : "ws_list_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 22,
+      "name" : "ws_sales_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 23,
+      "name" : "ws_ext_discount_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 24,
+      "name" : "ws_ext_sales_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 25,
+      "name" : "ws_ext_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 26,
+      "name" : "ws_ext_list_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 27,
+      "name" : "ws_ext_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 28,
+      "name" : "ws_coupon_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 29,
+      "name" : "ws_ext_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 30,
+      "name" : "ws_net_paid",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 31,
+      "name" : "ws_net_paid_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 32,
+      "name" : "ws_net_paid_inc_ship",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 33,
+      "name" : "ws_net_paid_inc_ship_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 34,
+      "name" : "ws_net_profit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "ws_sold_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "ws_sold_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "ws_ship_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "ws_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "ws_bill_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "ws_bill_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "ws_bill_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "ws_bill_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "ws_ship_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "ws_ship_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 11,
+      "name" : "ws_ship_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 12,
+      "name" : "ws_ship_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 13,
+      "name" : "ws_web_page_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 14,
+      "name" : "ws_web_site_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 15,
+      "name" : "ws_ship_mode_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 16,
+      "name" : "ws_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 17,
+      "name" : "ws_promo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 18,
+      "name" : "ws_order_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 19,
+      "name" : "ws_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 20,
+      "name" : "ws_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 21,
+      "name" : "ws_list_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 22,
+      "name" : "ws_sales_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 23,
+      "name" : "ws_ext_discount_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 24,
+      "name" : "ws_ext_sales_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 25,
+      "name" : "ws_ext_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 26,
+      "name" : "ws_ext_list_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 27,
+      "name" : "ws_ext_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 28,
+      "name" : "ws_coupon_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 29,
+      "name" : "ws_ext_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 30,
+      "name" : "ws_net_paid",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 31,
+      "name" : "ws_net_paid_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 32,
+      "name" : "ws_net_paid_inc_ship",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 33,
+      "name" : "ws_net_paid_inc_ship_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 34,
+      "name" : "ws_net_profit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.22.ndv" : "29691",
+    "trino.stats.ndv.7.ndv" : "7082",
+    "trino.stats.ndv.27.ndv" : "211496",
+    "trino.stats.ndv.2.ndv" : "89157",
+    "trino.stats.ndv.19.ndv" : "100",
+    "trino.stats.ndv.30.ndv" : "1750832",
+    "trino.stats.ndv.18.ndv" : "59619264",
+    "trino.stats.ndv.14.ndv" : "54",
+    "trino.stats.ndv.23.ndv" : "1059688",
+    "trino.stats.ndv.34.ndv" : "1994307",
+    "trino.stats.ndv.21.ndv" : "29733",
+    "trino.stats.ndv.8.ndv" : "5947530",
+    "trino.stats.ndv.3.ndv" : "1962",
+    "write.format.default" : "PARQUET",
+    "trino.stats.ndv.17.ndv" : "1483",
+    "trino.stats.ndv.31.ndv" : "2360578",
+    "trino.stats.ndv.13.ndv" : "3006",
+    "trino.stats.ndv.26.ndv" : "1115360",
+    "trino.stats.ndv.16.ndv" : "20",
+    "trino.stats.ndv.33.ndv" : "3163161",
+    "trino.stats.ndv.4.ndv" : "297612",
+    "trino.stats.ndv.5.ndv" : "12188957",
+    "trino.stats.ndv.9.ndv" : "12132428",
+    "trino.stats.ndv.29.ndv" : "552520",
+    "trino.stats.ndv.12.ndv" : "5947530",
+    "trino.stats.ndv.25.ndv" : "388752",
+    "trino.stats.ndv.10.ndv" : "1890006",
+    "trino.stats.ndv.1.ndv" : "1820",
+    "trino.stats.ndv.28.ndv" : "1509736",
+    "trino.stats.ndv.15.ndv" : "20",
+    "trino.stats.ndv.6.ndv" : "1890006",
+    "trino.stats.ndv.32.ndv" : "2436710",
+    "trino.stats.ndv.20.ndv" : "10091",
+    "trino.stats.ndv.24.ndv" : "1059915",
+    "trino.stats.ndv.11.ndv" : "7082"
+  },
+  "current-snapshot-id" : 965884838915906198,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 965884838915906198,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 965884838915906198,
+    "timestamp-ms" : 1648076291832,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "39",
+      "added-records" : "720000376",
+      "added-files-size" : "39048884576",
+      "changed-partition-count" : "1",
+      "total-records" : "720000376",
+      "total-files-size" : "39048884576",
+      "total-data-files" : "39",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/web_sales/metadata/snap-965884838915906198-1-86148074-cbae-4bc4-b94e-62d9fa618ebb.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648076291832,
+    "snapshot-id" : 965884838915906198
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648076291832,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/web_sales/metadata/00000-2f2e40be-a01f-485e-af37-a98c911ec8b6.metadata.json"
+  } ]
+}

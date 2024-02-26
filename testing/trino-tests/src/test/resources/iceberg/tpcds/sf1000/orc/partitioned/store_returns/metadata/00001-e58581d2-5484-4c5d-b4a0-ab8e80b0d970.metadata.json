@@ -1,0 +1,297 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "6a9e5d7d-98d3-43e5-a39c-d2a653f77d8d",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/store_returns",
+  "last-updated-ms" : 1663708859373,
+  "last-column-id" : 20,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "sr_return_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "sr_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "sr_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "sr_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "sr_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "sr_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "sr_store_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "sr_reason_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "sr_ticket_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "sr_return_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "sr_return_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 12,
+      "name" : "sr_return_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 13,
+      "name" : "sr_return_amt_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 14,
+      "name" : "sr_fee",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 15,
+      "name" : "sr_return_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 16,
+      "name" : "sr_refunded_cash",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 17,
+      "name" : "sr_reversed_charge",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 18,
+      "name" : "sr_store_credit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 19,
+      "name" : "sr_net_loss",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 20,
+      "name" : "sr_returned_date_sk",
+      "required" : false,
+      "type" : "long"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "sr_return_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "sr_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "sr_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "sr_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "sr_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "sr_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "sr_store_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "sr_reason_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "sr_ticket_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "sr_return_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "sr_return_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 12,
+      "name" : "sr_return_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 13,
+      "name" : "sr_return_amt_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 14,
+      "name" : "sr_fee",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 15,
+      "name" : "sr_return_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 16,
+      "name" : "sr_refunded_cash",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 17,
+      "name" : "sr_reversed_charge",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 18,
+      "name" : "sr_store_credit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 19,
+      "name" : "sr_net_loss",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 20,
+      "name" : "sr_returned_date_sk",
+      "required" : false,
+      "type" : "long"
+    } ]
+  } ],
+  "partition-spec" : [ {
+    "name" : "sr_returned_date_sk",
+    "transform" : "identity",
+    "source-id" : 20,
+    "field-id" : 1000
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ {
+      "name" : "sr_returned_date_sk",
+      "transform" : "identity",
+      "source-id" : 20,
+      "field-id" : 1000
+    } ]
+  } ],
+  "last-partition-id" : 1000,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.7.ndv" : "513",
+    "trino.stats.ndv.2.ndv" : "297612",
+    "trino.stats.ndv.16.ndv" : "927393",
+    "trino.stats.ndv.4.ndv" : "1890006",
+    "trino.stats.ndv.5.ndv" : "7082",
+    "trino.stats.ndv.19.ndv" : "713783",
+    "trino.stats.ndv.18.ndv" : "677045",
+    "trino.stats.ndv.9.ndv" : "177092218",
+    "trino.stats.ndv.14.ndv" : "10141",
+    "trino.stats.ndv.12.ndv" : "119761",
+    "trino.stats.ndv.10.ndv" : "100",
+    "trino.stats.ndv.8.ndv" : "65",
+    "trino.stats.ndv.1.ndv" : "32934",
+    "trino.stats.ndv.15.ndv" : "351933",
+    "trino.stats.ndv.6.ndv" : "5947530",
+    "trino.stats.ndv.3.ndv" : "12236563",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.17.ndv" : "697964",
+    "trino.stats.ndv.13.ndv" : "1229056",
+    "trino.stats.ndv.20.ndv" : "2017",
+    "trino.stats.ndv.11.ndv" : "659344"
+  },
+  "current-snapshot-id" : 229083097532627639,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 229083097532627639,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 229083097532627639,
+    "timestamp-ms" : 1648045969875,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "2004",
+      "added-records" : "287999764",
+      "added-files-size" : "12365911219",
+      "changed-partition-count" : "2004",
+      "total-records" : "287999764",
+      "total-files-size" : "12365911219",
+      "total-data-files" : "2004",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/store_returns/metadata/snap-229083097532627639-1-6742fcd1-8e83-4bea-921f-429e6c20c65b.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648045969875,
+    "snapshot-id" : 229083097532627639
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648045969875,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/store_returns/metadata/00000-f2213b04-ae00-4997-a7e7-6200fb2743a1.metadata.json"
+  } ]
+}
