@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -27,20 +26,18 @@ import java.util.Properties;
 
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 
 public class TestManuallyJdbcOauth2
 {
     private static void verifyEtcHostsEntries()
-            throws UnknownHostException
+            throws Exception
     {
         assertThat(InetAddress.getByName("presto-master").isLoopbackAddress()).isTrue();
         assertThat(InetAddress.getByName("hydra").isLoopbackAddress()).isTrue();
         assertThat(InetAddress.getByName("hydra-consent").isLoopbackAddress()).isTrue();
 
-        assertThatNoException()
-                .describedAs("Trino server is not available under 7778 port")
-                .isThrownBy(() -> new Socket("presto-master", 7778).close());
+        // Trino server should be available under 7778 port
+        new Socket("presto-master", 7778).close();
     }
 
     /**
