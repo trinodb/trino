@@ -26,6 +26,7 @@ import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.apache.hadoop.hive.shims.HadoopShims.HdfsFileStatusWithId;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -452,5 +453,29 @@ public class TestHiveAcidUtils
         assertThat(deleteDeltaSubdirPath).isEqualTo("delete_delta_0000001_0000010");
         deleteDeltaSubdirPath = AcidUtils.deleteDeltaSubdir(1, 10, 5);
         assertThat(deleteDeltaSubdirPath).isEqualTo("delete_delta_0000001_0000010_0005");
+    }
+
+    @Test
+    public void testSkippingSubDirectories()
+            throws IOException
+    {
+        Configuration conf = new Configuration(false);
+        MockFileSystem fs = new MockFileSystem(conf,
+                new MockFile("mock:/tbl/part1/base_1/bucket_0", 500, new byte[0]),
+                new MockFile("mock:/tbl/part1/base_1/base_1/bucket_0", 500, new byte[0]),
+                new MockFile("mock:/tbl/part1/delta_025_025/bucket_0", 500, new byte[0]),
+                new MockFile("mock:/tbl/part1/delta_025_025/delta_025_025/bucket_0", 500, new byte[0]),
+                new MockFile("mock:/tbl/part1/delete_delta_029_029/bucket_0", 500, new byte[0]),
+                new MockFile("mock:/tbl/part1/delete_delta_029_029/delete_delta_029_029/bucket_0", 500, new byte[0]));
+
+        Path part = new MockPath(fs, "mock:/tbl/part1");
+        AcidUtils.Directory dir = AcidUtils.getAcidState(part, conf, new ValidReaderWriteIdList("tbl:100:" + Long.MAX_VALUE + ":"));
+        assertThat(dir.getBaseDirectory().toString()).isEqualTo("mock:/tbl/part1/base_1");
+        List<FileStatus> obsolete = dir.getObsolete();
+        assertThat(obsolete.size()).isEqualTo(0);
+        List<AcidUtils.ParsedDelta> delts = dir.getCurrentDirectories();
+        assertThat(delts.size()).isEqualTo(2);
+        assertThat(delts.get(0).getPath().toString()).isEqualTo("mock:/tbl/part1/delta_025_025");
+        assertThat(delts.get(1).getPath().toString()).isEqualTo("mock:/tbl/part1/delete_delta_029_029");
     }
 }
