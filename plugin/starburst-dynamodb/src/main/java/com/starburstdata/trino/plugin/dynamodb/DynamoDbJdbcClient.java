@@ -623,7 +623,8 @@ public class DynamoDbJdbcClient
                 getColumnSize(partitionKeyMetadata),
                 partitionKeyMetadata.getComment(),
                 "HASH",
-                getDynamoDbTypeFromSql(partitionKeyMetadata.getType().getDisplayName())));
+                getDynamoDbTypeFromSql(partitionKeyMetadata.getType().getDisplayName()),
+                false));
 
         sortKeyMetadata.ifPresent(metadata ->
                 templateColumns.add(new RsdColumnDefinition(
@@ -633,7 +634,8 @@ public class DynamoDbJdbcClient
                         getColumnSize(metadata),
                         metadata.getComment(),
                         "RANGE",
-                        getDynamoDbTypeFromSql(metadata.getType().getDisplayName()))));
+                        getDynamoDbTypeFromSql(metadata.getType().getDisplayName()),
+                        false)));
 
         for (ColumnMetadata metadata : columns) {
             if (metadata.getName().equalsIgnoreCase(partitionKeyMetadata.getName()) ||
@@ -648,7 +650,8 @@ public class DynamoDbJdbcClient
                     getColumnSize(metadata),
                     metadata.getComment(),
                     null,
-                    getDynamoDbTypeFromSql(metadata.getType().getDisplayName())));
+                    getDynamoDbTypeFromSql(metadata.getType().getDisplayName()),
+                    true));
         }
 
         context.put("columns", ImmutableList.copyOf(templateColumns.stream().map(RsdColumnDefinition::asMap).collect(toImmutableList())));
@@ -732,8 +735,10 @@ public class DynamoDbJdbcClient
         String keyType;
         String path;
         String internalType;
+        boolean isNullable;
+        String supportedOperators;
 
-        public RsdColumnDefinition(String name, String type, boolean isKey, String columnSize, String description, String keyType, String internalType)
+        public RsdColumnDefinition(String name, String type, boolean isKey, String columnSize, String description, String keyType, String internalType, boolean isNullable)
         {
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
@@ -744,6 +749,8 @@ public class DynamoDbJdbcClient
             this.keyType = keyType;
             this.path = name;
             this.internalType = requireNonNull(internalType, "internalType is null");
+            this.isNullable = isNullable;
+            this.supportedOperators = String.join(",", getRsdSupportedOperators(this.type));
         }
 
         public Map<String, Object> asMap()
@@ -758,7 +765,67 @@ public class DynamoDbJdbcClient
             values.put("keyType", keyType);
             values.put("path", path);
             values.put("internalType", internalType);
+            values.put("isNullable", isNullable);
+            values.put("supportedOperators", supportedOperators);
             return values;
         }
+    }
+
+    // Copied from `getDynamoDbTypeFromSql` method and modified. This conversion may not be accurate as it relies on Trino type instead of rsd type.
+    /**
+     * This conversion is based on the below information received from the CData support. It indicates that how the value of `other:supportedoperators` rsd field is derived from
+     * the value of `xs:type` rsd field. This conversion relies on the Trino type instead of rsd type as we use the Trino type to populate the value of `xs:type` rsd field while
+     * generating rsd file. To sum up, this method assumes that the value of `xs:type` {@code sqlType} is correct rsd type.
+     * <p>
+     * `For datetime, date, and time fields we append other:supportedoperators="IS,IS_NOT"`<br/>
+     * `For all other column datatypes, we append other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"`
+     */
+    public static List<String> getRsdSupportedOperators(String sqlType)
+    {
+        String equals = "=";
+        String notEquals = "!=";
+        String gt = "&amp;gt;";
+        String lt = "&amp;lt;";
+        String gte = "&amp;gt;=";
+        String lte = "&amp;lt;=";
+        String is = "IS";
+        String isNot = "IS_NOT";
+
+        List<String> allOperators = List.of(equals, notEquals, gt, lt, gte, lte, is, isNot);
+        List<String> isIsNotOperators = List.of(is, isNot);
+
+        if (ImmutableSet.of("boolean", "varbinary", "tinyint", "smallint", "bigint", "integer", "real", "double").contains(sqlType)) {
+            return allOperators;
+        }
+
+        if (sqlType.equals("varchar")) {
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + sqlType + ". Only bounded varchars are supported");
+        }
+
+        if (sqlType.contains("varchar") || sqlType.equals("string")) {
+            return allOperators;
+        }
+
+        if (sqlType.startsWith("char(")) {
+            return allOperators;
+        }
+
+        if (sqlType.equalsIgnoreCase("date")
+                || sqlType.equalsIgnoreCase("time(3)")
+                || sqlType.equalsIgnoreCase("time(3) with time zone")
+                || sqlType.equalsIgnoreCase("timestamp(3) with time zone")
+                || sqlType.equalsIgnoreCase("timestamp(3)")) {
+            return isIsNotOperators;
+        }
+
+        if (sqlType.equalsIgnoreCase("json")) {
+            return allOperators;
+        }
+
+        if (sqlType.startsWith("decimal(")) {
+            return allOperators;
+        }
+
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + sqlType);
     }
 }

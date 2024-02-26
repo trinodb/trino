@@ -1,0 +1,34 @@
+<api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
+  <api:info title="partsupp" other:catalog="CData" other:schema="AmazonDynamoDB" description="partsupp" other:tableapiname="partsupp" other:version="20"  other:version="20">
+    <attr   name="partkey"      xs:type="decimal"   key="true"   columnsize="17"     precision="38"   scale="6"   readonly="false"   description="Dynamic Column."                       other:apiname="&amp;quot;partkey&amp;quot;"      other:dynamodatatype="N"   other:filterable="true"   other:fullpath="partkey"      other:relativepath="partkey"      other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="suppkey"      xs:type="decimal"   key="true"   columnsize="17"     precision="38"   scale="6"   readonly="false"   description="Dynamic Column."                       other:apiname="&amp;quot;suppkey&amp;quot;"      other:dynamodatatype="N"   other:filterable="true"   other:fullpath="suppkey"      other:relativepath="suppkey"      other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="supplycost"   xs:type="double"                 columnsize="8"      precision="15"               readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;supplycost&amp;quot;"   other:dynamodatatype="N"   other:filterable="true"   other:fullpath="supplycost"   other:relativepath="supplycost"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="comment"      xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;comment&amp;quot;"      other:dynamodatatype="S"   other:filterable="true"   other:fullpath="comment"      other:relativepath="comment"      other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="availqty"     xs:type="int"                    columnsize="4"      precision="10"               readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;availqty&amp;quot;"     other:dynamodatatype="N"   other:filterable="true"   other:fullpath="availqty"     other:relativepath="availqty"     other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+  </api:info>
+
+
+  <api:script method="GET">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="POST">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="MERGE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="DELETE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+</api:script>

@@ -1,0 +1,38 @@
+<api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
+  <api:info title="orders" other:catalog="CData" other:schema="AmazonDynamoDB" description="orders" other:tableapiname="orders" other:version="20"  other:version="20">
+    <attr   name="orderkey"        xs:type="decimal"   key="true"   columnsize="17"     precision="38"   scale="6"   readonly="false"   description="Dynamic Column."                       other:apiname="&amp;quot;orderkey&amp;quot;"        other:dynamodatatype="N"   other:filterable="true"   other:fullpath="orderkey"        other:relativepath="orderkey"        other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="clerk"           xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;clerk&amp;quot;"           other:dynamodatatype="S"   other:filterable="true"   other:fullpath="clerk"           other:relativepath="clerk"           other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="orderstatus"     xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;orderstatus&amp;quot;"     other:dynamodatatype="S"   other:filterable="true"   other:fullpath="orderstatus"     other:relativepath="orderstatus"     other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="custkey"         xs:type="int"                    columnsize="4"      precision="10"               readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;custkey&amp;quot;"         other:dynamodatatype="N"   other:filterable="true"   other:fullpath="custkey"         other:relativepath="custkey"         other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="totalprice"      xs:type="double"                 columnsize="8"      precision="15"               readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;totalprice&amp;quot;"      other:dynamodatatype="N"   other:filterable="true"   other:fullpath="totalprice"      other:relativepath="totalprice"      other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="comment"         xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;comment&amp;quot;"         other:dynamodatatype="S"   other:filterable="true"   other:fullpath="comment"         other:relativepath="comment"         other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="orderdate"       xs:type="date"                   columnsize="3"                                   readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;orderdate&amp;quot;"       other:dynamodatatype="S"   other:filterable="true"   other:fullpath="orderdate"       other:relativepath="orderdate"       other:supportedoperators="IS,IS_NOT"                                              />
+    <attr   name="orderpriority"   xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;orderpriority&amp;quot;"   other:dynamodatatype="S"   other:filterable="true"   other:fullpath="orderpriority"   other:relativepath="orderpriority"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="shippriority"    xs:type="int"                    columnsize="4"      precision="10"               readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;shippriority&amp;quot;"    other:dynamodatatype="N"   other:filterable="true"   other:fullpath="shippriority"    other:relativepath="shippriority"    other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+  </api:info>
+
+
+  <api:script method="GET">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="POST">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="MERGE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="DELETE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+</api:script>

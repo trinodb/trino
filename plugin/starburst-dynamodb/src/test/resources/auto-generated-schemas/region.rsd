@@ -1,0 +1,32 @@
+<api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
+  <api:info title="region" other:catalog="CData" other:schema="AmazonDynamoDB" description="region" other:tableapiname="region" other:version="20"  other:version="20">
+    <attr   name="regionkey"   xs:type="long"     key="true"   columnsize="8"     precision="19"   readonly="false"   description="regionkey"                       other:apiname="&amp;quot;regionkey&amp;quot;"   other:dynamodatatype="N"   other:filterable="true"   other:fullpath="regionkey"   other:relativepath="regionkey"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="name"        xs:type="string"                columnsize="25"                     readonly="false"   description="name"        isnullable="true"   other:apiname="&amp;quot;name&amp;quot;"        other:dynamodatatype="S"   other:filterable="true"   other:fullpath="name"        other:relativepath="name"        other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="comment"     xs:type="string"                columnsize="152"                    readonly="false"   description="comment"     isnullable="true"   other:apiname="&amp;quot;comment&amp;quot;"     other:dynamodatatype="S"   other:filterable="true"   other:fullpath="comment"     other:relativepath="comment"     other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+  </api:info>
+
+
+  <api:script method="GET">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="POST">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="MERGE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="DELETE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+</api:script>

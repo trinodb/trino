@@ -104,7 +104,8 @@ public class DynamoDbTestTable
                 getColumnSize(columns.get(0).getDeclaredType().get()),
                 null,
                 "HASH",
-                getDynamoDbTypeFromSql(columns.get(0).getDeclaredType().get())));
+                getDynamoDbTypeFromSql(columns.get(0).getDeclaredType().get()),
+                false));
 
         int i = 1;
         for (ColumnSetup metadata : columns.subList(1, columns.size())) {
@@ -115,7 +116,8 @@ public class DynamoDbTestTable
                     getColumnSize(metadata.getDeclaredType().get()),
                     null,
                     null,
-                    getDynamoDbTypeFromSql(metadata.getDeclaredType().get())));
+                    getDynamoDbTypeFromSql(metadata.getDeclaredType().get()),
+                    true));
         }
 
         context.put("columns", ImmutableList.copyOf(templateColumns.stream().map(DynamoDbJdbcClient.RsdColumnDefinition::asMap).collect(toImmutableList())));

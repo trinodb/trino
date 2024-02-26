@@ -1,0 +1,36 @@
+<api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
+  <api:info title="supplier" other:catalog="CData" other:schema="AmazonDynamoDB" description="supplier" other:tableapiname="supplier" other:version="20">
+    <attr   name="suppkey"   xs:type="bigint"       key="true"                                           readonly="false"      isnullable="false"   other:apiname="&amp;quot;suppkey&amp;quot;"   other:dynamodatatype="N"   other:filterable="true"   other:fullpath="suppkey"   other:relativepath="suppkey"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"    />
+    <attr   name="name"   xs:type="string"                 columnsize="25"                                 readonly="false"      isnullable="true"   other:apiname="&amp;quot;name&amp;quot;"   other:dynamodatatype="S"   other:filterable="true"   other:fullpath="name"   other:relativepath="name"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"    />
+    <attr   name="address"   xs:type="string"                 columnsize="40"                                 readonly="false"      isnullable="true"   other:apiname="&amp;quot;address&amp;quot;"   other:dynamodatatype="S"   other:filterable="true"   other:fullpath="address"   other:relativepath="address"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"    />
+    <attr   name="nationkey"   xs:type="bigint"                                                 readonly="false"      isnullable="true"   other:apiname="&amp;quot;nationkey&amp;quot;"   other:dynamodatatype="N"   other:filterable="true"   other:fullpath="nationkey"   other:relativepath="nationkey"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"    />
+    <attr   name="phone"   xs:type="string"                 columnsize="15"                                 readonly="false"      isnullable="true"   other:apiname="&amp;quot;phone&amp;quot;"   other:dynamodatatype="S"   other:filterable="true"   other:fullpath="phone"   other:relativepath="phone"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"    />
+    <attr   name="acctbal"   xs:type="double"                                                 readonly="false"      isnullable="true"   other:apiname="&amp;quot;acctbal&amp;quot;"   other:dynamodatatype="N"   other:filterable="true"   other:fullpath="acctbal"   other:relativepath="acctbal"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"    />
+    <attr   name="comment"   xs:type="string"                 columnsize="101"                                 readonly="false"      isnullable="true"   other:apiname="&amp;quot;comment&amp;quot;"   other:dynamodatatype="S"   other:filterable="true"   other:fullpath="comment"   other:relativepath="comment"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"    />
+    </api:info>
+
+
+  <api:script method="GET">
+    <api:call op="dynamodbadoProviderOperationCaller">
+        <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="POST">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="MERGE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="DELETE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+</api:script>

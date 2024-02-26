@@ -1,7 +1,32 @@
 <api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
   <api:info title="{{ tablename }}" other:catalog="CData" other:schema="AmazonDynamoDB" description="{{ tablename }}" other:tableapiname="{{ tablename }}" other:version="20">
     {% for column in columns -%}
-    <attr name="{{column.name}}" xs:type="{{column.type}}" {% if column.isKey %}key="true" {% endif %}{% if column.columnSize is not none %}columnsize="{{ column.columnSize }}" {% endif %}readonly="false" other:filterable="true" {% if column.description is not none %}description="{{ column.description }}" {% endif %}other:relativepath="{{ column.path }}" other:fullpath="{{ column.path }}" other:dynamodatatype="{{ column.internalType }}" other:apiname="&amp;quot;{{ column.name }}&amp;quot;" />
+    <attr   name="{{column.name}}"   xs:type="{{column.type}}"       {% if column.isKey %}key="true" {% endif %}          {% if column.columnSize is not none %}columnsize="{{ column.columnSize }}" {% endif %}                                readonly="false"   {% if column.description is not none %}description="{{ column.description }}" {% endif %}   isnullable="{{ column.isNullable }}"   other:apiname="&amp;quot;{{ column.name }}&amp;quot;"   other:dynamodatatype="{{ column.internalType }}"   other:filterable="true"   other:fullpath="{{ column.path }}"   other:relativepath="{{ column.path }}"   {% if column.supportedOperators %}other:supportedoperators="{{ column.supportedOperators }}" {% endif %}   />
     {% endfor -%}
   </api:info>
+
+
+  <api:script method="GET">
+    <api:call op="dynamodbadoProviderOperationCaller">
+        <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="POST">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="MERGE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="DELETE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
 </api:script>

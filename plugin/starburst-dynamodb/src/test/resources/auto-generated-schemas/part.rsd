@@ -1,0 +1,38 @@
+<api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
+  <api:info title="part" other:catalog="CData" other:schema="AmazonDynamoDB" description="part" other:tableapiname="part" other:version="20"  other:version="20">
+    <attr   name="partkey"       xs:type="decimal"   key="true"   columnsize="17"     precision="38"   scale="6"   readonly="false"   description="Dynamic Column."                       other:apiname="&amp;quot;partkey&amp;quot;"       other:dynamodatatype="N"   other:filterable="true"   other:fullpath="partkey"       other:relativepath="partkey"       other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="container"     xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;container&amp;quot;"     other:dynamodatatype="S"   other:filterable="true"   other:fullpath="container"     other:relativepath="container"     other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="size"          xs:type="int"                    columnsize="4"      precision="10"               readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;size&amp;quot;"          other:dynamodatatype="N"   other:filterable="true"   other:fullpath="size"          other:relativepath="size"          other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="mfgr"          xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;mfgr&amp;quot;"          other:dynamodatatype="S"   other:filterable="true"   other:fullpath="mfgr"          other:relativepath="mfgr"          other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="name"          xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;name&amp;quot;"          other:dynamodatatype="S"   other:filterable="true"   other:fullpath="name"          other:relativepath="name"          other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="retailprice"   xs:type="double"                 columnsize="8"      precision="15"               readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;retailprice&amp;quot;"   other:dynamodatatype="N"   other:filterable="true"   other:fullpath="retailprice"   other:relativepath="retailprice"   other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="comment"       xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;comment&amp;quot;"       other:dynamodatatype="S"   other:filterable="true"   other:fullpath="comment"       other:relativepath="comment"       other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="type"          xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;type&amp;quot;"          other:dynamodatatype="S"   other:filterable="true"   other:fullpath="type"          other:relativepath="type"          other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+    <attr   name="brand"         xs:type="string"                 columnsize="2000"                                readonly="false"   description="Dynamic Column."   isnullable="true"   other:apiname="&amp;quot;brand&amp;quot;"         other:dynamodatatype="S"   other:filterable="true"   other:fullpath="brand"         other:relativepath="brand"         other:supportedoperators="=,!=,&amp;gt;,&amp;lt;,&amp;gt;=,&amp;lt;=,IS,IS_NOT"   />
+  </api:info>
+
+
+  <api:script method="GET">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="POST">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="MERGE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+
+  <api:script method="DELETE">
+    <api:call op="dynamodbadoProviderOperationCaller">
+      <api:push/>
+    </api:call>
+  </api:script>
+</api:script>
