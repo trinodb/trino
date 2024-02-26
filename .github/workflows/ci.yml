@@ -839,9 +839,10 @@ jobs:
           ABFS_FLAT_ACCESS_KEY: ${{ secrets.ABFS_TRINO_FS_FLAT_ACCOUNT_ACCESS_KEY }}
           ABFS_HIERARCHICAL_ACCOUNT: ${{ vars.ABFS_TRINO_FS_HIERARCHICAL_ACCOUNT }}
           ABFS_HIERARCHICAL_ACCESS_KEY: ${{ secrets.ABFS_TRINO_FS_HIERARCHICAL_ACCOUNT_ACCESS_KEY }}
+        # Run tests if any of the secrets are present
         if: >-
           contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_BLOB_ACCOUNT != '' || env.ABFS_BLOB_ACCESS_KEY != '' || env.ABFS_FLAT_ACCOUNT != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCOUNT != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_BLOB_ACCESS_KEY != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_HIERARCHICAL_ACCESS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: GCS FileSystem Cloud Tests
