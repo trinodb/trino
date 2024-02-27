@@ -194,7 +194,7 @@
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.accumulo.version>3.0.0</dep.accumulo.version>
         <dep.airlift.version>240</dep.airlift.version>
-        <dep.alluxio.version>309</dep.alluxio.version>
+        <dep.alluxio.version>310</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.aws-sdk.version>1.12.667</dep.aws-sdk.version>
