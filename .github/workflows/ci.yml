@@ -121,6 +121,10 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cleanup-node: true
+      - name: "Login to ECR pull-through cache"
+        shell: bash
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 843985043183.dkr.ecr.us-east-1.amazonaws.com
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -265,6 +269,10 @@ jobs:
           aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
           secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
+      - name: "Login to ECR pull-through cache"
+        shell: bash
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 843985043183.dkr.ecr.us-east-1.amazonaws.com
       - uses: ./.github/actions/setup
         with:
           cache: restore
@@ -476,6 +484,7 @@ jobs:
           aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
           secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
+          login-docker: true
       - uses: ./.github/actions/setup
         with:
           cache: restore

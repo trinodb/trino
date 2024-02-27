@@ -5,6 +5,9 @@ set -exuo pipefail
 RETRY=".github/bin/retry"
 MAVEN_ONLINE="${MAVEN//--offline/}"
 
+# Install starburst-testing-auto-configuration (we will drop offline in 439)
+$RETRY $MAVEN_ONLINE -B clean install -pl ':starburst-testing-auto-configuration'
+
 # Run download tools without any profiles to use active-by-default profiles
 $RETRY $MAVEN_ONLINE -B dependency:go-offline -Dsilent
 $RETRY $MAVEN_ONLINE -B de.qaware.maven:go-offline-maven-plugin:resolve-dependencies

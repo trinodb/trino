@@ -195,6 +195,14 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>starburst-testing-auto-configuration</artifactId>
+            <!-- Explicit version - the module is not supposed to be typically added as a dependency, so it isn't in dependency management -->
+            <version>${project.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.hive</groupId>
             <artifactId>hive-jdbc</artifactId>
             <version>3.1.3</version>

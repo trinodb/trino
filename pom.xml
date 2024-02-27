@@ -39,8 +39,8 @@
         <module>core/trino-server-rpm</module>
         <module>core/trino-spi</module>
         <module>docs</module>
-        <module>lib/starburst-ci-cd</module>
         <module>lib/starburst-license</module>
+        <module>lib/starburst-testing-auto-configuration</module>
         <module>lib/trino-array</module>
         <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>
@@ -2684,6 +2684,13 @@
                         <exclude>**/*jmhTest*.java</exclude>
                         <exclude>**/*jmhType*.java</exclude>
                     </excludes>
+                    <additionalClasspathDependencies>
+                        <additionalClasspathDependency>
+                            <groupId>io.trino</groupId>
+                            <artifactId>starburst-testing-auto-configuration</artifactId>
+                            <version>${project.version}</version>
+                        </additionalClasspathDependency>
+                    </additionalClasspathDependencies>
                 </configuration>
             </plugin>
         </plugins>

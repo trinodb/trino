@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.starburst.cicd;
+package io.starburst.tests.autoconfig;
 
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.ImageNameSubstitutor;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.System.getenv;
 
 public class EcrPullThroughNameSubstitutor
@@ -61,5 +60,10 @@ public class EcrPullThroughNameSubstitutor
     protected String getDescription()
     {
         return "ECR pull-through cache for hub.docker.com";
+    }
+
+    private static boolean isNullOrEmpty(String s)
+    {
+        return s == null || s.isEmpty();
     }
 }

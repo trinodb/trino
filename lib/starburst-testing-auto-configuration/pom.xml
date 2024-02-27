@@ -9,23 +9,23 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>starburst-ci-cd</artifactId>
-    <description>Starburst Enterprise - CI CD enhancements</description>
+    <artifactId>starburst-testing-auto-configuration</artifactId>
+    <description>Starburst automatic configuration for tests</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
+        <!-- This module is plugged using surefire's <additionalClasspathDependency>
+             and therefore must not have any runtime dependencies. Any dependencies would
+             lead to duplicate classpath entries or classpath conflicts. -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
+            <optional>true</optional>
         </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
