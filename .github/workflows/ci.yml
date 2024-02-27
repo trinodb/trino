@@ -489,7 +489,6 @@ jobs:
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
             !:starburst-base-jdbc,
-            !:starburst-ci-cd,
             !:starburst-dynamodb,
             !:starburst-license,
             !:starburst-oracle,
@@ -600,8 +599,6 @@ jobs:
                 - plugin/trino-base-jdbc
                 - plugin/trino-memory
                 - plugin/trino-thrift
-            - modules:
-                - lib/starburst-ci-cd
             - modules:
                 - lib/trino-orc
                 - lib/trino-parquet
