@@ -1928,15 +1928,28 @@ class QueryPlanner
                             .iterator());
             WindowFrame frame = window.getFrame().orElseThrow();
             Optional<Expression> endValue = frame.getEnd().orElseThrow().getValue();
-            endValue.ifPresent(inputsBuilder::add);
 
             List<Expression> inputs = inputsBuilder.build();
 
             subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, analysis.getSubqueries(node));
             subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
 
+            // Add projection for frame end, since WindowNode expects a symbol and does not support literals
+            // We don't use appendProjects because we don't want a mapping to be added for the literal
+            Optional<Symbol> endValueSymbol = Optional.empty();
+            if (endValue.isPresent()) {
+                Expression expression = endValue.get();
+                Assignments.Builder assignments = Assignments.builder();
+                assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
+                Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
+                assignments.put(symbol, subPlan.rewrite(expression));
+
+                endValueSymbol = Optional.of(symbol);
+                subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build()));
+            }
+
             // process frame end
-            FrameOffsetPlanAndSymbol plan = planFrameOffset(subPlan, endValue.map(subPlan::translate));
+            FrameOffsetPlanAndSymbol plan = planFrameOffset(subPlan, endValueSymbol);
             subPlan = plan.getSubPlan();
             Optional<Symbol> frameEnd = plan.getFrameOffsetSymbol();
 
