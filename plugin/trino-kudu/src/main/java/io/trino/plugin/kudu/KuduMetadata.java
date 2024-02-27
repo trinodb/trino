@@ -42,6 +42,7 @@ import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.expression.ConnectorExpression;
@@ -73,6 +74,8 @@ import static io.trino.plugin.kudu.KuduColumnHandle.ROW_ID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
+import static io.trino.spi.connector.SaveMode.FAIL;
+import static io.trino.spi.connector.SaveMode.REPLACE;
 import static java.util.Objects.requireNonNull;
 
 public class KuduMetadata
@@ -248,12 +251,15 @@ public class KuduMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
+        if (saveMode == REPLACE) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
+        }
         if (tableMetadata.getColumns().stream().anyMatch(column -> column.getComment() != null)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
         }
-        clientSession.createTable(tableMetadata, ignoreExisting);
+        clientSession.createTable(tableMetadata, saveMode);
     }
 
     @Override
@@ -360,7 +366,7 @@ public class KuduMetadata
             finalTableMetadata = new ConnectorTableMetadata(tableMetadata.getTable(),
                     finalColumns, finalProperties, tableMetadata.getComment());
         }
-        KuduTable table = clientSession.createTable(finalTableMetadata, false);
+        KuduTable table = clientSession.createTable(finalTableMetadata, FAIL);
 
         Schema schema = table.getSchema();
 

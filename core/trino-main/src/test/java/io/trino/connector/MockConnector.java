@@ -612,9 +612,6 @@ public class MockConnector
         }
 
         @Override
-        public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting) {}
-
-        @Override
         public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}
 
         @Override

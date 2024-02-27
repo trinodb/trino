@@ -50,6 +50,7 @@ import static io.trino.plugin.jdbc.DefaultJdbcMetadata.createSyntheticJoinProjec
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -242,7 +243,7 @@ public class TestDefaultJdbcMetadata
     public void testCreateAndAlterTable()
     {
         SchemaTableName table = new SchemaTableName("example", "foo");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), FAIL);
 
         JdbcTableHandle handle = metadata.getTableHandle(SESSION, table);
 
@@ -300,7 +301,7 @@ public class TestDefaultJdbcMetadata
         assertThat(aggregationResult).isPresent();
 
         SchemaTableName noAggregationPushdownTable = new SchemaTableName("example", "no_aggregation_pushdown");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(noAggregationPushdownTable, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(noAggregationPushdownTable, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), FAIL);
         ConnectorTableHandle noAggregationPushdownTableHandle = metadata.getTableHandle(session, noAggregationPushdownTable);
         aggregationResult = applyAggregation.apply(noAggregationPushdownTableHandle);
         assertThat(aggregationResult).isEmpty();

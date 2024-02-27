@@ -54,6 +54,7 @@ import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.predicate.Range.greaterThan;
 import static io.trino.spi.predicate.Range.lessThanOrEqual;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -205,7 +206,7 @@ public class TestShardMetadataRecordCursor
 
     private void createTable(ConnectorTableMetadata table)
     {
-        metadata.createTable(SESSION, table, false);
+        metadata.createTable(SESSION, table, FAIL);
     }
 
     private static List<MaterializedRow> getMaterializedResults(RecordCursor cursor, List<ColumnMetadata> columns)

@@ -36,6 +36,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -175,10 +176,10 @@ public class TestingMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         ConnectorTableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
-        if (existingTable != null && !ignoreExisting) {
+        if (existingTable != null && saveMode != SaveMode.IGNORE) {
             throw new IllegalArgumentException("Target table already exists: " + tableMetadata.getTable());
         }
     }
@@ -313,7 +314,7 @@ public class TestingMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
-        createTable(session, tableMetadata, false);
+        createTable(session, tableMetadata, SaveMode.FAIL);
         return TestingHandle.INSTANCE;
     }
 
