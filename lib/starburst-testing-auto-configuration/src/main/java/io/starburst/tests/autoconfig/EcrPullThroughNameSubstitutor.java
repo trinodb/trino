@@ -22,7 +22,7 @@ import static java.lang.System.getenv;
 public class EcrPullThroughNameSubstitutor
         extends ImageNameSubstitutor
 {
-    private static final String ENV_KEY_NAME = "TESTCONTAINER_DOCKER_PULL_THROUGH_REGISTRY";
+    private static final String ENV_KEY_NAME = "STARBURST_DOCKER_PULL_THROUGH_REGISTRY";
     @Nullable
     private final String registry;
 
