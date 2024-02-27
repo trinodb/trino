@@ -1037,11 +1037,6 @@ public abstract class AstVisitor<R, C>
         return visitRelation(node, context);
     }
 
-    protected R visitLabelDereference(LabelDereference node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitRowPattern(RowPattern node, C context)
     {
         return visitNode(node, context);

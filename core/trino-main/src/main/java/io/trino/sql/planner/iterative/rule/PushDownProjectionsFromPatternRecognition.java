@@ -37,9 +37,11 @@ import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.Patterns.patternRecognition;
 
@@ -136,7 +138,10 @@ public class PushDownProjectionsFromPatternRecognition
                         case MatchNumberValuePointer pointer -> pointer;
                         case ScalarValuePointer pointer -> pointer;
                         case AggregationValuePointer pointer -> {
-                            Set<Symbol> runtimeEvaluatedSymbols = ImmutableSet.of(pointer.getClassifierSymbol(), pointer.getMatchNumberSymbol());
+                            Set<Symbol> runtimeEvaluatedSymbols = ImmutableSet.of(pointer.getClassifierSymbol(), pointer.getMatchNumberSymbol()).stream()
+                                    .filter(Optional::isPresent)
+                                    .map(Optional::get)
+                                    .collect(toImmutableSet());
                             List<Type> argumentTypes = pointer.getFunction().getSignature().getArgumentTypes();
 
                             ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();

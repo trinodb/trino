@@ -67,7 +67,6 @@ import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
 import io.trino.sql.tree.JsonValue;
-import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
@@ -821,16 +820,6 @@ public final class ExpressionFormatter
             }
 
             return builder.toString();
-        }
-
-        @Override
-        protected String visitLabelDereference(LabelDereference node, Void context)
-        {
-            // format LabelDereference L.x as "LABEL_DEREFERENCE("L", "x")"
-            // LabelDereference, like SymbolReference, is an IR-type expression. It is never a result of the parser.
-            // After being formatted this way for serialization, it will be parsed as functionCall
-            // and swapped back for LabelDereference.
-            return "LABEL_DEREFERENCE(" + formatIdentifier(node.getLabel()) + ", " + node.getReference().map(this::process).orElse("*") + ")";
         }
 
         @Override

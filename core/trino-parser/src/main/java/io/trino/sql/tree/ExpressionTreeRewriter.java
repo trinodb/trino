@@ -1213,26 +1213,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitLabelDereference(LabelDereference node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteLabelDereference(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            if (node.getReference().isPresent()) {
-                SymbolReference reference = rewrite(node.getReference().get(), context.get());
-                if (node.getReference().get() != reference) {
-                    return new LabelDereference(node.getLabel(), reference);
-                }
-            }
-
-            return node;
-        }
-
-        @Override
         protected Expression visitJsonExists(JsonExists node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

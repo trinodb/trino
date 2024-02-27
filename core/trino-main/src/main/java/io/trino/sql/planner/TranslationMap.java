@@ -30,7 +30,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
-import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
@@ -64,7 +63,6 @@ import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
 import io.trino.sql.tree.JsonValue;
-import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
@@ -136,18 +134,28 @@ public class TranslationMap
 
     // current mappings of sub-expressions -> symbol
     private final Map<ScopeAware<Expression>, Symbol> astToSymbols;
+    private final Map<NodeRef<Expression>, Symbol> substitutions;
 
     public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Session session, PlannerContext plannerContext)
     {
-        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of(), session, plannerContext);
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
     }
 
     public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols, Session session, PlannerContext plannerContext)
     {
-        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols, session, plannerContext);
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols, ImmutableMap.of(), session, plannerContext);
     }
 
-    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Symbol[] fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols, Session session, PlannerContext plannerContext)
+    public TranslationMap(
+            Optional<TranslationMap> outerContext,
+            Scope scope,
+            Analysis analysis,
+            Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments,
+            Symbol[] fieldSymbols,
+            Map<ScopeAware<Expression>, Symbol> astToSymbols,
+            Map<NodeRef<Expression>, Symbol> substitutions,
+            Session session,
+            PlannerContext plannerContext)
     {
         this.outerContext = requireNonNull(outerContext, "outerContext is null");
         this.scope = requireNonNull(scope, "scope is null");
@@ -155,6 +163,7 @@ public class TranslationMap
         this.lambdaArguments = requireNonNull(lambdaArguments, "lambdaArguments is null");
         this.session = requireNonNull(session, "session is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.substitutions = ImmutableMap.copyOf(substitutions);
 
         requireNonNull(fieldSymbols, "fieldSymbols is null");
         this.fieldSymbols = fieldSymbols.clone();
@@ -174,7 +183,7 @@ public class TranslationMap
 
     public TranslationMap withScope(Scope scope, List<Symbol> fields)
     {
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols, session, plannerContext);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols, substitutions, session, plannerContext);
     }
 
     public TranslationMap withNewMappings(Map<ScopeAware<Expression>, Symbol> mappings, List<Symbol> fields)
@@ -188,7 +197,16 @@ public class TranslationMap
         newMappings.putAll(this.astToSymbols);
         newMappings.putAll(mappings);
 
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings, session, plannerContext);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings, substitutions, session, plannerContext);
+    }
+
+    public TranslationMap withAdditionalIdentityMappings(Map<NodeRef<Expression>, Symbol> mappings)
+    {
+        Map<NodeRef<Expression>, Symbol> newMappings = new HashMap<>();
+        newMappings.putAll(this.substitutions);
+        newMappings.putAll(mappings);
+
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, astToSymbols, newMappings, session, plannerContext);
     }
 
     public List<Symbol> getFieldSymbols()
@@ -210,7 +228,9 @@ public class TranslationMap
     {
         verifyAstExpression(expression);
 
-        if (astToSymbols.containsKey(scopeAwareKey(expression, analysis, scope)) || expression instanceof FieldReference) {
+        if (astToSymbols.containsKey(scopeAwareKey(expression, analysis, scope)) ||
+                substitutions.containsKey(NodeRef.of(expression)) ||
+                expression instanceof FieldReference) {
             return true;
         }
 
@@ -275,36 +295,13 @@ public class TranslationMap
             @Override
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (analysis.isPatternRecognitionFunction(node)) {
-                    ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
-                    if (!node.getArguments().isEmpty()) {
-                        rewrittenArguments.add(treeRewriter.rewrite(node.getArguments().get(0), null));
-                        if (node.getArguments().size() > 1) {
-                            // do not rewrite the offset literal
-                            rewrittenArguments.add(node.getArguments().get(1));
-                        }
-                    }
-                    // Pattern recognition functions are special constructs, passed using the form of FunctionCall.
-                    // They are not resolved like regular function calls. They are processed in LogicalIndexExtractor.
-                    return coerceIfNecessary(node, new FunctionCall(
-                            Optional.empty(),
-                            node.getName(),
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty(),
-                            false,
-                            Optional.empty(),
-                            node.getProcessingMode(),
-                            rewrittenArguments.build()));
+                if (analysis.isPatternNavigationFunction(node)) {
+                    return coerceIfNecessary(node, treeRewriter.rewrite(node.getArguments().getFirst(), context));
                 }
 
-                // Do not use the mapping for aggregate functions in pattern recognition context. They have different semantics
-                // than aggregate functions outside pattern recognition.
-                if (!analysis.isPatternAggregation(node)) {
-                    Optional<SymbolReference> mapped = tryGetMapping(node);
-                    if (mapped.isPresent()) {
-                        return coerceIfNecessary(node, mapped.get());
-                    }
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -327,16 +324,6 @@ public class TranslationMap
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
-                if (labelDereference != null) {
-                    if (labelDereference.getColumn().isPresent()) {
-                        Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn().get(), null);
-                        checkState(rewritten instanceof SymbolReference, "expected symbol reference, got: " + rewritten);
-                        return coerceIfNecessary(node, new LabelDereference(labelDereference.getLabel(), (SymbolReference) rewritten));
-                    }
-                    return new LabelDereference(labelDereference.getLabel());
-                }
-
                 Optional<SymbolReference> mapped = tryGetMapping(node);
                 if (mapped.isPresent()) {
                     return coerceIfNecessary(node, mapped.get());
@@ -1113,7 +1100,12 @@ public class TranslationMap
 
     private Optional<SymbolReference> tryGetMapping(Expression expression)
     {
-        return Optional.ofNullable(astToSymbols.get(scopeAwareKey(expression, analysis, scope)))
+        Symbol symbol = substitutions.get(NodeRef.of(expression));
+        if (symbol == null) {
+            symbol = astToSymbols.get(scopeAwareKey(expression, analysis, scope));
+        }
+
+        return Optional.ofNullable(symbol)
                 .map(Symbol::toSymbolReference);
     }
 

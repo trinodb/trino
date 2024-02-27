@@ -55,11 +55,10 @@ import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
+import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FieldReference;
@@ -87,6 +86,7 @@ import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.SubqueryExpression;
+import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.Unnest;
@@ -156,17 +156,22 @@ public class Analysis
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
     // Record fields prefixed with labels in row pattern recognition context
-    private final Map<NodeRef<DereferenceExpression>, LabelPrefixedReference> labelDereferences = new LinkedHashMap<>();
-
-    private final Set<NodeRef<FunctionCall>> patternRecognitionFunctions = new LinkedHashSet<>();
-
+    private final Map<NodeRef<Expression>, Optional<String>> labels = new LinkedHashMap<>();
     private final Map<NodeRef<RangeQuantifier>, Range> ranges = new LinkedHashMap<>();
-
     private final Map<NodeRef<RowPattern>, Set<String>> undefinedLabels = new LinkedHashMap<>();
-
     private final Map<NodeRef<WindowOperation>, MeasureDefinition> measureDefinitions = new LinkedHashMap<>();
 
-    private final Set<NodeRef<FunctionCall>> patternAggregations = new LinkedHashSet<>();
+    // Pattern function analysis (classifier, match_number, aggregations and prev/next/first/last) in the context of the given node
+    private final Map<NodeRef<Expression>, List<PatternInputAnalysis>> patternInputsAnalysis = new LinkedHashMap<>();
+
+    // FunctionCall nodes corresponding to any of the special pattern recognition functions
+    private final Set<NodeRef<FunctionCall>> patternRecognitionFunctionCalls = new LinkedHashSet<>();
+
+    // FunctionCall nodes corresponding to any of the navigation functions (prev/next/first/last)
+    private final Set<NodeRef<FunctionCall>> patternNavigationFunctions = new LinkedHashSet<>();
+
+    private final Map<NodeRef<Identifier>, String> resolvedLabels = new LinkedHashMap<>();
+    private final Map<NodeRef<SubsetDefinition>, Set<String>> subsets = new LinkedHashMap<>();
 
     // for JSON features
     private final Map<NodeRef<Node>, JsonPathAnalysis> jsonPathAnalyses = new LinkedHashMap<>();
@@ -959,24 +964,37 @@ public class Analysis
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
     }
 
-    public void addLabelDereferences(Map<NodeRef<DereferenceExpression>, LabelPrefixedReference> dereferences)
+    public void addLabels(Map<NodeRef<Expression>, Optional<String>> labels)
     {
-        labelDereferences.putAll(dereferences);
+        this.labels.putAll(labels);
     }
 
-    public LabelPrefixedReference getLabelDereference(DereferenceExpression expression)
+    public void addPatternRecognitionInputs(Map<NodeRef<Expression>, List<PatternInputAnalysis>> functions)
     {
-        return labelDereferences.get(NodeRef.of(expression));
+        patternInputsAnalysis.putAll(functions);
+
+        functions.values().stream()
+                .flatMap(List::stream)
+                .map(PatternInputAnalysis::expression)
+                .filter(FunctionCall.class::isInstance)
+                .map(FunctionCall.class::cast)
+                .map(NodeRef::of)
+                .forEach(patternRecognitionFunctionCalls::add);
     }
 
-    public void addPatternRecognitionFunctions(Set<NodeRef<FunctionCall>> functions)
+    public void addPatternNavigationFunctions(Set<NodeRef<FunctionCall>> functions)
     {
-        patternRecognitionFunctions.addAll(functions);
+        patternNavigationFunctions.addAll(functions);
+    }
+
+    public Optional<String> getLabel(Expression expression)
+    {
+        return labels.get(NodeRef.of(expression));
     }
 
     public boolean isPatternRecognitionFunction(FunctionCall functionCall)
     {
-        return patternRecognitionFunctions.contains(NodeRef.of(functionCall));
+        return patternRecognitionFunctionCalls.contains(NodeRef.of(functionCall));
     }
 
     public void setRanges(Map<NodeRef<RangeQuantifier>, Range> quantifierRanges)
@@ -1016,16 +1034,6 @@ public class Analysis
     public MeasureDefinition getMeasureDefinition(WindowOperation measure)
     {
         return measureDefinitions.get(NodeRef.of(measure));
-    }
-
-    public void setPatternAggregations(Set<NodeRef<FunctionCall>> aggregations)
-    {
-        patternAggregations.addAll(aggregations);
-    }
-
-    public boolean isPatternAggregation(FunctionCall function)
-    {
-        return patternAggregations.contains(NodeRef.of(function));
     }
 
     public void setJsonPathAnalyses(Map<NodeRef<Node>, JsonPathAnalysis> pathAnalyses)
@@ -1326,6 +1334,46 @@ public class Analysis
                 .map(Insert::getTable)
                 .map(tableReference -> tableReference == table) // intentional comparison by reference
                 .orElse(FALSE);
+    }
+
+    public List<PatternInputAnalysis> getPatternInputsAnalysis(Expression expression)
+    {
+        return patternInputsAnalysis.get(NodeRef.of(expression));
+    }
+
+    public boolean isPatternNavigationFunction(FunctionCall node)
+    {
+        return patternNavigationFunctions.contains(NodeRef.of(node));
+    }
+
+    public String getResolvedLabel(Identifier identifier)
+    {
+        return resolvedLabels.get(NodeRef.of(identifier));
+    }
+
+    public Set<String> getLabels(SubsetDefinition subset)
+    {
+        return subsets.get(NodeRef.of(subset));
+    }
+
+    public void addSubsetLabels(SubsetDefinition subset, Set<String> labels)
+    {
+        subsets.put(NodeRef.of(subset), labels);
+    }
+
+    public void addSubsetLabels(Map<NodeRef<SubsetDefinition>, Set<String>> subsets)
+    {
+        this.subsets.putAll(subsets);
+    }
+
+    public void addResolvedLabel(Identifier label, String resolved)
+    {
+        resolvedLabels.put(NodeRef.of(label), resolved);
+    }
+
+    public void addResolvedLabels(Map<NodeRef<Identifier>, String> labels)
+    {
+        resolvedLabels.putAll(labels);
     }
 
     @Immutable

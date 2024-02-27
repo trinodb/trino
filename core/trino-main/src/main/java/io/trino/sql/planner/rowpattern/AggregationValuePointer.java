@@ -23,6 +23,7 @@ import io.trino.sql.tree.Expression;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -33,11 +34,11 @@ public final class AggregationValuePointer
     private final ResolvedFunction function;
     private final AggregatedSetDescriptor setDescriptor;
     private final List<Expression> arguments;
-    private final Symbol classifierSymbol;
-    private final Symbol matchNumberSymbol;
+    private final Optional<Symbol> classifierSymbol;
+    private final Optional<Symbol> matchNumberSymbol;
 
     @JsonCreator
-    public AggregationValuePointer(ResolvedFunction function, AggregatedSetDescriptor setDescriptor, List<Expression> arguments, Symbol classifierSymbol, Symbol matchNumberSymbol)
+    public AggregationValuePointer(ResolvedFunction function, AggregatedSetDescriptor setDescriptor, List<Expression> arguments, Optional<Symbol> classifierSymbol, Optional<Symbol> matchNumberSymbol)
     {
         this.function = requireNonNull(function, "function is null");
         this.setDescriptor = requireNonNull(setDescriptor, "setDescriptor is null");
@@ -65,13 +66,13 @@ public final class AggregationValuePointer
     }
 
     @JsonProperty
-    public Symbol getClassifierSymbol()
+    public Optional<Symbol> getClassifierSymbol()
     {
         return classifierSymbol;
     }
 
     @JsonProperty
-    public Symbol getMatchNumberSymbol()
+    public Optional<Symbol> getMatchNumberSymbol()
     {
         return matchNumberSymbol;
     }
@@ -81,7 +82,8 @@ public final class AggregationValuePointer
         return arguments.stream()
                 .map(SymbolsExtractor::extractAll)
                 .flatMap(Collection::stream)
-                .filter(symbol -> !symbol.equals(classifierSymbol) && !symbol.equals(matchNumberSymbol))
+                .filter(symbol -> (classifierSymbol.isEmpty() || !classifierSymbol.get().equals(symbol)) &&
+                    (matchNumberSymbol.isEmpty() || !matchNumberSymbol.get().equals(symbol)))
                 .collect(toImmutableList());
     }
 
