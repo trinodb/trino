@@ -87,6 +87,11 @@ public class DynamoDbSessionProperties
         return session.getProperty(FLATTEN_OBJECTS_ENABLED, Boolean.class);
     }
 
+    public static boolean isPredicatePushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ENABLE_PREDICATE_PUSHDOWN, Boolean.class);
+    }
+
     public static int getFlattenArrayElementCount(ConnectorSession session)
     {
         return session.getProperty(FLATTEN_ARRAY_ELEMENT_COUNT, Integer.class);
