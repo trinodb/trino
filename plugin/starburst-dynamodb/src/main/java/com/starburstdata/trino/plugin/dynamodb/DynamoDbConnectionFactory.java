@@ -109,7 +109,7 @@ public class DynamoDbConnectionFactory
         }
 
         Optional.ofNullable(dynamoDbConfig.getSchemaDirectory()).ifPresent(directory -> builder.append("Location=\"").append(directory).append("\";"));
-        dynamoDbConfig.getExtraJdbcProperties().ifPresent(extraProperties -> builder.append(extraProperties).append(";"));
+        dynamoDbConfig.getExtraJdbcProperties().ifPresent(extraProperties -> builder.append("Other=\"").append(extraProperties).append("\";"));
 
         return builder.toString();
     }

@@ -59,7 +59,7 @@ public class TestDynamoDbPredicatePushdown
                 .setTables(List.of()) // None of the tpch tables are required in the tests of this class.
                 .addConnectorProperties(
                         Map.of("dynamodb.generate-schema-files", "ON_START", // Set it to the same value as that of set in Galaxy config.
-                                "dynamodb.extra-jdbc-properties", "Other=\"SchemaCacheDuration=0\"")) // Don't cache table metadata. Required for created test table to show up.
+                                "dynamodb.extra-jdbc-properties", "SchemaCacheDuration=0")) // Don't cache table metadata. Required for created test table to show up.
                 .enablePredicatePushdown()
                 .enableWrites()
                 .build();
