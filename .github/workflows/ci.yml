@@ -889,6 +889,7 @@ jobs:
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
       - name: Cloud MongoDB Tests
+        id: tests-mongodb
         if: matrix.modules == 'plugin/trino-mongodb' && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.MONGODB_ATLAS_CONNECTION_URL != '')
         env:
           MONGODB_CONFIG: >-
@@ -1009,9 +1010,10 @@ jobs:
               || steps.tests-gcs.outcome == 'failure'
               || steps.tests-delta.outcome == 'failure'
               || steps.tests-memsql.outcome == 'failure'
+              || steps.tests-mongodb.outcome == 'failure'
               || steps.tests-bq.outcome == 'failure'
-              || steps.tests-bq-ci.outcome == 'failure'
               || steps.tests-bq-smoke.outcome == 'failure'
+              || steps.tests-bq-ci.outcome == 'failure'
               || steps.tests-iceberg.outcome == 'failure'
               || steps.tests-redshift.outcome == 'failure'
             }}
