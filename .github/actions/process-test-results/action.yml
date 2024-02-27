@@ -74,7 +74,7 @@ runs:
       if [ -s surefire.ndjson ]; then
         artifact_id='${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.artifact-name }}.json.gz'
         jq -c \
-          --arg workflow_job_name '${{ inputs.job-name }}' \
+          --arg workflow_job_name '${{ github.job }}' \
           --arg timestamp "$(date -u '+%F %T.%3NZ')" \
           --argjson addObj '{"branch":"${{ github.head_ref || github.ref_name }}","git_sha":"${{ github.sha }}","workflow_run":"${{ github.run_id }}","workflow_job":"","workflow_run_attempt":"${{ github.run_attempt }}","timestamp":""}' \
           '. + $addObj | .workflow_job=$workflow_job_name | .timestamp=$timestamp' surefire.ndjson | gzip -c > "$artifact_id"
