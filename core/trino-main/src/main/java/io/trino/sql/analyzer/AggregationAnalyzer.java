@@ -563,11 +563,6 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitDereferenceExpression(DereferenceExpression node, Void context)
         {
-            ExpressionAnalyzer.LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
-            if (labelDereference != null) {
-                return labelDereference.getColumn().map(this::process).orElse(true);
-            }
-
             if (!hasReferencesToScope(node, analysis, sourceScope)) {
                 // reference to outer scope is group-invariant
                 return true;

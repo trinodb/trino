@@ -19,6 +19,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static io.trino.sql.util.AstUtils.treeEqual;
@@ -84,10 +85,10 @@ public class ExpressionAndValuePointersEquivalence
     }
 
     private static BiFunction<Node, Node, Boolean> subsetComparator(
-            Symbol leftClassifierSymbol,
-            Symbol leftMatchNumberSymbol,
-            Symbol rightClassifierSymbol,
-            Symbol rightMatchNumberSymbol,
+            Optional<Symbol> leftClassifierSymbol,
+            Optional<Symbol> leftMatchNumberSymbol,
+            Optional<Symbol> rightClassifierSymbol,
+            Optional<Symbol> rightMatchNumberSymbol,
             BiFunction<Symbol, Symbol, Boolean> symbolEquivalence)
     {
         return (left, right) -> {
@@ -95,10 +96,10 @@ public class ExpressionAndValuePointersEquivalence
                 Symbol leftSymbol = Symbol.from((SymbolReference) left);
                 Symbol rightSymbol = Symbol.from((SymbolReference) right);
 
-                boolean leftIsClassifier = leftSymbol.equals(leftClassifierSymbol);
-                boolean leftIsMatchNumber = leftSymbol.equals(leftMatchNumberSymbol);
-                boolean rightIsClassifier = rightSymbol.equals(rightClassifierSymbol);
-                boolean rightIsMatchNumber = rightSymbol.equals(rightMatchNumberSymbol);
+                boolean leftIsClassifier = leftClassifierSymbol.isPresent() && leftSymbol.equals(leftClassifierSymbol.get());
+                boolean leftIsMatchNumber = leftMatchNumberSymbol.isPresent() && leftSymbol.equals(leftMatchNumberSymbol.get());
+                boolean rightIsClassifier = rightClassifierSymbol.isPresent() && rightSymbol.equals(rightClassifierSymbol.get());
+                boolean rightIsMatchNumber = rightMatchNumberSymbol.isPresent() && rightSymbol.equals(rightMatchNumberSymbol.get());
 
                 if (leftIsClassifier != rightIsClassifier || leftIsMatchNumber != rightIsMatchNumber) {
                     return false;

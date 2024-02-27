@@ -15,16 +15,20 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.rowpattern.AggregatedSetDescriptor;
+import io.trino.sql.planner.rowpattern.AggregationValuePointer;
+import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -50,7 +54,6 @@ import static io.trino.sql.planner.plan.SkipToPosition.NEXT;
 import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
 public class TestPrunePattenRecognitionColumns
         extends BaseRuleTest
@@ -68,7 +71,7 @@ public class TestPrunePattenRecognitionColumns
                                 .rowsPerMatch(ALL_WITH_UNMATCHED)
                                 .skipTo(PAST_LAST)
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "true")
+                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
@@ -84,7 +87,7 @@ public class TestPrunePattenRecognitionColumns
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                                 .skipTo(NEXT)
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "true")
+                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
@@ -97,12 +100,18 @@ public class TestPrunePattenRecognitionColumns
                         Assignments.identity(p.symbol("b")),
                         p.patternRecognition(builder -> builder
                                 .addWindowFunction(p.symbol("rank"), new WindowNode.Function(rank, ImmutableList.of(), DEFAULT_FRAME, false))
-                                .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
+                                .addMeasure(
+                                        p.symbol("measure"),
+                                        PlanBuilder.expression("pointer"),
+                                        ImmutableMap.of("pointer", new ScalarValuePointer(
+                                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
+                                                new Symbol("a"))),
+                                        BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                                 .skipTo(NEXT)
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "true")
+                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
@@ -121,23 +130,35 @@ public class TestPrunePattenRecognitionColumns
                         Assignments.identity(p.symbol("measure")),
                         p.patternRecognition(builder -> builder
                                 .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
-                                .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
+                                .addMeasure(
+                                        p.symbol("measure"),
+                                        PlanBuilder.expression("pointer"),
+                                        ImmutableMap.of("pointer", new ScalarValuePointer(
+                                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
+                                                new Symbol("a"))),
+                                        BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                                 .skipTo(NEXT)
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "true")
+                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("measure", expression("measure")),
                                 patternRecognition(builder -> builder
-                                                .addMeasure("measure", "LAST(X.a)", BIGINT)
+                                                .addMeasure(
+                                                        "measure",
+                                                        PlanBuilder.expression("pointer"),
+                                                        ImmutableMap.of("pointer", new ScalarValuePointer(
+                                                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
+                                                                new Symbol("a"))),
+                                                        BIGINT)
                                                 .rowsPerMatch(WINDOW)
                                                 .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
                                                 .skipTo(NEXT)
                                                 .pattern(new IrLabel("X"))
-                                                .addVariableDefinition(new IrLabel("X"), "true"),
+                                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true")),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values("a", "b")))));
@@ -154,12 +175,18 @@ public class TestPrunePattenRecognitionColumns
                         Assignments.identity(p.symbol("lag")),
                         p.patternRecognition(builder -> builder
                                 .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
-                                .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
+                                .addMeasure(
+                                        p.symbol("measure"),
+                                        PlanBuilder.expression("pointer"),
+                                        ImmutableMap.of("pointer", new ScalarValuePointer(
+                                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
+                                                new Symbol("a"))),
+                                        BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                                 .skipTo(NEXT)
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "true")
+                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
@@ -170,7 +197,7 @@ public class TestPrunePattenRecognitionColumns
                                                 .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
                                                 .skipTo(NEXT)
                                                 .pattern(new IrLabel("X"))
-                                                .addVariableDefinition(new IrLabel("X"), "true"),
+                                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true")),
                                         strictProject(
                                                 ImmutableMap.of("b", expression("b")),
                                                 values("a", "b")))));
@@ -184,31 +211,47 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.of(),
                         p.patternRecognition(builder -> builder
-                                .addMeasure(p.symbol("measure"), "1", BIGINT)
+                                .addMeasure(p.symbol("measure"), PlanBuilder.expression("1"), BIGINT)
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "LAST(X.a) > 0")
+                                .addVariableDefinition(
+                                        new IrLabel("X"),
+                                        PlanBuilder.expression("pointer > 0"),
+                                        ImmutableMap.of("pointer", new ScalarValuePointer(
+                                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
+                                                new Symbol("a"))))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
                                 ImmutableMap.of(),
                                 patternRecognition(builder -> builder
                                                 .pattern(new IrLabel("X"))
-                                                .addVariableDefinition(new IrLabel("X"), "LAST(X.a) > 0"),
+                                                .addVariableDefinition(
+                                                        new IrLabel("X"),
+                                                        PlanBuilder.expression("pointer > 0"),
+                                                        ImmutableMap.of("pointer", new ScalarValuePointer(
+                                                                new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
+                                                                new Symbol("a")))),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values("a", "b")))));
 
         // inputs "a", "b" are used as aggregation arguments
-        QualifiedName maxBy = tester().getMetadata().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT)).toQualifiedName();
+        ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT));
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.of(),
                         p.patternRecognition(builder -> builder
-                                .addMeasure(p.symbol("measure"), "1", BIGINT)
+                                .addMeasure(p.symbol("measure"), PlanBuilder.expression("1"), BIGINT)
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(
                                         new IrLabel("X"),
-                                        new ComparisonExpression(GREATER_THAN, new FunctionCall(maxBy, ImmutableList.of(PlanBuilder.expression("a"), PlanBuilder.expression("b"))), PlanBuilder.expression("5")))
+                                        PlanBuilder.expression("agg > 5"),
+                                        ImmutableMap.of("agg", new AggregationValuePointer(
+                                                maxBy,
+                                                new AggregatedSetDescriptor(ImmutableSet.of(), true),
+                                                ImmutableList.of(new SymbolReference("a"), new SymbolReference("b")),
+                                                Optional.empty(),
+                                                Optional.empty())))
                                 .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"))))))
                 .matches(
                         strictProject(
@@ -217,7 +260,13 @@ public class TestPrunePattenRecognitionColumns
                                                 .pattern(new IrLabel("X"))
                                                 .addVariableDefinition(
                                                         new IrLabel("X"),
-                                                        new ComparisonExpression(GREATER_THAN, new FunctionCall(maxBy, ImmutableList.of(PlanBuilder.expression("a"), PlanBuilder.expression("b"))), PlanBuilder.expression("5"))),
+                                                        PlanBuilder.expression("agg > 5"),
+                                                        ImmutableMap.of("agg", new AggregationValuePointer(
+                                                                maxBy,
+                                                                new AggregatedSetDescriptor(ImmutableSet.of(), true),
+                                                                ImmutableList.of(new SymbolReference("a"), new SymbolReference("b")),
+                                                                Optional.empty(),
+                                                                Optional.empty()))),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a"), "b", expression("b")),
                                                 values("a", "b", "c")))));
@@ -233,7 +282,7 @@ public class TestPrunePattenRecognitionColumns
                         p.patternRecognition(builder -> builder
                                 .rowsPerMatch(ALL_SHOW_EMPTY)
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "true")
+                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
@@ -241,7 +290,7 @@ public class TestPrunePattenRecognitionColumns
                                 patternRecognition(builder -> builder
                                                 .rowsPerMatch(ALL_SHOW_EMPTY)
                                                 .pattern(new IrLabel("X"))
-                                                .addVariableDefinition(new IrLabel("X"), "true"),
+                                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true")),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values("a", "b")))));
@@ -257,7 +306,7 @@ public class TestPrunePattenRecognitionColumns
                         p.patternRecognition(builder -> builder
                                 .partitionBy(ImmutableList.of(p.symbol("a")))
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "true")
+                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
@@ -265,7 +314,7 @@ public class TestPrunePattenRecognitionColumns
                                 patternRecognition(builder -> builder
                                                 .specification(specification(ImmutableList.of("a"), ImmutableList.of(), ImmutableMap.of()))
                                                 .pattern(new IrLabel("X"))
-                                                .addVariableDefinition(new IrLabel("X"), "true"),
+                                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true")),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values("a", "b")))));
@@ -282,7 +331,7 @@ public class TestPrunePattenRecognitionColumns
                                 .orderBy(new OrderingScheme(ImmutableList.of(p.symbol("a")), ImmutableMap.of(p.symbol("a"), ASC_NULLS_LAST)))
                                 .rowsPerMatch(ALL_SHOW_EMPTY)
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "true")
+                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
@@ -291,7 +340,7 @@ public class TestPrunePattenRecognitionColumns
                                                 .specification(specification(ImmutableList.of(), ImmutableList.of("a"), ImmutableMap.of("a", ASC_NULLS_LAST)))
                                                 .rowsPerMatch(ALL_SHOW_EMPTY)
                                                 .pattern(new IrLabel("X"))
-                                                .addVariableDefinition(new IrLabel("X"), "true"),
+                                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true")),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values("a", "b")))));
@@ -305,21 +354,21 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("measure")),
                         p.patternRecognition(builder -> builder
-                                .addMeasure(p.symbol("measure"), "1", BIGINT)
+                                .addMeasure(p.symbol("measure"), PlanBuilder.expression("1"), BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), FOLLOWING, Optional.of(p.symbol("a")), Optional.empty(), Optional.empty(), Optional.of(p.symbol("a").toSymbolReference())))
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "true")
+                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("measure", expression("measure")),
                                 patternRecognition(builder -> builder
-                                                .addMeasure("measure", "1", BIGINT)
+                                                .addMeasure("measure", PlanBuilder.expression("1"), BIGINT)
                                                 .rowsPerMatch(WINDOW)
                                                 .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), FOLLOWING, Optional.of("a"), Optional.empty()))
                                                 .pattern(new IrLabel("X"))
-                                                .addVariableDefinition(new IrLabel("X"), "true"),
+                                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true")),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values("a", "b")))));
@@ -336,7 +385,12 @@ public class TestPrunePattenRecognitionColumns
                         p.patternRecognition(builder -> builder
                                 .rowsPerMatch(ALL_SHOW_EMPTY)
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "a > 0")
+                                .addVariableDefinition(
+                                        new IrLabel("X"),
+                                        PlanBuilder.expression("value > 0"),
+                                        ImmutableMap.of("value", new ScalarValuePointer(
+                                                new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
+                                                new Symbol("a"))))
                                 .source(p.values(p.symbol("a"))))))
                 .doesNotFire();
     }
@@ -350,10 +404,10 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("a"), p.symbol("b")),
                         p.patternRecognition(builder -> builder
-                                .addMeasure(p.symbol("measure"), "1", BIGINT)
+                                .addMeasure(p.symbol("measure"), PlanBuilder.expression("1"), BIGINT)
                                 .rowsPerMatch(ALL_SHOW_EMPTY)
                                 .pattern(new IrLabel("X"))
-                                .addVariableDefinition(new IrLabel("X"), "true")
+                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
                 .matches(
                         strictProject(
@@ -361,7 +415,7 @@ public class TestPrunePattenRecognitionColumns
                                 patternRecognition(builder -> builder
                                                 .rowsPerMatch(ALL_SHOW_EMPTY)
                                                 .pattern(new IrLabel("X"))
-                                                .addVariableDefinition(new IrLabel("X"), "true"),
+                                                .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true")),
                                         values("a", "b"))));
     }
 }
