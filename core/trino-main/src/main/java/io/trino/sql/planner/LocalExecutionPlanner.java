@@ -1545,9 +1545,11 @@ public class LocalExecutionPlanner
                         // handle non-lambda arguments
                         List<Integer> valueChannels = new ArrayList<>();
 
-                        Symbol classifierArgumentSymbol = pointer.getClassifierSymbol();
-                        Symbol matchNumberArgumentSymbol = pointer.getMatchNumberSymbol();
-                        Set<Symbol> runtimeEvaluatedSymbols = ImmutableSet.of(classifierArgumentSymbol, matchNumberArgumentSymbol);
+                        Optional<Symbol> classifierArgumentSymbol = pointer.getClassifierSymbol();
+                        Optional<Symbol> matchNumberArgumentSymbol = pointer.getMatchNumberSymbol();
+                        Set<Symbol> runtimeEvaluatedSymbols = ImmutableSet.of(classifierArgumentSymbol, matchNumberArgumentSymbol).stream()
+                                .flatMap(Optional::stream)
+                                .collect(toImmutableSet());
 
                         for (Map.Entry<Expression, Type> argumentWithType : arguments.get(false)) {
                             Expression argument = argumentWithType.getKey();
@@ -1558,11 +1560,11 @@ public class LocalExecutionPlanner
 
                                 List<Integer> argumentInputChannels = new ArrayList<>();
                                 for (Symbol symbol : argumentInputSymbols) {
-                                    if (symbol.equals(classifierArgumentSymbol)) {
+                                    if (classifierArgumentSymbol.isPresent() && symbol.equals(classifierArgumentSymbol.get())) {
                                         classifierInvolved = true;
                                         argumentInputChannels.add(CLASSIFIER);
                                     }
-                                    else if (symbol.equals(matchNumberArgumentSymbol)) {
+                                    else if (matchNumberArgumentSymbol.isPresent() && symbol.equals(matchNumberArgumentSymbol.get())) {
                                         argumentInputChannels.add(MATCH_NUMBER);
                                     }
                                     else {
@@ -1610,16 +1612,16 @@ public class LocalExecutionPlanner
             return new ValueAccessors(valueAccessors.build(), matchAggregations.build(), matchAggregationIndex, aggregationArguments.build(), firstUnusedChannel, labelDependencies.build());
         }
 
-        private Supplier<PageProjection> prepareArgumentProjection(Expression argument, List<Symbol> inputSymbols, Symbol classifierSymbol, Symbol matchNumberSymbol, LocalExecutionPlanContext context)
+        private Supplier<PageProjection> prepareArgumentProjection(Expression argument, List<Symbol> inputSymbols, Optional<Symbol> classifierSymbol, Optional<Symbol> matchNumberSymbol, LocalExecutionPlanContext context)
         {
             // prepare input layout and type provider for compilation
             ImmutableMap.Builder<Symbol, Type> inputTypes = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, Integer> inputLayout = ImmutableMap.builder();
             for (int i = 0; i < inputSymbols.size(); i++) {
-                if (inputSymbols.get(i).equals(classifierSymbol)) {
+                if (classifierSymbol.isPresent() && inputSymbols.get(i).equals(classifierSymbol.get())) {
                     inputTypes.put(inputSymbols.get(i), VARCHAR);
                 }
-                else if (inputSymbols.get(i).equals(matchNumberSymbol)) {
+                else if (matchNumberSymbol.isPresent() && inputSymbols.get(i).equals(matchNumberSymbol.get())) {
                     inputTypes.put(inputSymbols.get(i), BIGINT);
                 }
                 else {

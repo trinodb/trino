@@ -13,13 +13,14 @@
  */
 package io.trino.sql.planner.assertions;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -27,13 +28,14 @@ import io.trino.sql.planner.plan.RowsPerMatch;
 import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers.Assignment;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointersEquivalence;
+import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 
-import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -43,10 +45,8 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
-import static io.trino.sql.planner.assertions.PatternRecognitionExpressionRewriter.rewrite;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
@@ -175,7 +175,7 @@ public class PatternRecognitionMatcher
         private final PlanMatchPattern source;
         private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
         private final List<AliasMatcher> windowFunctionMatchers = new LinkedList<>();
-        private final Map<String, Map.Entry<String, Type>> measures = new HashMap<>();
+        private final Map<String, TypedExpressionAndPointers> measures = new HashMap<>();
         private Optional<ExpectedValueProvider<WindowNode.Frame>> frame = Optional.empty();
         private RowsPerMatch rowsPerMatch = ONE;
         private Set<IrLabel> skipToLabels = ImmutableSet.of();
@@ -183,8 +183,7 @@ public class PatternRecognitionMatcher
         private boolean initial = true;
         private IrRowPattern pattern;
         private final Map<IrLabel, Set<IrLabel>> subsets = new HashMap<>();
-        private final Map<IrLabel, String> variableDefinitionsBySql = new HashMap<>();
-        private final Map<IrLabel, Expression> variableDefinitionsByExpression = new HashMap<>();
+        private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions = new HashMap<>();
 
         Builder(PlanMatchPattern source)
         {
@@ -206,9 +205,20 @@ public class PatternRecognitionMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder addMeasure(String outputAlias, String expression, Type type)
+        public Builder addMeasure(String outputAlias, Expression expression, Type type)
         {
-            measures.put(outputAlias, new AbstractMap.SimpleEntry<>(expression, type));
+            measures.put(outputAlias, new TypedExpressionAndPointers(new ExpressionAndValuePointers(expression, ImmutableList.of()), type));
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder addMeasure(String outputAlias, Expression expression, Map<String, ValuePointer> pointers, Type type)
+        {
+            List<Assignment> assignments = pointers.entrySet().stream()
+                    .map(entry -> new Assignment(new Symbol(entry.getKey()), entry.getValue()))
+                    .toList();
+
+            measures.put(outputAlias, new TypedExpressionAndPointers(new ExpressionAndValuePointers(expression, assignments), type));
             return this;
         }
 
@@ -263,27 +273,25 @@ public class PatternRecognitionMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder addVariableDefinition(IrLabel name, String expression)
+        public Builder addVariableDefinition(IrLabel name, Expression expression)
         {
-            this.variableDefinitionsBySql.put(name, expression);
+            this.variableDefinitions.put(name, new ExpressionAndValuePointers(expression, ImmutableList.of()));
             return this;
         }
 
         @CanIgnoreReturnValue
-        public Builder addVariableDefinition(IrLabel name, Expression expression)
+        public Builder addVariableDefinition(IrLabel name, Expression expression, Map<String, ValuePointer> pointers)
         {
-            this.variableDefinitionsByExpression.put(name, expression);
+            List<ExpressionAndValuePointers.Assignment> assignments = pointers.entrySet().stream()
+                    .map(entry -> new ExpressionAndValuePointers.Assignment(new Symbol(entry.getKey()), entry.getValue()))
+                    .toList();
+
+            this.variableDefinitions.put(name, new ExpressionAndValuePointers(expression, assignments));
             return this;
         }
 
         public PlanMatchPattern build()
         {
-            ImmutableMap.Builder<IrLabel, ExpressionAndValuePointers> variableDefinitions = ImmutableMap.<IrLabel, ExpressionAndValuePointers>builder()
-                    .putAll(variableDefinitionsBySql.entrySet().stream()
-                            .collect(toImmutableMap(Map.Entry::getKey, entry -> rewrite(entry.getValue(), subsets))))
-                    .putAll(variableDefinitionsByExpression.entrySet().stream()
-                            .collect(toImmutableMap(Map.Entry::getKey, entry -> rewrite(entry.getValue(), subsets))));
-
             PlanMatchPattern result = node(PatternRecognitionNode.class, source).with(
                     new PatternRecognitionMatcher(
                             specification,
@@ -293,16 +301,18 @@ public class PatternRecognitionMatcher
                             skipToPosition,
                             initial,
                             pattern,
-                            variableDefinitions.buildOrThrow()));
+                            variableDefinitions));
             windowFunctionMatchers.forEach(result::with);
             measures.entrySet().stream()
                     .map(entry -> {
                         String name = entry.getKey();
-                        Map.Entry<String, Type> definition = entry.getValue();
-                        return new AliasMatcher(Optional.of(name), new MeasureMatcher(definition.getKey(), subsets, definition.getValue()));
+                        TypedExpressionAndPointers value = entry.getValue();
+                        return new AliasMatcher(Optional.of(name), new MeasureMatcher(value.expression(), subsets, value.type()));
                     })
                     .forEach(result::with);
             return result;
         }
     }
+
+    record TypedExpressionAndPointers(ExpressionAndValuePointers expression, Type type) {}
 }

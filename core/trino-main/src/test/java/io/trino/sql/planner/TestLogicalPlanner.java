@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchColumnHandle;
@@ -33,6 +34,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -57,6 +59,9 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
+import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrQuantified;
 import io.trino.sql.tree.Cast;
@@ -2163,11 +2168,17 @@ public class TestLogicalPlanner
                         project(
                                 patternRecognition(builder -> builder
                                                 .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
-                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .addMeasure(
+                                                        "val",
+                                                        PlanBuilder.expression("val"),
+                                                        ImmutableMap.of("val", new ScalarValuePointer(
+                                                                new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
+                                                                new Symbol("value"))),
+                                                        INTEGER)
                                                 .rowsPerMatch(WINDOW)
                                                 .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
                                                 .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
-                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                                .addVariableDefinition(new IrLabel("A"), PlanBuilder.expression("true")),
                                         values(
                                                 ImmutableList.of("id", "value"),
                                                 ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
@@ -2190,7 +2201,7 @@ public class TestLogicalPlanner
                                                 .rowsPerMatch(WINDOW)
                                                 .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
                                                 .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
-                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                                .addVariableDefinition(new IrLabel("A"), PlanBuilder.expression("true")),
                                         values(
                                                 ImmutableList.of("id", "value"),
                                                 ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
@@ -2218,7 +2229,7 @@ public class TestLogicalPlanner
                                                 .rowsPerMatch(WINDOW)
                                                 .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
                                                 .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
-                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                                .addVariableDefinition(new IrLabel("A"), PlanBuilder.expression("true")),
                                         values(
                                                 ImmutableList.of("id", "value"),
                                                 ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
@@ -2245,11 +2256,17 @@ public class TestLogicalPlanner
                         project(
                                 patternRecognition(builder -> builder
                                                 .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
-                                                .addMeasure("val", "LAST(value)", INTEGER)
+                                                .addMeasure(
+                                                        "val",
+                                                        PlanBuilder.expression("val"),
+                                                        ImmutableMap.of("val", new ScalarValuePointer(
+                                                                new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
+                                                                new Symbol("value"))),
+                                                        INTEGER) 
                                                 .rowsPerMatch(WINDOW)
                                                 .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
                                                 .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
-                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                                .addVariableDefinition(new IrLabel("A"), PlanBuilder.expression("true")),
                                         values(
                                                 ImmutableList.of("id", "value"),
                                                 ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
@@ -2275,13 +2292,24 @@ public class TestLogicalPlanner
                         project(
                                 patternRecognition(builder -> builder
                                                 .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
-                                                .addMeasure("val", "LAST(value)", INTEGER)
-                                                .addMeasure("label", "CLASSIFIER()", VARCHAR)
+                                                .addMeasure(
+                                                        "val",
+                                                        PlanBuilder.expression("val"),
+                                                        ImmutableMap.of("val", new ScalarValuePointer(
+                                                                new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
+                                                                new Symbol("value"))),
+                                                        INTEGER)
+                                                .addMeasure(
+                                                        "label",
+                                                        PlanBuilder.expression("classy"),
+                                                        ImmutableMap.of("classy", new ClassifierValuePointer(
+                                                                new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0))),
+                                                        VARCHAR)
                                                 .addFunction("row_number", functionCall("row_number", ImmutableList.of()))
                                                 .rowsPerMatch(WINDOW)
                                                 .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
                                                 .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
-                                                .addVariableDefinition(new IrLabel("A"), "true"),
+                                                .addVariableDefinition(new IrLabel("A"), PlanBuilder.expression("true")),
                                         values(
                                                 ImmutableList.of("id", "value"),
                                                 ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
@@ -2318,13 +2346,24 @@ public class TestLogicalPlanner
                                                 "min", expression("min")),
                                         patternRecognition(builder -> builder
                                                         .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
-                                                        .addMeasure("value", "LAST(input2)", INTEGER)
-                                                        .addMeasure("label", "CLASSIFIER()", VARCHAR)
+                                                        .addMeasure(
+                                                                "value",
+                                                                PlanBuilder.expression("value"),
+                                                                ImmutableMap.of("value", new ScalarValuePointer(
+                                                                        new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
+                                                                        new Symbol("input2"))),
+                                                                INTEGER)
+                                                        .addMeasure(
+                                                                "label",
+                                                                PlanBuilder.expression("classy"),
+                                                                ImmutableMap.of("classy", new ClassifierValuePointer(
+                                                                        new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0))),
+                                                                VARCHAR)
                                                         .addFunction("min", functionCall("min", ImmutableList.of("input1")))
                                                         .rowsPerMatch(WINDOW)
                                                         .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
                                                         .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
-                                                        .addVariableDefinition(new IrLabel("A"), "true"),
+                                                        .addVariableDefinition(new IrLabel("A"), PlanBuilder.expression("true")),
                                                 values(
                                                         ImmutableList.of("id", "input1", "input2"),
                                                         ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")))))))));
