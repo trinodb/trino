@@ -13,6 +13,7 @@
  */
 package io.starburst.tests.autoconfig;
 
+import jakarta.annotation.Nullable;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.ImageNameSubstitutor;
 
@@ -22,27 +23,28 @@ public class EcrPullThroughNameSubstitutor
         extends ImageNameSubstitutor
 {
     private static final String ENV_KEY_NAME = "TESTCONTAINER_DOCKER_PULL_THROUGH_REGISTRY";
+    @Nullable
     private final String registry;
 
+    @SuppressWarnings("unused") // Loaded by testcontainers
     public EcrPullThroughNameSubstitutor()
     {
         this(getenv(ENV_KEY_NAME));
     }
 
-    EcrPullThroughNameSubstitutor(String registry)
+    EcrPullThroughNameSubstitutor(@Nullable String registry)
     {
+        if (registry != null && registry.isBlank()) {
+            throw new IllegalArgumentException("Registry must be null or non-empty");
+        }
         this.registry = registry;
     }
 
     @Override
     public DockerImageName apply(DockerImageName dockerImageName)
     {
-        // Already belongs to some registry
-        if (!isNullOrEmpty(dockerImageName.getRegistry())) {
-            return dockerImageName;
-        }
-
-        if (isNullOrEmpty(registry)) {
+        // Already belongs to some registry, or the pull-through registry is configured
+        if (!isNullOrEmpty(dockerImageName.getRegistry()) || registry == null) {
             return dockerImageName;
         }
 

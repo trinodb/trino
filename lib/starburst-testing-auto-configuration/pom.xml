@@ -21,6 +21,12 @@
              and therefore must not have any runtime dependencies. Any dependencies would
              lead to duplicate classpath entries or classpath conflicts. -->
         <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <optional>true</optional>

@@ -30,7 +30,7 @@ public class TestEcrPullThroughNameSubstitutor
         // No rewrite - custom registry
         assertImageName("ecr-registry.com/docker-hub/", "registry.com/repository/mysql:8.15", "registry.com/repository/mysql:8.15");
         // No rewrite - no target registry
-        assertImageName("", "mysql:8.15", "mysql:8.15");
+        assertImageName(null, "mysql:8.15", "mysql:8.15");
     }
 
     private void assertImageName(String registry, String imageName, String expectedImageName)
