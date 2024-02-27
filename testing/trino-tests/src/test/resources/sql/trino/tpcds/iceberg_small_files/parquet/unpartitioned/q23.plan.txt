@@ -7,7 +7,7 @@ final aggregation over ()
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, ["cs_item_sk"])
                                 join (INNER, REPLICATED):
-                                    dynamic filter (["cs_bill_customer_sk", "cs_item_sk"], await ["cs_sold_date_sk"])
+                                    dynamic filter (unestimatable ["cs_bill_customer_sk", "cs_item_sk"], await ["cs_sold_date_sk"])
                                         scan catalog_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -68,7 +68,7 @@ final aggregation over ()
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, ["ws_item_sk"])
                                 join (INNER, REPLICATED):
-                                    dynamic filter (["ws_bill_customer_sk", "ws_item_sk"], await ["ws_sold_date_sk"])
+                                    dynamic filter (unestimatable ["ws_bill_customer_sk", "ws_item_sk"], await ["ws_sold_date_sk"])
                                         scan web_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

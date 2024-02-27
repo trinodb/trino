@@ -17,14 +17,14 @@ local exchange (GATHER, SINGLE, [])
                                                                 scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    dynamic filter (["i_brand", "i_brand", "i_category", "i_category"])
+                                                                    dynamic filter (unestimatable ["i_brand", "i_brand", "i_category", "i_category"])
                                                                         scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (["cc_name", "cc_name"])
+                                                            dynamic filter (unestimatable ["cc_name", "cc_name"])
                                                                 scan call_center
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["cc_name_102", "i_brand_14", "i_category_18"])
@@ -39,14 +39,14 @@ local exchange (GATHER, SINGLE, [])
                                                                 scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    dynamic filter (["i_brand_14", "i_category_18"])
+                                                                    dynamic filter (unestimatable ["i_brand_14", "i_category_18"])
                                                                         scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (["cc_name_102"])
+                                                            dynamic filter (unestimatable ["cc_name_102"])
                                                                 scan call_center
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["cc_name_232", "i_brand_144", "i_category_148"])

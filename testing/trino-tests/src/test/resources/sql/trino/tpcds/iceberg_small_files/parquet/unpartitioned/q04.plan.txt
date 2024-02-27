@@ -19,7 +19,7 @@ local exchange (GATHER, SINGLE, [])
                                                                         scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["c_customer_sk"])
-                                                                        dynamic filter (["c_customer_id", "c_customer_id", "c_customer_id", "c_customer_id", "c_customer_id"])
+                                                                        dynamic filter (unestimatable ["c_customer_id", "c_customer_id", "c_customer_id", "c_customer_id", "c_customer_id"])
                                                                             scan customer
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -37,7 +37,7 @@ local exchange (GATHER, SINGLE, [])
                                                                             scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPARTITION, HASH, ["c_customer_sk_161"])
-                                                                            dynamic filter (["c_customer_id_162", "c_customer_id_162", "c_customer_id_162", "c_customer_id_162"])
+                                                                            dynamic filter (unestimatable ["c_customer_id_162", "c_customer_id_162", "c_customer_id_162", "c_customer_id_162"])
                                                                                 scan customer
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -55,7 +55,7 @@ local exchange (GATHER, SINGLE, [])
                                                                         scan catalog_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["c_customer_sk_547"])
-                                                                        dynamic filter (["c_customer_id_548", "c_customer_id_548", "c_customer_id_548"])
+                                                                        dynamic filter (unestimatable ["c_customer_id_548", "c_customer_id_548", "c_customer_id_548"])
                                                                             scan customer
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -73,7 +73,7 @@ local exchange (GATHER, SINGLE, [])
                                                                     scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["c_customer_sk_847"])
-                                                                    dynamic filter (["c_customer_id_848", "c_customer_id_848"])
+                                                                    dynamic filter (unestimatable ["c_customer_id_848", "c_customer_id_848"])
                                                                         scan customer
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -91,7 +91,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["c_customer_sk_1244"])
-                                                                dynamic filter (["c_customer_id_1245"])
+                                                                dynamic filter (unestimatable ["c_customer_id_1245"])
                                                                     scan customer
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])

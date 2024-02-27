@@ -13,7 +13,7 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, ["c_current_addr_sk"])
-                                                            dynamic filter (["c_current_addr_sk", "c_current_cdemo_sk", "c_customer_sk"])
+                                                            dynamic filter (["c_current_addr_sk", "c_current_cdemo_sk"], unestimatable ["c_customer_sk"])
                                                                 scan customer
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["ca_address_sk"])

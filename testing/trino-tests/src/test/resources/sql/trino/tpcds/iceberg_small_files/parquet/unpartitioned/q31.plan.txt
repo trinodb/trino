@@ -20,7 +20,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                     scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                                                            dynamic filter (["ca_county", "ca_county", "ca_county", "ca_county", "ca_county"])
+                                                            dynamic filter (unestimatable ["ca_county", "ca_county", "ca_county", "ca_county", "ca_county"])
                                                                 scan customer_address
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["ca_county_66", NullableValue{type=integer, value=1}, NullableValue{type=integer, value=2000}])
@@ -38,7 +38,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                             scan date_dim
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["ca_address_sk_59"])
-                                                                    dynamic filter (["ca_county_66", "ca_county_66", "ca_county_66", "ca_county_66"])
+                                                                    dynamic filter (unestimatable ["ca_county_66", "ca_county_66", "ca_county_66", "ca_county_66"])
                                                                         scan customer_address
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["ca_county_140", NullableValue{type=integer, value=1}, NullableValue{type=integer, value=2000}])
@@ -56,7 +56,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                         scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["ca_address_sk_133"])
-                                                                dynamic filter (["ca_county_140", "ca_county_140", "ca_county_140"])
+                                                                dynamic filter (unestimatable ["ca_county_140", "ca_county_140", "ca_county_140"])
                                                                     scan customer_address
                         final aggregation over (ca_county_191, d_qoy_164, d_year_160)
                             local exchange (GATHER, SINGLE, [])
@@ -72,7 +72,7 @@ remote exchange (GATHER, SINGLE, [])
                                                             scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["ca_address_sk_184"])
-                                                    dynamic filter (["ca_county_191", "ca_county_191"])
+                                                    dynamic filter (unestimatable ["ca_county_191", "ca_county_191"])
                                                         scan customer_address
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["ca_county_276", NullableValue{type=integer, value=1}, NullableValue{type=integer, value=2000}])
@@ -90,7 +90,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                 scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["ca_address_sk_269"])
-                                                        dynamic filter (["ca_county_276"])
+                                                        dynamic filter (unestimatable ["ca_county_276"])
                                                             scan customer_address
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["ca_county_361", NullableValue{type=integer, value=1}, NullableValue{type=integer, value=2000}])

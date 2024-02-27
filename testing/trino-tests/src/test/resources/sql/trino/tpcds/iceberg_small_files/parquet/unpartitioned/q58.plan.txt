@@ -16,11 +16,11 @@ local exchange (GATHER, SINGLE, [])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (["i_item_id", "i_item_id"])
+                                                                dynamic filter (unestimatable ["i_item_id", "i_item_id"])
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (["d_date"])
+                                                            dynamic filter (unestimatable ["d_date"])
                                                                 scan date_dim
                                             final aggregation over (d_date_6)
                                                 local exchange (GATHER, SINGLE, [])
@@ -46,11 +46,11 @@ local exchange (GATHER, SINGLE, [])
                                                             scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (["i_item_id_69"])
+                                                                dynamic filter (unestimatable ["i_item_id_69"])
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (["d_date_94"])
+                                                            dynamic filter (unestimatable ["d_date_94"])
                                                                 scan date_dim
                                             final aggregation over (d_date_126)
                                                 local exchange (GATHER, SINGLE, [])
@@ -79,7 +79,7 @@ local exchange (GATHER, SINGLE, [])
                                                             scan item
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        dynamic filter (["d_date_216"])
+                                                        dynamic filter (unestimatable ["d_date_216"])
                                                             scan date_dim
                                         final aggregation over (d_date_248)
                                             local exchange (GATHER, SINGLE, [])

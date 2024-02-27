@@ -19,21 +19,20 @@ local exchange (GATHER, SINGLE, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (["s_state"])
+                                                            dynamic filter (unestimatable ["s_state"])
                                                                 scan store
                                             single aggregation over (s_state_53)
                                                 final aggregation over (s_state_53)
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["s_state_53"])
-                                                            intermediate aggregation over (s_state_53)
+                                                            partial aggregation over (s_state_53)
                                                                 join (INNER, REPLICATED):
-                                                                    partial aggregation over (ss_store_sk_10)
-                                                                        join (INNER, REPLICATED):
-                                                                            dynamic filter (await ["ss_sold_date_sk_26", "ss_store_sk_10"])
-                                                                                scan store_sales
-                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                                    scan date_dim
+                                                                    join (INNER, REPLICATED):
+                                                                        dynamic filter (await ["ss_sold_date_sk_26", "ss_store_sk_10"])
+                                                                            scan store_sales
+                                                                        local exchange (GATHER, SINGLE, [])
+                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                                scan store
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                                            scan store
+                                                                            scan date_dim

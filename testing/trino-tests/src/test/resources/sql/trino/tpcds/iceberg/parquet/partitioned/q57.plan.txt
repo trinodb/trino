@@ -9,65 +9,62 @@ local exchange (GATHER, SINGLE, [])
                                 final aggregation over (cc_name, d_moy, d_year, i_brand, i_category)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["cc_name", "d_moy", "d_year", "i_brand", "i_category"])
-                                            intermediate aggregation over (cc_name, d_moy, d_year, i_brand, i_category)
+                                            partial aggregation over (cc_name, d_moy, d_year, i_brand, i_category)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            partial aggregation over (cs_call_center_sk, cs_item_sk, cs_sold_date_sk)
-                                                                dynamic filter (["cs_item_sk"], await ["cs_call_center_sk", "cs_sold_date_sk"])
-                                                                    scan catalog_sales
+                                                            dynamic filter (["cs_item_sk"], await ["cs_call_center_sk", "cs_sold_date_sk"])
+                                                                scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    scan date_dim
+                                                                    dynamic filter (unestimatable ["i_brand", "i_brand", "i_category", "i_category"])
+                                                                        scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (["i_brand", "i_brand", "i_category", "i_category"])
-                                                                    scan item
+                                                                scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (["cc_name", "cc_name"])
+                                                            dynamic filter (unestimatable ["cc_name", "cc_name"])
                                                                 scan call_center
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["cc_name_102", "i_brand_14", "i_category_18"])
                                 final aggregation over (cc_name_102, d_moy_74, d_year_72, i_brand_14, i_category_18)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["cc_name_102", "d_moy_74", "d_year_72", "i_brand_14", "i_category_18"])
-                                            intermediate aggregation over (cc_name_102, d_moy_74, d_year_72, i_brand_14, i_category_18)
+                                            partial aggregation over (cc_name_102, d_moy_74, d_year_72, i_brand_14, i_category_18)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            partial aggregation over (cs_call_center_sk_40, cs_item_sk_44, cs_sold_date_sk_63)
-                                                                dynamic filter (["cs_item_sk_44"], await ["cs_call_center_sk_40", "cs_sold_date_sk_63"])
-                                                                    scan catalog_sales
+                                                            dynamic filter (["cs_item_sk_44"], await ["cs_call_center_sk_40", "cs_sold_date_sk_63"])
+                                                                scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    scan date_dim
+                                                                    dynamic filter (unestimatable ["i_brand_14", "i_category_18"])
+                                                                        scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (["i_brand_14", "i_category_18"])
-                                                                    scan item
+                                                                scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (["cc_name_102"])
+                                                            dynamic filter (unestimatable ["cc_name_102"])
                                                                 scan call_center
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["cc_name_232", "i_brand_144", "i_category_148"])
                             final aggregation over (cc_name_232, d_moy_204, d_year_202, i_brand_144, i_category_148)
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["cc_name_232", "d_moy_204", "d_year_202", "i_brand_144", "i_category_148"])
-                                        intermediate aggregation over (cc_name_232, d_moy_204, d_year_202, i_brand_144, i_category_148)
+                                        partial aggregation over (cc_name_232, d_moy_204, d_year_202, i_brand_144, i_category_148)
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        partial aggregation over (cs_call_center_sk_170, cs_item_sk_174, cs_sold_date_sk_193)
-                                                            dynamic filter (["cs_item_sk_174"], await ["cs_call_center_sk_170", "cs_sold_date_sk_193"])
-                                                                scan catalog_sales
+                                                        dynamic filter (["cs_item_sk_174"], await ["cs_call_center_sk_170", "cs_sold_date_sk_193"])
+                                                            scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan date_dim
+                                                                scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan item
+                                                            scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan call_center

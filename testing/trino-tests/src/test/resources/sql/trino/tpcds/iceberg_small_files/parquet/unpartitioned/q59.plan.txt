@@ -19,15 +19,15 @@ local exchange (GATHER, SINGLE, [])
                                                                         scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                                            dynamic filter (["d_week_seq"], await ["d_week_seq"])
+                                                                            dynamic filter (unestimatable ["d_week_seq"], await ["d_week_seq"])
                                                                                 scan date_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        dynamic filter (["s_store_id"])
+                                        dynamic filter (unestimatable ["s_store_id"])
                                             scan store
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    dynamic filter (["d_week_seq_20"])
+                                    dynamic filter (unestimatable ["d_week_seq_20"])
                                         scan date_dim
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["expr_203", "s_store_id_118"])
