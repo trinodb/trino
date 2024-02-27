@@ -87,7 +87,7 @@ public class OracleClientModule
                 openTelemetry);
     }
 
-    private static class OracleRetryStrategy
+    public static class OracleRetryStrategy
             implements RetryStrategy
     {
         @Override

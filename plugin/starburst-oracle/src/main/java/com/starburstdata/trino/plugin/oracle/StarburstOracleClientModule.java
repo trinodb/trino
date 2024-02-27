@@ -21,7 +21,9 @@ import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.jdbc.RetryingConnectionFactory.RetryStrategy;
 import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.plugin.oracle.OracleClientModule.OracleRetryStrategy;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.plugin.oracle.OracleSessionProperties;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -79,5 +81,6 @@ public class StarburstOracleClientModule
                 new UserPasswordModule()));
 
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, RetryStrategy.class).setBinding().to(OracleRetryStrategy.class).in(Scopes.SINGLETON);
     }
 }
