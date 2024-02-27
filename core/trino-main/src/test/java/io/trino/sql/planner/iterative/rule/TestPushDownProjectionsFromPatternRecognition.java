@@ -15,13 +15,20 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.rowpattern.AggregatedSetDescriptor;
+import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -43,7 +50,7 @@ public class TestPushDownProjectionsFromPatternRecognition
         tester().assertThat(new PushDownProjectionsFromPatternRecognition())
                 .on(p -> p.patternRecognition(builder -> builder
                         .pattern(new IrLabel("X"))
-                        .addVariableDefinition(new IrLabel("X"), "true")
+                        .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }
@@ -77,19 +84,32 @@ public class TestPushDownProjectionsFromPatternRecognition
     @Test
     public void testPreProjectArguments()
     {
+        ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT));
         tester().assertThat(new PushDownProjectionsFromPatternRecognition())
                 .on(p -> p.patternRecognition(builder -> builder
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(expression("a + 1"), expression("b * 2"))), expression("5")))
+                                PlanBuilder.expression("agg < 5"),
+                                ImmutableMap.of("agg", new AggregationValuePointer(
+                                        maxBy,
+                                        new AggregatedSetDescriptor(ImmutableSet.of(), true),
+                                        ImmutableList.of(expression("a + 1"), expression("b * 2")),
+                                        Optional.empty(),
+                                        Optional.empty())))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(
                         patternRecognition(builder -> builder
                                         .pattern(new IrLabel("X"))
                                         .addVariableDefinition(
                                                 new IrLabel("X"),
-                                                new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(expression("expr_1"), expression("expr_2"))), expression("5"))),
+                                                PlanBuilder.expression("agg < 5"),
+                                                ImmutableMap.of("agg", new AggregationValuePointer(
+                                                        maxBy,
+                                                        new AggregatedSetDescriptor(ImmutableSet.of(), true),
+                                                        ImmutableList.of(expression("expr_1"), expression("expr_2")),
+                                                        Optional.empty(),
+                                                        Optional.empty()))),
                                 project(
                                         ImmutableMap.of(
                                                 "expr_1", PlanMatchPattern.expression("a + 1"),

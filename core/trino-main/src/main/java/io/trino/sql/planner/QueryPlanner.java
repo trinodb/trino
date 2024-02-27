@@ -1856,7 +1856,7 @@ class QueryPlanner
 
         PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .planPatternRecognitionComponents(
-                        subPlan::rewrite,
+                        subPlan.getTranslations(),
                         frame.getSubsets(),
                         ImmutableList.of(),
                         frame.getAfterMatchSkipTo(),
@@ -1999,7 +1999,7 @@ class QueryPlanner
 
         PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .planPatternRecognitionComponents(
-                        subPlan::rewrite,
+                        subPlan.getTranslations(),
                         frame.getSubsets(),
                         ImmutableList.of(analysis.getMeasureDefinition(windowMeasure)),
                         frame.getAfterMatchSkipTo(),

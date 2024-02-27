@@ -45,6 +45,12 @@ import io.trino.sql.analyzer.Analysis.TableArgumentAnalysis;
 import io.trino.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.Field;
+import io.trino.sql.analyzer.PatternRecognitionAnalysis.AggregationDescriptor;
+import io.trino.sql.analyzer.PatternRecognitionAnalysis.ClassifierDescriptor;
+import io.trino.sql.analyzer.PatternRecognitionAnalysis.MatchNumberDescriptor;
+import io.trino.sql.analyzer.PatternRecognitionAnalysis.Navigation;
+import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
+import io.trino.sql.analyzer.PatternRecognitionAnalysis.ScalarInputDescriptor;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
@@ -71,9 +77,16 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.rowpattern.AggregatedSetDescriptor;
+import io.trino.sql.planner.rowpattern.AggregationValuePointer;
+import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers.Assignment;
+import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.RowPatternToIrRewriter;
+import io.trino.sql.planner.rowpattern.ScalarValuePointer;
+import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.AliasedRelation;
@@ -82,6 +95,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
@@ -145,6 +159,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -154,9 +169,13 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
+import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.LAST;
+import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationMode.RUNNING;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
@@ -184,7 +203,6 @@ import static io.trino.sql.tree.PatternSearchMode.Mode.INITIAL;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static java.lang.Boolean.TRUE;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
@@ -610,7 +628,7 @@ class RelationPlanner
         planBuilder = subqueryPlanner.handleSubqueries(planBuilder, extractPatternRecognitionExpressions(node.getVariableDefinitions(), node.getMeasures()), analysis.getSubqueries(node));
 
         PatternRecognitionComponents components = planPatternRecognitionComponents(
-                planBuilder::rewrite,
+                planBuilder.getTranslations(),
                 node.getSubsets(),
                 node.getMeasures(),
                 node.getAfterMatchSkipTo(),
@@ -659,7 +677,7 @@ class RelationPlanner
     }
 
     public PatternRecognitionComponents planPatternRecognitionComponents(
-            Function<Expression, Expression> expressionRewrite,
+            TranslationMap translations,
             List<SubsetDefinition> subsets,
             List<MeasureDefinition> measures,
             Optional<SkipTo> skipTo,
@@ -667,16 +685,6 @@ class RelationPlanner
             RowPattern pattern,
             List<VariableDefinition> variableDefinitions)
     {
-        // rewrite subsets
-        ImmutableMap.Builder<IrLabel, Set<IrLabel>> rewrittenSubsetsBuilder = ImmutableMap.builder();
-        for (SubsetDefinition subsetDefinition : subsets) {
-            IrLabel label = irLabel(subsetDefinition.getName());
-            Set<IrLabel> elements = subsetDefinition.getIdentifiers().stream()
-                    .map(RelationPlanner::irLabel)
-                    .collect(toImmutableSet());
-            rewrittenSubsetsBuilder.put(label, elements);
-        }
-
         // NOTE: There might be aggregate functions in measure definitions and variable definitions.
         // They are handled different than top level aggregations in a query:
         // 1. Their arguments are not pre-projected and replaced with single symbols. This is because the arguments might
@@ -687,29 +695,35 @@ class RelationPlanner
         //    parts of enclosing expressions, and not as standalone expressions, all necessary coercions will be applied by the
         //    TranslationMap.
 
+        // rewrite subsets
+        ImmutableMap.Builder<IrLabel, Set<IrLabel>> rewrittenSubsetsBuilder = ImmutableMap.builder();
+        for (SubsetDefinition subsetDefinition : subsets) {
+            String label = analysis.getResolvedLabel(subsetDefinition.getName());
+            Set<IrLabel> elements = analysis.getLabels(subsetDefinition).stream()
+                    .map(IrLabel::new)
+                    .collect(toImmutableSet());
+            rewrittenSubsetsBuilder.put(new IrLabel(label), elements);
+        }
+        Map<IrLabel, Set<IrLabel>> rewrittenSubsets = rewrittenSubsetsBuilder.buildOrThrow();
+
         // rewrite measures
         ImmutableMap.Builder<Symbol, Measure> rewrittenMeasures = ImmutableMap.builder();
         ImmutableList.Builder<Symbol> measureOutputs = ImmutableList.builder();
-        ImmutableMap<IrLabel, Set<IrLabel>> rewrittenSubsets = rewrittenSubsetsBuilder.buildOrThrow();
-        for (MeasureDefinition measureDefinition : measures) {
-            Type type = analysis.getType(measureDefinition.getExpression());
-            Symbol symbol = symbolAllocator.newSymbol(measureDefinition.getName().getValue().toLowerCase(ENGLISH), type);
-            Expression expression = expressionRewrite.apply(measureDefinition.getExpression());
-            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets, symbolAllocator, plannerContext.getMetadata());
+
+        for (MeasureDefinition definition : measures) {
+            Type type = analysis.getType(definition.getExpression());
+            Symbol symbol = symbolAllocator.newSymbol(definition.getName().getValue(), type);
+            ExpressionAndValuePointers measure = planPatternRecognitionExpression(translations, rewrittenSubsets, definition.getName().getValue(), definition.getExpression());
             rewrittenMeasures.put(symbol, new Measure(measure, type));
             measureOutputs.add(symbol);
         }
 
-        // rewrite pattern to IR
-        IrRowPattern rewrittenPattern = RowPatternToIrRewriter.rewrite(pattern, analysis);
-
         // rewrite variable definitions
         ImmutableMap.Builder<IrLabel, ExpressionAndValuePointers> rewrittenVariableDefinitions = ImmutableMap.builder();
-        for (VariableDefinition variableDefinition : variableDefinitions) {
-            IrLabel label = irLabel(variableDefinition.getName());
-            Expression expression = expressionRewrite.apply(variableDefinition.getExpression());
-            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets, symbolAllocator, plannerContext.getMetadata());
-            rewrittenVariableDefinitions.put(label, definition);
+        for (VariableDefinition definition : variableDefinitions) {
+            String label = analysis.getResolvedLabel(definition.getName());
+            ExpressionAndValuePointers variable = planPatternRecognitionExpression(translations, rewrittenSubsets, definition.getName().getValue(), definition.getExpression());
+            rewrittenVariableDefinitions.put(new IrLabel(label), variable);
         }
         // add `true` definition for undefined labels
         for (String label : analysis.getUndefinedLabels(pattern)) {
@@ -717,8 +731,8 @@ class RelationPlanner
         }
 
         Set<IrLabel> skipToLabels = skipTo.flatMap(SkipTo::getIdentifier)
-                .map(RelationPlanner::irLabel)
-                .map(label -> rewrittenSubsets.getOrDefault(label, ImmutableSet.of(label)))
+                .map(Identifier::getValue)
+                .map(label -> rewrittenSubsets.getOrDefault(new IrLabel(label), ImmutableSet.of(new IrLabel(label))))
                 .orElse(ImmutableSet.of());
 
         return new PatternRecognitionComponents(
@@ -727,8 +741,91 @@ class RelationPlanner
                 skipToLabels,
                 mapSkipToPosition(skipTo.map(SkipTo::getPosition).orElse(PAST_LAST)),
                 searchMode.map(mode -> mode.getMode() == INITIAL).orElse(TRUE),
-                rewrittenPattern,
+                RowPatternToIrRewriter.rewrite(pattern, analysis),
                 rewrittenVariableDefinitions.buildOrThrow());
+    }
+
+    private ExpressionAndValuePointers planPatternRecognitionExpression(TranslationMap translations, Map<IrLabel, Set<IrLabel>> subsets, String name, Expression expression)
+    {
+        Map<NodeRef<Expression>, Symbol> patternVariableTranslations = new HashMap<>();
+
+        ImmutableList.Builder<Assignment> assignments = ImmutableList.builder();
+        for (PatternInputAnalysis accessor : analysis.getPatternInputsAnalysis(expression)) {
+            ValuePointer pointer = switch (accessor.descriptor()) {
+                case MatchNumberDescriptor descriptor -> new MatchNumberValuePointer();
+                case ClassifierDescriptor descriptor -> new ClassifierValuePointer(
+                        planValuePointer(descriptor.label(), descriptor.navigation(), subsets));
+                case ScalarInputDescriptor descriptor -> new ScalarValuePointer(
+                        planValuePointer(descriptor.label(), descriptor.navigation(), subsets),
+                        Symbol.from(translations.rewrite(accessor.expression())));
+                case AggregationDescriptor descriptor -> {
+                    Map<NodeRef<Expression>, Symbol> mappings = new HashMap<>();
+
+                    Optional<Symbol> matchNumberSymbol = Optional.empty();
+                    if (!descriptor.matchNumberCalls().isEmpty()) {
+                        Symbol symbol = symbolAllocator.newSymbol("match_number", BIGINT);
+                        for (Expression call : descriptor.matchNumberCalls()) {
+                            mappings.put(NodeRef.of(call), symbol);
+                        }
+                        matchNumberSymbol = Optional.of(symbol);
+                    }
+
+                    Optional<Symbol> classifierSymbol = Optional.empty();
+                    if (!descriptor.classifierCalls().isEmpty()) {
+                        Symbol symbol = symbolAllocator.newSymbol("classifier", VARCHAR);
+
+                        for (Expression call : descriptor.classifierCalls()) {
+                            mappings.put(NodeRef.of(call), symbol);
+                        }
+                        classifierSymbol = Optional.of(symbol);
+                    }
+
+                    TranslationMap argumentTranslation = translations.withAdditionalIdentityMappings(mappings);
+
+                    Set<IrLabel> labels = descriptor.labels().stream()
+                            .flatMap(label -> planLabels(Optional.of(label), subsets).stream())
+                            .collect(Collectors.toSet());
+
+                    yield new AggregationValuePointer(
+                            descriptor.function(),
+                            new AggregatedSetDescriptor(labels, descriptor.mode() == RUNNING),
+                            descriptor.arguments().stream()
+                                    .filter(argument -> !DereferenceExpression.isQualifiedAllFieldsReference(argument))
+                                    .map(argument -> coerceIfNecessary(analysis, argument, argumentTranslation.rewrite(argument)))
+                                    .toList(),
+                            classifierSymbol,
+                            matchNumberSymbol);
+                }
+            };
+
+            Symbol symbol = symbolAllocator.newSymbol(name, analysis.getType(accessor.expression()));
+            assignments.add(new Assignment(symbol, pointer));
+
+            patternVariableTranslations.put(NodeRef.of(accessor.expression()), symbol);
+        }
+
+        Expression rewritten = translations.withAdditionalIdentityMappings(patternVariableTranslations)
+                .rewrite(expression);
+
+        return new ExpressionAndValuePointers(rewritten, assignments.build());
+    }
+
+    private Set<IrLabel> planLabels(Optional<String> label, Map<IrLabel, Set<IrLabel>> subsets)
+    {
+        return label
+                .map(IrLabel::new)
+                .map(value -> subsets.getOrDefault(value, ImmutableSet.of(value)))
+                .orElse(ImmutableSet.of());
+    }
+
+    private LogicalIndexPointer planValuePointer(Optional<String> label, Navigation navigation, Map<IrLabel, Set<IrLabel>> subsets)
+    {
+        return new LogicalIndexPointer(
+                planLabels(label, subsets),
+                navigation.anchor() == LAST,
+                navigation.mode() == RUNNING,
+                navigation.logicalOffset(),
+                navigation.physicalOffset());
     }
 
     private SkipToPosition mapSkipToPosition(SkipTo.Position position)
@@ -739,11 +836,6 @@ class RelationPlanner
             case FIRST -> SkipToPosition.FIRST;
             case LAST -> SkipToPosition.LAST;
         };
-    }
-
-    private static IrLabel irLabel(Identifier identifier)
-    {
-        return new IrLabel(identifier.getCanonicalValue());
     }
 
     private static IrLabel irLabel(String label)

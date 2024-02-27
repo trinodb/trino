@@ -344,7 +344,8 @@ public class SymbolMapper
                                 @Override
                                 public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                                 {
-                                    if (Symbol.from(node).equals(pointer.getClassifierSymbol()) || Symbol.from(node).equals(pointer.getMatchNumberSymbol())) {
+                                    if (pointer.getClassifierSymbol().isPresent() && Symbol.from(node).equals(pointer.getClassifierSymbol().get()) ||
+                                            pointer.getMatchNumberSymbol().isPresent() && Symbol.from(node).equals(pointer.getMatchNumberSymbol().get())) {
                                         return node;
                                     }
                                     return map(node);

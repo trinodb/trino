@@ -117,7 +117,6 @@ import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer.ParametersTypeAndAnalysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer.TypeAndAnalysis;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
-import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalysis;
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
@@ -241,12 +240,14 @@ import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.SimpleGroupBy;
 import io.trino.sql.tree.SingleColumn;
+import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableFunctionArgument;
@@ -2718,6 +2719,19 @@ class StatementAnalyzer
                     relation.getPattern(),
                     relation.getAfterMatchSkipTo());
 
+            relation.getAfterMatchSkipTo()
+                    .flatMap(SkipTo::getIdentifier)
+                    .ifPresent(label -> analysis.addResolvedLabel(label, label.getCanonicalValue()));
+
+            for (SubsetDefinition subset : relation.getSubsets()) {
+                analysis.addResolvedLabel(subset.getName(), subset.getName().getCanonicalValue());
+                analysis.addSubsetLabels(
+                        subset,
+                        subset.getIdentifiers().stream()
+                                .map(Identifier::getCanonicalValue)
+                                .collect(Collectors.toSet()));
+            }
+
             analysis.setUndefinedLabels(relation.getPattern(), patternRecognitionAnalysis.getUndefinedLabels());
             analysis.setRanges(patternRecognitionAnalysis.getRanges());
 
@@ -2738,6 +2752,7 @@ class StatementAnalyzer
                 Expression expression = variableDefinition.getExpression();
                 ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.getAllLabels());
                 analysis.recordSubqueries(relation, expressionAnalysis);
+                analysis.addResolvedLabel(variableDefinition.getName(), variableDefinition.getName().getCanonicalValue());
                 Type type = expressionAnalysis.getType(expression);
                 if (!type.equals(BOOLEAN)) {
                     throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
@@ -2748,6 +2763,7 @@ class StatementAnalyzer
                 Expression expression = measureDefinition.getExpression();
                 ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.getAllLabels());
                 analysis.recordSubqueries(relation, expressionAnalysis);
+                analysis.addResolvedLabel(measureDefinition.getName(), measureDefinition.getName().getCanonicalValue());
                 measureTypesBuilder.put(NodeRef.of(expression), expressionAnalysis.getType(expression));
             }
             Map<NodeRef<Node>, Type> measureTypes = measureTypesBuilder.buildOrThrow();

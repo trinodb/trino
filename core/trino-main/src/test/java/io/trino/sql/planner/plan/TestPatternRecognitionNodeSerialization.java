@@ -100,16 +100,16 @@ public class TestPatternRecognitionNodeSerialization
                 countFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(), false),
                 ImmutableList.of(),
-                new Symbol("classifier"),
-                new Symbol("match_number")));
+                Optional.of(new Symbol("classifier")),
+                Optional.of(new Symbol("match_number"))));
 
         ResolvedFunction maxFunction = createTestMetadataManager().resolveBuiltinFunction("max", fromTypes(BIGINT));
         assertJsonRoundTrip(codec, new AggregationValuePointer(
                 maxFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true),
                 ImmutableList.of(new NullLiteral()),
-                new Symbol("classifier"),
-                new Symbol("match_number")));
+                Optional.of(new Symbol("classifier")),
+                Optional.of(new Symbol("match_number"))));
     }
 
     @Test

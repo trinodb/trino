@@ -172,16 +172,16 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.patternRecognitionExpressionRewrite())
                 .on(p -> p.patternRecognition(
                         builder -> builder
-                                .addMeasure(p.symbol("measure_1"), "1", INTEGER)
+                                .addMeasure(p.symbol("measure_1"), PlanBuilder.expression("1"), INTEGER)
                                 .pattern(label("X"))
-                                .addVariableDefinition(label("X"), "true")
+                                .addVariableDefinition(label("X"), PlanBuilder.expression("true"))
                                 .source(p.values(p.symbol("a")))))
                 .matches(
                         patternRecognition(
                                 builder -> builder
-                                        .addMeasure("measure_1", "0", INTEGER)
+                                        .addMeasure("measure_1", PlanBuilder.expression("0"), INTEGER)
                                         .pattern(label("X"))
-                                        .addVariableDefinition(label("X"), "0"),
+                                        .addVariableDefinition(label("X"), PlanBuilder.expression("0")),
                                 values("a")));
     }
 
@@ -191,9 +191,9 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.patternRecognitionExpressionRewrite())
                 .on(p -> p.patternRecognition(
                         builder -> builder
-                                .addMeasure(p.symbol("measure_1"), "0", INTEGER)
+                                .addMeasure(p.symbol("measure_1"), PlanBuilder.expression("0"), INTEGER)
                                 .pattern(label("X"))
-                                .addVariableDefinition(label("X"), "0")
+                                .addVariableDefinition(label("X"), PlanBuilder.expression("0"))
                                 .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }
