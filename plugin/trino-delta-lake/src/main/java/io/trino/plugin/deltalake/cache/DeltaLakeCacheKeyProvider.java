@@ -18,6 +18,9 @@ import io.trino.filesystem.cache.CacheKeyProvider;
 
 import java.util.Optional;
 
+import static io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess.STARBURST_META_DIR;
+import static io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess.STATISTICS_META_DIR;
+
 public class DeltaLakeCacheKeyProvider
         implements CacheKeyProvider
 {
@@ -27,10 +30,17 @@ public class DeltaLakeCacheKeyProvider
     @Override
     public Optional<String> getCacheKey(TrinoInputFile delegate)
     {
-        // TODO: Consider caching of the Parquet checkpoint files within _delta_log
-        if (!delegate.location().path().contains("/_delta_log/")) {
-            return Optional.of(delegate.location().path());
+        String path = delegate.location().path();
+        if (path.endsWith(".trinoSchema") || path.contains("/.trinoPermissions/")) {
+            // Needed to avoid caching files from FileHiveMetastore on coordinator during tests
+            return Optional.empty();
         }
-        return Optional.empty();
+        // All files within _delta_log are immutable, except _last_checkpoint and Trino metadata, https://github.com/delta-io/delta/issues/1975
+        if (path.endsWith("/_delta_log/_last_checkpoint")
+                || path.contains("/" + STATISTICS_META_DIR + "/")
+                || path.contains("/" + STARBURST_META_DIR + "/")) {
+            return Optional.empty();
+        }
+        return Optional.of(path);
     }
 }
