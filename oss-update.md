@@ -85,7 +85,7 @@ Action items:
 - [ ] Update project version
 - [ ] Squash fixups
 - [ ] Check OSS release notes for breaking changes
-- [ ] Run benchmarks and verify results (talk to performance team)
+- [ ] Run benchmarks and verify results
 EOF
 )&labels=salesforce"
 ```
@@ -139,6 +139,27 @@ git push origin "update/cork/trino-${NEW}" --force-with-lease
 ### test out the PR on CI and iterate
 
 If the CI fails on the Update PR, make relevant fixes, updating the fixup commits
+
+### Run benchmarks on the Update PR
+
+Run this workflow: https://github.com/starburstdata/benchmarks-gha/actions/workflows/benchmark-pr.yaml 
+
+Pass into it link to the Update PR and choose type of test you want to run. Run those:
+
+- `iceberg/sf1000_parquet_unpart`
+- `iceberg/sf1000_parquet_part_c5`
+
+Above workflow on completion will add a comment to the PR with status of benchmark run, and a link to Tableau
+dashboard comparing results to the closest run of same config from the master branch. Tableau dashboard will
+have 2 tabs:
+
+1. `Sum` - Here make sure that new results are lower, keep in mind variance in results should be <5%.
+2. `Per Query` - Here queries are be sorted from the biggest difference to the baseline. Make sure that the
+   biggest difference are in favor of update, or they are lower than 3 seconds and rapidly going down in next
+   queries.
+
+We can say that there is no regression if both above points are satisfied.
+Slight regression would most likely present as a more than 5 sec increase in one (or more) of the queries.
 
 ### check OSS release notes
 
