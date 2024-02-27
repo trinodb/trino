@@ -18,11 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cache.CacheConfig;
 import io.trino.testing.PlanTester;
-import org.junit.jupiter.params.provider.Arguments;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.stream.Stream;
+import java.util.List;
 
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -82,9 +81,9 @@ public class TestCachingHiveTpchCostBasedPlan
     }
 
     @Override
-    protected Stream<Arguments> getQueryResourcePaths()
+    protected List<String> getQueryResourcePaths()
     {
-        return TPCH_SQL_FILES.stream().map(Arguments::of);
+        return TPCH_SQL_FILES;
     }
 
     public static void main(String[] args)

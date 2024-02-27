@@ -39,7 +39,6 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
@@ -50,7 +49,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -136,7 +134,7 @@ public abstract class BaseCostBasedPlanTest
     public abstract void prepareTables()
             throws Exception;
 
-    protected abstract Stream<Arguments> getQueryResourcePaths();
+    protected abstract List<String> getQueryResourcePaths();
 
     @ParameterizedTest
     @MethodSource("getQueryResourcePaths")
@@ -164,9 +162,7 @@ public abstract class BaseCostBasedPlanTest
         initPlanTest();
         try {
             prepareTables();
-            getQueryResourcePaths()
-                    .map(Arguments::get)
-                    .map(objects -> (String) objects[0])
+            getQueryResourcePaths().stream()
                     .parallel()
                     .forEach(queryResourcePath -> {
                         try {

@@ -13,9 +13,7 @@
  */
 package io.trino.sql.planner;
 
-import org.junit.jupiter.params.provider.Arguments;
-
-import java.util.stream.Stream;
+import java.util.List;
 
 /**
  * This class tests cost-based optimization rules related to joins. It contains unmodified TPC-DS queries.
@@ -39,9 +37,9 @@ public class TestHivePartitionedTpcdsCostBasedPlan
     }
 
     @Override
-    protected Stream<Arguments> getQueryResourcePaths()
+    protected List<String> getQueryResourcePaths()
     {
-        return TPCDS_SQL_FILES.stream().map(Arguments::of);
+        return TPCDS_SQL_FILES;
     }
 
     public static void main(String[] args)
