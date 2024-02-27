@@ -40,20 +40,21 @@ class OzoneOutputFile
     public OutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
-        return createOutputStream(memoryContext, false);
+        // Ozone doesn't support exclusive file creation. Fallback to createOrOverwrite().
+        return createOutputStream(memoryContext);
     }
 
     @Override
     public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
             throws IOException
     {
-        return createOutputStream(memoryContext, true);
+        return createOutputStream(memoryContext);
     }
 
-    private OzoneTrinoOutputStream createOutputStream(AggregatedMemoryContext memoryContext, boolean overwrite)
+    private OzoneTrinoOutputStream createOutputStream(AggregatedMemoryContext memoryContext)
             throws IOException
     {
-        return new OzoneTrinoOutputStream(location, store, overwrite, memoryContext);
+        return new OzoneTrinoOutputStream(location, store, memoryContext);
     }
 
     @Override

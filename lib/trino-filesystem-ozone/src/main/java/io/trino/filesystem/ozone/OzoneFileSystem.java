@@ -112,7 +112,6 @@ public class OzoneFileSystem
     public void renameFile(Location source, Location target)
             throws IOException
     {
-        // blob storage doesn't need to implement this
         throw new IOException("Ozone does not support renames");
     }
 

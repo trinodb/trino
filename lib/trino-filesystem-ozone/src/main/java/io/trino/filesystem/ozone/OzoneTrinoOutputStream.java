@@ -49,7 +49,6 @@ class OzoneTrinoOutputStream
     public OzoneTrinoOutputStream(
             OzoneLocation location,
             ObjectStore store,
-            boolean overwrite,
             AggregatedMemoryContext memoryContext)
             throws IOException
     {
