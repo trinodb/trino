@@ -148,6 +148,11 @@ public abstract class BaseTestContainer
         container.stop();
     }
 
+    public String getContainerId()
+    {
+        return container.getContainerId();
+    }
+
     public String executeInContainerFailOnError(String... commandAndArgs)
     {
         Container.ExecResult execResult = executeInContainer(commandAndArgs);
