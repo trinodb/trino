@@ -19,11 +19,18 @@ import io.trino.memory.context.AggregatedMemoryContext;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 
 public interface TrinoOutputFile
 {
+    /**
+     * Create file exclusively, failing if the file already exists. For file systems which do not
+     * support exclusive creation (e.g. S3), this will fallback to createOrOverwrite().
+     *
+     * @throws FileAlreadyExistsException If a file of that name already exists
+     */
     default OutputStream create()
             throws IOException
     {
@@ -45,6 +52,12 @@ public interface TrinoOutputFile
         createExclusive(content, newSimpleAggregatedMemoryContext());
     }
 
+    /**
+     * Create file exclusively, failing if the file already exists. For file systems which do not
+     * support exclusive creation (e.g. S3), this will fall back to createOrOverwrite().
+     *
+     * @throws FileAlreadyExistsException If a file of that name already exists
+     */
     OutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException;
 
