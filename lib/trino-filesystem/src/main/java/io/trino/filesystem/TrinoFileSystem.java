@@ -127,6 +127,8 @@ public interface TrinoFileSystem
      * to be atomic, but it is required that if an error occurs, the source, target, or both
      * must exist with the data from the source.  This operation may or may not preserve the
      * last modified time.
+     * <p>
+     * For file systems which do not support rename (e.g. S3), this operation fails.
      *
      * @throws IllegalArgumentException if either location is not valid for this file system
      */
