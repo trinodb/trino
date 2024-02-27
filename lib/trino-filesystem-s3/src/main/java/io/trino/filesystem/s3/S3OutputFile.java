@@ -40,7 +40,7 @@ final class S3OutputFile
     @Override
     public OutputStream create(AggregatedMemoryContext memoryContext)
     {
-        // always overwrite since Trino usually creates unique file names
+        // S3 doesn't support exclusive file creation. Fallback to createOrOverwrite().
         return createOrOverwrite(memoryContext);
     }
 
