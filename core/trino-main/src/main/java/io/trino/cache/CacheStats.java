@@ -126,9 +126,9 @@ public class CacheStats
         splitsTooBig.update(1);
     }
 
-    public void recordCacheData(long memoryUsage)
+    public void recordCacheData(long bytes)
     {
-        cachedData.add(memoryUsage);
+        cachedData.add(bytes);
     }
 
     @MustBeClosed
