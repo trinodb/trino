@@ -9,6 +9,7 @@
  */
 package com.starburstdata.trino.plugin.dynamodb;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
@@ -87,7 +88,7 @@ public class DynamoDbModule
         return new RetryingConnectionFactory(
                 new StatisticsAwareConnectionFactory(
                         new DynamoDbConnectionFactory(dynamoDbConfig, credentialProvider)),
-                new DefaultRetryStrategy());
+                ImmutableSet.of(new DefaultRetryStrategy()));
     }
 
     @Retention(RetentionPolicy.RUNTIME)

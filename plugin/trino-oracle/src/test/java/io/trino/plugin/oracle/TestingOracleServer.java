@@ -14,6 +14,7 @@
 package io.trino.plugin.oracle;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
@@ -128,7 +129,7 @@ public class TestingOracleServer
     {
         StatisticsAwareConnectionFactory connectionFactory = new StatisticsAwareConnectionFactory(
                 DriverConnectionFactory.builder(new OracleDriver(), connectionUrl, StaticCredentialProvider.of(username, password)).build());
-        return new RetryingConnectionFactory(connectionFactory, new DefaultRetryStrategy());
+        return new RetryingConnectionFactory(connectionFactory, ImmutableSet.of(new DefaultRetryStrategy()));
     }
 
     @Override
