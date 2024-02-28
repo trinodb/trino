@@ -15,6 +15,7 @@ package io.trino.plugin.base.classloader;
 
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.trino.spi.UpdateType;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -1210,6 +1211,14 @@ public class ClassLoaderSafeConnectorMetadata
     public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return delegate.getUpdateLayout(session, tableHandle);
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, UpdateType updateType)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginMerge(session, tableHandle, retryMode, updateType);
+        }
     }
 
     @Override

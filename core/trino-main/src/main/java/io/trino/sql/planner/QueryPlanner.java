@@ -25,6 +25,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
+import io.trino.spi.UpdateType;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -570,7 +571,8 @@ class QueryPlanner
                         handle,
                         Optional.empty(),
                         tableMetadata.getTable(),
-                        paradigmAndTypes),
+                        paradigmAndTypes,
+                        UpdateType.valueOf(analysis.getUpdateType())),
                 projectNode.getOutputSymbols(),
                 partitioningScheme,
                 outputs);
@@ -927,7 +929,12 @@ class QueryPlanner
                     columnNamesBuilder.add(columnSchema.getName());
                 });
         MergeParadigmAndTypes mergeParadigmAndTypes = new MergeParadigmAndTypes(Optional.of(paradigm), typesBuilder.build(), columnNamesBuilder.build(), rowIdType);
-        MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), metadata.getTableName(session, handle).getSchemaTableName(), mergeParadigmAndTypes);
+        MergeTarget mergeTarget = new MergeTarget(
+                handle,
+                Optional.empty(),
+                metadata.getTableName(session, handle).getSchemaTableName(),
+                mergeParadigmAndTypes,
+                UpdateType.valueOf(analysis.getUpdateType()));
 
         ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();
         for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {

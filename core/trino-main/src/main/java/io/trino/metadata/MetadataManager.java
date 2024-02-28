@@ -31,6 +31,7 @@ import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.UpdateType;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -1306,11 +1307,15 @@ public final class MetadataManager
     }
 
     @Override
-    public MergeHandle beginMerge(Session session, TableHandle tableHandle)
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle, UpdateType updateType)
     {
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
-        ConnectorMergeTableHandle newHandle = metadata.beginMerge(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), getRetryPolicy(session).getRetryMode());
+        ConnectorMergeTableHandle newHandle = metadata.beginMerge(
+                session.toConnectorSession(catalogHandle),
+                tableHandle.getConnectorHandle(),
+                getRetryPolicy(session).getRetryMode(),
+                updateType);
         return new MergeHandle(tableHandle.withConnectorHandle(newHandle.getTableHandle()), newHandle);
     }
 

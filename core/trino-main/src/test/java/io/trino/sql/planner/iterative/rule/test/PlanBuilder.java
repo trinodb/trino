@@ -30,6 +30,7 @@ import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.RetryPolicy;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.UpdateType;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -778,7 +779,8 @@ public class PlanBuilder
                         TestingTransactionHandle.create()),
                 Optional.empty(),
                 schemaTableName,
-                mergeParadigmAndTypes);
+                mergeParadigmAndTypes,
+                UpdateType.UPDATE);
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)

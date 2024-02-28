@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
+import io.trino.spi.UpdateType;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -548,7 +549,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public MergeHandle beginMerge(Session session, TableHandle tableHandle)
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle, UpdateType updateType)
     {
         throw new UnsupportedOperationException();
     }
