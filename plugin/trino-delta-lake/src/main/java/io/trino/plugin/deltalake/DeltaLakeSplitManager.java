@@ -152,7 +152,7 @@ public class DeltaLakeSplitManager
             Constraint constraint)
     {
         TableSnapshot tableSnapshot = deltaLakeTransactionManager.get(transaction, session.getIdentity())
-                .getSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.getReadVersion());
+                .getSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), Optional.of(tableHandle.getReadVersion()));
         Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
                 session,
                 tableSnapshot,

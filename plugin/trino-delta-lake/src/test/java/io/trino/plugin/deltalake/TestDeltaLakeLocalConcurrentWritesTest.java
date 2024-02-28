@@ -248,6 +248,61 @@ public class TestDeltaLakeLocalConcurrentWritesTest
     }
 
     @Test
+    public void testConcurrentInsertsSelectingFromTheSameVersionedTable()
+            throws Exception
+    {
+        testConcurrentInsertsSelectingFromTheSameVersionedTable(true);
+        testConcurrentInsertsSelectingFromTheSameVersionedTable(false);
+    }
+
+    private void testConcurrentInsertsSelectingFromTheSameVersionedTable(boolean partitioned)
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_inserts_select_from_same_versioned_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part) " + (partitioned ? " WITH (partitioned_by = ARRAY['part'])" : "") + "  AS VALUES (0, 'a')", 1);
+
+        try {
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " SELECT 1, 'b' AS part FROM " + tableName + " FOR VERSION AS OF 0");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " SELECT 2, 'c' AS part FROM " + tableName + " FOR VERSION AS OF 0");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " SELECT 3, 'd' AS part FROM " + tableName + " FOR VERSION AS OF 0");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES (0, 'a'), (1, 'b'), (2, 'c'), (3, 'd')");
+            assertQuery("SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true),
+                                (1, 'WRITE', 'WriteSerializable', 0, true),
+                                (2, 'WRITE', 'WriteSerializable', 1, true),
+                                (3, 'WRITE', 'WriteSerializable', 2, true)
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
+    @Test
     public void testConcurrentInsertsSelectingFromTheSamePartition()
             throws Exception
     {

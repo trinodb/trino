@@ -17,6 +17,7 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import com.google.common.io.Resources;
 import io.opentelemetry.api.common.Attributes;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+import java.io.File;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,6 +42,7 @@ import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_SIZE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -267,6 +270,93 @@ public class TestDeltaLakeAlluxioCacheFileOperations
     }
 
     @Test
+    public void testTimeTravelWithLastCheckpoint()
+    {
+        // Version 2 has a checkpoint file
+        registerTable("time_travel_with_last_checkpoint", "trino440/time_travel");
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'time_travel_with_last_checkpoint')");
+
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_with_last_checkpoint FOR VERSION AS OF 1",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000001.json", 0, 613))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000001.json", 0, 613))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 613))
+                        .addCopies(new CacheOperation("Alluxio.readExternal", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.writeCache", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 2)
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_with_last_checkpoint FOR VERSION AS OF 2",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .add(new CacheOperation("Alluxio.readExternal", "data", 0, 199))
+                        .add(new CacheOperation("Alluxio.writeCache", "data", 0, 199))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_with_last_checkpoint FOR VERSION AS OF 2",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .build());
+
+        assertUpdate("DROP TABLE time_travel_with_last_checkpoint");
+    }
+
+    @Test
+    public void testTimeTravelWithoutLastCheckpoint()
+            throws Exception
+    {
+        // Version 2 has a checkpoint file
+        Path tableLocation = Files.createTempFile("time_travel", null);
+        copyDirectoryContents(new File(Resources.getResource("trino440/time_travel").toURI()).toPath(), tableLocation);
+        Files.delete(tableLocation.resolve("_delta_log/_last_checkpoint"));
+
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, 'time_travel_without_last_checkpoint', '" + tableLocation.toUri() + "')");
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'time_travel_without_last_checkpoint')");
+
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_without_last_checkpoint FOR VERSION AS OF 1",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 613))
+                        .addCopies(new CacheOperation("Alluxio.readExternal", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.writeCache", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 2)
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_without_last_checkpoint FOR VERSION AS OF 2",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000002.checkpoint.parquet", 0, 5884))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000002.checkpoint.parquet", 0, 5884))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
+                        .add(new CacheOperation("Alluxio.readExternal", "data", 0, 199))
+                        .add(new CacheOperation("Alluxio.writeCache", "data", 0, 199))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_without_last_checkpoint FOR VERSION AS OF 2",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .build());
+
+        assertUpdate("DROP TABLE time_travel_without_last_checkpoint");
+    }
+
+    @Test
     public void testReadV2CheckpointJson()
     {
         registerTable("v2_checkpoint_json", "deltalake/v2_checkpoint_json");
@@ -376,6 +466,9 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 Matcher matcher = dataFilePattern.matcher(path);
                 if (matcher.matches()) {
                     String changeData = path.contains("/_change_data/") ? "change_data/" : "";
+                    if (!path.contains("=")) {
+                        return new CacheOperation(operationName, "data", position, length);
+                    }
                     return new CacheOperation(operationName, changeData + matcher.group("partition"), position, length);
                 }
                 if (path.contains("/part-00000-")) {

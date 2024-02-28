@@ -3816,4 +3816,295 @@ public class TestDeltaLakeConnectorTest
                 .skippingTypesCheck()
                 .containsAll("VALUES ('delta.minReaderVersion', '3'), ('delta.minWriterVersion', '7'), ('delta.feature.timestampNtz', 'supported')");
     }
+
+    @Test
+    public void testSelectTableUsingVersion()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_select_table_using_version",
+                "(id INT, country VARCHAR)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'India')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'Germany')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'United States')", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0"))
+                    .returnsEmptyResult();
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 'India'), (2, 'Germany'), (3, 'United States')");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "VALUES (1, 'India')");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 3", "VALUES (1, 'India'), (2, 'Germany'), (3, 'United States')");
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 4", "Delta Lake snapshot ID does not exists: 4");
+
+            // Dummy delete to increase transaction logs and generate checkpoint file
+            for (int i = 0; i < 20; i++) {
+                assertUpdate("DELETE FROM " + table.getName() + " WHERE id  = 10", 0);
+            }
+
+            // DML operations to create new transaction log
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 'Austria')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 'Poland')", 1);
+            assertUpdate("UPDATE " + table.getName() + " SET country = 'USA' WHERE id  = 3", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id  = 2", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (6, 'Japan')", 1);
+
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 'India'), (3, 'USA'), (4, 'Austria'), (5, 'Poland'), (6, 'Japan')");
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 4", "VALUES (1, 'India'), (2, 'Germany'), (3, 'United States')");
+
+            // After Update
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 26", "VALUES (1, 'India'), (2, 'Germany'), (3, 'USA'), (4, 'Austria'), (5, 'Poland')");
+
+            // After Delete
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 27", "VALUES (1, 'India'), (3, 'USA'), (4, 'Austria'), (5, 'Poland')");
+
+            // Recover data from last version after deleting whole table
+            assertUpdate("DELETE FROM " + table.getName(), 5);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .returnsEmptyResult();
+            assertUpdate("INSERT INTO " + table.getName() + " (id, country) SELECT * FROM " + table.getName() + " FOR VERSION AS OF 27", 4);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 'India'), (3, 'USA'), (4, 'Austria'), (5, 'Poland')");
+        }
+    }
+
+    @Test
+    public void testReadMultipleVersions()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_multiple_versions", "AS SELECT 1 id")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertQuery(
+                            "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0 " +
+                            "UNION ALL " +
+                            "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1",
+                    "VALUES 1, 1, 2");
+        }
+    }
+
+    @Test
+    public void testReadVersionedTableWithOptimize()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_versioned_optimize", "AS SELECT 1 id")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+
+            Set<String> beforeActiveFiles = getActiveFiles(table.getName());
+            computeActual("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE");
+            assertThat(getActiveFiles(table.getName())).isNotEqualTo(beforeActiveFiles);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 2", "VALUES 1, 2");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 2", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 3", "VALUES 1, 2, 3");
+        }
+    }
+
+    @Test
+    public void testReadVersionedTableWithVacuum()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_and_vacuum", "(x VARCHAR)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
+
+            Set<String> initialFiles = getActiveFiles(table.getName());
+            assertThat(initialFiles).hasSize(2);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
+
+            assertUpdate("UPDATE " + table.getName() + " SET a = 'new column'", 2);
+            Stopwatch timeSinceUpdate = Stopwatch.createStarted();
+            Set<String> updatedFiles = getActiveFiles(table.getName());
+            assertThat(updatedFiles)
+                    .hasSizeGreaterThanOrEqualTo(1)
+                    .hasSizeLessThanOrEqualTo(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
+            assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(union(initialFiles, updatedFiles));
+
+            assertQuery("SELECT x, a FROM " + table.getName(), "VALUES ('first', 'new column'), ('second', 'new column')");
+
+            MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "', retention => '1s')");
+
+            // Verify VACUUM happened, but table data didn't change
+            assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(updatedFiles);
+
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0");
+
+            // Failure is the expected behavior because the data file doesn't exist
+            // TODO: Improve error message
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "Error opening Hive split.*");
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 2", "Error opening Hive split.*");
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 3", "Error opening Hive split.*");
+
+            assertQuery("SELECT x, a FROM " + table.getName() + " FOR VERSION AS OF 4", "VALUES ('first', 'new column'), ('second', 'new column')");
+        }
+    }
+
+    @Test
+    public void testInsertFromVersionedTable()
+    {
+        try (TestTable targetTable = new TestTable(getQueryRunner()::execute, "test_read_versioned_insert", "(col int)");
+                TestTable sourceTable = new TestTable(getQueryRunner()::execute, "test_read_versioned_insert", "AS SELECT 1 col")) {
+            assertUpdate("INSERT INTO " + sourceTable.getName() + " VALUES 2", 1);
+            assertUpdate("INSERT INTO " + sourceTable.getName() + " VALUES 3", 1);
+
+            assertUpdate("INSERT INTO " + targetTable.getName() + " SELECT * FROM " + sourceTable.getName() + " FOR VERSION AS OF 0", 1);
+            assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES 1");
+
+            assertUpdate("INSERT INTO " + targetTable.getName() + " SELECT * FROM " + sourceTable.getName() + " FOR VERSION AS OF 1", 2);
+            assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES 1, 1, 2");
+        }
+    }
+
+    @Test
+    public void testInsertFromVersionedSameTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_versioned_insert", "AS SELECT 1 id")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1");
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", 2);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1, 2, 1");
+
+            assertQuery(
+                    "SELECT version, operation, read_version, is_blind_append FROM \"" + table.getName() + "$history\"",
+                            """
+                            VALUES
+                                (0, 'CREATE TABLE AS SELECT', 0, true),
+                                (1, 'WRITE', 0, true),
+                                (2, 'WRITE', 1, true),
+                                (3, 'WRITE', 2, true)
+                            """);
+        }
+    }
+
+    @Test
+    public void testInsertFromMultipleVersionedSameTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_versioned_insert", "AS SELECT 1 id")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
+
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " " +
+                            "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0 " +
+                            "UNION ALL " +
+                            "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1",
+                    3);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1, 1, 2");
+        }
+    }
+
+    @Test
+    public void testReadVersionedTableWithChangeDataFeed()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_versioned_cdf", "WITH (change_data_feed_enabled=true) AS SELECT 1 id")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertUpdate("UPDATE " + table.getName() + " SET id = -2 WHERE id = 2", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 1", 1);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 2", "VALUES 1, -2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 3", "VALUES -2");
+        }
+    }
+
+    @Test
+    public void testSelectTableUsingVersionSchemaEvolution()
+    {
+        // Delta Lake respects the old schema unlike Iceberg connector
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_select_table_using_version", "AS SELECT 1 id")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN new_col VARCHAR");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "VALUES (1, NULL)");
+        }
+    }
+
+    @Test
+    public void testSelectTableUsingVersionDeletedCheckpoints()
+    {
+        String tableName = "test_time_travel_" + randomNameSuffix();
+        String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
+        String deltaLog = "%s/%s/_delta_log".formatted(SCHEMA, tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + tableLocation + "', checkpoint_interval = 1) AS SELECT 1 id", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+
+        // Remove 0 and 1 versions
+        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(7);
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000000.json");
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.json");
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.checkpoint.parquet");
+        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(4);
+
+        assertThat(computeActual("SELECT version FROM \"" + tableName + "$history\"").getOnlyColumnAsSet())
+                .containsExactly(2L);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2, 3");
+
+        assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 0", "Delta Lake snapshot ID does not exists: 0");
+        assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 1", "Delta Lake snapshot ID does not exists: 1");
+
+        assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF 2", "VALUES 1, 2, 3");
+    }
+
+    @Test
+    public void testSelectAfterReadVersionedTable()
+    {
+        // Run normal SELECT after reading from versioned table
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_select_after_version", "AS SELECT 1 id")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
+        }
+    }
+
+    @Test
+    public void testReadVersionedTableWithoutCheckpointFiltering()
+    {
+        String tableName = "test_without_checkpoint_filtering_" + randomNameSuffix();
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
+                .build();
+
+        assertUpdate("CREATE TABLE " + tableName + "(col INT) WITH (checkpoint_interval = 3)");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2, 3", 2);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 4, 5", 2);
+
+        assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 0");
+        assertQuery(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 1", "VALUES 1");
+        assertQuery(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 2", "VALUES 1, 2, 3");
+        assertQuery(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 3", "VALUES 1, 2, 3, 4, 5");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testReadVersionedSystemTables()
+    {
+        // TODO https://github.com/trinodb/trino/issues/12920 System tables not accessible with AS OF syntax
+        assertQueryFails("SELECT * FROM \"region$history\" FOR VERSION AS OF 0", "This connector does not support versioned tables");
+    }
+
+    @Override
+    protected void verifyVersionedQueryFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageMatching("This connector does not support reading tables with TIMESTAMP AS OF|" +
+                        "Delta Lake snapshot ID does not exists: .*|" +
+                        "Unsupported type for table version: .*");
+    }
 }

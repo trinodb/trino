@@ -1062,6 +1062,61 @@ public class TestDeltaLakeBasic
         assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
     }
 
+    @Test
+    public void testTimeTravelWithMultipartCheckpoint()
+            throws Exception
+    {
+        String tableName = "test_time_travel_multipart_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_checkpoint").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Version 6 has multipart checkpoint
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 5")).matches("VALUES 1, 2, 3, 4, 5");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 6")).matches("VALUES 1, 2, 3, 4, 5, 6");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 7")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
+
+        // Redo the time travel without _last_checkpoint file
+        Files.delete(tableLocation.resolve("_delta_log/_last_checkpoint"));
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 5")).matches("VALUES 1, 2, 3, 4, 5");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 6")).matches("VALUES 1, 2, 3, 4, 5, 6");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 7")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testTimeTravelWithV2Checkpoint()
+            throws Exception
+    {
+        testTimeTravelWithV2Checkpoint("deltalake/v2_checkpoint_json");
+        testTimeTravelWithV2Checkpoint("deltalake/v2_checkpoint_parquet");
+        testTimeTravelWithV2Checkpoint("databricks133/v2_checkpoint_json");
+        testTimeTravelWithV2Checkpoint("databricks133/v2_checkpoint_parquet");
+    }
+
+    private void testTimeTravelWithV2Checkpoint(String resourceName)
+            throws Exception
+    {
+        String tableName = "test_time_travel_v2_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource(resourceName).toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Version 1 has v2 checkpoint
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName + " FOR VERSION AS OF 0");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 1")).matches("VALUES (1, 2)");
+
+        // Redo the time travel without _last_checkpoint file
+        Files.delete(tableLocation.resolve("_delta_log/_last_checkpoint"));
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName + " FOR VERSION AS OF 0");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 1")).matches("VALUES (1, 2)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     /**
      * @see deltalake.partition_values_parsed
      */
