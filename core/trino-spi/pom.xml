@@ -452,6 +452,10 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method void io.trino.spi.block.BlockBuilder::resetTo(int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.TrinoException::&lt;init&gt;(io.trino.spi.ErrorCode, java.lang.String, java.lang.Throwable)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
