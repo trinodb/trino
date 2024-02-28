@@ -184,6 +184,12 @@ The security mapping must provide one or more configuration settings:
 - `allowedKmsKeyIds`: KMS-managed key IDs that are allowed to be specified as an extra
   credential. If list cotains "\*", then any key can be specified via extra credential.
 
+* ``endpoint``: The S3 storage endpoint server. This optional property can be used
+to override S3 endpoints on a per-bucket basis.
+
+* ``region``: The region S3 client should connect to. This optional property can be used
+to override S3 regions on a per-bucket basis.
+
 The security mapping entries are processed in the order listed in the configuration
 JSON. More specific mappings should thus be specified before less specific mappings.
 For example, the mapping list might have URL prefix `s3://abc/xyz/` followed by
@@ -231,10 +237,16 @@ Example JSON configuration:
       "prefix": "s3://special-bucket/",
       "accessKey": "AKIAxxxaccess",
       "secretKey": "iXbXxxxsecret"
+    }, 
+    {
+      "prefix": "s3://regional-bucket/",
+      "iamRole": "arn:aws:iam::123456789101:role/regional-user",
+      "endpoint": "https://bucket.vpce-1a2b3c4d-5e6f.s3.us-east-1.vpce.amazonaws.com",
+      "region": "us-east-1"
     },
     {
       "prefix": "s3://encrypted-bucket/",
-      "kmsKeyId": "kmsKey_10",
+      "kmsKeyId": "kmsKey_10"
     },
     {
       "user": "test.*",
