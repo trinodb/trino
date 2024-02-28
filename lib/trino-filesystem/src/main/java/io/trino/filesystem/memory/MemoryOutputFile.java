@@ -57,6 +57,13 @@ class MemoryOutputFile
     }
 
     @Override
+    public MemoryWrite write(AggregatedMemoryContext memoryContext)
+            throws IOException
+    {
+        return null;
+    }
+
+    @Override
     public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
             throws IOException
     {

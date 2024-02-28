@@ -61,6 +61,12 @@ public interface TrinoOutputFile
     OutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException;
 
+    default Write write(AggregatedMemoryContext memoryContext)
+            throws IOException
+    {
+        throw new UnsupportedOperationException("write() not supported by " + getClass());
+    }
+
     OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
             throws IOException;
 

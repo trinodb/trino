@@ -117,7 +117,7 @@ public class AvroFileWriterFactory
             Closeable rollbackAction = () -> fileSystem.deleteFile(location);
 
             return Optional.of(new AvroHiveFileWriter(
-                    outputFile.create(outputStreamMemoryContext),
+                    outputFile.write(outputStreamMemoryContext),
                     outputStreamMemoryContext,
                     fileSchema,
                     new HiveAvroTypeManager(hiveTimestampPrecision),
