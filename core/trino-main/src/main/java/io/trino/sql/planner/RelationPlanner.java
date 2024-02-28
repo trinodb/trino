@@ -149,7 +149,6 @@ import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDefinition;
-import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -212,7 +211,6 @@ class RelationPlanner
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
     private final PlannerContext plannerContext;
-    private final TypeCoercion typeCoercion;
     private final Optional<TranslationMap> outerContext;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
@@ -242,7 +240,6 @@ class RelationPlanner
         this.idAllocator = idAllocator;
         this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
         this.plannerContext = plannerContext;
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.outerContext = outerContext;
         this.session = session;
         this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries);
@@ -493,7 +490,7 @@ class RelationPlanner
                 // if there are partitioning columns, they might have to be coerced for copartitioning
                 if (tableArgument.getPartitionBy().isPresent() && !tableArgument.getPartitionBy().get().isEmpty()) {
                     List<Expression> partitioningColumns = tableArgument.getPartitionBy().get();
-                    PlanAndMappings copartitionCoercions = coerce(sourcePlanBuilder, partitioningColumns, analysis, idAllocator, symbolAllocator, typeCoercion);
+                    PlanAndMappings copartitionCoercions = coerce(sourcePlanBuilder, partitioningColumns, analysis, idAllocator, symbolAllocator);
                     sourcePlanBuilder = copartitionCoercions.getSubPlan();
                     partitionBy = partitioningColumns.stream()
                             .map(copartitionCoercions::get)
@@ -961,9 +958,9 @@ class RelationPlanner
             leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, symbolAllocator, idAllocator);
             rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, symbolAllocator, idAllocator);
 
-            PlanAndMappings leftCoercions = coerce(leftPlanBuilder, leftComparisonExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
+            PlanAndMappings leftCoercions = coerce(leftPlanBuilder, leftComparisonExpressions, analysis, idAllocator, symbolAllocator);
             leftPlanBuilder = leftCoercions.getSubPlan();
-            PlanAndMappings rightCoercions = coerce(rightPlanBuilder, rightComparisonExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
+            PlanAndMappings rightCoercions = coerce(rightPlanBuilder, rightComparisonExpressions, analysis, idAllocator, symbolAllocator);
             rightPlanBuilder = rightCoercions.getSubPlan();
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
@@ -1345,7 +1342,7 @@ class RelationPlanner
         // apply coercions
         // coercions might be necessary for the context item and path parameters before the input functions are applied
         // also, the default expressions in value columns (DEFAULT ... ON EMPTY / ON ERROR) might need a coercion to match the required output type
-        PlanAndMappings coerced = coerce(planBuilder, inputExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
+        PlanAndMappings coerced = coerce(planBuilder, inputExpressions, analysis, idAllocator, symbolAllocator);
         planBuilder = coerced.getSubPlan();
 
         // apply the input function to the input expression
