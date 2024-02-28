@@ -60,6 +60,11 @@ public class TransactionLogTail
     {
         ImmutableList.Builder<Transaction> entriesBuilder = ImmutableList.builder();
 
+        if (startVersion.isPresent() && endVersion.isPresent() && startVersion.get().equals(endVersion.get())) {
+            // This is time travel to a specific checkpoint. No need to read transaction log files.
+            return new TransactionLogTail(entriesBuilder.build(), startVersion.get());
+        }
+
         long version = startVersion.orElse(0L);
         long entryNumber = startVersion.map(start -> start + 1).orElse(0L);
         checkArgument(endVersion.isEmpty() || entryNumber <= endVersion.get(), "Invalid start/end versions: %s, %s", startVersion, endVersion);

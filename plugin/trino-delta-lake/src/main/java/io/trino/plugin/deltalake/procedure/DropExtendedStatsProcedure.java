@@ -29,6 +29,7 @@ import io.trino.spi.procedure.Procedure.Argument;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
@@ -82,7 +83,7 @@ public class DropExtendedStatsProcedure
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
         metadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
-            LocatedTableHandle tableHandle = metadata.getTableHandle(session, name);
+            LocatedTableHandle tableHandle = metadata.getTableHandle(session, name, Optional.empty(), Optional.empty());
             if (tableHandle == null) {
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
             }
