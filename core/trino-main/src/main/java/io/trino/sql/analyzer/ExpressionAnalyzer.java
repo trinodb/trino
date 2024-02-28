@@ -1524,15 +1524,15 @@ public class ExpressionAnalyzer
                                         .collect(Collectors.toSet()));
                     }
 
-                    ranges.putAll(analysis.getRanges());
-                    undefinedLabels.put(NodeRef.of(frame.getPattern().get()), analysis.getUndefinedLabels());
+                    ranges.putAll(analysis.ranges());
+                    undefinedLabels.put(NodeRef.of(frame.getPattern().get()), analysis.undefinedLabels());
 
                     PatternRecognitionAnalyzer.validateNoPatternAnchors(frame.getPattern().get());
 
                     // analyze expressions in MEASURES and DEFINE (with set of all labels passed as context)
                     for (VariableDefinition variableDefinition : frame.getVariableDefinitions()) {
                         Expression expression = variableDefinition.getExpression();
-                        Type type = analyze(expression, context.getScope(), analysis.getAllLabels(), true);
+                        Type type = analyze(expression, context.getScope(), analysis.allLabels(), true);
                         resolvedLabels.put(NodeRef.of(variableDefinition.getName()), variableDefinition.getName().getCanonicalValue());
 
                         if (!type.equals(BOOLEAN)) {
@@ -1541,7 +1541,7 @@ public class ExpressionAnalyzer
                     }
                     for (MeasureDefinition measureDefinition : frame.getMeasures()) {
                         Expression expression = measureDefinition.getExpression();
-                        analyze(expression, context.getScope(), analysis.getAllLabels(), true);
+                        analyze(expression, context.getScope(), analysis.allLabels(), true);
                         resolvedLabels.put(NodeRef.of(measureDefinition.getName()), measureDefinition.getName().getCanonicalValue());
                     }
 
