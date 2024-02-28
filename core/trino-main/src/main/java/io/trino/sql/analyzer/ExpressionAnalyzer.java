@@ -821,7 +821,7 @@ public class ExpressionAnalyzer
             if (qualifiedName != null) {
                 // In the context of row pattern matching, fields are optionally prefixed with labels. Labels are irrelevant during type analysis.
                 if (context.getContext().isPatternRecognition()) {
-                    String label = label(qualifiedName.getOriginalParts().get(0));
+                    String label = label(qualifiedName.getOriginalParts().getFirst());
                     if (context.getContext().getPatternRecognitionContext().labels().contains(label)) {
                         // In the context of row pattern matching, the name of row pattern input table cannot be used to qualify column names.
                         // (it can only be accessed in PARTITION BY and ORDER BY clauses of MATCH_RECOGNIZE). Consequentially, if a dereference
@@ -1379,7 +1379,7 @@ public class ExpressionAnalyzer
                 // in a synthetic function call, the type expression of this function call is evaluated
                 // explicitly here in order to make sure that it is a varchar.
                 List<Expression> arguments = node.getArguments();
-                Expression expression = arguments.get(0);
+                Expression expression = arguments.getFirst();
                 Type expressionType = process(expression, context);
                 if (!(expressionType instanceof VarcharType)) {
                     throw semanticException(TYPE_MISMATCH, node, "Expected expression of varchar, but '%s' has %s type", expression, expressionType.getDisplayName());
@@ -1468,7 +1468,7 @@ public class ExpressionAnalyzer
             }
             List<Expression> nestedWindowExpressions = extractWindowExpressions(childNodes.build());
             if (!nestedWindowExpressions.isEmpty()) {
-                throw semanticException(NESTED_WINDOW, nestedWindowExpressions.get(0), "Cannot nest window functions or row pattern measures inside window specification");
+                throw semanticException(NESTED_WINDOW, nestedWindowExpressions.getFirst(), "Cannot nest window functions or row pattern measures inside window specification");
             }
 
             if (!window.isPartitionByInherited()) {
@@ -1558,10 +1558,10 @@ public class ExpressionAnalyzer
                         throw semanticException(MISSING_ROW_PATTERN, frame.getPatternSearchMode().get(), "%s modifier requires PATTERN clause", frame.getPatternSearchMode().get().getMode().name());
                     }
                     if (!frame.getSubsets().isEmpty()) {
-                        throw semanticException(MISSING_ROW_PATTERN, frame.getSubsets().get(0), "Union variable definitions require PATTERN clause");
+                        throw semanticException(MISSING_ROW_PATTERN, frame.getSubsets().getFirst(), "Union variable definitions require PATTERN clause");
                     }
                     if (!frame.getVariableDefinitions().isEmpty()) {
-                        throw semanticException(MISSING_ROW_PATTERN, frame.getVariableDefinitions().get(0), "Primary pattern variable definitions require PATTERN clause");
+                        throw semanticException(MISSING_ROW_PATTERN, frame.getVariableDefinitions().getFirst(), "Primary pattern variable definitions require PATTERN clause");
                     }
                 }
 
@@ -1692,7 +1692,7 @@ public class ExpressionAnalyzer
                 throw e;
             }
             BoundSignature signature = function.getSignature();
-            Type expectedSortKeyType = signature.getArgumentTypes().get(0);
+            Type expectedSortKeyType = signature.getArgumentTypes().getFirst();
             if (!expectedSortKeyType.equals(sortKeyType)) {
                 if (!typeCoercion.canCoerce(sortKeyType, expectedSortKeyType)) {
                     throw semanticException(TYPE_MISMATCH, sortKey, "Sort key must evaluate to a %s (actual: %s)", expectedSortKeyType, sortKeyType);
@@ -1961,15 +1961,15 @@ public class ExpressionAnalyzer
             String name = node.getName().getSuffix();
 
             // It is allowed to nest FIRST and LAST functions within PREV and NEXT functions. Only immediate nesting is supported
-            List<FunctionCall> nestedNavigationFunctions = extractExpressions(ImmutableList.of(node.getArguments().get(0)), FunctionCall.class).stream()
+            List<FunctionCall> nestedNavigationFunctions = extractExpressions(ImmutableList.of(node.getArguments().getFirst()), FunctionCall.class).stream()
                     .filter(this::isPatternNavigationFunction)
                     .collect(toImmutableList());
             if (!nestedNavigationFunctions.isEmpty()) {
                 if (name.equalsIgnoreCase("FIRST") || name.equalsIgnoreCase("LAST")) {
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
-                            nestedNavigationFunctions.get(0),
-                            "Cannot nest %s pattern navigation function inside %s pattern navigation function", nestedNavigationFunctions.get(0).getName(), name);
+                            nestedNavigationFunctions.getFirst(),
+                            "Cannot nest %s pattern navigation function inside %s pattern navigation function", nestedNavigationFunctions.getFirst().getName(), name);
                 }
                 if (nestedNavigationFunctions.size() > 1) {
                     throw semanticException(
@@ -1985,7 +1985,7 @@ public class ExpressionAnalyzer
                             nested,
                             "Cannot nest %s pattern navigation function inside %s pattern navigation function", nestedName, name);
                 }
-                if (nested != node.getArguments().get(0)) {
+                if (nested != node.getArguments().getFirst()) {
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nested,
@@ -2199,8 +2199,8 @@ public class ExpressionAnalyzer
             List<Type> expectedTypes = function.getSignature().getArgumentTypes();
             checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
 
-            Type actualTrimSourceType = actualTypes.get(0);
-            Type expectedTrimSourceType = expectedTypes.get(0);
+            Type actualTrimSourceType = actualTypes.getFirst();
+            Type expectedTrimSourceType = expectedTypes.getFirst();
             coerceType(node.getTrimSource(), actualTrimSourceType, expectedTrimSourceType, "source argument of trim function");
 
             if (node.getTrimCharacter().isPresent()) {
@@ -2220,13 +2220,13 @@ public class ExpressionAnalyzer
                     .map(expression -> process(expression, context))
                     .collect(toImmutableList());
 
-            if (!(arguments.get(0) instanceof VarcharType)) {
-                throw semanticException(TYPE_MISMATCH, node.getArguments().get(0), "Type of first argument to format() must be VARCHAR (actual: %s)", arguments.get(0));
+            if (!(arguments.getFirst() instanceof VarcharType)) {
+                throw semanticException(TYPE_MISMATCH, node.getArguments().getFirst(), "Type of first argument to format() must be VARCHAR (actual: %s)", arguments.getFirst());
             }
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    plannerContext.getMetadata().resolveBuiltinFunction(FormatFunction.NAME, fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
+                    plannerContext.getMetadata().resolveBuiltinFunction(FormatFunction.NAME, fromTypes(arguments.getFirst(), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (TrinoException e) {
                     ErrorCode errorCode = e.getErrorCode();
@@ -2422,7 +2422,7 @@ public class ExpressionAnalyzer
                         .forEach(dereference -> {
                             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(dereference);
                             if (qualifiedName != null) {
-                                String label = label(qualifiedName.getOriginalParts().get(0));
+                                String label = label(qualifiedName.getOriginalParts().getFirst());
                                 if (context.getContext().getPatternRecognitionContext().labels().contains(label)) {
                                     throw semanticException(NOT_SUPPORTED, dereference, "IN-PREDICATE with labeled column reference is not yet supported");
                                 }
@@ -2458,7 +2458,7 @@ public class ExpressionAnalyzer
 
             // the implied type of a scalar subquery is that of the unique field in the single-column row
             if (type instanceof RowType && ((RowType) type).getFields().size() == 1) {
-                type = type.getTypeParameters().get(0);
+                type = type.getTypeParameters().getFirst();
             }
 
             setExpressionType(node, type);
@@ -3601,7 +3601,7 @@ public class ExpressionAnalyzer
         if (qualifiedName.getParts().size() > 1) {
             return false;
         }
-        Identifier identifier = qualifiedName.getOriginalParts().get(0);
+        Identifier identifier = qualifiedName.getOriginalParts().getFirst();
         if (identifier.isDelimited()) {
             return false;
         }
