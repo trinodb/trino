@@ -46,6 +46,15 @@ any connector:
 - {doc}`/sql/use`
 - {doc}`/sql/values`
 
+(sql-catalog-management)=
+### Catalog management
+
+The following statements are used to [manage dynamic
+catalogs](/admin/properties-catalog):
+
+- {doc}`/sql/create-catalog`
+- {doc}`/sql/drop-catalog`
+
 (sql-read-operations)=
 ## Read operations
 
@@ -81,15 +90,6 @@ connector to connector:
 - {doc}`/sql/delete`
 - {doc}`/sql/truncate`
 - {doc}`/sql/merge`
-
-(sql-catalog-management)=
-### Catalog management
-
-The following statements are used to [manage dynamic
-catalogs](/admin/properties-catalog):
-
-- {doc}`/sql/create-catalog`
-- {doc}`/sql/drop-catalog`
 
 (sql-schema-table-management)=
 ### Schema and table management
