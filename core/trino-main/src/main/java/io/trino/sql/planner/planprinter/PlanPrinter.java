@@ -1015,7 +1015,7 @@ public class PlanPrinter
 
             NodeRepresentation nodeOutput = addNode(
                     node,
-                    "PatterRecognition",
+                    "PatternRecognition",
                     descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(),
                     context);
 
