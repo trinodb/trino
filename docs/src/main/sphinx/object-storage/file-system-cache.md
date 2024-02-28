@@ -13,6 +13,7 @@ using the following connectors:
 
 * [](/connector/delta-lake)
 * [](/connector/hive)
+* [](/connector/hudi)
 * [](/connector/iceberg)
 
 (fs-cache-distributed)=
