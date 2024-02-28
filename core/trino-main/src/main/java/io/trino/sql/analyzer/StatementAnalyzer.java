@@ -2737,8 +2737,8 @@ class StatementAnalyzer
                                 .collect(Collectors.toSet()));
             }
 
-            analysis.setUndefinedLabels(relation.getPattern(), patternRecognitionAnalysis.getUndefinedLabels());
-            analysis.setRanges(patternRecognitionAnalysis.getRanges());
+            analysis.setUndefinedLabels(relation.getPattern(), patternRecognitionAnalysis.undefinedLabels());
+            analysis.setRanges(patternRecognitionAnalysis.ranges());
 
             PatternRecognitionAnalyzer.validateNoPatternSearchMode(relation.getPatternSearchMode());
             PatternRecognitionAnalyzer.validatePatternExclusions(relation.getRowsPerMatch(), relation.getPattern());
@@ -2755,7 +2755,7 @@ class StatementAnalyzer
             // analyze expressions in MEASURES and DEFINE (with set of all labels passed as context)
             for (VariableDefinition variableDefinition : relation.getVariableDefinitions()) {
                 Expression expression = variableDefinition.getExpression();
-                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.getAllLabels());
+                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.allLabels());
                 analysis.recordSubqueries(relation, expressionAnalysis);
                 analysis.addResolvedLabel(variableDefinition.getName(), variableDefinition.getName().getCanonicalValue());
                 Type type = expressionAnalysis.getType(expression);
@@ -2766,7 +2766,7 @@ class StatementAnalyzer
             ImmutableMap.Builder<NodeRef<Node>, Type> measureTypesBuilder = ImmutableMap.builder();
             for (MeasureDefinition measureDefinition : relation.getMeasures()) {
                 Expression expression = measureDefinition.getExpression();
-                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.getAllLabels());
+                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.allLabels());
                 analysis.recordSubqueries(relation, expressionAnalysis);
                 analysis.addResolvedLabel(measureDefinition.getName(), measureDefinition.getName().getCanonicalValue());
                 measureTypesBuilder.put(NodeRef.of(expression), expressionAnalysis.getType(expression));
