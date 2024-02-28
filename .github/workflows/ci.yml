@@ -49,6 +49,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build-success:
+    # This job is executed only if any dependency fails, or is cancelled, to mark entire workflow execution as failure.
+    # Otherwise, it is skipped which is treated as success of the entire workflow execution.
+    if: ${{ !success() }} # if `failure()` would not work for cancellations
+    runs-on: ubuntu-latest
+    needs:
+      [
+        artifact-checks,
+        build-pt,
+        build-test-matrix,
+        check-commit,
+        check-commits-dispatcher,
+        error-prone-checks,
+        hive-tests,
+        maven-checks,
+        pt,
+        test,
+        test-jdbc-compatibility,
+        test-other-modules,
+        web-ui-checks,
+      ]
+    steps:
+      - run: false
+
   maven-checks:
     runs-on: ubuntu-latest
     name: maven-checks ${{ matrix.java-version }}
