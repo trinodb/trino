@@ -30,6 +30,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
+import io.trino.spi.UpdateType;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -852,18 +853,21 @@ public class TableWriterNode
         private final Optional<MergeHandle> mergeHandle;
         private final SchemaTableName schemaTableName;
         private final MergeParadigmAndTypes mergeParadigmAndTypes;
+        private final UpdateType updateType;
 
         @JsonCreator
         public MergeTarget(
                 @JsonProperty("handle") TableHandle handle,
                 @JsonProperty("mergeHandle") Optional<MergeHandle> mergeHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("mergeParadigmAndTypes") MergeParadigmAndTypes mergeParadigmAndTypes)
+                @JsonProperty("mergeParadigmAndTypes") MergeParadigmAndTypes mergeParadigmAndTypes,
+                @JsonProperty("updateType") UpdateType updateType)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.mergeHandle = requireNonNull(mergeHandle, "mergeHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.mergeParadigmAndTypes = requireNonNull(mergeParadigmAndTypes, "mergeElements is null");
+            this.updateType = requireNonNull(updateType, "updateType is null");
         }
 
         @JsonProperty
@@ -888,6 +892,12 @@ public class TableWriterNode
         public MergeParadigmAndTypes getMergeParadigmAndTypes()
         {
             return mergeParadigmAndTypes;
+        }
+
+        @JsonProperty
+        public UpdateType getUpdateType()
+        {
+            return updateType;
         }
 
         @Override

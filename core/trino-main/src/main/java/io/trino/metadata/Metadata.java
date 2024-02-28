@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
+import io.trino.spi.UpdateType;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -452,7 +453,7 @@ public interface Metadata
     /**
      * Begin merge query
      */
-    MergeHandle beginMerge(Session session, TableHandle tableHandle);
+    MergeHandle beginMerge(Session session, TableHandle tableHandle, UpdateType updateType);
 
     /**
      * Finish merge query

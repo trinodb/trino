@@ -16,6 +16,7 @@ package io.trino.tracing;
 import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.spi.UpdateType;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -786,6 +787,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("getUpdateLayout", tableHandle);
         try (var ignored = scopedSpan(span)) {
             return delegate.getUpdateLayout(session, tableHandle);
+        }
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, UpdateType updateType)
+    {
+        Span span = startSpan("beginMerge", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.beginMerge(session, tableHandle, retryMode, updateType);
         }
     }
 
