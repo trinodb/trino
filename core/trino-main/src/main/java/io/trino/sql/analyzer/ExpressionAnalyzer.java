@@ -2246,7 +2246,7 @@ public class ExpressionAnalyzer
             if (isDescribe) {
                 return setExpressionType(node, UNKNOWN);
             }
-            if (parameters.size() == 0) {
+            if (parameters.isEmpty()) {
                 throw semanticException(INVALID_PARAMETER_USAGE, node, "Query takes no parameters");
             }
             if (node.getId() >= parameters.size()) {
