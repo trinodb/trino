@@ -148,7 +148,8 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
-                            0),
+                            0,
+                            false),
                     transaction);
 
             TupleDomain<ColumnHandle> splitPruningPredicate = TupleDomain.withColumnDomains(
@@ -247,7 +248,8 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
-                            0),
+                            0,
+                            false),
                     transaction);
 
             // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably

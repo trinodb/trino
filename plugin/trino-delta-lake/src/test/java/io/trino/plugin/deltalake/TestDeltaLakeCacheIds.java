@@ -423,7 +423,8 @@ public class TestDeltaLakeCacheIds
                 updatedColumns,
                 updatedColumns,
                 analyzeHandle,
-                readVersion);
+                readVersion,
+                false);
     }
 
     private static MetadataEntry createMetadataEntry(String id, String schema)

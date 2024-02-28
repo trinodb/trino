@@ -156,7 +156,8 @@ public class DeltaLakeProxiedConnectorTransformerTest
                         tableHandle.getUpdatedColumns(),
                         tableHandle.getUpdateRowIdColumns(),
                         tableHandle.getAnalyzeHandle(),
-                        tableHandle.getReadVersion()));
+                        tableHandle.getReadVersion(),
+                        tableHandle.isTimeTravel()));
     }
 
     @Test
@@ -197,6 +198,7 @@ public class DeltaLakeProxiedConnectorTransformerTest
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                1L);
+                1L,
+                false);
     }
 }

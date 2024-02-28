@@ -409,6 +409,31 @@ statements, the connector supports the following features:
     and table management <delta-lake-schema-table-management>`
   - {ref}`sql-view-management`
 
+(delta-time-travel)=
+
+### Time travel queries
+
+The connector offers the ability to query historical data. This allows to
+query the table as it was when a previous snapshot of the table was taken, even
+if the data has since been modified or deleted.
+
+The historical data of the table can be retrieved by specifying the version
+number corresponding to the version of the table to be retrieved:
+
+```
+SELECT *
+FROM example.testdb.customer_orders FOR VERSION AS OF 3
+```
+
+Use the `$history` metadata table to determine the snapshot ID of the
+table like in the following query:
+
+```
+SELECT version, operation
+FROM example.testdb."customer_orders$history"
+ORDER BY version DESC
+```
+
 ### Procedures
 
 Use the {doc}`/sql/call` statement to perform data manipulation or

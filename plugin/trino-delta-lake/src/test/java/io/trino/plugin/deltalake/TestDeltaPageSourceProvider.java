@@ -212,7 +212,8 @@ public class TestDeltaPageSourceProvider
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                0);
+                0,
+                false);
     }
 
     private static MetadataEntry createMetadataEntry(List<String> partitionedColumns, String schema)
