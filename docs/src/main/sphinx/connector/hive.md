@@ -1285,9 +1285,9 @@ and Delta Lake tables with the following catalog configuration properties:
 - `hive.iceberg-catalog-name` for redirecting the query to {doc}`/connector/iceberg`
 - `hive.delta-lake-catalog-name` for redirecting the query to {doc}`/connector/delta-lake`
 
-### Filesystem cache
+### File system cache
 
-The connector supports configuring and using [filesystem
+The connector supports configuring and using [file system
 caching](/object-storage/file-system-cache).
 
 (hive-performance-tuning-configuration)=

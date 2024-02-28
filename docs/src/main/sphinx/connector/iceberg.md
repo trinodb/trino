@@ -1531,7 +1531,7 @@ before re-analyzing.
 The connector supports redirection from Iceberg tables to Hive tables with the
 `iceberg.hive-catalog-name` catalog configuration property.
 
-### Filesystem cache
+### File system cache
 
-The connector supports configuring and using
-[](/object-storage/file-system-cache).
+The connector supports configuring and using [file system
+caching](/object-storage/file-system-cache).
