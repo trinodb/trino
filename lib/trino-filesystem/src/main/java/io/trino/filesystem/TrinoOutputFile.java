@@ -26,7 +26,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 public interface TrinoOutputFile
 {
     /**
-     * Create file exclusively, failing if the file already exists. For file systems which do not
+     * Create file exclusively, failing or overwriting if the file already exists. For file systems which do not
      * support exclusive creation (e.g. S3), this will fallback to createOrOverwrite().
      *
      * @throws FileAlreadyExistsException If a file of that name already exists
@@ -53,7 +53,7 @@ public interface TrinoOutputFile
     }
 
     /**
-     * Create file exclusively, failing if the file already exists. For file systems which do not
+     * Create file exclusively, failing or overwriting if the file already exists. For file systems which do not
      * support exclusive creation (e.g. S3), this will fall back to createOrOverwrite().
      *
      * @throws FileAlreadyExistsException If a file of that name already exists
