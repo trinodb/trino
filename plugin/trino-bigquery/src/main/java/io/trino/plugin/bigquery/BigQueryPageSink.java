@@ -35,6 +35,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.cloud.bigquery.storage.v1.WriteStream.Type.COMMITTED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -48,7 +49,8 @@ public class BigQueryPageSink
         implements ConnectorPageSink
 {
     private final BigQueryWriteClient client;
-    private final WriteStream writeStream;
+    private final CreateWriteStreamRequest createWriteStreamRequest;
+    private final AtomicReference<WriteStream> writeStream = new AtomicReference<>();
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final ConnectorPageSinkId pageSinkId;
@@ -78,11 +80,10 @@ public class BigQueryPageSink
                 .orElseGet(remoteTableName::toTableName);
         // TODO: Consider using PENDING mode
         WriteStream stream = WriteStream.newBuilder().setType(COMMITTED).build();
-        CreateWriteStreamRequest createWriteStreamRequest = CreateWriteStreamRequest.newBuilder()
+        createWriteStreamRequest = CreateWriteStreamRequest.newBuilder()
                 .setParent(tableName.toString())
                 .setWriteStream(stream)
                 .build();
-        this.writeStream = client.createWriteStream(createWriteStreamRequest);
     }
 
     @Override
@@ -104,7 +105,8 @@ public class BigQueryPageSink
 
     private void insertWithCommitted(JSONArray batch)
     {
-        try (JsonStreamWriter writer = JsonStreamWriter.newBuilder(writeStream.getName(), writeStream.getTableSchema(), client).build()) {
+        WriteStream stream = writeStream.updateAndGet(this::getOrCreateWriteStream);
+        try (JsonStreamWriter writer = JsonStreamWriter.newBuilder(stream.getName(), stream.getTableSchema(), client).build()) {
             ApiFuture<AppendRowsResponse> future = writer.append(batch);
             AppendRowsResponse response = future.get(); // Throw error
             if (response.hasError()) {
@@ -114,6 +116,14 @@ public class BigQueryPageSink
         catch (Exception e) {
             throw new TrinoException(BIGQUERY_BAD_WRITE, "Failed to insert rows", e);
         }
+    }
+
+    private WriteStream getOrCreateWriteStream(WriteStream current)
+    {
+        if (current == null) {
+            return client.createWriteStream(createWriteStreamRequest);
+        }
+        return current;
     }
 
     @Override
