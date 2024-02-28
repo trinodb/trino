@@ -51,6 +51,7 @@ import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.ViewReaderUtil;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.iceberg.ForFileIO;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
@@ -182,6 +183,7 @@ public class TrinoGlueCatalog
     private final GlueMetastoreStats stats;
     private final boolean hideMaterializedViewStorageTable;
     private final boolean isUsingSystemSecurity;
+    private final Map<String, String> fileIoProperties;
 
     private final Cache<SchemaTableName, com.amazonaws.services.glue.model.Table> glueTableCache = EvictableCacheBuilder.newBuilder()
             // Even though this is query-scoped, this still needs to be bounded. information_schema queries can access large number of tables.
@@ -210,7 +212,8 @@ public class TrinoGlueCatalog
             boolean isUsingSystemSecurity,
             Optional<String> defaultSchemaLocation,
             boolean useUniqueTableLocation,
-            boolean hideMaterializedViewStorageTable)
+            boolean hideMaterializedViewStorageTable,
+            @ForFileIO Map<String, String> fileIoProperties)
     {
         super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
@@ -222,6 +225,7 @@ public class TrinoGlueCatalog
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
     }
 
     @Override
@@ -852,7 +856,7 @@ public class TrinoGlueCatalog
             try {
                 // Cache the TableMetadata while we have the Table retrieved anyway
                 // Note: this is racy from cache invalidation perspective, but it should not matter here
-                uncheckedCacheGet(tableMetadataCache, schemaTableName, () -> TableMetadataParser.read(new ForwardingFileIo(fileSystemFactory.create(session)), metadataLocation));
+                uncheckedCacheGet(tableMetadataCache, schemaTableName, () -> TableMetadataParser.read(new ForwardingFileIo(fileSystemFactory.create(session), fileIoProperties), metadataLocation));
             }
             catch (RuntimeException e) {
                 LOG.warn(e, "Failed to cache table metadata from table at %s", metadataLocation);
@@ -1381,7 +1385,7 @@ public class TrinoGlueCatalog
         requireNonNull(storageMetadataLocation, "storageMetadataLocation is null");
         return uncheckedCacheGet(tableMetadataCache, storageTableName, () -> {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            return TableMetadataParser.read(new ForwardingFileIo(fileSystem), storageMetadataLocation);
+            return TableMetadataParser.read(new ForwardingFileIo(fileSystem, fileIoProperties), storageMetadataLocation);
         });
     }
 

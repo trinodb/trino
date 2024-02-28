@@ -32,6 +32,7 @@ import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.Table;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
@@ -55,7 +56,7 @@ public class TestIcebergMergeAppend
                 .createMetastore(Optional.empty());
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(queryRunner);
-        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, Map.of());
         trinoCatalog = new TrinoHiveCatalog(
                 new CatalogName("catalog"),
                 cachingHiveMetastore,
@@ -66,7 +67,8 @@ public class TestIcebergMergeAppend
                 false,
                 false,
                 false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                Map.of());
 
         return queryRunner;
     }

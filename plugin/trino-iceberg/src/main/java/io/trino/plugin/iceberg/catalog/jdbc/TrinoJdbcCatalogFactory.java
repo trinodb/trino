@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.iceberg.ForFileIO;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -48,6 +49,7 @@ public class TrinoJdbcCatalogFactory
     private final boolean isUniqueTableLocation;
     private final Map<String, String> catalogProperties;
     private final JdbcClientPool clientPool;
+    private final Map<String, String> fileIoProperties;
 
     @Inject
     public TrinoJdbcCatalogFactory(
@@ -57,7 +59,8 @@ public class TrinoJdbcCatalogFactory
             TrinoFileSystemFactory fileSystemFactory,
             IcebergJdbcClient jdbcClient,
             IcebergJdbcCatalogConfig jdbcConfig,
-            IcebergConfig icebergConfig)
+            IcebergConfig icebergConfig,
+            @ForFileIO Map<String, String> fileIoProperties)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -67,6 +70,7 @@ public class TrinoJdbcCatalogFactory
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.jdbcCatalogName = jdbcConfig.getCatalogName();
         this.defaultWarehouseDir = jdbcConfig.getDefaultWarehouseDir();
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
 
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.put(URI, jdbcConfig.getConnectionUrl());
@@ -88,7 +92,7 @@ public class TrinoJdbcCatalogFactory
     public TrinoCatalog create(ConnectorIdentity identity)
     {
         JdbcCatalog jdbcCatalog = new JdbcCatalog(
-                config -> new ForwardingFileIo(fileSystemFactory.create(identity)),
+                config -> new ForwardingFileIo(fileSystemFactory.create(identity), fileIoProperties),
                 config -> clientPool,
                 false);
 

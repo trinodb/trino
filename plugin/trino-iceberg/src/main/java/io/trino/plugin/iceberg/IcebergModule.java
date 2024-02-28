@@ -13,12 +13,16 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.filesystem.cache.AllowFilesystemCacheOnCoordinator;
 import io.trino.filesystem.cache.CacheKeyProvider;
@@ -42,6 +46,7 @@ import io.trino.plugin.iceberg.procedure.OptimizeTableProcedure;
 import io.trino.plugin.iceberg.procedure.RegisterTableProcedure;
 import io.trino.plugin.iceberg.procedure.RemoveOrphanFilesTableProcedure;
 import io.trino.plugin.iceberg.procedure.UnregisterTableProcedure;
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -50,7 +55,9 @@ import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
+import org.apache.iceberg.CatalogProperties;
 
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -59,12 +66,20 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class IcebergModule
         implements Module
 {
+    private final NodeManager nodeManager;
+
+    public IcebergModule(NodeManager nodeManager)
+    {
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -119,6 +134,13 @@ public class IcebergModule
         newOptionalBinder(binder, IcebergFileSystemFactory.class).setDefault().to(DefaultIcebergFileSystemFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setBinding().to(IcebergCacheKeyProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(boolean.class, AllowFilesystemCacheOnCoordinator.class)).setBinding().toInstance(true);
+
+        if (nodeManager.getCurrentNode().isCoordinator()) {
+            newOptionalBinder(binder, Key.get(new TypeLiteral<Map<String, String>>() {}, ForFileIO.class)).setBinding().toProvider(CoordinatorFileIOPropertiesProvider.class).in(Scopes.SINGLETON);
+        }
+        else {
+            newOptionalBinder(binder, Key.get(new TypeLiteral<Map<String, String>>() {}, ForFileIO.class)).setBinding().toInstance(Map.of());
+        }
     }
 
     @Provides
@@ -132,5 +154,31 @@ public class IcebergModule
         return newFixedThreadPool(
                 config.getSplitManagerThreads(),
                 daemonThreadsNamed("iceberg-split-manager-" + catalogName + "-%s"));
+    }
+
+    public static class CoordinatorFileIOPropertiesProvider
+            implements Provider<Map<String, String>>
+    {
+        private final IcebergConfig icebergConfig;
+
+        @Inject
+        public CoordinatorFileIOPropertiesProvider(IcebergConfig icebergConfig)
+        {
+            this.icebergConfig = requireNonNull(icebergConfig, "icebergConfig is null");
+        }
+
+        @Override
+        public Map<String, String> get()
+        {
+            if (icebergConfig.isManifestCachingEnabled()) {
+                return ImmutableMap.<String, String>builder()
+                        .put(CatalogProperties.IO_MANIFEST_CACHE_ENABLED, "true")
+                        .put(CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS, Long.toString(icebergConfig.getManifestCachingTTL().toMillis()))
+                        .put(CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH, Long.toString(icebergConfig.getManifestCachingMaxFileSize().toBytes()))
+                        .put(CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES, Long.toString(icebergConfig.getManifestCachingMaxTotalSize().toBytes()))
+                        .buildOrThrow();
+            }
+            return Map.of();
+        }
     }
 }

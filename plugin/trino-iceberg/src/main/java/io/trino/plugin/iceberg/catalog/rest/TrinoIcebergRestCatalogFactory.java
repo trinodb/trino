@@ -18,6 +18,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.iceberg.ForFileIO;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -30,6 +31,7 @@ import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -46,6 +48,7 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean vendedCredentialsEnabled;
     private final SecurityProperties securityProperties;
     private final boolean uniqueTableLocation;
+    private final Map<String, String> fileIoProperties;
 
     @GuardedBy("this")
     private RESTSessionCatalog icebergCatalog;
@@ -57,7 +60,8 @@ public class TrinoIcebergRestCatalogFactory
             IcebergRestCatalogConfig restConfig,
             SecurityProperties securityProperties,
             IcebergConfig icebergConfig,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            @ForFileIO Map<String, String> fileIoProperties)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -70,6 +74,7 @@ public class TrinoIcebergRestCatalogFactory
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
     }
 
     @Override
@@ -94,7 +99,11 @@ public class TrinoIcebergRestCatalogFactory
                         ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
                                 ? ((ConnectorIdentity) context.wrappedIdentity())
                                 : ConnectorIdentity.ofUser("fake");
-                        return new ForwardingFileIo(fileSystemFactory.create(currentIdentity, config), config);
+                        Map<String, String> combinedFileIoProperties = ImmutableMap.<String, String>builder()
+                                .putAll(config)
+                                .putAll(fileIoProperties)
+                                .buildOrThrow();
+                        return new ForwardingFileIo(fileSystemFactory.create(currentIdentity, combinedFileIoProperties), config);
                     });
             icebergCatalogInstance.initialize(catalogName.toString(), properties.buildOrThrow());
 

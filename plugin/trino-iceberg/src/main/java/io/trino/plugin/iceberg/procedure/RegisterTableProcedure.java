@@ -21,6 +21,7 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.ForFileIO;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
@@ -37,6 +38,7 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -80,13 +82,19 @@ public class RegisterTableProcedure
     private final TrinoCatalogFactory catalogFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean registerTableProcedureEnabled;
+    private final Map<String, String> fileIoProperties;
 
     @Inject
-    public RegisterTableProcedure(TrinoCatalogFactory catalogFactory, TrinoFileSystemFactory fileSystemFactory, IcebergConfig icebergConfig)
+    public RegisterTableProcedure(
+            TrinoCatalogFactory catalogFactory,
+            TrinoFileSystemFactory fileSystemFactory,
+            IcebergConfig icebergConfig,
+            @ForFileIO Map<String, String> fileIoProperties)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.registerTableProcedureEnabled = requireNonNull(icebergConfig, "icebergConfig is null").isRegisterTableProcedureEnabled();
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
     }
 
     @Override
@@ -147,7 +155,7 @@ public class RegisterTableProcedure
         TableMetadata tableMetadata;
         try {
             // Try to read the metadata file. Invalid metadata file will throw the exception.
-            tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
+            tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem, fileIoProperties), metadataLocation);
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid metadata file: " + metadataLocation, e);

@@ -20,6 +20,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.iceberg.ForFileIO;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergSecurityConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -30,6 +31,7 @@ import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
@@ -50,6 +52,7 @@ public class TrinoGlueCatalogFactory
     private final boolean hideMaterializedViewStorageTable;
     private final GlueMetastoreStats stats;
     private final boolean isUsingSystemSecurity;
+    private final Map<String, String> fileIoProperties;
 
     @Inject
     public TrinoGlueCatalogFactory(
@@ -63,7 +66,8 @@ public class TrinoGlueCatalogFactory
             IcebergGlueCatalogConfig catalogConfig,
             IcebergSecurityConfig securityConfig,
             GlueMetastoreStats stats,
-            AWSGlueAsync glueClient)
+            AWSGlueAsync glueClient,
+            @ForFileIO Map<String, String> fileIoProperties)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -77,6 +81,7 @@ public class TrinoGlueCatalogFactory
         this.hideMaterializedViewStorageTable = icebergConfig.isHideMaterializedViewStorageTable();
         this.stats = requireNonNull(stats, "stats is null");
         this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
     }
 
     @Managed
@@ -101,6 +106,7 @@ public class TrinoGlueCatalogFactory
                 isUsingSystemSecurity,
                 defaultSchemaLocation,
                 isUniqueTableLocation,
-                hideMaterializedViewStorageTable);
+                hideMaterializedViewStorageTable,
+                fileIoProperties);
     }
 }

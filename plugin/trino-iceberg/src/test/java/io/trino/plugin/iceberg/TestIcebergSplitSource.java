@@ -122,11 +122,12 @@ public class TestIcebergSplitSource
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 new TestingTypeManager(),
-                new FileMetastoreTableOperationsProvider(fileSystemFactory),
+                new FileMetastoreTableOperationsProvider(fileSystemFactory, Map.of()),
                 false,
                 false,
                 false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                Map.of());
 
         return queryRunner;
     }

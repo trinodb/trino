@@ -79,6 +79,10 @@ public class IcebergConfig
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private boolean manifestCachingEnabled;
+    private Duration manifestCachingTTL = new Duration(60, SECONDS);
+    private DataSize manifestCachingMaxFileSize = DataSize.of(8, MEGABYTE);
+    private DataSize manifestCachingMaxTotalSize = DataSize.of(100, MEGABYTE);
 
     public CatalogType getCatalogType()
     {
@@ -432,5 +436,53 @@ public class IcebergConfig
     public boolean isStorageSchemaSetWhenHidingIsEnabled()
     {
         return hideMaterializedViewStorageTable && materializedViewsStorageSchema.isPresent();
+    }
+
+    public boolean isManifestCachingEnabled()
+    {
+        return manifestCachingEnabled;
+    }
+
+    @Config("iceberg.manifest-caching.enabled")
+    @ConfigDescription("Enable in-memory caching for manifest files")
+    public void setManifestCachingEnabled(boolean manifestCachingEnabled)
+    {
+        this.manifestCachingEnabled = manifestCachingEnabled;
+    }
+
+    public Duration getManifestCachingTTL()
+    {
+        return manifestCachingTTL;
+    }
+
+    @Config("iceberg.manifest-caching.ttl")
+    @ConfigDescription("Maximum duration for which an entry stays in the manifest cache")
+    public void setManifestCachingTTL(Duration manifestCachingTTL)
+    {
+        this.manifestCachingTTL = manifestCachingTTL;
+    }
+
+    public DataSize getManifestCachingMaxFileSize()
+    {
+        return manifestCachingMaxFileSize;
+    }
+
+    @Config("iceberg.manifest-caching.max-file-size")
+    @ConfigDescription("Maximum size of a manifest file to be considered for caching")
+    public void setManifestCachingMaxFileSize(DataSize manifestCachingMaxFileSize)
+    {
+        this.manifestCachingMaxFileSize = manifestCachingMaxFileSize;
+    }
+
+    public DataSize getManifestCachingMaxTotalSize()
+    {
+        return manifestCachingMaxTotalSize;
+    }
+
+    @Config("iceberg.manifest-caching.max-total-size")
+    @ConfigDescription("Maximum total amount of bytes to cache in manifest cache")
+    public void setManifestCachingMaxTotalSize(DataSize manifestCachingMaxTotalSize)
+    {
+        this.manifestCachingMaxTotalSize = manifestCachingMaxTotalSize;
     }
 }

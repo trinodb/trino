@@ -33,6 +33,7 @@ import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.plugin.iceberg.ForFileIO;
 import io.trino.plugin.iceberg.IcebergTableName;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
@@ -142,6 +143,7 @@ public class TrinoHiveCatalog
     private final boolean isUsingSystemSecurity;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean hideMaterializedViewStorageTable;
+    private final Map<String, String> fileIoProperties;
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -157,7 +159,8 @@ public class TrinoHiveCatalog
             boolean useUniqueTableLocation,
             boolean isUsingSystemSecurity,
             boolean deleteSchemaLocationsFallback,
-            boolean hideMaterializedViewStorageTable)
+            boolean hideMaterializedViewStorageTable,
+            @ForFileIO Map<String, String> fileIoProperties)
     {
         super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -166,6 +169,7 @@ public class TrinoHiveCatalog
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
     }
 
     public CachingHiveMetastore getMetastore()
@@ -731,7 +735,7 @@ public class TrinoHiveCatalog
         checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + viewName);
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        TableMetadata metadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), storageMetadataLocation);
+        TableMetadata metadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem, fileIoProperties), storageMetadataLocation);
         String storageLocation = metadata.location();
         try {
             fileSystem.deleteDirectory(Location.of(storageLocation));
@@ -821,7 +825,7 @@ public class TrinoHiveCatalog
             String storageMetadataLocation = materializedView.getParameters().get(METADATA_LOCATION_PROP);
             checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + materializedView.getTableName());
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            return TableMetadataParser.read(new ForwardingFileIo(fileSystem), storageMetadataLocation);
+            return TableMetadataParser.read(new ForwardingFileIo(fileSystem, fileIoProperties), storageMetadataLocation);
         });
     }
 

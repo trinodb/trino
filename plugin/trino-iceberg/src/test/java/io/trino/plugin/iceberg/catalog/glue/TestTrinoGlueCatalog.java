@@ -88,14 +88,16 @@ public class TestTrinoGlueCatalog
                         catalogConfig,
                         HDFS_FILE_SYSTEM_FACTORY,
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClient,
+                        Map.of()),
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
                 useSystemSecurity,
                 Optional.empty(),
                 useUniqueTableLocations,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                Map.of());
     }
 
     /**
@@ -217,14 +219,16 @@ public class TestTrinoGlueCatalog
                         catalogConfig,
                         fileSystemFactory,
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClient,
+                        Map.of()),
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
                 false,
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
                 false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                Map.of());
 
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";

@@ -16,12 +16,14 @@ package io.trino.plugin.iceberg.catalog.hms;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
+import io.trino.plugin.iceberg.ForFileIO;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -31,12 +33,14 @@ public class HiveMetastoreTableOperationsProvider
 {
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ThriftMetastoreFactory thriftMetastoreFactory;
+    private final Map<String, String> fileIoProperties;
 
     @Inject
-    public HiveMetastoreTableOperationsProvider(TrinoFileSystemFactory fileSystemFactory, ThriftMetastoreFactory thriftMetastoreFactory)
+    public HiveMetastoreTableOperationsProvider(TrinoFileSystemFactory fileSystemFactory, ThriftMetastoreFactory thriftMetastoreFactory, @ForFileIO Map<String, String> fileIoProperties)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.thriftMetastoreFactory = requireNonNull(thriftMetastoreFactory, "thriftMetastoreFactory is null");
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
     }
 
     @Override
@@ -49,7 +53,7 @@ public class HiveMetastoreTableOperationsProvider
             Optional<String> location)
     {
         return new HiveMetastoreTableOperations(
-                new ForwardingFileIo(fileSystemFactory.create(session)),
+                new ForwardingFileIo(fileSystemFactory.create(session), fileIoProperties),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
                 thriftMetastoreFactory.createMetastore(Optional.of(session.getIdentity())),
                 session,

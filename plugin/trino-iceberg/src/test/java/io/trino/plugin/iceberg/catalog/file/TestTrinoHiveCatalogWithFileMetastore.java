@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -79,10 +80,11 @@ public class TestTrinoHiveCatalogWithFileMetastore
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 new TestingTypeManager(),
-                new FileMetastoreTableOperationsProvider(fileSystemFactory),
+                new FileMetastoreTableOperationsProvider(fileSystemFactory, Map.of()),
                 useUniqueTableLocations,
                 false,
                 false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                Map.of());
     }
 }

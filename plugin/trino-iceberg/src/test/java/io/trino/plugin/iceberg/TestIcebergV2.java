@@ -1001,7 +1001,7 @@ public class TestIcebergV2
 
     private BaseTable loadTable(String tableName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, Map.of());
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         TrinoCatalog catalog = new TrinoHiveCatalog(
                 new CatalogName("hive"),
@@ -1013,7 +1013,8 @@ public class TestIcebergV2
                 false,
                 false,
                 false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                Map.of());
         return (BaseTable) loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
     }
 

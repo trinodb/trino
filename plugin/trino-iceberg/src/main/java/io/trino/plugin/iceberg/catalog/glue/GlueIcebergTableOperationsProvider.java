@@ -17,6 +17,7 @@ import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.iceberg.ForFileIO;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -24,6 +25,7 @@ import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -36,6 +38,7 @@ public class GlueIcebergTableOperationsProvider
     private final TrinoFileSystemFactory fileSystemFactory;
     private final AWSGlueAsync glueClient;
     private final GlueMetastoreStats stats;
+    private final Map<String, String> fileIoProperties;
 
     @Inject
     public GlueIcebergTableOperationsProvider(
@@ -43,13 +46,15 @@ public class GlueIcebergTableOperationsProvider
             IcebergGlueCatalogConfig catalogConfig,
             TrinoFileSystemFactory fileSystemFactory,
             GlueMetastoreStats stats,
-            AWSGlueAsync glueClient)
+            AWSGlueAsync glueClient,
+            @ForFileIO Map<String, String> fileIoProperties)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = catalogConfig.isCacheTableMetadata();
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
     }
 
     @Override
@@ -69,7 +74,7 @@ public class GlueIcebergTableOperationsProvider
                 // Share Glue Table cache between Catalog and TableOperations so that, when doing metadata queries (e.g. information_schema.columns)
                 // the GetTableRequest is issued once per table.
                 ((TrinoGlueCatalog) catalog)::getTable,
-                new ForwardingFileIo(fileSystemFactory.create(session)),
+                new ForwardingFileIo(fileSystemFactory.create(session), fileIoProperties),
                 session,
                 database,
                 table,

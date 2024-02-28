@@ -116,25 +116,29 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 new TrinoViewHiveMetastore(metastore, false, "trino-version", "Test"),
                 fileSystemFactory,
                 new TestingTypeManager(),
-                new HiveMetastoreTableOperationsProvider(fileSystemFactory, new ThriftMetastoreFactory()
-                {
-                    @Override
-                    public boolean isImpersonationEnabled()
-                    {
-                        verify(new ThriftMetastoreConfig().isImpersonationEnabled(), "This test wants to test the default behavior and assumes it's off");
-                        return false;
-                    }
+                new HiveMetastoreTableOperationsProvider(
+                        fileSystemFactory,
+                        new ThriftMetastoreFactory()
+                        {
+                            @Override
+                            public boolean isImpersonationEnabled()
+                            {
+                                verify(new ThriftMetastoreConfig().isImpersonationEnabled(), "This test wants to test the default behavior and assumes it's off");
+                                return false;
+                            }
 
-                    @Override
-                    public ThriftMetastore createMetastore(Optional<ConnectorIdentity> identity)
-                    {
-                        return thriftMetastore;
-                    }
-                }),
+                            @Override
+                            public ThriftMetastore createMetastore(Optional<ConnectorIdentity> identity)
+                            {
+                                return thriftMetastore;
+                            }
+                        },
+                        Map.of()),
                 useUniqueTableLocations,
                 false,
                 false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                Map.of());
     }
 
     @Override

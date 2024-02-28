@@ -102,7 +102,7 @@ public class TestTrinoNessieCatalog
                 new CatalogName("catalog_name"),
                 new TestingTypeManager(),
                 fileSystemFactory,
-                new IcebergNessieTableOperationsProvider(fileSystemFactory, nessieClient),
+                new IcebergNessieTableOperationsProvider(fileSystemFactory, nessieClient, Map.of()),
                 nessieClient,
                 tmpDirectory.toAbsolutePath().toString(),
                 useUniqueTableLocations);
@@ -126,7 +126,7 @@ public class TestTrinoNessieCatalog
                 new CatalogName("catalog_name"),
                 new TestingTypeManager(),
                 fileSystemFactory,
-                new IcebergNessieTableOperationsProvider(fileSystemFactory, nessieClient),
+                new IcebergNessieTableOperationsProvider(fileSystemFactory, nessieClient, Map.of()),
                 nessieClient,
                 icebergNessieCatalogConfig.getDefaultWarehouseDir(),
                 false);

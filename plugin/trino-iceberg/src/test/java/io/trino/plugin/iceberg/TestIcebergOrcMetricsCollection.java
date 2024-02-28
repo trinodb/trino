@@ -85,7 +85,7 @@ public class TestIcebergOrcMetricsCollection
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("iceberg.file-format", "ORC"));
 
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(queryRunner);
-        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, Map.of());
 
         HiveMetastore metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
                 .getInstance(HiveMetastoreFactory.class)
@@ -102,7 +102,8 @@ public class TestIcebergOrcMetricsCollection
                 false,
                 false,
                 false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                Map.of());
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
