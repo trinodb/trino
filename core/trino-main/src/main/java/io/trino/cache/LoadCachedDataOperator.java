@@ -78,6 +78,7 @@ public class LoadCachedDataOperator
 
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
+    private final CacheStats cacheStats;
     private final LocalMemoryContext memoryContext;
 
     @Nullable
@@ -90,6 +91,7 @@ public class LoadCachedDataOperator
         this.memoryContext = operatorContext.newLocalUserMemoryContext(LoadCachedDataOperator.class.getSimpleName());
         CacheDriverContext cacheContext = operatorContext.getDriverContext().getCacheDriverContext()
                 .orElseThrow(() -> new IllegalArgumentException("Cache context is not present"));
+        this.cacheStats = cacheContext.cacheStats();
         this.pageSource = cacheContext
                 .pageSource()
                 .orElseThrow(() -> new IllegalArgumentException("Cache page sink is not present"));
@@ -145,6 +147,7 @@ public class LoadCachedDataOperator
             return null;
         }
 
+        cacheStats.recordCacheData(page.getSizeInBytes());
         operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
         memoryContext.setBytes(pageSource.getMemoryUsage());
         return page.getLoadedPage();

@@ -29,6 +29,7 @@ public class CacheStats
     private final CounterStat missingSplitId = new CounterStat();
     private final CounterStat predicateTooBig = new CounterStat();
     private final CounterStat splitsTooBig = new CounterStat();
+    private final DistributionStat readFromCacheData = new DistributionStat();
     private final DistributionStat cachedData = new DistributionStat();
     private final TimeStat revokeMemoryTime = new TimeStat();
     private final TimeStat cacheLookupTime = new TimeStat();
@@ -73,6 +74,13 @@ public class CacheStats
     public CounterStat getSplitsTooBig()
     {
         return splitsTooBig;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getReadFromCacheData()
+    {
+        return readFromCacheData;
     }
 
     @Managed
@@ -124,6 +132,11 @@ public class CacheStats
     public void recordSplitsTooBig()
     {
         splitsTooBig.update(1);
+    }
+
+    public void recordReadFromCacheData(long bytes)
+    {
+        readFromCacheData.add(bytes);
     }
 
     public void recordCacheData(long bytes)
