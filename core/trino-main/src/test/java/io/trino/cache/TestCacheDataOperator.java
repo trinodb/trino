@@ -72,7 +72,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.cache.CacheDriverFactory.MIN_PROCESSED_SPLITS;
 import static io.trino.cache.CacheDriverFactory.THRASHING_CACHE_THRESHOLD;
-import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilter;
+import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilterSupplier;
 import static io.trino.operator.PageTestUtils.createPage;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -191,8 +191,8 @@ public class TestCacheDataOperator
                 TEST_TABLE_HANDLE,
                 new PlanSignatureWithPredicate(signature, TupleDomain.all()),
                 ImmutableMap.of(),
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
+                createStaticDynamicFilterSupplier(ImmutableList.of(EMPTY)),
+                createStaticDynamicFilterSupplier(ImmutableList.of(EMPTY)),
                 driverFactories,
                 new CacheStats());
 

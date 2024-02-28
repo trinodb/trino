@@ -339,6 +339,7 @@ import static io.trino.cache.CacheCommonSubqueries.isCacheChooseAlternativeNode;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilter;
+import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilterSupplier;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
@@ -2255,10 +2256,10 @@ public class LocalExecutionPlanner
                 List<DynamicFilter> commonDynamicFilters = extractDisjuncts(loadCachedData.getDynamicFilterDisjuncts()).stream()
                         .map(predicate -> getDynamicFilter(node.getOriginalTableScan().tableScanNode(), predicate, context))
                         .collect(toImmutableList());
-                Supplier<StaticDynamicFilter> commonDynamicFilterSupplier = () -> createStaticDynamicFilter(commonDynamicFilters);
+                Supplier<StaticDynamicFilter> commonDynamicFilterSupplier = createStaticDynamicFilterSupplier(commonDynamicFilters);
                 Supplier<StaticDynamicFilter> originalDynamicFilterSupplier = node.getOriginalTableScan().filterPredicate()
                         .map(predicate -> getDynamicFilter(node.getOriginalTableScan().tableScanNode(), predicate, context))
-                        .map(dynamicFilter -> (Supplier<StaticDynamicFilter>) () -> createStaticDynamicFilter(ImmutableList.of(dynamicFilter)))
+                        .map(dynamicFilter -> createStaticDynamicFilterSupplier(ImmutableList.of(dynamicFilter)))
                         .orElse(() -> createStaticDynamicFilter(ImmutableList.of(DynamicFilter.EMPTY)));
                 context.setCacheContext(new CacheContext(
                         node.getOriginalTableScan().tableHandle(),

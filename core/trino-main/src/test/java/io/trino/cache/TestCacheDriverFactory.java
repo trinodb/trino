@@ -73,11 +73,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.LongStream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -85,6 +84,7 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.cache.CacheDriverFactory.MAX_UNENFORCED_PREDICATE_VALUE_COUNT;
 import static io.trino.cache.CacheDriverFactory.appendRemainingPredicates;
 import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilter;
+import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilterSupplier;
 import static io.trino.plugin.base.cache.CacheUtils.normalizeTupleDomain;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -180,8 +180,7 @@ public class TestCacheDriverFactory
         TupleDomain<ColumnHandle> originalDynamicPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.singleValue(BIGINT, 0L)));
 
         DriverFactory driverFactory = createDriverFactory(new AtomicInteger());
-        AtomicReference<TupleDomain<ColumnHandle>> commonDynamicPredicate = new AtomicReference<>(TupleDomain.all());
-        TestDynamicFilter commonDynamicFilter = new TestDynamicFilter(commonDynamicPredicate::get, true);
+        TestDynamicFilter commonDynamicFilter = new TestDynamicFilter(TupleDomain.all(), false);
         Map<ColumnHandle, CacheColumnId> columnHandles = ImmutableMap.of(columnHandle, columnId);
         CacheDriverFactory cacheDriverFactory = new CacheDriverFactory(
                 TEST_SESSION,
@@ -191,8 +190,8 @@ public class TestCacheDriverFactory
                 TEST_TABLE_HANDLE,
                 signature,
                 ImmutableMap.of(columnId, columnHandle),
-                () -> createStaticDynamicFilter(ImmutableList.of(commonDynamicFilter)),
-                () -> createStaticDynamicFilter(ImmutableList.of(new TestDynamicFilter(() -> originalDynamicPredicate, true))),
+                createStaticDynamicFilterSupplier(ImmutableList.of(commonDynamicFilter)),
+                createStaticDynamicFilterSupplier(ImmutableList.of(new TestDynamicFilter(originalDynamicPredicate, true))),
                 ImmutableList.of(driverFactory, driverFactory, driverFactory),
                 new CacheStats());
 
@@ -202,8 +201,10 @@ public class TestCacheDriverFactory
         assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
 
         // baseSignature should use common dynamic filter as it uses same domains
-        commonDynamicPredicate.set(TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L)))));
-        splitCache.setExpectedPredicates(TupleDomain.all(), commonDynamicPredicate.get().transformKeys(columnHandles::get));
+        commonDynamicFilter.setDynamicPredicate(
+                TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L)))),
+                true);
+        splitCache.setExpectedPredicates(TupleDomain.all(), commonDynamicFilter.getCurrentPredicate().transformKeys(columnHandles::get));
         cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
         assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
     }
@@ -227,7 +228,7 @@ public class TestCacheDriverFactory
                         nonProjectedScanColumnId, Domain.singleValue(BIGINT, 120L))));
 
         StaticDynamicFilter dynamicFilter = createStaticDynamicFilter(ImmutableList.of(new TestDynamicFilter(
-                () -> TupleDomain.withColumnDomains(ImmutableMap.of(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
                         projectedScanColumnHandle, Domain.singleValue(BIGINT, 200L),
                         nonProjectedScanColumnHandle, Domain.singleValue(BIGINT, 220L))),
                 true)));
@@ -250,8 +251,8 @@ public class TestCacheDriverFactory
                 TEST_TABLE_HANDLE,
                 signature,
                 columnHandles,
-                () -> dynamicFilter,
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
+                createStaticDynamicFilterSupplier(ImmutableList.of(dynamicFilter)),
+                createStaticDynamicFilterSupplier(ImmutableList.of(EMPTY)),
                 ImmutableList.of(driverFactory, driverFactory, driverFactory),
                 new CacheStats());
 
@@ -333,8 +334,8 @@ public class TestCacheDriverFactory
                 TEST_TABLE_HANDLE,
                 signature,
                 ImmutableMap.of(new CacheColumnId("column"), new TestingColumnHandle("column")),
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
+                createStaticDynamicFilterSupplier(ImmutableList.of(EMPTY)),
+                createStaticDynamicFilterSupplier(ImmutableList.of(EMPTY)),
                 ImmutableList.of(driverFactory, driverFactory, driverFactory),
                 new CacheStats());
     }
@@ -361,13 +362,26 @@ public class TestCacheDriverFactory
     private static class TestDynamicFilter
             implements DynamicFilter
     {
-        private final Supplier<TupleDomain<ColumnHandle>> dynamicPredicateSupplier;
+        private TupleDomain<ColumnHandle> dynamicPredicate;
         private boolean complete;
+        private CompletableFuture<?> blocked = new CompletableFuture<>();
 
-        public TestDynamicFilter(Supplier<TupleDomain<ColumnHandle>> dynamicPredicateSupplier, boolean complete)
+        public TestDynamicFilter(TupleDomain<ColumnHandle> dynamicPredicate, boolean complete)
         {
-            this.dynamicPredicateSupplier = dynamicPredicateSupplier;
+            this.dynamicPredicate = dynamicPredicate;
             this.complete = complete;
+        }
+
+        public void setDynamicPredicate(TupleDomain<ColumnHandle> dynamicPredicate, boolean complete)
+        {
+            checkState(!this.complete);
+            this.dynamicPredicate = dynamicPredicate;
+            this.complete = complete;
+            CompletableFuture<?> blocked = this.blocked;
+            if (!complete) {
+                this.blocked = new CompletableFuture<>();
+            }
+            blocked.complete(null);
         }
 
         @Override
@@ -379,7 +393,7 @@ public class TestCacheDriverFactory
         @Override
         public CompletableFuture<?> isBlocked()
         {
-            return NOT_BLOCKED;
+            return blocked;
         }
 
         @Override
@@ -391,13 +405,13 @@ public class TestCacheDriverFactory
         @Override
         public boolean isAwaitable()
         {
-            return false;
+            return !complete;
         }
 
         @Override
         public TupleDomain<ColumnHandle> getCurrentPredicate()
         {
-            return dynamicPredicateSupplier.get();
+            return dynamicPredicate;
         }
 
         @Override
