@@ -527,7 +527,7 @@
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                                 <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
-                                <exclude>**/TestBigQueryWithProxyConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestBigQueryWithProxyTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -596,7 +596,7 @@
                             <includes>
                                 <include>**/TestBigQueryArrowConnectorSmokeTest.java</include>
                                 <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
-                                <include>**/TestBigQueryWithProxyConnectorSmokeTest.java</include>
+                                <include>**/TestBigQueryWithProxyTest.java</include>
                                 <include>**/TestBigQueryArrowTypeMapping.java</include>
                                 <include>**/TestBigQueryAvroTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadataCaching.java</include>
