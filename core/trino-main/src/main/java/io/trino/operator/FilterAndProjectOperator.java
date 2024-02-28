@@ -51,8 +51,7 @@ public class FilterAndProjectOperator
             PageProcessor pageProcessor,
             List<Type> types,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount,
-            boolean avoidPageMaterialization)
+            int minOutputPageRowCount)
     {
         AggregatedMemoryContext localAggregatedMemoryContext = newSimpleAggregatedMemoryContext();
         LocalMemoryContext outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(FilterAndProjectOperator.class.getSimpleName());
@@ -64,8 +63,7 @@ public class FilterAndProjectOperator
                         yieldSignal,
                         outputMemoryContext,
                         metrics,
-                        page,
-                        avoidPageMaterialization))
+                        page))
                 .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                 .blocking(() -> memoryTrackingContext.localUserMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
     }
@@ -138,8 +136,7 @@ public class FilterAndProjectOperator
                     processor.get(),
                     types,
                     minOutputPageSize,
-                    minOutputPageRowCount,
-                    true);
+                    minOutputPageRowCount);
         }
 
         @Override
@@ -154,8 +151,7 @@ public class FilterAndProjectOperator
                     processor.get(),
                     types,
                     minOutputPageSize,
-                    minOutputPageRowCount,
-                    false);
+                    minOutputPageRowCount);
         }
 
         @Override

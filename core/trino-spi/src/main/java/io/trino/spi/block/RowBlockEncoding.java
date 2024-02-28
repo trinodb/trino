@@ -17,7 +17,7 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static io.trino.spi.block.RowBlock.createRowBlockInternal;
+import java.util.Optional;
 
 public class RowBlockEncoding
         implements BlockEncoding
@@ -33,62 +33,31 @@ public class RowBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        AbstractRowBlock rowBlock = (AbstractRowBlock) block;
-        int[] fieldBlockOffsets = rowBlock.getFieldBlockOffsets();
+        RowBlock rowBlock = (RowBlock) block;
 
-        int numFields = rowBlock.numFields;
+        sliceOutput.appendInt(rowBlock.getPositionCount());
 
-        int positionCount = rowBlock.getPositionCount();
-
-        int offsetBase = rowBlock.getOffsetBase();
-
-        int startFieldBlockOffset = fieldBlockOffsets != null ? fieldBlockOffsets[offsetBase] : offsetBase;
-        int endFieldBlockOffset = fieldBlockOffsets != null ? fieldBlockOffsets[offsetBase + positionCount] : offsetBase + positionCount;
-
-        sliceOutput.appendInt(numFields);
-        sliceOutput.appendInt(positionCount);
-
-        for (int i = 0; i < numFields; i++) {
-            blockEncodingSerde.writeBlock(sliceOutput, rowBlock.getRawFieldBlocks()[i].getRegion(startFieldBlockOffset, endFieldBlockOffset - startFieldBlockOffset));
+        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
+        sliceOutput.appendInt(rawFieldBlocks.length);
+        for (Block rawFieldBlock : rawFieldBlocks) {
+            blockEncodingSerde.writeBlock(sliceOutput, rawFieldBlock);
         }
 
         EncoderUtil.encodeNullsAsBits(sliceOutput, block);
-
-        if ((rowBlock.getRowIsNull() == null) != (fieldBlockOffsets == null)) {
-            throw new IllegalArgumentException("When rowIsNull is (non) null then fieldBlockOffsets should be (non) null as well");
-        }
-
-        if (fieldBlockOffsets != null) {
-            if (startFieldBlockOffset == 0) {
-                sliceOutput.writeInts(fieldBlockOffsets, offsetBase, positionCount + 1);
-            }
-            else {
-                int[] newFieldBlockOffsets = new int[positionCount + 1];
-                for (int position = 0; position < positionCount + 1; position++) {
-                    newFieldBlockOffsets[position] = fieldBlockOffsets[offsetBase + position] - startFieldBlockOffset;
-                }
-                sliceOutput.writeInts(newFieldBlockOffsets);
-            }
-        }
     }
 
     @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        int numFields = sliceInput.readInt();
         int positionCount = sliceInput.readInt();
 
+        int numFields = sliceInput.readInt();
         Block[] fieldBlocks = new Block[numFields];
         for (int i = 0; i < numFields; i++) {
             fieldBlocks[i] = blockEncodingSerde.readBlock(sliceInput);
         }
 
-        boolean[] rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount).orElse(null);
-        int[] fieldBlockOffsets = null;
-        if (rowIsNull != null) {
-            fieldBlockOffsets = new int[positionCount + 1];
-            sliceInput.readInts(fieldBlockOffsets);
-        }
-        return createRowBlockInternal(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
+        Optional<boolean[]> rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
+        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsNull, fieldBlocks);
     }
 }

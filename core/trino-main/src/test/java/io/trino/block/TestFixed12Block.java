@@ -18,13 +18,12 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.Fixed12BlockBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.block.Fixed12Block.FIXED12_BYTES;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFixed12Block
         extends AbstractTestBlock
@@ -52,16 +51,16 @@ public class TestFixed12Block
         Fixed12BlockBuilder emptyBlockBuilder = new Fixed12BlockBuilder(null, 0);
 
         Fixed12BlockBuilder blockBuilder = new Fixed12BlockBuilder(null, expectedValues.length);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
         writeValues(expectedValues, blockBuilder);
-        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
-        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
+        assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
         blockBuilder = (Fixed12BlockBuilder) blockBuilder.newBlockBuilderLike(null);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
     @Test
@@ -85,14 +84,13 @@ public class TestFixed12Block
 
         testCompactBlock(new Fixed12Block(0, Optional.empty(), new int[0]));
         testCompactBlock(new Fixed12Block(valueIsNull.length, Optional.of(valueIsNull), intArray));
-        testIncompactBlock(new Fixed12Block(valueIsNull.length - 2, Optional.of(valueIsNull), intArray));
+        testNotCompactBlock(new Fixed12Block(valueIsNull.length - 2, Optional.of(valueIsNull), intArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)
     {
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        Block block = createBlockBuilderWithValues(expectedValues).build();
+        assertBlock(block, expectedValues);
     }
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
@@ -126,45 +124,16 @@ public class TestFixed12Block
     }
 
     @Override
-    protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
-        assertEquals(block.getLong(position, 0), expectedBytes.getLong(0));
-        assertEquals(block.getInt(position, 8), expectedBytes.getInt(8));
-    }
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
 
-    @Override
-    protected boolean isByteAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isShortAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isIntAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isLongAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isAlignedLongAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isSliceAccessSupported()
-    {
-        return false;
+        Fixed12Block fixed12Block = (Fixed12Block) block;
+        Slice expectedBytes = (Slice) expectedValue;
+        assertThat(fixed12Block.getFixed12First(position)).isEqualTo(expectedBytes.getLong(0));
+        assertThat(fixed12Block.getFixed12Second(position)).isEqualTo(expectedBytes.getInt(8));
     }
 }

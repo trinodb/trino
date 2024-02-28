@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.hive.orc;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.orc.OrcWriterOptions;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import java.util.Properties;
+import java.util.Map;
 
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -27,8 +27,8 @@ import static io.trino.orc.OrcWriterOptions.WriterIdentification.TRINO;
 import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.hive.util.HiveUtil.getOrcWriterOptions;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOrcWriterOptions
 {
@@ -77,9 +77,10 @@ public class TestOrcWriterOptions
     @Test
     public void testOrcWriterOptionsFromTableProperties()
     {
-        Properties tableProperties = new Properties();
-        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_a, column_b");
-        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, "0.5");
+        Map<String, String> tableProperties = ImmutableMap.<String, String>builder()
+                .put(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_a, column_b")
+                .put(ORC_BLOOM_FILTER_FPP_KEY, "0.5")
+                .buildOrThrow();
         OrcWriterOptions orcWriterOptions = getOrcWriterOptions(tableProperties, new OrcWriterOptions());
         assertThat(orcWriterOptions.getBloomFilterFpp()).isEqualTo(0.5);
         assertThat(orcWriterOptions.isBloomFilterColumn("column_a")).isTrue();
@@ -90,31 +91,39 @@ public class TestOrcWriterOptions
     @Test
     public void testOrcWriterOptionsWithInvalidFPPValue()
     {
-        Properties tableProperties = new Properties();
-        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter");
-        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, "abc");
+        Map<String, String> tableProperties = createTablePropertiesWithFpp("abc");
         assertThatThrownBy(() -> getOrcWriterOptions(tableProperties, new OrcWriterOptions()))
                 .hasMessage("Invalid value for orc_bloom_filter_fpp property: abc");
     }
 
-    @Test(dataProvider = "invalidBloomFilterFpp")
-    public void testOrcBloomFilterWithInvalidRange(String fpp)
+    @Test
+    public void testOrcBloomFilterWithInvalidRange()
     {
-        Properties tableProperties = new Properties();
-        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter");
-        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, fpp);
-        assertThatThrownBy(() -> getOrcWriterOptions(tableProperties, new OrcWriterOptions()))
+        assertThatThrownBy(() -> getOrcWriterOptions(createTablePropertiesWithFpp("100"), new OrcWriterOptions()))
+                .hasMessage("bloomFilterFpp should be > 0.0 & < 1.0");
+        assertThatThrownBy(() -> getOrcWriterOptions(createTablePropertiesWithFpp("-100"), new OrcWriterOptions()))
+                .hasMessage("bloomFilterFpp should be > 0.0 & < 1.0");
+        assertThatThrownBy(() -> getOrcWriterOptions(createTablePropertiesWithFpp("0"), new OrcWriterOptions()))
+                .hasMessage("bloomFilterFpp should be > 0.0 & < 1.0");
+        assertThatThrownBy(() -> getOrcWriterOptions(createTablePropertiesWithFpp("1"), new OrcWriterOptions()))
                 .hasMessage("bloomFilterFpp should be > 0.0 & < 1.0");
     }
 
-    @DataProvider
-    public Object[][] invalidBloomFilterFpp()
+    private static Map<String, String> createTablePropertiesWithFpp(String fpp)
     {
-        return new Object[][]{
-                {"100"},
-                {"-100"},
-                {"0"},
-                {"1"}
-        };
+        return ImmutableMap.<String, String>builder()
+                .put(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter")
+                .put(ORC_BLOOM_FILTER_FPP_KEY, fpp)
+                .buildOrThrow();
+    }
+
+    @Test
+    public void testOrcWriterOptionsWithMissingFPPValue()
+    {
+        Map<String, String> tableProperties = ImmutableMap.<String, String>builder()
+                .put(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter")
+                .buildOrThrow();
+        OrcWriterOptions orcWriterOptions = getOrcWriterOptions(tableProperties, new OrcWriterOptions());
+        assertThat(orcWriterOptions.getBloomFilterFpp()).isEqualTo(0.05);
     }
 }

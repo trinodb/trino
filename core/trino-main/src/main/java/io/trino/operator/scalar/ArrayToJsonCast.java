@@ -54,9 +54,8 @@ public class ArrayToJsonCast
 
     private ArrayToJsonCast()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .operatorType(CAST)
                         .castableToTypeParameter("T", JSON.getTypeSignature())
                         .returnType(JSON)
                         .argumentType(arrayType(new TypeSignature("T")))

@@ -20,11 +20,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.connector.CatalogProperties;
 import io.trino.cost.StatsAndCosts;
+import io.trino.metadata.LanguageScalarFunctionData;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 import java.util.Map;
@@ -52,7 +54,9 @@ public class PlanFragment
     private final PartitioningScheme outputPartitioningScheme;
     private final StatsAndCosts statsAndCosts;
     private final List<CatalogProperties> activeCatalogs;
+    private final List<LanguageScalarFunctionData> languageFunctions;
     private final Optional<String> jsonRepresentation;
+    private final boolean containsTableScanNode;
 
     // Only for creating instances without the JSON representation embedded
     private PlanFragment(
@@ -68,7 +72,8 @@ public class PlanFragment
             List<RemoteSourceNode> remoteSourceNodes,
             PartitioningScheme outputPartitioningScheme,
             StatsAndCosts statsAndCosts,
-            List<CatalogProperties> activeCatalogs)
+            List<CatalogProperties> activeCatalogs,
+            List<LanguageScalarFunctionData> languageFunctions)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -83,7 +88,9 @@ public class PlanFragment
         this.outputPartitioningScheme = requireNonNull(outputPartitioningScheme, "outputPartitioningScheme is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
+        this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
         this.jsonRepresentation = Optional.empty();
+        this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(TableScanNode.class::isInstance);
     }
 
     @JsonCreator
@@ -97,6 +104,7 @@ public class PlanFragment
             @JsonProperty("outputPartitioningScheme") PartitioningScheme outputPartitioningScheme,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
             @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
+            @JsonProperty("languageFunctions") List<LanguageScalarFunctionData> languageFunctions,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
@@ -108,6 +116,7 @@ public class PlanFragment
         this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
+        this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
         checkArgument(
@@ -129,6 +138,7 @@ public class PlanFragment
         this.remoteSourceNodes = remoteSourceNodes.build();
 
         this.outputPartitioningScheme = requireNonNull(outputPartitioningScheme, "partitioningScheme is null");
+        this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(TableScanNode.class::isInstance);
     }
 
     @JsonProperty
@@ -191,6 +201,12 @@ public class PlanFragment
     }
 
     @JsonProperty
+    public List<LanguageScalarFunctionData> getLanguageFunctions()
+    {
+        return languageFunctions;
+    }
+
+    @JsonProperty
     public Optional<String> getJsonRepresentation()
     {
         // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
@@ -216,7 +232,8 @@ public class PlanFragment
                 this.remoteSourceNodes,
                 this.outputPartitioningScheme,
                 this.statsAndCosts,
-                this.activeCatalogs);
+                this.activeCatalogs,
+                this.languageFunctions);
     }
 
     public List<Type> getTypes()
@@ -270,7 +287,18 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionCount, partitionedSources, outputPartitioningScheme.withBucketToPartition(bucketToPartition), statsAndCosts, activeCatalogs, jsonRepresentation);
+        return new PlanFragment(
+                id,
+                root,
+                symbols,
+                partitioning,
+                partitionCount,
+                partitionedSources,
+                outputPartitioningScheme.withBucketToPartition(bucketToPartition),
+                statsAndCosts,
+                activeCatalogs,
+                languageFunctions,
+                jsonRepresentation);
     }
 
     @Override
@@ -297,6 +325,7 @@ public class PlanFragment
                 this.outputPartitioningScheme,
                 this.statsAndCosts,
                 this.activeCatalogs,
+                this.languageFunctions,
                 this.jsonRepresentation);
     }
 
@@ -312,6 +341,7 @@ public class PlanFragment
                 outputPartitioningScheme,
                 this.statsAndCosts,
                 this.activeCatalogs,
+                this.languageFunctions,
                 this.jsonRepresentation);
     }
 
@@ -327,6 +357,28 @@ public class PlanFragment
                 this.outputPartitioningScheme,
                 this.statsAndCosts,
                 this.activeCatalogs,
+                this.languageFunctions,
                 this.jsonRepresentation);
+    }
+
+    public PlanFragment withActiveCatalogs(List<CatalogProperties> activeCatalogs)
+    {
+        return new PlanFragment(
+                this.id,
+                this.root,
+                this.symbols,
+                this.partitioning,
+                this.partitionCount,
+                this.partitionedSources,
+                this.outputPartitioningScheme,
+                this.statsAndCosts,
+                activeCatalogs,
+                this.languageFunctions,
+                this.jsonRepresentation);
+    }
+
+    public boolean containsTableScanNode()
+    {
+        return containsTableScanNode;
     }
 }

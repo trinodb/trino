@@ -15,25 +15,24 @@ package io.trino.sql.query;
 
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.scalar.TestStringFunctions;
-import io.trino.spi.TrinoException;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTrim
 {
-    private QueryAssertions assertions;
+    private final QueryAssertions assertions;
 
-    @BeforeAll
-    public void init()
+    public TestTrim()
     {
         assertions = new QueryAssertions();
         assertions.addFunctions(InternalFunctionBundle.builder()
@@ -45,7 +44,6 @@ public class TestTrim
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -330,10 +328,9 @@ public class TestTrim
 
     private void assertInvalidFunction(@Language("SQL") String actual, String message)
     {
-        assertThatThrownBy(() -> assertions.query("SELECT " + actual))
-                .isInstanceOf(TrinoException.class)
+        assertThat(assertions.query("SELECT " + actual))
+                .failure()
                 .hasMessage(message)
-                .extracting(e -> ((TrinoException) e).getErrorCode().getCode())
-                .isEqualTo(INVALID_FUNCTION_ARGUMENT.toErrorCode().getCode());
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

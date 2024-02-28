@@ -30,7 +30,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -47,7 +47,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
 
@@ -87,21 +87,22 @@ public class TestRemoveEmptyUnionBranches
                                     .collect(toImmutableList()),
                             Optional.empty(),
                             Optional.empty(),
-                            true));
+                            true,
+                            ImmutableList.of()));
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(
+        PlanTester planTester = PlanTester.create(
                 testSessionBuilder()
                         .setCatalog(CATALOG_NAME)
                         .setSchema(SCHEMA_NAME)
                         .build());
-        queryRunner.createCatalog(
+        planTester.createCatalog(
                 CATALOG_NAME,
                 createConnectorFactory(CATALOG_NAME),
                 ImmutableMap.of());
-        return queryRunner;
+        return planTester;
     }
 
     private MockConnectorFactory createConnectorFactory(String catalogHandle)
@@ -147,6 +148,7 @@ public class TestRemoveEmptyUnionBranches
                                         new MockConnectorTableHandle(handle.getTableName(), TupleDomain.none(), Optional.empty()),
                                         constraint.getSummary()
                                                 .filter((ch, domain) -> !shouldPushdown.test(ch)),
+                                        constraint.getExpression(),
                                         false));
                     }
 
@@ -159,6 +161,7 @@ public class TestRemoveEmptyUnionBranches
                                     new MockConnectorTableHandle(handle.getTableName(), newDomain, Optional.empty()),
                                     constraint.getSummary()
                                             .filter((columnHandle, domain) -> !shouldPushdown.test(columnHandle)),
+                                    constraint.getExpression(),
                                     false));
                 }
             }

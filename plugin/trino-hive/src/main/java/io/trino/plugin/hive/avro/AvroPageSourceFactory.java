@@ -43,10 +43,10 @@ import java.util.AbstractCollection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 
@@ -56,8 +56,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
-import static io.trino.plugin.hive.HiveSessionProperties.isAvroNativeReaderEnabled;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
+import static io.trino.plugin.hive.avro.AvroHiveFileUtils.getCanonicalToGivenFieldName;
 import static io.trino.plugin.hive.avro.AvroHiveFileUtils.wrapInUnionWithNull;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
@@ -85,7 +85,7 @@ public class AvroPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
-            Properties schema,
+            Map<String, String> schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,
@@ -93,10 +93,7 @@ public class AvroPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!isAvroNativeReaderEnabled(session)) {
-            return Optional.empty();
-        }
-        else if (!AVRO_SERDE_CLASS.equals(getDeserializerClassName(schema))) {
+        if (!AVRO_SERDE_CLASS.equals(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
@@ -110,7 +107,7 @@ public class AvroPageSourceFactory
                     .collect(toImmutableList());
         }
 
-        TrinoFileSystem trinoFileSystem = trinoFileSystemFactory.create(session.getIdentity());
+        TrinoFileSystem trinoFileSystem = trinoFileSystemFactory.create(session);
         TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
         HiveTimestampPrecision hiveTimestampPrecision = getTimestampPrecision(session);
 
@@ -195,11 +192,15 @@ public class AvroPageSourceFactory
                 .record(tableSchema.getName())
                 .namespace(tableSchema.getNamespace())
                 .fields();
+        Map<String, String> lowerToGivenName = getCanonicalToGivenFieldName(tableSchema);
 
         for (String columnName : maskedColumns) {
             Schema.Field field = tableSchema.getField(columnName);
             if (Objects.isNull(field)) {
-                continue;
+                if (!lowerToGivenName.containsKey(columnName)) {
+                    throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Unable to find column %s in table Avro schema %s".formatted(columnName, tableSchema.getFullName()));
+                }
+                field = tableSchema.getField(lowerToGivenName.get(columnName));
             }
             if (field.hasDefaultValue()) {
                 try {

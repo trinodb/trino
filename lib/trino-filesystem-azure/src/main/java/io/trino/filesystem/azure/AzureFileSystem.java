@@ -15,6 +15,8 @@ package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
 import com.azure.core.http.rest.PagedIterable;
+import com.azure.core.util.ClientOptions;
+import com.azure.core.util.TracingOptions;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
@@ -33,6 +35,7 @@ import com.azure.storage.file.datalake.models.DataLakeStorageException;
 import com.azure.storage.file.datalake.models.ListPathsOptions;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.options.DataLakePathDeleteOptions;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -44,27 +47,40 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.azure.storage.common.implementation.Constants.HeaderConstants.ETAG_WILDCARD;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
+import static io.trino.filesystem.azure.AzureUtils.isFileNotFoundException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.function.Predicate.not;
 
 public class AzureFileSystem
         implements TrinoFileSystem
 {
     private final HttpClient httpClient;
+    private final TracingOptions tracingOptions;
     private final AzureAuth azureAuth;
     private final int readBlockSizeBytes;
     private final long writeBlockSizeBytes;
     private final int maxWriteConcurrency;
     private final long maxSingleUploadSizeBytes;
 
-    public AzureFileSystem(HttpClient httpClient, AzureAuth azureAuth, DataSize readBlockSize, DataSize writeBlockSize, int maxWriteConcurrency, DataSize maxSingleUploadSize)
+    public AzureFileSystem(
+            HttpClient httpClient,
+            TracingOptions tracingOptions,
+            AzureAuth azureAuth,
+            DataSize readBlockSize,
+            DataSize writeBlockSize,
+            int maxWriteConcurrency,
+            DataSize maxSingleUploadSize)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.tracingOptions = requireNonNull(tracingOptions, "tracingOptions is null");
         this.azureAuth = requireNonNull(azureAuth, "azureAuth is null");
         this.readBlockSizeBytes = toIntExact(readBlockSize.toBytes());
         this.writeBlockSizeBytes = writeBlockSize.toBytes();
@@ -108,6 +124,9 @@ public class AzureFileSystem
             client.delete();
         }
         catch (RuntimeException e) {
+            if (isFileNotFoundException(e)) {
+                return;
+            }
             throw handleAzureException(e, "deleting file", azureLocation);
         }
     }
@@ -220,13 +239,10 @@ public class AzureFileSystem
     {
         AzureLocation azureLocation = new AzureLocation(location);
         try {
-            // blob api returns directories as blobs, so it can not be used when Gen2 is enabled
-            if (isHierarchicalNamespaceEnabled(azureLocation)) {
-                return listGen2Files(azureLocation);
-            }
-            else {
-                return listBlobFiles(azureLocation);
-            }
+            // blob API returns directories as blobs, so it cannot be used when Gen2 is enabled
+            return isHierarchicalNamespaceEnabled(azureLocation)
+                    ? listGen2Files(azureLocation)
+                    : listBlobFiles(azureLocation);
         }
         catch (RuntimeException e) {
             throw handleAzureException(e, "listing files", azureLocation);
@@ -258,7 +274,7 @@ public class AzureFileSystem
                         .iterator());
     }
 
-    private AzureBlobFileIterator listBlobFiles(AzureLocation location)
+    private FileIterator listBlobFiles(AzureLocation location)
     {
         String path = location.path();
         if (!path.isEmpty() && !path.endsWith("/")) {
@@ -354,6 +370,89 @@ public class AzureFileSystem
         }
     }
 
+    @Override
+    public Set<Location> listDirectories(Location location)
+            throws IOException
+    {
+        AzureLocation azureLocation = new AzureLocation(location);
+        try {
+            // blob API returns directories as blobs, so it cannot be used when Gen2 is enabled
+            return isHierarchicalNamespaceEnabled(azureLocation)
+                    ? listGen2Directories(azureLocation)
+                    : listBlobDirectories(azureLocation);
+        }
+        catch (RuntimeException e) {
+            throw handleAzureException(e, "listing files", azureLocation);
+        }
+    }
+
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+            throws IOException
+    {
+        AzureLocation azureLocation = new AzureLocation(targetPath);
+        if (!isHierarchicalNamespaceEnabled(azureLocation)) {
+            return Optional.empty();
+        }
+
+        // allow for absolute or relative temporary prefix
+        Location temporary;
+        if (temporaryPrefix.startsWith("/")) {
+            String prefix = temporaryPrefix;
+            while (prefix.startsWith("/")) {
+                prefix = prefix.substring(1);
+            }
+            temporary = azureLocation.baseLocation().appendPath(prefix);
+        }
+        else {
+            temporary = targetPath.appendPath(temporaryPrefix);
+        }
+
+        temporary = temporary.appendPath(randomUUID().toString());
+
+        createDirectory(temporary);
+        return Optional.of(temporary);
+    }
+
+    private Set<Location> listGen2Directories(AzureLocation location)
+            throws IOException
+    {
+        DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location);
+        PagedIterable<PathItem> pathItems;
+        if (location.path().isEmpty()) {
+            pathItems = fileSystemClient.listPaths();
+        }
+        else {
+            DataLakeDirectoryClient directoryClient = fileSystemClient.getDirectoryClient(location.path());
+            if (!directoryClient.exists()) {
+                return ImmutableSet.of();
+            }
+            if (!directoryClient.getProperties().isDirectory()) {
+                throw new IOException("Location is not a directory: " + location);
+            }
+            pathItems = directoryClient.listPaths(false, false, null, null);
+        }
+        Location baseLocation = location.baseLocation();
+        return pathItems.stream()
+                .filter(PathItem::isDirectory)
+                .map(item -> baseLocation.appendPath(item.getName() + "/"))
+                .collect(toImmutableSet());
+    }
+
+    private Set<Location> listBlobDirectories(AzureLocation location)
+    {
+        String path = location.path();
+        if (!path.isEmpty() && !path.endsWith("/")) {
+            path += "/";
+        }
+        Location baseLocation = location.baseLocation();
+        return createBlobContainerClient(location)
+                .listBlobsByHierarchy(path).stream()
+                .filter(BlobItem::isPrefix)
+                .map(item -> baseLocation.appendPath(item.getName()))
+                .collect(toImmutableSet());
+    }
+
     private boolean isHierarchicalNamespaceEnabled(AzureLocation location)
             throws IOException
     {
@@ -382,6 +481,7 @@ public class AzureFileSystem
 
         BlobContainerClientBuilder builder = new BlobContainerClientBuilder()
                 .httpClient(httpClient)
+                .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint(String.format("https://%s.blob.core.windows.net", location.account()));
         azureAuth.setAuth(location.account(), builder);
         location.container().ifPresent(builder::containerName);
@@ -394,6 +494,7 @@ public class AzureFileSystem
 
         DataLakeServiceClientBuilder builder = new DataLakeServiceClientBuilder()
                 .httpClient(httpClient)
+                .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint(String.format("https://%s.dfs.core.windows.net", location.account()));
         azureAuth.setAuth(location.account(), builder);
         DataLakeServiceClient client = builder.buildClient();

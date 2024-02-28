@@ -18,18 +18,18 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.QueryError;
 import io.trino.client.StatementClient;
-import io.trino.plugin.base.security.FileBasedSystemAccessControl;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.spi.security.SystemAccessControl;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import jakarta.annotation.Nullable;
 import okhttp3.OkHttpClient;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.time.ZoneId;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
@@ -37,9 +37,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUserImpersonationAccessControl
         extends AbstractTestQueryFramework
@@ -48,11 +46,10 @@ public class TestUserImpersonationAccessControl
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        String securityConfigFile = getResource("access_control_rules.json").getPath();
-        SystemAccessControl accessControl = new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, securityConfigFile));
+        String securityConfigFile = new File(getResource("access_control_rules.json").toURI()).getPath();
         QueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
                 .setNodeCount(1)
-                .setSystemAccessControl(accessControl)
+                .setSystemAccessControl("file", Map.of(SECURITY_CONFIG_FILE, securityConfigFile))
                 .build();
 
         queryRunner.installPlugin(new TpchPlugin());
@@ -66,15 +63,15 @@ public class TestUserImpersonationAccessControl
     public void testReadAccessControl()
     {
         QueryError aliceQueryError = trySelectQuery("alice");
-        assertNull(aliceQueryError);
+        assertThat(aliceQueryError).isNull();
 
         QueryError bobQueryError = trySelectQuery("bob");
-        assertNotNull(bobQueryError);
-        assertEquals(bobQueryError.getErrorType(), "USER_ERROR");
-        assertEquals(bobQueryError.getErrorName(), "PERMISSION_DENIED");
+        assertThat(bobQueryError).isNotNull();
+        assertThat(bobQueryError.getErrorType()).isEqualTo("USER_ERROR");
+        assertThat(bobQueryError.getErrorName()).isEqualTo("PERMISSION_DENIED");
 
         QueryError charlieQueryError = trySelectQuery("charlie");
-        assertNull(charlieQueryError);
+        assertThat(charlieQueryError).isNull();
     }
 
     @Nullable

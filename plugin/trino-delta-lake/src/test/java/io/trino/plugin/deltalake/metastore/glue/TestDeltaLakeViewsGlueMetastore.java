@@ -22,8 +22,9 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -31,12 +32,13 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeViewsGlueMetastore
         extends AbstractTestQueryFramework
 {
@@ -59,12 +61,12 @@ public class TestDeltaLakeViewsGlueMetastore
                 .setSchema(SCHEMA)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("data_delta_lake_views");
         metastore = createTestMetastore(dataDirectory);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore))));
         queryRunner.createCatalog(CATALOG_NAME, "delta_lake");
 
         queryRunner.execute("CREATE SCHEMA " + SCHEMA);
@@ -80,10 +82,12 @@ public class TestDeltaLakeViewsGlueMetastore
                 TestView view = new TestView(getQueryRunner()::execute, viewName, "SELECT * FROM " + table.getName())) {
             assertQuery(format("SELECT * FROM %s", view.getName()), "VALUES 'test'");
             assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", view.getName(), SCHEMA), "VALUES 'VIEW'");
+            // Ensure all relations are being listed
+            assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name LIKE '%%%s' AND table_schema='%s'", view.getName(), SCHEMA), "VALUES 'VIEW'");
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws IOException
     {

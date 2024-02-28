@@ -13,6 +13,8 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.Experimental;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -20,6 +22,7 @@ import java.util.stream.Stream;
 import static io.trino.spi.connector.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2024-01-01")
 public record RelationColumnsMetadata(
         SchemaTableName name,
         Optional<List<ConnectorMaterializedViewDefinition.Column>> materializedViewColumns,

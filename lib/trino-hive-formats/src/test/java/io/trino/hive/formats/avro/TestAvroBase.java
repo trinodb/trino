@@ -15,7 +15,6 @@ package io.trino.hive.formats.avro;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slices;
@@ -53,10 +52,11 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.util.RandomData;
 import org.apache.avro.util.Utf8;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -82,9 +82,13 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToIntBits;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.within;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class TestAvroBase
 {
     protected static final TypeOperators TYPE_OPERATORS = new TypeOperators();
@@ -155,15 +159,15 @@ public abstract class TestAvroBase
 
         ALL_TYPES_GENERIC_RECORD = new GenericData.Record(ALL_TYPES_RECORD_SCHEMA);
         ALL_TYPES_GENERIC_RECORD.put("aBoolean", true);
-        allTypeBlocks.add(new ByteArrayBlock(1, Optional.empty(), new byte[]{1}));
+        allTypeBlocks.add(new ByteArrayBlock(1, Optional.empty(), new byte[] {1}));
         ALL_TYPES_GENERIC_RECORD.put("aInt", 42);
-        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[]{42}));
+        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[] {42}));
         ALL_TYPES_GENERIC_RECORD.put("aLong", 3400L);
-        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[]{3400L}));
+        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[] {3400L}));
         ALL_TYPES_GENERIC_RECORD.put("aFloat", 3.14f);
-        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[]{floatToIntBits(3.14f)}));
+        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[] {floatToIntBits(3.14f)}));
         ALL_TYPES_GENERIC_RECORD.put("aDouble", 9.81);
-        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[]{doubleToLongBits(9.81)}));
+        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[] {doubleToLongBits(9.81)}));
         ALL_TYPES_GENERIC_RECORD.put("aString", A_STRING_VALUE);
         allTypeBlocks.add(new VariableWidthBlock(1, Slices.utf8Slice(A_STRING_VALUE), new int[] {0, Slices.utf8Slice(A_STRING_VALUE).length()}, Optional.empty()));
         ALL_TYPES_GENERIC_RECORD.put("aBytes", A_BYTES_VALUE);
@@ -186,74 +190,7 @@ public abstract class TestAvroBase
         ALL_TYPES_PAGE = new Page(allTypeBlocks.build().toArray(Block[]::new));
     }
 
-    @DataProvider(name = "testSchemas")
-    public Object[][] testSchemaProvider()
-    {
-        return new Object[][] {
-                {
-                        SIMPLE_RECORD_SCHEMA
-                },
-                {
-                     new Schema.Parser().parse("""
-                             {
-                                "type":"record",
-                                "name":"test",
-                                "fields":[
-                                    {
-                                        "name":"a",
-                                        "type":"int"
-                                    },
-                                    {
-                                        "name":"b",
-                                        "type":["null", {
-                                            "type":"array",
-                                            "items":[""" + SIMPLE_RECORD_SCHEMA.toString() + """
-                                            , "null"]
-                                        }]
-                                    },
-                                    {
-                                        "name":"c",
-                                        "type":
-                                        {
-                                            "type":"map",
-                                            "values":{
-                                                "type":"enum",
-                                                "name":"testingEnum",
-                                                "symbols":["Apples","Bananas","Kiwi"]
-                                            }
-                                        }
-                                    }
-                                ]
-                             }
-                             """)
-                },
-                {
-                    SchemaBuilder.builder().record("level1")
-                            .fields()
-                            .name("level1Field1")
-                            .type(SchemaBuilder.record("level2")
-                                    .fields()
-                                    .name("level2Field1")
-                                    .type(SchemaBuilder.record("level3")
-                                            .fields()
-                                            .name("level3Field1")
-                                            .type(ALL_TYPES_RECORD_SCHEMA)
-                                            .noDefault()
-                                            .endRecord())
-                                    .noDefault()
-                                    .name("level2Field2")
-                                    .type().optional().type(ALL_TYPES_RECORD_SCHEMA)
-                                    .endRecord())
-                            .noDefault()
-                            .name("level1Field2")
-                            .type(ALL_TYPES_RECORD_SCHEMA)
-                            .noDefault()
-                            .endRecord()
-                }
-        };
-    }
-
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         try {
@@ -267,22 +204,81 @@ public abstract class TestAvroBase
         assertIsAllTypesPage(ALL_TYPES_PAGE);
     }
 
-    @Test(dataProvider = "testSchemas")
-    public void testSerdeCycles(Schema schema)
+    @Test
+    public void testSerdeCycles()
             throws IOException, AvroTypeException
     {
         for (AvroCompressionKind compressionKind : AvroCompressionKind.values()) {
             if (compressionKind.isSupportedLocally()) {
-                testSerdeCycles(schema, compressionKind);
+                testSerdeCycles(SIMPLE_RECORD_SCHEMA, compressionKind);
+
+                testSerdeCycles(
+                        new Schema.Parser().parse(
+                                """
+                                {
+                                   "type":"record",
+                                   "name":"test",
+                                   "fields":[
+                                       {
+                                           "name":"a",
+                                           "type":"int"
+                                       },
+                                       {
+                                           "name":"b",
+                                           "type":["null", {
+                                               "type":"array",
+                                               "items":[%s, "null"]
+                                           }]
+                                       },
+                                       {
+                                           "name":"c",
+                                           "type":
+                                           {
+                                               "type":"map",
+                                               "values":{
+                                                   "type":"enum",
+                                                   "name":"testingEnum",
+                                                   "symbols":["Apples","Bananas","Kiwi"]
+                                               }
+                                           }
+                                       }
+                                   ]
+                                }
+                                """.formatted(SIMPLE_RECORD_SCHEMA)),
+                        compressionKind);
+
+                testSerdeCycles(
+                        SchemaBuilder.builder().record("level1")
+                                .fields()
+                                .name("level1Field1")
+                                .type(SchemaBuilder.record("level2")
+                                        .fields()
+                                        .name("level2Field1")
+                                        .type(SchemaBuilder.record("level3")
+                                                .fields()
+                                                .name("level3Field1")
+                                                .type(ALL_TYPES_RECORD_SCHEMA)
+                                                .noDefault()
+                                                .endRecord())
+                                        .noDefault()
+                                        .name("level2Field2")
+                                        .type().optional().type(ALL_TYPES_RECORD_SCHEMA)
+                                        .endRecord())
+                                .noDefault()
+                                .name("level1Field2")
+                                .type(ALL_TYPES_RECORD_SCHEMA)
+                                .noDefault()
+                                .endRecord(),
+                        compressionKind);
             }
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
     {
         try {
-            trinoLocalFilesystem.deleteDirectory((Location.of("local:///")));
+            trinoLocalFilesystem.deleteDirectory(Location.of("local:///"));
             Files.deleteIfExists(tempDirectory.toAbsolutePath());
         }
         catch (IOException e) {
@@ -320,7 +316,7 @@ public abstract class TestAvroBase
                 compressionKind,
                 ImmutableMap.of(),
                 schema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                AvroTypeUtils.typeFromAvro(schema, NoOpAvroTypeManager.INSTANCE).getTypeParameters())) {
+                AvroTypeUtils.typeFromAvro(schema, NoOpAvroTypeManager.INSTANCE).getTypeParameters(), false)) {
             for (Page p : pages.build()) {
                 fileWriter.write(p);
             }
@@ -452,7 +448,7 @@ public abstract class TestAvroBase
         for (Schema.Field field : reorder(schema.getFields())) {
             if (field.schema().getType() == Schema.Type.ENUM) {
                 fieldAssembler = fieldAssembler.name(field.name())
-                        .type(Schema.createEnum(field.schema().getName(), field.schema().getDoc(), field.schema().getNamespace(), Lists.reverse(field.schema().getEnumSymbols())))
+                        .type(Schema.createEnum(field.schema().getName(), field.schema().getDoc(), field.schema().getNamespace(), field.schema().getEnumSymbols().reversed()))
                         .noDefault();
             }
             else if (field.schema().getType() == Schema.Type.UNION) {

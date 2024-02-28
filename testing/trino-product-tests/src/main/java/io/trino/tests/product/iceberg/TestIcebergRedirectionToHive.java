@@ -131,12 +131,12 @@ public class TestIcebergRedirectionToHive
     {
         String tableName = "hive_unpartitioned_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
-        String icebergTableName = "iceberg.default." + tableName;
 
         createHiveTable(hiveTableName, false);
 
         assertQueryFailure(() -> onTrino().executeQuery("TABLE iceberg.default.\"" + tableName + "$partitions\""))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table '" + icebergTableName + "$partitions' redirected to '" + hiveTableName + "$partitions', but the target table '" + hiveTableName + "$partitions' does not exist");
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table 'iceberg.default.\"" + tableName + "$partitions\"' redirected to 'hive.default.\"" + tableName + "$partitions\"', " +
+                        "but the target table 'hive.default.\"" + tableName + "$partitions\"' does not exist");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -146,12 +146,12 @@ public class TestIcebergRedirectionToHive
     {
         String tableName = "hive_invalid_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
-        String icebergTableName = "iceberg.default." + tableName;
 
         createHiveTable(hiveTableName, false);
 
         assertQueryFailure(() -> onTrino().executeQuery("TABLE iceberg.default.\"" + tableName + "$invalid\""))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table '" + icebergTableName + "$invalid' redirected to '" + hiveTableName + "$invalid', but the target table '" + hiveTableName + "$invalid' does not exist");
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table 'iceberg.default.\"" + tableName + "$invalid\"' redirected to 'hive.default.\"" + tableName + "$invalid\"', " +
+                        "but the target table 'hive.default.\"" + tableName + "$invalid\"' does not exist");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -237,6 +237,19 @@ public class TestIcebergRedirectionToHive
                 .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): " + MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateOrReplaceTable()
+    {
+        String tableName = "iceberg_create_or_replace_hive_" + randomNameSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createHiveTable(hiveTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery("CREATE OR REPLACE TABLE " + icebergTableName + " (d integer)"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + icebergTableName + "' of unsupported type already exists");
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})

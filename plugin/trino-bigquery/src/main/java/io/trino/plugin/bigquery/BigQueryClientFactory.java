@@ -32,6 +32,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class BigQueryClientFactory
 {
     private final IdentityCacheMapping identityCacheMapping;
+    private final BigQueryTypeManager typeManager;
     private final Optional<String> projectId;
     private final boolean caseInsensitiveNameMatching;
     private final ViewMaterializationCache materializationCache;
@@ -44,12 +45,14 @@ public class BigQueryClientFactory
     @Inject
     public BigQueryClientFactory(
             IdentityCacheMapping identityCacheMapping,
+            BigQueryTypeManager typeManager,
             BigQueryConfig bigQueryConfig,
             ViewMaterializationCache materializationCache,
             BigQueryLabelFactory labelFactory,
             Set<BigQueryOptionsConfigurer> optionsConfigurers)
     {
         this.identityCacheMapping = requireNonNull(identityCacheMapping, "identityCacheMapping is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         requireNonNull(bigQueryConfig, "bigQueryConfig is null");
         this.projectId = bigQueryConfig.getProjectId();
         this.caseInsensitiveNameMatching = bigQueryConfig.isCaseInsensitiveNameMatching();
@@ -72,7 +75,7 @@ public class BigQueryClientFactory
 
     protected BigQueryClient createBigQueryClient(ConnectorSession session)
     {
-        return new BigQueryClient(createBigQuery(session), labelFactory, caseInsensitiveNameMatching, materializationCache, metadataCacheTtl, projectId);
+        return new BigQueryClient(createBigQuery(session), labelFactory, typeManager, caseInsensitiveNameMatching, materializationCache, metadataCacheTtl, projectId);
     }
 
     protected BigQuery createBigQuery(ConnectorSession session)

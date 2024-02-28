@@ -37,6 +37,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Cast;
@@ -46,7 +47,6 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingTransactionHandle;
@@ -63,7 +63,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -97,11 +96,11 @@ public class TestPushPredicateIntoTableScan
     @BeforeAll
     public void setUpBeforeClass()
     {
-        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()), false);
+        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), new IrTypeAnalyzer(tester().getPlannerContext()), false);
 
         CatalogHandle catalogHandle = tester().getCurrentCatalogHandle();
-        tester().getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
-        mockCatalogHandle = tester().getQueryRunner().getCatalogHandle(MOCK_CATALOG);
+        tester().getPlanTester().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
+        mockCatalogHandle = tester().getPlanTester().getCatalogHandle(MOCK_CATALOG);
 
         TpchTableHandle nation = new TpchTableHandle("sf1", "nation", 1.0);
         nationTableHandle = new TableHandle(
@@ -217,7 +216,7 @@ public class TestPushPredicateIntoTableScan
                                         new ComparisonExpression(
                                                 EQUAL,
                                                 functionResolution
-                                                        .functionCallBuilder(QualifiedName.of("rand"))
+                                                        .functionCallBuilder("rand")
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         // non-translatable to connector expression
@@ -251,7 +250,7 @@ public class TestPushPredicateIntoTableScan
                                         new ComparisonExpression(
                                                 EQUAL,
                                                 functionResolution
-                                                        .functionCallBuilder(QualifiedName.of("rand"))
+                                                        .functionCallBuilder("rand")
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         new ComparisonExpression(
@@ -276,7 +275,7 @@ public class TestPushPredicateIntoTableScan
                         new ComparisonExpression(
                                 EQUAL,
                                 functionResolution
-                                        .functionCallBuilder(QualifiedName.of("rand"))
+                                        .functionCallBuilder("rand")
                                         .build(),
                                 new LongLiteral("42")),
                         p.tableScan(
@@ -328,7 +327,7 @@ public class TestPushPredicateIntoTableScan
                                 new ComparisonExpression(
                                         EQUAL,
                                         functionResolution
-                                                .functionCallBuilder(QualifiedName.of("rand"))
+                                                .functionCallBuilder("rand")
                                                 .build(),
                                         new LongLiteral("0"))),
                         p.tableScan(
@@ -340,7 +339,7 @@ public class TestPushPredicateIntoTableScan
                                 new ComparisonExpression(
                                         EQUAL,
                                         functionResolution
-                                                .functionCallBuilder(QualifiedName.of("rand"))
+                                                .functionCallBuilder("rand")
                                                 .build(),
                                         new LongLiteral("0")),
                                 constrainedTableScanWithTableLayout(
@@ -413,10 +412,10 @@ public class TestPushPredicateIntoTableScan
         builder
                 .withApplyFilter((session, tableHandle, constraint) -> {
                     if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED)) {
-                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_UNPARTITIONED_TABLE_HANDLE, TupleDomain.all(), false));
+                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_UNPARTITIONED_TABLE_HANDLE, TupleDomain.all(), constraint.getExpression(), false));
                     }
                     if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE)) {
-                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_PARTITIONED_TABLE_HANDLE, TupleDomain.all(), false));
+                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_PARTITIONED_TABLE_HANDLE, TupleDomain.all(), constraint.getExpression(), false));
                     }
                     return Optional.empty();
                 })

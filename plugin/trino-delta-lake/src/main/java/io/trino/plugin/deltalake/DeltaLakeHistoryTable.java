@@ -20,7 +20,6 @@ import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
-import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -49,6 +48,8 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -110,10 +111,12 @@ public class DeltaLakeHistoryTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
+        long snapshotVersion;
         try {
             // Verify the transaction log is readable
             SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(baseTableName, tableLocation, session);
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, baseTableName, tableLocation);
+            snapshotVersion = tableSnapshot.getVersion();
             transactionLogAccess.getMetadataEntry(tableSnapshot, session);
         }
         catch (IOException e) {
@@ -156,12 +159,17 @@ public class DeltaLakeHistoryTable
             return new EmptyPageSource();
         }
 
+        if (endVersionInclusive.isEmpty()) {
+            endVersionInclusive = Optional.of(snapshotVersion);
+        }
+
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            List<CommitInfoEntry> commitInfoEntries = TransactionLogTail.loadNewTail(fileSystem, tableLocation, startVersionExclusive, endVersionInclusive).getFileEntries().stream()
+            List<CommitInfoEntry> commitInfoEntries = loadNewTailBackward(fileSystem, tableLocation, startVersionExclusive, endVersionInclusive.get()).stream()
                     .map(DeltaLakeTransactionLogEntry::getCommitInfo)
                     .filter(Objects::nonNull)
-                    .collect(toImmutableList());
+                    .collect(toImmutableList())
+                    .reverse();
             return new FixedPageSource(buildPages(session, commitInfoEntries));
         }
         catch (TrinoException e) {
@@ -170,6 +178,39 @@ public class DeltaLakeHistoryTable
         catch (IOException | RuntimeException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting commit info entries from " + tableLocation, e);
         }
+    }
+
+    // Load a section of the Transaction Log JSON entries. Optionally from a given end version (inclusive) through an start version (exclusive)
+    private static List<DeltaLakeTransactionLogEntry> loadNewTailBackward(
+            TrinoFileSystem fileSystem,
+            String tableLocation,
+            Optional<Long> startVersion,
+            long endVersion)
+            throws IOException
+    {
+        ImmutableList.Builder<DeltaLakeTransactionLogEntry> entriesBuilder = ImmutableList.builder();
+        String transactionLogDir = getTransactionLogDir(tableLocation);
+
+        long version = endVersion;
+        long entryNumber = version;
+        boolean endOfHead = false;
+
+        while (!endOfHead) {
+            Optional<List<DeltaLakeTransactionLogEntry>> results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem);
+            if (results.isPresent()) {
+                entriesBuilder.addAll(results.get());
+                version = entryNumber;
+                entryNumber--;
+            }
+            else {
+                // When there is a gap in the transaction log version, indicate the end of the current head
+                endOfHead = true;
+            }
+            if ((startVersion.isPresent() && version == startVersion.get() + 1) || entryNumber < 0) {
+                endOfHead = true;
+            }
+        }
+        return entriesBuilder.build();
     }
 
     private List<Page> buildPages(ConnectorSession session, List<CommitInfoEntry> commitInfoEntries)

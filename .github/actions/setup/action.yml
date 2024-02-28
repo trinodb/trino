@@ -3,13 +3,13 @@ description: "Verify checked out commits and setup Java"
 inputs:
   java-version:
     description: "Java version to setup"
-    default: 17
+    default: 21
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: true
-  download_dependencies:
-    description: "Download all Maven dependencies so Maven can work in offline mode"
-    default: true
+  cleanup-node:
+    description: "Clean up node (true/false) to increase free disk space"
+    default: false # Disabled by default as it adds ~4 minutes of test runtime. Should be enabled case by case.
 
 runs:
   using: composite
@@ -33,7 +33,11 @@ runs:
       - name: Fetch base ref to find merge-base for GIB
         shell: bash
         run: .github/bin/git-fetch-base-ref.sh
-      - uses: actions/setup-java@v3
+      - name: Free additional disk space
+        if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
+        shell: bash
+        run: ./.github/bin/free-disk-space.sh
+      - uses: actions/setup-java@v4
         if: ${{ inputs.java-version != '' }}
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
@@ -41,7 +45,7 @@ runs:
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -50,16 +54,12 @@ runs:
       - name: Restore local Maven repo
         id: cache_restore
         if: ${{ format('{0}', inputs.cache) == 'restore' }}
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
-      - name: Fetch any missing dependencies
-        shell: bash
-        if: ${{ format('{0}', inputs.download_dependencies) == 'true' }}
-        run: ./.github/bin/download-maven-dependencies.sh
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash

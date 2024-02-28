@@ -18,7 +18,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
-import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -86,13 +86,9 @@ class ColumnStatisticsValidation
             mergedColumnStatistics = columnStatistics.merge(addMapBlock(columnarMap));
         }
         else if (type instanceof RowType) {
-            ColumnarRow columnarRow = ColumnarRow.toColumnarRow(block);
-            ImmutableList.Builder<Block> fieldsBuilder = ImmutableList.builder();
-            for (int index = 0; index < columnarRow.getFieldCount(); index++) {
-                fieldsBuilder.add(columnarRow.getField(index));
-            }
-            fields = fieldsBuilder.build();
-            mergedColumnStatistics = columnStatistics.merge(addRowBlock(columnarRow));
+            // the validation code is designed to work with null-suppressed blocks
+            fields = RowBlock.getNullSuppressedRowFieldsFromBlock(block);
+            mergedColumnStatistics = columnStatistics.merge(addRowBlock(block));
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, format("Unsupported type: %s", type));
@@ -148,7 +144,7 @@ class ColumnStatisticsValidation
         return new ColumnStatistics(nonLeafValuesCount, nonLeafValuesCount);
     }
 
-    private static ColumnStatistics addRowBlock(ColumnarRow block)
+    private static ColumnStatistics addRowBlock(Block block)
     {
         if (!block.mayHaveNull()) {
             return new ColumnStatistics(0, 0);

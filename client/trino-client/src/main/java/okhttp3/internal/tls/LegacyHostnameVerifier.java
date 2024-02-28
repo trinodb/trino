@@ -85,11 +85,11 @@ public class LegacyHostnameVerifier
     {
         // Basic sanity checks
         // Check length == 0 instead of .isEmpty() to support Java 5.
-        if ((hostName == null) || (hostName.length() == 0) || (hostName.startsWith(".")) || (hostName.endsWith(".."))) {
+        if ((hostName == null) || (hostName.length() == 0) || hostName.startsWith(".") || hostName.endsWith("..")) {
             // Invalid domain name
             return false;
         }
-        if ((pattern == null) || (pattern.length() == 0) || (pattern.startsWith(".")) || (pattern.endsWith(".."))) {
+        if ((pattern == null) || (pattern.length() == 0) || pattern.startsWith(".") || pattern.endsWith("..")) {
             // Invalid pattern/domain name
             return false;
         }
@@ -130,7 +130,7 @@ public class LegacyHostnameVerifier
         //    sub.test.example.com.
         // 3. Wildcard patterns for single-label domain names are not permitted.
 
-        if ((!pattern.startsWith("*.")) || (pattern.indexOf('*', 1) != -1)) {
+        if (!pattern.startsWith("*.") || (pattern.indexOf('*', 1) != -1)) {
             // Asterisk (*) is only permitted in the left-most domain name label and must be the only
             // character in that label
             return false;

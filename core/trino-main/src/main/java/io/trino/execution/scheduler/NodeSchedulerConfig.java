@@ -45,8 +45,8 @@ public class NodeSchedulerConfig
 
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
-    private int maxSplitsPerNode = 100;
-    private int minPendingSplitsPerTask = 10;
+    private int maxSplitsPerNode = 256;
+    private int minPendingSplitsPerTask = 16;
     private int maxAdjustedPendingSplitsWeightPerTask = 2000;
     private NodeSchedulerPolicy nodeSchedulerPolicy = NodeSchedulerPolicy.UNIFORM;
     private boolean optimizedLocalScheduling = true;

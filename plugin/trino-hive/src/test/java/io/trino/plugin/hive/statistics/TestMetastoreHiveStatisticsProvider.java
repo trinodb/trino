@@ -34,13 +34,16 @@ import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -58,20 +61,21 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDateColu
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.PartitionsRowCount;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateDataSize;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateDataSizeForPartitioningKey;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateDistinctPartitionKeys;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateDistinctValuesCount;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateNullsFraction;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateNullsFractionForPartitioningKey;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculatePartitionsRowCount;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateRange;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateRangeForPartitioningKey;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.convertPartitionValueToDouble;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.createDataColumnStatistics;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.validatePartitionStatistics;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.PartitionsRowCount;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDataSize;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDataSizeForPartitioningKey;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDistinctPartitionKeys;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDistinctValuesCount;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateNullsFraction;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateNullsFractionForPartitioningKey;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculatePartitionsRowCount;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateRange;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateRangeForPartitioningKey;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.convertPartitionValueToDouble;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.createDataColumnStatistics;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.getDistinctValuesCount;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.getPartitionsSample;
+import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.validatePartitionStatistics;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -87,7 +91,6 @@ import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestMetastoreHiveStatisticsProvider
 {
@@ -108,13 +111,13 @@ public class TestMetastoreHiveStatisticsProvider
         HivePartition p4 = partition("p1=string4/p2=4567");
         HivePartition p5 = partition("p1=string5/p2=5678");
 
-        assertEquals(getPartitionsSample(ImmutableList.of(p1), 1), ImmutableList.of(p1));
-        assertEquals(getPartitionsSample(ImmutableList.of(p1), 2), ImmutableList.of(p1));
-        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2), 2), ImmutableList.of(p1, p2));
-        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3), 2), ImmutableList.of(p1, p3));
-        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1));
-        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3));
-        assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4, p5), 3), ImmutableList.of(p1, p5, p4));
+        assertThat(getPartitionsSample(ImmutableList.of(p1), 1)).isEqualTo(ImmutableList.of(p1));
+        assertThat(getPartitionsSample(ImmutableList.of(p1), 2)).isEqualTo(ImmutableList.of(p1));
+        assertThat(getPartitionsSample(ImmutableList.of(p1, p2), 2)).isEqualTo(ImmutableList.of(p1, p2));
+        assertThat(getPartitionsSample(ImmutableList.of(p1, p2, p3), 2)).isEqualTo(ImmutableList.of(p1, p3));
+        assertThat(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1)).isEqualTo(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1));
+        assertThat(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3)).isEqualTo(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3));
+        assertThat(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4, p5), 3)).isEqualTo(ImmutableList.of(p1, p5, p4));
     }
 
     @Test
@@ -149,9 +152,9 @@ public class TestMetastoreHiveStatisticsProvider
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
-                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setTotalSizeInBytes(-1).build()))
+                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setAverageColumnLength(-1).build()))
                         .build(),
-                invalidColumnStatistics("totalSizeInBytes must be greater than or equal to zero: -1"));
+                invalidColumnStatistics("averageColumnLength must be greater than or equal to zero: -1.0"));
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
@@ -167,21 +170,9 @@ public class TestMetastoreHiveStatisticsProvider
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
-                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setDistinctValuesCount(-1).build()))
+                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setDistinctValuesWithNullCount(-1).build()))
                         .build(),
                 invalidColumnStatistics("distinctValuesCount must be greater than or equal to zero: -1"));
-        assertInvalidStatistics(
-                PartitionStatistics.builder()
-                        .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
-                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setDistinctValuesCount(1).build()))
-                        .build(),
-                invalidColumnStatistics("distinctValuesCount must be less than or equal to rowCount. distinctValuesCount: 1. rowCount: 0."));
-        assertInvalidStatistics(
-                PartitionStatistics.builder()
-                        .setBasicStatistics(new HiveBasicStatistics(0, 1, 0, 0))
-                        .setColumnStatistics(ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setDistinctValuesCount(1).setNullsCount(1).build()))
-                        .build(),
-                invalidColumnStatistics("distinctValuesCount must be less than or equal to nonNullsCount. distinctValuesCount: 1. nonNullsCount: 0."));
         assertInvalidStatistics(
                 PartitionStatistics.builder()
                         .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
@@ -274,207 +265,153 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateDistinctPartitionKeys()
     {
-        assertEquals(calculateDistinctPartitionKeys(PARTITION_COLUMN_1, ImmutableList.of()), 0);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=string1/p2=1234"))),
-                1);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234"))),
-                2);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_2,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234"))),
-                1);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_2,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string1/p2=1235"))),
-                2);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=string1/p2=1235"))),
-                1);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_2,
-                        ImmutableList.of(partition("p1=123/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=1235"))),
-                1);
-        assertEquals(
-                calculateDistinctPartitionKeys(
-                        PARTITION_COLUMN_2,
-                        ImmutableList.of(partition("p1=123/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__"))),
-                0);
+        assertThat(calculateDistinctPartitionKeys(PARTITION_COLUMN_1, ImmutableList.of())).isEqualTo(0);
+        assertThat(calculateDistinctPartitionKeys(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=string1/p2=1234")))).isEqualTo(1);
+        assertThat(calculateDistinctPartitionKeys(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234")))).isEqualTo(2);
+        assertThat(calculateDistinctPartitionKeys(
+                PARTITION_COLUMN_2,
+                ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string2/p2=1234")))).isEqualTo(1);
+        assertThat(calculateDistinctPartitionKeys(
+                PARTITION_COLUMN_2,
+                ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=string1/p2=1235")))).isEqualTo(2);
+        assertThat(calculateDistinctPartitionKeys(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=string1/p2=1235")))).isEqualTo(1);
+        assertThat(calculateDistinctPartitionKeys(
+                PARTITION_COLUMN_2,
+                ImmutableList.of(partition("p1=123/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=1235")))).isEqualTo(1);
+        assertThat(calculateDistinctPartitionKeys(
+                PARTITION_COLUMN_2,
+                ImmutableList.of(partition("p1=123/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__")))).isEqualTo(0);
     }
 
     @Test
     public void testCalculateNullsFractionForPartitioningKey()
     {
-        assertEquals(
-                calculateNullsFractionForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=string1/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
-                        2000,
-                        0),
-                0.0);
-        assertEquals(
-                calculateNullsFractionForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=string1/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
-                        2000,
-                        4000),
-                0.0);
-        assertEquals(
-                calculateNullsFractionForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234")),
-                        ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", rowsCount(1000)),
-                        2000,
-                        4000),
-                0.25);
-        assertEquals(
-                calculateNullsFractionForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234")),
-                        ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", PartitionStatistics.empty()),
-                        2000,
-                        4000),
-                0.5);
-        assertEquals(
-                calculateNullsFractionForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234")),
-                        ImmutableMap.of(),
-                        2000,
-                        4000),
-                0.5);
-        assertEquals(
-                calculateNullsFractionForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=__HIVE_DEFAULT_PARTITION__/p2=4321")),
-                        ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", rowsCount(1000), "p1=__HIVE_DEFAULT_PARTITION__/p2=4321", rowsCount(2000)),
-                        3000,
-                        4000),
-                0.75);
-        assertEquals(
-                calculateNullsFractionForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=__HIVE_DEFAULT_PARTITION__/p2=4321")),
-                        ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", rowsCount(1000), "p1=__HIVE_DEFAULT_PARTITION__/p2=4321", PartitionStatistics.empty()),
-                        3000,
-                        4000),
-                1.0);
-        assertEquals(
-                calculateNullsFractionForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=__HIVE_DEFAULT_PARTITION__/p2=4321")),
-                        ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", rowsCount(1000), "p1=__HIVE_DEFAULT_PARTITION__/p2=4321", PartitionStatistics.empty()),
-                        4000,
-                        4000),
-                1.0);
+        assertThat(calculateNullsFractionForPartitioningKey(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=string1/p2=1234")),
+                ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
+                2000,
+                0)).isEqualTo(0.0);
+        assertThat(calculateNullsFractionForPartitioningKey(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=string1/p2=1234")),
+                ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
+                2000,
+                4000)).isEqualTo(0.0);
+        assertThat(calculateNullsFractionForPartitioningKey(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234")),
+                ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", rowsCount(1000)),
+                2000,
+                4000)).isEqualTo(0.25);
+        assertThat(calculateNullsFractionForPartitioningKey(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234")),
+                ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", PartitionStatistics.empty()),
+                2000,
+                4000)).isEqualTo(0.5);
+        assertThat(calculateNullsFractionForPartitioningKey(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234")),
+                ImmutableMap.of(),
+                2000,
+                4000)).isEqualTo(0.5);
+        assertThat(calculateNullsFractionForPartitioningKey(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=__HIVE_DEFAULT_PARTITION__/p2=4321")),
+                ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", rowsCount(1000), "p1=__HIVE_DEFAULT_PARTITION__/p2=4321", rowsCount(2000)),
+                3000,
+                4000)).isEqualTo(0.75);
+        assertThat(calculateNullsFractionForPartitioningKey(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=__HIVE_DEFAULT_PARTITION__/p2=4321")),
+                ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", rowsCount(1000), "p1=__HIVE_DEFAULT_PARTITION__/p2=4321", PartitionStatistics.empty()),
+                3000,
+                4000)).isEqualTo(1.0);
+        assertThat(calculateNullsFractionForPartitioningKey(
+                PARTITION_COLUMN_1,
+                ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=__HIVE_DEFAULT_PARTITION__/p2=4321")),
+                ImmutableMap.of("p1=__HIVE_DEFAULT_PARTITION__/p2=1234", rowsCount(1000), "p1=__HIVE_DEFAULT_PARTITION__/p2=4321", PartitionStatistics.empty()),
+                4000,
+                4000)).isEqualTo(1.0);
     }
 
     @Test
     public void testCalculateDataSizeForPartitioningKey()
     {
-        assertEquals(
-                calculateDataSizeForPartitioningKey(
-                        PARTITION_COLUMN_2,
-                        BIGINT,
-                        ImmutableList.of(partition("p1=string1/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
-                        2000),
-                Estimate.unknown());
-        assertEquals(
-                calculateDataSizeForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        VARCHAR,
-                        ImmutableList.of(partition("p1=string1/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
-                        2000),
-                Estimate.of(7000));
-        assertEquals(
-                calculateDataSizeForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        VARCHAR,
-                        ImmutableList.of(partition("p1=string1/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", PartitionStatistics.empty()),
-                        2000),
-                Estimate.of(14000));
-        assertEquals(
-                calculateDataSizeForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        VARCHAR,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=str2/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000), "p1=str2/p2=1234", rowsCount(2000)),
-                        3000),
-                Estimate.of(15000));
-        assertEquals(
-                calculateDataSizeForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        VARCHAR,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=str2/p2=1234")),
-                        ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000), "p1=str2/p2=1234", PartitionStatistics.empty()),
-                        3000),
-                Estimate.of(19000));
-        assertEquals(
-                calculateDataSizeForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        VARCHAR,
-                        ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=str2/p2=1234")),
-                        ImmutableMap.of(),
-                        3000),
-                Estimate.of(33000));
-        assertEquals(
-                calculateDataSizeForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        VARCHAR,
-                        ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=str2/p2=1234")),
-                        ImmutableMap.of(),
-                        3000),
-                Estimate.of(12000));
+        assertThat(calculateDataSizeForPartitioningKey(
+                PARTITION_COLUMN_2,
+                BIGINT,
+                ImmutableList.of(partition("p1=string1/p2=1234")),
+                ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
+                2000)).isEqualTo(Estimate.unknown());
+        assertThat(calculateDataSizeForPartitioningKey(
+                PARTITION_COLUMN_1,
+                VARCHAR,
+                ImmutableList.of(partition("p1=string1/p2=1234")),
+                ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000)),
+                2000)).isEqualTo(Estimate.of(7000));
+        assertThat(calculateDataSizeForPartitioningKey(
+                PARTITION_COLUMN_1,
+                VARCHAR,
+                ImmutableList.of(partition("p1=string1/p2=1234")),
+                ImmutableMap.of("p1=string1/p2=1234", PartitionStatistics.empty()),
+                2000)).isEqualTo(Estimate.of(14000));
+        assertThat(calculateDataSizeForPartitioningKey(
+                PARTITION_COLUMN_1,
+                VARCHAR,
+                ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=str2/p2=1234")),
+                ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000), "p1=str2/p2=1234", rowsCount(2000)),
+                3000)).isEqualTo(Estimate.of(15000));
+        assertThat(calculateDataSizeForPartitioningKey(
+                PARTITION_COLUMN_1,
+                VARCHAR,
+                ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=str2/p2=1234")),
+                ImmutableMap.of("p1=string1/p2=1234", rowsCount(1000), "p1=str2/p2=1234", PartitionStatistics.empty()),
+                3000)).isEqualTo(Estimate.of(19000));
+        assertThat(calculateDataSizeForPartitioningKey(
+                PARTITION_COLUMN_1,
+                VARCHAR,
+                ImmutableList.of(partition("p1=string1/p2=1234"), partition("p1=str2/p2=1234")),
+                ImmutableMap.of(),
+                3000)).isEqualTo(Estimate.of(33000));
+        assertThat(calculateDataSizeForPartitioningKey(
+                PARTITION_COLUMN_1,
+                VARCHAR,
+                ImmutableList.of(partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1234"), partition("p1=str2/p2=1234")),
+                ImmutableMap.of(),
+                3000)).isEqualTo(Estimate.of(12000));
     }
 
     @Test
     public void testCalculateRangeForPartitioningKey()
     {
-        assertEquals(
-                calculateRangeForPartitioningKey(
-                        PARTITION_COLUMN_1,
-                        VARCHAR,
-                        ImmutableList.of(partition("p1=string1/p2=1234"))),
-                Optional.empty());
-        assertEquals(
-                calculateRangeForPartitioningKey(
-                        PARTITION_COLUMN_2,
-                        BIGINT,
-                        ImmutableList.of(partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__"))),
-                Optional.empty());
-        assertEquals(
-                calculateRangeForPartitioningKey(
-                        PARTITION_COLUMN_2,
-                        BIGINT,
-                        ImmutableList.of(partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__"))),
-                Optional.empty());
-        assertEquals(
-                calculateRangeForPartitioningKey(
-                        PARTITION_COLUMN_2,
-                        BIGINT,
-                        ImmutableList.of(partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=1"))),
-                Optional.of(new DoubleRange(1, 1)));
-        assertEquals(
-                calculateRangeForPartitioningKey(
-                        PARTITION_COLUMN_2,
-                        BIGINT,
-                        ImmutableList.of(partition("p1=string1/p2=2"), partition("p1=string1/p2=1"))),
-                Optional.of(new DoubleRange(1, 2)));
+        assertThat(calculateRangeForPartitioningKey(
+                PARTITION_COLUMN_1,
+                VARCHAR,
+                ImmutableList.of(partition("p1=string1/p2=1234")))).isEqualTo(Optional.empty());
+        assertThat(calculateRangeForPartitioningKey(
+                PARTITION_COLUMN_2,
+                BIGINT,
+                ImmutableList.of(partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__")))).isEqualTo(Optional.empty());
+        assertThat(calculateRangeForPartitioningKey(
+                PARTITION_COLUMN_2,
+                BIGINT,
+                ImmutableList.of(partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__")))).isEqualTo(Optional.empty());
+        assertThat(calculateRangeForPartitioningKey(
+                PARTITION_COLUMN_2,
+                BIGINT,
+                ImmutableList.of(partition("p1=string1/p2=__HIVE_DEFAULT_PARTITION__"), partition("p1=string1/p2=1")))).isEqualTo(Optional.of(new DoubleRange(1, 1)));
+        assertThat(calculateRangeForPartitioningKey(
+                PARTITION_COLUMN_2,
+                BIGINT,
+                ImmutableList.of(partition("p1=string1/p2=2"), partition("p1=string1/p2=1")))).isEqualTo(Optional.of(new DoubleRange(1, 2)));
     }
 
     @Test
@@ -494,143 +431,184 @@ public class TestMetastoreHiveStatisticsProvider
     private static void assertConvertPartitionValueToDouble(Type type, String value, double expected)
     {
         Object trinoValue = parsePartitionValue(format("p=%s", value), value, type).getValue();
-        assertEquals(convertPartitionValueToDouble(type, trinoValue), OptionalDouble.of(expected));
+        assertThat(convertPartitionValueToDouble(type, trinoValue)).isEqualTo(OptionalDouble.of(expected));
     }
 
     @Test
     public void testCreateDataColumnStatistics()
     {
-        assertEquals(createDataColumnStatistics(COLUMN, BIGINT, 1000, ImmutableList.of()), ColumnStatistics.empty());
-        assertEquals(
-                createDataColumnStatistics(COLUMN, BIGINT, 1000, ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty())),
-                ColumnStatistics.empty());
-        assertEquals(
-                createDataColumnStatistics(
-                        COLUMN,
-                        BIGINT,
-                        1000,
-                        ImmutableList.of(new PartitionStatistics(HiveBasicStatistics.createZeroStatistics(), ImmutableMap.of("column2", HiveColumnStatistics.empty())))),
-                ColumnStatistics.empty());
+        assertThat(createDataColumnStatistics(COLUMN, BIGINT, 1000, ImmutableList.of())).isEqualTo(ColumnStatistics.empty());
+        assertThat(createDataColumnStatistics(COLUMN, BIGINT, 1000, ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty()))).isEqualTo(ColumnStatistics.empty());
+        assertThat(createDataColumnStatistics(
+                COLUMN,
+                BIGINT,
+                1000,
+                ImmutableList.of(new PartitionStatistics(HiveBasicStatistics.createZeroStatistics(), ImmutableMap.of("column2", HiveColumnStatistics.empty()))))).isEqualTo(ColumnStatistics.empty());
     }
 
     @Test
     public void testCalculateDistinctValuesCount()
     {
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of()), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(HiveColumnStatistics.empty())), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(HiveColumnStatistics.empty(), HiveColumnStatistics.empty())), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1))), Estimate.of(1));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), distinctValuesCount(2))), Estimate.of(2));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), HiveColumnStatistics.empty())), Estimate.of(1));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()))), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(0), OptionalLong.empty()))), Estimate.of(1));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(10), OptionalLong.empty(), OptionalLong.empty()))), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(10), OptionalLong.of(10), OptionalLong.empty()))), Estimate.of(2));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.of(10), OptionalLong.empty()))), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()))), Estimate.of(1));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.empty()))), Estimate.of(0));
-        assertEquals(
-                calculateDistinctValuesCount(ImmutableList.of(
-                        createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()),
-                        createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(10), OptionalLong.empty()))),
-                Estimate.of(2));
+        assertThat(getDistinctValuesCount(COLUMN, PartitionStatistics.empty())).isEmpty();
+        assertThat(getDistinctValuesCount(COLUMN, distinctValuesCount(1))).hasValue(1);
+
+        // Hive includes null in distinct values count. If column has nulls, decrease distinct values count by 1.
+        assertThat(getDistinctValuesCount(
+                COLUMN,
+                new PartitionStatistics(
+                        new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(10), OptionalLong.empty(), OptionalLong.empty()),
+                        ImmutableMap.of(COLUMN, HiveColumnStatistics.builder()
+                                .setNullsCount(3)
+                                .setDistinctValuesWithNullCount(5)
+                                .build()))))
+                .hasValue(4);
+
+        // if column only has a non-null row, count should not be zero
+        assertThat(getDistinctValuesCount(
+                COLUMN,
+                new PartitionStatistics(
+                        new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(10), OptionalLong.empty(), OptionalLong.empty()),
+                        ImmutableMap.of(COLUMN, HiveColumnStatistics.builder()
+                                .setNullsCount(3)
+                                .setDistinctValuesWithNullCount(1)
+                                .build()))))
+                .hasValue(1);
+
+        // Hive may have a distinct value much larger than the row count
+        assertThat(getDistinctValuesCount(
+                COLUMN,
+                new PartitionStatistics(
+                        new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(5), OptionalLong.empty(), OptionalLong.empty()),
+                        ImmutableMap.of(COLUMN, HiveColumnStatistics.builder()
+                                .setDistinctValuesWithNullCount(10)
+                                .build()))))
+                .hasValue(5);
+        assertThat(getDistinctValuesCount(
+                COLUMN,
+                new PartitionStatistics(
+                        new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(5), OptionalLong.empty(), OptionalLong.empty()),
+                        ImmutableMap.of(COLUMN, HiveColumnStatistics.builder()
+                                .setNullsCount(3)
+                                .setDistinctValuesWithNullCount(10)
+                                .build()))))
+                .hasValue(2);
+
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()))).isEmpty();
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.of(1), OptionalLong.of(0), OptionalLong.empty()))).hasValue(1);
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.of(10), OptionalLong.empty(), OptionalLong.empty()))).isEmpty();
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.of(10), OptionalLong.of(10), OptionalLong.empty()))).hasValue(2);
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.empty(), OptionalLong.of(10), OptionalLong.empty()))).isEmpty();
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()))).hasValue(1);
+        assertThat(getDistinctValuesCount(COLUMN, booleanDistinctValuesCount(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.empty()))).hasValue(0);
+
+        assertThat(calculateDistinctValuesCount(COLUMN, ImmutableList.of())).isEqualTo(Estimate.unknown());
+        assertThat(calculateDistinctValuesCount(COLUMN, ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty()))).isEqualTo(Estimate.unknown());
+        assertThat(calculateDistinctValuesCount(COLUMN, ImmutableList.of(distinctValuesCount(1), distinctValuesCount(2)))).isEqualTo(Estimate.of(2));
+        assertThat(calculateDistinctValuesCount(COLUMN, ImmutableList.of(distinctValuesCount(1), PartitionStatistics.empty()))).isEqualTo(Estimate.of(1));
+        assertThat(calculateDistinctValuesCount(COLUMN, ImmutableList.of(
+                booleanDistinctValuesCount(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()),
+                booleanDistinctValuesCount(OptionalLong.of(1), OptionalLong.of(10), OptionalLong.empty())))).isEqualTo(Estimate.of(2));
     }
 
     @Test
     public void testCalculateNullsFraction()
     {
-        assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of()), Estimate.unknown());
-        assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of(PartitionStatistics.empty())), Estimate.unknown());
-        assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCount(1000))), Estimate.unknown());
-        assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCount(1000), nullsCount(500))), Estimate.unknown());
-        assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCount(1000), nullsCount(500), rowsCountAndNullsCount(1000, 500))), Estimate.of(0.5));
-        assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCountAndNullsCount(2000, 200), rowsCountAndNullsCount(1000, 100))), Estimate.of(0.1));
-        assertEquals(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCountAndNullsCount(0, 0), rowsCountAndNullsCount(0, 0))), Estimate.of(0));
+        assertThat(calculateNullsFraction(COLUMN, ImmutableList.of())).isEqualTo(Estimate.unknown());
+        assertThat(calculateNullsFraction(COLUMN, ImmutableList.of(PartitionStatistics.empty()))).isEqualTo(Estimate.unknown());
+        assertThat(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCount(1000)))).isEqualTo(Estimate.unknown());
+        assertThat(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCount(1000), nullsCount(500)))).isEqualTo(Estimate.unknown());
+        assertThat(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCount(1000), nullsCount(500), rowsCountAndNullsCount(1000, 500)))).isEqualTo(Estimate.of(0.5));
+        assertThat(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCountAndNullsCount(2000, 200), rowsCountAndNullsCount(1000, 100)))).isEqualTo(Estimate.of(0.1));
+        assertThat(calculateNullsFraction(COLUMN, ImmutableList.of(rowsCountAndNullsCount(0, 0), rowsCountAndNullsCount(0, 0)))).isEqualTo(Estimate.of(0));
     }
 
     @Test
     public void testCalculateDataSize()
     {
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(), 0), Estimate.unknown());
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(), 1000), Estimate.unknown());
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(PartitionStatistics.empty()), 1000), Estimate.unknown());
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(rowsCount(1000)), 1000), Estimate.unknown());
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(dataSize(1000)), 1000), Estimate.unknown());
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(dataSize(1000), rowsCount(1000)), 1000), Estimate.unknown());
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(500, 1000)), 2000), Estimate.of(4000));
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(0, 0)), 2000), Estimate.unknown());
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(0, 0)), 0), Estimate.zero());
-        assertEquals(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(1000, 0)), 2000), Estimate.of(0));
-        assertEquals(
-                calculateDataSize(
-                        COLUMN,
-                        ImmutableList.of(
-                                rowsCountAndDataSize(500, 1000),
-                                rowsCountAndDataSize(1000, 5000)),
-                        5000),
-                Estimate.of(20000));
-        assertEquals(
-                calculateDataSize(
-                        COLUMN,
-                        ImmutableList.of(
-                                dataSize(1000),
-                                rowsCountAndDataSize(500, 1000),
-                                rowsCount(3000),
-                                rowsCountAndDataSize(1000, 5000)),
-                        5000),
-                Estimate.of(20000));
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(), 0)).isEqualTo(Estimate.unknown());
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(), 1000)).isEqualTo(Estimate.unknown());
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(PartitionStatistics.empty()), 1000)).isEqualTo(Estimate.unknown());
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCount(1000)), 1000)).isEqualTo(Estimate.unknown());
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(dataSize(1000)), 1000)).isEqualTo(Estimate.unknown());
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(dataSize(1000), rowsCount(1000)), 1000)).isEqualTo(Estimate.unknown());
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(500, 2)), 2000)).isEqualTo(Estimate.of(4000));
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(0, 0)), 2000)).isEqualTo(Estimate.unknown());
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(0, 0)), 0)).isEqualTo(Estimate.zero());
+        assertThat(calculateDataSize(COLUMN, ImmutableList.of(rowsCountAndDataSize(1000, 0)), 2000)).isEqualTo(Estimate.of(0));
+        assertThat(calculateDataSize(
+                COLUMN,
+                ImmutableList.of(
+                        rowsCountAndDataSize(500, 2),
+                        rowsCountAndDataSize(1000, 5)),
+                5000)).isEqualTo(Estimate.of(20000));
+        assertThat(calculateDataSize(
+                COLUMN,
+                ImmutableList.of(
+                        dataSize(1000),
+                        rowsCountAndDataSize(500, 2),
+                        rowsCount(3000),
+                        rowsCountAndDataSize(1000, 5)),
+                5000)).isEqualTo(Estimate.of(20000));
     }
 
     @Test
     public void testCalculateRange()
     {
-        assertEquals(calculateRange(VARCHAR, ImmutableList.of()), Optional.empty());
-        assertEquals(calculateRange(VARCHAR, ImmutableList.of(integerRange(OptionalLong.empty(), OptionalLong.empty()))), Optional.empty());
-        assertEquals(calculateRange(VARCHAR, ImmutableList.of(integerRange(1, 2))), Optional.empty());
-        assertEquals(calculateRange(BIGINT, ImmutableList.of(integerRange(1, 2))), Optional.of(new DoubleRange(1, 2)));
-        assertEquals(calculateRange(BIGINT, ImmutableList.of(integerRange(Long.MIN_VALUE, Long.MAX_VALUE))), Optional.of(new DoubleRange(Long.MIN_VALUE, Long.MAX_VALUE)));
-        assertEquals(calculateRange(INTEGER, ImmutableList.of(integerRange(Long.MIN_VALUE, Long.MAX_VALUE))), Optional.of(new DoubleRange(Integer.MIN_VALUE, Integer.MAX_VALUE)));
-        assertEquals(calculateRange(SMALLINT, ImmutableList.of(integerRange(Long.MIN_VALUE, Long.MAX_VALUE))), Optional.of(new DoubleRange(Short.MIN_VALUE, Short.MAX_VALUE)));
-        assertEquals(calculateRange(TINYINT, ImmutableList.of(integerRange(Long.MIN_VALUE, Long.MAX_VALUE))), Optional.of(new DoubleRange(Byte.MIN_VALUE, Byte.MAX_VALUE)));
-        assertEquals(calculateRange(BIGINT, ImmutableList.of(integerRange(1, 5), integerRange(3, 7))), Optional.of(new DoubleRange(1, 7)));
-        assertEquals(calculateRange(BIGINT, ImmutableList.of(integerRange(OptionalLong.empty(), OptionalLong.empty()), integerRange(3, 7))), Optional.of(new DoubleRange(3, 7)));
-        assertEquals(calculateRange(BIGINT, ImmutableList.of(integerRange(OptionalLong.empty(), OptionalLong.of(8)), integerRange(3, 7))), Optional.of(new DoubleRange(3, 7)));
-        assertEquals(calculateRange(DOUBLE, ImmutableList.of(integerRange(1, 2))), Optional.empty());
-        assertEquals(calculateRange(REAL, ImmutableList.of(integerRange(1, 2))), Optional.empty());
-        assertEquals(calculateRange(DOUBLE, ImmutableList.of(doubleRange(OptionalDouble.empty(), OptionalDouble.empty()))), Optional.empty());
-        assertEquals(calculateRange(DOUBLE, ImmutableList.of(doubleRange(0.1, 0.2))), Optional.of(new DoubleRange(0.1, 0.2)));
-        assertEquals(calculateRange(BIGINT, ImmutableList.of(doubleRange(0.1, 0.2))), Optional.empty());
-        assertEquals(calculateRange(DOUBLE, ImmutableList.of(doubleRange(0.1, 0.2), doubleRange(0.15, 0.25))), Optional.of(new DoubleRange(0.1, 0.25)));
-        assertEquals(calculateRange(REAL, ImmutableList.of(doubleRange(0.1, 0.2), doubleRange(0.15, 0.25))), Optional.of(new DoubleRange(0.1, 0.25)));
-        assertEquals(calculateRange(REAL, ImmutableList.of(doubleRange(OptionalDouble.empty(), OptionalDouble.of(0.2)), doubleRange(0.15, 0.25))), Optional.of(new DoubleRange(0.15, 0.25)));
-        assertEquals(calculateRange(DOUBLE, ImmutableList.of(doubleRange(NaN, 0.2))), Optional.empty());
-        assertEquals(calculateRange(DOUBLE, ImmutableList.of(doubleRange(0.1, NaN))), Optional.empty());
-        assertEquals(calculateRange(DOUBLE, ImmutableList.of(doubleRange(NaN, NaN))), Optional.empty());
-        assertEquals(calculateRange(DOUBLE, ImmutableList.of(doubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY))), Optional.of(new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)));
-        assertEquals(calculateRange(REAL, ImmutableList.of(doubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY))), Optional.of(new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)));
-        assertEquals(calculateRange(DOUBLE, ImmutableList.of(doubleRange(Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY))), Optional.of(new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)));
-        assertEquals(calculateRange(DOUBLE, ImmutableList.of(doubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), doubleRange(0.1, 0.2))), Optional.of(new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)));
-        assertEquals(calculateRange(DATE, ImmutableList.of(doubleRange(0.1, 0.2))), Optional.empty());
-        assertEquals(calculateRange(DATE, ImmutableList.of(dateRange("1970-01-01", "1970-01-02"))), Optional.of(new DoubleRange(0, 1)));
-        assertEquals(calculateRange(DATE, ImmutableList.of(dateRange(Optional.empty(), Optional.empty()))), Optional.empty());
-        assertEquals(calculateRange(DATE, ImmutableList.of(dateRange(Optional.of("1970-01-01"), Optional.empty()))), Optional.empty());
-        assertEquals(calculateRange(DATE, ImmutableList.of(dateRange("1970-01-01", "1970-01-05"), dateRange("1970-01-03", "1970-01-07"))), Optional.of(new DoubleRange(0, 6)));
-        assertEquals(calculateRange(DECIMAL, ImmutableList.of(doubleRange(0.1, 0.2))), Optional.empty());
-        assertEquals(calculateRange(DECIMAL, ImmutableList.of(decimalRange(BigDecimal.valueOf(1), BigDecimal.valueOf(5)))), Optional.of(new DoubleRange(1, 5)));
-        assertEquals(calculateRange(DECIMAL, ImmutableList.of(decimalRange(Optional.empty(), Optional.empty()))), Optional.empty());
-        assertEquals(calculateRange(DECIMAL, ImmutableList.of(decimalRange(Optional.of(BigDecimal.valueOf(1)), Optional.empty()))), Optional.empty());
-        assertEquals(calculateRange(DECIMAL, ImmutableList.of(decimalRange(BigDecimal.valueOf(1), BigDecimal.valueOf(5)), decimalRange(BigDecimal.valueOf(3), BigDecimal.valueOf(7)))), Optional.of(new DoubleRange(1, 7)));
+        assertThat(calculateRange(VARCHAR, ImmutableList.of())).isEqualTo(Optional.empty());
+        assertThat(calculateRange(VARCHAR, ImmutableList.of(integerRange(OptionalLong.empty(), OptionalLong.empty())))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(VARCHAR, ImmutableList.of(integerRange(1, 2)))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(BIGINT, ImmutableList.of(integerRange(1, 2)))).isEqualTo(Optional.of(new DoubleRange(1, 2)));
+        assertThat(calculateRange(BIGINT, ImmutableList.of(integerRange(Long.MIN_VALUE, Long.MAX_VALUE)))).isEqualTo(Optional.of(new DoubleRange(Long.MIN_VALUE, Long.MAX_VALUE)));
+        assertThat(calculateRange(INTEGER, ImmutableList.of(integerRange(Long.MIN_VALUE, Long.MAX_VALUE)))).isEqualTo(Optional.of(new DoubleRange(Integer.MIN_VALUE, Integer.MAX_VALUE)));
+        assertThat(calculateRange(SMALLINT, ImmutableList.of(integerRange(Long.MIN_VALUE, Long.MAX_VALUE)))).isEqualTo(Optional.of(new DoubleRange(Short.MIN_VALUE, Short.MAX_VALUE)));
+        assertThat(calculateRange(TINYINT, ImmutableList.of(integerRange(Long.MIN_VALUE, Long.MAX_VALUE)))).isEqualTo(Optional.of(new DoubleRange(Byte.MIN_VALUE, Byte.MAX_VALUE)));
+        assertThat(calculateRange(BIGINT, ImmutableList.of(integerRange(1, 5), integerRange(3, 7)))).isEqualTo(Optional.of(new DoubleRange(1, 7)));
+        assertThat(calculateRange(BIGINT, ImmutableList.of(integerRange(OptionalLong.empty(), OptionalLong.empty()), integerRange(3, 7)))).isEqualTo(Optional.of(new DoubleRange(3, 7)));
+        assertThat(calculateRange(BIGINT, ImmutableList.of(integerRange(OptionalLong.empty(), OptionalLong.of(8)), integerRange(3, 7)))).isEqualTo(Optional.of(new DoubleRange(3, 7)));
+        assertThat(calculateRange(DOUBLE, ImmutableList.of(integerRange(1, 2)))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(REAL, ImmutableList.of(integerRange(1, 2)))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DOUBLE, ImmutableList.of(doubleRange(OptionalDouble.empty(), OptionalDouble.empty())))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DOUBLE, ImmutableList.of(doubleRange(0.1, 0.2)))).isEqualTo(Optional.of(new DoubleRange(0.1, 0.2)));
+        assertThat(calculateRange(BIGINT, ImmutableList.of(doubleRange(0.1, 0.2)))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DOUBLE, ImmutableList.of(doubleRange(0.1, 0.2), doubleRange(0.15, 0.25)))).isEqualTo(Optional.of(new DoubleRange(0.1, 0.25)));
+        assertThat(calculateRange(REAL, ImmutableList.of(doubleRange(0.1, 0.2), doubleRange(0.15, 0.25)))).isEqualTo(Optional.of(new DoubleRange(0.1, 0.25)));
+        assertThat(calculateRange(REAL, ImmutableList.of(doubleRange(OptionalDouble.empty(), OptionalDouble.of(0.2)), doubleRange(0.15, 0.25)))).isEqualTo(Optional.of(new DoubleRange(0.15, 0.25)));
+        assertThat(calculateRange(DOUBLE, ImmutableList.of(doubleRange(NaN, 0.2)))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DOUBLE, ImmutableList.of(doubleRange(0.1, NaN)))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DOUBLE, ImmutableList.of(doubleRange(NaN, NaN)))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DOUBLE, ImmutableList.of(doubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)))).isEqualTo(Optional.of(new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)));
+        assertThat(calculateRange(REAL, ImmutableList.of(doubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)))).isEqualTo(Optional.of(new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)));
+        assertThat(calculateRange(DOUBLE, ImmutableList.of(doubleRange(Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY)))).isEqualTo(Optional.of(new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)));
+        assertThat(calculateRange(DOUBLE, ImmutableList.of(doubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), doubleRange(0.1, 0.2)))).isEqualTo(Optional.of(new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)));
+        assertThat(calculateRange(DATE, ImmutableList.of(doubleRange(0.1, 0.2)))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DATE, ImmutableList.of(dateRange("1970-01-01", "1970-01-02")))).isEqualTo(Optional.of(new DoubleRange(0, 1)));
+        assertThat(calculateRange(DATE, ImmutableList.of(dateRange(Optional.empty(), Optional.empty())))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DATE, ImmutableList.of(dateRange(Optional.of("1970-01-01"), Optional.empty())))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DATE, ImmutableList.of(dateRange("1970-01-01", "1970-01-05"), dateRange("1970-01-03", "1970-01-07")))).isEqualTo(Optional.of(new DoubleRange(0, 6)));
+        assertThat(calculateRange(DECIMAL, ImmutableList.of(doubleRange(0.1, 0.2)))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DECIMAL, ImmutableList.of(decimalRange(BigDecimal.valueOf(1), BigDecimal.valueOf(5))))).isEqualTo(Optional.of(new DoubleRange(1, 5)));
+        assertThat(calculateRange(DECIMAL, ImmutableList.of(decimalRange(Optional.empty(), Optional.empty())))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DECIMAL, ImmutableList.of(decimalRange(Optional.of(BigDecimal.valueOf(1)), Optional.empty())))).isEqualTo(Optional.empty());
+        assertThat(calculateRange(DECIMAL, ImmutableList.of(decimalRange(BigDecimal.valueOf(1), BigDecimal.valueOf(5)), decimalRange(BigDecimal.valueOf(3), BigDecimal.valueOf(7))))).isEqualTo(Optional.of(new DoubleRange(1, 7)));
     }
 
     @Test
     public void testGetTableStatistics()
     {
         String partitionName = "p1=string1/p2=1234";
+        // Hive includes the null in distinct count, so provided value is 301, but actual distinct count is 300
         PartitionStatistics statistics = PartitionStatistics.builder()
                 .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.empty(), OptionalLong.empty()))
-                .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
+                .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(301))))
                 .build();
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions, columns) -> ImmutableMap.of(partitionName, statistics));
+        HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider()
+        {
+            @Override
+            protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
+            {
+                return ImmutableMap.of(partitionName, statistics);
+            }
+        };
         HiveColumnHandle columnHandle = createBaseColumn(COLUMN, 2, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
         TableStatistics expected = TableStatistics.builder()
                 .setRowCount(Estimate.of(1000))
@@ -656,30 +634,36 @@ public class TestMetastoreHiveStatisticsProvider
                                 .setDistinctValuesCount(Estimate.of(300))
                                 .build())
                 .build();
-        assertEquals(
-                statisticsProvider.getTableStatistics(
-                        SESSION,
-                        TABLE,
-                        ImmutableMap.of(
-                                "p1", PARTITION_COLUMN_1,
-                                "p2", PARTITION_COLUMN_2,
-                                COLUMN, columnHandle),
-                        ImmutableMap.of(
-                                "p1", VARCHAR,
-                                "p2", BIGINT,
-                                COLUMN, BIGINT),
-                        ImmutableList.of(partition(partitionName))),
-                expected);
+        assertThat(statisticsProvider.getTableStatistics(
+                SESSION,
+                TABLE,
+                ImmutableMap.of(
+                        "p1", PARTITION_COLUMN_1,
+                        "p2", PARTITION_COLUMN_2,
+                        COLUMN, columnHandle),
+                ImmutableMap.of(
+                        "p1", VARCHAR,
+                        "p2", BIGINT,
+                        COLUMN, BIGINT),
+                ImmutableList.of(partition(partitionName)))).isEqualTo(expected);
     }
 
     @Test
     public void testGetTableStatisticsUnpartitioned()
     {
+        // Hive includes the null in distinct count, so provided value is 301, but actual distinct count is 300
         PartitionStatistics statistics = PartitionStatistics.builder()
                 .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.empty(), OptionalLong.empty()))
-                .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
+                .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(301))))
                 .build();
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions, columns) -> ImmutableMap.of(UNPARTITIONED_ID, statistics));
+        HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider()
+        {
+            @Override
+            protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
+            {
+                return ImmutableMap.of(UNPARTITIONED_ID, statistics);
+            }
+        };
 
         HiveColumnHandle columnHandle = createBaseColumn(COLUMN, 2, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
 
@@ -693,39 +677,46 @@ public class TestMetastoreHiveStatisticsProvider
                                 .setDistinctValuesCount(Estimate.of(300))
                                 .build())
                 .build();
-        assertEquals(
-                statisticsProvider.getTableStatistics(
-                        SESSION,
-                        TABLE,
-                        ImmutableMap.of(COLUMN, columnHandle),
-                        ImmutableMap.of(COLUMN, BIGINT),
-                        ImmutableList.of(new HivePartition(TABLE))),
-                expected);
+        assertThat(statisticsProvider.getTableStatistics(
+                SESSION,
+                TABLE,
+                ImmutableMap.of(COLUMN, columnHandle),
+                ImmutableMap.of(COLUMN, BIGINT),
+                ImmutableList.of(new HivePartition(TABLE)))).isEqualTo(expected);
     }
 
     @Test
     public void testGetTableStatisticsEmpty()
     {
         String partitionName = "p1=string1/p2=1234";
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions, columns) -> ImmutableMap.of(partitionName, PartitionStatistics.empty()));
-        assertEquals(
-                statisticsProvider.getTableStatistics(
-                        SESSION,
-                        TABLE,
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableList.of(partition(partitionName))),
-                TableStatistics.empty());
+        HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider()
+        {
+            @Override
+            protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
+            {
+                return ImmutableMap.of(partitionName, PartitionStatistics.empty());
+            }
+        };
+        assertThat(statisticsProvider.getTableStatistics(
+                SESSION,
+                TABLE,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableList.of(partition(partitionName)))).isEqualTo(TableStatistics.empty());
     }
 
     @Test
     public void testGetTableStatisticsSampling()
     {
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions, columns) -> {
-            assertEquals(table, TABLE);
-            assertEquals(hivePartitions.size(), 1);
-            return ImmutableMap.of();
-        });
+        HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider() {
+            @Override
+            protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
+            {
+                assertThat(table).isEqualTo(TABLE);
+                assertThat(hivePartitions.size()).isEqualTo(1);
+                return ImmutableMap.of();
+            }
+        };
         ConnectorSession session = getHiveSession(new HiveConfig()
                 .setPartitionStatisticsSampleSize(1));
         statisticsProvider.getTableStatistics(
@@ -743,7 +734,14 @@ public class TestMetastoreHiveStatisticsProvider
                 .setBasicStatistics(new HiveBasicStatistics(-1, 0, 0, 0))
                 .build();
         String partitionName = "p1=string1/p2=1234";
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions, columns) -> ImmutableMap.of(partitionName, corruptedStatistics));
+        HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider()
+        {
+            @Override
+            protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
+            {
+                return ImmutableMap.of(partitionName, corruptedStatistics);
+            }
+        };
         assertThatThrownBy(() -> statisticsProvider.getTableStatistics(
                 getHiveSession(new HiveConfig().setIgnoreCorruptedStatistics(false)),
                 TABLE,
@@ -752,33 +750,43 @@ public class TestMetastoreHiveStatisticsProvider
                 ImmutableList.of(partition(partitionName))))
                 .isInstanceOf(TrinoException.class)
                 .hasFieldOrPropertyWithValue("errorCode", HIVE_CORRUPTED_COLUMN_STATISTICS.toErrorCode());
-        assertEquals(
-                statisticsProvider.getTableStatistics(
-                        getHiveSession(new HiveConfig().setIgnoreCorruptedStatistics(true)),
-                        TABLE,
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableList.of(partition(partitionName))),
-                TableStatistics.empty());
+        assertThat(statisticsProvider.getTableStatistics(
+                getHiveSession(new HiveConfig().setIgnoreCorruptedStatistics(true)),
+                TABLE,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableList.of(partition(partitionName)))).isEqualTo(TableStatistics.empty());
     }
 
     @Test
     public void testEmptyTableStatisticsForPartitionColumnsWhenStatsAreEmpty()
     {
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
-                (session, table, hivePartitions, columns) -> ImmutableMap.of("p1=string1/p2=1234", PartitionStatistics.empty()));
+        HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider()
+        {
+            @Override
+            protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
+            {
+                return ImmutableMap.of("p1=string1/p2=1234", PartitionStatistics.empty());
+            }
+        };
         testEmptyTableStatisticsForPartitionColumns(statisticsProvider);
     }
 
     @Test
     public void testEmptyTableStatisticsForPartitionColumnsWhenStatsAreMissing()
     {
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
-                (session, table, hivePartitions, columns) -> ImmutableMap.of());
+        HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider()
+        {
+            @Override
+            protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
+            {
+                return ImmutableMap.of();
+            }
+        };
         testEmptyTableStatisticsForPartitionColumns(statisticsProvider);
     }
 
-    private void testEmptyTableStatisticsForPartitionColumns(MetastoreHiveStatisticsProvider statisticsProvider)
+    private void testEmptyTableStatisticsForPartitionColumns(HiveStatisticsProvider statisticsProvider)
     {
         String partitionName1 = "p1=string1/p2=1234";
         String partitionName2 = "p1=string2/p2=1235";
@@ -805,26 +813,24 @@ public class TestMetastoreHiveStatisticsProvider
                                 .build())
                 .build();
 
-        assertEquals(
-                statisticsProvider.getTableStatistics(
-                        getHiveSession(new HiveConfig().setIgnoreCorruptedStatistics(true)),
-                        TABLE,
-                        ImmutableMap.of(
-                                "p1", PARTITION_COLUMN_1,
-                                "p2", PARTITION_COLUMN_2,
-                                COLUMN, columnHandle),
-                        ImmutableMap.of(
-                                "p1", VARCHAR,
-                                "p2", BIGINT,
-                                COLUMN, BIGINT),
-                        ImmutableList.of(
-                                partition(partitionName1),
-                                partition(partitionName2),
-                                partition(partitionName3),
-                                partition(partitionName4),
-                                partition(partitionName5),
-                                partition(partitionName6))),
-                expected);
+        assertThat(statisticsProvider.getTableStatistics(
+                getHiveSession(new HiveConfig().setIgnoreCorruptedStatistics(true)),
+                TABLE,
+                ImmutableMap.of(
+                        "p1", PARTITION_COLUMN_1,
+                        "p2", PARTITION_COLUMN_2,
+                        COLUMN, columnHandle),
+                ImmutableMap.of(
+                        "p1", VARCHAR,
+                        "p2", BIGINT,
+                        COLUMN, BIGINT),
+                ImmutableList.of(
+                        partition(partitionName1),
+                        partition(partitionName2),
+                        partition(partitionName3),
+                        partition(partitionName4),
+                        partition(partitionName5),
+                        partition(partitionName6)))).isEqualTo(expected);
     }
 
     private static void assertInvalidStatistics(PartitionStatistics partitionStatistics, String expectedMessage)
@@ -862,7 +868,7 @@ public class TestMetastoreHiveStatisticsProvider
 
     private static PartitionStatistics dataSize(long dataSize)
     {
-        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setTotalSizeInBytes(dataSize).build()));
+        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setAverageColumnLength(dataSize).build()));
     }
 
     private static PartitionStatistics rowsCountAndNullsCount(long rowsCount, long nullsCount)
@@ -872,18 +878,24 @@ public class TestMetastoreHiveStatisticsProvider
                 ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setNullsCount(nullsCount).build()));
     }
 
-    private static PartitionStatistics rowsCountAndDataSize(long rowsCount, long dataSize)
+    private static PartitionStatistics rowsCountAndDataSize(long rowsCount, long averageColumnLength)
     {
         return new PartitionStatistics(
                 new HiveBasicStatistics(0, rowsCount, 0, 0),
-                ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setTotalSizeInBytes(dataSize).build()));
+                ImmutableMap.of(COLUMN, HiveColumnStatistics.builder().setAverageColumnLength(averageColumnLength).build()));
     }
 
-    private static HiveColumnStatistics distinctValuesCount(long count)
+    private static PartitionStatistics distinctValuesCount(long count)
     {
-        return HiveColumnStatistics.builder()
-                .setDistinctValuesCount(count)
-                .build();
+        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of(COLUMN, HiveColumnStatistics.builder()
+                .setDistinctValuesWithNullCount(count)
+                .build()));
+    }
+
+    private static PartitionStatistics booleanDistinctValuesCount(OptionalLong trueCount, OptionalLong falseCount, OptionalLong nullsCount)
+    {
+        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(),
+                ImmutableMap.of(COLUMN, createBooleanColumnStatistics(trueCount, falseCount, nullsCount)));
     }
 
     private static HiveColumnStatistics integerRange(long min, long max)

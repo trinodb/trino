@@ -19,10 +19,9 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.testing.AbstractTestAggregations;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.Predicate;
 
@@ -42,7 +41,7 @@ public class TestAggregations
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build();
+        QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build();
 
         queryRunner.installPlugin(new MemoryPlugin());
         queryRunner.createCatalog("memory", "memory");

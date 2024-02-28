@@ -28,7 +28,9 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
+import static io.trino.plugin.hive.HiveType.HIVE_DATE;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
 import static io.trino.plugin.hive.HiveType.HIVE_FLOAT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
@@ -60,26 +62,45 @@ public final class HiveCoercionPolicy
         Type toType = typeManager.getType(toHiveType.getTypeSignature(hiveTimestampPrecision));
         if (fromType instanceof VarcharType) {
             return toType instanceof VarcharType ||
+                    toType instanceof CharType ||
+                    toHiveType.equals(HIVE_BOOLEAN) ||
                     toHiveType.equals(HIVE_BYTE) ||
                     toHiveType.equals(HIVE_SHORT) ||
                     toHiveType.equals(HIVE_INT) ||
                     toHiveType.equals(HIVE_LONG) ||
+                    toHiveType.equals(HIVE_FLOAT) ||
+                    toHiveType.equals(HIVE_DOUBLE) ||
+                    toHiveType.equals(HIVE_DATE) ||
                     toHiveType.equals(HIVE_TIMESTAMP);
         }
         if (fromType instanceof CharType) {
             return toType instanceof CharType;
         }
         if (toType instanceof VarcharType) {
-            return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG) || fromHiveType.equals(HIVE_TIMESTAMP) || fromType instanceof DecimalType;
+            return fromHiveType.equals(HIVE_BOOLEAN) ||
+                    fromHiveType.equals(HIVE_BYTE) ||
+                    fromHiveType.equals(HIVE_SHORT) ||
+                    fromHiveType.equals(HIVE_INT) ||
+                    fromHiveType.equals(HIVE_LONG) ||
+                    fromHiveType.equals(HIVE_TIMESTAMP) ||
+                    fromHiveType.equals(HIVE_DOUBLE) ||
+                    fromHiveType.equals(HIVE_DATE) ||
+                    fromType instanceof DecimalType;
+        }
+        if (toHiveType.equals(HIVE_DATE)) {
+            return fromHiveType.equals(HIVE_TIMESTAMP);
         }
         if (fromHiveType.equals(HIVE_BYTE)) {
-            return toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);
+            return toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG) || toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_SHORT)) {
-            return toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);
+            return toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG) || toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_INT)) {
-            return toHiveType.equals(HIVE_LONG);
+            return toHiveType.equals(HIVE_LONG) || toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
+        }
+        if (fromHiveType.equals(HIVE_LONG)) {
+            return toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_FLOAT)) {
             return toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
@@ -88,7 +109,13 @@ public final class HiveCoercionPolicy
             return toHiveType.equals(HIVE_FLOAT) || toType instanceof DecimalType;
         }
         if (fromType instanceof DecimalType) {
-            return toType instanceof DecimalType || toHiveType.equals(HIVE_FLOAT) || toHiveType.equals(HIVE_DOUBLE);
+            return toType instanceof DecimalType ||
+                    toHiveType.equals(HIVE_FLOAT) ||
+                    toHiveType.equals(HIVE_DOUBLE) ||
+                    toHiveType.equals(HIVE_BYTE) ||
+                    toHiveType.equals(HIVE_SHORT) ||
+                    toHiveType.equals(HIVE_INT) ||
+                    toHiveType.equals(HIVE_LONG);
         }
 
         return canCoerceForList(fromHiveType, toHiveType, hiveTimestampPrecision)

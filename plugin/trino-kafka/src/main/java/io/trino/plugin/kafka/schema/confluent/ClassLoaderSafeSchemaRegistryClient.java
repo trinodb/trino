@@ -13,11 +13,16 @@
  */
 package io.trino.plugin.kafka.schema.confluent;
 
+import com.google.common.base.Ticker;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.entities.Config;
+import io.confluent.kafka.schemaregistry.client.rest.entities.Metadata;
+import io.confluent.kafka.schemaregistry.client.rest.entities.RuleSet;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SubjectVersion;
+import io.confluent.kafka.schemaregistry.client.rest.entities.requests.RegisterSchemaResponse;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import org.apache.avro.Schema;
@@ -494,6 +499,102 @@ public class ClassLoaderSafeSchemaRegistryClient
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.reset();
+        }
+    }
+
+    @Override
+    public String tenant()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.tenant();
+        }
+    }
+
+    @Override
+    public Ticker ticker()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.ticker();
+        }
+    }
+
+    @Override
+    public Optional<ParsedSchema> parseSchema(String schemaType, String schemaString, List<SchemaReference> references, Metadata metadata, RuleSet ruleSet)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.parseSchema(schemaType, schemaString, references, metadata, ruleSet);
+        }
+    }
+
+    @Override
+    public RegisterSchemaResponse registerWithResponse(String subject, ParsedSchema schema, boolean normalize)
+            throws RestClientException, IOException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.registerWithResponse(subject, schema, normalize);
+        }
+    }
+
+    @Override
+    public SchemaMetadata getLatestWithMetadata(String subject, Map<String, String> metadata, boolean lookupDeletedSchema)
+            throws RestClientException, IOException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getLatestWithMetadata(subject, metadata, lookupDeletedSchema);
+        }
+    }
+
+    @Override
+    public List<String> testCompatibilityVerbose(String subject, ParsedSchema schema, boolean normalize)
+            throws RestClientException, IOException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.testCompatibilityVerbose(subject, schema, normalize);
+        }
+    }
+
+    @Override
+    public Config updateConfig(String subject, Config config)
+            throws RestClientException, IOException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.updateConfig(subject, config);
+        }
+    }
+
+    @Override
+    public Config getConfig(String subject)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getConfig(subject);
+        }
+    }
+
+    @Override
+    public void deleteConfig(String subject)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.deleteConfig(subject);
+        }
+    }
+
+    @Override
+    public String setMode(String mode, String subject, boolean force)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.setMode(mode, subject, force);
+        }
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.close();
         }
     }
 }

@@ -23,7 +23,10 @@ import io.trino.plugin.hive.type.PrimitiveCategory;
 import io.trino.plugin.hive.type.PrimitiveTypeInfo;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.MapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -127,9 +130,11 @@ final class HiveBucketingV1
                 // TIMESTAMP DECIMAL CHAR BINARY TIMESTAMPLOCALTZ INTERVAL_YEAR_MONTH INTERVAL_DAY_TIME VOID UNKNOWN
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
             case LIST:
-                return hashOfList((ListTypeInfo) type, block.getObject(position, Block.class));
+                Block array = ((ArrayBlock) block.getUnderlyingValueBlock()).getArray(block.getUnderlyingValuePosition(position));
+                return hashOfList((ListTypeInfo) type, array);
             case MAP:
-                return hashOfMap((MapTypeInfo) type, block.getObject(position, Block.class));
+                SqlMap map = ((MapBlock) block.getUnderlyingValueBlock()).getMap(block.getUnderlyingValuePosition(position));
+                return hashOfMap((MapTypeInfo) type, map);
             case STRUCT:
             case UNION:
                 // TODO: support more types, e.g. ROW
@@ -191,7 +196,7 @@ final class HiveBucketingV1
             case LIST:
                 return hashOfList((ListTypeInfo) type, (Block) value);
             case MAP:
-                return hashOfMap((MapTypeInfo) type, (Block) value);
+                return hashOfMap((MapTypeInfo) type, (SqlMap) value);
             case STRUCT:
             case UNION:
                 // TODO: support more types, e.g. ROW
@@ -199,13 +204,18 @@ final class HiveBucketingV1
         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
     }
 
-    private static int hashOfMap(MapTypeInfo type, Block singleMapBlock)
+    private static int hashOfMap(MapTypeInfo type, SqlMap sqlMap)
     {
         TypeInfo keyTypeInfo = type.getMapKeyTypeInfo();
         TypeInfo valueTypeInfo = type.getMapValueTypeInfo();
+
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         int result = 0;
-        for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-            result += hash(keyTypeInfo, singleMapBlock, i) ^ hash(valueTypeInfo, singleMapBlock, i + 1);
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            result += hash(keyTypeInfo, rawKeyBlock, rawOffset + i) ^ hash(valueTypeInfo, rawValueBlock, rawOffset + i);
         }
         return result;
     }

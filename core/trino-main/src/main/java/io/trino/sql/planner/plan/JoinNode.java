@@ -23,7 +23,6 @@ import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Join;
 import io.trino.sql.tree.NullLiteral;
 
 import java.util.List;
@@ -35,10 +34,10 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -52,37 +51,7 @@ public class JoinNode
         REPLICATED
     }
 
-    public enum Type
-    {
-        INNER("InnerJoin"),
-        LEFT("LeftJoin"),
-        RIGHT("RightJoin"),
-        FULL("FullJoin");
-
-        private final String joinLabel;
-
-        Type(String joinLabel)
-        {
-            this.joinLabel = joinLabel;
-        }
-
-        public String getJoinLabel()
-        {
-            return joinLabel;
-        }
-
-        public static Type typeConvert(Join.Type joinType)
-        {
-            return switch (joinType) {
-                case CROSS, IMPLICIT, INNER -> Type.INNER;
-                case LEFT -> Type.LEFT;
-                case RIGHT -> Type.RIGHT;
-                case FULL -> Type.FULL;
-            };
-        }
-    }
-
-    private final Type type;
+    private final JoinType type;
     private final PlanNode left;
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
@@ -102,7 +71,7 @@ public class JoinNode
     @JsonCreator
     public JoinNode(
             @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("type") Type type,
+            @JsonProperty("type") JoinType type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
@@ -197,7 +166,7 @@ public class JoinNode
                 reorderJoinStatsAndCost);
     }
 
-    private static Type flipType(Type type)
+    private static JoinType flipType(JoinType type)
     {
         return switch (type) {
             case INNER -> INNER;
@@ -215,7 +184,7 @@ public class JoinNode
     }
 
     @JsonProperty("type")
-    public Type getType()
+    public JoinType getType()
     {
         return type;
     }

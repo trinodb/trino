@@ -24,10 +24,14 @@ import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
+
+import java.io.File;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -35,9 +39,11 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class EnvSinglenodeSparkIcebergNessie
         extends EnvironmentProvider
 {
+    private static final File HIVE_JDBC_PROVIDER = new File("testing/trino-product-tests-launcher/target/hive-jdbc.jar");
+
     private static final int SPARK_THRIFT_PORT = 10213;
     private static final int NESSIE_PORT = 19120;
-    private static final String NESSIE_VERSION = "0.59.0";
+    private static final String NESSIE_VERSION = "0.71.1";
     private static final String SPARK = "spark";
 
     private final DockerFiles dockerFiles;
@@ -60,6 +66,10 @@ public class EnvSinglenodeSparkIcebergNessie
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg-nessie/iceberg.properties")));
 
         builder.addContainer(createSparkContainer()).containerDependsOn(SPARK, HADOOP);
+
+        builder.configureContainer(TESTS, dockerContainer -> dockerContainer
+                // Binding instead of copying for avoiding OutOfMemoryError https://github.com/testcontainers/testcontainers-java/issues/2863
+                .withFileSystemBind(HIVE_JDBC_PROVIDER.getParent(), "/docker/jdbc", BindMode.READ_ONLY));
     }
 
     @SuppressWarnings("resource")

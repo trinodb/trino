@@ -19,8 +19,11 @@ import io.trino.spi.security.Identity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -38,10 +41,13 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // e.g. some tests methods modify AC configuration
 public class TestKillQuery
         extends AbstractTestQueryFramework
 {
@@ -56,19 +62,20 @@ public class TestKillQuery
                 .setSchema("tiny")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession).build();
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testKillQuery()
     {
         killQuery(queryId -> format("CALL system.runtime.kill_query('%s', 'because')", queryId), "Message: because");
@@ -93,7 +100,7 @@ public class TestKillQuery
         }
         String queryId = queryIdValue.get().toString();
 
-        assertFalse(queryFuture.isDone());
+        assertThat(queryFuture.isDone()).isFalse();
 
         getQueryRunner().getAccessControl().deny(privilege("query", KILL_QUERY));
         try {

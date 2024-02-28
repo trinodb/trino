@@ -14,30 +14,26 @@
 package io.trino.tests.product.deltalake;
 
 import io.trino.tempto.assertions.QueryAssert.Row;
-import io.trino.testng.services.Flaky;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertiesOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 
 public class TestDeltaLakeCheckConstraintCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS}, dataProvider = "checkConstraints")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "checkConstraints")
     public void testCheckConstraintInsertCompatibility(String columnDefinition, String checkConstraint, String validInput, Row insertedValue, String invalidInput)
     {
         String tableName = "test_check_constraint_insert_" + randomNameSuffix();
@@ -104,7 +100,6 @@ public class TestDeltaLakeCheckConstraintCompatibility
         };
     }
 
-    // TODO: Add DELTA_LAKE_DATABRICKS and DELTA_LAKE_EXCLUDE_73 groups once flakiness on Databricks is resolved
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCheckConstraintUpdateCompatibility()
     {
@@ -137,7 +132,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    // TODO: Add DELTA_LAKE_DATABRICKS and DELTA_LAKE_EXCLUDE_73 groups once flakiness on Databricks is resolved
+    // TODO: Add DELTA_LAKE_DATABRICKS groups once flakiness on Databricks is resolved
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCheckConstraintMergeCompatibility()
     {
@@ -200,8 +195,46 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCheckConstraintWriterFeature()
+    {
+        String tableName = "test_check_constraint_writer_feature_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(a INT) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                "TBLPROPERTIES ('delta.minWriterVersion'='7')");
+        onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD CONSTRAINT a_constraint CHECK (a > 1)");
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 2");
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 1"))
+                    .hasMessageContaining("Check constraint violation");
+
+            // delta.feature.checkConstraints still exists even after unsetting the property
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " UNSET TBLPROPERTIES ('delta.feature.checkConstraints')");
+            assertThat(getTablePropertiesOnDelta("default", tableName))
+                    .contains(entry("delta.feature.checkConstraints", "supported"))
+                    .contains(entry("delta.constraints.a_constraint", "a > 1"));
+
+            // Remove the constraint directly
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " UNSET TBLPROPERTIES ('delta.constraints.a_constraint')");
+            assertThat(getTablePropertiesOnDelta("default", tableName))
+                    .contains(entry("delta.feature.checkConstraints", "supported"))
+                    .doesNotContainKey("delta.constraints.a_constraint");
+
+            // CHECK constraints shouldn't be enforced after the constraint property was removed
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 3");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES 4");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(2), row(3), row(4));
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCheckConstraintUnknownCondition()
     {
         String tableName = "test_check_constraint_unknown_" + randomNameSuffix();
@@ -227,8 +260,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCheckConstraintAcrossColumns()
     {
         String tableName = "test_check_constraint_across_columns_" + randomNameSuffix();
@@ -255,8 +287,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testMetadataOperationsRetainCheckConstraint()
     {
         String tableName = "test_metadata_operations_retain_check_constraints_" + randomNameSuffix();
@@ -274,8 +305,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testUnsupportedCheckConstraintExpression()
     {
         String tableName = "test_unsupported_check_constraints_" + randomNameSuffix();

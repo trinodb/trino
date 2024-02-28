@@ -19,7 +19,8 @@ import io.airlift.slice.SliceOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.type.Type;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.type.RowType;
 
 import java.util.List;
 
@@ -27,33 +28,37 @@ public class StructEncoding
         extends BlockEncoding
 {
     private final List<BinaryColumnEncoding> structFields;
+    private final RowType rowType;
 
-    public StructEncoding(Type type, List<BinaryColumnEncoding> structFields)
+    public StructEncoding(RowType rowType, List<BinaryColumnEncoding> structFields)
     {
-        super(type);
+        super(rowType);
+        this.rowType = rowType;
         this.structFields = ImmutableList.copyOf(structFields);
     }
 
     @Override
     public void encodeValue(Block block, int position, SliceOutput output)
     {
-        Block row = block.getObject(position, Block.class);
+        SqlRow row = rowType.getObject(block, position);
+        int rawIndex = row.getRawIndex();
 
         // write values
-        for (int batchStart = 0; batchStart < row.getPositionCount(); batchStart += 8) {
+        for (int batchStart = 0; batchStart < row.getFieldCount(); batchStart += 8) {
             int batchEnd = Math.min(batchStart + 8, structFields.size());
 
             int nullByte = 0;
             for (int fieldId = batchStart; fieldId < batchEnd; fieldId++) {
-                if (!row.isNull(fieldId)) {
+                if (!row.getRawFieldBlock(fieldId).isNull(rawIndex)) {
                     nullByte |= (1 << (fieldId % 8));
                 }
             }
             output.writeByte(nullByte);
             for (int fieldId = batchStart; fieldId < batchEnd; fieldId++) {
-                if (!row.isNull(fieldId)) {
+                Block fieldBlock = row.getRawFieldBlock(fieldId);
+                if (!fieldBlock.isNull(rawIndex)) {
                     BinaryColumnEncoding field = structFields.get(fieldId);
-                    field.encodeValueInto(row, fieldId, output);
+                    field.encodeValueInto(fieldBlock, rawIndex, output);
                 }
             }
         }

@@ -13,11 +13,19 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.ErrorType;
 import io.trino.testing.BaseFailureRecoveryTest;
-import org.testng.annotations.DataProvider;
+import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
+import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.execution.FailureInjector.FAILURE_INJECTION_MESSAGE;
@@ -26,14 +34,55 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RE
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
+import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseDeltaFailureRecoveryTest
         extends BaseFailureRecoveryTest
 {
+    private final String schema;
+    private final String bucketName;
+
     protected BaseDeltaFailureRecoveryTest(RetryPolicy retryPolicy)
     {
         super(retryPolicy);
+        this.schema = retryPolicy.name().toLowerCase(ENGLISH) + "_failure_recovery";
+        this.bucketName = "test-delta-lake-" + retryPolicy.name().toLowerCase(ENGLISH) + "-failure-recovery-" + randomNameSuffix();
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner(
+            List<TpchTable<?>> requiredTpchTables,
+            Map<String, String> configProperties,
+            Map<String, String> coordinatorProperties)
+            throws Exception
+    {
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake.start();
+        MinioStorage minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
+        minioStorage.start();
+
+        QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
+                DELTA_CATALOG,
+                schema,
+                configProperties,
+                coordinatorProperties,
+                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop(),
+                runner -> {
+                    runner.installPlugin(new FileSystemExchangePlugin());
+                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
+                });
+        queryRunner.execute(format("CREATE SCHEMA %s WITH (location = 's3://%s/%s')", schema, bucketName, schema));
+        requiredTpchTables.forEach(table -> queryRunner.execute(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.%1$s", table.getTableName())));
+
+        return queryRunner;
     }
 
     @Override
@@ -42,16 +91,7 @@ public abstract class BaseDeltaFailureRecoveryTest
         return true;
     }
 
-    @Override
-    @DataProvider(name = "parallelTests", parallel = true)
-    public Object[][] parallelTests()
-    {
-        return moreParallelTests(super.parallelTests(),
-                parallelTest("testCreatePartitionedTable", this::testCreatePartitionedTable),
-                parallelTest("testInsertIntoNewPartition", this::testInsertIntoNewPartition),
-                parallelTest("testInsertIntoExistingPartition", this::testInsertIntoExistingPartition));
-    }
-
+    @Test
     @Override
     protected void testDelete()
     {
@@ -136,6 +176,7 @@ public abstract class BaseDeltaFailureRecoveryTest
         }
     }
 
+    @Test
     @Override
     protected void testUpdate()
     {
@@ -219,6 +260,7 @@ public abstract class BaseDeltaFailureRecoveryTest
         }
     }
 
+    @Test
     @Override
     // materialized views are currently not implemented by Delta connector
     protected void testRefreshMaterializedView()
@@ -227,6 +269,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 .hasMessageContaining("This connector does not support creating materialized views");
     }
 
+    @Test
     protected void testCreatePartitionedTable()
     {
         testTableModification(
@@ -235,6 +278,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -243,6 +287,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(

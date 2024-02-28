@@ -16,6 +16,7 @@ package io.trino.grammar.sql;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlKeywords
@@ -23,7 +24,7 @@ public class TestSqlKeywords
     @Test
     public void test()
     {
-        assertThat(SqlKeywords.sqlKeywords())
+        assertThat(SqlKeywords.sqlKeywords().stream().sorted().collect(toImmutableSet()))
                 .isEqualTo(ImmutableSet.of(
                         "ABSENT",
                         "ADD",
@@ -39,11 +40,13 @@ public class TestSqlKeywords
                         "ASC",
                         "AT",
                         "AUTHORIZATION",
+                        "BEGIN",
                         "BERNOULLI",
                         "BETWEEN",
                         "BOTH",
                         "BY",
                         "CALL",
+                        "CALLED",
                         "CASCADE",
                         "CASE",
                         "CAST",
@@ -74,6 +77,7 @@ public class TestSqlKeywords
                         "DATE",
                         "DAY",
                         "DEALLOCATE",
+                        "DECLARE",
                         "DEFAULT",
                         "DEFINE",
                         "DEFINER",
@@ -82,11 +86,14 @@ public class TestSqlKeywords
                         "DESC",
                         "DESCRIBE",
                         "DESCRIPTOR",
+                        "DETERMINISTIC",
                         "DISTINCT",
                         "DISTRIBUTED",
+                        "DO",
                         "DOUBLE",
                         "DROP",
                         "ELSE",
+                        "ELSEIF",
                         "EMPTY",
                         "ENCODING",
                         "END",
@@ -108,6 +115,7 @@ public class TestSqlKeywords
                         "FORMAT",
                         "FROM",
                         "FULL",
+                        "FUNCTION",
                         "FUNCTIONS",
                         "GRACE",
                         "GRANT",
@@ -135,6 +143,7 @@ public class TestSqlKeywords
                         "IO",
                         "IS",
                         "ISOLATION",
+                        "ITERATE",
                         "JOIN",
                         "JSON",
                         "JSON_ARRAY",
@@ -146,9 +155,11 @@ public class TestSqlKeywords
                         "KEEP",
                         "KEY",
                         "KEYS",
+                        "LANGUAGE",
                         "LAST",
                         "LATERAL",
                         "LEADING",
+                        "LEAVE",
                         "LEFT",
                         "LEVEL",
                         "LIKE",
@@ -158,6 +169,7 @@ public class TestSqlKeywords
                         "LOCALTIME",
                         "LOCALTIMESTAMP",
                         "LOGICAL",
+                        "LOOP",
                         "MAP",
                         "MATCH",
                         "MATCHED",
@@ -220,12 +232,15 @@ public class TestSqlKeywords
                         "RECURSIVE",
                         "REFRESH",
                         "RENAME",
+                        "REPEAT",
                         "REPEATABLE",
                         "REPLACE",
                         "RESET",
                         "RESPECT",
                         "RESTRICT",
+                        "RETURN",
                         "RETURNING",
+                        "RETURNS",
                         "REVOKE",
                         "RIGHT",
                         "ROLE",
@@ -280,6 +295,7 @@ public class TestSqlKeywords
                         "UNKNOWN",
                         "UNMATCHED",
                         "UNNEST",
+                        "UNTIL",
                         "UPDATE",
                         "USE",
                         "USER",
@@ -292,6 +308,7 @@ public class TestSqlKeywords
                         "VIEW",
                         "WHEN",
                         "WHERE",
+                        "WHILE",
                         "WINDOW",
                         "WITH",
                         "WITHIN",

@@ -18,13 +18,16 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestIpAddressFunctions
 {
     private QueryAssertions assertions;
@@ -272,28 +275,6 @@ public class TestIpAddressFunctions
         assertThat(assertions.function("contains", "'0.0.0.255/32'", "IPADDRESS '255.0.0.0'"))
                 .isEqualTo(false);
 
-        // 127.0.0.1 equals ::ffff:7f00:0001 in IPv6
-        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '127.0.0.0'"))
-                .isEqualTo(false);
-        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '127.0.0.1'"))
-                .isEqualTo(true);
-        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '127.0.0.2'"))
-                .isEqualTo(false);
-
-        assertThat(assertions.function("contains", "'::ffff:7f00:0001/32'", "IPADDRESS '127.0.0.0'"))
-                .isEqualTo(false);
-        assertThat(assertions.function("contains", "'::ffff:7f00:0001/32'", "IPADDRESS '127.0.0.1'"))
-                .isEqualTo(true);
-        assertThat(assertions.function("contains", "'::ffff:7f00:0001/32'", "IPADDRESS '127.0.0.2'"))
-                .isEqualTo(false);
-
-        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '::ffff:7f00:0000'"))
-                .isEqualTo(false);
-        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '::ffff:7f00:0001'"))
-                .isEqualTo(true);
-        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '::ffff:7f00:0002'"))
-                .isEqualTo(false);
-
         // IPv6
         assertThat(assertions.function("contains", "'::ffff:0000:0000/0'", "IPADDRESS '::ffff:0000:0000'"))
                 .isEqualTo(true);
@@ -364,6 +345,12 @@ public class TestIpAddressFunctions
         assertThat(assertions.function("contains", "'2001:abcd:ef01:2345:6789:abcd:ef01:234/60'", "IPADDRESS '2002::'"))
                 .isEqualTo(false);
 
+        // conflicting IP address versions
+        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '64:ff9a:f:f:f:f:f:f'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("contains", "'2001:abcd:ef01:2345:6789:abcd:ef01:234/60'", "IPADDRESS '127.0.0.0'"))
+                .isEqualTo(false);
+
         // NULL argument
         assertThat(assertions.function("contains", "'10.0.0.1/0'", "cast(NULL as IPADDRESS)"))
                 .isNull(BOOLEAN);
@@ -377,12 +364,6 @@ public class TestIpAddressFunctions
 
         assertThat(assertions.function("contains", "NULL", "cast(NULL as IPADDRESS)"))
                 .isNull(BOOLEAN);
-
-        // Invalid argument
-        assertTrinoExceptionThrownBy(assertions.function("contains", "'64:ff9b::10.0.0.0/64'", "IPADDRESS '0.0.0.0'")::evaluate)
-                .hasMessage("IP address version should be the same");
-        assertTrinoExceptionThrownBy(assertions.function("contains", "'0.0.0.0/0'", "IPADDRESS '64:ff9b::10.0.0.0'")::evaluate)
-                .hasMessage("IP address version should be the same");
 
         // Invalid prefix length
         assertTrinoExceptionThrownBy(assertions.function("contains", "'0.0.0.0/-1'", "IPADDRESS '0.0.0.0'")::evaluate)
@@ -489,11 +470,11 @@ public class TestIpAddressFunctions
                 .hasMessage("Invalid CIDR");
 
         assertTrinoExceptionThrownBy(assertions.function("contains", "'10.0.0.1/33'", "IPADDRESS '0.0.0.0'")::evaluate)
-                .hasMessage("Prefix length exceeds address length");
+                .hasMessage("Invalid CIDR");
         assertTrinoExceptionThrownBy(assertions.function("contains", "'64:ff9b::10.0.0.0/129'", "IPADDRESS '0.0.0.0'")::evaluate)
-                .hasMessage("Prefix length exceeds address length");
+                .hasMessage("Invalid CIDR");
         assertTrinoExceptionThrownBy(assertions.function("contains", "'2620:109:c006:104::/250'", "IPADDRESS '2620:109:c006:104::'")::evaluate)
-                .hasMessage("Prefix length exceeds address length");
+                .hasMessage("Invalid CIDR");
 
         assertTrinoExceptionThrownBy(assertions.function("contains", "'x.x.x.x'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
@@ -505,5 +486,50 @@ public class TestIpAddressFunctions
                 .hasMessage("Invalid network IP address");
         assertTrinoExceptionThrownBy(assertions.function("contains", "'2001:0DB8:0:CD3/60'", "IPADDRESS '2001:0DB8::CD30:0:0:0:0'")::evaluate)
                 .hasMessage("Invalid network IP address");
+    }
+
+    @Test
+    public void testIPv4MappedAddresses()
+    {
+        assertThat(assertions.function("contains", "'0:0:0:0:0:ffff:aabb:ccdd/96'", "IPADDRESS '170.187.204.221'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "'0:0:0:0:0:ffff::/96'", "IPADDRESS '170.187.204.221'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "'::aabb:ccdd/96'", "IPADDRESS '170.187.204.221'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("contains", "'1:2:3:4:5:6:aabb:ccdd/96'", "IPADDRESS '170.187.204.221'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "'170.0.0.0/8'", "IPADDRESS '0:0:0:0:0:ffff:aa01:0203'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "'170.187.0.0/16'", "IPADDRESS '0:0:0:0:0:ffff:aabb:0203'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "'170.187.204.0/24'", "IPADDRESS '0:0:0:0:0:ffff:aabb:cc03'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("contains", "'170.187.204.0/24'", "IPADDRESS '0:0:0:0:0:0:aabb:cc03'"))
+                .isEqualTo(false);
+
+        // 127.0.0.1 equals ::ffff:7f00:0001 in IPv6
+        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '127.0.0.0'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '127.0.0.1'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '127.0.0.2'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "'::ffff:7f00:0001/128'", "IPADDRESS '127.0.0.0'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("contains", "'::ffff:7f00:0001/128'", "IPADDRESS '127.0.0.1'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "'::ffff:7f00:0001/128'", "IPADDRESS '127.0.0.2'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '::ffff:7f00:0000'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '::ffff:7f00:0001'"))
+                .isEqualTo(true);
+        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '::ffff:7f00:0002'"))
+                .isEqualTo(false);
     }
 }

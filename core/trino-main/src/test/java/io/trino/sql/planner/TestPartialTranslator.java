@@ -19,18 +19,15 @@ import io.trino.Session;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.AtTimeZone;
-import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TransactionId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -43,21 +40,22 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPartialTranslator
 {
     private static final Session TEST_SESSION = testSessionBuilder()
             .setTransactionId(TransactionId.create())
             .build();
-    private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
+    private static final IrTypeAnalyzer TYPE_ANALYZER = new IrTypeAnalyzer(PLANNER_CONTEXT);
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("double_symbol_1"), DOUBLE)
             .put(new Symbol("double_symbol_2"), DOUBLE)
@@ -75,40 +73,33 @@ public class TestPartialTranslator
         Expression rowSymbolReference = new SymbolReference("row_symbol_1");
         Expression dereferenceExpression1 = new SubscriptExpression(rowSymbolReference, new LongLiteral("1"));
         Expression dereferenceExpression2 = new SubscriptExpression(rowSymbolReference, new LongLiteral("2"));
-        Expression dereferenceExpression3 = new SubscriptExpression(rowSymbolReference, new LongLiteral("3"));
         Expression stringLiteral = new StringLiteral("abcd");
         Expression symbolReference1 = new SymbolReference("double_symbol_1");
-        SymbolReference timestamp3SymbolReference = new SymbolReference("timestamp3_symbol_1");
 
         assertFullTranslation(symbolReference1);
         assertFullTranslation(dereferenceExpression1);
         assertFullTranslation(stringLiteral);
         assertFullTranslation(new ArithmeticBinaryExpression(ADD, symbolReference1, dereferenceExpression1));
 
-        assertPartialTranslation(
-                new CoalesceExpression(
-                        new AtTimeZone(timestamp3SymbolReference, stringLiteral),
-                        dereferenceExpression3),
-                List.of(timestamp3SymbolReference, stringLiteral, dereferenceExpression3));
-
-        List<Expression> functionArguments = ImmutableList.of(stringLiteral, dereferenceExpression2);
-        Expression functionCallExpression = new FunctionCall(QualifiedName.of("concat"), functionArguments);
+        Expression functionCallExpression = new FunctionCall(
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("concat", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                ImmutableList.of(stringLiteral, dereferenceExpression2));
         assertFullTranslation(functionCallExpression);
     }
 
     private void assertPartialTranslation(Expression expression, List<Expression> subexpressions)
     {
         Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION, TYPE_ANALYZER, TYPE_PROVIDER, PLANNER_CONTEXT);
-        assertEquals(subexpressions.size(), translation.size());
+        assertThat(subexpressions.size()).isEqualTo(translation.size());
         for (Expression subexpression : subexpressions) {
-            assertEquals(translation.get(NodeRef.of(subexpression)), translate(TEST_SESSION, subexpression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER).get());
+            assertThat(translation).containsEntry(NodeRef.of(subexpression), translate(TEST_SESSION, subexpression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER).get());
         }
     }
 
     private void assertFullTranslation(Expression expression)
     {
         Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION, TYPE_ANALYZER, TYPE_PROVIDER, PLANNER_CONTEXT);
-        assertEquals(getOnlyElement(translation.keySet()), NodeRef.of(expression));
-        assertEquals(getOnlyElement(translation.values()), translate(TEST_SESSION, expression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER).get());
+        assertThat(getOnlyElement(translation.keySet())).isEqualTo(NodeRef.of(expression));
+        assertThat(getOnlyElement(translation.values())).isEqualTo(translate(TEST_SESSION, expression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER).get());
     }
 }

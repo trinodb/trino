@@ -25,7 +25,13 @@ import java.util.concurrent.CompletableFuture;
 
 public interface HiveMaterializedViewMetadata
 {
-    void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
+    void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting);
 
     void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);
 

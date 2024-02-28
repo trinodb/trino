@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tests.product.TestGroups.ALTER_TABLE;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -43,7 +42,7 @@ public class TestAlterTable
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", RENAMED_TABLE_NAME));
     }
 
-    @Test(groups = {ALTER_TABLE, SMOKE})
+    @Test(groups = SMOKE)
     public void renameTable()
     {
         onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM nation", TABLE_NAME));
@@ -59,7 +58,7 @@ public class TestAlterTable
                 .hasRowsCount(1);
     }
 
-    @Test(groups = {ALTER_TABLE, SMOKE})
+    @Test(groups = SMOKE)
     public void renameColumn()
     {
         onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM nation", TABLE_NAME));
@@ -76,7 +75,7 @@ public class TestAlterTable
         onTrino().executeQuery(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_nationkey", TABLE_NAME));
     }
 
-    @Test(groups = {ALTER_TABLE, SMOKE})
+    @Test(groups = SMOKE)
     public void addColumn()
     {
         onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM nation", TABLE_NAME));
@@ -91,7 +90,7 @@ public class TestAlterTable
                 .hasMessageContaining("Column 'n_naTioNkEy' already exists");
     }
 
-    @Test(groups = {ALTER_TABLE, SMOKE})
+    @Test(groups = SMOKE)
     public void dropColumn()
     {
         onTrino().executeQuery(format("CREATE TABLE %s AS SELECT n_nationkey, n_regionkey, n_name FROM nation", TABLE_NAME));

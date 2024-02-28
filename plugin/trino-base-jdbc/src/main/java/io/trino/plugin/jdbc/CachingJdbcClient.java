@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +40,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
@@ -61,12 +61,10 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
-import static io.trino.plugin.jdbc.BaseJdbcConfig.CACHING_DISABLED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -97,41 +95,27 @@ public class CachingJdbcClient
             BaseJdbcConfig config)
     {
         this(
+                Ticker.systemTicker(),
                 delegate,
                 sessionPropertiesProviders,
                 identityMapping,
                 config.getMetadataCacheTtl(),
                 config.getSchemaNamesCacheTtl(),
                 config.getTableNamesCacheTtl(),
+                config.getStatisticsCacheTtl(),
                 config.isCacheMissing(),
                 config.getCacheMaximumSize());
     }
 
     public CachingJdbcClient(
-            JdbcClient delegate,
-            Set<SessionPropertiesProvider> sessionPropertiesProviders,
-            IdentityCacheMapping identityMapping,
-            Duration metadataCachingTtl,
-            boolean cacheMissing,
-            long cacheMaximumSize)
-    {
-        this(delegate,
-                sessionPropertiesProviders,
-                identityMapping,
-                metadataCachingTtl,
-                metadataCachingTtl,
-                metadataCachingTtl,
-                cacheMissing,
-                cacheMaximumSize);
-    }
-
-    public CachingJdbcClient(
+            Ticker ticker,
             JdbcClient delegate,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             IdentityCacheMapping identityMapping,
             Duration metadataCachingTtl,
             Duration schemaNamesCachingTtl,
             Duration tableNamesCachingTtl,
+            Duration statisticsCachingTtl,
             boolean cacheMissing,
             long cacheMaximumSize)
     {
@@ -142,23 +126,19 @@ public class CachingJdbcClient
         this.cacheMissing = cacheMissing;
         this.identityMapping = requireNonNull(identityMapping, "identityMapping is null");
 
-        long cacheSize = metadataCachingTtl.equals(CACHING_DISABLED)
-                // Disables the cache entirely
-                ? 0
-                : cacheMaximumSize;
-
-        schemaNamesCache = buildCache(cacheSize, schemaNamesCachingTtl);
-        tableNamesCache = buildCache(cacheSize, tableNamesCachingTtl);
-        tableHandlesByNameCache = buildCache(cacheSize, metadataCachingTtl);
-        tableHandlesByQueryCache = buildCache(cacheSize, metadataCachingTtl);
-        procedureHandlesByQueryCache = buildCache(cacheSize, metadataCachingTtl);
-        columnsCache = buildCache(cacheSize, metadataCachingTtl);
-        statisticsCache = buildCache(cacheSize, metadataCachingTtl);
+        schemaNamesCache = buildCache(ticker, cacheMaximumSize, schemaNamesCachingTtl);
+        tableNamesCache = buildCache(ticker, cacheMaximumSize, tableNamesCachingTtl);
+        tableHandlesByNameCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        tableHandlesByQueryCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        procedureHandlesByQueryCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        columnsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        statisticsCache = buildCache(ticker, cacheMaximumSize, statisticsCachingTtl);
     }
 
-    private static <K, V> Cache<K, V> buildCache(long cacheSize, Duration cachingTtl)
+    private static <K, V> Cache<K, V> buildCache(Ticker ticker, long cacheSize, Duration cachingTtl)
     {
         return EvictableCacheBuilder.newBuilder()
+                .ticker(ticker)
                 .maximumSize(cacheSize)
                 .expireAfterWrite(cachingTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
@@ -213,6 +193,12 @@ public class CachingJdbcClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return delegate.toWriteMapping(session, type);
+    }
+
+    @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return delegate.getSupportedType(session, type);
     }
 
     @Override
@@ -296,13 +282,27 @@ public class CachingJdbcClient
             ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
+            JoinStatistics statistics)
+    {
+        return delegate.implementJoin(session, joinType, leftSource, leftProjections, rightSource, rightProjections, joinConditions, statistics);
+    }
+
+    @Override
+    public Optional<PreparedQuery> legacyImplementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
             PreparedQuery rightSource,
             List<JdbcJoinCondition> joinConditions,
             Map<JdbcColumnHandle, String> rightAssignments,
             Map<JdbcColumnHandle, String> leftAssignments,
             JoinStatistics statistics)
     {
-        return delegate.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics);
+        return delegate.legacyImplementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics);
     }
 
     @Override
@@ -418,13 +418,6 @@ public class CachingJdbcClient
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
-    {
-        checkArgument(tupleDomain.isAll(), "Unexpected non-ALL constraint: %s", tupleDomain);
-        return getTableStatistics(session, handle);
-    }
-
-    @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
     {
         // TODO depend on Identity when needed
@@ -509,6 +502,13 @@ public class CachingJdbcClient
     }
 
     @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        delegate.dropNotNullConstraint(session, handle, column);
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         delegate.renameTable(session, handle, newTableName);
@@ -572,6 +572,12 @@ public class CachingJdbcClient
         return delegate.getMaxWriteParallelism(session);
     }
 
+    @Override
+    public OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        return delegate.getMaxColumnNameLength(session);
+    }
+
     public void onDataChanged(SchemaTableName table)
     {
         invalidateAllIf(statisticsCache, key -> key.mayReference(table));
@@ -594,6 +600,14 @@ public class CachingJdbcClient
         OptionalLong deletedRowsCount = delegate.delete(session, handle);
         onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
         return deletedRowsCount;
+    }
+
+    @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        OptionalLong updatedRowsCount = delegate.update(session, handle);
+        onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
+        return updatedRowsCount;
     }
 
     @Override
@@ -694,7 +708,6 @@ public class CachingJdbcClient
 
     private record ColumnsCacheKey(IdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
     {
-        @SuppressWarnings("UnusedVariable") // TODO: Remove once https://github.com/google/error-prone/issues/2713 is fixed
         private ColumnsCacheKey
         {
             requireNonNull(identity, "identity is null");

@@ -158,10 +158,11 @@ For more details, see {doc}`comparison`
 
 For more details, see {doc}`conditional`
 
-- {ref}`coalesce <coalesce-function>`
-- {ref}`if <if-function>`
-- {ref}`nullif <nullif-function>`
-- {ref}`try <try-function>`
+- [case](case-expression)
+- [coalesce](coalesce-function)
+- [if](if-expression)
+- [nullif](nullif-function)
+- [try](try-function)
 
 ## Conversion
 
@@ -499,6 +500,13 @@ For more details, see {doc}`string`
 For more details, see {doc}`system`
 
 - {func}`version`
+
+## Table
+
+For more details, see [](/functions/table)
+
+- [exclude_columns()](exclude-columns-table-function)
+- [sequence()](sequence-table-function)
 
 ## T-Digest
 

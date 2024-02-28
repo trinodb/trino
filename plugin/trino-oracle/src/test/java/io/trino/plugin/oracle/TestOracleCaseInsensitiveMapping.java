@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.util.Optional;
@@ -32,7 +31,6 @@ import static java.util.Objects.requireNonNull;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
-@Test(singleThreaded = true)
 public class TestOracleCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
@@ -94,13 +92,5 @@ public class TestOracleCaseInsensitiveMapping
     protected SqlExecutor onRemoteDatabase()
     {
         return oracleServer::execute;
-    }
-
-    @Test
-    public void forceTestNgToRespectSingleThreaded()
-    {
-        // TODO: Remove after updating TestNG to 7.4.0+ (https://github.com/trinodb/trino/issues/8571)
-        // TestNG doesn't enforce @Test(singleThreaded = true) when tests are defined in base class. According to
-        // https://github.com/cbeust/testng/issues/2361#issuecomment-688393166 a workaround it to add a dummy test to the leaf test class.
     }
 }

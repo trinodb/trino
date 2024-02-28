@@ -14,18 +14,17 @@
 package io.trino.plugin.accumulo.index;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Files;
 import io.trino.plugin.accumulo.metadata.AccumuloTable;
 import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.trino.plugin.accumulo.serializers.LexicoderRowSerializer;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.accumulo.core.client.BatchWriterConfig;
-import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.Instance;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.Scanner;
-import org.apache.accumulo.core.client.mock.MockInstance;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Mutation;
@@ -33,10 +32,14 @@ import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.accumulo.core.security.ColumnVisibility;
+import org.apache.accumulo.minicluster.MiniAccumuloCluster;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -44,14 +47,19 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestIndexer
 {
     private static final LexicoderRowSerializer SERIALIZER = new LexicoderRowSerializer();
+    private static final AccumuloColumnHandle c1 = new AccumuloColumnHandle("id", Optional.empty(), Optional.empty(), VARCHAR, 0, "", Optional.empty(), false);
+    private static final AccumuloColumnHandle c2 = new AccumuloColumnHandle("age", Optional.of("cf"), Optional.of("age"), BIGINT, 1, "", Optional.empty(), true);
+    private static final AccumuloColumnHandle c3 = new AccumuloColumnHandle("firstname", Optional.of("cf"), Optional.of("firstname"), VARCHAR, 2, "", Optional.empty(), true);
+    private static final AccumuloColumnHandle c4 = new AccumuloColumnHandle("arr", Optional.of("cf"), Optional.of("arr"), new ArrayType(VARCHAR), 3, "", Optional.empty(), true);
 
     private static byte[] encode(Type type, Object v)
     {
@@ -76,18 +84,13 @@ public class TestIndexer
     private Mutation m2;
     private Mutation m1v;
     private Mutation m2v;
-    private AccumuloTable table;
+
+    private MiniAccumuloCluster cluster;
 
     @BeforeAll
     public void setupClass()
+            throws IOException, InterruptedException
     {
-        AccumuloColumnHandle c1 = new AccumuloColumnHandle("id", Optional.empty(), Optional.empty(), VARCHAR, 0, "", Optional.empty(), false);
-        AccumuloColumnHandle c2 = new AccumuloColumnHandle("age", Optional.of("cf"), Optional.of("age"), BIGINT, 1, "", Optional.empty(), true);
-        AccumuloColumnHandle c3 = new AccumuloColumnHandle("firstname", Optional.of("cf"), Optional.of("firstname"), VARCHAR, 2, "", Optional.empty(), true);
-        AccumuloColumnHandle c4 = new AccumuloColumnHandle("arr", Optional.of("cf"), Optional.of("arr"), new ArrayType(VARCHAR), 3, "", Optional.empty(), true);
-
-        table = new AccumuloTable("default", "index_test_table", ImmutableList.of(c1, c2, c3, c4), "id", true, LexicoderRowSerializer.class.getCanonicalName(), Optional.empty());
-
         m1 = new Mutation(M1_ROWID);
         m1.put(CF, AGE, AGE_VALUE);
         m1.put(CF, FIRSTNAME, M1_FNAME_VALUE);
@@ -109,27 +112,37 @@ public class TestIndexer
         m2v.put(CF, AGE, visibility1, AGE_VALUE);
         m2v.put(CF, FIRSTNAME, visibility2, M2_FNAME_VALUE);
         m2v.put(CF, SENDERS, visibility2, M2_ARR_VALUE);
+
+        cluster = new MiniAccumuloCluster(Files.createTempDir().getAbsoluteFile(), "rootpassword");
+        cluster.start();
+    }
+
+    @AfterAll
+    public void close()
+            throws IOException, InterruptedException
+    {
+        cluster.stop();
     }
 
     @Test
     public void testMutationIndex()
             throws Exception
     {
-        Instance inst = new MockInstance();
-        Connector conn = inst.getConnector("root", new PasswordToken(""));
-        conn.tableOperations().create(table.getFullTableName());
-        conn.tableOperations().create(table.getIndexTableName());
-        conn.tableOperations().create(table.getMetricsTableName());
+        AccumuloTable table = new AccumuloTable("default", "index_test_mutation_index", ImmutableList.of(c1, c2, c3, c4), "id", true, LexicoderRowSerializer.class.getCanonicalName(), Optional.empty());
+        AccumuloClient client = cluster.createAccumuloClient("root", new PasswordToken("rootpassword"));
+        client.tableOperations().create(table.getFullTableName());
+        client.tableOperations().create(table.getIndexTableName());
+        client.tableOperations().create(table.getMetricsTableName());
 
         for (IteratorSetting s : Indexer.getMetricIterators(table)) {
-            conn.tableOperations().attachIterator(table.getMetricsTableName(), s);
+            client.tableOperations().attachIterator(table.getMetricsTableName(), s);
         }
 
-        Indexer indexer = new Indexer(conn, new Authorizations(), table, new BatchWriterConfig());
+        Indexer indexer = new Indexer(client, new Authorizations(), table, new BatchWriterConfig());
         indexer.index(m1);
         indexer.flush();
 
-        Scanner scan = conn.createScanner(table.getIndexTableName(), new Authorizations());
+        Scanner scan = client.createScanner(table.getIndexTableName(), new Authorizations());
         scan.setRange(new Range());
 
         Iterator<Entry<Key, Value>> iter = scan.iterator();
@@ -138,11 +151,11 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "row1", "");
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "row1", "");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row1", "");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
-        scan = conn.createScanner(table.getMetricsTableName(), new Authorizations());
+        scan = client.createScanner(table.getMetricsTableName(), new Authorizations());
         scan.setRange(new Range());
 
         iter = scan.iterator();
@@ -154,14 +167,14 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "___card___", "1");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
         indexer.index(m2);
         indexer.close();
 
-        scan = conn.createScanner(table.getIndexTableName(), new Authorizations());
+        scan = client.createScanner(table.getIndexTableName(), new Authorizations());
         scan.setRange(new Range());
         iter = scan.iterator();
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "row1", "");
@@ -174,11 +187,11 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row1", "");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row2", "");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "row2", "");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
-        scan = conn.createScanner(table.getMetricsTableName(), new Authorizations());
+        scan = client.createScanner(table.getMetricsTableName(), new Authorizations());
         scan.setRange(new Range());
 
         iter = scan.iterator();
@@ -192,7 +205,7 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "___card___", "2");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "___card___", "1");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
     }
@@ -201,22 +214,25 @@ public class TestIndexer
     public void testMutationIndexWithVisibilities()
             throws Exception
     {
-        Instance inst = new MockInstance();
-        Connector conn = inst.getConnector("root", new PasswordToken(""));
-        conn.tableOperations().create(table.getFullTableName());
-        conn.tableOperations().create(table.getIndexTableName());
-        conn.tableOperations().create(table.getMetricsTableName());
+        AccumuloTable table = new AccumuloTable("default", "index_test_mutation_index_visibility", ImmutableList.of(c1, c2, c3, c4), "id", true, LexicoderRowSerializer.class.getCanonicalName(), Optional.empty());
+        AccumuloClient client = cluster.createAccumuloClient("root", new PasswordToken("rootpassword"));
+        Authorizations authorizations = new Authorizations("private", "moreprivate");
+        client.securityOperations().changeUserAuthorizations("root", authorizations);
+
+        client.tableOperations().create(table.getFullTableName());
+        client.tableOperations().create(table.getIndexTableName());
+        client.tableOperations().create(table.getMetricsTableName());
 
         for (IteratorSetting s : Indexer.getMetricIterators(table)) {
-            conn.tableOperations().attachIterator(table.getMetricsTableName(), s);
+            client.tableOperations().attachIterator(table.getMetricsTableName(), s);
         }
 
-        Indexer indexer = new Indexer(conn, new Authorizations(), table, new BatchWriterConfig());
+        Indexer indexer = new Indexer(client, new Authorizations(), table, new BatchWriterConfig());
         indexer.index(m1);
         indexer.index(m1v);
         indexer.flush();
 
-        Scanner scan = conn.createScanner(table.getIndexTableName(), new Authorizations("private", "moreprivate"));
+        Scanner scan = client.createScanner(table.getIndexTableName(), authorizations);
         scan.setRange(new Range());
 
         Iterator<Entry<Key, Value>> iter = scan.iterator();
@@ -230,11 +246,11 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "row1", "moreprivate", "");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row1", "");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row1", "moreprivate", "");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
-        scan = conn.createScanner(table.getMetricsTableName(), new Authorizations("private", "moreprivate"));
+        scan = client.createScanner(table.getMetricsTableName(), authorizations);
         scan.setRange(new Range());
 
         iter = scan.iterator();
@@ -251,7 +267,7 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "___card___", "moreprivate", "1");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "___card___", "moreprivate", "1");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
@@ -259,7 +275,7 @@ public class TestIndexer
         indexer.index(m2v);
         indexer.close();
 
-        scan = conn.createScanner(table.getIndexTableName(), new Authorizations("private", "moreprivate"));
+        scan = client.createScanner(table.getIndexTableName(), authorizations);
         scan.setRange(new Range());
         iter = scan.iterator();
         assertKeyValuePair(iter.next(), AGE_VALUE, "cf_age", "row1", "");
@@ -282,11 +298,11 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row2", "moreprivate", "");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "row2", "");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "row2", "moreprivate", "");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
-        scan = conn.createScanner(table.getMetricsTableName(), new Authorizations("private", "moreprivate"));
+        scan = client.createScanner(table.getMetricsTableName(), authorizations);
         scan.setRange(new Range());
 
         iter = scan.iterator();
@@ -307,26 +323,26 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "___card___", "moreprivate", "2");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "___card___", "moreprivate", "1");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
     }
 
     private static void assertKeyValuePair(Entry<Key, Value> e, byte[] row, String cf, String cq, String value)
     {
-        assertEquals(row, e.getKey().getRow().copyBytes());
-        assertEquals(cf, e.getKey().getColumnFamily().toString());
-        assertEquals(cq, e.getKey().getColumnQualifier().toString());
-        assertEquals(value, e.getValue().toString());
+        assertThat(row).isEqualTo(e.getKey().getRow().copyBytes());
+        assertThat(cf).isEqualTo(e.getKey().getColumnFamily().toString());
+        assertThat(cq).isEqualTo(e.getKey().getColumnQualifier().toString());
+        assertThat(value).isEqualTo(e.getValue().toString());
     }
 
     private static void assertKeyValuePair(Entry<Key, Value> e, byte[] row, String cf, String cq, String cv, String value)
     {
-        assertEquals(row, e.getKey().getRow().copyBytes());
-        assertEquals(cf, e.getKey().getColumnFamily().toString());
-        assertEquals(cq, e.getKey().getColumnQualifier().toString());
-        assertEquals(cv, e.getKey().getColumnVisibility().toString());
-        assertEquals(value, e.getValue().toString());
+        assertThat(row).isEqualTo(e.getKey().getRow().copyBytes());
+        assertThat(cf).isEqualTo(e.getKey().getColumnFamily().toString());
+        assertThat(cq).isEqualTo(e.getKey().getColumnQualifier().toString());
+        assertThat(cv).isEqualTo(e.getKey().getColumnVisibility().toString());
+        assertThat(value).isEqualTo(e.getValue().toString());
     }
 
     private static byte[] bytes(String s)

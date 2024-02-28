@@ -16,9 +16,11 @@ package io.trino.plugin.pinot.query;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.PinotColumnHandle;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -48,6 +50,8 @@ public final class DynamicTable
     private final OptionalLong limit;
     private final OptionalLong offset;
 
+    private final Map<String, String> queryOptions;
+
     private final String query;
 
     private final boolean isAggregateInProjections;
@@ -64,6 +68,7 @@ public final class DynamicTable
             @JsonProperty("orderBy") List<OrderByExpression> orderBy,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("offset") OptionalLong offset,
+            @JsonProperty("queryOptions") Map<String, String> queryOptions,
             @JsonProperty("query") String query)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -76,6 +81,7 @@ public final class DynamicTable
         this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));
         this.limit = requireNonNull(limit, "limit is null");
         this.offset = requireNonNull(offset, "offset is null");
+        this.queryOptions = ImmutableMap.copyOf(requireNonNull(queryOptions, "queryOptions is null"));
         this.query = requireNonNull(query, "query is null");
         this.isAggregateInProjections = projections.stream()
                 .anyMatch(PinotColumnHandle::isAggregate);
@@ -142,6 +148,12 @@ public final class DynamicTable
     }
 
     @JsonProperty
+    public Map<String, String> getQueryOptions()
+    {
+        return queryOptions;
+    }
+
+    @JsonProperty
     public String getQuery()
     {
         return query;
@@ -173,13 +185,14 @@ public final class DynamicTable
                 orderBy.equals(that.orderBy) &&
                 limit.equals(that.limit) &&
                 offset.equals(that.offset) &&
+                queryOptions.equals(that.queryOptions) &&
                 query.equals(that.query);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, projections, filter, groupingColumns, aggregateColumns, havingExpression, orderBy, limit, offset, query);
+        return Objects.hash(tableName, projections, filter, groupingColumns, aggregateColumns, havingExpression, orderBy, limit, offset, queryOptions, query);
     }
 
     @Override
@@ -195,6 +208,7 @@ public final class DynamicTable
                 .add("orderBy", orderBy)
                 .add("limit", limit)
                 .add("offset", offset)
+                .add("queryOptions", queryOptions)
                 .add("query", query)
                 .toString();
     }

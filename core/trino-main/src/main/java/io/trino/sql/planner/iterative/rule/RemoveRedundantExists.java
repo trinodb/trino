@@ -21,7 +21,6 @@ import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
 
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
@@ -64,9 +63,7 @@ public class RemoveRedundantExists
         implements Rule<ApplyNode>
 {
     private static final Pattern<ApplyNode> PATTERN = applyNode()
-            .matching(node -> node.getSubqueryAssignments()
-                    .getExpressions().stream()
-                    .allMatch(expression -> expression instanceof ExistsPredicate && ((ExistsPredicate) expression).getSubquery().equals(TRUE_LITERAL)));
+            .matching(node -> node.getSubqueryAssignments().values().stream().allMatch(ApplyNode.Exists.class::isInstance));
 
     @Override
     public Pattern<ApplyNode> getPattern()
@@ -92,7 +89,7 @@ public class RemoveRedundantExists
             return Result.empty();
         }
 
-        for (Symbol output : node.getSubqueryAssignments().getOutputs()) {
+        for (Symbol output : node.getSubqueryAssignments().keySet()) {
             assignments.put(output, result);
         }
 

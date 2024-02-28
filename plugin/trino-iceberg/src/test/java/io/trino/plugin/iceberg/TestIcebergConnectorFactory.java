@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -27,7 +27,9 @@ public class TestIcebergConnectorFactory
     @Test
     public void testBasicConfig()
     {
-        Map<String, String> config = ImmutableMap.of("hive.metastore.uri", "thrift://localhost:1234");
+        Map<String, String> config = ImmutableMap.of(
+                "hive.metastore.uri", "thrift://localhost:1234",
+                "bootstrap.quiet", "true");
         createConnector(config);
     }
 
@@ -37,6 +39,7 @@ public class TestIcebergConnectorFactory
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://localhost:1234")
                 .put("hive.metastore-cache-ttl", "5m")
+                .put("bootstrap.quiet", "true")
                 .buildOrThrow();
         assertThatThrownBy(() -> createConnector(config))
                 .hasMessageContaining("Hive metastore caching must not be enabled for Iceberg");
@@ -45,6 +48,7 @@ public class TestIcebergConnectorFactory
     private static void createConnector(Map<String, String> config)
     {
         ConnectorFactory factory = new IcebergConnectorFactory();
-        factory.create("test", config, new TestingConnectorContext());
+        factory.create("test", config, new TestingConnectorContext())
+                .shutdown();
     }
 }

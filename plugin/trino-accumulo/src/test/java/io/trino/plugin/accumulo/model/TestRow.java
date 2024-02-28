@@ -38,8 +38,8 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToIntBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestRow
 {
@@ -62,10 +62,7 @@ public class TestRow
         r1.addField(utf8Slice("O'Leary"), VARCHAR);
         r1.addField(null, VARCHAR);
 
-        assertEquals(r1.length(), 14);
-
-        Row r2 = new Row(r1);
-        assertEquals(r2, r1);
+        assertThat(r1.length()).isEqualTo(14);
     }
 
     @Test

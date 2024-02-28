@@ -16,7 +16,7 @@ package io.trino.plugin.example;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.net.URL;
@@ -24,8 +24,7 @@ import java.net.URL;
 import static io.trino.plugin.example.MetadataUtil.CATALOG_CODEC;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExampleClient
 {
@@ -34,17 +33,21 @@ public class TestExampleClient
             throws Exception
     {
         URL metadataUrl = Resources.getResource(TestExampleClient.class, "/example-data/example-metadata.json");
-        assertNotNull(metadataUrl, "metadataUrl is null");
+        assertThat(metadataUrl)
+                .describedAs("metadataUrl is null")
+                .isNotNull();
         URI metadata = metadataUrl.toURI();
         ExampleClient client = new ExampleClient(new ExampleConfig().setMetadata(metadata), CATALOG_CODEC);
-        assertEquals(client.getSchemaNames(), ImmutableSet.of("example", "tpch"));
-        assertEquals(client.getTableNames("example"), ImmutableSet.of("numbers"));
-        assertEquals(client.getTableNames("tpch"), ImmutableSet.of("orders", "lineitem"));
+        assertThat(client.getSchemaNames()).isEqualTo(ImmutableSet.of("example", "tpch"));
+        assertThat(client.getTableNames("example")).isEqualTo(ImmutableSet.of("numbers"));
+        assertThat(client.getTableNames("tpch")).isEqualTo(ImmutableSet.of("orders", "lineitem"));
 
         ExampleTable table = client.getTable("example", "numbers");
-        assertNotNull(table, "table is null");
-        assertEquals(table.getName(), "numbers");
-        assertEquals(table.getColumns(), ImmutableList.of(new ExampleColumn("text", createUnboundedVarcharType()), new ExampleColumn("value", BIGINT)));
-        assertEquals(table.getSources(), ImmutableList.of(metadata.resolve("numbers-1.csv"), metadata.resolve("numbers-2.csv")));
+        assertThat(table)
+                .describedAs("table is null")
+                .isNotNull();
+        assertThat(table.getName()).isEqualTo("numbers");
+        assertThat(table.getColumns()).isEqualTo(ImmutableList.of(new ExampleColumn("text", createUnboundedVarcharType()), new ExampleColumn("value", BIGINT)));
+        assertThat(table.getSources()).isEqualTo(ImmutableList.of(metadata.resolve("numbers-1.csv"), metadata.resolve("numbers-2.csv")));
     }
 }

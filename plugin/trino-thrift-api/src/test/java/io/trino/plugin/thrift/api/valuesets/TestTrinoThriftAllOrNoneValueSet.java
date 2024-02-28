@@ -14,13 +14,11 @@
 package io.trino.plugin.thrift.api.valuesets;
 
 import io.trino.spi.predicate.ValueSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.thrift.api.valuesets.TrinoThriftValueSet.fromValueSet;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTrinoThriftAllOrNoneValueSet
 {
@@ -28,15 +26,15 @@ public class TestTrinoThriftAllOrNoneValueSet
     public void testFromValueSetAll()
     {
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.all(HYPER_LOG_LOG));
-        assertNotNull(thriftValueSet.getAllOrNoneValueSet());
-        assertTrue(thriftValueSet.getAllOrNoneValueSet().isAll());
+        assertThat(thriftValueSet.getAllOrNoneValueSet()).isNotNull();
+        assertThat(thriftValueSet.getAllOrNoneValueSet().isAll()).isTrue();
     }
 
     @Test
     public void testFromValueSetNone()
     {
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.none(HYPER_LOG_LOG));
-        assertNotNull(thriftValueSet.getAllOrNoneValueSet());
-        assertFalse(thriftValueSet.getAllOrNoneValueSet().isAll());
+        assertThat(thriftValueSet.getAllOrNoneValueSet()).isNotNull();
+        assertThat(thriftValueSet.getAllOrNoneValueSet().isAll()).isFalse();
     }
 }

@@ -19,12 +19,11 @@ import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveAnalyzeCorruptStatistics
         extends AbstractTestQueryFramework
@@ -56,12 +55,13 @@ public class TestHiveAnalyzeCorruptStatistics
         assertQuerySucceeds("SHOW STATS FOR " + tableName);
 
         // ANALYZE and drop_stats are unsupported for tables having broken column statistics
-        assertThatThrownBy(() -> query("ANALYZE " + tableName))
-                .hasMessage("%s: Socket is closed by peer.", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+        assertThat(query("ANALYZE " + tableName))
+                .failure()
+                .hasMessage("Unexpected 2 statistics for 1 columns")
                 .hasStackTraceContaining("ThriftHiveMetastore.setTableColumnStatistics");
 
-        assertThatThrownBy(() -> query("CALL system.drop_stats('tpch', '" + tableName + "')"))
-                .hasMessageContaining("The query returned more than one instance BUT either unique is set to true or only aggregates are to be returned, so should have returned one result maximum");
+        assertThat(query("CALL system.drop_stats('tpch', '" + tableName + "')"))
+                .failure().hasMessageContaining("The query returned more than one instance BUT either unique is set to true or only aggregates are to be returned, so should have returned one result maximum");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -71,11 +71,35 @@ public class TestHiveAnalyzeCorruptStatistics
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 col", 1);
 
         // Insert duplicated row to simulate broken column statistics status https://github.com/trinodb/trino/issues/13787
-        assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "1");
-        onMetastore("INSERT INTO TAB_COL_STATS  " +
-                "SELECT cs_id + 1, db_name, table_name, column_name, column_type, tbl_id, long_low_value, long_high_value, double_high_value, double_low_value, big_decimal_low_value, big_decimal_high_value, num_nulls, num_distincts, avg_col_len, max_col_len, num_trues, num_falses, last_analyzed " +
-                "FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'");
-        assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "2");
+        assertThat(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'")).isEqualTo("1");
+        onMetastore("""
+                INSERT INTO TAB_COL_STATS
+                SELECT
+                  cs_id + 1,
+                  cat_name,
+                  db_name,
+                  table_name,
+                  column_name,
+                  column_type,
+                  tbl_id,
+                  long_low_value,
+                  long_high_value,
+                  double_high_value,
+                  double_low_value,
+                  big_decimal_low_value,
+                  big_decimal_high_value,
+                  num_nulls,
+                  num_distincts,
+                  bit_vector,
+                  avg_col_len,
+                  max_col_len,
+                  num_trues,
+                  num_falses,
+                  last_analyzed
+                FROM TAB_COL_STATS
+                WHERE db_name = 'tpch' AND table_name = '%s'
+                """.formatted(tableName));
+        assertThat(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'")).isEqualTo("2");
     }
 
     @Test
@@ -91,8 +115,8 @@ public class TestHiveAnalyzeCorruptStatistics
 
         // ANALYZE succeeds for a partitioned table with corrupt stats unlike a non-partitioned table with corrupt stats
         assertUpdate("ANALYZE " + tableName, 1);
-        assertThatThrownBy(() -> query("CALL system.drop_stats('tpch', '" + tableName + "')"))
-                .hasMessageContaining("The query returned more than one instance BUT either unique is set to true or only aggregates are to be returned, so should have returned one result maximum");
+        assertThat(query("CALL system.drop_stats('tpch', '" + tableName + "')"))
+                .failure().hasMessageContaining("The query returned more than one instance BUT either unique is set to true or only aggregates are to be returned, so should have returned one result maximum");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -102,11 +126,36 @@ public class TestHiveAnalyzeCorruptStatistics
         assertUpdate("CREATE TABLE " + tableName + " WITH(partitioned_by = ARRAY['part']) AS SELECT 1 col, 'test_partition' part", 1);
 
         // Insert duplicated row to simulate broken partition statistics status https://github.com/trinodb/trino/issues/13787
-        assertEquals(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "1");
-        onMetastore("INSERT INTO PART_COL_STATS  " +
-                "SELECT cs_id + 1, db_name, table_name, partition_name, column_name, column_type, part_id, long_low_value, long_high_value, double_high_value, double_low_value, big_decimal_low_value, big_decimal_high_value, num_nulls, num_distincts, avg_col_len, max_col_len, num_trues, num_falses, last_analyzed " +
-                "FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'");
-        assertEquals(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "2");
+        assertThat(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'")).isEqualTo("1");
+        onMetastore("""
+                INSERT INTO PART_COL_STATS
+                SELECT
+                  cs_id + 1,
+                  cat_name,
+                  db_name,
+                  table_name,
+                  partition_name,
+                  column_name,
+                  column_type,
+                  part_id,
+                  long_low_value,
+                  long_high_value,
+                  double_high_value,
+                  double_low_value,
+                  big_decimal_low_value,
+                  big_decimal_high_value,
+                  num_nulls,
+                  num_distincts,
+                  bit_vector,
+                  avg_col_len,
+                  max_col_len,
+                  num_trues,
+                  num_falses,
+                  last_analyzed
+                FROM PART_COL_STATS
+                WHERE db_name = 'tpch' AND table_name = '%s'
+                """.formatted(tableName));
+        assertThat(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'")).isEqualTo("2");
     }
 
     private String onMetastore(@Language("SQL") String sql)

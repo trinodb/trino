@@ -14,8 +14,8 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
@@ -23,8 +23,8 @@ import java.util.Map;
 
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -36,12 +36,13 @@ public class TestTinyintVarcharMapType
         super(mapType(TINYINT, VARCHAR), Map.class, createTestBlock(mapType(TINYINT, VARCHAR)));
     }
 
-    public static Block createTestBlock(Type mapType)
+    public static ValueBlock createTestBlock(Type mapType)
     {
         BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 2);
-        mapType.writeObject(blockBuilder, mapBlockOf(TINYINT, VARCHAR, ImmutableMap.of(1, "hi")));
-        mapType.writeObject(blockBuilder, mapBlockOf(TINYINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")));
-        return blockBuilder.build();
+        mapType.writeObject(blockBuilder, sqlMapOf(TINYINT, VARCHAR, ImmutableMap.of(1, "hi")));
+        mapType.writeObject(blockBuilder, sqlMapOf(TINYINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")));
+        mapType.writeObject(blockBuilder, sqlMapOf(TINYINT, VARCHAR, ImmutableMap.of(1, "123456789012345", 2, "hello-world-hello-world-hello-world")));
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

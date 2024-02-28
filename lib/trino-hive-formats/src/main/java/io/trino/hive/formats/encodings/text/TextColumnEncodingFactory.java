@@ -115,20 +115,20 @@ public class TextColumnEncodingFactory
         if (type instanceof TimestampType) {
             return new TimestampEncoding((TimestampType) type, textEncodingOptions.getNullSequence(), textEncodingOptions.getTimestampFormats());
         }
-        if (type instanceof ArrayType) {
-            TextColumnEncoding elementEncoding = getEncoding(type.getTypeParameters().get(0), depth + 1);
+        if (type instanceof ArrayType arrayType) {
+            TextColumnEncoding elementEncoding = getEncoding(arrayType.getElementType(), depth + 1);
             return new ListEncoding(
-                    type,
+                    arrayType,
                     textEncodingOptions.getNullSequence(),
                     getSeparator(depth + 1),
                     textEncodingOptions.getEscapeByte(),
                     elementEncoding);
         }
-        if (type instanceof MapType) {
-            TextColumnEncoding keyEncoding = getEncoding(type.getTypeParameters().get(0), depth + 2);
-            TextColumnEncoding valueEncoding = getEncoding(type.getTypeParameters().get(1), depth + 2);
+        if (type instanceof MapType mapType) {
+            TextColumnEncoding keyEncoding = getEncoding(mapType.getKeyType(), depth + 2);
+            TextColumnEncoding valueEncoding = getEncoding(mapType.getValueType(), depth + 2);
             return new MapEncoding(
-                    type,
+                    mapType,
                     textEncodingOptions.getNullSequence(),
                     getSeparator(depth + 1),
                     getSeparator(depth + 2),
@@ -136,12 +136,12 @@ public class TextColumnEncodingFactory
                     keyEncoding,
                     valueEncoding);
         }
-        if (type instanceof RowType) {
-            List<TextColumnEncoding> fieldEncodings = type.getTypeParameters().stream()
+        if (type instanceof RowType rowType) {
+            List<TextColumnEncoding> fieldEncodings = rowType.getTypeParameters().stream()
                     .map(fieldType -> getEncoding(fieldType, depth + 1))
                     .collect(toImmutableList());
             return new StructEncoding(
-                    type,
+                    rowType,
                     textEncodingOptions.getNullSequence(),
                     getSeparator(depth + 1),
                     textEncodingOptions.getEscapeByte(),

@@ -29,18 +29,11 @@ import io.trino.plugin.accumulo.io.AccumuloPageSinkProvider;
 import io.trino.plugin.accumulo.io.AccumuloRecordSetProvider;
 import io.trino.plugin.accumulo.metadata.AccumuloTable;
 import io.trino.plugin.accumulo.metadata.ZooKeeperMetadataManager;
-import io.trino.spi.TrinoException;
-import org.apache.accumulo.core.client.AccumuloException;
-import org.apache.accumulo.core.client.AccumuloSecurityException;
-import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.Instance;
-import org.apache.accumulo.core.client.ZooKeeperInstance;
-import org.apache.accumulo.core.client.security.tokens.PasswordToken;
+import org.apache.accumulo.core.client.Accumulo;
+import org.apache.accumulo.core.client.AccumuloClient;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Trino module to do all kinds of run Guice injection stuff!
@@ -56,7 +49,7 @@ public class AccumuloModule
         binder.bind(AccumuloConnector.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadata.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(AccumuloClient.class).in(Scopes.SINGLETON);
+        binder.bind(AccumuloMetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloPageSinkProvider.class).in(Scopes.SINGLETON);
@@ -66,17 +59,17 @@ public class AccumuloModule
         binder.bind(AccumuloTableManager.class).in(Scopes.SINGLETON);
         binder.bind(IndexLookup.class).in(Scopes.SINGLETON);
         binder.bind(ColumnCardinalityCache.class).in(Scopes.SINGLETON);
-        binder.bind(Connector.class).toProvider(ConnectorProvider.class);
+        binder.bind(AccumuloClient.class).toProvider(ClientProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(AccumuloConfig.class);
 
         jsonCodecBinder(binder).bindMapJsonCodec(String.class, JsonCodec.listJsonCodec(AccumuloTable.class));
     }
 
-    private static class ConnectorProvider
-            implements Provider<Connector>
+    private static class ClientProvider
+            implements Provider<AccumuloClient>
     {
-        private static final Logger LOG = Logger.get(ConnectorProvider.class);
+        private static final Logger LOG = Logger.get(ClientProvider.class);
 
         private final String instance;
         private final String zooKeepers;
@@ -84,7 +77,7 @@ public class AccumuloModule
         private final String password;
 
         @Inject
-        public ConnectorProvider(AccumuloConfig config)
+        public ClientProvider(AccumuloConfig config)
         {
             this.instance = config.getInstance();
             this.zooKeepers = config.getZooKeepers();
@@ -93,17 +86,14 @@ public class AccumuloModule
         }
 
         @Override
-        public Connector get()
+        public AccumuloClient get()
         {
-            try {
-                Instance inst = new ZooKeeperInstance(instance, zooKeepers);
-                Connector connector = inst.getConnector(username, new PasswordToken(password.getBytes(UTF_8)));
-                LOG.info("Connection to instance %s at %s established, user %s", instance, zooKeepers, username);
-                return connector;
-            }
-            catch (AccumuloException | AccumuloSecurityException e) {
-                throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get connector to Accumulo", e);
-            }
+            AccumuloClient client = Accumulo.newClient()
+                    .to(instance, zooKeepers)
+                    .as(username, password)
+                    .build();
+            LOG.info("Connection to instance %s at %s established, user %s", instance, zooKeepers, username);
+            return client;
         }
     }
 }

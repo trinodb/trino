@@ -13,25 +13,31 @@
  */
 package io.trino.plugin.hudi;
 
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.local.LocalFileSystemFactory;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.hudi.InternalHudiConnectorFactory.createConnector;
-import static java.util.Objects.requireNonNull;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.hudi.HudiConnectorFactory.createConnector;
 
 public class TestingHudiConnectorFactory
         implements ConnectorFactory
 {
-    private final Optional<HiveMetastore> metastore;
+    private final Path localFileSystemRootPath;
 
-    public TestingHudiConnectorFactory(Optional<HiveMetastore> metastore)
+    public TestingHudiConnectorFactory(Path localFileSystemRootPath)
     {
-        this.metastore = requireNonNull(metastore, "metastore is null");
+        localFileSystemRootPath.toFile().mkdirs();
+        this.localFileSystemRootPath = localFileSystemRootPath;
     }
 
     @Override
@@ -43,6 +49,16 @@ public class TestingHudiConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, metastore, Optional.empty());
+        ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.<String, String>builder()
+                .putAll(config)
+                .put("bootstrap.quiet", "true");
+        if (!config.containsKey("hive.metastore")) {
+            configBuilder.put("hive.metastore", "file");
+        }
+        return createConnector(catalogName, configBuilder.buildOrThrow(), context, Optional.of(binder -> {
+            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+            configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///managed/"));
+        }));
     }
 }

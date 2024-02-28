@@ -15,12 +15,9 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.FunctionBundle;
-import io.trino.metadata.InternalFunctionBundle;
 import io.trino.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
@@ -28,15 +25,11 @@ import java.util.Set;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
-import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
-import static io.trino.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
-import static io.trino.testing.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
@@ -44,22 +37,11 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
-    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION);
-
-    // We can just use the default type registry, since we don't use any parametric types
-    protected static final FunctionBundle CUSTOM_FUNCTIONS = InternalFunctionBundle.builder()
-            .aggregates(CustomSum.class)
-            .window(CustomRank.class)
-            .scalars(CustomAdd.class)
-            .scalars(CreateHll.class)
-            .functions(APPLY_FUNCTION, INVOKE_FUNCTION, STATEFUL_SLEEPING_SUM)
-            .build();
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(NATION, ORDERS, REGION);
 
     @Test
     public void testAggregationOverUnknown()
@@ -157,7 +139,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT orderkey FROM orders LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
-        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
         assertContains(all, actual);
 
         actual = computeActual(
@@ -167,7 +149,7 @@ public abstract class AbstractTestQueries
                         "(SELECT orderkey, custkey FROM orders LIMIT 5) UNION ALL " +
                         "SELECT orderkey, custkey FROM orders LIMIT 10");
         all = computeExpected("SELECT orderkey, custkey FROM orders", actual.getTypes());
-        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
         assertContains(all, actual);
 
         // with ORDER BY
@@ -193,7 +175,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT custkey, SUM(orderkey) FROM orders GROUP BY custkey LIMIT 10");
         MaterializedResult all = computeExpected("SELECT custkey, SUM(orderkey) FROM orders GROUP BY custkey", actual.getTypes());
 
-        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
         assertContains(all, actual);
     }
 
@@ -203,7 +185,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM orders LIMIT 100) T LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
-        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
         assertContains(all, actual);
     }
 
@@ -244,33 +226,24 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
     }
 
-    @Test(dataProvider = "largeInValuesCount")
-    public void testLargeIn(int valuesCount)
+    @Test
+    public void testLargeIn()
     {
-        String longValues = range(0, valuesCount)
-                .mapToObj(Integer::toString)
-                .collect(joining(", "));
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
+        for (int count : largeInValuesCountData()) {
+            String longValues = range(0, count)
+                    .mapToObj(Integer::toString)
+                    .collect(joining(", "));
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
 
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
+        }
     }
 
-    @DataProvider
-    public Object[][] largeInValuesCount()
+    protected List<Integer> largeInValuesCountData()
     {
-        return largeInValuesCountData();
-    }
-
-    protected Object[][] largeInValuesCountData()
-    {
-        return new Object[][] {
-                {200},
-                {500},
-                {1000},
-                {5000}
-        };
+        return ImmutableList.of(200, 500, 1000, 5000);
     }
 
     @Test
@@ -291,7 +264,7 @@ public abstract class AbstractTestQueries
     public void testShowSchemasLike()
     {
         MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
-        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getSchema().get()));
+        assertThat(result.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(getSession().getSchema().get()));
     }
 
     @Test
@@ -303,7 +276,7 @@ public abstract class AbstractTestQueries
         // Using eventual assertion because set of schemas may change concurrently.
         assertEventually(() -> {
             Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
-            assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
+            assertThat(allSchemas).isEqualTo(computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
             Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
             verify(allSchemas.stream().anyMatch(schema -> !((String) schema).contains("_")),
                     "This test expects at least one schema without underscore in it's name. Satisfy this assumption or override the test.");
@@ -363,8 +336,9 @@ public abstract class AbstractTestQueries
                 .build();
 
         // Until we migrate all connectors to parametrized varchar we check two options
-        assertTrue(actual.equals(expectedParametrizedVarchar) || actual.equals(expectedUnparametrizedVarchar),
-                format("%s does not match neither of %s and %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
+        assertThat(actual.equals(expectedParametrizedVarchar) || actual.equals(expectedUnparametrizedVarchar))
+                .describedAs(format("%s does not match neither of %s and %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar))
+                .isTrue();
     }
 
     @Test
@@ -374,8 +348,8 @@ public abstract class AbstractTestQueries
                 "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
                 "SELECT 'orders' table_name");
         assertQuery(
-                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'customer' and column_name = 'custkey' LIMIT 1",
-                "SELECT 'customer' table_name");
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'nation' and column_name = 'nationkey' LIMIT 1",
+                "SELECT 'nation' table_name");
     }
 
     @Test
@@ -475,7 +449,7 @@ public abstract class AbstractTestQueries
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTypes());
 
         assertContains(all, fullSample);
-        assertEquals(emptySample.getMaterializedRows().size(), 0);
+        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
     }
 
     @Test
@@ -488,12 +462,16 @@ public abstract class AbstractTestQueries
         for (int i = 0; i < 100; i++) {
             List<MaterializedRow> values = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (50)").getMaterializedRows();
 
-            assertEquals(values.size(), ImmutableSet.copyOf(values).size(), "TABLESAMPLE produced duplicate rows");
+            assertThat(values.size())
+                    .describedAs("TABLESAMPLE produced duplicate rows")
+                    .isEqualTo(ImmutableSet.copyOf(values).size());
             stats.addValue(values.size() * 1.0 / total);
         }
 
         double mean = stats.getGeometricMean();
-        assertTrue(mean > 0.45 && mean < 0.55, format("Expected mean sampling rate to be ~0.5, but was %s", mean));
+        assertThat(mean > 0.45 && mean < 0.55)
+                .describedAs(format("Expected mean sampling rate to be ~0.5, but was %s", mean))
+                .isTrue();
     }
 
     @Test

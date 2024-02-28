@@ -14,6 +14,7 @@
 package io.trino.sql.planner.assertions;
 
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
@@ -29,14 +30,15 @@ public abstract class BasePushdownPlanTest
 {
     protected Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName objectName)
     {
-        return getQueryRunner().inTransaction(session, transactionSession -> { return getQueryRunner().getMetadata().getTableHandle(transactionSession, objectName); });
+        return getPlanTester().inTransaction(session, transactionSession -> getPlanTester().getPlannerContext().getMetadata().getTableHandle(transactionSession, objectName));
     }
 
     protected Map<String, ColumnHandle> getColumnHandles(Session session, QualifiedObjectName tableName)
     {
-        return getQueryRunner().inTransaction(session, transactionSession -> {
-            Optional<TableHandle> table = getQueryRunner().getMetadata().getTableHandle(transactionSession, tableName);
-            return getQueryRunner().getMetadata().getColumnHandles(transactionSession, table.get());
+        return getPlanTester().inTransaction(session, transactionSession -> {
+            Metadata metadata = getPlanTester().getPlannerContext().getMetadata();
+            Optional<TableHandle> table = metadata.getTableHandle(transactionSession, tableName);
+            return metadata.getColumnHandles(transactionSession, table.orElseThrow());
         });
     }
 }

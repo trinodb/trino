@@ -27,7 +27,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
 
@@ -125,6 +124,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return delegate().getSupportedType(session, type);
+    }
+
+    @Override
     public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         return delegate().supportsAggregationPushdown(session, table, aggregates, assignments, groupingSets);
@@ -205,13 +210,27 @@ public abstract class ForwardingJdbcClient
             ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
+            JoinStatistics statistics)
+    {
+        return delegate().implementJoin(session, joinType, leftSource, leftProjections, rightSource, rightProjections, joinConditions, statistics);
+    }
+
+    @Override
+    public Optional<PreparedQuery> legacyImplementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
             PreparedQuery rightSource,
             List<JdbcJoinCondition> joinConditions,
             Map<JdbcColumnHandle, String> rightAssignments,
             Map<JdbcColumnHandle, String> leftAssignments,
             JoinStatistics statistics)
     {
-        return delegate().implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics);
+        return delegate().legacyImplementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics);
     }
 
     @Override
@@ -274,12 +293,6 @@ public abstract class ForwardingJdbcClient
             throws SQLException
     {
         return delegate().getPreparedStatement(connection, sql, columnCount);
-    }
-
-    @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
-    {
-        return delegate().getTableStatistics(session, handle, tupleDomain);
     }
 
     @Override
@@ -356,6 +369,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        delegate().dropNotNullConstraint(session, handle, column);
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         delegate().renameTable(session, handle, newTableName);
@@ -428,6 +447,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return delegate().update(session, handle);
+    }
+
+    @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
         delegate().truncateTable(session, handle);
@@ -437,5 +462,11 @@ public abstract class ForwardingJdbcClient
     public OptionalInt getMaxWriteParallelism(ConnectorSession session)
     {
         return delegate().getMaxWriteParallelism(session);
+    }
+
+    @Override
+    public OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        return delegate().getMaxColumnNameLength(session);
     }
 }

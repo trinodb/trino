@@ -22,6 +22,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
+import io.trino.execution.buffer.CompressionCodec;
 import io.trino.sql.analyzer.RegexLibrary;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -35,6 +36,8 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 
 @DefunctConfig({
@@ -64,6 +67,8 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "spill-window-operator",
         "experimental.spill-window-operator",
         "legacy.allow-set-view-authorization",
+        "parse-decimal-literals-as-double",
+        "experimental.late-materialization.enabled"
 })
 public class FeaturesConfig
 {
@@ -73,11 +78,12 @@ public class FeaturesConfig
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;
     private DataSize writerScalingMinDataProcessed = DataSize.of(120, DataSize.Unit.MEGABYTE);
+    private DataSize maxMemoryPerPartitionWriter = DataSize.of(256, DataSize.Unit.MEGABYTE);
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
-    private boolean exchangeCompressionEnabled;
+    private CompressionCodec exchangeCompressionCodec = NONE;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean omitDateTimeTypePrecision;
     private int maxRecursionDepth = 10;
@@ -92,8 +98,6 @@ public class FeaturesConfig
     private double spillMaxUsedSpaceThreshold = 0.9;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
-    private boolean parseDecimalLiteralsAsDouble;
-    private boolean lateMaterializationEnabled;
 
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -107,8 +111,6 @@ public class FeaturesConfig
     private boolean forceSpillingJoin;
 
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
-
-    private boolean flatGroupByHash = true;
 
     public enum DataIntegrityVerification
     {
@@ -178,6 +180,20 @@ public class FeaturesConfig
         return this;
     }
 
+    @NotNull
+    public DataSize getMaxMemoryPerPartitionWriter()
+    {
+        return maxMemoryPerPartitionWriter;
+    }
+
+    @Config("max-memory-per-partition-writer")
+    @ConfigDescription("Estimated maximum memory required per partition writer in a single thread")
+    public FeaturesConfig setMaxMemoryPerPartitionWriter(DataSize maxMemoryPerPartitionWriter)
+    {
+        this.maxMemoryPerPartitionWriter = maxMemoryPerPartitionWriter;
+        return this;
+    }
+
     @Min(2)
     public int getRe2JDfaStatesLimit()
     {
@@ -204,12 +220,15 @@ public class FeaturesConfig
         return this;
     }
 
+    @Deprecated(forRemoval = true)
     public RegexLibrary getRegexLibrary()
     {
         return regexLibrary;
     }
 
-    @Config("regex-library")
+    @Deprecated(forRemoval = true)
+    @Config("deprecated.regex-library")
+    @LegacyConfig("regex-library")
     public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
     {
         this.regexLibrary = regexLibrary;
@@ -315,15 +334,24 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isExchangeCompressionEnabled()
-    {
-        return exchangeCompressionEnabled;
-    }
-
-    @Config("exchange.compression-enabled")
+    @Deprecated
+    @LegacyConfig(value = "exchange.compression-enabled", replacedBy = "exchange.compression-codec")
     public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
     {
-        this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        this.exchangeCompressionCodec = exchangeCompressionEnabled ? LZ4 : NONE;
+        return this;
+    }
+
+    public CompressionCodec getExchangeCompressionCodec()
+    {
+        return exchangeCompressionCodec;
+    }
+
+    @Config("exchange.compression-codec")
+    @ConfigDescription("Compression codec used for data in exchanges")
+    public FeaturesConfig setExchangeCompressionCodec(CompressionCodec exchangeCompressionCodec)
+    {
+        this.exchangeCompressionCodec = exchangeCompressionCodec;
         return this;
     }
 
@@ -336,18 +364,6 @@ public class FeaturesConfig
     public FeaturesConfig setExchangeDataIntegrityVerification(DataIntegrityVerification exchangeDataIntegrityVerification)
     {
         this.exchangeDataIntegrityVerification = exchangeDataIntegrityVerification;
-        return this;
-    }
-
-    public boolean isParseDecimalLiteralsAsDouble()
-    {
-        return parseDecimalLiteralsAsDouble;
-    }
-
-    @Config("parse-decimal-literals-as-double")
-    public FeaturesConfig setParseDecimalLiteralsAsDouble(boolean parseDecimalLiteralsAsDouble)
-    {
-        this.parseDecimalLiteralsAsDouble = parseDecimalLiteralsAsDouble;
         return this;
     }
 
@@ -413,19 +429,6 @@ public class FeaturesConfig
     public FeaturesConfig setMaxGroupingSets(int maxGroupingSets)
     {
         this.maxGroupingSets = maxGroupingSets;
-        return this;
-    }
-
-    public boolean isLateMaterializationEnabled()
-    {
-        return lateMaterializationEnabled;
-    }
-
-    @Config("experimental.late-materialization.enabled")
-    @LegacyConfig("experimental.work-processor-pipelines")
-    public FeaturesConfig setLateMaterializationEnabled(boolean lateMaterializationEnabled)
-    {
-        this.lateMaterializationEnabled = lateMaterializationEnabled;
         return this;
     }
 
@@ -512,20 +515,6 @@ public class FeaturesConfig
 
     public void applyFaultTolerantExecutionDefaults()
     {
-        exchangeCompressionEnabled = true;
-    }
-
-    @Deprecated
-    public boolean isFlatGroupByHash()
-    {
-        return flatGroupByHash;
-    }
-
-    @Deprecated
-    @Config("legacy.flat-group-by-hash")
-    public FeaturesConfig setFlatGroupByHash(boolean flatGroupByHash)
-    {
-        this.flatGroupByHash = flatGroupByHash;
-        return this;
+        exchangeCompressionCodec = LZ4;
     }
 }

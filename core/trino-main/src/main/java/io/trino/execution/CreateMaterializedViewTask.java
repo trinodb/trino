@@ -13,9 +13,12 @@
  */
 package io.trino.execution;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -53,8 +56,8 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
+import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -90,19 +93,28 @@ public class CreateMaterializedViewTask
     }
 
     @Override
-    public ListenableFuture<Void> execute(
-            CreateMaterializedView statement,
-            QueryStateMachine stateMachine,
-            List<Expression> parameters,
-            WarningCollector warningCollector)
+    public ListenableFuture<Void> execute(CreateMaterializedView statement, QueryStateMachine stateMachine, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
+        Analysis analysis = executeInternal(statement, stateMachine.getSession(), parameters, warningCollector, stateMachine.getPlanOptimizersStatsCollector());
+        stateMachine.setOutput(analysis.getTarget());
+        stateMachine.setReferencedTables(analysis.getReferencedTables());
+        return immediateVoidFuture();
+    }
+
+    @VisibleForTesting
+    Analysis executeInternal(
+            CreateMaterializedView statement,
+            Session session,
+            List<Expression> parameters,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    {
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, stateMachine.getWarningCollector(), stateMachine.getPlanOptimizersStatsCollector())
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector)
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
@@ -135,12 +147,10 @@ public class CreateMaterializedViewTask
                     }
                     Long milliseconds = (Long) evaluateConstantExpression(
                             expression,
-                            analysis.getCoercions(),
-                            analysis.getTypeOnlyCoercions(),
+                            type,
                             plannerContext,
                             session,
                             accessControl,
-                            analysis.getColumnReferences(),
                             parameterLookup);
                     // Sanity check. Impossible per grammar.
                     verify(milliseconds != null, "Grace period cannot be null");
@@ -155,8 +165,11 @@ public class CreateMaterializedViewTask
                 gracePeriod,
                 statement.getComment(),
                 session.getIdentity(),
-                Optional.empty(),
-                properties);
+                session.getPath().getPath().stream()
+                        // system path elements are not stored
+                        .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))
+                        .collect(toImmutableList()),
+                Optional.empty());
 
         Set<String> specifiedPropertyKeys = statement.getProperties().stream()
                 // property names are case-insensitive and normalized to lower case
@@ -167,11 +180,7 @@ public class CreateMaterializedViewTask
                 .filter(specifiedPropertyKeys::contains)
                 .collect(toImmutableMap(Function.identity(), properties::get));
         accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, explicitlySetProperties);
-        plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
-
-        stateMachine.setOutput(analysis.getTarget());
-        stateMachine.setReferencedTables(analysis.getReferencedTables());
-
-        return immediateVoidFuture();
+        plannerContext.getMetadata().createMaterializedView(session, name, definition, properties, statement.isReplace(), statement.isNotExists());
+        return analysis;
     }
 }

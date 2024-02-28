@@ -47,6 +47,17 @@ public interface QueryBuilder
             Connection connection,
             JoinType joinType,
             PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions);
+
+    PreparedQuery legacyPrepareJoinQuery(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            JoinType joinType,
+            PreparedQuery leftSource,
             PreparedQuery rightSource,
             List<JdbcJoinCondition> joinConditions,
             Map<JdbcColumnHandle, String> leftAssignments,
@@ -59,6 +70,15 @@ public interface QueryBuilder
             JdbcNamedRelationHandle baseRelation,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<ParameterizedExpression> additionalPredicate);
+
+    PreparedQuery prepareUpdateQuery(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            JdbcNamedRelationHandle baseRelation,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<ParameterizedExpression> additionalPredicate,
+            List<JdbcAssignmentItem> assignments);
 
     PreparedStatement prepareStatement(
             JdbcClient client,

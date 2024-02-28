@@ -13,21 +13,20 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.Assignments.Assignment;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.SubscriptExpression;
 
 import java.util.Map;
@@ -72,9 +71,9 @@ public class UnwrapSingleColumnRowInApply
 {
     private static final Pattern<ApplyNode> PATTERN = applyNode();
 
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public UnwrapSingleColumnRowInApply(TypeAnalyzer typeAnalyzer)
+    public UnwrapSingleColumnRowInApply(IrTypeAnalyzer typeAnalyzer)
     {
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
@@ -95,25 +94,25 @@ public class UnwrapSingleColumnRowInApply
                 .putIdentities(node.getSubquery().getOutputSymbols());
 
         boolean applied = false;
-        Assignments.Builder applyAssignments = Assignments.builder();
-        for (Map.Entry<Symbol, Expression> assignment : node.getSubqueryAssignments().entrySet()) {
+        ImmutableMap.Builder<Symbol, ApplyNode.SetExpression> applyAssignments = ImmutableMap.builder();
+        for (Map.Entry<Symbol, ApplyNode.SetExpression> assignment : node.getSubqueryAssignments().entrySet()) {
             Symbol output = assignment.getKey();
-            Expression expression = assignment.getValue();
+            ApplyNode.SetExpression expression = assignment.getValue();
 
             Optional<Unwrapping> unwrapped = Optional.empty();
-            if (expression instanceof InPredicate predicate) {
+            if (expression instanceof ApplyNode.In predicate) {
                 unwrapped = unwrapSingleColumnRow(
                         context,
-                        predicate.getValue(),
-                        predicate.getValueList(),
-                        (value, list) -> new InPredicate(value.toSymbolReference(), list.toSymbolReference()));
+                        predicate.value().toSymbolReference(),
+                        predicate.reference().toSymbolReference(),
+                        ApplyNode.In::new);
             }
-            else if (expression instanceof QuantifiedComparisonExpression comparison) {
+            else if (expression instanceof ApplyNode.QuantifiedComparison comparison) {
                 unwrapped = unwrapSingleColumnRow(
                         context,
-                        comparison.getValue(),
-                        comparison.getSubquery(),
-                        (value, list) -> new QuantifiedComparisonExpression(comparison.getOperator(), comparison.getQuantifier(), value.toSymbolReference(), list.toSymbolReference()));
+                        comparison.value().toSymbolReference(),
+                        comparison.reference().toSymbolReference(),
+                        (value, list) -> new ApplyNode.QuantifiedComparison(comparison.operator(), comparison.quantifier(), value, list));
             }
 
             if (unwrapped.isPresent()) {
@@ -140,13 +139,13 @@ public class UnwrapSingleColumnRowInApply
                                 node.getId(),
                                 new ProjectNode(context.getIdAllocator().getNextId(), node.getInput(), inputAssignments.build()),
                                 new ProjectNode(context.getIdAllocator().getNextId(), node.getSubquery(), nestedPlanAssignments.build()),
-                                applyAssignments.build(),
+                                applyAssignments.buildOrThrow(),
                                 node.getCorrelation(),
                                 node.getOriginSubquery()),
                         Assignments.identity(node.getOutputSymbols())));
     }
 
-    private Optional<Unwrapping> unwrapSingleColumnRow(Context context, Expression value, Expression list, BiFunction<Symbol, Symbol, Expression> function)
+    private Optional<Unwrapping> unwrapSingleColumnRow(Context context, Expression value, Expression list, BiFunction<Symbol, Symbol, ApplyNode.SetExpression> function)
     {
         Type type = typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), value);
         if (type instanceof RowType rowType) {
@@ -158,7 +157,7 @@ public class UnwrapSingleColumnRowInApply
 
                 Assignment inputAssignment = new Assignment(valueSymbol, new SubscriptExpression(value, new LongLiteral("1")));
                 Assignment nestedPlanAssignment = new Assignment(listSymbol, new SubscriptExpression(list, new LongLiteral("1")));
-                Expression comparison = function.apply(valueSymbol, listSymbol);
+                ApplyNode.SetExpression comparison = function.apply(valueSymbol, listSymbol);
 
                 return Optional.of(new Unwrapping(comparison, inputAssignment, nestedPlanAssignment));
             }
@@ -169,18 +168,18 @@ public class UnwrapSingleColumnRowInApply
 
     private static class Unwrapping
     {
-        private final Expression expression;
+        private final ApplyNode.SetExpression expression;
         private final Assignment inputAssignment;
         private final Assignment nestedPlanAssignment;
 
-        public Unwrapping(Expression expression, Assignment inputAssignment, Assignment nestedPlanAssignment)
+        public Unwrapping(ApplyNode.SetExpression expression, Assignment inputAssignment, Assignment nestedPlanAssignment)
         {
             this.expression = requireNonNull(expression, "expression is null");
             this.inputAssignment = requireNonNull(inputAssignment, "inputAssignment is null");
             this.nestedPlanAssignment = requireNonNull(nestedPlanAssignment, "nestedPlanAssignment is null");
         }
 
-        public Expression getExpression()
+        public ApplyNode.SetExpression getExpression()
         {
             return expression;
         }

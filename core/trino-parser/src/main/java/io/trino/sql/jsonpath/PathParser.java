@@ -28,25 +28,25 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
-import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class PathParser
 {
     private final BaseErrorListener errorListener;
 
-    public PathParser(Location startLocation)
+    public static PathParser withRelativeErrorLocation(Location startLocation)
     {
         requireNonNull(startLocation, "startLocation is null");
 
-        int pathStartLine = startLocation.line;
-        int pathStartColumn = startLocation.column;
-        this.errorListener = new BaseErrorListener()
+        int pathStartLine = startLocation.line();
+        int pathStartColumn = startLocation.column();
+        return new PathParser(new BaseErrorListener()
         {
             @Override
             public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
@@ -58,7 +58,26 @@ public final class PathParser
                 int columnInQuery = line == 1 ? pathStartColumn + 1 + charPositionInLine : charPositionInLine + 1;
                 throw new ParsingException(message, e, lineInQuery, columnInQuery);
             }
-        };
+        });
+    }
+
+    public static PathParser withFixedErrorLocation(Location location)
+    {
+        requireNonNull(location, "location is null");
+
+        return new PathParser(new BaseErrorListener()
+        {
+            @Override
+            public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
+            {
+                throw new ParsingException(message, e, location.line, location.column);
+            }
+        });
+    }
+
+    private PathParser(BaseErrorListener errorListener)
+    {
+        this.errorListener = requireNonNull(errorListener, "errorListener is null");
     }
 
     public PathNode parseJsonPath(String path)
@@ -83,7 +102,7 @@ public final class PathParser
                 parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
                 tree = parser.path();
             }
-            catch (ParseCancellationException ex) {
+            catch (ParsingException ex) {
                 // if we fail, parse with LL mode
                 tokenStream.seek(0); // rewind input stream
                 parser.reset();
@@ -135,33 +154,12 @@ public final class PathParser
         }
     }
 
-    public static class Location
+    public record Location(int line, int column)
     {
-        private final int line;
-        private final int column;
-
-        public Location(int line, int column)
+        public Location
         {
-            if (line < 1) {
-                throw new IllegalArgumentException("line must be at least 1");
-            }
-
-            if (column < 0) {
-                throw new IllegalArgumentException("column must be at least 0");
-            }
-
-            this.line = line;
-            this.column = column;
-        }
-
-        public int getLine()
-        {
-            return line;
-        }
-
-        public int getColumn()
-        {
-            return column;
+            checkArgument(line >= 1, "line must be at least 1");
+            checkArgument(column >= 0, "column must be at least 0");
         }
     }
 }

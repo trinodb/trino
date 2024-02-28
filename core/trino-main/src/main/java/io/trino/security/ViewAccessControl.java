@@ -14,14 +14,13 @@
 package io.trino.security;
 
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.spi.connector.CatalogSchemaTableName;
-import io.trino.spi.function.FunctionKind;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -32,12 +31,10 @@ public class ViewAccessControl
         extends ForwardingAccessControl
 {
     private final AccessControl delegate;
-    private final Identity invoker;
 
-    public ViewAccessControl(AccessControl delegate, Identity invoker)
+    public ViewAccessControl(AccessControl delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.invoker = requireNonNull(invoker, "invoker is null");
     }
 
     @Override
@@ -57,9 +54,9 @@ public class ViewAccessControl
     }
 
     @Override
-    public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
-        return delegate.filterColumns(context, tableName, columns);
+        return delegate.filterColumns(context, catalogName, tableColumns);
     }
 
     @Override
@@ -69,21 +66,15 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
-        wrapAccessDeniedException(() -> delegate.checkCanGrantExecuteFunctionPrivilege(context, functionName, invoker, false));
+        return delegate.canCreateViewWithExecuteFunction(context, functionName);
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
-        wrapAccessDeniedException(() -> delegate.checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, invoker, false));
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
-    {
-        wrapAccessDeniedException(() -> delegate.checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption));
+        return delegate.canCreateViewWithExecuteFunction(context, functionName);
     }
 
     @Override

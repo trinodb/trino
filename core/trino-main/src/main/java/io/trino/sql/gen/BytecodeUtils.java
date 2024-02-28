@@ -15,7 +15,6 @@ package io.trino.sql.gen;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
@@ -164,7 +163,7 @@ public final class BytecodeUtils
     {
         return generateInvocation(
                 scope,
-                resolvedFunction.getSignature().getName(),
+                resolvedFunction.getSignature().getName().getFunctionName(),
                 resolvedFunction.getFunctionNullability(),
                 invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
                 arguments,
@@ -212,7 +211,7 @@ public final class BytecodeUtils
     {
         return generateFullInvocation(
                 scope,
-                resolvedFunction.getSignature().getName(),
+                resolvedFunction.getSignature().getName().getFunctionName(),
                 resolvedFunction.getFunctionNullability(),
                 resolvedFunction.getSignature().getArgumentTypes().stream()
                         .map(FunctionType.class::isInstance)
@@ -295,7 +294,7 @@ public final class BytecodeUtils
                     case NEVER_NULL:
                         block.append(arguments.get(realParameterIndex));
                         checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
-                        block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                        block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
                         break;
                     case NULL_FLAG:
                         block.append(arguments.get(realParameterIndex));
@@ -315,7 +314,7 @@ public final class BytecodeUtils
                         stackTypes.add(int.class);
                         if (!functionNullability.isArgumentNullable(realParameterIndex)) {
                             block.append(scope.getVariable("wasNull").set(inputReferenceNode.blockAndPositionIsNull()));
-                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
                         }
                         currentParameterIndex++;
                         break;
@@ -325,7 +324,7 @@ public final class BytecodeUtils
                             block.append(arguments.get(realParameterIndex));
                             block.invokeVirtual(InOut.class, "isNull", boolean.class);
                             block.putVariable(scope.getVariable("wasNull"));
-                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
                         }
                         currentParameterIndex++;
                         break;
@@ -445,7 +444,7 @@ public final class BytecodeUtils
 
     public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
     {
-        return invoke(binding, signature.getName());
+        return invoke(binding, signature.getName().getFunctionName());
     }
 
     /**

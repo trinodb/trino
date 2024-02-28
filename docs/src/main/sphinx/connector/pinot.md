@@ -151,44 +151,54 @@ connector {ref}`maps some types <type-mapping-overview>` when reading data.
 The connector maps Pinot types to the corresponding Trino types
 according to the following table:
 
-```{eval-rst}
-.. list-table:: Pinot type to Trino type mapping
-  :widths: 75,60
-  :header-rows: 1
+:::{list-table} Pinot type to Trino type mapping
+:widths: 75,60
+:header-rows: 1
 
-  * - Pinot type
-    - Trino type
-  * - ``INT``
-    - ``INTEGER``
-  * - ``LONG``
-    - ``BIGINT``
-  * - ``FLOAT``
-    - ``REAL``
-  * - ``DOUBLE``
-    - ``DOUBLE``
-  * - ``STRING``
-    - ``VARCHAR``
-  * - ``BYTES``
-    - ``VARBINARY``
-  * - ``JSON``
-    - ``JSON``
-  * - ``TIMESTAMP``
-    - ``TIMESTAMP``
-  * - ``INT_ARRAY``
-    - ``VARCHAR``
-  * - ``LONG_ARRAY``
-    - ``VARCHAR``
-  * - ``FLOAT_ARRAY``
-    - ``VARCHAR``
-  * - ``DOUBLE_ARRAY``
-    - ``VARCHAR``
-  * - ``STRING_ARRAY``
-    - ``VARCHAR``
-```
-
-Pinot does not allow null values in any data type.
+* - Pinot type
+  - Trino type
+* - `INT`
+  - `INTEGER`
+* - `LONG`
+  - `BIGINT`
+* - `FLOAT`
+  - `REAL`
+* - `DOUBLE`
+  - `DOUBLE`
+* - `STRING`
+  - `VARCHAR`
+* - `BYTES`
+  - `VARBINARY`
+* - `JSON`
+  - `JSON`
+* - `TIMESTAMP`
+  - `TIMESTAMP`
+* - `INT_ARRAY`
+  - `VARCHAR`
+* - `LONG_ARRAY`
+  - `VARCHAR`
+* - `FLOAT_ARRAY`
+  - `VARCHAR`
+* - `DOUBLE_ARRAY`
+  - `VARCHAR`
+* - `STRING_ARRAY`
+  - `VARCHAR`
+:::
 
 No other types are supported.
+
+#### Date Type
+
+For Pinot `DateTimeFields`, if the `FormatSpec` is in days,
+then it is converted to a Trino `DATE` type.
+Pinot allows for `LONG` fields to have a `FormatSpec` of days as well, if the 
+value is larger than `Integer.MAX_VALUE` then the conversion to Trino `DATE` fails.  
+
+#### Null Handling
+
+If a Pinot TableSpec has `nullHandlingEnabled` set to true, then for numeric 
+types the null value is encoded as `MIN_VALUE` for that type. 
+For Pinot `STRING` type, the value `null` is interpreted as a `NULL` value.
 
 (pinot-sql-support)=
 

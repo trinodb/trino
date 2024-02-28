@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
@@ -39,7 +39,13 @@ public class TestJmxStats
     {
         Plugin plugin = new JdbcPlugin("base_jdbc", new TestingH2JdbcModule());
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:driver:"), new TestingConnectorContext());
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:driver:",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext())
+                .shutdown();
         MBeanServer mbeanServer = getPlatformMBeanServer();
         Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("io.trino.plugin.jdbc:*"), null);
 

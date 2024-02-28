@@ -28,16 +28,16 @@ import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
-import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
-import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -45,7 +45,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.mergeWriter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableWriter;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -70,7 +69,7 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
                     Optional.empty()));
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session session = testSessionBuilder()
                 .setCatalog("mock_merge_and_insert")
@@ -78,15 +77,15 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.createCatalog("mock_merge_and_insert", createMergeConnectorFactory(), ImmutableMap.of());
-        return queryRunner;
+        PlanTester planTester = PlanTester.create(session);
+        planTester.createCatalog("mock_merge_and_insert", createMergeConnectorFactory(), ImmutableMap.of());
+        return planTester;
     }
 
     private MockConnectorFactory createMergeConnectorFactory()
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle(((session, schemaTableName) -> {
+                .withGetTableHandle((session, schemaTableName) -> {
                     if (schemaTableName.getTableName().equals("source_table")) {
                         return new MockConnectorTableHandle(schemaTableName);
                     }
@@ -94,7 +93,7 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
                         return new MockConnectorTableHandle(schemaTableName);
                     }
                     return null;
-                }))
+                })
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata("customer", INTEGER),
                         new ColumnMetadata("year", INTEGER)))
@@ -121,9 +120,9 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
-                        .setSystemProperty(TASK_WRITER_COUNT, "8")
+                Session.builder(getPlanTester().getDefaultSession())
+                        .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
+                        .setSystemProperty(TASK_MIN_WRITER_COUNT, "8")
                         .build(),
                 anyTree(
                         mergeWriter(
@@ -134,9 +133,9 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "4")
-                        .setSystemProperty(TASK_WRITER_COUNT, "1")
+                Session.builder(getPlanTester().getDefaultSession())
+                        .setSystemProperty(TASK_MAX_WRITER_COUNT, "4")
+                        .setSystemProperty(TASK_MIN_WRITER_COUNT, "1")
                         .build(),
                 anyTree(
                         mergeWriter(
@@ -153,34 +152,30 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
-                        .setSystemProperty(TASK_WRITER_COUNT, "8")
+                Session.builder(getPlanTester().getDefaultSession())
+                        .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
+                        .setSystemProperty(TASK_MIN_WRITER_COUNT, "8")
                         .build(),
                 anyTree(
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
                                 exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                        project(
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        anyTree(
-                                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "4")
-                        .setSystemProperty(TASK_WRITER_COUNT, "1")
+                Session.builder(getPlanTester().getDefaultSession())
+                        .setSystemProperty(TASK_MAX_WRITER_COUNT, "4")
+                        .setSystemProperty(TASK_MIN_WRITER_COUNT, "1")
                         .build(),
                 anyTree(
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                project(
-                                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        anyTree(
-                                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+                                exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
     }
 }

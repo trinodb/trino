@@ -44,18 +44,20 @@ final class NfaMatcher
         int state = 0;
         for (int j = start; j <= end; j++) {
             Pattern element = pattern.get(j);
-            if (element instanceof Pattern.Literal literal) {
-                for (int i = 0; i < literal.value().length(); i++) {
-                    match[state++] = literal.value().charAt(i);
+            switch (element) {
+                case Pattern.Literal literal -> {
+                    for (int i = 0; i < literal.value().length(); i++) {
+                        match[state++] = literal.value().charAt(i);
+                    }
                 }
-            }
-            else if (element instanceof Pattern.Any any) {
-                for (int i = 0; i < any.length(); i++) {
-                    match[state++] = ANY;
+                case Pattern.Any any -> {
+                    for (int i = 0; i < any.length(); i++) {
+                        match[state++] = ANY;
+                    }
                 }
-            }
-            else if (element instanceof Pattern.ZeroOrMore) {
-                loopback[state] = true;
+                case Pattern.ZeroOrMore zeroOrMore -> {
+                    loopback[state] = true;
+                }
             }
         }
     }

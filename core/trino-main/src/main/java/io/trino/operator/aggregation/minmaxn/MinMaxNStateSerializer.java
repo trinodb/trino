@@ -16,7 +16,7 @@ package io.trino.operator.aggregation.minmaxn;
 import io.trino.operator.aggregation.minmaxn.MinMaxNStateFactory.SingleMinMaxNState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
 
@@ -50,7 +50,7 @@ public abstract class MinMaxNStateSerializer<T extends MinMaxNState>
         // the aggregation framework uses a scratch single state for deserialization, and then calls the combine function
         // for typed heap is is simpler to store the deserialized row block in the state and then add the row block
         // directly to the heap in the combine
-        SingleRowBlock rowBlock = (SingleRowBlock) serializedType.getObject(block, index);
-        ((SingleMinMaxNState) state).setTempSerializedState(rowBlock);
+        SqlRow sqlRow = (SqlRow) serializedType.getObject(block, index);
+        ((SingleMinMaxNState) state).setTempSerializedState(sqlRow);
     }
 }

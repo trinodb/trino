@@ -13,16 +13,30 @@
 #
 FROM ghcr.io/airlift/jvmkill:latest AS jvmkill
 
-# Use Eclipse Temurin as they have base Docker images for more architectures.
-FROM eclipse-temurin:17-jdk
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS jdk-download
+ARG JDK_DOWNLOAD_LINK
+ARG JDK_VERSION
+ENV JAVA_HOME="/usr/lib/jvm/jdk-${JDK_VERSION}"
+
+RUN \
+    set -xeuo pipefail && \
+    microdnf install -y tar gzip && \
+    # Install JDK from the provided archive link \
+    echo "Downloading JDK from ${JDK_DOWNLOAD_LINK}" && \
+    mkdir -p "${JAVA_HOME}" && \
+    curl -#LfS "${JDK_DOWNLOAD_LINK}" | tar -zx --strip 1 -C "${JAVA_HOME}"
+
+# Use ubi9 minimal as it's more secure
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+ARG JDK_VERSION
+ENV JAVA_HOME="/usr/lib/jvm/jdk-${JDK_VERSION}"
+ENV PATH=$PATH:$JAVA_HOME/bin
+COPY --from=jdk-download $JAVA_HOME $JAVA_HOME
 
 RUN \
     set -xeu && \
-    echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries && \
-    echo 'Acquire::http::Timeout "15";' > /etc/apt/apt.conf.d/80-timeouts && \
-    apt-get update -q && \
-    apt-get install -y -q less python3 curl && \
-    rm -rf /var/lib/apt/lists/* && \
+    microdnf update -y && \
+    microdnf install -y tar less python3 shadow-utils && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     groupadd trino --gid 1000 && \
     useradd trino --uid 1000 --gid 1000 --create-home && \

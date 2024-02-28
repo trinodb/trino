@@ -31,11 +31,13 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -50,30 +52,26 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestRefreshMaterializedView
         extends AbstractTestQueryFramework
 {
-    private ListeningExecutorService executorService;
+    private final ListeningExecutorService executorService = listeningDecorator(newCachedThreadPool());
     private SettableFuture<Void> startRefreshMaterializedView;
     private SettableFuture<Void> finishRefreshMaterializedView;
     private SettableFuture<Void> refreshInterrupted;
 
-    @BeforeClass
-    public void setUp()
-    {
-        executorService = listeningDecorator(newCachedThreadPool());
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void shutdown()
     {
         executorService.shutdownNow();
     }
 
-    @BeforeMethod
-    public void resetState()
+    private void resetState()
     {
         startRefreshMaterializedView = SettableFuture.create();
         finishRefreshMaterializedView = SettableFuture.create();
@@ -88,7 +86,7 @@ public class TestRefreshMaterializedView
                 .setCatalog("mock")
                 .setSchema("default")
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .build();
         queryRunner.installPlugin(
                 new MockConnectorPlugin(
@@ -103,26 +101,30 @@ public class TestRefreshMaterializedView
                                                 Optional.of(new CatalogSchemaTableName("mock", "default", "test_storage")),
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
-                                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("nationkey", BIGINT.getTypeId())),
+                                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("nationkey", BIGINT.getTypeId(), Optional.empty())),
+                                                Optional.of(Duration.ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
-                                                ImmutableMap.of())))
+                                                ImmutableList.of())))
                                 .withDelegateMaterializedViewRefreshToConnector((connectorSession, schemaTableName) -> true)
-                                .withRefreshMaterializedView(((connectorSession, schemaTableName) -> {
+                                .withRefreshMaterializedView((connectorSession, schemaTableName) -> {
                                     startRefreshMaterializedView.set(null);
                                     SettableFuture<Void> refreshMaterializedView = SettableFuture.create();
                                     finishRefreshMaterializedView.addListener(() -> refreshMaterializedView.set(null), directExecutor());
                                     addExceptionCallback(refreshMaterializedView, () -> refreshInterrupted.set(null));
                                     return toCompletableFuture(refreshMaterializedView);
-                                }))
+                                })
                                 .build()));
         queryRunner.createCatalog("mock", "mock");
         return queryRunner;
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testDelegateRefreshMaterializedViewToConnector()
     {
+        resetState();
+
         ListenableFuture<Void> queryFuture = assertUpdateAsync("REFRESH MATERIALIZED VIEW mock.default.delegate_refresh_to_connector");
 
         // wait for connector to start refreshing MV
@@ -142,9 +144,12 @@ public class TestRefreshMaterializedView
         getFutureValue(queryFuture);
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testDelegateRefreshMaterializedViewToConnectorWithCancellation()
     {
+        resetState();
+
         ListenableFuture<Void> queryFuture = assertUpdateAsync("REFRESH MATERIALIZED VIEW mock.default.delegate_refresh_to_connector");
 
         // wait for connector to start refreshing MV

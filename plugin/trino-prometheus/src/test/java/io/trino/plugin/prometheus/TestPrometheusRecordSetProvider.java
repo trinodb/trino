@@ -15,14 +15,15 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.DoubleType;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -31,34 +32,26 @@ import java.util.Map;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
-import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
+import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromSqlMap;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPrometheusRecordSetProvider
 {
-    private PrometheusHttpServer prometheusHttpServer;
-    private String dataUri;
-    private PrometheusClient client;
+    private final PrometheusHttpServer prometheusHttpServer = new PrometheusHttpServer();
+    private final String dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json").toString();
+    private final PrometheusClient client = new PrometheusClient(new PrometheusConnectorConfig(), METRIC_CODEC, TESTING_TYPE_MANAGER);
 
-    @BeforeClass
-    public void setUp()
-    {
-        prometheusHttpServer = new PrometheusHttpServer();
-        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json").toString();
-        client = new PrometheusClient(new PrometheusConnectorConfig(), METRIC_CODEC, TESTING_TYPE_MANAGER);
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
-        if (prometheusHttpServer != null) {
-            prometheusHttpServer.stop();
-            prometheusHttpServer = null;
-        }
+        prometheusHttpServer.stop();
     }
 
     @Test
@@ -71,14 +64,18 @@ public class TestPrometheusRecordSetProvider
                         new PrometheusColumnHandle("labels", varcharMapType, 0),
                         new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 1),
                         new PrometheusColumnHandle("value", DoubleType.DOUBLE, 2)));
-        assertNotNull(recordSet, "recordSet is null");
+        assertThat(recordSet)
+                .describedAs("recordSet is null")
+                .isNotNull();
 
         RecordCursor cursor = recordSet.cursor();
-        assertNotNull(cursor, "cursor is null");
+        assertThat(cursor)
+                .describedAs("cursor is null")
+                .isNotNull();
 
         Map<Instant, Map<?, ?>> actual = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
-            actual.put((Instant) cursor.getObject(1), getMapFromBlock(varcharMapType, (Block) cursor.getObject(0)));
+            actual.put((Instant) cursor.getObject(1), getMapFromSqlMap(varcharMapType, (SqlMap) cursor.getObject(0)));
         }
         Map<Instant, Map<String, String>> expected = ImmutableMap.<Instant, Map<String, String>>builder()
                 .put(ofEpochMilli(1565962969044L), ImmutableMap.of("instance",
@@ -94,6 +91,6 @@ public class TestPrometheusRecordSetProvider
                         "localhost:9090", "__name__", "up",
                         "job", "prometheus"))
                 .buildOrThrow();
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 }

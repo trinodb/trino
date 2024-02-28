@@ -18,9 +18,12 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -52,7 +55,7 @@ public final class TinyintType
 
     private TinyintType()
     {
-        super(new TypeSignature(StandardTypes.TINYINT), long.class);
+        super(new TypeSignature(StandardTypes.TINYINT), long.class, ByteArrayBlock.class);
     }
 
     @Override
@@ -113,7 +116,7 @@ public final class TinyintType
             return null;
         }
 
-        return block.getByte(position, 0);
+        return getByte(block, position);
     }
 
     @Override
@@ -157,7 +160,7 @@ public final class TinyintType
             blockBuilder.appendNull();
         }
         else {
-            writeByte(blockBuilder, block.getByte(position, 0));
+            writeByte(blockBuilder, getByte(block, position));
         }
     }
 
@@ -169,7 +172,7 @@ public final class TinyintType
 
     public byte getByte(Block block, int position)
     {
-        return block.getByte(position, 0);
+        return readByte((ByteArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -184,7 +187,7 @@ public final class TinyintType
         ((ByteArrayBlockBuilder) blockBuilder).writeByte(value);
     }
 
-    private void checkValueValid(long value)
+    private static void checkValueValid(long value)
     {
         if (value > Byte.MAX_VALUE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_BYTE", value));
@@ -210,6 +213,17 @@ public final class TinyintType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long read(@BlockPosition ByteArrayBlock block, @BlockIndex int position)
+    {
+        return readByte(block, position);
+    }
+
+    private static byte readByte(ByteArrayBlock block, int position)
+    {
+        return block.getByte(position);
     }
 
     @ScalarOperator(READ_VALUE)

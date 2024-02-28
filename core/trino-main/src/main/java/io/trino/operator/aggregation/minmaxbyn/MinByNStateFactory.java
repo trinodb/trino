@@ -27,8 +27,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.function.LongFunction;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
@@ -50,7 +50,7 @@ public class MinByNStateFactory
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "K",
-                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
                     MethodHandle keyWriteFlat,
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
@@ -60,7 +60,7 @@ public class MinByNStateFactory
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "V",
-                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
                     MethodHandle valueWriteFlat,
             @OperatorDependency(
                     operator = OperatorType.COMPARISON_UNORDERED_LAST,
@@ -70,7 +70,7 @@ public class MinByNStateFactory
             @OperatorDependency(
                     operator = OperatorType.COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {FLAT, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
                     MethodHandle compareFlatBlock,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType)

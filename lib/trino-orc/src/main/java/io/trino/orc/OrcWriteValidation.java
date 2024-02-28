@@ -47,7 +47,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarMap;
-import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -662,7 +662,7 @@ public class OrcWriteValidation
             }
             else if (type instanceof DecimalType decimalType) {
                 if (decimalType.isShort()) {
-                    statisticsBuilder = new ShortDecimalStatisticsBuilder((decimalType).getScale());
+                    statisticsBuilder = new ShortDecimalStatisticsBuilder(decimalType.getScale());
                 }
                 else {
                     statisticsBuilder = new LongDecimalStatisticsBuilder();
@@ -687,14 +687,7 @@ public class OrcWriteValidation
             }
             else if (type instanceof RowType) {
                 statisticsBuilder = new CountStatisticsBuilder();
-                fieldExtractor = block -> {
-                    ColumnarRow columnarRow = ColumnarRow.toColumnarRow(block);
-                    ImmutableList.Builder<Block> fields = ImmutableList.builder();
-                    for (int index = 0; index < columnarRow.getFieldCount(); index++) {
-                        fields.add(columnarRow.getField(index));
-                    }
-                    return fields.build();
-                };
+                fieldExtractor = block -> RowBlock.getRowFieldsFromBlock(block.getLoadedBlock());
                 fieldBuilders = type.getTypeParameters().stream()
                         .map(ColumnStatisticsValidation::new)
                         .collect(toImmutableList());

@@ -14,7 +14,9 @@
 package io.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
@@ -33,6 +35,11 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class SqlServerQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("com.microsoft.sqlserver.jdbc", Level.OFF);
+    }
+
     private static final Logger log = Logger.get(SqlServerQueryRunner.class);
 
     private SqlServerQueryRunner() {}
@@ -60,7 +67,7 @@ public final class SqlServerQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(moreSetup)
@@ -106,7 +113,7 @@ public final class SqlServerQueryRunner
         // SqlServer is using docker container so in case that shutdown hook is not called, developer can easily clean docker container on their own
         Runtime.getRuntime().addShutdownHook(new Thread(testingSqlServer::close));
 
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) createSqlServerQueryRunner(
+        QueryRunner queryRunner = createSqlServerQueryRunner(
                 testingSqlServer,
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),

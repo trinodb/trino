@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
@@ -47,8 +48,7 @@ import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public final class OperatorAssertion
 {
@@ -83,7 +83,7 @@ public final class OperatorAssertion
     public static List<Page> toPagesPartial(Operator operator, Iterator<Page> input, boolean revokeMemory)
     {
         // verify initial state
-        assertEquals(operator.isFinished(), false);
+        assertThat(operator.isFinished()).isEqualTo(false);
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
         for (int loopsSinceLastPage = 0; loopsSinceLastPage < 1_000; loopsSinceLastPage++) {
@@ -130,9 +130,15 @@ public final class OperatorAssertion
             handleMemoryRevoking(operator);
         }
 
-        assertEquals(operator.isFinished(), true, "Operator did not finish");
-        assertEquals(operator.needsInput(), false, "Operator still wants input");
-        assertEquals(operator.isBlocked().isDone(), true, "Operator is blocked");
+        assertThat(operator.isFinished())
+                .describedAs("Operator did not finish")
+                .isEqualTo(true);
+        assertThat(operator.needsInput())
+                .describedAs("Operator still wants input")
+                .isEqualTo(false);
+        assertThat(operator.isBlocked().isDone())
+                .describedAs("Operator is blocked")
+                .isEqualTo(true);
 
         return outputPages.build();
     }
@@ -194,7 +200,7 @@ public final class OperatorAssertion
         return resultBuilder.build();
     }
 
-    public static Block toRow(List<Type> parameterTypes, Object... values)
+    public static SqlRow toRow(List<Type> parameterTypes, Object... values)
     {
         checkArgument(parameterTypes.size() == values.length, "parameterTypes.size(" + parameterTypes.size() + ") does not equal to values.length(" + values.length + ")");
 
@@ -208,7 +214,7 @@ public final class OperatorAssertion
     public static void assertOperatorEquals(OperatorFactory operatorFactory, List<Type> types, DriverContext driverContext, List<Page> input, List<Page> expected)
     {
         List<Page> actual = toPages(operatorFactory, driverContext, input);
-        assertEquals(actual.size(), expected.size());
+        assertThat(actual.size()).isEqualTo(expected.size());
         for (int i = 0; i < actual.size(); i++) {
             assertPageEquals(types, actual.get(i), expected.get(i));
         }

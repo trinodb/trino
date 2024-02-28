@@ -18,16 +18,18 @@ import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.Flaky;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseOracleFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
@@ -62,11 +64,27 @@ public abstract class BaseOracleFailureRecoveryTest
                 });
     }
 
+    @Test
     @Override
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/16277", match = "There should be no remaining tmp_trino tables that are queryable")
-    @Test(dataProvider = "parallelTests")
-    public void testParallel(Runnable runnable)
+    protected void testUpdateWithSubquery()
     {
-        super.testParallel(runnable);
+        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    protected void testUpdate()
+    {
+        // This simple update on JDBC ends up as a very simple, single-fragment, coordinator-only plan,
+        // which has no ability to recover from errors. This test simply verifies that's still the case.
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
+        String testQuery = "UPDATE <table> SET shippriority = 101 WHERE custkey = 1";
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
+
+        assertThatQuery(testQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .isCoordinatorOnly();
     }
 }

@@ -18,13 +18,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.ExistsPredicate;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Node;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -60,7 +57,7 @@ public class ApplyNode
      * - meaning: if input_symbol_X is smaller than all subquery values represented by subquery_symbol_Y
      * <p>
      */
-    private final Assignments subqueryAssignments;
+    private final Map<Symbol, SetExpression> subqueryAssignments;
 
     /**
      * HACK!
@@ -73,7 +70,7 @@ public class ApplyNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
-            @JsonProperty("subqueryAssignments") Assignments subqueryAssignments,
+            @JsonProperty("subqueryAssignments") Map<Symbol, SetExpression> subqueryAssignments,
             @JsonProperty("correlation") List<Symbol> correlation,
             @JsonProperty("originSubquery") Node originSubquery)
     {
@@ -85,22 +82,12 @@ public class ApplyNode
         requireNonNull(originSubquery, "originSubquery is null");
 
         checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
-        checkArgument(
-                subqueryAssignments.getExpressions().stream().allMatch(ApplyNode::isSupportedSubqueryExpression),
-                "Unexpected expression used for subquery expression");
 
         this.input = input;
         this.subquery = subquery;
         this.subqueryAssignments = subqueryAssignments;
         this.correlation = ImmutableList.copyOf(correlation);
         this.originSubquery = originSubquery;
-    }
-
-    private static boolean isSupportedSubqueryExpression(Expression expression)
-    {
-        return expression instanceof InPredicate ||
-                expression instanceof ExistsPredicate ||
-                expression instanceof QuantifiedComparisonExpression;
     }
 
     @JsonProperty("input")
@@ -116,7 +103,7 @@ public class ApplyNode
     }
 
     @JsonProperty("subqueryAssignments")
-    public Assignments getSubqueryAssignments()
+    public Map<Symbol, SetExpression> getSubqueryAssignments()
     {
         return subqueryAssignments;
     }
@@ -145,7 +132,7 @@ public class ApplyNode
     {
         return ImmutableList.<Symbol>builder()
                 .addAll(input.getOutputSymbols())
-                .addAll(subqueryAssignments.getOutputs())
+                .addAll(subqueryAssignments.keySet())
                 .build();
     }
 
@@ -160,5 +147,58 @@ public class ApplyNode
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
         return new ApplyNode(getId(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation, originSubquery);
+    }
+
+    public sealed interface SetExpression
+            permits In, Exists, QuantifiedComparison
+    {
+        List<Symbol> inputs();
+    }
+
+    public record In(Symbol value, Symbol reference)
+            implements SetExpression
+    {
+        @Override
+        public List<Symbol> inputs()
+        {
+            return ImmutableList.of(value, reference);
+        }
+    }
+
+    public record Exists()
+            implements SetExpression
+    {
+        @Override
+        public List<Symbol> inputs()
+        {
+            return ImmutableList.of();
+        }
+    }
+
+    public record QuantifiedComparison(Operator operator, Quantifier quantifier, Symbol value, Symbol reference)
+            implements SetExpression
+    {
+        @Override
+        public List<Symbol> inputs()
+        {
+            return ImmutableList.of(value, reference);
+        }
+    }
+
+    public enum Operator
+    {
+        EQUAL,
+        NOT_EQUAL,
+        LESS_THAN,
+        LESS_THAN_OR_EQUAL,
+        GREATER_THAN,
+        GREATER_THAN_OR_EQUAL,
+    }
+
+    public enum Quantifier
+    {
+        ALL,
+        ANY,
+        SOME,
     }
 }

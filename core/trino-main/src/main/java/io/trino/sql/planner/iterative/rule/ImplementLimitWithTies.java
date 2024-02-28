@@ -34,7 +34,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Optional;
@@ -121,7 +120,7 @@ public class ImplementLimitWithTies
         Symbol rankSymbol = symbolAllocator.newSymbol("rank_num", BIGINT);
 
         WindowNode.Function rankFunction = new WindowNode.Function(
-                metadata.resolveFunction(session, QualifiedName.of("rank"), ImmutableList.of()),
+                metadata.resolveBuiltinFunction("rank", ImmutableList.of()),
                 ImmutableList.of(),
                 DEFAULT_FRAME,
                 false);

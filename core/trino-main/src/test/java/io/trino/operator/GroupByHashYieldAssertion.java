@@ -23,6 +23,8 @@ import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 
@@ -48,10 +50,7 @@ import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class GroupByHashYieldAssertion
 {
@@ -90,6 +89,7 @@ public final class GroupByHashYieldAssertion
                 new TestingGcMonitor(),
                 EXECUTOR,
                 SCHEDULED_EXECUTOR,
+                SCHEDULED_EXECUTOR,
                 DataSize.of(512, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(512, MEGABYTE)));
 
@@ -110,13 +110,14 @@ public final class GroupByHashYieldAssertion
             if (hashKeyType == VARCHAR) {
                 long oldVariableWidthSize = variableWidthData.getRetainedSizeBytes();
                 for (int position = 0; position < page.getPositionCount(); position++) {
-                    variableWidthData.allocate(pointer, 0, page.getBlock(0).getSliceLength(position));
+                    Block block = page.getBlock(0);
+                    variableWidthData.allocate(pointer, 0, ((VariableWidthBlock) block.getUnderlyingValueBlock()).getSliceLength(block.getUnderlyingValuePosition(position)));
                 }
                 pageVariableWidthSize = variableWidthData.getRetainedSizeBytes() - oldVariableWidthSize;
             }
 
             // unblocked
-            assertTrue(operator.needsInput());
+            assertThat(operator.needsInput()).isTrue();
 
             // reserve the most of the memory pool, except for the space necessary for the variable with data
             // a small bit of memory is left unallocated for the aggregators
@@ -156,10 +157,10 @@ public final class GroupByHashYieldAssertion
                 // The page processing completed
 
                 // Assert we are not blocked
-                assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
+                assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isTrue();
 
                 // assert the hash capacity is not changed; otherwise, we should have yielded
-                assertEquals((int) getHashCapacity.apply(operator), oldCapacity);
+                assertThat((int) getHashCapacity.apply(operator)).isEqualTo(oldCapacity);
 
                 // We are not going to rehash; therefore, assert the memory increase only comes from the aggregator
                 assertLessThan(actualHashIncreased, additionalMemoryInBytes);
@@ -172,18 +173,24 @@ public final class GroupByHashYieldAssertion
                 yieldCount++;
 
                 // Assert we are blocked waiting for memory
-                assertFalse(operator.getOperatorContext().isWaitingForMemory().isDone());
+                assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isFalse();
 
                 // Hash table capacity should not have changed, because memory must be allocated first
-                assertEquals(oldCapacity, (long) getHashCapacity.apply(operator));
+                assertThat(oldCapacity).isEqualTo((long) getHashCapacity.apply(operator));
 
-                // The increase in hash memory should be twice the current capacity.
-                // The additional memory for the entire new hash table is reserved before rehashing because the new and old hash tables coexist during rehashing.
-                long expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
+                long expectedHashBytes;
+                if (hashKeyType == BIGINT) {
+                    // The increase in hash memory should be twice the current capacity.
+                    expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
+                }
+                else {
+                    // Flat hash uses an incremental rehash, so as new memory is allocated old memory is freed
+                    expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity) + oldCapacity;
+                }
                 assertBetweenInclusive(actualHashIncreased, expectedHashBytes, expectedHashBytes + additionalMemoryInBytes);
 
                 // Output should be blocked as well
-                assertNull(operator.getOutput());
+                assertThat(operator.getOutput()).isNull();
 
                 // Free the pool to unblock
                 memoryPool.free(anotherTaskId, "test", memoryPool.getTaskMemoryReservations().get(anotherTaskId));
@@ -193,15 +200,14 @@ public final class GroupByHashYieldAssertion
                 if (output != null) {
                     result.add(output);
                 }
-                assertTrue(operator.needsInput());
+                assertThat(operator.needsInput()).isTrue();
 
                 // Hash table capacity has increased
                 assertGreaterThan(getHashCapacity.apply(operator), oldCapacity);
 
                 // Assert the estimated reserved memory after rehash is lower than the one before rehash (extra memory allocation has been released)
                 long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
-                long previousHashTableSizeInBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity);
-                long expectedMemoryUsageAfterRehash = newMemoryUsage - previousHashTableSizeInBytes;
+                long expectedMemoryUsageAfterRehash = oldMemoryUsage + getHashTableSizeInBytes(hashKeyType, oldCapacity);
                 double memoryUsageErrorUpperBound = 1.01;
                 double memoryUsageError = rehashedMemoryUsage * 1.0 / expectedMemoryUsageAfterRehash;
                 if (memoryUsageError > memoryUsageErrorUpperBound) {
@@ -218,8 +224,8 @@ public final class GroupByHashYieldAssertion
                 }
 
                 // unblocked
-                assertTrue(operator.needsInput());
-                assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
+                assertThat(operator.needsInput()).isTrue();
+                assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isTrue();
             }
         }
 

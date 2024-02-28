@@ -15,7 +15,7 @@ package io.trino.plugin.clickhouse;
 
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,6 +26,7 @@ public abstract class BaseClickHouseConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_UPDATE:
             case SUPPORTS_DELETE:
                 return false;
             case SUPPORTS_TRUNCATE:

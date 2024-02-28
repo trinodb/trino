@@ -32,11 +32,11 @@ public class SkewedPartitionFunction
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.skewedPartitionRebalancer = requireNonNull(skewedPartitionRebalancer, "skewedPartitionRebalancer is null");
 
-        this.partitionRowCount = new long[partitionFunction.getPartitionCount()];
+        this.partitionRowCount = new long[partitionFunction.partitionCount()];
     }
 
     @Override
-    public int getPartitionCount()
+    public int partitionCount()
     {
         return skewedPartitionRebalancer.getTaskCount();
     }
@@ -50,7 +50,7 @@ public class SkewedPartitionFunction
 
     public void flushPartitionRowCountToRebalancer()
     {
-        for (int partition = 0; partition < partitionFunction.getPartitionCount(); partition++) {
+        for (int partition = 0; partition < partitionFunction.partitionCount(); partition++) {
             skewedPartitionRebalancer.addPartitionRowCount(partition, partitionRowCount[partition]);
             partitionRowCount[partition] = 0;
         }

@@ -415,7 +415,8 @@ public class DruidJdbcClient
                     table.getColumns(),
                     table.getOtherReferencedTables(),
                     table.getNextSyntheticColumnId(),
-                    table.getAuthorization());
+                    table.getAuthorization(),
+                    table.getUpdateAssignments());
         }
 
         return table;
@@ -463,6 +464,12 @@ public class DruidJdbcClient
     }
 
     @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
@@ -505,6 +512,12 @@ public class DruidJdbcClient
     }
 
     @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
+    }
+
+    @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping columns");
@@ -514,6 +527,18 @@ public class DruidJdbcClient
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
+    }
+
+    @Override
+    public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncating tables");
     }
 
     @Override

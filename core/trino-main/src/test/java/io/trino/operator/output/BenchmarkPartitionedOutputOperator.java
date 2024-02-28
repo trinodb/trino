@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.CompressionCodec;
 import io.trino.execution.buffer.OutputBufferStateMachine;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
@@ -52,6 +53,7 @@ import io.trino.sql.planner.HashBucketFunction;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import io.trino.type.BlockTypeOperators;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -64,7 +66,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
-import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -90,6 +91,7 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
@@ -143,8 +145,8 @@ public class BenchmarkPartitionedOutputOperator
         @Param({"2", "16", "256"})
         private int partitionCount = 256;
 
-        @Param({"true", "false"})
-        private boolean enableCompression;
+        @Param({"LZ4", "NONE"})
+        private CompressionCodec compressionCodec = NONE;
 
         @Param({"1", "2"})
         private int channelCount = 1;
@@ -298,23 +300,20 @@ public class BenchmarkPartitionedOutputOperator
                         types.stream()
                                 .map(type -> {
                                     boolean[] isNull = null;
-                                    int nullPositionCount = 0;
                                     if (nullRate > 0) {
                                         isNull = new boolean[positionCount];
                                         Set<Integer> nullPositions = chooseNullPositions(positionCount, nullRate);
                                         for (int nullPosition : nullPositions) {
                                             isNull[nullPosition] = true;
                                         }
-                                        nullPositionCount = nullPositions.size();
                                     }
 
-                                    int notNullPositionsCount = positionCount - nullPositionCount;
-                                    return RowBlock.fromFieldBlocks(
+                                    return RowBlock.fromNotNullSuppressedFieldBlocks(
                                             positionCount,
                                             Optional.ofNullable(isNull),
                                             new Block[] {
-                                                    RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), notNullPositionsCount),
-                                                    createRandomLongsBlock(notNullPositionsCount, nullRate)});
+                                                    RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), positionCount),
+                                                    createRandomLongsBlock(positionCount, nullRate)});
                                 })
                                 .collect(toImmutableList()));
             });
@@ -452,7 +451,7 @@ public class BenchmarkPartitionedOutputOperator
             PartitionFunction partitionFunction = new BucketPartitionFunction(
                     new HashBucketFunction(new PrecomputedHashGenerator(0), partitionCount),
                     IntStream.range(0, partitionCount).toArray());
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), enableCompression);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), compressionCodec);
 
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 

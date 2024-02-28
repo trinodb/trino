@@ -15,42 +15,56 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.trino.plugin.deltalake.DeltaHiveTypeTranslator;
+import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class CheckpointSchemaManager
 {
     private final TypeManager typeManager;
 
+    private static final RowType DELETION_VECTORS_TYPE = RowType.from(ImmutableList.<RowType.Field>builder()
+            .add(RowType.field("storageType", VARCHAR))
+            .add(RowType.field("pathOrInlineDv", VARCHAR))
+            .add(RowType.field("offset", INTEGER))
+            .add(RowType.field("sizeInBytes", INTEGER))
+            .add(RowType.field("cardinality", BIGINT))
+            .build());
+
     private static final RowType TXN_ENTRY_TYPE = RowType.from(ImmutableList.of(
-            RowType.field("appId", VarcharType.createUnboundedVarcharType()),
-            RowType.field("version", BigintType.BIGINT),
-            RowType.field("lastUpdated", BigintType.BIGINT)));
+            RowType.field("appId", VARCHAR),
+            RowType.field("version", BIGINT),
+            RowType.field("lastUpdated", BIGINT)));
 
     private static final RowType REMOVE_ENTRY_TYPE = RowType.from(ImmutableList.of(
-            RowType.field("path", VarcharType.createUnboundedVarcharType()),
-            RowType.field("deletionTimestamp", BigintType.BIGINT),
-            RowType.field("dataChange", BooleanType.BOOLEAN)));
+            RowType.field("path", VARCHAR),
+            RowType.field("deletionTimestamp", BIGINT),
+            RowType.field("dataChange", BOOLEAN)));
 
     private final RowType metadataEntryType;
     private final RowType commitInfoEntryType;
@@ -61,40 +75,40 @@ public class CheckpointSchemaManager
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
-        stringList = (ArrayType) this.typeManager.getType(TypeSignature.arrayType(VarcharType.VARCHAR.getTypeSignature()));
-        MapType stringMap = (MapType) this.typeManager.getType(TypeSignature.mapType(VarcharType.VARCHAR.getTypeSignature(), VarcharType.VARCHAR.getTypeSignature()));
+        stringList = (ArrayType) this.typeManager.getType(TypeSignature.arrayType(VARCHAR.getTypeSignature()));
+        MapType stringMap = (MapType) this.typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         metadataEntryType = RowType.from(ImmutableList.of(
-                RowType.field("id", VarcharType.createUnboundedVarcharType()),
-                RowType.field("name", VarcharType.createUnboundedVarcharType()),
-                RowType.field("description", VarcharType.createUnboundedVarcharType()),
+                RowType.field("id", VARCHAR),
+                RowType.field("name", VARCHAR),
+                RowType.field("description", VARCHAR),
                 RowType.field("format", RowType.from(ImmutableList.of(
-                        RowType.field("provider", VarcharType.createUnboundedVarcharType()),
+                        RowType.field("provider", VARCHAR),
                         RowType.field("options", stringMap)))),
-                RowType.field("schemaString", VarcharType.createUnboundedVarcharType()),
+                RowType.field("schemaString", VARCHAR),
                 RowType.field("partitionColumns", stringList),
                 RowType.field("configuration", stringMap),
-                RowType.field("createdTime", BigintType.BIGINT)));
+                RowType.field("createdTime", BIGINT)));
 
         commitInfoEntryType = RowType.from(ImmutableList.of(
-                RowType.field("version", BigintType.BIGINT),
-                RowType.field("timestamp", TimestampType.TIMESTAMP_MILLIS),
-                RowType.field("userId", VarcharType.createUnboundedVarcharType()),
-                RowType.field("userName", VarcharType.createUnboundedVarcharType()),
-                RowType.field("operation", VarcharType.createUnboundedVarcharType()),
+                RowType.field("version", BIGINT),
+                RowType.field("timestamp", TIMESTAMP_MILLIS),
+                RowType.field("userId", VARCHAR),
+                RowType.field("userName", VARCHAR),
+                RowType.field("operation", VARCHAR),
                 RowType.field("operationParameters", stringMap),
                 RowType.field("job", RowType.from(ImmutableList.of(
-                        RowType.field("jobId", VarcharType.createUnboundedVarcharType()),
-                        RowType.field("jobName", VarcharType.createUnboundedVarcharType()),
-                        RowType.field("runId", VarcharType.createUnboundedVarcharType()),
-                        RowType.field("jobOwnerId", VarcharType.createUnboundedVarcharType()),
-                        RowType.field("triggerType", VarcharType.createUnboundedVarcharType())))),
+                        RowType.field("jobId", VARCHAR),
+                        RowType.field("jobName", VARCHAR),
+                        RowType.field("runId", VARCHAR),
+                        RowType.field("jobOwnerId", VARCHAR),
+                        RowType.field("triggerType", VARCHAR)))),
                 RowType.field("notebook", RowType.from(
-                        ImmutableList.of(RowType.field("notebookId", VarcharType.createUnboundedVarcharType())))),
-                RowType.field("clusterId", VarcharType.createUnboundedVarcharType()),
-                RowType.field("readVersion", BigintType.BIGINT),
-                RowType.field("isolationLevel", VarcharType.createUnboundedVarcharType()),
-                RowType.field("isBlindAppend", BooleanType.BOOLEAN)));
+                        ImmutableList.of(RowType.field("notebookId", VARCHAR)))),
+                RowType.field("clusterId", VARCHAR),
+                RowType.field("readVersion", BIGINT),
+                RowType.field("isolationLevel", VARCHAR),
+                RowType.field("isBlindAppend", BOOLEAN)));
     }
 
     public RowType getMetadataEntryType()
@@ -102,16 +116,26 @@ public class CheckpointSchemaManager
         return metadataEntryType;
     }
 
-    public RowType getAddEntryType(MetadataEntry metadataEntry, boolean requireWriteStatsAsJson, boolean requireWriteStatsAsStruct)
+    public RowType getAddEntryType(
+            MetadataEntry metadataEntry,
+            ProtocolEntry protocolEntry,
+            Predicate<String> addStatsMinMaxColumnFilter,
+            boolean requireWriteStatsAsJson,
+            boolean requireWriteStatsAsStruct,
+            boolean usePartitionValues)
     {
-        List<DeltaLakeColumnMetadata> allColumns = extractSchema(metadataEntry, typeManager);
-        List<DeltaLakeColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, typeManager);
+        List<DeltaLakeColumnMetadata> allColumns = extractSchema(metadataEntry, protocolEntry, typeManager);
+        List<DeltaLakeColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, protocolEntry, typeManager);
+        minMaxColumns = minMaxColumns.stream()
+                .filter(column -> addStatsMinMaxColumnFilter.test(column.getName()))
+                .collect(toImmutableList());
+        boolean deletionVectorEnabled = isDeletionVectorEnabled(metadataEntry, protocolEntry);
 
         ImmutableList.Builder<RowType.Field> minMaxFields = ImmutableList.builder();
         for (DeltaLakeColumnMetadata dataColumn : minMaxColumns) {
             Type type = dataColumn.getPhysicalColumnType();
             if (type instanceof TimestampWithTimeZoneType) {
-                minMaxFields.add(RowType.field(dataColumn.getPhysicalName(), TimestampType.TIMESTAMP_MILLIS));
+                minMaxFields.add(RowType.field(dataColumn.getPhysicalName(), TIMESTAMP_MILLIS));
             }
             else {
                 minMaxFields.add(RowType.field(dataColumn.getPhysicalName(), type));
@@ -119,7 +143,7 @@ public class CheckpointSchemaManager
         }
 
         ImmutableList.Builder<RowType.Field> statsColumns = ImmutableList.builder();
-        statsColumns.add(RowType.field("numRecords", BigintType.BIGINT));
+        statsColumns.add(RowType.field("numRecords", BIGINT));
 
         List<RowType.Field> minMax = minMaxFields.build();
         if (!minMax.isEmpty()) {
@@ -132,20 +156,41 @@ public class CheckpointSchemaManager
                 "nullCount",
                 RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.getPhysicalName()), column.getPhysicalColumnType())).collect(toImmutableList()))));
 
-        MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VarcharType.VARCHAR.getTypeSignature(), VarcharType.VARCHAR.getTypeSignature()));
+        MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
         ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();
-        addFields.add(RowType.field("path", VarcharType.createUnboundedVarcharType()));
-        addFields.add(RowType.field("partitionValues", stringMap));
-        addFields.add(RowType.field("size", BigintType.BIGINT));
-        addFields.add(RowType.field("modificationTime", BigintType.BIGINT));
-        addFields.add(RowType.field("dataChange", BooleanType.BOOLEAN));
+        addFields.add(RowType.field("path", VARCHAR));
+        if (usePartitionValues) {
+            addFields.add(RowType.field("partitionValues", stringMap));
+        }
+        addFields.add(RowType.field("size", BIGINT));
+        addFields.add(RowType.field("modificationTime", BIGINT));
+        addFields.add(RowType.field("dataChange", BOOLEAN));
+        if (deletionVectorEnabled) {
+            addFields.add(RowType.field("deletionVector", DELETION_VECTORS_TYPE));
+        }
         if (requireWriteStatsAsJson) {
-            addFields.add(RowType.field("stats", VarcharType.createUnboundedVarcharType()));
+            addFields.add(RowType.field("stats", VARCHAR));
         }
         if (requireWriteStatsAsStruct) {
+            List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(metadataEntry, protocolEntry, typeManager);
+            if (!partitionColumns.isEmpty()) {
+                List<RowType.Field> partitionValuesParsed = partitionColumns.stream()
+                        .map(column -> RowType.field(column.getColumnName(), typeManager.getType(DeltaHiveTypeTranslator.toHiveType(column.getType()).getTypeSignature())))
+                        .collect(toImmutableList());
+                addFields.add(RowType.field("partitionValues_parsed", RowType.from(partitionValuesParsed)));
+            }
             addFields.add(RowType.field("stats_parsed", RowType.from(statsColumns.build())));
         }
         addFields.add(RowType.field("tags", stringMap));
+
+        return RowType.from(addFields.build());
+    }
+
+    public RowType getAddEntryPartitionValuesType()
+    {
+        ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();
+        MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        addFields.add(RowType.field("partitionValues", stringMap));
 
         return RowType.from(addFields.build());
     }
@@ -159,7 +204,7 @@ public class CheckpointSchemaManager
                             .collect(toImmutableList()));
             return new RowType.Field(columnName, rowTypeFromFields);
         }
-        return new RowType.Field(columnName, BigintType.BIGINT);
+        return new RowType.Field(columnName, BIGINT);
     }
 
     public RowType getRemoveEntryType()
@@ -175,8 +220,8 @@ public class CheckpointSchemaManager
     public RowType getProtocolEntryType(boolean requireReaderFeatures, boolean requireWriterFeatures)
     {
         ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
-        fields.add(RowType.field("minReaderVersion", IntegerType.INTEGER));
-        fields.add(RowType.field("minWriterVersion", IntegerType.INTEGER));
+        fields.add(RowType.field("minReaderVersion", INTEGER));
+        fields.add(RowType.field("minWriterVersion", INTEGER));
         if (requireReaderFeatures) {
             fields.add(RowType.field("readerFeatures", stringList));
         }

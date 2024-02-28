@@ -18,6 +18,7 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
@@ -26,7 +27,6 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.ColumnChunk;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.RowGroup;
-import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
@@ -50,14 +50,13 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ColumnStatisticsValidation.ColumnStatistics;
+import static io.trino.parquet.ParquetMetadataConverter.getPrimitive;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.IndexReferenceValidation.fromIndexReference;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetWriteValidation
 {
-    private static final ParquetMetadataConverter METADATA_CONVERTER = new ParquetMetadataConverter();
-
     private final String createdBy;
     private final Optional<String> timeZoneId;
     private final List<ColumnDescriptor> columns;
@@ -126,17 +125,17 @@ public class ParquetWriteValidation
         }
     }
 
-    public void validateBlocksMetadata(ParquetDataSourceId dataSourceId, List<BlockMetaData> blocksMetaData)
+    public void validateBlocksMetadata(ParquetDataSourceId dataSourceId, List<RowGroupInfo> rowGroupInfos)
             throws ParquetCorruptionException
     {
         validateParquet(
-                blocksMetaData.size() == rowGroups.size(),
+                rowGroupInfos.size() == rowGroups.size(),
                 dataSourceId,
                 "Number of row groups %d did not match %d",
-                blocksMetaData.size(),
+                rowGroupInfos.size(),
                 rowGroups.size());
-        for (int rowGroupIndex = 0; rowGroupIndex < blocksMetaData.size(); rowGroupIndex++) {
-            BlockMetaData block = blocksMetaData.get(rowGroupIndex);
+        for (int rowGroupIndex = 0; rowGroupIndex < rowGroupInfos.size(); rowGroupIndex++) {
+            BlockMetaData block = rowGroupInfos.get(rowGroupIndex).blockMetaData();
             RowGroup rowGroup = rowGroups.get(rowGroupIndex);
             validateParquet(
                     block.getRowCount() == rowGroup.getNum_rows(),
@@ -169,7 +168,7 @@ public class ParquetWriteValidation
                         expectedColumnMetadata.getCodec());
 
                 verifyColumnMetadataMatch(
-                        actualColumnMetadata.getPrimitiveType().getPrimitiveTypeName().equals(METADATA_CONVERTER.getPrimitive(expectedColumnMetadata.getType())),
+                        actualColumnMetadata.getPrimitiveType().getPrimitiveTypeName().equals(getPrimitive(expectedColumnMetadata.getType())),
                         "Type",
                         actualColumnMetadata.getPrimitiveType().getPrimitiveTypeName(),
                         actualColumnMetadata.getPath(),
@@ -592,7 +591,7 @@ public class ParquetWriteValidation
 
     private static boolean areEncodingsSame(Set<org.apache.parquet.column.Encoding> actual, List<org.apache.parquet.format.Encoding> expected)
     {
-        return actual.equals(expected.stream().map(METADATA_CONVERTER::getEncoding).collect(toImmutableSet()));
+        return actual.equals(expected.stream().map(ParquetMetadataConverter::getEncoding).collect(toImmutableSet()));
     }
 
     private static boolean areStatisticsSame(org.apache.parquet.column.statistics.Statistics<?> actual, org.apache.parquet.format.Statistics expected)

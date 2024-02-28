@@ -16,17 +16,21 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
@@ -35,24 +39,26 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionEquivalence
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final TestingTransactionManager TRANSACTION_MANAGER = new TestingTransactionManager();
+    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
+            .withTransactionManager(TRANSACTION_MANAGER)
+            .build();
     private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(
             PLANNER_CONTEXT.getMetadata(),
             PLANNER_CONTEXT.getFunctionManager(),
-            createTestingTypeAnalyzer(PLANNER_CONTEXT));
+            PLANNER_CONTEXT.getTypeManager(),
+            new IrTypeAnalyzer(PLANNER_CONTEXT));
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("a_boolean"), BOOLEAN)
             .put(new Symbol("b_boolean"), BOOLEAN)
@@ -130,20 +136,19 @@ public class TestExpressionEquivalence
 
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
-        Expression leftExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left, parsingOptions));
-        Expression rightExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right, parsingOptions));
+        Expression leftExpression = planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left));
+        Expression rightExpression = planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         TypeProvider types = TypeProvider.copyOf(symbols.stream()
                 .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
-        assertTrue(
-                areExpressionEquivalent(leftExpression, rightExpression, types),
-                format("Expected (%s) and (%s) to be equivalent", left, right));
-        assertTrue(
-                areExpressionEquivalent(rightExpression, leftExpression, types),
-                format("Expected (%s) and (%s) to be equivalent", right, left));
+        assertThat(areExpressionEquivalent(leftExpression, rightExpression, types))
+                .describedAs(format("Expected (%s) and (%s) to be equivalent", left, right))
+                .isTrue();
+        assertThat(areExpressionEquivalent(rightExpression, leftExpression, types))
+                .describedAs(format("Expected (%s) and (%s) to be equivalent", right, left))
+                .isTrue();
     }
 
     @Test
@@ -204,25 +209,26 @@ public class TestExpressionEquivalence
 
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
-        Expression leftExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left, parsingOptions));
-        Expression rightExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right, parsingOptions));
+        Expression leftExpression = planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left));
+        Expression rightExpression = planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         TypeProvider types = TypeProvider.copyOf(symbols.stream()
                 .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
-        assertFalse(
-                areExpressionEquivalent(leftExpression, rightExpression, types),
-                format("Expected (%s) and (%s) to not be equivalent", left, right));
-        assertFalse(
-                areExpressionEquivalent(rightExpression, leftExpression, types),
-                format("Expected (%s) and (%s) to not be equivalent", right, left));
+        assertThat(areExpressionEquivalent(leftExpression, rightExpression, types))
+                .describedAs(format("Expected (%s) and (%s) to not be equivalent", left, right))
+                .isFalse();
+        assertThat(areExpressionEquivalent(rightExpression, leftExpression, types))
+                .describedAs(format("Expected (%s) and (%s) to not be equivalent", right, left))
+                .isFalse();
     }
 
     private static boolean areExpressionEquivalent(Expression leftExpression, Expression rightExpression, TypeProvider types)
     {
-        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        TransactionManager transactionManager = new TestingTransactionManager();
+        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
+        return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
                     return EQUIVALENCE.areExpressionsEquivalent(transactionSession, leftExpression, rightExpression, types);

@@ -110,9 +110,9 @@ public class HivePrincipal
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        HivePrincipal prestoPrincipal = (HivePrincipal) o;
-        return type == prestoPrincipal.type &&
-                Objects.equals(name, prestoPrincipal.name);
+        HivePrincipal hivePrincipal = (HivePrincipal) o;
+        return type == hivePrincipal.type &&
+                Objects.equals(name, hivePrincipal.name);
     }
 
     @Override

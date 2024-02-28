@@ -16,7 +16,7 @@ package io.trino.util;
 import io.trino.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.ZoneId;
 import java.util.TreeSet;
@@ -29,8 +29,8 @@ import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static io.trino.util.DateTimeZoneIndex.unpackDateTimeZone;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 
 public class TestTimeZoneUtils
 {
@@ -92,6 +92,6 @@ public class TestTimeZoneUtils
             expectedDateTimeZone = DateTimeZone.forID(zoneId);
         }
 
-        assertEquals(actualTimeZone, expectedDateTimeZone);
+        assertThat(actualTimeZone).isEqualTo(expectedDateTimeZone);
     }
 }

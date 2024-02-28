@@ -18,14 +18,13 @@ import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.hive.HiveConfig.HIVE_VIEWS_ENABLED;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergPlugin
@@ -35,7 +34,12 @@ public class TestIcebergPlugin
     {
         ConnectorFactory factory = getConnectorFactory();
         // simplest possible configuration
-        factory.create("test", Map.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext()).shutdown();
+        factory.create(
+                "test",
+                Map.of(
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
     }
 
     @Test
@@ -46,7 +50,8 @@ public class TestIcebergPlugin
                         "test",
                         Map.of(
                                 "iceberg.catalog.type", "TESTING_FILE_METASTORE",
-                                "hive.metastore.catalog.dir", "/tmp"),
+                                "hive.metastore.catalog.dir", "/tmp",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
     }
@@ -60,7 +65,8 @@ public class TestIcebergPlugin
                         "test",
                         Map.of(
                                 "iceberg.catalog.type", "HIVE_METASTORE",
-                                "hive.metastore.uri", "thrift://foo:1234"),
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
 
@@ -69,7 +75,8 @@ public class TestIcebergPlugin
                 "test",
                 Map.of(
                         "hive.metastore.uri", "thrift://foo:1234",
-                        "hive.metastore.glue.region", "us-east"),
+                        "hive.metastore.glue.region", "us-east",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Configuration property 'hive.metastore.glue.region' was not used");
     }
@@ -83,7 +90,8 @@ public class TestIcebergPlugin
                 "test",
                 Map.of(
                         "hive.metastore", "thrift",
-                        "hive.metastore.uri", "thrift://foo:1234"),
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.metastore' was not used");
     }
@@ -97,7 +105,8 @@ public class TestIcebergPlugin
                         "test",
                         Map.of(
                                 "iceberg.catalog.type", "glue",
-                                "hive.metastore.glue.region", "us-east-1"),
+                                "hive.metastore.glue.region", "us-east-1",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
 
@@ -105,7 +114,8 @@ public class TestIcebergPlugin
                 "test",
                 Map.of(
                         "iceberg.catalog.type", "glue",
-                        "hive.metastore.uri", "thrift://foo:1234"),
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
 
@@ -114,45 +124,10 @@ public class TestIcebergPlugin
                         Map.of(
                                 "iceberg.catalog.type", "glue",
                                 "hive.metastore.glue.catalogid", "123",
-                                "hive.metastore.glue.region", "us-east-1"),
+                                "hive.metastore.glue.region", "us-east-1",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
-    }
-
-    @Test
-    public void testRecordingMetastore()
-    {
-        ConnectorFactory factory = getConnectorFactory();
-
-        // recording with thrift
-        factory.create(
-                        "test",
-                        Map.of(
-                                "iceberg.catalog.type", "HIVE_METASTORE",
-                                "hive.metastore.uri", "thrift://foo:1234",
-                                "hive.metastore-recording-path", "/tmp"),
-                        new TestingConnectorContext())
-                .shutdown();
-
-        // recording with glue
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                Map.of(
-                        "iceberg.catalog.type", "glue",
-                        "hive.metastore.glue.region", "us-east-2",
-                        "hive.metastore-recording-path", "/tmp"),
-                new TestingConnectorContext()))
-                .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used");
-
-        // recording with nessie
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                Map.of(
-                        "iceberg.catalog.type", "nessie",
-                        "hive.metastore.nessie.region", "us-east-2",
-                        "hive.metastore-recording-path", "/tmp"),
-                new TestingConnectorContext()))
-                .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used");
     }
 
     @Test
@@ -166,6 +141,7 @@ public class TestIcebergPlugin
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", "thrift://foo:1234")
                                 .put("iceberg.security", "allow-all")
+                                .put("bootstrap.quiet", "true")
                                 .buildOrThrow(),
                         new TestingConnectorContext())
                 .shutdown();
@@ -182,6 +158,7 @@ public class TestIcebergPlugin
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", "thrift://foo:1234")
                                 .put("iceberg.security", "read-only")
+                                .put("bootstrap.quiet", "true")
                                 .buildOrThrow(),
                         new TestingConnectorContext())
                 .shutdown();
@@ -198,6 +175,7 @@ public class TestIcebergPlugin
                         .put("iceberg.catalog.type", "HIVE_METASTORE")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("iceberg.security", "system")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
         assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
@@ -220,6 +198,7 @@ public class TestIcebergPlugin
                                 .put("hive.metastore.uri", "thrift://foo:1234")
                                 .put("iceberg.security", "file")
                                 .put("security.config-file", tempFile.getAbsolutePath())
+                                .put("bootstrap.quiet", "true")
                                 .buildOrThrow(),
                         new TestingConnectorContext())
                 .shutdown();
@@ -234,8 +213,9 @@ public class TestIcebergPlugin
                         "test",
                         Map.of(
                                 "iceberg.catalog.type", "HIVE_METASTORE",
-                                HIVE_VIEWS_ENABLED, "true",
-                                "hive.metastore.uri", "thrift://foo:1234"),
+                                "hive.hive-views.enabled", "true",
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown())
                 .isInstanceOf(ApplicationConfigurationException.class)
@@ -251,9 +231,29 @@ public class TestIcebergPlugin
                         "test",
                         Map.of(
                                 "iceberg.catalog.type", "rest",
-                                "iceberg.rest-catalog.uri", "https://foo:1234"),
+                                "iceberg.rest-catalog.uri", "https://foo:1234",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    public void testRestCatalogValidations()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "rest",
+                                "iceberg.register-table-procedure.enabled", "true",
+                                "iceberg.rest-catalog.uri", "https://foo:1234",
+                                "iceberg.rest-catalog.vended-credentials-enabled", "true",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Using the `register_table` procedure with vended credentials is currently not supported");
     }
 
     @Test
@@ -268,7 +268,8 @@ public class TestIcebergPlugin
                                 "iceberg.jdbc-catalog.driver-class", "org.postgresql.Driver",
                                 "iceberg.jdbc-catalog.connection-url", "jdbc:postgresql://localhost:5432/test",
                                 "iceberg.jdbc-catalog.catalog-name", "test",
-                                "iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket"),
+                                "iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
     }
@@ -283,9 +284,63 @@ public class TestIcebergPlugin
                         Map.of(
                                 "iceberg.catalog.type", "nessie",
                                 "iceberg.nessie-catalog.default-warehouse-dir", "/tmp",
-                                "iceberg.nessie-catalog.uri", "http://foo:1234"),
+                                "iceberg.nessie-catalog.uri", "http://foo:1234",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    public void testNessieCatalogWithBearerAuth()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "nessie",
+                                "iceberg.nessie-catalog.default-warehouse-dir", "/tmp",
+                                "iceberg.nessie-catalog.uri", "http://foo:1234",
+                                "iceberg.nessie-catalog.authentication.type", "BEARER",
+                                "iceberg.nessie-catalog.authentication.token", "someToken"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testNessieCatalogWithNoAuthAndAccessToken()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "nessie",
+                                "iceberg.nessie-catalog.uri", "nessieUri",
+                                "iceberg.nessie-catalog.default-warehouse-dir", "/tmp",
+                                "iceberg.nessie-catalog.authentication.token", "someToken"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("'iceberg.nessie-catalog.authentication.token' must be configured only with 'iceberg.nessie-catalog.authentication.type' BEARER");
+    }
+
+    @Test
+    public void testNessieCatalogWithNoAccessToken()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "nessie",
+                                "iceberg.nessie-catalog.uri", "nessieUri",
+                                "iceberg.nessie-catalog.default-warehouse-dir", "/tmp",
+                                "iceberg.nessie-catalog.authentication.type", "BEARER"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("'iceberg.nessie-catalog.authentication.token' must be configured with 'iceberg.nessie-catalog.authentication.type' BEARER");
     }
 
     private static ConnectorFactory getConnectorFactory()

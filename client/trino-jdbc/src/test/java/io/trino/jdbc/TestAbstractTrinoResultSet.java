@@ -13,11 +13,11 @@
  */
 package io.trino.jdbc;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.jdbc.AbstractTrinoResultSet.DEFAULT_OBJECT_REPRESENTATION;
 import static io.trino.jdbc.AbstractTrinoResultSet.TYPE_CONVERSIONS;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public class TestAbstractTrinoResultSet
 {

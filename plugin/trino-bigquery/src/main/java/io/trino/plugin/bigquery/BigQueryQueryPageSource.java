@@ -24,7 +24,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -50,7 +49,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
-import static io.trino.plugin.bigquery.BigQueryType.toTrinoTimestamp;
+import static io.trino.plugin.bigquery.BigQueryTypeManager.toTrinoTimestamp;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -75,6 +74,8 @@ public class BigQueryQueryPageSource
             .optionalEnd()
             .toFormatter();
 
+    private final BigQueryTypeManager typeManager;
+    private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final PageBuilder pageBuilder;
     private final TableResult tableResult;
@@ -83,6 +84,7 @@ public class BigQueryQueryPageSource
 
     public BigQueryQueryPageSource(
             ConnectorSession session,
+            BigQueryTypeManager typeManager,
             BigQueryClient client,
             BigQueryTableHandle table,
             List<String> columnNames,
@@ -94,7 +96,9 @@ public class BigQueryQueryPageSource
         requireNonNull(columnNames, "columnNames is null");
         requireNonNull(columnTypes, "columnTypes is null");
         requireNonNull(filter, "filter is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
+        this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.pageBuilder = new PageBuilder(columnTypes);
         String sql = buildSql(table, client.getProjectId(), ImmutableList.copyOf(columnNames), filter);
@@ -145,7 +149,7 @@ public class BigQueryQueryPageSource
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnTypes.get(column), record.get(column), output);
+                appendTo(columnTypes.get(column), record.get(columnNames.get(column)), output);
             }
         }
         finished = true;
@@ -190,7 +194,7 @@ public class BigQueryQueryPageSource
                     type.writeLong(output, rounded);
                 }
                 else if (type.equals(TIMESTAMP_MICROS)) {
-                    type.writeLong(output, toTrinoTimestamp((value.getStringValue())));
+                    type.writeLong(output, toTrinoTimestamp(value.getStringValue()));
                 }
                 else {
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
@@ -208,8 +212,22 @@ public class BigQueryQueryPageSource
             else if (javaType == Slice.class) {
                 writeSlice(output, type, value);
             }
-            else if (javaType == Block.class) {
-                writeBlock(output, type, value);
+            else if (type instanceof ArrayType arrayType) {
+                ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
+                    Type elementType = arrayType.getElementType();
+                    for (FieldValue element : value.getRepeatedValue()) {
+                        appendTo(elementType, element, elementBuilder);
+                    }
+                });
+            }
+            else if (type instanceof RowType rowType) {
+                FieldValueList record = value.getRecordValue();
+                List<RowType.Field> fields = rowType.getFields();
+                ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+                    for (int index = 0; index < fields.size(); index++) {
+                        appendTo(fields.get(index).getType(), record.get(index), fieldBuilders.get(index));
+                    }
+                });
             }
             else {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
@@ -220,9 +238,9 @@ public class BigQueryQueryPageSource
         }
     }
 
-    private static void writeSlice(BlockBuilder output, Type type, FieldValue value)
+    private void writeSlice(BlockBuilder output, Type type, FieldValue value)
     {
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType || typeManager.isJsonType(type)) {
             type.writeSlice(output, utf8Slice(value.getStringValue()));
         }
         else if (type instanceof VarbinaryType) {
@@ -231,28 +249,6 @@ public class BigQueryQueryPageSource
         else {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
         }
-    }
-
-    private void writeBlock(BlockBuilder output, Type type, FieldValue value)
-    {
-        if (type instanceof ArrayType) {
-            ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
-                for (FieldValue element : value.getRepeatedValue()) {
-                    appendTo(type.getTypeParameters().get(0), element, elementBuilder);
-                }
-            });
-            return;
-        }
-        if (type instanceof RowType) {
-            FieldValueList record = value.getRecordValue();
-            ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
-                for (int index = 0; index < type.getTypeParameters().size(); index++) {
-                    appendTo(type.getTypeParameters().get(index), record.get(index), fieldBuilders.get(index));
-                }
-            });
-            return;
-        }
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
     }
 
     @Override

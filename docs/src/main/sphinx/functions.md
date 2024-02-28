@@ -4,14 +4,29 @@ This section describes the built-in SQL functions and operators supported by
 Trino. They allow you to implement complex capabilities and behavior of the
 queries executed by Trino operating on the underlying data sources.
 
-If you are looking for a specific function or operator, see the {doc}`full
-alphabetical list</functions/list>` or the {doc}`full list by
-topic</functions/list-by-topic>`. Using {doc}`SHOW FUNCTIONS
-</sql/show-functions>` returns a list of all available functions, including
-custom functions, with all supported arguments and a short description.
+Refer to the following sections for further details:
 
-Also see the {doc}`SQL data types</language>`
-and the {doc}`SQL statement and syntax reference</sql>`.
+* [SQL data types and other general aspects](/language)
+* [SQL statement and syntax reference](/sql)
+
+In addition, Trino supports implementation of [custom
+functions](/develop/functions) or [custom table
+functions](/develop/table-functions) provided by a plugin, and creation of
+user-defined functions as [SQL routines](/routines).
+
+## Functions by name
+
+If you are looking for a specific function or operator by name use
+[](/sql/show-functions), or refer the to the following resources:
+
+:::{toctree}
+:maxdepth: 1
+
+functions/list
+functions/list-by-topic
+:::
+
+## Functions per topic
 
 ```{toctree}
 :maxdepth: 1
@@ -47,6 +62,4 @@ T-Digest            <functions/tdigest>
 URL                 <functions/url>
 UUID                <functions/uuid>
 Window              <functions/window>
-functions/list
-functions/list-by-topic
 ```

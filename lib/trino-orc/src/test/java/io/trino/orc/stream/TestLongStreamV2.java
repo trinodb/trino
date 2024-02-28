@@ -17,7 +17,7 @@ import io.airlift.slice.Slice;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDecompressor;
 import io.trino.orc.checkpoint.LongStreamCheckpoint;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,7 +33,7 @@ public class TestLongStreamV2
         extends AbstractTestValueStream<Long, LongStreamCheckpoint, LongOutputStreamV2, LongInputStreamV2>
 {
     @Test
-    public void test()
+    public void testLargeValue()
             throws IOException
     {
         List<List<Long>> groups = new ArrayList<>();
@@ -41,6 +41,21 @@ public class TestLongStreamV2
             List<Long> group = new ArrayList<>();
             for (int i = 0; i < 1000; i++) {
                 group.add((long) (groupIndex * 10_000 + i));
+            }
+            groups.add(group);
+        }
+        testWriteValue(groups);
+    }
+
+    @Test
+    public void testSmallValue()
+            throws IOException
+    {
+        List<List<Long>> groups = new ArrayList<>();
+        for (int groupIndex = 0; groupIndex < 22; groupIndex++) {
+            List<Long> group = new ArrayList<>();
+            for (int i = 0; i < 1_000_000; i++) {
+                group.add((long) (groupIndex * 0 + i));
             }
             groups.add(group);
         }

@@ -46,6 +46,7 @@ import io.trino.execution.executor.timesharing.PrioritizedSplitRunner;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
+import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
@@ -77,7 +78,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -122,6 +123,7 @@ public class SqlTaskManager
 
     private final ScheduledExecutorService taskManagementExecutor;
     private final ScheduledExecutorService driverYieldExecutor;
+    private final ScheduledExecutorService driverTimeoutExecutor;
 
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
@@ -136,12 +138,14 @@ public class SqlTaskManager
 
     private final CounterStat failedTasks = new CounterStat();
     private final Optional<StuckSplitTasksInterrupter> stuckSplitTasksInterrupter;
+    private final LanguageFunctionProvider languageFunctionProvider;
 
     @Inject
     public SqlTaskManager(
             VersionEmbedder versionEmbedder,
             ConnectorServicesProvider connectorServicesProvider,
             LocalExecutionPlanner planner,
+            LanguageFunctionProvider languageFunctionProvider,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
@@ -159,6 +163,7 @@ public class SqlTaskManager
         this(versionEmbedder,
                 connectorServicesProvider,
                 planner,
+                languageFunctionProvider,
                 locationFactory,
                 taskExecutor,
                 splitMonitor,
@@ -180,6 +185,7 @@ public class SqlTaskManager
             VersionEmbedder versionEmbedder,
             ConnectorServicesProvider connectorServicesProvider,
             LocalExecutionPlanner planner,
+            LanguageFunctionProvider languageFunctionProvider,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
@@ -196,6 +202,7 @@ public class SqlTaskManager
             Predicate<List<StackTraceElement>> stuckSplitStackTracePredicate)
     {
         this.connectorServicesProvider = requireNonNull(connectorServicesProvider, "connectorServicesProvider is null");
+        this.languageFunctionProvider = languageFunctionProvider;
 
         requireNonNull(nodeInfo, "nodeInfo is null");
         infoCacheTime = config.getInfoMaxAge();
@@ -210,6 +217,7 @@ public class SqlTaskManager
 
         this.taskManagementExecutor = taskManagementExecutor.getExecutor();
         this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
+        this.driverTimeoutExecutor = newScheduledThreadPool(config.getDriverTimeoutThreads(), threadsNamed("task-driver-timeout-%s"));
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, tracer, config);
 
@@ -230,7 +238,10 @@ public class SqlTaskManager
                         tracer,
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
-                        sqlTask -> finishedTaskStats.merge(sqlTask.getIoStats()),
+                        sqlTask -> {
+                            languageFunctionProvider.unregisterTask(taskId);
+                            finishedTaskStats.merge(sqlTask.getIoStats());
+                        },
                         maxBufferSize,
                         maxBroadcastBufferSize,
                         requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null"),
@@ -260,6 +271,7 @@ public class SqlTaskManager
                 gcMonitor,
                 taskNotificationExecutor,
                 driverYieldExecutor,
+                driverTimeoutExecutor,
                 maxQuerySpillPerNode,
                 localSpillManager.getSpillSpaceTracker());
     }
@@ -438,13 +450,14 @@ public class SqlTaskManager
         return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
     }
 
-    private final ReentrantLock catalogsLock = new ReentrantLock();
+    private final ReentrantReadWriteLock catalogsLock = new ReentrantReadWriteLock();
 
     public void pruneCatalogs(Set<CatalogHandle> activeCatalogs)
     {
-        catalogsLock.lock();
+        Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
+        ReentrantReadWriteLock.WriteLock pruneLock = catalogsLock.writeLock();
+        pruneLock.lock();
         try {
-            Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
             for (SqlTask task : tasks.asMap().values()) {
                 // add all catalogs being used by a non-done task
                 if (!task.getTaskState().isDone()) {
@@ -454,7 +467,7 @@ public class SqlTaskManager
             connectorServicesProvider.pruneCatalogs(catalogsInUse);
         }
         finally {
-            catalogsLock.unlock();
+            pruneLock.unlock();
         }
     }
 
@@ -524,9 +537,19 @@ public class SqlTaskManager
                             .map(CatalogProperties::getCatalogHandle)
                             .collect(toImmutableSet());
                     if (sqlTask.setCatalogs(catalogHandles)) {
-                        connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
+                        ReentrantReadWriteLock.ReadLock catalogInitLock = catalogsLock.readLock();
+                        catalogInitLock.lock();
+                        try {
+                            connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
+                        }
+                        finally {
+                            catalogInitLock.unlock();
+                        }
                     }
                 });
+
+        fragment.map(PlanFragment::getLanguageFunctions)
+                .ifPresent(languageFunctions -> languageFunctionProvider.registerTask(taskId, languageFunctions));
 
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, stageSpan, fragment, splitAssignments, outputBuffers, dynamicFilterDomains, speculative);

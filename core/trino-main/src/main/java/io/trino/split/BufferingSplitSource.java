@@ -13,8 +13,11 @@
  */
 package io.trino.split;
 
-import com.google.common.util.concurrent.Futures;
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.AbstractFuture;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.opentelemetry.context.Context;
 import io.trino.metadata.Split;
 import io.trino.spi.connector.CatalogHandle;
@@ -22,9 +25,12 @@ import io.trino.spi.connector.CatalogHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -33,10 +39,12 @@ public class BufferingSplitSource
 {
     private final int bufferSize;
     private final SplitSource source;
+    private final Executor executor;
 
-    public BufferingSplitSource(SplitSource source, int bufferSize)
+    public BufferingSplitSource(SplitSource source, Executor executor, int bufferSize)
     {
         this.source = requireNonNull(source, "source is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.bufferSize = bufferSize;
     }
 
@@ -50,7 +58,7 @@ public class BufferingSplitSource
     public ListenableFuture<SplitBatch> getNextBatch(int maxSize)
     {
         checkArgument(maxSize > 0, "Cannot fetch a batch of zero size");
-        return GetNextBatch.fetchNextBatchAsync(source, Math.min(bufferSize, maxSize), maxSize);
+        return GetNextBatch.fetchNextBatchAsync(source, executor, Math.min(bufferSize, maxSize), maxSize);
     }
 
     @Override
@@ -71,51 +79,118 @@ public class BufferingSplitSource
         return source.getTableExecuteSplitsInfo();
     }
 
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("bufferSize", bufferSize)
+                .add("source", source)
+                .toString();
+    }
+
     private static class GetNextBatch
+            extends AbstractFuture<SplitBatch>
     {
         private final Context context = Context.current();
         private final SplitSource splitSource;
+        private final Executor executor;
         private final int min;
         private final int max;
 
+        @GuardedBy("this")
         private final List<Split> splits = new ArrayList<>();
-        private boolean noMoreSplits;
+        @GuardedBy("this")
+        private ListenableFuture<SplitBatch> nextBatchFuture;
 
         public static ListenableFuture<SplitBatch> fetchNextBatchAsync(
                 SplitSource splitSource,
+                Executor executor,
                 int min,
                 int max)
         {
-            GetNextBatch getNextBatch = new GetNextBatch(splitSource, min, max);
-            ListenableFuture<Void> future = getNextBatch.fetchSplits();
-            return Futures.transform(future, ignored -> new SplitBatch(getNextBatch.splits, getNextBatch.noMoreSplits), directExecutor());
+            GetNextBatch getNextBatch = new GetNextBatch(splitSource, executor, min, max);
+            getNextBatch.fetchSplits();
+            return getNextBatch;
         }
 
-        private GetNextBatch(SplitSource splitSource, int min, int max)
+        private GetNextBatch(SplitSource splitSource, Executor executor, int min, int max)
         {
             this.splitSource = requireNonNull(splitSource, "splitSource is null");
+            this.executor = requireNonNull(executor, "executor is null");
             checkArgument(min <= max, "Min splits greater than max splits");
             this.min = min;
             this.max = max;
         }
 
-        private ListenableFuture<Void> fetchSplits()
+        private synchronized void fetchSplits()
         {
-            if (splits.size() >= min) {
-                return immediateVoidFuture();
-            }
-            ListenableFuture<SplitBatch> future;
+            checkState(nextBatchFuture == null || nextBatchFuture.isDone(), "nextBatchFuture is expected to be done");
+
             try (var ignored = context.makeCurrent()) {
-                future = splitSource.getNextBatch(max - splits.size());
-            }
-            return Futures.transformAsync(future, splitBatch -> {
-                splits.addAll(splitBatch.getSplits());
-                if (splitBatch.isLastBatch()) {
-                    noMoreSplits = true;
-                    return immediateVoidFuture();
+                nextBatchFuture = splitSource.getNextBatch(max - splits.size());
+                // If the split source returns completed futures, we process them on
+                // directExecutor without chaining to avoid the overhead of going through separate executor
+                while (nextBatchFuture.isDone()) {
+                    addCallback(
+                            nextBatchFuture,
+                            new FutureCallback<>()
+                            {
+                                @Override
+                                public void onSuccess(SplitBatch splitBatch)
+                                {
+                                    processBatch(splitBatch);
+                                }
+
+                                @Override
+                                public void onFailure(Throwable throwable)
+                                {
+                                    setException(throwable);
+                                }
+                            },
+                            directExecutor());
+                    if (isDone()) {
+                        return;
+                    }
+                    nextBatchFuture = splitSource.getNextBatch(max - splits.size());
                 }
-                return fetchSplits();
-            }, directExecutor());
+            }
+
+            addCallback(
+                    nextBatchFuture,
+                    new FutureCallback<>()
+                    {
+                        @Override
+                        public void onSuccess(SplitBatch splitBatch)
+                        {
+                            synchronized (GetNextBatch.this) {
+                                if (processBatch(splitBatch)) {
+                                    return;
+                                }
+                                fetchSplits();
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Throwable throwable)
+                        {
+                            setException(throwable);
+                        }
+                    },
+                    executor);
+        }
+
+        // Accumulates splits from the returned batch and returns whether
+        // sufficient splits have been buffered to satisfy min batch size
+        private synchronized boolean processBatch(SplitBatch splitBatch)
+        {
+            splits.addAll(splitBatch.getSplits());
+            boolean isLastBatch = splitBatch.isLastBatch();
+            if (splits.size() >= min || isLastBatch) {
+                set(new SplitBatch(ImmutableList.copyOf(splits), isLastBatch));
+                splits.clear();
+                return true;
+            }
+            return false;
         }
     }
 }

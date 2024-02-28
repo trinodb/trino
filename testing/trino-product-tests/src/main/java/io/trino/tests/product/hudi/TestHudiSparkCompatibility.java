@@ -313,10 +313,36 @@ public class TestHudiSparkCompatibility
             assertThat(onTrino().executeQuery(format("SELECT action, state FROM hive.default.\"%s$timeline\"", tableName)))
                     .containsOnly(row("commit", "COMPLETED"));
             assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$timeline\"", nonExistingTableName)))
-                    .hasMessageMatching(".*Table 'hive.default.test_hudi_timeline_system_table_redirect_.*_non_existing\\$timeline' does not exist");
+                    .hasMessageMatching(".*Table 'hive.default.\"test_hudi_timeline_system_table_redirect_.*_non_existing\\$timeline\"' does not exist");
         }
         finally {
             onHudi().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
+    public void testReadCopyOnWriteTableWithReplaceCommits()
+    {
+        String tableName = "test_hudi_cow_replace_commits_select_" + randomNameSuffix();
+
+        onHudi().executeQuery("CREATE TABLE default." + tableName +
+                              "(id bigint, name string, ts bigint)" +
+                              "USING hudi " +
+                              "TBLPROPERTIES (" +
+                              " type = 'cow'," +
+                              " primaryKey = 'id'," +
+                              " preCombineField = 'ts'," +
+                              " hoodie.clustering.inline = 'true'," +
+                              " hoodie.clustering.inline.max.commits = '1')" +
+                              "LOCATION 's3://" + bucketName + "/" + tableName + "'");
+
+        try {
+            onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'a1', 1000), (2, 'a2', 2000)");
+            assertThat(onTrino().executeQuery("SELECT id, name FROM hudi.default." + tableName))
+                    .containsOnly(row(1, "a1"), row(2, "a2"));
+        }
+        finally {
+            onHudi().executeQuery("DROP TABLE default." + tableName);
         }
     }
 

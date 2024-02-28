@@ -47,10 +47,13 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -60,6 +63,7 @@ import java.util.stream.LongStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -86,8 +90,10 @@ import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestExpressionCompiler
 {
     private static final Boolean[] booleanValues = {true, false, null};
@@ -2523,13 +2529,16 @@ public class TestExpressionCompiler
     @Test
     public void testFunctionWithSessionCall()
     {
-        Session session = assertions.getDefaultSession();
+        Session session = Session.builder(assertions.getDefaultSession())
+                .setStart(ZonedDateTime.of(2017, 4, 1, 12, 34, 56, 789, ZoneId.of("UTC")).toInstant())
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2017, 4, 1, 12, 34, 56, 789, ZoneId.of("UTC")).toInstant().toString())
+                .build();
 
-        assertThat(assertions.expression("now()"))
+        assertThat(assertions.expression("now()", session))
                 .hasType(TIMESTAMP_TZ_MILLIS)
                 .isEqualTo(SqlTimestampWithTimeZone.fromInstant(3, session.getStart(), session.getTimeZoneKey().getZoneId()));
 
-        assertThat(assertions.expression("current_timestamp"))
+        assertThat(assertions.expression("current_timestamp", session))
                 .hasType(TIMESTAMP_TZ_MILLIS)
                 .isEqualTo(SqlTimestampWithTimeZone.fromInstant(3, session.getStart(), session.getTimeZoneKey().getZoneId()));
     }

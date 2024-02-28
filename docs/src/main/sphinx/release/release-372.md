@@ -62,7 +62,7 @@
 
 * Allow redirects of Iceberg or Delta tables which have no ``StorageDescriptor``
   in the Glue metastore. ({issue}`11092`)
-* Stop logging spurious failures when [storage caching](/connector/hive-caching)
+* Stop logging spurious failures when storage caching
   is used. ({issue}`11101`)
 * Allow reading Zstandard compressed Avro files. ({issue}`11090`)
 * Fix incorrect query results after writes to a table when directory caching is

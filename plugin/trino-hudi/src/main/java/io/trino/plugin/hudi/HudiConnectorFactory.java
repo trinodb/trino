@@ -13,23 +13,46 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Module;
+import com.google.inject.TypeLiteral;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.event.client.EventModule;
+import io.airlift.json.JsonModule;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.manager.FileSystemModule;
+import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
+import io.trino.plugin.base.jmx.MBeanServerModule;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.metastore.HiveMetastoreModule;
+import io.trino.spi.NodeManager;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.type.TypeManager;
+import org.weakref.jmx.guice.MBeanModule;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 
 public class HudiConnectorFactory
         implements ConnectorFactory
 {
-    public HudiConnectorFactory()
-    {}
-
     @Override
     public String getName()
     {
@@ -40,20 +63,58 @@ public class HudiConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
+        return createConnector(catalogName, config, context, Optional.empty());
+    }
 
-        ClassLoader classLoader = context.duplicatePluginClassLoader();
-        try {
-            return (Connector) classLoader.loadClass(InternalHudiConnectorFactory.class.getName())
-                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class, Optional.class)
-                    .invoke(null, catalogName, config, context, Optional.empty(), Optional.empty());
-        }
-        catch (InvocationTargetException e) {
-            Throwable targetException = e.getTargetException();
-            throwIfUnchecked(targetException);
-            throw new RuntimeException(targetException);
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
+    public static Connector createConnector(
+            String catalogName,
+            Map<String, String> config,
+            ConnectorContext context,
+            Optional<Module> module)
+    {
+        ClassLoader classLoader = HudiConnectorFactory.class.getClassLoader();
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            Bootstrap app = new Bootstrap(
+                    new EventModule(),
+                    new MBeanModule(),
+                    new JsonModule(),
+                    new HudiModule(),
+                    new HiveMetastoreModule(Optional.empty()),
+                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry()),
+                    new MBeanServerModule(),
+                    binder -> {
+                        module.ifPresent(binder::install);
+                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
+                        binder.bind(Tracer.class).toInstance(context.getTracer());
+                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+                    });
+
+            Injector injector = app
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(config)
+                    .initialize();
+
+            LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
+            HudiTransactionManager transactionManager = injector.getInstance(HudiTransactionManager.class);
+            ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
+            ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
+            ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
+            Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<>() {}));
+            HudiTableProperties hudiTableProperties = injector.getInstance(HudiTableProperties.class);
+
+            return new HudiConnector(
+                    injector,
+                    lifeCycleManager,
+                    transactionManager,
+                    new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
+                    new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
+                    new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
+                    ImmutableSet.of(),
+                    sessionPropertiesProviders,
+                    hudiTableProperties.getTableProperties());
         }
     }
 }

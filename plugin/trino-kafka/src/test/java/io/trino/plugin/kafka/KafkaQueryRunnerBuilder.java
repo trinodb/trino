@@ -18,13 +18,15 @@ import com.google.inject.Module;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +35,7 @@ public abstract class KafkaQueryRunnerBuilder
 {
     protected final TestingKafka testingKafka;
     protected Map<String, String> extraKafkaProperties = ImmutableMap.of();
-    protected Module extension = DEFAULT_EXTENSION;
+    private final List<Module> extensions = new ArrayList<>();
     private final String catalogName;
 
     public KafkaQueryRunnerBuilder(TestingKafka testingKafka, String defaultSessionName)
@@ -57,9 +59,10 @@ public abstract class KafkaQueryRunnerBuilder
         return this;
     }
 
-    public KafkaQueryRunnerBuilder setExtension(Module extension)
+    public KafkaQueryRunnerBuilder addExtension(Module extension)
     {
-        this.extension = requireNonNull(extension, "extension is null");
+        requireNonNull(extension, "extension is null");
+        extensions.add(extension);
         return this;
     }
 
@@ -74,7 +77,7 @@ public abstract class KafkaQueryRunnerBuilder
         try {
             testingKafka.start();
             preInit(queryRunner);
-            queryRunner.installPlugin(new KafkaPlugin(extension));
+            queryRunner.installPlugin(new KafkaPlugin(extensions));
             // note: additional copy via ImmutableList so that if fails on nulls
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
             kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
@@ -89,9 +92,9 @@ public abstract class KafkaQueryRunnerBuilder
         }
     }
 
-    protected void preInit(DistributedQueryRunner queryRunner)
+    protected void preInit(QueryRunner queryRunner)
             throws Exception
     {}
 
-    protected void postInit(DistributedQueryRunner queryRunner) {}
+    protected void postInit(QueryRunner queryRunner) {}
 }

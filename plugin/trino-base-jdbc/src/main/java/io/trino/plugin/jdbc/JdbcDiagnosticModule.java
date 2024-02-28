@@ -18,6 +18,7 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.CatalogName;
@@ -39,11 +40,12 @@ public class JdbcDiagnosticModule
     {
         binder.install(new MBeanServerModule());
         binder.install(new MBeanModule());
+        binder.bind(StatisticsAwareConnectionFactory.class).in(Scopes.SINGLETON);
 
         Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
         newExporter(binder).export(Key.get(JdbcClient.class, StatsCollecting.class))
                 .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName.get().toString()));
-        newExporter(binder).export(Key.get(ConnectionFactory.class, StatsCollecting.class))
+        newExporter(binder).export(StatisticsAwareConnectionFactory.class)
                 .as(generator -> generator.generatedNameOf(ConnectionFactory.class, catalogName.get().toString()));
         newExporter(binder).export(JdbcClient.class)
                 .as(generator -> generator.generatedNameOf(CachingJdbcClient.class, catalogName.get().toString()));
@@ -64,13 +66,5 @@ public class JdbcDiagnosticModule
             }
             return client;
         }));
-    }
-
-    @Provides
-    @Singleton
-    @StatsCollecting
-    public static ConnectionFactory createConnectionFactoryWithStats(@ForBaseJdbc ConnectionFactory connectionFactory)
-    {
-        return new StatisticsAwareConnectionFactory(connectionFactory);
     }
 }

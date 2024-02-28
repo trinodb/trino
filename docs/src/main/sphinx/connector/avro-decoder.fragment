@@ -22,28 +22,27 @@ The following attributes are supported:
 The following table lists the supported Trino types that can be used in `type`
 for the equivalent Avro field types:
 
-```{eval-rst}
-.. list-table::
-  :widths: 40, 60
-  :header-rows: 1
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
 
-  * - Trino data type
-    - Allowed Avro data type
-  * - ``BIGINT``
-    - ``INT``, ``LONG``
-  * - ``DOUBLE``
-    - ``DOUBLE``, ``FLOAT``
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-  * - ``VARCHAR`` / ``VARCHAR(x)``
-    - ``STRING``
-  * - ``VARBINARY``
-    - ``FIXED``, ``BYTES``
-  * - ``ARRAY``
-    - ``ARRAY``
-  * - ``MAP``
-    - ``MAP``
-```
+* - Trino data type
+  - Allowed Avro data type
+* - `BIGINT`
+  - `INT`, `LONG`
+* - `DOUBLE`
+  - `DOUBLE`, `FLOAT`
+* - `BOOLEAN`
+  - `BOOLEAN`
+* - `VARCHAR` / `VARCHAR(x)`
+  - `STRING`
+* - `VARBINARY`
+  - `FIXED`, `BYTES`
+* - `ARRAY`
+  - `ARRAY`
+* - `MAP`
+  - `MAP`
+:::
 
 No other types are supported.
 

@@ -22,15 +22,15 @@ import org.apache.iceberg.types.Types.LongType;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.TimestampType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionField;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPartitionFields
 {
@@ -71,10 +71,10 @@ public class TestPartitionFields
         assertInvalid("bucket()", "Invalid partition field declaration: bucket()");
         assertInvalid("abc", "Cannot find source column: abc");
         assertInvalid("notes", "Cannot partition by non-primitive source field: list<string>");
-        assertInvalid("bucket(price, 42)", "Cannot bucket by type: double");
-        assertInvalid("bucket(notes, 88)", "Cannot bucket by type: list<string>");
-        assertInvalid("truncate(ts, 13)", "Cannot truncate type: timestamp");
-        assertInvalid("year(order_key)", "Cannot partition type long by year");
+        assertInvalid("bucket(price, 42)", "Invalid source type double for transform: bucket[42]");
+        assertInvalid("bucket(notes, 88)", "Cannot partition by non-primitive source field: list<string>");
+        assertInvalid("truncate(ts, 13)", "Invalid source type timestamp for transform: truncate[13]");
+        assertInvalid("year(order_key)", "Invalid source type long for transform: year");
         assertInvalid("\"test\"", "Cannot find source column: test");
         assertInvalid("\"test with space\"", "Cannot find source column: test with space");
         assertInvalid("\"test \"with space\"", "Invalid partition field declaration: \"test \"with space\"");
@@ -87,9 +87,9 @@ public class TestPartitionFields
 
     private static void assertParse(String value, PartitionSpec expected, String canonicalRepresentation)
     {
-        assertEquals(expected.fields().size(), 1);
-        assertEquals(parseField(value), expected);
-        assertEquals(getOnlyElement(toPartitionFields(expected)), canonicalRepresentation);
+        assertThat(expected.fields().size()).isEqualTo(1);
+        assertThat(parseField(value)).isEqualTo(expected);
+        assertThat(getOnlyElement(toPartitionFields(expected))).isEqualTo(canonicalRepresentation);
     }
 
     private static void assertParse(String value, PartitionSpec expected)

@@ -106,7 +106,7 @@ public class S3TableConfigClient
      */
     public boolean isUsingS3()
     {
-        return bucketUrl.isPresent() && (bucketUrl.get().startsWith("s3://"));
+        return bucketUrl.isPresent() && bucketUrl.get().startsWith("s3://");
     }
 
     /**

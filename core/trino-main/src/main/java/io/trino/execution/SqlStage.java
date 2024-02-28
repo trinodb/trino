@@ -40,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
@@ -84,6 +85,7 @@ public final class SqlStage
             NodeTaskMap nodeTaskMap,
             Executor stateMachineExecutor,
             Tracer tracer,
+            Span schedulerSpan,
             SplitSchedulerStats schedulerStats)
     {
         requireNonNull(stageId, "stageId is null");
@@ -103,7 +105,7 @@ public final class SqlStage
                 tables,
                 stateMachineExecutor,
                 tracer,
-                session.getQuerySpan(),
+                schedulerSpan,
                 schedulerStats);
 
         SqlStage sqlStage = new SqlStage(
@@ -329,9 +331,18 @@ public final class SqlStage
     }
 
     @Override
-    public String toString()
+    // for debugging
+    public synchronized String toString()
     {
-        return stateMachine.toString();
+        return toStringHelper(this)
+                .add("stateMachine", stateMachine)
+                .add("summarizeTaskInfo", summarizeTaskInfo)
+                .add("outboundDynamicFilterIds", outboundDynamicFilterIds)
+                .add("tasks", tasks)
+                .add("allTasks", allTasks)
+                .add("finishedTasks", finishedTasks)
+                .add("tasksWithFinalInfo", tasksWithFinalInfo)
+                .toString();
     }
 
     private class MemoryUsageListener

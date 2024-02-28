@@ -78,6 +78,7 @@ import java.math.MathContext;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -86,6 +87,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -243,6 +245,26 @@ public class ClickHouseClient
         return preventTextualTypeAggregationPushdown(groupingSets);
     }
 
+    @Override
+    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
+            throws SQLException
+    {
+        // Clickhouse maps their "database" to SQL catalogs and does not have schemas
+        DatabaseMetaData metadata = connection.getMetaData();
+        return metadata.getTables(
+                schemaName.orElse(null),
+                null,
+                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
+                getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
+    }
+
+    @Override
+    protected String getTableSchemaName(ResultSet resultSet)
+            throws SQLException
+    {
+        return resultSet.getString("TABLE_CAT");
+    }
+
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
         return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.of("Decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
@@ -254,6 +276,9 @@ public class ClickHouseClient
         StringBuilder sb = new StringBuilder();
         if (!isNullOrEmpty(schema)) {
             sb.append(quoted(schema)).append(".");
+        }
+        else if (!isNullOrEmpty(catalog)) {
+            sb.append(quoted(catalog)).append(".");
         }
         sb.append(quoted(table));
         return sb.toString();
@@ -279,6 +304,26 @@ public class ClickHouseClient
     }
 
     @Override
+    public Collection<String> listSchemas(Connection connection)
+    {
+        // for Clickhouse, we need to list catalogs instead of schemas
+        try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
+            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
+            while (resultSet.next()) {
+                String schemaName = resultSet.getString("TABLE_CAT");
+                // skip internal schemas
+                if (filterSchema(schemaName)) {
+                    schemaNames.add(schemaName);
+                }
+            }
+            return schemaNames.build();
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public Optional<String> getTableComment(ResultSet resultSet)
             throws SQLException
     {
@@ -287,7 +332,7 @@ public class ClickHouseClient
     }
 
     @Override
-    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
         Map<String, Object> tableProperties = tableMetadata.getProperties();
@@ -304,7 +349,7 @@ public class ClickHouseClient
         ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + quoted(value)));
         tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT %s", clickhouseVarcharLiteral(comment))));
 
-        return format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build()));
+        return ImmutableList.of(format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build())));
     }
 
     @Override
@@ -315,7 +360,7 @@ public class ClickHouseClient
                         "SELECT engine, sorting_key, partition_key, primary_key, sampling_key " +
                         "FROM system.tables " +
                         "WHERE database = ? AND name = ?")) {
-            statement.setString(1, tableHandle.asPlainTable().getRemoteTableName().getSchemaName().orElse(null));
+            statement.setString(1, tableHandle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null));
             statement.setString(2, tableHandle.asPlainTable().getRemoteTableName().getTableName());
 
             try (ResultSet resultSet = statement.executeQuery()) {
@@ -471,6 +516,12 @@ public class ClickHouseClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
+    @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
+    }
+
     private static String clickhouseVarcharLiteral(String value)
     {
         requireNonNull(value, "value is null");
@@ -487,11 +538,9 @@ public class ClickHouseClient
     protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
             throws SQLException
     {
-        execute(session, connection, format("RENAME TABLE %s.%s TO %s.%s",
-                quoted(remoteSchemaName),
-                quoted(remoteTableName),
-                quoted(newRemoteSchemaName),
-                quoted(newRemoteTableName)));
+        execute(session, connection, format("RENAME TABLE %s TO %s",
+                quoted(catalogName, remoteSchemaName, remoteTableName),
+                quoted(catalogName, newRemoteSchemaName, newRemoteTableName)));
     }
 
     @Override
@@ -510,6 +559,12 @@ public class ClickHouseClient
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
         // ClickHouse does not support DELETE syntax, but is using custom: ALTER TABLE [db.]table [ON CLUSTER cluster] DELETE WHERE filter_expr
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
         throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 

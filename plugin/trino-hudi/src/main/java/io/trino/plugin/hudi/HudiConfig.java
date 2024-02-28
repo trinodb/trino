@@ -34,13 +34,13 @@ import static java.util.Locale.ENGLISH;
 @DefunctConfig({
         "hudi.min-partition-batch-size",
         "hudi.max-partition-batch-size",
+        "hudi.metadata-enabled",
 })
 public class HudiConfig
 {
     private static final Splitter COMMA_SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
 
     private List<String> columnsToHide = ImmutableList.of();
-    private boolean metadataEnabled;
     private boolean shouldUseParquetColumnNames = true;
     private boolean sizeBasedSplitWeightsEnabled = true;
     private DataSize standardSplitWeightSize = DataSize.of(128, MEGABYTE);
@@ -50,6 +50,7 @@ public class HudiConfig
     private int splitLoaderParallelism = 4;
     private int splitGeneratorParallelism = 4;
     private long perTransactionMetastoreCacheMaximumSize = 2000;
+    private boolean queryPartitionFilterRequired;
 
     public List<String> getColumnsToHide()
     {
@@ -65,19 +66,6 @@ public class HudiConfig
                 .map(s -> s.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         return this;
-    }
-
-    @Config("hudi.metadata-enabled")
-    @ConfigDescription("Fetch the list of file names and sizes from metadata rather than storage.")
-    public HudiConfig setMetadataEnabled(boolean metadataEnabled)
-    {
-        this.metadataEnabled = metadataEnabled;
-        return this;
-    }
-
-    public boolean isMetadataEnabled()
-    {
-        return this.metadataEnabled;
     }
 
     @Config("hudi.parquet.use-column-names")
@@ -205,5 +193,18 @@ public class HudiConfig
     {
         this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
         return this;
+    }
+
+    @Config("hudi.query-partition-filter-required")
+    @ConfigDescription("Require a filter on at least one partition column")
+    public HudiConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
+    {
+        this.queryPartitionFilterRequired = queryPartitionFilterRequired;
+        return this;
+    }
+
+    public boolean isQueryPartitionFilterRequired()
+    {
+        return queryPartitionFilterRequired;
     }
 }

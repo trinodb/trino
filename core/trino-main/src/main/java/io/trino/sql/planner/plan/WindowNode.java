@@ -24,8 +24,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.WindowFrame;
 
 import java.util.List;
 import java.util.Map;
@@ -36,9 +34,9 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static io.trino.sql.tree.WindowFrame.Type.RANGE;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -182,11 +180,11 @@ public class WindowNode
                 Optional.empty(),
                 Optional.empty());
 
-        private final WindowFrame.Type type;
-        private final FrameBound.Type startType;
+        private final WindowFrameType type;
+        private final FrameBoundType startType;
         private final Optional<Symbol> startValue;
         private final Optional<Symbol> sortKeyCoercedForFrameStartComparison;
-        private final FrameBound.Type endType;
+        private final FrameBoundType endType;
         private final Optional<Symbol> endValue;
         private final Optional<Symbol> sortKeyCoercedForFrameEndComparison;
 
@@ -196,11 +194,11 @@ public class WindowNode
 
         @JsonCreator
         public Frame(
-                @JsonProperty("type") WindowFrame.Type type,
-                @JsonProperty("startType") FrameBound.Type startType,
+                @JsonProperty("type") WindowFrameType type,
+                @JsonProperty("startType") FrameBoundType startType,
                 @JsonProperty("startValue") Optional<Symbol> startValue,
                 @JsonProperty("sortKeyCoercedForFrameStartComparison") Optional<Symbol> sortKeyCoercedForFrameStartComparison,
-                @JsonProperty("endType") FrameBound.Type endType,
+                @JsonProperty("endType") FrameBoundType endType,
                 @JsonProperty("endValue") Optional<Symbol> endValue,
                 @JsonProperty("sortKeyCoercedForFrameEndComparison") Optional<Symbol> sortKeyCoercedForFrameEndComparison,
                 @JsonProperty("originalStartValue") Optional<Expression> originalStartValue,
@@ -232,13 +230,13 @@ public class WindowNode
         }
 
         @JsonProperty
-        public WindowFrame.Type getType()
+        public WindowFrameType getType()
         {
             return type;
         }
 
         @JsonProperty
-        public FrameBound.Type getStartType()
+        public FrameBoundType getStartType()
         {
             return startType;
         }
@@ -256,7 +254,7 @@ public class WindowNode
         }
 
         @JsonProperty
-        public FrameBound.Type getEndType()
+        public FrameBoundType getEndType()
         {
             return endType;
         }

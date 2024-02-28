@@ -15,12 +15,13 @@ package io.trino.plugin.jdbc;
 
 import io.trino.operator.RetryPolicy;
 import io.trino.testing.BaseFailureRecoveryTest;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseJdbcFailureRecoveryTest
         extends BaseFailureRecoveryTest
@@ -30,13 +31,15 @@ public abstract class BaseJdbcFailureRecoveryTest
         super(retryPolicy);
     }
 
+    @Test
     @Override
     protected void testAnalyzeTable()
     {
         assertThatThrownBy(super::testAnalyzeTable).hasMessageMatching("This connector does not support analyze");
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testDelete()
     {
@@ -52,40 +55,45 @@ public abstract class BaseJdbcFailureRecoveryTest
                 .isCoordinatorOnly();
     }
 
+    @Test
     @Override
     protected void testDeleteWithSubquery()
     {
         assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testRefreshMaterializedView()
     {
         assertThatThrownBy(super::testRefreshMaterializedView)
                 .hasMessageContaining("This connector does not support creating materialized views");
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testUpdate()
     {
         assertThatThrownBy(super::testUpdate).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testUpdateWithSubquery()
     {
         assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testMerge()
     {
         assertThatThrownBy(super::testMerge).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
     @Override

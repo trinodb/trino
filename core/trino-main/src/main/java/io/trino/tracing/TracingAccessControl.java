@@ -22,8 +22,10 @@ import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -321,11 +323,11 @@ public class TracingAccessControl
     }
 
     @Override
-    public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
         Span span = startSpan("filterColumns");
         try (var ignored = scopedSpan(span)) {
-            return delegate.filterColumns(context, tableName, columns);
+            return delegate.filterColumns(context, catalogName, tableColumns);
         }
     }
 
@@ -501,24 +503,6 @@ public class TracingAccessControl
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
-    {
-        Span span = startSpan("checkCanGrantExecuteFunctionPrivilege");
-        try (var ignored = scopedSpan(span)) {
-            delegate.checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
-        }
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
-    {
-        Span span = startSpan("checkCanGrantExecuteFunctionPrivilege");
-        try (var ignored = scopedSpan(span)) {
-            delegate.checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
-        }
-    }
-
-    @Override
     public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         Span span = startSpan("checkCanGrantSchemaPrivilege");
@@ -569,6 +553,33 @@ public class TracingAccessControl
         Span span = startSpan("checkCanRevokeTablePrivilege");
         try (var ignored = scopedSpan(span)) {
             delegate.checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOption);
+        }
+    }
+
+    @Override
+    public void checkCanGrantEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("checkCanGrantEntityPrivilege");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanGrantEntityPrivilege(context, privilege, entity, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void checkCanDenyEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee)
+    {
+        Span span = startSpan("checkCanDenyEntityPrivilege");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanDenyEntityPrivilege(context, privilege, entity, grantee);
+        }
+    }
+
+    @Override
+    public void checkCanRevokeEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption)
+    {
+        Span span = startSpan("checkCanRevokeEntityPrivilege");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanRevokeEntityPrivilege(context, privilege, entity, revokee, grantOption);
         }
     }
 
@@ -681,20 +692,20 @@ public class TracingAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
-        Span span = startSpan("checkCanExecuteFunction");
+        Span span = startSpan("canExecuteFunction");
         try (var ignored = scopedSpan(span)) {
-            delegate.checkCanExecuteFunction(context, functionName);
+            return delegate.canExecuteFunction(context, functionName);
         }
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
-        Span span = startSpan("checkCanExecuteFunction");
+        Span span = startSpan("canCreateViewWithExecuteFunction");
         try (var ignored = scopedSpan(span)) {
-            delegate.checkCanExecuteFunction(context, functionKind, functionName);
+            return delegate.canCreateViewWithExecuteFunction(context, functionName);
         }
     }
 
@@ -704,6 +715,42 @@ public class TracingAccessControl
         Span span = startSpan("checkCanExecuteTableProcedure");
         try (var ignored = scopedSpan(span)) {
             delegate.checkCanExecuteTableProcedure(context, tableName, procedureName);
+        }
+    }
+
+    @Override
+    public void checkCanShowFunctions(SecurityContext context, CatalogSchemaName schema)
+    {
+        Span span = startSpan("checkCanShowFunctions");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanShowFunctions(context, schema);
+        }
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        Span span = startSpan("filterFunctions");
+        try (var ignored = scopedSpan(span)) {
+            return delegate.filterFunctions(context, catalogName, functionNames);
+        }
+    }
+
+    @Override
+    public void checkCanCreateFunction(SecurityContext context, QualifiedObjectName functionName)
+    {
+        Span span = startSpan("checkCanCreateFunction");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanCreateFunction(context, functionName);
+        }
+    }
+
+    @Override
+    public void checkCanDropFunction(SecurityContext context, QualifiedObjectName functionName)
+    {
+        Span span = startSpan("checkCanDropFunction");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanDropFunction(context, functionName);
         }
     }
 

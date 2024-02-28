@@ -16,7 +16,6 @@ package io.trino.server.protocol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -75,8 +74,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.trino.SystemSessionProperties.getExchangeCompressionCodec;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
-import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -140,6 +139,12 @@ class Query
     private Optional<String> setPath = Optional.empty();
 
     @GuardedBy("this")
+    private Optional<String> setAuthorizationUser = Optional.empty();
+
+    @GuardedBy("this")
+    private boolean resetAuthorizationUser;
+
+    @GuardedBy("this")
     private Map<String, String> setSessionProperties = ImmutableMap.of();
 
     @GuardedBy("this")
@@ -180,6 +185,7 @@ class Query
         ExchangeDataSource exchangeDataSource = new LazyExchangeDataSource(
                 session.getQueryId(),
                 new ExchangeId("query-results-exchange-" + session.getQueryId()),
+                session.getQuerySpan(),
                 directExchangeClientSupplier,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
                 queryManager::outputTaskFailed,
@@ -230,7 +236,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-        deserializer = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))
+        deserializer = new PagesSerdeFactory(blockEncodingSerde, getExchangeCompressionCodec(session))
                 .createDeserializer(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
     }
 
@@ -463,6 +469,10 @@ class Query
         setSchema = queryInfo.getSetSchema();
         setPath = queryInfo.getSetPath();
 
+        // update setAuthorizationUser
+        setAuthorizationUser = queryInfo.getSetAuthorizationUser();
+        resetAuthorizationUser = queryInfo.isResetAuthorizationUser();
+
         // update setSessionProperties
         setSessionProperties = queryInfo.getSetSessionProperties();
         resetSessionProperties = queryInfo.getResetSessionProperties();
@@ -505,6 +515,8 @@ class Query
                 setCatalog,
                 setSchema,
                 setPath,
+                setAuthorizationUser,
+                resetAuthorizationUser,
                 setSessionProperties,
                 resetSessionProperties,
                 setRoles,
@@ -656,7 +668,7 @@ class Query
 
         // attempt to find a cancelable sub stage
         // check in reverse order since build side of a join will be later in the list
-        for (StageInfo subStage : Lists.reverse(stage.getSubStages())) {
+        for (StageInfo subStage : stage.getSubStages().reversed()) {
             Optional<Integer> leafStage = findCancelableLeafStage(subStage);
             if (leafStage.isPresent()) {
                 return leafStage;

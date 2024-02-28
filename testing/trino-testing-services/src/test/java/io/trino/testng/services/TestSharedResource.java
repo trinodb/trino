@@ -14,7 +14,7 @@
 package io.trino.testng.services;
 
 import io.trino.testing.SharedResource;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;

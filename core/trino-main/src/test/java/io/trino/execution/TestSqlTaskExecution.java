@@ -46,7 +46,6 @@ import io.trino.operator.SourceOperator;
 import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.TaskContext;
 import io.trino.operator.output.TaskOutputOperator.TaskOutputOperatorFactory;
-import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.TestingBlockEncodingSerde;
@@ -54,9 +53,8 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -78,6 +76,7 @@ import static io.trino.execution.TaskState.FLUSHING;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -86,10 +85,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
 public class TestSqlTaskExecution
 {
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
@@ -102,6 +99,7 @@ public class TestSqlTaskExecution
     {
         ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
+        ScheduledExecutorService driverTimeoutExecutor = newScheduledThreadPool(2, threadsNamed("driver-timeout-%s"));
         TaskExecutor taskExecutor = new TimeSharingTaskExecutor(5, 10, 3, 4, Ticker.systemTicker());
 
         taskExecutor.start();
@@ -126,7 +124,7 @@ public class TestSqlTaskExecution
                     TABLE_SCAN_NODE_ID,
                     outputBuffer,
                     Function.identity(),
-                    new PagesSerdeFactory(new TestingBlockEncodingSerde(), false));
+                    new PagesSerdeFactory(new TestingBlockEncodingSerde(), NONE));
             LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
                     ImmutableList.of(new DriverFactory(
                             0,
@@ -135,7 +133,7 @@ public class TestSqlTaskExecution
                             ImmutableList.of(testingScanOperatorFactory, taskOutputOperatorFactory),
                             OptionalInt.empty())),
                     ImmutableList.of(TABLE_SCAN_NODE_ID));
-            TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
+            TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, driverTimeoutExecutor, taskStateMachine);
             SqlTaskExecution sqlTaskExecution = new SqlTaskExecution(
                     taskStateMachine,
                     taskContext,
@@ -150,7 +148,7 @@ public class TestSqlTaskExecution
 
             //
             // test body
-            assertEquals(taskStateMachine.getState(), RUNNING);
+            assertThat(taskStateMachine.getState()).isEqualTo(RUNNING);
 
             // add assignment for pipeline
             try {
@@ -193,18 +191,19 @@ public class TestSqlTaskExecution
             outputBufferConsumer.consume(300 + 200, ASSERT_WAIT_TIMEOUT);
             outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);
 
-            assertEquals(taskStateMachine.getStateChange(RUNNING).get(10, SECONDS), FLUSHING);
+            assertThat(taskStateMachine.getStateChange(RUNNING).get(10, SECONDS)).isEqualTo(FLUSHING);
             outputBufferConsumer.abort(); // complete the task by calling abort on it
-            assertEquals(taskStateMachine.getStateChange(FLUSHING).get(10, SECONDS), FINISHED);
+            assertThat(taskStateMachine.getStateChange(FLUSHING).get(10, SECONDS)).isEqualTo(FINISHED);
         }
         finally {
             taskExecutor.stop();
             taskNotificationExecutor.shutdownNow();
             driverYieldExecutor.shutdown();
+            driverTimeoutExecutor.shutdown();
         }
     }
 
-    private TaskContext newTestingTaskContext(ScheduledExecutorService taskNotificationExecutor, ScheduledExecutorService driverYieldExecutor, TaskStateMachine taskStateMachine)
+    private TaskContext newTestingTaskContext(ScheduledExecutorService taskNotificationExecutor, ScheduledExecutorService driverYieldExecutor, ScheduledExecutorService driverTimeoutExecutor, TaskStateMachine taskStateMachine)
     {
         QueryContext queryContext = new QueryContext(
                 new QueryId("queryid"),
@@ -213,6 +212,7 @@ public class TestSqlTaskExecution
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,
+                driverTimeoutExecutor,
                 DataSize.of(1, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
         return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, false, false);
@@ -245,7 +245,7 @@ public class TestSqlTaskExecution
                 // do nothing
             }
         }
-        assertEquals(actualSupplier.get(), expected);
+        assertThat(actualSupplier.get()).isEqualTo(expected);
     }
 
     private static class OutputBufferConsumer
@@ -268,7 +268,9 @@ public class TestSqlTaskExecution
             long nanoUntil = System.nanoTime() + timeout.toMillis() * 1_000_000;
             surplusPositions -= positions;
             while (surplusPositions < 0) {
-                assertFalse(bufferComplete, "bufferComplete is set before enough positions are consumed");
+                assertThat(bufferComplete)
+                        .describedAs("bufferComplete is set before enough positions are consumed")
+                        .isFalse();
                 BufferResult results = outputBuffer.get(outputBufferId, sequenceId, DataSize.of(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
                 bufferComplete = results.isBufferComplete();
                 for (Slice serializedPage : results.getSerializedPages()) {
@@ -281,13 +283,13 @@ public class TestSqlTaskExecution
         public void assertBufferComplete(Duration timeout)
                 throws InterruptedException, ExecutionException, TimeoutException
         {
-            assertEquals(surplusPositions, 0);
+            assertThat(surplusPositions).isEqualTo(0);
             long nanoUntil = System.nanoTime() + timeout.toMillis() * 1_000_000;
             while (!bufferComplete) {
                 BufferResult results = outputBuffer.get(outputBufferId, sequenceId, DataSize.of(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
                 bufferComplete = results.isBufferComplete();
                 for (Slice serializedPage : results.getSerializedPages()) {
-                    assertEquals(getSerializedPagePositionCount(serializedPage), 0);
+                    assertThat(getSerializedPagePositionCount(serializedPage)).isEqualTo(0);
                 }
                 sequenceId += results.getSerializedPages().size();
             }
@@ -296,7 +298,7 @@ public class TestSqlTaskExecution
         public void abort()
         {
             outputBuffer.destroy(outputBufferId);
-            assertEquals(outputBuffer.getInfo().getState(), BufferState.FINISHED);
+            assertThat(outputBuffer.getInfo().getState()).isEqualTo(BufferState.FINISHED);
         }
     }
 
@@ -507,18 +509,6 @@ public class TestSqlTaskExecution
         {
             this.begin = begin;
             this.end = end;
-        }
-
-        @Override
-        public boolean isRemotelyAccessible()
-        {
-            return true;
-        }
-
-        @Override
-        public List<HostAddress> getAddresses()
-        {
-            return ImmutableList.of();
         }
 
         @Override

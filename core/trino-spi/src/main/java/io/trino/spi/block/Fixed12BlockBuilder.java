@@ -16,19 +16,14 @@ package io.trino.spi.block;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.OptionalInt;
-import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
-import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.Fixed12Block.FIXED12_BYTES;
-import static io.trino.spi.block.Fixed12Block.decodeFixed12First;
 import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static java.lang.Math.max;
+import static java.util.Objects.checkIndex;
 
 public class Fixed12BlockBuilder
         implements BlockBuilder
@@ -56,14 +51,12 @@ public class Fixed12BlockBuilder
         this.blockBuilderStatus = blockBuilderStatus;
         this.initialEntryCount = max(expectedEntries, 1);
 
-        updateDataSize();
+        updateRetainedSize();
     }
 
     public void writeFixed12(long first, int second)
     {
-        if (valueIsNull.length <= positionCount) {
-            growCapacity();
-        }
+        ensureCapacity(positionCount + 1);
 
         encodeFixed12(first, second, values, positionCount);
 
@@ -75,11 +68,173 @@ public class Fixed12BlockBuilder
     }
 
     @Override
+    public void append(ValueBlock block, int position)
+    {
+        ensureCapacity(positionCount + 1);
+
+        Fixed12Block fixed12Block = (Fixed12Block) block;
+        if (fixed12Block.isNull(position)) {
+            valueIsNull[positionCount] = true;
+            hasNullValue = true;
+        }
+        else {
+            int[] rawValues = fixed12Block.getRawValues();
+            int rawValuePosition = (fixed12Block.getRawOffset() + position) * 3;
+
+            int positionIndex = positionCount * 3;
+            values[positionIndex] = rawValues[rawValuePosition];
+            values[positionIndex + 1] = rawValues[rawValuePosition + 1];
+            values[positionIndex + 2] = rawValues[rawValuePosition + 2];
+            hasNonNullValue = true;
+        }
+        positionCount++;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(Fixed12Block.SIZE_IN_BYTES_PER_POSITION);
+        }
+    }
+
+    @Override
+    public void appendRepeated(ValueBlock block, int position, int count)
+    {
+        if (count == 0) {
+            return;
+        }
+        if (count == 1) {
+            append(block, position);
+            return;
+        }
+
+        ensureCapacity(positionCount + count);
+
+        Fixed12Block fixed12Block = (Fixed12Block) block;
+        if (fixed12Block.isNull(position)) {
+            Arrays.fill(valueIsNull, positionCount, positionCount + count, true);
+            hasNullValue = true;
+        }
+        else {
+            int[] rawValues = fixed12Block.getRawValues();
+            int rawValuePosition = (fixed12Block.getRawOffset() + position) * 3;
+            int valueFirst = rawValues[rawValuePosition];
+            int valueSecond = rawValues[rawValuePosition + 1];
+            int valueThird = rawValues[rawValuePosition + 2];
+
+            int positionIndex = positionCount * 3;
+            for (int i = 0; i < count; i++) {
+                values[positionIndex] = valueFirst;
+                values[positionIndex + 1] = valueSecond;
+                values[positionIndex + 2] = valueThird;
+                positionIndex += 3;
+            }
+
+            hasNonNullValue = true;
+        }
+        positionCount += count;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(count * Fixed12Block.SIZE_IN_BYTES_PER_POSITION);
+        }
+    }
+
+    @Override
+    public void appendRange(ValueBlock block, int offset, int length)
+    {
+        if (length == 0) {
+            return;
+        }
+        if (length == 1) {
+            append(block, offset);
+            return;
+        }
+
+        ensureCapacity(positionCount + length);
+
+        Fixed12Block fixed12Block = (Fixed12Block) block;
+        int rawOffset = fixed12Block.getRawOffset();
+
+        int[] rawValues = fixed12Block.getRawValues();
+        System.arraycopy(rawValues, (rawOffset + offset) * 3, values, positionCount * 3, length * 3);
+
+        boolean[] rawValueIsNull = fixed12Block.getRawValueIsNull();
+        if (rawValueIsNull != null) {
+            for (int i = 0; i < length; i++) {
+                if (rawValueIsNull[rawOffset + offset + i]) {
+                    valueIsNull[positionCount + i] = true;
+                    hasNullValue = true;
+                }
+                else {
+                    hasNonNullValue = true;
+                }
+            }
+        }
+        else {
+            hasNonNullValue = true;
+        }
+        positionCount += length;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(length * LongArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+        }
+    }
+
+    @Override
+    public void appendPositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        if (length == 0) {
+            return;
+        }
+        if (length == 1) {
+            append(block, positions[offset]);
+            return;
+        }
+
+        ensureCapacity(positionCount + length);
+
+        Fixed12Block fixed12Block = (Fixed12Block) block;
+        int rawOffset = fixed12Block.getRawOffset();
+        int[] rawValues = fixed12Block.getRawValues();
+        boolean[] rawValueIsNull = fixed12Block.getRawValueIsNull();
+
+        int positionIndex = positionCount * 3;
+        if (rawValueIsNull != null) {
+            for (int i = 0; i < length; i++) {
+                int rawPosition = positions[offset + i] + rawOffset;
+                if (rawValueIsNull[rawPosition]) {
+                    valueIsNull[positionCount + i] = true;
+                    hasNullValue = true;
+                }
+                else {
+                    int rawValuePosition = rawPosition * 3;
+                    values[positionIndex] = rawValues[rawValuePosition];
+                    values[positionIndex + 1] = rawValues[rawValuePosition + 1];
+                    values[positionIndex + 2] = rawValues[rawValuePosition + 2];
+                    hasNonNullValue = true;
+                }
+                positionIndex += 3;
+            }
+        }
+        else {
+            for (int i = 0; i < length; i++) {
+                int rawPosition = positions[offset + i] + rawOffset;
+                int rawValuePosition = rawPosition * 3;
+                values[positionIndex] = rawValues[rawValuePosition];
+                values[positionIndex + 1] = rawValues[rawValuePosition + 1];
+                values[positionIndex + 2] = rawValues[rawValuePosition + 2];
+                positionIndex += 3;
+            }
+            hasNonNullValue = true;
+        }
+        positionCount += length;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(length * Fixed12Block.SIZE_IN_BYTES_PER_POSITION);
+        }
+    }
+
+    @Override
     public BlockBuilder appendNull()
     {
-        if (valueIsNull.length <= positionCount) {
-            growCapacity();
-        }
+        ensureCapacity(positionCount + 1);
 
         valueIsNull[positionCount] = true;
 
@@ -92,11 +247,24 @@ public class Fixed12BlockBuilder
     }
 
     @Override
+    public void resetTo(int position)
+    {
+        checkIndex(position, positionCount + 1);
+        positionCount = position;
+    }
+
+    @Override
     public Block build()
     {
         if (!hasNonNullValue) {
             return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
+        return buildValueBlock();
+    }
+
+    @Override
+    public Fixed12Block buildValueBlock()
+    {
         return new Fixed12Block(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
@@ -106,34 +274,33 @@ public class Fixed12BlockBuilder
         return new Fixed12BlockBuilder(blockBuilderStatus, expectedEntries);
     }
 
-    private void growCapacity()
+    private void ensureCapacity(int capacity)
     {
+        if (valueIsNull.length >= capacity) {
+            return;
+        }
+
         int newSize;
         if (initialized) {
-            newSize = BlockUtil.calculateNewArraySize(valueIsNull.length);
+            newSize = calculateNewArraySize(capacity);
         }
         else {
             newSize = initialEntryCount;
             initialized = true;
         }
+        newSize = max(newSize, capacity);
 
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         values = Arrays.copyOf(values, newSize * 3);
-        updateDataSize();
+        updateRetainedSize();
     }
 
-    private void updateDataSize()
+    private void updateRetainedSize()
     {
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
         if (blockBuilderStatus != null) {
             retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
         }
-    }
-
-    @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.of(Fixed12Block.SIZE_IN_BYTES_PER_POSITION);
     }
 
     @Override
@@ -143,35 +310,9 @@ public class Fixed12BlockBuilder
     }
 
     @Override
-    public long getRegionSizeInBytes(int position, int length)
-    {
-        return Fixed12Block.SIZE_IN_BYTES_PER_POSITION * (long) length;
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        return Fixed12Block.SIZE_IN_BYTES_PER_POSITION * (long) selectedPositionsCount;
-    }
-
-    @Override
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
-    }
-
-    @Override
-    public long getEstimatedDataSizeForStats(int position)
-    {
-        return isNull(position) ? 0 : FIXED12_BYTES;
-    }
-
-    @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
-    {
-        consumer.accept(values, sizeOf(values));
-        consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -181,129 +322,11 @@ public class Fixed12BlockBuilder
     }
 
     @Override
-    public long getLong(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            // If needed, we can add support for offset 4
-            throw new IllegalArgumentException("offset must be 0");
-        }
-        return decodeFixed12First(values, position);
-    }
-
-    @Override
-    public int getInt(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset == 0) {
-            return values[position * 3];
-        }
-        if (offset == 4) {
-            return values[(position * 3) + 1];
-        }
-        if (offset == 8) {
-            return values[(position * 3) + 2];
-        }
-        throw new IllegalArgumentException("offset must be 0, 4, or 8");
-    }
-
-    @Override
-    public boolean mayHaveNull()
-    {
-        return hasNullValue;
-    }
-
-    @Override
-    public boolean isNull(int position)
-    {
-        checkReadablePosition(this, position);
-        return valueIsNull[position];
-    }
-
-    @Override
-    public Block getSingleValueBlock(int position)
-    {
-        checkReadablePosition(this, position);
-        int index = position * 3;
-        return new Fixed12Block(
-                0,
-                1,
-                isNull(position) ? new boolean[] {true} : null,
-                new int[] {values[index], values[index + 1], values[index + 2]});
-    }
-
-    @Override
-    public Block copyPositions(int[] positions, int offset, int length)
-    {
-        checkArrayRange(positions, offset, length);
-
-        if (!hasNonNullValue) {
-            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
-        }
-        boolean[] newValueIsNull = null;
-        if (hasNullValue) {
-            newValueIsNull = new boolean[length];
-        }
-        int[] newValues = new int[length * 3];
-        for (int i = 0; i < length; i++) {
-            int position = positions[offset + i];
-            checkReadablePosition(this, position);
-            if (newValueIsNull != null) {
-                newValueIsNull[i] = valueIsNull[position];
-            }
-            int valuesIndex = (position) * 3;
-            int newValuesIndex = i * 3;
-            newValues[newValuesIndex] = values[valuesIndex];
-            newValues[newValuesIndex + 1] = values[valuesIndex + 1];
-            newValues[newValuesIndex + 2] = values[valuesIndex + 2];
-        }
-        return new Fixed12Block(0, length, newValueIsNull, newValues);
-    }
-
-    @Override
-    public Block getRegion(int positionOffset, int length)
-    {
-        checkValidRegion(getPositionCount(), positionOffset, length);
-
-        if (!hasNonNullValue) {
-            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
-        }
-        return new Fixed12Block(positionOffset, length, hasNullValue ? valueIsNull : null, values);
-    }
-
-    @Override
-    public Block copyRegion(int positionOffset, int length)
-    {
-        checkValidRegion(getPositionCount(), positionOffset, length);
-
-        if (!hasNonNullValue) {
-            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
-        }
-        boolean[] newValueIsNull = null;
-        if (hasNullValue) {
-            newValueIsNull = compactArray(valueIsNull, positionOffset, length);
-        }
-        int[] newValues = compactArray(values, positionOffset * 3, length * 3);
-        return new Fixed12Block(0, length, newValueIsNull, newValues);
-    }
-
-    @Override
-    public String getEncodingName()
-    {
-        return Fixed12BlockEncoding.NAME;
-    }
-
-    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("Fixed12BlockBuilder{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
-    }
-
-    int[] getRawValues()
-    {
-        return values;
     }
 }

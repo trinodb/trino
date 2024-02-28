@@ -35,7 +35,6 @@ import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.Plugin;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.classloader.ThreadContextClassLoader;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.exchange.ExchangeManagerFactory;
@@ -55,7 +54,6 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -168,18 +166,18 @@ public class PluginManager
 
         for (Plugin plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
-            installPlugin(plugin, pluginClassLoader::duplicate);
+            installPlugin(plugin);
         }
     }
 
     @Override
-    public void installPlugin(Plugin plugin, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
+    public void installPlugin(Plugin plugin)
     {
-        installPluginInternal(plugin, duplicatePluginClassLoaderFactory);
+        installPluginInternal(plugin);
         typeRegistry.verifyTypes();
     }
 
-    private void installPluginInternal(Plugin plugin, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
+    private void installPluginInternal(Plugin plugin)
     {
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
@@ -198,7 +196,7 @@ public class PluginManager
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
-            this.connectorFactory.addConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory);
+            this.connectorFactory.addConnectorFactory(connectorFactory);
         }
 
         Set<Class<?>> functions = plugin.getFunctions();

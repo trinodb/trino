@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
-import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -27,37 +26,47 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.projection.PartitionProjection;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.function.Function;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Maps.immutableEntry;
-import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionFromTable;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetastoreClosure
 {
     private final HiveMetastore delegate;
+    private final TypeManager typeManager;
+    private final boolean partitionProjectionEnabled;
 
     /**
      * Do not use this directly.  Instead, the closure should be fetched from the current SemiTransactionalHiveMetastore,
      * which can be fetched from the current HiveMetadata.
      */
-    public HiveMetastoreClosure(HiveMetastore delegate)
+    public HiveMetastoreClosure(HiveMetastore delegate, TypeManager typeManager, boolean partitionProjectionEnabled)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.partitionProjectionEnabled = partitionProjectionEnabled;
     }
 
     public Optional<Database> getDatabase(String databaseName)
@@ -86,65 +95,39 @@ public class HiveMetastoreClosure
         return delegate.getSupportedColumnStatistics(type);
     }
 
-    public PartitionStatistics getTableStatistics(String databaseName, String tableName, Optional<Set<String>> columns)
+    public Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
-        Table table = getExistingTable(databaseName, tableName);
-        if (columns.isPresent()) {
-            Set<String> requestedColumnNames = columns.get();
-            List<Column> requestedColumns = table.getDataColumns().stream()
-                    .filter(column -> requestedColumnNames.contains(column.getName()))
-                    .collect(toImmutableList());
-            table = Table.builder(table).setDataColumns(requestedColumns).build();
-        }
-        return delegate.getTableStatistics(table);
+        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames);
     }
 
-    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
-    {
-        return getPartitionStatistics(databaseName, tableName, partitionNames, Optional.empty());
-    }
-
-    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames, Optional<Set<String>> columns)
-    {
-        Table table = getExistingTable(databaseName, tableName);
-        List<Partition> partitions = getExistingPartitionsByNames(table, ImmutableList.copyOf(partitionNames));
-        if (columns.isPresent()) {
-            Set<String> requestedColumnNames = columns.get();
-            List<Column> requestedColumns = table.getDataColumns().stream()
-                    .filter(column -> requestedColumnNames.contains(column.getName()))
-                    .collect(toImmutableList());
-            table = Table.builder(table).setDataColumns(requestedColumns).build();
-            partitions = partitions.stream().map(partition -> Partition.builder(partition).setColumns(requestedColumns).build()).collect(toImmutableList());
-        }
-        return delegate.getPartitionStatistics(table, partitions);
-    }
-
-    public void updateTableStatistics(String databaseName,
+    public Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(
+            String databaseName,
             String tableName,
-            AcidTransaction transaction,
-            Function<PartitionStatistics, PartitionStatistics> update)
+            Set<String> partitionNames,
+            Set<String> columnNames)
     {
-        delegate.updateTableStatistics(databaseName, tableName, transaction, update);
+        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames);
     }
 
-    public void updatePartitionStatistics(String databaseName,
-            String tableName,
-            String partitionName,
-            Function<PartitionStatistics, PartitionStatistics> update)
+    public boolean useSparkTableStatistics()
+    {
+        return delegate.useSparkTableStatistics();
+    }
+
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    {
+        delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate);
+    }
+
+    public void updatePartitionStatistics(String databaseName, String tableName, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
         Table table = getExistingTable(databaseName, tableName);
-        delegate.updatePartitionStatistics(table, partitionName, update);
+        delegate.updatePartitionStatistics(table, mode, partitionUpdates);
     }
 
-    public void updatePartitionStatistics(String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public List<String> getTables(String databaseName)
     {
-        Table table = getExistingTable(databaseName, tableName);
-        delegate.updatePartitionStatistics(table, updates);
-    }
-
-    public List<String> getAllTables(String databaseName)
-    {
-        return delegate.getAllTables(databaseName);
+        return delegate.getTables(databaseName);
     }
 
     public Optional<List<SchemaTableName>> getAllTables()
@@ -152,9 +135,19 @@ public class HiveMetastoreClosure
         return delegate.getAllTables();
     }
 
-    public List<String> getAllViews(String databaseName)
+    public Map<String, RelationType> getRelationTypes(String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getRelationTypes(databaseName);
+    }
+
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
+    {
+        return delegate.getAllRelationTypes();
+    }
+
+    public List<String> getViews(String databaseName)
+    {
+        return delegate.getViews(databaseName);
     }
 
     public Optional<List<SchemaTableName>> getAllViews()
@@ -244,27 +237,35 @@ public class HiveMetastoreClosure
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
+        if (partitionProjectionEnabled) {
+            Table table = getTable(databaseName, tableName)
+                    .orElseThrow(() -> new TrinoException(HIVE_TABLE_DROPPED_DURING_QUERY, "Table does not exists: " + tableName));
+
+            Optional<PartitionProjection> projection = getPartitionProjectionFromTable(table, typeManager);
+            if (projection.isPresent()) {
+                return projection.get().getProjectedPartitionNamesByFilter(columnNames, partitionKeysFilter);
+            }
+        }
         return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
-    }
-
-    private List<Partition> getExistingPartitionsByNames(Table table, List<String> partitionNames)
-    {
-        Map<String, Partition> partitions = delegate.getPartitionsByNames(table, partitionNames).entrySet().stream()
-                .map(entry -> immutableEntry(entry.getKey(), entry.getValue().orElseThrow(() ->
-                        new PartitionNotFoundException(table.getSchemaTableName(), extractPartitionValues(entry.getKey())))))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-
-        return partitionNames.stream()
-                .map(partitions::get)
-                .collect(toImmutableList());
     }
 
     public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
         return delegate.getTable(databaseName, tableName)
-                .map(table -> delegate.getPartitionsByNames(table, partitionNames))
+                .map(table -> getPartitionsByNames(table, partitionNames))
                 .orElseGet(() -> partitionNames.stream()
                         .collect(toImmutableMap(name -> name, name -> Optional.empty())));
+    }
+
+    private Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
+    {
+        if (partitionProjectionEnabled) {
+            Optional<PartitionProjection> projection = getPartitionProjectionFromTable(table, typeManager);
+            if (projection.isPresent()) {
+                return projection.get().getProjectedPartitionsByNames(table, partitionNames);
+            }
+        }
+        return delegate.getPartitionsByNames(table, partitionNames);
     }
 
     public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
@@ -305,11 +306,6 @@ public class HiveMetastoreClosure
     public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         delegate.revokeRoles(roles, grantees, adminOption, grantor);
-    }
-
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        return delegate.listGrantedPrincipals(role);
     }
 
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
@@ -400,11 +396,6 @@ public class HiveMetastoreClosure
         delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
     }
 
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
-    {
-        delegate.alterPartitions(dbName, tableName, partitions, writeId);
-    }
-
     public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
@@ -413,5 +404,35 @@ public class HiveMetastoreClosure
     public void alterTransactionalTable(Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
     {
         delegate.alterTransactionalTable(table, transactionId, writeId, principalPrivileges);
+    }
+
+    public boolean functionExists(SchemaFunctionName name, String signatureToken)
+    {
+        return delegate.functionExists(name.getSchemaName(), name.getFunctionName(), signatureToken);
+    }
+
+    public Collection<LanguageFunction> getAllFunctions(String schemaName)
+    {
+        return delegate.getAllFunctions(schemaName);
+    }
+
+    public Collection<LanguageFunction> getFunctions(SchemaFunctionName name)
+    {
+        return delegate.getFunctions(name.getSchemaName(), name.getFunctionName());
+    }
+
+    public void createFunction(SchemaFunctionName name, LanguageFunction function)
+    {
+        delegate.createFunction(name.getSchemaName(), name.getFunctionName(), function);
+    }
+
+    public void replaceFunction(SchemaFunctionName name, LanguageFunction function)
+    {
+        delegate.replaceFunction(name.getSchemaName(), name.getFunctionName(), function);
+    }
+
+    public void dropFunction(SchemaFunctionName name, String signatureToken)
+    {
+        delegate.dropFunction(name.getSchemaName(), name.getFunctionName(), signatureToken);
     }
 }

@@ -19,7 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -60,7 +60,7 @@ public class TestOptimizerConfig
                 .setFilterConjunctionIndependenceFactor(0.75)
                 .setNonEstimatablePredicateApproximationEnabled(true)
                 .setOptimizeMetadataQueries(false)
-                .setOptimizeHashGeneration(true)
+                .setOptimizeHashGeneration(false)
                 .setPushTableWriteThroughUnion(true)
                 .setDictionaryAggregation(false)
                 .setOptimizeMixedDistinctAggregations(false)
@@ -121,7 +121,7 @@ public class TestOptimizerConfig
                 .put("distributed-sort", "false")
                 .put("use-preferred-write-partitioning", "false")
                 .put("optimizer.optimize-metadata-queries", "true")
-                .put("optimizer.optimize-hash-generation", "false")
+                .put("optimizer.optimize-hash-generation", "true")
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.dictionary-aggregation", "true")
@@ -175,7 +175,7 @@ public class TestOptimizerConfig
                 .setFilterConjunctionIndependenceFactor(1.0)
                 .setNonEstimatablePredicateApproximationEnabled(false)
                 .setOptimizeMetadataQueries(true)
-                .setOptimizeHashGeneration(false)
+                .setOptimizeHashGeneration(true)
                 .setOptimizeMixedDistinctAggregations(true)
                 .setPushTableWriteThroughUnion(false)
                 .setDictionaryAggregation(true)

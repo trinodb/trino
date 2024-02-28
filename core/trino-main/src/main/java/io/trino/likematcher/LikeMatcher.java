@@ -66,21 +66,20 @@ public class LikeMatcher
         int maxSize = 0;
         boolean unbounded = false;
         for (Pattern expression : parsed) {
-            if (expression instanceof Literal literal) {
-                int length = literal.value().getBytes(UTF_8).length;
-                minSize += length;
-                maxSize += length;
-            }
-            else if (expression instanceof Pattern.ZeroOrMore) {
-                unbounded = true;
-            }
-            else if (expression instanceof Any any) {
-                int length = any.length();
-                minSize += length;
-                maxSize += length * 4; // at most 4 bytes for a single UTF-8 codepoint
-            }
-            else {
-                throw new UnsupportedOperationException("Not supported: " + expression.getClass().getName());
+            switch (expression) {
+                case Literal literal -> {
+                    int length = literal.value().getBytes(UTF_8).length;
+                    minSize += length;
+                    maxSize += length;
+                }
+                case Pattern.ZeroOrMore zeroOrMore -> {
+                    unbounded = true;
+                }
+                case Any any -> {
+                    int length = any.length();
+                    minSize += length;
+                    maxSize += length * 4; // at most 4 bytes for a single UTF-8 codepoint
+                }
             }
         }
 
@@ -116,15 +115,24 @@ public class LikeMatcher
         Optional<Matcher> matcher = Optional.empty();
         if (patternStart <= patternEnd) {
             boolean hasAny = false;
+            boolean hasAnyAfterZeroOrMore = false;
+            boolean foundZeroOrMore = false;
             for (int i = patternStart; i <= patternEnd; i++) {
-                if (parsed.get(i) instanceof Any) {
+                Pattern item = parsed.get(i);
+                if (item instanceof Any) {
+                    if (foundZeroOrMore) {
+                        hasAnyAfterZeroOrMore = true;
+                    }
                     hasAny = true;
                     break;
+                }
+                else if (item instanceof Pattern.ZeroOrMore) {
+                    foundZeroOrMore = true;
                 }
             }
 
             if (hasAny) {
-                if (optimize) {
+                if (optimize && !hasAnyAfterZeroOrMore) {
                     matcher = Optional.of(new DenseDfaMatcher(parsed, patternStart, patternEnd, exact));
                 }
                 else {

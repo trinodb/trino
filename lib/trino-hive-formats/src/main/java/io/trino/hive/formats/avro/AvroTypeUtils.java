@@ -29,10 +29,12 @@ import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.hive.formats.UnionToRowCoercionUtils.rowTypeForUnionOfTypes;
 import static java.util.function.Predicate.not;
@@ -134,5 +136,28 @@ public final class AvroTypeUtils
         {
             return index;
         }
+    }
+
+    static Schema lowerCaseAllFieldsForWriter(Schema schema)
+    {
+        return switch (schema.getType()) {
+            case RECORD ->
+                Schema.createRecord(
+                        schema.getName(),
+                        schema.getDoc(),
+                        schema.getNamespace(),
+                        schema.isError(),
+                        schema.getFields().stream()
+                                .map(field -> new Schema.Field(
+                                        field.name().toLowerCase(Locale.ENGLISH),
+                                        lowerCaseAllFieldsForWriter(field.schema()),
+                                        field.doc()))// Can ignore field default because only used on read path and opens the opportunity for invalid default errors
+                                .collect(toImmutableList()));
+
+            case ARRAY -> Schema.createArray(lowerCaseAllFieldsForWriter(schema.getElementType()));
+            case MAP -> Schema.createMap(lowerCaseAllFieldsForWriter(schema.getValueType()));
+            case UNION -> Schema.createUnion(schema.getTypes().stream().map(AvroTypeUtils::lowerCaseAllFieldsForWriter).collect(toImmutableList()));
+            case NULL, BOOLEAN, INT, LONG, FLOAT, DOUBLE, STRING, BYTES, FIXED, ENUM -> schema;
+        };
     }
 }

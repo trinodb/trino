@@ -21,22 +21,28 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestSliceSerialization
 {
     private ObjectMapperProvider provider;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         provider = new ObjectMapperProvider();
@@ -44,7 +50,7 @@ public class TestSliceSerialization
         provider.setJsonDeserializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceDeserializer()));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         provider = null;
@@ -84,7 +90,7 @@ public class TestSliceSerialization
         Container expected = new Container(slice);
         String json = objectMapper.writeValueAsString(expected);
         Container actual = objectMapper.readValue(json, Container.class);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     public static class Container

@@ -13,8 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ public class TestShortDecimalType
         super(SHORT_DECIMAL_TYPE, SqlDecimal.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = SHORT_DECIMAL_TYPE.createBlockBuilder(null, 15);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);
@@ -46,7 +46,7 @@ public class TestShortDecimalType
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 3321);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 3321);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 4321);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

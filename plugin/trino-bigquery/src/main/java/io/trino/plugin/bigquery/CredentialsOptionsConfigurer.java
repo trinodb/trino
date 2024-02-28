@@ -18,6 +18,7 @@ import com.google.auth.Credentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
@@ -55,6 +56,14 @@ public class CredentialsOptionsConfigurer
         Optional<Credentials> credentials = credentialsSupplier.getCredentials(session);
         credentials.ifPresent(value ->
                 builder.setCredentialsProvider(FixedCredentialsProvider.create(value)));
+        return builder;
+    }
+
+    @Override
+    public BigQueryWriteSettings.Builder configure(BigQueryWriteSettings.Builder builder, ConnectorSession session)
+    {
+        Optional<Credentials> credentials = credentialsSupplier.getCredentials(session);
+        credentials.ifPresent(value -> builder.setCredentialsProvider(FixedCredentialsProvider.create(value)));
         return builder;
     }
 

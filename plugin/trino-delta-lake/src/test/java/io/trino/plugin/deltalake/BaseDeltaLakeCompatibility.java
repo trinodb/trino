@@ -18,8 +18,8 @@ import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
@@ -28,6 +28,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Isolated
 public abstract class BaseDeltaLakeCompatibility
         extends AbstractTestQueryFramework
 {
@@ -69,19 +70,14 @@ public abstract class BaseDeltaLakeCompatibility
         return queryRunner;
     }
 
-    @Test(dataProvider = "tpchTablesDataProvider")
-    public void testSelectAll(String tableName)
+    @Test
+    public void testSelectAll()
     {
-        assertThat(query("SELECT * FROM " + tableName))
-                .skippingTypesCheck() // Delta Lake connector returns varchar, but TPCH connector returns varchar(n)
-                .matches("SELECT * FROM tpch.tiny." + tableName);
-    }
-
-    @DataProvider
-    public static Object[][] tpchTablesDataProvider()
-    {
-        return TpchTable.getTables().stream()
-                .map(table -> new Object[] {table.getTableName()})
-                .toArray(Object[][]::new);
+        for (TpchTable<?> table : TpchTable.getTables()) {
+            String tableName = table.getTableName();
+            assertThat(query("SELECT * FROM " + tableName))
+                    .skippingTypesCheck() // Delta Lake connector returns varchar, but TPCH connector returns varchar(n)
+                    .matches("SELECT * FROM tpch.tiny." + tableName);
+        }
     }
 }

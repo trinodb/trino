@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -73,8 +72,8 @@ public class PruneApplySourceColumns
     @Override
     public Result apply(ApplyNode applyNode, Captures captures, Context context)
     {
-        Set<Symbol> subqueryAssignmentsSymbols = applyNode.getSubqueryAssignments().getExpressions().stream()
-                .flatMap(expression -> SymbolsExtractor.extractUnique(expression).stream())
+        Set<Symbol> subqueryAssignmentsSymbols = applyNode.getSubqueryAssignments().values().stream()
+                .flatMap(expression -> expression.inputs().stream())
                 .collect(toImmutableSet());
 
         Optional<PlanNode> prunedSubquery = restrictOutputs(context.getIdAllocator(), applyNode.getSubquery(), subqueryAssignmentsSymbols);

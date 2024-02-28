@@ -15,7 +15,7 @@ package io.trino.operator.window;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.ArrayType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;

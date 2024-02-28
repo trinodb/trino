@@ -37,7 +37,7 @@ public final class IntegerType
             return null;
         }
 
-        return block.getInt(position, 0);
+        return getInt(block, position);
     }
 
     @Override

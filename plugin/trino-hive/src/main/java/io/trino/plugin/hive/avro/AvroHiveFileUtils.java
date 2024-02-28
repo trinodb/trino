@@ -39,10 +39,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.avro.AvroHiveConstants.CHAR_TYPE_LOGICAL_NAME;
 import static io.trino.plugin.hive.avro.AvroHiveConstants.SCHEMA_DOC;
@@ -59,6 +61,7 @@ import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static java.util.Collections.emptyList;
 import static java.util.function.Predicate.not;
+import static java.util.function.UnaryOperator.identity;
 
 public final class AvroHiveFileUtils
 {
@@ -67,17 +70,17 @@ public final class AvroHiveFileUtils
     private AvroHiveFileUtils() {}
 
     // Lifted and shifted from org.apache.hadoop.hive.serde2.avro.AvroSerdeUtils.determineSchemaOrThrowException
-    public static Schema determineSchemaOrThrowException(TrinoFileSystem fileSystem, Properties properties)
+    public static Schema determineSchemaOrThrowException(TrinoFileSystem fileSystem, Map<String, String> properties)
             throws IOException
     {
         // Try pull schema from literal table property
-        String schemaString = properties.getProperty(SCHEMA_LITERAL, "");
+        String schemaString = properties.getOrDefault(SCHEMA_LITERAL, "");
         if (!schemaString.isBlank() && !schemaString.equals(SCHEMA_NONE)) {
             return getSchemaParser().parse(schemaString);
         }
 
         // Try pull schema directly from URL
-        String schemaURL = properties.getProperty(SCHEMA_URL, "");
+        String schemaURL = properties.getOrDefault(SCHEMA_URL, "");
         if (!schemaURL.isBlank()) {
             TrinoInputFile schemaFile = fileSystem.newInputFile(Location.of(schemaURL));
             if (!schemaFile.exists()) {
@@ -90,37 +93,35 @@ public final class AvroHiveFileUtils
                 throw new IOException("Unable to read avro schema file from given path: " + schemaURL, e);
             }
         }
-        Schema schema = getSchemaFromProperties(properties);
-        properties.setProperty(SCHEMA_LITERAL, schema.toString());
-        return schema;
+        return getSchemaFromProperties(properties);
     }
 
-    private static Schema getSchemaFromProperties(Properties properties)
+    private static Schema getSchemaFromProperties(Map<String, String> schema)
             throws IOException
     {
-        List<String> columnNames = getColumnNames(properties);
-        List<HiveType> columnTypes = getColumnTypes(properties);
+        List<String> columnNames = getColumnNames(schema);
+        List<HiveType> columnTypes = getColumnTypes(schema);
         if (columnNames.isEmpty() || columnTypes.isEmpty()) {
-            throw new IOException("Unable to parse column names or column types from job properties to create Avro Schema");
+            throw new IOException("Unable to parse column names or column types from schema to create Avro Schema");
         }
         if (columnNames.size() != columnTypes.size()) {
             throw new IllegalArgumentException("Avro Schema initialization failed. Number of column name and column type differs. columnNames = %s, columnTypes = %s".formatted(columnNames, columnTypes));
         }
-        List<String> columnComments = Optional.ofNullable(properties.getProperty(LIST_COLUMN_COMMENTS))
+        List<String> columnComments = Optional.ofNullable(schema.get(LIST_COLUMN_COMMENTS))
                 .filter(not(String::isBlank))
                 .map(Splitter.on('\0')::splitToList)
                 .orElse(emptyList());
 
-        final String tableName = properties.getProperty(TABLE_NAME);
-        final String tableComment = properties.getProperty(TABLE_COMMENT);
+        String tableName = schema.get(TABLE_NAME);
+        String tableComment = schema.get(TABLE_COMMENT);
 
         return constructSchemaFromParts(
                 columnNames,
                 columnTypes,
                 columnComments,
-                Optional.ofNullable(properties.getProperty(SCHEMA_NAMESPACE)),
-                Optional.ofNullable(properties.getProperty(SCHEMA_NAME, tableName)),
-                Optional.ofNullable(properties.getProperty(SCHEMA_DOC, tableComment)));
+                Optional.ofNullable(schema.get(SCHEMA_NAMESPACE)),
+                Optional.ofNullable(schema.getOrDefault(SCHEMA_NAME, tableName)),
+                Optional.ofNullable(schema.getOrDefault(SCHEMA_DOC, tableComment)));
     }
 
     private static Schema constructSchemaFromParts(List<String> columnNames, List<HiveType> columnTypes,
@@ -278,6 +279,14 @@ public final class AvroHiveFileUtils
         }
 
         return prunedSchemas;
+    }
+
+    static Map<String, String> getCanonicalToGivenFieldName(Schema schema)
+    {
+        // Lower case top level fields to allow for manually set avro schema (passed in via avro_schema_literal or avro_schema_url) to have uppercase field names
+        return schema.getFields().stream()
+                .map(Schema.Field::name)
+                .collect(toImmutableMap(fieldName -> fieldName.toLowerCase(Locale.ENGLISH), identity()));
     }
 
     private static Schema.Parser getSchemaParser()

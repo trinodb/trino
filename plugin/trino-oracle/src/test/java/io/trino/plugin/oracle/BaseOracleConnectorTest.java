@@ -23,7 +23,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -38,8 +38,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 public abstract class BaseOracleConnectorTest
         extends BaseJdbcConnectorTest
@@ -55,6 +53,7 @@ public abstract class BaseOracleConnectorTest
                     SUPPORTS_ARRAY,
                     SUPPORTS_CREATE_SCHEMA,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                     SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                     SUPPORTS_ROW_TYPE,
@@ -122,6 +121,7 @@ public abstract class BaseOracleConnectorTest
         assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
+    @Test
     @Override
     public void testInformationSchemaFiltering()
     {
@@ -185,11 +185,13 @@ public abstract class BaseOracleConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (t timestamp(12))");
 
-        assertEquals(getColumnType(tableName, "t"), "timestamp(9)");
+        assertThat(getColumnType(tableName, "t"))
+                .isEqualTo("timestamp(9)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -213,6 +215,7 @@ public abstract class BaseOracleConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testVarcharCharComparison()
     {
@@ -243,6 +246,7 @@ public abstract class BaseOracleConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testAggregationWithUnsupportedResultType()
     {
@@ -265,6 +269,7 @@ public abstract class BaseOracleConnectorTest
         return new TestTable(onRemoteDatabase(), name, "(short_decimal number(9, 3), long_decimal number(30, 10), a_bigint number(19), t_double binary_double)", rows);
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -371,13 +376,15 @@ public abstract class BaseOracleConnectorTest
                 "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
     }
 
+    @Test
     @Override
     public void testNativeQuerySimple()
     {
         // override because Oracle requires the FROM clause, and it needs explicit type
-        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT CAST(1 AS number(2, 1)) FROM DUAL'))", ("VALUES 1"));
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT CAST(1 AS number(2, 1)) FROM DUAL'))", "VALUES 1");
     }
 
+    @Test
     @Override
     public void testNativeQueryParameters()
     {
@@ -390,21 +397,23 @@ public abstract class BaseOracleConnectorTest
         assertQuery(session, "EXECUTE my_query USING 'a', '(SELECT CAST(2 AS number(2, 1)) a FROM DUAL) t'", "VALUES 2");
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
         // override because Oracle succeeds in preparing query, and then fails because of no metadata available
-        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+        assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
 
+    @Test
     @Override
     public void testNativeQueryIncorrectSyntax()
     {
         // override because Oracle succeeds in preparing query, and then fails because of no metadata available
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
     }
 
     @Override

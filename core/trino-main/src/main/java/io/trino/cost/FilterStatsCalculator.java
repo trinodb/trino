@@ -13,21 +13,16 @@
  */
 package io.trino.cost;
 
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.inject.Inject;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
-import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
@@ -73,8 +68,7 @@ import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.getExpressionTypes;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.planner.IrExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -93,13 +87,15 @@ public class FilterStatsCalculator
     private final PlannerContext plannerContext;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final StatsNormalizer normalizer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
     @Inject
-    public FilterStatsCalculator(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
+    public FilterStatsCalculator(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     public PlanNodeStatsEstimate filterStats(
@@ -117,15 +113,15 @@ public class FilterStatsCalculator
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(plannerContext, session, predicate, types);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, predicate);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
         if (value == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
             value = false;
         }
-        return new LiteralEncoder(plannerContext).toExpression(session, value, BOOLEAN);
+        return new LiteralEncoder(plannerContext).toExpression(value, BOOLEAN);
     }
 
     private class FilterExpressionStatsCalculatingVisitor
@@ -382,6 +378,7 @@ public class FilterStatsCalculator
             return result.build();
         }
 
+        @SuppressWarnings("ArgumentSelectionDefectChecker")
         @Override
         protected PlanNodeStatsEstimate visitComparisonExpression(ComparisonExpression node, Void context)
         {
@@ -410,13 +407,7 @@ public class FilterStatsCalculator
             Optional<Symbol> leftSymbol = left instanceof SymbolReference ? Optional.of(Symbol.from(left)) : Optional.empty();
             if (isEffectivelyLiteral(right)) {
                 Type type = getType(left);
-                Object literalValue = evaluateConstantExpression(
-                        right,
-                        type,
-                        plannerContext,
-                        session,
-                        new AllowAllAccessControl(),
-                        ImmutableMap.of());
+                Object literalValue = evaluateConstantExpression(right, plannerContext, session);
                 if (literalValue == null) {
                     // Possible when we process `x IN (..., NULL)` case.
                     return input.mapOutputRowCount(rowCountEstimate -> 0.);
@@ -451,17 +442,7 @@ public class FilterStatsCalculator
                 return requireNonNull(types.get(symbol), () -> format("No type for symbol %s", symbol));
             }
 
-            ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    plannerContext,
-                    new AllowAllAccessControl(),
-                    session,
-                    types,
-                    ImmutableMap.of(),
-                    // At this stage, there should be no subqueries in the plan.
-                    node -> new VerifyException("Unexpected subquery"),
-                    WarningCollector.NOOP,
-                    false);
-            return expressionAnalyzer.analyze(expression, Scope.create());
+            return typeAnalyzer.getType(session, types, expression);
         }
 
         private SymbolStatsEstimate getExpressionStats(Expression expression)

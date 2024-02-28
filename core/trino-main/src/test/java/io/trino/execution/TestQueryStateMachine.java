@@ -16,8 +16,10 @@ package io.trino.execution;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.client.FailureInfo;
 import io.trino.client.NodeVersion;
@@ -27,6 +29,7 @@ import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
+import io.trino.server.BasicQueryInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.resourcegroups.QueryType;
@@ -35,9 +38,12 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.tracing.TracingMetadata;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.net.URI;
@@ -46,11 +52,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.DISPATCHING;
 import static io.trino.execution.QueryState.FAILED;
@@ -64,6 +75,7 @@ import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -71,12 +83,12 @@ import static io.trino.transaction.InMemoryTransactionManager.createTestTransact
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestQueryStateMachine
 {
     private static final String QUERY = "sql";
@@ -103,7 +115,7 @@ public class TestQueryStateMachine
 
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "=%s"));
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
@@ -116,19 +128,19 @@ public class TestQueryStateMachine
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertState(stateMachine, QUEUED);
 
-        assertTrue(stateMachine.transitionToDispatching());
+        assertThat(stateMachine.transitionToDispatching()).isTrue();
         assertState(stateMachine, DISPATCHING);
 
-        assertTrue(stateMachine.transitionToPlanning());
+        assertThat(stateMachine.transitionToPlanning()).isTrue();
         assertState(stateMachine, PLANNING);
 
-        assertTrue(stateMachine.transitionToStarting());
+        assertThat(stateMachine.transitionToStarting()).isTrue();
         assertState(stateMachine, STARTING);
 
-        assertTrue(stateMachine.transitionToRunning());
+        assertThat(stateMachine.transitionToRunning()).isTrue();
         assertState(stateMachine, RUNNING);
 
-        assertTrue(stateMachine.transitionToFinishing());
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
         assertState(stateMachine, FINISHING);
 
         stateMachine.resultsConsumed();
@@ -142,22 +154,22 @@ public class TestQueryStateMachine
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertState(stateMachine, QUEUED);
 
-        assertTrue(stateMachine.transitionToWaitingForResources());
+        assertThat(stateMachine.transitionToWaitingForResources()).isTrue();
         assertState(stateMachine, WAITING_FOR_RESOURCES);
 
-        assertTrue(stateMachine.transitionToDispatching());
+        assertThat(stateMachine.transitionToDispatching()).isTrue();
         assertState(stateMachine, DISPATCHING);
 
-        assertTrue(stateMachine.transitionToPlanning());
+        assertThat(stateMachine.transitionToPlanning()).isTrue();
         assertState(stateMachine, PLANNING);
 
-        assertTrue(stateMachine.transitionToStarting());
+        assertThat(stateMachine.transitionToStarting()).isTrue();
         assertState(stateMachine, STARTING);
 
-        assertTrue(stateMachine.transitionToRunning());
+        assertThat(stateMachine.transitionToRunning()).isTrue();
         assertState(stateMachine, RUNNING);
 
-        assertTrue(stateMachine.transitionToFinishing());
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
         stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
@@ -186,52 +198,52 @@ public class TestQueryStateMachine
     private void assertAllTimeSpentInQueueing(QueryState expectedState, Consumer<QueryStateMachine> stateTransition)
     {
         TestingTicker ticker = new TestingTicker();
-        QueryStateMachine stateMachine = createQueryStateMachineWithTicker(ticker);
+        QueryStateMachine stateMachine = queryStateMachine().withTicker(ticker).build();
         ticker.increment(7, MILLISECONDS);
 
         stateTransition.accept(stateMachine);
-        assertEquals(stateMachine.getQueryState(), expectedState);
+        assertThat(stateMachine.getQueryState()).isEqualTo(expectedState);
 
         QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();
-        assertEquals(queryStats.getQueuedTime(), new Duration(7, MILLISECONDS));
-        assertEquals(queryStats.getResourceWaitingTime(), new Duration(0, MILLISECONDS));
-        assertEquals(queryStats.getDispatchingTime(), new Duration(0, MILLISECONDS));
-        assertEquals(queryStats.getPlanningTime(), new Duration(0, MILLISECONDS));
-        assertEquals(queryStats.getExecutionTime(), new Duration(0, MILLISECONDS));
-        assertEquals(queryStats.getFinishingTime(), new Duration(0, MILLISECONDS));
+        assertThat(queryStats.getQueuedTime()).isEqualTo(new Duration(7, MILLISECONDS));
+        assertThat(queryStats.getResourceWaitingTime()).isEqualTo(new Duration(0, MILLISECONDS));
+        assertThat(queryStats.getDispatchingTime()).isEqualTo(new Duration(0, MILLISECONDS));
+        assertThat(queryStats.getPlanningTime()).isEqualTo(new Duration(0, MILLISECONDS));
+        assertThat(queryStats.getExecutionTime()).isEqualTo(new Duration(0, MILLISECONDS));
+        assertThat(queryStats.getFinishingTime()).isEqualTo(new Duration(0, MILLISECONDS));
     }
 
     @Test
     public void testPlanning()
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
-        assertTrue(stateMachine.transitionToPlanning());
+        assertThat(stateMachine.transitionToPlanning()).isTrue();
         assertState(stateMachine, PLANNING);
 
-        assertFalse(stateMachine.transitionToDispatching());
+        assertThat(stateMachine.transitionToDispatching()).isFalse();
         assertState(stateMachine, PLANNING);
 
-        assertFalse(stateMachine.transitionToPlanning());
+        assertThat(stateMachine.transitionToPlanning()).isFalse();
         assertState(stateMachine, PLANNING);
 
-        assertTrue(stateMachine.transitionToStarting());
+        assertThat(stateMachine.transitionToStarting()).isTrue();
         assertState(stateMachine, STARTING);
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToPlanning();
-        assertTrue(stateMachine.transitionToRunning());
+        assertThat(stateMachine.transitionToRunning()).isTrue();
         assertState(stateMachine, RUNNING);
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToPlanning();
-        assertTrue(stateMachine.transitionToFinishing());
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
         stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToPlanning();
-        assertTrue(stateMachine.transitionToFailed(newFailedCause()));
+        assertThat(stateMachine.transitionToFailed(newFailedCause())).isTrue();
         assertState(stateMachine, FAILED, newFailedCause());
     }
 
@@ -239,31 +251,31 @@ public class TestQueryStateMachine
     public void testStarting()
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
-        assertTrue(stateMachine.transitionToStarting());
+        assertThat(stateMachine.transitionToStarting()).isTrue();
         assertState(stateMachine, STARTING);
 
-        assertFalse(stateMachine.transitionToDispatching());
+        assertThat(stateMachine.transitionToDispatching()).isFalse();
         assertState(stateMachine, STARTING);
 
-        assertFalse(stateMachine.transitionToPlanning());
+        assertThat(stateMachine.transitionToPlanning()).isFalse();
         assertState(stateMachine, STARTING);
 
-        assertFalse(stateMachine.transitionToStarting());
+        assertThat(stateMachine.transitionToStarting()).isFalse();
         assertState(stateMachine, STARTING);
 
-        assertTrue(stateMachine.transitionToRunning());
+        assertThat(stateMachine.transitionToRunning()).isTrue();
         assertState(stateMachine, RUNNING);
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToStarting();
         stateMachine.resultsConsumed();
-        assertTrue(stateMachine.transitionToFinishing());
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToStarting();
-        assertTrue(stateMachine.transitionToFailed(newFailedCause()));
+        assertThat(stateMachine.transitionToFailed(newFailedCause())).isTrue();
         assertState(stateMachine, FAILED, newFailedCause());
     }
 
@@ -271,29 +283,29 @@ public class TestQueryStateMachine
     public void testRunning()
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
-        assertTrue(stateMachine.transitionToRunning());
+        assertThat(stateMachine.transitionToRunning()).isTrue();
         assertState(stateMachine, RUNNING);
 
-        assertFalse(stateMachine.transitionToDispatching());
+        assertThat(stateMachine.transitionToDispatching()).isFalse();
         assertState(stateMachine, RUNNING);
 
-        assertFalse(stateMachine.transitionToPlanning());
+        assertThat(stateMachine.transitionToPlanning()).isFalse();
         assertState(stateMachine, RUNNING);
 
-        assertFalse(stateMachine.transitionToStarting());
+        assertThat(stateMachine.transitionToStarting()).isFalse();
         assertState(stateMachine, RUNNING);
 
-        assertFalse(stateMachine.transitionToRunning());
+        assertThat(stateMachine.transitionToRunning()).isFalse();
         assertState(stateMachine, RUNNING);
 
         stateMachine.resultsConsumed();
-        assertTrue(stateMachine.transitionToFinishing());
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToRunning();
-        assertTrue(stateMachine.transitionToFailed(newFailedCause()));
+        assertThat(stateMachine.transitionToFailed(newFailedCause())).isTrue();
         assertState(stateMachine, FAILED, newFailedCause());
     }
 
@@ -301,7 +313,7 @@ public class TestQueryStateMachine
     public void testFinished()
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
-        assertTrue(stateMachine.transitionToFinishing());
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
         assertState(stateMachine, FINISHING);
         stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
@@ -312,7 +324,7 @@ public class TestQueryStateMachine
     public void testFailed()
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
-        assertTrue(stateMachine.transitionToFailed(newFailedCause()));
+        assertThat(stateMachine.transitionToFailed(newFailedCause())).isTrue();
         assertFinalState(stateMachine, FAILED, newFailedCause());
     }
 
@@ -320,7 +332,7 @@ public class TestQueryStateMachine
     public void testCanceled()
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
-        assertTrue(stateMachine.transitionToCanceled());
+        assertThat(stateMachine.transitionToCanceled()).isTrue();
         assertFinalState(stateMachine, FAILED, new TrinoException(USER_CANCELED, "canceled"));
     }
 
@@ -328,45 +340,45 @@ public class TestQueryStateMachine
     public void testPlanningTimeDuration()
     {
         TestingTicker mockTicker = new TestingTicker();
-        QueryStateMachine stateMachine = createQueryStateMachineWithTicker(mockTicker);
+        QueryStateMachine stateMachine = queryStateMachine().withTicker(mockTicker).build();
         assertState(stateMachine, QUEUED);
 
         mockTicker.increment(25, MILLISECONDS);
-        assertTrue(stateMachine.transitionToWaitingForResources());
+        assertThat(stateMachine.transitionToWaitingForResources()).isTrue();
         assertState(stateMachine, WAITING_FOR_RESOURCES);
 
         mockTicker.increment(50, MILLISECONDS);
-        assertTrue(stateMachine.transitionToDispatching());
+        assertThat(stateMachine.transitionToDispatching()).isTrue();
         assertState(stateMachine, DISPATCHING);
 
         mockTicker.increment(100, MILLISECONDS);
-        assertTrue(stateMachine.transitionToPlanning());
+        assertThat(stateMachine.transitionToPlanning()).isTrue();
         assertState(stateMachine, PLANNING);
 
         mockTicker.increment(200, MILLISECONDS);
-        assertTrue(stateMachine.transitionToStarting());
+        assertThat(stateMachine.transitionToStarting()).isTrue();
         assertState(stateMachine, STARTING);
 
         mockTicker.increment(300, MILLISECONDS);
-        assertTrue(stateMachine.transitionToRunning());
+        assertThat(stateMachine.transitionToRunning()).isTrue();
         assertState(stateMachine, RUNNING);
 
         mockTicker.increment(400, MILLISECONDS);
-        assertTrue(stateMachine.transitionToFinishing());
+        assertThat(stateMachine.transitionToFinishing()).isTrue();
         stateMachine.resultsConsumed();
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
 
         QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();
-        assertEquals(queryStats.getElapsedTime().toMillis(), 1075);
-        assertEquals(queryStats.getQueuedTime().toMillis(), 25);
-        assertEquals(queryStats.getResourceWaitingTime().toMillis(), 50);
-        assertEquals(queryStats.getDispatchingTime().toMillis(), 100);
-        assertEquals(queryStats.getPlanningTime().toMillis(), 200);
+        assertThat(queryStats.getElapsedTime().toMillis()).isEqualTo(1075);
+        assertThat(queryStats.getQueuedTime().toMillis()).isEqualTo(25);
+        assertThat(queryStats.getResourceWaitingTime().toMillis()).isEqualTo(50);
+        assertThat(queryStats.getDispatchingTime().toMillis()).isEqualTo(100);
+        assertThat(queryStats.getPlanningTime().toMillis()).isEqualTo(200);
         // there is no way to induce finishing time without a transaction and connector
-        assertEquals(queryStats.getFinishingTime().toMillis(), 0);
+        assertThat(queryStats.getFinishingTime().toMillis()).isEqualTo(0);
         // query execution time is starts when query transitions to planning
-        assertEquals(queryStats.getExecutionTime().toMillis(), 900);
+        assertThat(queryStats.getExecutionTime().toMillis()).isEqualTo(900);
     }
 
     @Test
@@ -375,36 +387,108 @@ public class TestQueryStateMachine
         QueryStateMachine stateMachine = createQueryStateMachine();
 
         stateMachine.updateMemoryUsage(5, 15, 10, 1, 5, 3);
-        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 5);
-        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 10);
-        assertEquals(stateMachine.getPeakRevocableMemoryInBytes(), 15);
-        assertEquals(stateMachine.getPeakTaskUserMemory(), 1);
-        assertEquals(stateMachine.getPeakTaskTotalMemory(), 3);
-        assertEquals(stateMachine.getPeakTaskRevocableMemory(), 5);
+        assertThat(stateMachine.getPeakUserMemoryInBytes()).isEqualTo(5);
+        assertThat(stateMachine.getPeakTotalMemoryInBytes()).isEqualTo(10);
+        assertThat(stateMachine.getPeakRevocableMemoryInBytes()).isEqualTo(15);
+        assertThat(stateMachine.getPeakTaskUserMemory()).isEqualTo(1);
+        assertThat(stateMachine.getPeakTaskTotalMemory()).isEqualTo(3);
+        assertThat(stateMachine.getPeakTaskRevocableMemory()).isEqualTo(5);
 
         stateMachine.updateMemoryUsage(0, 0, 0, 2, 2, 2);
-        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 5);
-        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 10);
-        assertEquals(stateMachine.getPeakRevocableMemoryInBytes(), 15);
-        assertEquals(stateMachine.getPeakTaskUserMemory(), 2);
-        assertEquals(stateMachine.getPeakTaskTotalMemory(), 3);
-        assertEquals(stateMachine.getPeakTaskRevocableMemory(), 5);
+        assertThat(stateMachine.getPeakUserMemoryInBytes()).isEqualTo(5);
+        assertThat(stateMachine.getPeakTotalMemoryInBytes()).isEqualTo(10);
+        assertThat(stateMachine.getPeakRevocableMemoryInBytes()).isEqualTo(15);
+        assertThat(stateMachine.getPeakTaskUserMemory()).isEqualTo(2);
+        assertThat(stateMachine.getPeakTaskTotalMemory()).isEqualTo(3);
+        assertThat(stateMachine.getPeakTaskRevocableMemory()).isEqualTo(5);
 
         stateMachine.updateMemoryUsage(1, 1, 1, 1, 10, 5);
-        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 6);
-        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 11);
-        assertEquals(stateMachine.getPeakRevocableMemoryInBytes(), 16);
-        assertEquals(stateMachine.getPeakTaskUserMemory(), 2);
-        assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
-        assertEquals(stateMachine.getPeakTaskRevocableMemory(), 10);
+        assertThat(stateMachine.getPeakUserMemoryInBytes()).isEqualTo(6);
+        assertThat(stateMachine.getPeakTotalMemoryInBytes()).isEqualTo(11);
+        assertThat(stateMachine.getPeakRevocableMemoryInBytes()).isEqualTo(16);
+        assertThat(stateMachine.getPeakTaskUserMemory()).isEqualTo(2);
+        assertThat(stateMachine.getPeakTaskTotalMemory()).isEqualTo(5);
+        assertThat(stateMachine.getPeakTaskRevocableMemory()).isEqualTo(10);
 
         stateMachine.updateMemoryUsage(3, 3, 3, 5, 1, 2);
-        assertEquals(stateMachine.getPeakUserMemoryInBytes(), 9);
-        assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 14);
-        assertEquals(stateMachine.getPeakRevocableMemoryInBytes(), 19);
-        assertEquals(stateMachine.getPeakTaskUserMemory(), 5);
-        assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
-        assertEquals(stateMachine.getPeakTaskRevocableMemory(), 10);
+        assertThat(stateMachine.getPeakUserMemoryInBytes()).isEqualTo(9);
+        assertThat(stateMachine.getPeakTotalMemoryInBytes()).isEqualTo(14);
+        assertThat(stateMachine.getPeakRevocableMemoryInBytes()).isEqualTo(19);
+        assertThat(stateMachine.getPeakTaskUserMemory()).isEqualTo(5);
+        assertThat(stateMachine.getPeakTaskTotalMemory()).isEqualTo(5);
+        assertThat(stateMachine.getPeakTaskRevocableMemory()).isEqualTo(10);
+    }
+
+    @Test
+    public void testPreserveFirstFailure()
+            throws Exception
+    {
+        CountDownLatch cleanup = new CountDownLatch(1);
+        QueryStateMachine queryStateMachine = queryStateMachine()
+                .withMetadata(new TracingMetadata(noopTracer(), createTestMetadataManager())
+                {
+                    @Override
+                    public void cleanupQuery(Session session)
+                    {
+                        cleanup.countDown();
+                        super.cleanupQuery(session);
+                    }
+                })
+                .build();
+
+        Future<?> anotherThread = executor.submit(() -> {
+            checkState(awaitUninterruptibly(cleanup, 10, SECONDS), "Timed out waiting for cleanup latch");
+            queryStateMachine.transitionToFailed(new IllegalStateException("Second exception"));
+        });
+        Future<?> failingThread = executor.submit(() -> {
+            queryStateMachine.transitionToFailed(new TrinoException(TYPE_MISMATCH, "First exception"));
+        });
+
+        failingThread.get(10, SECONDS);
+        anotherThread.get(10, SECONDS);
+
+        ExecutionFailureInfo failureInfo = queryStateMachine.getFinalQueryInfo().orElseThrow().getFailureInfo();
+        assertThat(failureInfo).isNotNull();
+        assertThat(failureInfo.getErrorCode()).isEqualTo(TYPE_MISMATCH.toErrorCode());
+        assertThat(failureInfo.getMessage()).isEqualTo("First exception");
+
+        BasicQueryInfo basicQueryInfo = queryStateMachine.getBasicQueryInfo(Optional.empty());
+        assertThat(basicQueryInfo.getErrorCode()).isEqualTo(TYPE_MISMATCH.toErrorCode());
+    }
+
+    @Test
+    public void testPreserveCancellation()
+            throws Exception
+    {
+        CountDownLatch cleanup = new CountDownLatch(1);
+        QueryStateMachine queryStateMachine = queryStateMachine()
+                .withMetadata(new TracingMetadata(noopTracer(), createTestMetadataManager())
+                {
+                    @Override
+                    public void cleanupQuery(Session session)
+                    {
+                        cleanup.countDown();
+                        super.cleanupQuery(session);
+                    }
+                })
+                .build();
+
+        Future<?> anotherThread = executor.submit(() -> {
+            checkState(awaitUninterruptibly(cleanup, 10, SECONDS), "Timed out waiting for cleanup latch");
+            queryStateMachine.transitionToFailed(new IllegalStateException("Second exception"));
+        });
+        Future<?> cancellingThread = executor.submit(queryStateMachine::transitionToCanceled);
+
+        cancellingThread.get(10, SECONDS);
+        anotherThread.get(10, SECONDS);
+
+        ExecutionFailureInfo failureInfo = queryStateMachine.getFinalQueryInfo().orElseThrow().getFailureInfo();
+        assertThat(failureInfo).isNotNull();
+        assertThat(failureInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
+        assertThat(failureInfo.getMessage()).isEqualTo("Query was canceled");
+
+        BasicQueryInfo basicQueryInfo = queryStateMachine.getBasicQueryInfo(Optional.empty());
+        assertThat(basicQueryInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
     }
 
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)
@@ -414,29 +498,29 @@ public class TestQueryStateMachine
 
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState, Exception expectedException)
     {
-        assertTrue(expectedState.isDone());
+        assertThat(expectedState.isDone()).isTrue();
         assertState(stateMachine, expectedState, expectedException);
 
-        assertFalse(stateMachine.transitionToDispatching());
+        assertThat(stateMachine.transitionToDispatching()).isFalse();
         assertState(stateMachine, expectedState, expectedException);
 
-        assertFalse(stateMachine.transitionToPlanning());
+        assertThat(stateMachine.transitionToPlanning()).isFalse();
         assertState(stateMachine, expectedState, expectedException);
 
-        assertFalse(stateMachine.transitionToStarting());
+        assertThat(stateMachine.transitionToStarting()).isFalse();
         assertState(stateMachine, expectedState, expectedException);
 
-        assertFalse(stateMachine.transitionToRunning());
+        assertThat(stateMachine.transitionToRunning()).isFalse();
         assertState(stateMachine, expectedState, expectedException);
 
-        assertFalse(stateMachine.transitionToFinishing());
+        assertThat(stateMachine.transitionToFinishing()).isFalse();
         assertState(stateMachine, expectedState, expectedException);
 
-        assertFalse(stateMachine.transitionToFailed(newFailedCause()));
+        assertThat(stateMachine.transitionToFailed(newFailedCause())).isFalse();
         assertState(stateMachine, expectedState, expectedException);
 
         // attempt to fail with another exception, which will fail
-        assertFalse(stateMachine.transitionToFailed(new IOException("failure after finish")));
+        assertThat(stateMachine.transitionToFailed(new IOException("failure after finish"))).isFalse();
         assertState(stateMachine, expectedState, expectedException);
     }
 
@@ -447,126 +531,155 @@ public class TestQueryStateMachine
 
     private static void assertState(QueryStateMachine stateMachine, QueryState expectedState, Exception expectedException)
     {
-        assertEquals(stateMachine.getQueryId(), TEST_SESSION.getQueryId());
+        assertThat(stateMachine.getQueryId()).isEqualTo(TEST_SESSION.getQueryId());
         assertEqualSessionsWithoutTransactionId(stateMachine.getSession(), TEST_SESSION);
-        assertEquals(stateMachine.getSetSessionProperties(), SET_SESSION_PROPERTIES);
-        assertEquals(stateMachine.getResetSessionProperties(), RESET_SESSION_PROPERTIES);
+        assertThat(stateMachine.getSetSessionProperties()).isEqualTo(SET_SESSION_PROPERTIES);
+        assertThat(stateMachine.getResetSessionProperties()).containsExactlyElementsOf(RESET_SESSION_PROPERTIES);
 
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
-        assertEquals(queryInfo.getQueryId(), TEST_SESSION.getQueryId());
-        assertEquals(queryInfo.getSelf(), LOCATION);
-        assertFalse(queryInfo.getOutputStage().isPresent());
-        assertEquals(queryInfo.getQuery(), QUERY);
-        assertEquals(queryInfo.getInputs(), INPUTS);
-        assertEquals(queryInfo.getOutput(), OUTPUT);
-        assertEquals(queryInfo.getFieldNames(), OUTPUT_FIELD_NAMES);
-        assertEquals(queryInfo.getUpdateType(), UPDATE_TYPE);
-        assertTrue(queryInfo.getQueryType().isPresent());
-        assertEquals(queryInfo.getQueryType().get(), QUERY_TYPE.get());
+        assertThat(queryInfo.getQueryId()).isEqualTo(TEST_SESSION.getQueryId());
+        assertThat(queryInfo.getSelf()).isEqualTo(LOCATION);
+        assertThat(queryInfo.getOutputStage().isPresent()).isFalse();
+        assertThat(queryInfo.getQuery()).isEqualTo(QUERY);
+        assertThat(queryInfo.getInputs()).containsExactlyElementsOf(INPUTS);
+        assertThat(queryInfo.getOutput()).isEqualTo(OUTPUT);
+        assertThat(queryInfo.getFieldNames()).containsExactlyElementsOf(OUTPUT_FIELD_NAMES);
+        assertThat(queryInfo.getUpdateType()).isEqualTo(UPDATE_TYPE);
+        assertThat(queryInfo.getQueryType().isPresent()).isTrue();
+        assertThat(queryInfo.getQueryType().get()).isEqualTo(QUERY_TYPE.get());
 
         QueryStats queryStats = queryInfo.getQueryStats();
-        assertNotNull(queryStats.getElapsedTime());
-        assertNotNull(queryStats.getQueuedTime());
-        assertNotNull(queryStats.getResourceWaitingTime());
-        assertNotNull(queryStats.getDispatchingTime());
-        assertNotNull(queryStats.getExecutionTime());
-        assertNotNull(queryStats.getPlanningTime());
-        assertNotNull(queryStats.getPlanningCpuTime());
-        assertNotNull(queryStats.getFinishingTime());
+        assertThat(queryStats.getElapsedTime()).isNotNull();
+        assertThat(queryStats.getQueuedTime()).isNotNull();
+        assertThat(queryStats.getResourceWaitingTime()).isNotNull();
+        assertThat(queryStats.getDispatchingTime()).isNotNull();
+        assertThat(queryStats.getExecutionTime()).isNotNull();
+        assertThat(queryStats.getPlanningTime()).isNotNull();
+        assertThat(queryStats.getPlanningCpuTime()).isNotNull();
+        assertThat(queryStats.getFinishingTime()).isNotNull();
 
-        assertNotNull(queryStats.getCreateTime());
+        assertThat(queryStats.getCreateTime()).isNotNull();
         if (queryInfo.getState() == QUEUED || queryInfo.getState() == WAITING_FOR_RESOURCES || queryInfo.getState() == DISPATCHING) {
-            assertNull(queryStats.getExecutionStartTime());
+            assertThat(queryStats.getExecutionStartTime()).isNull();
         }
         else {
-            assertNotNull(queryStats.getExecutionStartTime());
+            assertThat(queryStats.getExecutionStartTime()).isNotNull();
         }
         if (queryInfo.getState().isDone()) {
-            assertNotNull(queryStats.getEndTime());
+            assertThat(queryStats.getEndTime()).isNotNull();
         }
         else {
-            assertNull(queryStats.getEndTime());
+            assertThat(queryStats.getEndTime()).isNull();
         }
 
-        assertEquals(stateMachine.getQueryState(), expectedState);
-        assertEquals(queryInfo.getState(), expectedState);
-        assertEquals(stateMachine.isDone(), expectedState.isDone());
+        assertThat(stateMachine.getQueryState()).isEqualTo(expectedState);
+        assertThat(queryInfo.getState()).isEqualTo(expectedState);
+        assertThat(stateMachine.isDone()).isEqualTo(expectedState.isDone());
 
         if (expectedState == FAILED) {
-            assertNotNull(queryInfo.getFailureInfo());
+            assertThat(queryInfo.getFailureInfo()).isNotNull();
             FailureInfo failure = queryInfo.getFailureInfo().toFailureInfo();
-            assertNotNull(failure);
-            assertEquals(failure.getType(), expectedException.getClass().getName());
+            assertThat(failure).isNotNull();
+            assertThat(failure.getType()).isEqualTo(expectedException.getClass().getName());
             if (expectedException instanceof TrinoException) {
-                assertEquals(queryInfo.getErrorCode(), ((TrinoException) expectedException).getErrorCode());
+                assertThat(queryInfo.getErrorCode()).isEqualTo(((TrinoException) expectedException).getErrorCode());
             }
             else {
-                assertEquals(queryInfo.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
+                assertThat(queryInfo.getErrorCode()).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode());
             }
         }
         else {
-            assertNull(queryInfo.getFailureInfo());
+            assertThat(queryInfo.getFailureInfo()).isNull();
         }
     }
 
     private QueryStateMachine createQueryStateMachine()
     {
-        return createQueryStateMachineWithTicker(Ticker.systemTicker());
+        return queryStateMachine().build();
     }
 
-    private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker)
+    private QueryStateMachineBuilder queryStateMachine()
     {
-        Metadata metadata = createTestMetadataManager();
-        TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControl = new AccessControlManager(
-                transactionManager,
-                emptyEventListenerManager(),
-                new AccessControlConfig(),
-                DefaultSystemAccessControl.NAME);
-        accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
-        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
-                Optional.empty(),
-                QUERY,
-                Optional.empty(),
-                TEST_SESSION,
-                LOCATION,
-                new ResourceGroupId("test"),
-                false,
-                transactionManager,
-                accessControl,
-                executor,
-                ticker,
-                metadata,
-                WarningCollector.NOOP,
-                createPlanOptimizersStatsCollector(),
-                QUERY_TYPE,
-                true,
-                new NodeVersion("test"));
-        stateMachine.setInputs(INPUTS);
-        stateMachine.setOutput(OUTPUT);
-        stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
-        stateMachine.setUpdateType(UPDATE_TYPE);
-        for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {
-            stateMachine.addSetSessionProperties(entry.getKey(), entry.getValue());
+        return new QueryStateMachineBuilder();
+    }
+
+    private class QueryStateMachineBuilder
+    {
+        private Ticker ticker = Ticker.systemTicker();
+        private Metadata metadata;
+
+        @CanIgnoreReturnValue
+        public QueryStateMachineBuilder withTicker(Ticker ticker)
+        {
+            this.ticker = ticker;
+            return this;
         }
-        RESET_SESSION_PROPERTIES.forEach(stateMachine::addResetSessionProperties);
-        return stateMachine;
+
+        @CanIgnoreReturnValue
+        public QueryStateMachineBuilder withMetadata(Metadata metadata)
+        {
+            this.metadata = metadata;
+            return this;
+        }
+
+        public QueryStateMachine build()
+        {
+            if (metadata == null) {
+                metadata = createTestMetadataManager();
+            }
+            TransactionManager transactionManager = createTestTransactionManager();
+            AccessControlManager accessControl = new AccessControlManager(
+                    NodeVersion.UNKNOWN,
+                    transactionManager,
+                    emptyEventListenerManager(),
+                    new AccessControlConfig(),
+                    OpenTelemetry.noop(),
+                    DefaultSystemAccessControl.NAME);
+            accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
+            QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
+                    Optional.empty(),
+                    QUERY,
+                    Optional.empty(),
+                    TEST_SESSION,
+                    LOCATION,
+                    new ResourceGroupId("test"),
+                    false,
+                    transactionManager,
+                    accessControl,
+                    executor,
+                    ticker,
+                    metadata,
+                    WarningCollector.NOOP,
+                    createPlanOptimizersStatsCollector(),
+                    QUERY_TYPE,
+                    true,
+                    new NodeVersion("test"));
+            stateMachine.setInputs(INPUTS);
+            stateMachine.setOutput(OUTPUT);
+            stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
+            stateMachine.setUpdateType(UPDATE_TYPE);
+            for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {
+                stateMachine.addSetSessionProperties(entry.getKey(), entry.getValue());
+            }
+            RESET_SESSION_PROPERTIES.forEach(stateMachine::addResetSessionProperties);
+            return stateMachine;
+        }
     }
 
     private static void assertEqualSessionsWithoutTransactionId(Session actual, Session expected)
     {
-        assertEquals(actual.getQueryId(), expected.getQueryId());
-        assertEquals(actual.getIdentity(), expected.getIdentity());
-        assertEquals(actual.getSource(), expected.getSource());
-        assertEquals(actual.getCatalog(), expected.getCatalog());
-        assertEquals(actual.getSchema(), expected.getSchema());
-        assertEquals(actual.getTimeZoneKey(), expected.getTimeZoneKey());
-        assertEquals(actual.getLocale(), expected.getLocale());
-        assertEquals(actual.getRemoteUserAddress(), expected.getRemoteUserAddress());
-        assertEquals(actual.getUserAgent(), expected.getUserAgent());
-        assertEquals(actual.getStart(), expected.getStart());
-        assertEquals(actual.getSystemProperties(), expected.getSystemProperties());
-        assertEquals(actual.getCatalogProperties(), expected.getCatalogProperties());
+        assertThat(actual.getQueryId()).isEqualTo(expected.getQueryId());
+        assertThat(actual.getIdentity()).isEqualTo(expected.getIdentity());
+        assertThat(actual.getSource()).isEqualTo(expected.getSource());
+        assertThat(actual.getCatalog()).isEqualTo(expected.getCatalog());
+        assertThat(actual.getSchema()).isEqualTo(expected.getSchema());
+        assertThat(actual.getTimeZoneKey()).isEqualTo(expected.getTimeZoneKey());
+        assertThat(actual.getLocale()).isEqualTo(expected.getLocale());
+        assertThat(actual.getRemoteUserAddress()).isEqualTo(expected.getRemoteUserAddress());
+        assertThat(actual.getUserAgent()).isEqualTo(expected.getUserAgent());
+        assertThat(actual.getStart()).isEqualTo(expected.getStart());
+        assertThat(actual.getSystemProperties()).isEqualTo(expected.getSystemProperties());
+        assertThat(actual.getCatalogProperties()).isEqualTo(expected.getCatalogProperties());
     }
 
     private static SQLException newFailedCause()

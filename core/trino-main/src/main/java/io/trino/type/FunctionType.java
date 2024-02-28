@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -92,7 +93,13 @@ public class FunctionType
     @Override
     public final Class<?> getJavaType()
     {
-        throw new UnsupportedOperationException(getTypeSignature() + " type does not have Java type");
+        throw new UnsupportedOperationException(getTypeSignature() + " type does not have a Java type");
+    }
+
+    @Override
+    public Class<? extends ValueBlock> getValueBlockType()
+    {
+        throw new UnsupportedOperationException(getTypeSignature() + " type does not have a ValueBlock type");
     }
 
     @Override

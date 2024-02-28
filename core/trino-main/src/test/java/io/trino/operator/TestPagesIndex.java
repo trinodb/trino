@@ -20,9 +20,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
-import io.trino.testing.DataProviders;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -40,9 +38,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Percentage.withPercentage;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestPagesIndex
 {
@@ -53,26 +48,31 @@ public class TestPagesIndex
 
         PagesIndex pagesIndex = newPagesIndex(types, 30, false);
         long initialEstimatedSize = pagesIndex.getEstimatedSize().toBytes();
-        assertTrue(initialEstimatedSize > 0, format("Initial estimated size must be positive, got %s", initialEstimatedSize));
+        assertThat(initialEstimatedSize > 0)
+                .describedAs(format("Initial estimated size must be positive, got %s", initialEstimatedSize))
+                .isTrue();
 
         pagesIndex.addPage(somePage(types));
         long estimatedSizeWithOnePage = pagesIndex.getEstimatedSize().toBytes();
-        assertTrue(estimatedSizeWithOnePage > initialEstimatedSize, "Estimated size should grow after adding a page");
+        assertThat(estimatedSizeWithOnePage > initialEstimatedSize)
+                .describedAs("Estimated size should grow after adding a page")
+                .isTrue();
 
         pagesIndex.addPage(somePage(types));
         long estimatedSizeWithTwoPages = pagesIndex.getEstimatedSize().toBytes();
-        assertEquals(
-                estimatedSizeWithTwoPages,
-                initialEstimatedSize + (estimatedSizeWithOnePage - initialEstimatedSize) * 2,
-                "Estimated size should grow linearly as long as we don't pass expectedPositions");
+        assertThat(estimatedSizeWithTwoPages)
+                .describedAs("Estimated size should grow linearly as long as we don't pass expectedPositions")
+                .isEqualTo(initialEstimatedSize + (estimatedSizeWithOnePage - initialEstimatedSize) * 2);
 
         pagesIndex.compact();
         long estimatedSizeAfterCompact = pagesIndex.getEstimatedSize().toBytes();
         // We can expect compact to reduce size because VARCHAR sequence pages are compactable.
-        assertTrue(estimatedSizeAfterCompact < estimatedSizeWithTwoPages, format(
-                "Compact should reduce (or retain) size, but changed from %s to %s",
-                estimatedSizeWithTwoPages,
-                estimatedSizeAfterCompact));
+        assertThat(estimatedSizeAfterCompact < estimatedSizeWithTwoPages)
+                .describedAs(format(
+                        "Compact should reduce (or retain) size, but changed from %s to %s",
+                        estimatedSizeWithTwoPages,
+                        estimatedSizeAfterCompact))
+                .isTrue();
     }
 
     @Test
@@ -89,13 +89,13 @@ public class TestPagesIndex
 
             // We can expect eagerCompactPagesIndex retained less data than lazyCompactPagesIndex because
             // the pages used in the test (VARCHAR sequence pages) are compactable.
-            assertTrue(
-                    eagerCompactPagesIndex.getEstimatedSize().toBytes() < lazyCompactPagesIndex.getEstimatedSize().toBytes(),
-                    "Expect eagerCompactPagesIndex retained less data than lazyCompactPagesIndex after adding the page, because the pages used in the test are compactable.");
+            assertThat(eagerCompactPagesIndex.getEstimatedSize().toBytes() < lazyCompactPagesIndex.getEstimatedSize().toBytes())
+                    .describedAs("Expect eagerCompactPagesIndex retained less data than lazyCompactPagesIndex after adding the page, because the pages used in the test are compactable.")
+                    .isTrue();
         }
 
         lazyCompactPagesIndex.compact();
-        assertEquals(lazyCompactPagesIndex.getEstimatedSize(), eagerCompactPagesIndex.getEstimatedSize());
+        assertThat(lazyCompactPagesIndex.getEstimatedSize()).isEqualTo(eagerCompactPagesIndex.getEstimatedSize());
     }
 
     @Test
@@ -107,7 +107,7 @@ public class TestPagesIndex
 
         index.compact();
 
-        assertEquals(index.getPositionCount(), 30);
+        assertThat(index.getPositionCount()).isEqualTo(30);
     }
 
     @Test
@@ -118,63 +118,59 @@ public class TestPagesIndex
         index.addPage(new Page(20));
 
         Iterator<Page> pages = index.getPages();
-        assertEquals(pages.next().getPositionCount(), 10);
-        assertEquals(pages.next().getPositionCount(), 20);
-        assertFalse(pages.hasNext());
+        assertThat(pages.next().getPositionCount()).isEqualTo(10);
+        assertThat(pages.next().getPositionCount()).isEqualTo(20);
+        assertThat(pages.hasNext()).isFalse();
     }
 
-    @DataProvider
-    public static Object[][] testGetEstimatedLookupSourceSizeInBytesProvider()
+    @Test
+    public void testGetEstimatedLookupSourceSizeInBytes()
     {
-        return DataProviders.cartesianProduct(
-                new Object[][] {{Optional.empty()}, {Optional.of(0)}, {Optional.of(1)}},
-                new Object[][] {{0}, {1}});
-    }
+        for (Optional<Integer> sortChannel : Arrays.asList(Optional.<Integer>empty(), Optional.of(0), Optional.of(1))) {
+            for (int joinChannel : Arrays.asList(0, 1)) {
+                List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
+                PagesIndex pagesIndex = newPagesIndex(types, 50, false);
+                int pageCount = 100;
+                for (int i = 0; i < pageCount; i++) {
+                    pagesIndex.addPage(somePage(types));
+                }
+                long pageIndexSize = pagesIndex.getEstimatedSize().toBytes();
+                long estimatedMemoryRequiredToCreateLookupSource = pagesIndex.getEstimatedMemoryRequiredToCreateLookupSource(
+                        defaultHashArraySizeSupplier(),
+                        sortChannel,
+                        ImmutableList.of(joinChannel));
+                assertThat(estimatedMemoryRequiredToCreateLookupSource).isGreaterThan(pageIndexSize);
+                long estimatedLookupSourceSize = estimatedMemoryRequiredToCreateLookupSource -
+                        // subtract size of page positions
+                        sizeOfIntArray(pageCount);
+                long estimatedAdditionalSize = estimatedMemoryRequiredToCreateLookupSource - pageIndexSize;
 
-    @Test(dataProvider = "testGetEstimatedLookupSourceSizeInBytesProvider")
-    public void testGetEstimatedLookupSourceSizeInBytes(Optional<Integer> sortChannel, int joinChannel)
-    {
-        List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
-        PagesIndex pagesIndex = newPagesIndex(types, 50, false);
-        int pageCount = 100;
-        for (int i = 0; i < pageCount; i++) {
-            pagesIndex.addPage(somePage(types));
+                JoinFilterFunctionCompiler.JoinFilterFunctionFactory filterFunctionFactory = (session, addresses, pages) -> (JoinFilterFunction) (leftPosition, rightPosition, rightPage) -> false;
+                LookupSource lookupSource = pagesIndex.createLookupSourceSupplier(
+                        TEST_SESSION,
+                        ImmutableList.of(joinChannel),
+                        OptionalInt.empty(),
+                        sortChannel.map(channel -> filterFunctionFactory),
+                        sortChannel,
+                        ImmutableList.of(filterFunctionFactory),
+                        Optional.of(ImmutableList.of(0, 1)),
+                        defaultHashArraySizeSupplier()).get();
+                long actualLookupSourceSize = lookupSource.getInMemorySizeInBytes();
+                assertThat(estimatedLookupSourceSize).isGreaterThanOrEqualTo(actualLookupSourceSize);
+                assertThat(estimatedLookupSourceSize).isCloseTo(actualLookupSourceSize, withPercentage(1));
+
+                long addressesSize = sizeOf(pagesIndex.getValueAddresses().elements());
+                long channelsArraySize = sizeOf(pagesIndex.getChannel(0).elements()) * types.size();
+                long blocksSize = 0;
+                for (int channel = 0; channel < 2; channel++) {
+                    blocksSize += pagesIndex.getChannel(channel).stream()
+                            .mapToLong(Block::getRetainedSizeInBytes)
+                            .sum();
+                }
+                long actualAdditionalSize = actualLookupSourceSize - (addressesSize + channelsArraySize + blocksSize);
+                assertThat(estimatedAdditionalSize).isCloseTo(actualAdditionalSize, withPercentage(1));
+            }
         }
-        long pageIndexSize = pagesIndex.getEstimatedSize().toBytes();
-        long estimatedMemoryRequiredToCreateLookupSource = pagesIndex.getEstimatedMemoryRequiredToCreateLookupSource(
-                defaultHashArraySizeSupplier(),
-                sortChannel,
-                ImmutableList.of(joinChannel));
-        assertThat(estimatedMemoryRequiredToCreateLookupSource).isGreaterThan(pageIndexSize);
-        long estimatedLookupSourceSize = estimatedMemoryRequiredToCreateLookupSource -
-                // subtract size of page positions
-                sizeOfIntArray(pageCount);
-        long estimatedAdditionalSize = estimatedMemoryRequiredToCreateLookupSource - pageIndexSize;
-
-        JoinFilterFunctionCompiler.JoinFilterFunctionFactory filterFunctionFactory = (session, addresses, pages) -> (JoinFilterFunction) (leftPosition, rightPosition, rightPage) -> false;
-        LookupSource lookupSource = pagesIndex.createLookupSourceSupplier(
-                TEST_SESSION,
-                ImmutableList.of(joinChannel),
-                OptionalInt.empty(),
-                sortChannel.map(channel -> filterFunctionFactory),
-                sortChannel,
-                ImmutableList.of(filterFunctionFactory),
-                Optional.of(ImmutableList.of(0, 1)),
-                defaultHashArraySizeSupplier()).get();
-        long actualLookupSourceSize = lookupSource.getInMemorySizeInBytes();
-        assertThat(estimatedLookupSourceSize).isGreaterThanOrEqualTo(actualLookupSourceSize);
-        assertThat(estimatedLookupSourceSize).isCloseTo(actualLookupSourceSize, withPercentage(1));
-
-        long addressesSize = sizeOf(pagesIndex.getValueAddresses().elements());
-        long channelsArraySize = sizeOf(pagesIndex.getChannel(0).elements()) * types.size();
-        long blocksSize = 0;
-        for (int channel = 0; channel < 2; channel++) {
-            blocksSize += pagesIndex.getChannel(channel).stream()
-                    .mapToLong(Block::getRetainedSizeInBytes)
-                    .sum();
-        }
-        long actualAdditionalSize = actualLookupSourceSize - (addressesSize + channelsArraySize + blocksSize);
-        assertThat(estimatedAdditionalSize).isCloseTo(actualAdditionalSize, withPercentage(1));
     }
 
     private static PagesIndex newPagesIndex(List<Type> types, int expectedPositions, boolean eagerCompact)

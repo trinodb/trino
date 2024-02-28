@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
@@ -29,17 +30,20 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Error;
-import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static java.util.Objects.requireNonNull;
@@ -83,6 +87,7 @@ final class S3FileSystem
         location.verifyValidFileLocation();
         S3Location s3Location = new S3Location(location);
         DeleteObjectRequest request = DeleteObjectRequest.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
                 .requestPayer(requestPayer)
                 .key(s3Location.key())
                 .bucket(s3Location.bucket())
@@ -132,6 +137,7 @@ final class S3FileSystem
                         .toList();
 
                 DeleteObjectsRequest request = DeleteObjectsRequest.builder()
+                        .overrideConfiguration(context::applyCredentialProviderOverride)
                         .requestPayer(requestPayer)
                         .bucket(bucket)
                         .delete(builder -> builder.objects(objects).quiet(true))
@@ -173,13 +179,16 @@ final class S3FileSystem
         }
 
         ListObjectsV2Request request = ListObjectsV2Request.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
                 .bucket(s3Location.bucket())
                 .prefix(key)
                 .build();
 
         try {
-            ListObjectsV2Iterable iterable = client.listObjectsV2Paginator(request);
-            return new S3FileIterator(s3Location, iterable.contents().iterator());
+            Iterator<S3Object> iterator = client.listObjectsV2Paginator(request).contents().stream()
+                    .filter(object -> !object.key().endsWith("/"))
+                    .iterator();
+            return new S3FileIterator(s3Location, iterator);
         }
         catch (SdkException e) {
             throw new IOException("Failed to list location: " + location, e);
@@ -209,6 +218,45 @@ final class S3FileSystem
             throws IOException
     {
         throw new IOException("S3 does not support directory renames");
+    }
+
+    @Override
+    public Set<Location> listDirectories(Location location)
+            throws IOException
+    {
+        S3Location s3Location = new S3Location(location);
+        Location baseLocation = s3Location.baseLocation();
+
+        String key = s3Location.key();
+        if (!key.isEmpty() && !key.endsWith("/")) {
+            key += "/";
+        }
+
+        ListObjectsV2Request request = ListObjectsV2Request.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .bucket(s3Location.bucket())
+                .prefix(key)
+                .delimiter("/")
+                .build();
+
+        try {
+            return client.listObjectsV2Paginator(request)
+                    .commonPrefixes().stream()
+                    .map(CommonPrefix::prefix)
+                    .map(baseLocation::appendPath)
+                    .collect(toImmutableSet());
+        }
+        catch (SdkException e) {
+            throw new IOException("Failed to list location: " + location, e);
+        }
+    }
+
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+    {
+        validateS3Location(targetPath);
+        // S3 does not have directories
+        return Optional.empty();
     }
 
     @SuppressWarnings("ResultOfObjectAllocationIgnored")

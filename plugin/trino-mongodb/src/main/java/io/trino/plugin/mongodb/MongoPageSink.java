@@ -22,6 +22,8 @@ import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.type.ArrayType;
@@ -89,17 +91,17 @@ public class MongoPageSink
     private final ConnectorPageSinkId pageSinkId;
 
     public MongoPageSink(
-            MongoClientConfig config,
             MongoSession mongoSession,
             RemoteTableName remoteTableName,
             List<MongoColumnHandle> columns,
+            String implicitPrefix,
             Optional<String> pageSinkIdColumnName,
             ConnectorPageSinkId pageSinkId)
     {
         this.mongoSession = mongoSession;
         this.remoteTableName = remoteTableName;
         this.columns = columns;
-        this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
+        this.implicitPrefix = requireNonNull(implicitPrefix, "implicitPrefix is null");
         this.pageSinkIdColumnName = requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
         this.pageSinkId = requireNonNull(pageSinkId, "pageSinkId is null");
     }
@@ -135,7 +137,7 @@ public class MongoPageSink
         }
 
         if (type.equals(OBJECT_ID)) {
-            return new ObjectId(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
+            return new ObjectId(OBJECT_ID.getSlice(block, position).getBytes());
         }
         if (type.equals(BOOLEAN)) {
             return BOOLEAN.getBoolean(block, position);
@@ -200,7 +202,7 @@ public class MongoPageSink
         if (type instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
 
-            Block arrayBlock = block.getObject(position, Block.class);
+            Block arrayBlock = arrayType.getObject(block, position);
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -214,41 +216,46 @@ public class MongoPageSink
             Type keyType = mapType.getKeyType();
             Type valueType = mapType.getValueType();
 
-            Block mapBlock = block.getObject(position, Block.class);
+            SqlMap sqlMap = mapType.getObject(block, position);
+            int size = sqlMap.getSize();
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
 
             // map type is converted into list of fixed keys document
-            List<Object> values = new ArrayList<>(mapBlock.getPositionCount() / 2);
-            for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
+            List<Object> values = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
                 Map<String, Object> mapValue = new HashMap<>();
-                mapValue.put("key", getObjectValue(keyType, mapBlock, i));
-                mapValue.put("value", getObjectValue(valueType, mapBlock, i + 1));
+                mapValue.put("key", getObjectValue(keyType, rawKeyBlock, rawOffset + i));
+                mapValue.put("value", getObjectValue(valueType, rawValueBlock, rawOffset + i));
                 values.add(mapValue);
             }
 
             return unmodifiableList(values);
         }
         if (type instanceof RowType rowType) {
-            Block rowBlock = block.getObject(position, Block.class);
+            SqlRow sqlRow = rowType.getObject(block, position);
+            int rawIndex = sqlRow.getRawIndex();
 
             List<Type> fieldTypes = rowType.getTypeParameters();
-            if (fieldTypes.size() != rowBlock.getPositionCount()) {
+            if (fieldTypes.size() != sqlRow.getFieldCount()) {
                 throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }
 
             if (isImplicitRowType(rowType)) {
                 List<Object> rowValue = new ArrayList<>();
-                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                    Object element = getObjectValue(fieldTypes.get(i), rowBlock, i);
+                for (int i = 0; i < sqlRow.getFieldCount(); i++) {
+                    Object element = getObjectValue(fieldTypes.get(i), sqlRow.getRawFieldBlock(i), rawIndex);
                     rowValue.add(element);
                 }
                 return unmodifiableList(rowValue);
             }
 
             Map<String, Object> rowValue = new HashMap<>();
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+            for (int i = 0; i < sqlRow.getFieldCount(); i++) {
                 rowValue.put(
                         rowType.getTypeSignature().getParameters().get(i).getNamedTypeSignature().getName().orElse("field" + i),
-                        getObjectValue(fieldTypes.get(i), rowBlock, i));
+                        getObjectValue(fieldTypes.get(i), sqlRow.getRawFieldBlock(i), rawIndex));
             }
             return unmodifiableMap(rowValue);
         }

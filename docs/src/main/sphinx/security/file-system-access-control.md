@@ -21,12 +21,6 @@ cluster in a single JSON file.
 
 ### Configuration
 
-:::{warning}
-Access to all functions including {doc}`table functions </functions/table>` is allowed by default.
-To mitigate unwanted access, you must add a `function`
-{ref}`rule <system-file-function-rules>` to deny the `TABLE` function type.
-:::
-
 To use the access control plugin, add an `etc/access-control.properties` file
 containing two required properties: `access-control.name`, which must be set
 to `file`, and `security.config-file`, which must be set to the location
@@ -78,14 +72,27 @@ any specific schema or table permissions. The table and schema rules are used to
 specify who can create, drop, alter, select, insert, delete, etc. for schemas
 and tables.
 
+For each rule set, permission is based on the first matching rule, read from the
+top to the bottom of the configuration file. If no rule matches, access is
+denied.
+
+If no rules are provided at all, then access is granted. You can remove
+access grant by adding a section with an empty set of rules at that particular
+level, for example:
+
+```json
+{
+  "schemas": []
+}
+```
+
+At the catalog level you have to add a single "dummy" rule for each accessible
+catalog.
+
 :::{note}
 These rules do not apply to system-defined tables in the
 `information_schema` schema.
 :::
-
-For each rule set, permission is based on the first matching rule read from top
-to bottom.  If no rule matches, access is denied. If no rules are provided at
-all, then access is granted.
 
 The following table summarizes the permissions required for each SQL command:
 
@@ -121,27 +128,27 @@ The following table summarizes the permissions required for each SQL command:
 
 Permissions required for executing functions:
 
-```{eval-rst}
-.. list-table::
-   :widths: 30, 10, 15, 15, 30
-   :header-rows: 1
+:::{list-table}
+:widths: 30, 10, 20, 40
+:header-rows: 1
 
-   * - SQL command
-     - Catalog
-     - Function permission
-     - Function kind
-     - Note
-   * - ``SELECT function()``
-     -
-     - ``execute``, ``grant_execute*``
-     - ``aggregate``, ``scalar``, ``window``
-     - ``grant_execute`` is required when function is executed with view owner privileges.
-   * - ``SELECT FROM TABLE(table_function())``
-     - ``all``
-     - ``execute``, ``grant_execute*``
-     - ``table``
-     - ``grant_execute`` is required when :doc:`table function </functions/table>` is executed with view owner privileges.
-```
+* - SQL command
+  - Catalog
+  - Function permission
+  - Note
+* - `SELECT function()`
+  -
+  - `execute`, `grant_execute*`
+  - `grant_execute` is required when the function is used in a `SECURITY DEFINER` view.
+* - `CREATE FUNCTION`
+  - `all`
+  - `ownership`
+  -  Not all connectors support [catalog routines](routine-catalog).
+* - `DROP FUNCTION`
+  - `all`
+  - `ownership`
+  -  Not all connectors support [catalog routines](routine-catalog).
+:::
 
 (system-file-auth-visibility)=
 
@@ -153,10 +160,10 @@ items do not need to already exist as any potential permission makes the item
 visible. Specifically:
 
 - `catalog`: Visible if user is the owner of any nested schema, has
-  permissions on any nested table or {doc}`table function </functions/table>`, or has permissions to
+  permissions on any nested table or function, or has permissions to
   set session properties in the catalog.
 - `schema`: Visible if the user is the owner of the schema, or has permissions
-  on any nested table or {doc}`table function </functions/table>`.
+  on any nested table or function.
 - `table`: Visible if the user has any permissions on the table.
 
 #### Catalog rules
@@ -366,9 +373,17 @@ The example below defines the following table access policy:
 
 #### Function rules
 
-These rules control the user's ability to execute SQL all function kinds,
-such as {doc}`aggregate functions </functions/aggregate>`, scalar functions,
-{doc}`table functions </functions/table>` and {doc}`window functions </functions/window>`.
+These rules control the ability of a user to create, drop, and execute functions.
+
+When these rules are present, the authorization is based on the first matching
+rule, processed from top to bottom. If no rules match, the authorization is
+denied. If function rules are not present, only functions in`system.builtin` can
+be executed.
+
+:::{note}
+Users always have access to functions in the `system.builtin` schema, and
+you cannot override this behavior by adding a rule.
+:::
 
 Each function rule is composed of the following fields:
 
@@ -384,66 +399,33 @@ Each function rule is composed of the following fields:
   Defaults to `.*`.
 - `function` (optional): regular expression to match against function names.
   Defaults to `.*`.
-- `privileges` (required): zero or more of `EXECUTE`, `GRANT_EXECUTE`.
-- `function_kinds` (required): one or more of `AGGREGATE`, `SCALAR`,
-  `TABLES`, `WINDOW`. When a user defines a rule for `AGGREGATE`, `SCALAR`
-  or `WINDOW` functions, the `catalog` and `schema` fields are disallowed
-  because those functions are available globally without any catalogs involvement.
+- `privileges` (required): zero or more of `EXECUTE`, `GRANT_EXECUTE`, `OWNERSHIP`.
 
-To deny all {doc}`table functions </functions/table>` from any catalog,
-use the following rules:
+Care should be taken when granting permission to the `system` schema of a 
+catalog, as this is the schema Trino uses for table function such as `query`.
+These table functions can be used to access or modify the underlying data of
+the catalog.
 
-```json
-{
-  "functions": [
-    {
-      "privileges": [
-        "EXECUTE",
-        "GRANT_EXECUTE"
-      ],
-      "function_kinds": [
-        "SCALAR",
-        "AGGREGATE",
-        "WINDOW"
-      ]
-    },
-    {
-      "privileges": [],
-      "function_kinds": [
-        "TABLE"
-      ]
-    }
-  ]
-}
-```
-
-It's a good practice to limit access to `query` table function because this
-table function works like a query passthrough and ignores  `tables` rules.
-The following example allows the `admin` user to execute `query` table
-function from any catalog:
+The following example allows the `admin` user to execute `system.query` table function in
+any catalog, and allows all users to create, drop, and execute functions (including
+`SECURITY DEFINER` views) in the `hive.function` schema:
 
 ```json
 {
   "functions": [
-    {
-      "privileges": [
-        "EXECUTE",
-        "GRANT_EXECUTE"
-      ],
-      "function_kinds": [
-        "SCALAR",
-        "AGGREGATE",
-        "WINDOW"
-      ]
-    },
     {
       "user": "admin",
+      "schema": "system",
       "function": "query",
       "privileges": [
         "EXECUTE"
-      ],
-      "function_kinds": [
-        "TABLE"
+      ]
+    },
+    {
+      "catalog": "hive",
+      "schema": "function",
+      "privileges": [
+        "EXECUTE", "GRANT_EXECUTE", "OWNERSHIP"
       ]
     }
   ]
@@ -670,11 +652,17 @@ as `group@example.net`, you can use the following rules.
 These rules specify which users can access the system information management
 interface. System information access includes the following aspects:
 
-- Read access to details such as Trino version, uptime of the node, and others
-  from the `/v1/info` and `/v1/status` REST endpoints.
+- Read access to sensitive information from REST endpoints, such as `/v1/node`
+  and `/v1/thread`.
 - Read access with the {doc}`system information functions </functions/system>`.
 - Read access with the {doc}`/connector/system`.
 - Write access to trigger {doc}`/admin/graceful-shutdown`.
+
+The following REST endpoints are always public and not affected by these rules:
+
+- `GET /v1/info`
+- `GET /v1/info/state`
+- `GET /v1/status`
 
 The user is granted or denied access based on the first matching
 rule read from top to bottom. If no rules are specified, all access to system
@@ -836,7 +824,11 @@ These rules apply to `filter_environment` and `mask_environment`.
 
 #### Function rules
 
-Each function rule is composed of the following fields:
+These rules control the ability of a user to create, drop, and execute functions.
+
+When these rules are present, the authorization is based on the first matching
+rule, processed from top to bottom. If no rules match, the authorization is
+denied. If function rules are not present, access is not allowed.
 
 - `user` (optional): regular expression to match against user name.
   Defaults to `.*`.
@@ -846,10 +838,37 @@ Each function rule is composed of the following fields:
   Defaults to `.*`.
 - `function` (optional): regular expression to match against function names.
   Defaults to `.*`.
-- `privileges` (required): zero or more of `EXECUTE`, `GRANT_EXECUTE`.
-- `function_kinds` (required): one or more of `AGGREGATE`, `SCALAR`,
-  `TABLES`, `WINDOW`. When a user defines a rule for `AGGREGATE`, `SCALAR`
-  or `WINDOW` functions, the `catalog` and `schema` fields are disallowed.
+- `privileges` (required): zero or more of `EXECUTE`, `GRANT_EXECUTE`, `OWNERSHIP`.
+
+Care should be taken when granting permission to the `system` schema of a 
+catalog, as this is the schema Trino uses for table function such as `query`.
+These table functions can be used to access or modify the underlying data of
+the catalog.
+
+The following example allows the `admin` user to execute `system.query` table function from
+any catalog, and all users to create, drop, and execute functions (including from views)
+in the `function` schema of this catalog:
+
+```json
+{
+  "functions": [
+    {
+      "user": "admin",
+      "schema": "system",
+      "function": "query",
+      "privileges": [
+        "EXECUTE"
+      ]
+    },
+    {
+      "schema": "function",
+      "privileges": [
+        "EXECUTE", "GRANT_EXECUTE", "OWNERSHIP"
+      ]
+    }
+  ]
+}
+```
 
 #### Session property rules
 

@@ -28,8 +28,8 @@ import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
-public class Fixed12Block
-        implements Block
+public final class Fixed12Block
+        implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(Fixed12Block.class);
     public static final int FIXED12_BYTES = Long.BYTES + Integer.BYTES;
@@ -124,18 +124,6 @@ public class Fixed12Block
         return positionCount;
     }
 
-    @Override
-    public long getLong(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            // If needed, we can add support for offset 4
-            throw new IllegalArgumentException("offset must be 0");
-        }
-        return decodeFixed12First(values, position + positionOffset);
-    }
-
-    @Override
     public int getInt(int position, int offset)
     {
         checkReadablePosition(this, position);
@@ -149,6 +137,17 @@ public class Fixed12Block
             return values[((position + positionOffset) * 3) + 2];
         }
         throw new IllegalArgumentException("offset must be 0, 4, or 8");
+    }
+
+    public long getFixed12First(int position)
+    {
+        checkReadablePosition(this, position);
+        return decodeFixed12First(values, position + positionOffset);
+    }
+
+    public int getFixed12Second(int position)
+    {
+        return decodeFixed12Second(values, position + positionOffset);
     }
 
     @Override
@@ -165,7 +164,7 @@ public class Fixed12Block
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public Fixed12Block getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
         int index = (position + positionOffset) * 3;
@@ -177,7 +176,7 @@ public class Fixed12Block
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public Fixed12Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
@@ -202,7 +201,7 @@ public class Fixed12Block
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public Fixed12Block getRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -210,7 +209,7 @@ public class Fixed12Block
     }
 
     @Override
-    public Block copyRegion(int positionOffset, int length)
+    public Fixed12Block copyRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -231,11 +230,17 @@ public class Fixed12Block
     }
 
     @Override
-    public Block copyWithAppendedNull()
+    public Fixed12Block copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
         int[] newValues = ensureCapacity(values, (positionOffset + positionCount + 1) * 3);
         return new Fixed12Block(positionOffset, positionCount + 1, newValueIsNull, newValues);
+    }
+
+    @Override
+    public Fixed12Block getUnderlyingValueBlock()
+    {
+        return this;
     }
 
     @Override
@@ -278,9 +283,15 @@ public class Fixed12Block
         return values[offset + 2];
     }
 
-    int getPositionOffset()
+    int getRawOffset()
     {
         return positionOffset;
+    }
+
+    @Nullable
+    boolean[] getRawValueIsNull()
+    {
+        return valueIsNull;
     }
 
     int[] getRawValues()

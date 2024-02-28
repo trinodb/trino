@@ -13,7 +13,7 @@
  */
 package io.trino.orc.metadata.statistics;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Long.MAX_VALUE;

@@ -124,16 +124,16 @@ public class TestSqlFormatter
     public void testShowFunctions()
     {
         assertThat(formatSql(
-                new ShowFunctions(Optional.empty(), Optional.empty())))
+                new ShowFunctions(Optional.empty(), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW FUNCTIONS");
         assertThat(formatSql(
-                new ShowFunctions(Optional.of("%"), Optional.empty())))
+                new ShowFunctions(Optional.empty(), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW FUNCTIONS LIKE '%'");
         assertThat(formatSql(
-                new ShowFunctions(Optional.of("%$_%"), Optional.of("$"))))
+                new ShowFunctions(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW FUNCTIONS LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowFunctions(Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowFunctions(Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW FUNCTIONS LIKE '%機動隊' ESCAPE '😂'");
     }
 
@@ -232,9 +232,9 @@ public class TestSqlFormatter
         String createTableSql = "CREATE TABLE %s (\n   %s VARCHAR\n)";
 
         assertThat(formatSql(createTable.apply("table_name", "column_name")))
-                .isEqualTo(String.format(createTableSql, "table_name", "column_name"));
+                .isEqualTo(createTableSql.formatted("table_name", "column_name"));
         assertThat(formatSql(createTable.apply("exists", "exists")))
-                .isEqualTo(String.format(createTableSql, "\"exists\"", "\"exists\""));
+                .isEqualTo(createTableSql.formatted("\"exists\"", "\"exists\""));
 
         // Create a table with table comment
         assertThat(formatSql(
@@ -289,9 +289,9 @@ public class TestSqlFormatter
         String createTableSql = "CREATE TABLE %s( %s ) AS SELECT *\nFROM\n  t\n";
 
         assertThat(formatSql(createTableAsSelect.apply("table_name", "column_name")))
-                .isEqualTo(String.format(createTableSql, "table_name", "column_name"));
+                .isEqualTo(createTableSql.formatted("table_name", "column_name"));
         assertThat(formatSql(createTableAsSelect.apply("exists", "exists")))
-                .isEqualTo(String.format(createTableSql, "\"exists\"", "\"exists\""));
+                .isEqualTo(createTableSql.formatted("\"exists\"", "\"exists\""));
 
         assertThat(formatSql(
                 new CreateTableAsSelect(

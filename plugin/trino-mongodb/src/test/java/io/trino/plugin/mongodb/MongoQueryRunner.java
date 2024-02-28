@@ -16,7 +16,9 @@ package io.trino.plugin.mongodb;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -34,17 +36,22 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class MongoQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.mongodb.driver", Level.OFF);
+    }
+
     private static final String TPCH_SCHEMA = "tpch";
 
     private MongoQueryRunner() {}
 
-    public static DistributedQueryRunner createMongoQueryRunner(MongoServer server, Map<String, String> extraProperties, Iterable<TpchTable<?>> tables)
+    public static QueryRunner createMongoQueryRunner(MongoServer server, Map<String, String> extraProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         return createMongoQueryRunner(server, extraProperties, ImmutableMap.of(), ImmutableMap.of(), tables, runner -> {});
     }
 
-    public static DistributedQueryRunner createMongoQueryRunner(
+    public static QueryRunner createMongoQueryRunner(
             MongoServer server,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
@@ -53,7 +60,7 @@ public final class MongoQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = null;
+        QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
@@ -96,7 +103,7 @@ public final class MongoQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createMongoQueryRunner(
+        QueryRunner queryRunner = createMongoQueryRunner(
                 new MongoServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 TpchTable.getTables());

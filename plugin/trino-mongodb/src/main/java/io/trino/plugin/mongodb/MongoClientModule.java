@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -33,6 +34,7 @@ import io.trino.spi.type.TypeManager;
 import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -44,10 +46,12 @@ public class MongoClientModule
     public void setup(Binder binder)
     {
         binder.bind(MongoConnector.class).in(Scopes.SINGLETON);
+        binder.bind(MongoTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(MongoSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSinkProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(MongoSessionProperties.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, MongoMetadataFactory.class).setDefault().to(DefaultMongoMetadataFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(MongoClientConfig.class);
         newSetBinder(binder, MongoClientSettingConfigurator.class);
@@ -56,6 +60,12 @@ public class MongoClientModule
                 MongoClientConfig.class,
                 MongoClientConfig::getTlsEnabled,
                 new MongoSslModule()));
+
+        install(conditionalModule(
+                MongoClientConfig.class,
+                MongoClientConfig::isAllowLocalScheduling,
+                internalBinder -> internalBinder.bind(MongoServerDetailsProvider.class).toInstance(ImmutableList::of),
+                internalBinder -> internalBinder.bind(MongoServerDetailsProvider.class).to(SessionBasedMongoServerDetailsProvider.class).in(Scopes.SINGLETON)));
 
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }

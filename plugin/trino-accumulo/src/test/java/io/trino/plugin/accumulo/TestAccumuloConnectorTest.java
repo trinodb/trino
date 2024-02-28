@@ -20,18 +20,20 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.regex.Pattern;
 
 import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static java.util.regex.Pattern.DOTALL;
+import static java.util.regex.Pattern.MULTILINE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 /**
  * Accumulo requires a unique identifier for the rows.
@@ -78,9 +80,10 @@ public class TestAccumuloConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Accumulo connector does not support column default values");
+        return abort("Accumulo connector does not support column default values");
     }
 
+    @Test
     @Override
     public void testCreateTableAsSelect()
     {
@@ -90,15 +93,15 @@ public class TestAccumuloConnectorTest
         // TODO some test cases from overridden method succeed to create table, but with wrong number or rows.
 
         assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists")).isTrue();
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
         assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT cast(uuid() AS uuid) AS uuid, orderkey, discount FROM lineitem", 0);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists")).isTrue();
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
         assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists")).isFalse();
 
         this.assertCreateTableAsSelect(
                 "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
@@ -115,6 +118,41 @@ public class TestAccumuloConnectorTest
                 "SELECT 0");
     }
 
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(1024);
+    }
+
+    @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(1024);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Table name exceeds a maximum length");
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Namespace name exceeds a maximum length of 1024");
+    }
+
+    @Test
+    @Override
+    public void testCreateSchemaWithLongName()
+    {
+        // Despite that create operating fails, invalid schema can be listed
+        assertThatThrownBy(super::testCreateSchemaWithLongName)
+                .isInstanceOf(AssertionError.class)
+                .hasMessageMatching(Pattern.compile(".*Expecting.*not\\sto\\scontain.*", MULTILINE | DOTALL));
+    }
+
+    @Test
     @Override
     public void testInsert()
     {
@@ -151,6 +189,7 @@ public class TestAccumuloConnectorTest
         assertUpdate("DROP TABLE test_insert");
     }
 
+    @Test
     @Override // Overridden because we currently do not support arrays with null elements
     public void testInsertArray()
     {
@@ -182,30 +221,31 @@ public class TestAccumuloConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testShowColumns()
     {
         // Override base class because table descriptions for Accumulo connector include extra info
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        assertEquals(actual.getMaterializedRows().get(0).getField(0), "orderkey");
-        assertEquals(actual.getMaterializedRows().get(0).getField(1), "bigint");
-        assertEquals(actual.getMaterializedRows().get(1).getField(0), "custkey");
-        assertEquals(actual.getMaterializedRows().get(1).getField(1), "bigint");
-        assertEquals(actual.getMaterializedRows().get(2).getField(0), "orderstatus");
-        assertEquals(actual.getMaterializedRows().get(2).getField(1), "varchar(1)");
-        assertEquals(actual.getMaterializedRows().get(3).getField(0), "totalprice");
-        assertEquals(actual.getMaterializedRows().get(3).getField(1), "double");
-        assertEquals(actual.getMaterializedRows().get(4).getField(0), "orderdate");
-        assertEquals(actual.getMaterializedRows().get(4).getField(1), "date");
-        assertEquals(actual.getMaterializedRows().get(5).getField(0), "orderpriority");
-        assertEquals(actual.getMaterializedRows().get(5).getField(1), "varchar(15)");
-        assertEquals(actual.getMaterializedRows().get(6).getField(0), "clerk");
-        assertEquals(actual.getMaterializedRows().get(6).getField(1), "varchar(15)");
-        assertEquals(actual.getMaterializedRows().get(7).getField(0), "shippriority");
-        assertEquals(actual.getMaterializedRows().get(7).getField(1), "integer");
-        assertEquals(actual.getMaterializedRows().get(8).getField(0), "comment");
-        assertEquals(actual.getMaterializedRows().get(8).getField(1), "varchar(79)");
+        assertThat(actual.getMaterializedRows().get(0).getField(0)).isEqualTo("orderkey");
+        assertThat(actual.getMaterializedRows().get(0).getField(1)).isEqualTo("bigint");
+        assertThat(actual.getMaterializedRows().get(1).getField(0)).isEqualTo("custkey");
+        assertThat(actual.getMaterializedRows().get(1).getField(1)).isEqualTo("bigint");
+        assertThat(actual.getMaterializedRows().get(2).getField(0)).isEqualTo("orderstatus");
+        assertThat(actual.getMaterializedRows().get(2).getField(1)).isEqualTo("varchar(1)");
+        assertThat(actual.getMaterializedRows().get(3).getField(0)).isEqualTo("totalprice");
+        assertThat(actual.getMaterializedRows().get(3).getField(1)).isEqualTo("double");
+        assertThat(actual.getMaterializedRows().get(4).getField(0)).isEqualTo("orderdate");
+        assertThat(actual.getMaterializedRows().get(4).getField(1)).isEqualTo("date");
+        assertThat(actual.getMaterializedRows().get(5).getField(0)).isEqualTo("orderpriority");
+        assertThat(actual.getMaterializedRows().get(5).getField(1)).isEqualTo("varchar(15)");
+        assertThat(actual.getMaterializedRows().get(6).getField(0)).isEqualTo("clerk");
+        assertThat(actual.getMaterializedRows().get(6).getField(1)).isEqualTo("varchar(15)");
+        assertThat(actual.getMaterializedRows().get(7).getField(0)).isEqualTo("shippriority");
+        assertThat(actual.getMaterializedRows().get(7).getField(1)).isEqualTo("integer");
+        assertThat(actual.getMaterializedRows().get(8).getField(0)).isEqualTo("comment");
+        assertThat(actual.getMaterializedRows().get(8).getField(1)).isEqualTo("varchar(79)");
     }
 
     @Test
@@ -296,6 +336,7 @@ public class TestAccumuloConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {

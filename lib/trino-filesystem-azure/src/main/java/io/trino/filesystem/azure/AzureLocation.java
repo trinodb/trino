@@ -113,4 +113,11 @@ class AzureLocation
     {
         return location.toString();
     }
+
+    public Location baseLocation()
+    {
+        return Location.of("abfs://%s%s.dfs.core.windows.net/".formatted(
+                container().map(container -> container + "@").orElse(""),
+                account()));
+    }
 }

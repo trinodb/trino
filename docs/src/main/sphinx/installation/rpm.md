@@ -36,24 +36,23 @@ installation, you can manage the Trino server with the `service` command:
 service trino [start|stop|restart|status]
 ```
 
-```{eval-rst}
-.. list-table:: ``service`` commands
-  :widths: 15, 85
-  :header-rows: 1
+:::{list-table} `service` commands
+:widths: 15, 85
+:header-rows: 1
 
-  * - Command
-    - Action
-  * - ``start``
-    - Starts the server as a daemon and returns its process ID.
-  * - ``stop``
-    - Shuts down a server started with either ``start`` or ``run``. Sends the
-      SIGTERM signal.
-  * - ``restart``
-    - Stops and then starts a running server, or starts a stopped server,
-      assigning a new process ID.
-  * - ``status``
-    - Prints a status line, either *Stopped pid* or *Running as pid*.
-```
+* - Command
+  - Action
+* - `start`
+  - Starts the server as a daemon and returns its process ID.
+* - `stop`
+  - Shuts down a server started with either `start` or `run`. Sends the
+    SIGTERM signal.
+* - `restart`
+  - Stops and then starts a running server, or starts a stopped server,
+    assigning a new process ID.
+* - `status`
+  - Prints a status line, either *Stopped pid* or *Running as pid*.
+:::
 
 ## Installation directory structure
 

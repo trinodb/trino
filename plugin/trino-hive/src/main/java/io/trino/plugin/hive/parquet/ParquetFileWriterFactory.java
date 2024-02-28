@@ -43,9 +43,9 @@ import org.weakref.jmx.Managed;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.function.Supplier;
 
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
@@ -90,7 +90,7 @@ public class ParquetFileWriterFactory
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             HiveCompressionCodec compressionCodec,
-            Properties schema,
+            Map<String, String> schema,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
@@ -103,6 +103,7 @@ public class ParquetFileWriterFactory
 
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
+                .setMaxPageValueCount(HiveSessionProperties.getParquetWriterPageValueCount(session))
                 .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
                 .build();
@@ -149,7 +150,9 @@ public class ParquetFileWriterFactory
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     fileInputColumnIndexes,
-                    compressionCodec.getParquetCompressionCodec(),
+                    compressionCodec.getParquetCompressionCodec()
+                            // Ensured by the caller
+                            .orElseThrow(() -> new IllegalArgumentException("Unsupported compression codec for Parquet: " + compressionCodec)),
                     nodeVersion.toString(),
                     Optional.of(parquetTimeZone),
                     validationInputFactory));

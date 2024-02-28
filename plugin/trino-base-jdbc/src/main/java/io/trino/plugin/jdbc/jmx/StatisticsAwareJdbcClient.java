@@ -42,7 +42,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
 import org.weakref.jmx.Flatten;
@@ -146,6 +145,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return delegate.getSupportedType(session, type);
+    }
+
+    @Override
     public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         return delegate().supportsAggregationPushdown(session, table, aggregates, assignments, groupingSets);
@@ -225,13 +230,26 @@ public final class StatisticsAwareJdbcClient
     public Optional<PreparedQuery> implementJoin(ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
+            JoinStatistics statistics)
+    {
+        return stats.getImplementJoin().wrap(() -> delegate().implementJoin(session, joinType, leftSource, leftProjections, rightSource, rightProjections, joinConditions, statistics));
+    }
+
+    @Override
+    public Optional<PreparedQuery> legacyImplementJoin(ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
             PreparedQuery rightSource,
             List<JdbcJoinCondition> joinConditions,
             Map<JdbcColumnHandle, String> rightAssignments,
             Map<JdbcColumnHandle, String> leftAssignments,
             JoinStatistics statistics)
     {
-        return stats.getImplementJoin().wrap(() -> delegate().implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
+        return stats.getImplementJoin().wrap(() -> delegate().legacyImplementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
     }
 
     @Override
@@ -275,6 +293,12 @@ public final class StatisticsAwareJdbcClient
     public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
     {
         stats.getSetColumnType().wrap(() -> delegate().setColumnType(session, handle, column, type));
+    }
+
+    @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        stats.getDropNotNullConstraint().wrap(() -> delegate().dropNotNullConstraint(session, handle, column));
     }
 
     @Override
@@ -355,12 +379,6 @@ public final class StatisticsAwareJdbcClient
             throws SQLException
     {
         return stats.getGetPreparedStatement().wrap(() -> delegate().getPreparedStatement(connection, sql, columnCount));
-    }
-
-    @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
-    {
-        return stats.getGetTableStatistics().wrap(() -> delegate().getTableStatistics(session, handle, tupleDomain));
     }
 
     @Override
@@ -448,6 +466,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return stats.getUpdate().wrap(() -> delegate().update(session, handle));
+    }
+
+    @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
         stats.getTruncateTable().wrap(() -> delegate().truncateTable(session, handle));
@@ -457,5 +481,11 @@ public final class StatisticsAwareJdbcClient
     public OptionalInt getMaxWriteParallelism(ConnectorSession session)
     {
         return delegate().getMaxWriteParallelism(session);
+    }
+
+    @Override
+    public OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        return delegate().getMaxColumnNameLength(session);
     }
 }

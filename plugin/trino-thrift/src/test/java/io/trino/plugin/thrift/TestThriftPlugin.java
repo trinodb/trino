@@ -24,7 +24,7 @@ import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestThriftPlugin
 {
@@ -35,10 +35,12 @@ public class TestThriftPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertInstanceOf(factory, ThriftConnectorFactory.class);
 
-        Map<String, String> config = ImmutableMap.of("trino.thrift.client.addresses", "localhost:7779");
+        Map<String, String> config = ImmutableMap.of(
+                "trino.thrift.client.addresses", "localhost:7779",
+                "bootstrap.quiet", "true");
 
         Connector connector = factory.create("test", config, new TestingConnectorContext());
-        assertNotNull(connector);
+        assertThat(connector).isNotNull();
         assertInstanceOf(connector, ThriftConnector.class);
         connector.shutdown();
     }

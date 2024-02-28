@@ -20,7 +20,7 @@ import io.airlift.slice.Slices;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.spi.type.Int128;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -34,8 +34,8 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.spi.type.Decimals.MAX_UNSCALED_DECIMAL;
 import static io.trino.spi.type.Decimals.MIN_UNSCALED_DECIMAL;
 import static java.math.BigInteger.ONE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestDecimalStream
 {
@@ -102,7 +102,7 @@ public class TestDecimalStream
         DecimalInputStream stream = new DecimalInputStream(chunkLoader);
         stream.skip(1);
 
-        assertEquals(nextShortDecimalValue(stream), Long.MIN_VALUE);
+        assertThat(nextShortDecimalValue(stream)).isEqualTo(Long.MIN_VALUE);
     }
 
     @Test
@@ -118,7 +118,7 @@ public class TestDecimalStream
         DecimalInputStream stream = new DecimalInputStream(loader);
 
         stream.skip(1);
-        assertEquals(nextShortDecimalValue(stream), Long.MAX_VALUE);
+        assertThat(nextShortDecimalValue(stream)).isEqualTo(Long.MAX_VALUE);
     }
 
     @Test
@@ -133,8 +133,8 @@ public class TestDecimalStream
 
         DecimalInputStream stream = new DecimalInputStream(loader);
 
-        assertEquals(nextShortDecimalValue(stream), Long.MAX_VALUE);
-        assertEquals(nextShortDecimalValue(stream), Long.MAX_VALUE);
+        assertThat(nextShortDecimalValue(stream)).isEqualTo(Long.MAX_VALUE);
+        assertThat(nextShortDecimalValue(stream)).isEqualTo(Long.MAX_VALUE);
     }
 
     @Test
@@ -150,7 +150,7 @@ public class TestDecimalStream
         DecimalInputStream stream = new DecimalInputStream(loader);
 
         stream.skip(1);
-        assertEquals(nextLongDecimalValue(stream), BigInteger.valueOf(Long.MAX_VALUE));
+        assertThat(nextLongDecimalValue(stream)).isEqualTo(BigInteger.valueOf(Long.MAX_VALUE));
     }
 
     @Test
@@ -165,8 +165,8 @@ public class TestDecimalStream
 
         DecimalInputStream stream = new DecimalInputStream(loader);
 
-        assertEquals(nextLongDecimalValue(stream), BigInteger.valueOf(Long.MAX_VALUE));
-        assertEquals(nextLongDecimalValue(stream), BigInteger.valueOf(Long.MAX_VALUE));
+        assertThat(nextLongDecimalValue(stream)).isEqualTo(BigInteger.valueOf(Long.MAX_VALUE));
+        assertThat(nextLongDecimalValue(stream)).isEqualTo(BigInteger.valueOf(Long.MAX_VALUE));
     }
 
     private static Slice encodeValues(List<BigInteger> values)
@@ -184,14 +184,14 @@ public class TestDecimalStream
             throws IOException
     {
         DecimalInputStream stream = new DecimalInputStream(decimalChunkLoader(BigInteger.valueOf(value)));
-        assertEquals(nextShortDecimalValue(stream), value);
+        assertThat(nextShortDecimalValue(stream)).isEqualTo(value);
     }
 
     private static void assertReadsLongValue(BigInteger value)
             throws IOException
     {
         DecimalInputStream stream = new DecimalInputStream(decimalChunkLoader(value));
-        assertEquals(nextLongDecimalValue(stream), value);
+        assertThat(nextLongDecimalValue(stream)).isEqualTo(value);
     }
 
     private static void assertShortValueReadFails(BigInteger value)

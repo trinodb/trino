@@ -57,7 +57,6 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorModule;
 import io.trino.execution.scheduler.UniformNodeSelectorModule;
-import io.trino.index.IndexManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.LocalMemoryManagerExporter;
 import io.trino.memory.MemoryInfo;
@@ -75,6 +74,7 @@ import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
@@ -93,6 +93,7 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.index.IndexJoinLookupStats;
+import io.trino.operator.index.IndexManager;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
 import io.trino.operator.scalar.json.JsonValueFunction;
@@ -137,11 +138,11 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.CompilerConfig;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.RuleStatsRecorder;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
 import io.trino.tracing.ForTracing;
 import io.trino.tracing.TracingMetadata;
@@ -152,8 +153,8 @@ import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeOperatorsCache;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
+import io.trino.util.EmbedVersion;
 import io.trino.util.FinalizerService;
-import io.trino.version.EmbedVersion;
 import jakarta.annotation.PreDestroy;
 
 import java.util.List;
@@ -399,6 +400,7 @@ public class ServerMainModule
         binder.bind(TableProceduresRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(PlannerContext.class).in(Scopes.SINGLETON);
+        binder.bind(LanguageFunctionManager.class).in(Scopes.SINGLETON);
 
         // function
         binder.bind(FunctionManager.class).in(Scopes.SINGLETON);
@@ -406,7 +408,7 @@ public class ServerMainModule
         binder.bind(RegisterFunctionBundles.class).asEagerSingleton();
 
         // type
-        binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
+        binder.bind(IrTypeAnalyzer.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
         jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);

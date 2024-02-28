@@ -16,6 +16,7 @@ package io.trino.plugin.hive.coercions;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RealType;
 
@@ -28,6 +29,16 @@ public class FloatToDoubleCoercer
     public FloatToDoubleCoercer()
     {
         super(REAL, DOUBLE);
+    }
+
+    @Override
+    public Block apply(Block block)
+    {
+        // data may have already been coerced by the Avro reader
+        if (block instanceof LongArrayBlock) {
+            return block;
+        }
+        return super.apply(block);
     }
 
     @Override

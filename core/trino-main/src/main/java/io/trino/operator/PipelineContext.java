@@ -55,6 +55,7 @@ public class PipelineContext
     private final TaskContext taskContext;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
+    private final ScheduledExecutorService timeoutExecutor;
     private final int pipelineId;
 
     private final boolean inputPipeline;
@@ -105,7 +106,7 @@ public class PipelineContext
 
     private final MemoryTrackingContext pipelineMemoryContext;
 
-    public PipelineContext(int pipelineId, TaskContext taskContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, MemoryTrackingContext pipelineMemoryContext, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
+    public PipelineContext(int pipelineId, TaskContext taskContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, ScheduledExecutorService timeoutExecutor, MemoryTrackingContext pipelineMemoryContext, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
     {
         this.pipelineId = pipelineId;
         this.inputPipeline = inputPipeline;
@@ -114,6 +115,7 @@ public class PipelineContext
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
+        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.pipelineMemoryContext = requireNonNull(pipelineMemoryContext, "pipelineMemoryContext is null");
         // Initialize the local memory contexts with the ExchangeOperator tag as ExchangeOperator will do the local memory allocations
         pipelineMemoryContext.initializeLocalMemoryContexts(ExchangeOperator.class.getSimpleName());
@@ -156,6 +158,7 @@ public class PipelineContext
                 this,
                 notificationExecutor,
                 yieldExecutor,
+                timeoutExecutor,
                 pipelineMemoryContext.newMemoryTrackingContext(),
                 splitWeight);
         drivers.add(driverContext);

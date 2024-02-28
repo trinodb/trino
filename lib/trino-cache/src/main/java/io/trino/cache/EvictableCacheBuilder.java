@@ -79,7 +79,7 @@ public final class EvictableCacheBuilder<K, V>
     @CanIgnoreReturnValue
     public EvictableCacheBuilder<K, V> expireAfterWrite(Duration duration)
     {
-        checkState(!this.expireAfterWrite.isPresent(), "expireAfterWrite already set");
+        checkState(this.expireAfterWrite.isEmpty(), "expireAfterWrite already set");
         this.expireAfterWrite = Optional.of(duration);
         return this;
     }
@@ -93,7 +93,7 @@ public final class EvictableCacheBuilder<K, V>
     @CanIgnoreReturnValue
     public EvictableCacheBuilder<K, V> refreshAfterWrite(Duration duration)
     {
-        checkState(!this.refreshAfterWrite.isPresent(), "refreshAfterWrite already set");
+        checkState(this.refreshAfterWrite.isEmpty(), "refreshAfterWrite already set");
         this.refreshAfterWrite = Optional.of(duration);
         return this;
     }
@@ -101,8 +101,8 @@ public final class EvictableCacheBuilder<K, V>
     @CanIgnoreReturnValue
     public EvictableCacheBuilder<K, V> maximumSize(long maximumSize)
     {
-        checkState(!this.maximumSize.isPresent(), "maximumSize already set");
-        checkState(!this.maximumWeight.isPresent(), "maximumWeight already set");
+        checkState(this.maximumSize.isEmpty(), "maximumSize already set");
+        checkState(this.maximumWeight.isEmpty(), "maximumWeight already set");
         this.maximumSize = Optional.of(maximumSize);
         return this;
     }
@@ -110,8 +110,8 @@ public final class EvictableCacheBuilder<K, V>
     @CanIgnoreReturnValue
     public EvictableCacheBuilder<K, V> maximumWeight(long maximumWeight)
     {
-        checkState(!this.maximumWeight.isPresent(), "maximumWeight already set");
-        checkState(!this.maximumSize.isPresent(), "maximumSize already set");
+        checkState(this.maximumWeight.isEmpty(), "maximumWeight already set");
+        checkState(this.maximumSize.isEmpty(), "maximumSize already set");
         this.maximumWeight = Optional.of(maximumWeight);
         return this;
     }
@@ -119,14 +119,14 @@ public final class EvictableCacheBuilder<K, V>
     @CanIgnoreReturnValue
     public EvictableCacheBuilder<K, V> concurrencyLevel(int concurrencyLevel)
     {
-        checkState(!this.concurrencyLevel.isPresent(), "concurrencyLevel already set");
+        checkState(this.concurrencyLevel.isEmpty(), "concurrencyLevel already set");
         this.concurrencyLevel = Optional.of(concurrencyLevel);
         return this;
     }
 
     public <K1 extends K, V1 extends V> EvictableCacheBuilder<K1, V1> weigher(Weigher<? super K1, ? super V1> weigher)
     {
-        checkState(!this.weigher.isPresent(), "weigher already set");
+        checkState(this.weigher.isEmpty(), "weigher already set");
         @SuppressWarnings("unchecked") // see com.google.common.cache.CacheBuilder.weigher
         EvictableCacheBuilder<K1, V1> cast = (EvictableCacheBuilder<K1, V1>) this;
         cast.weigher = Optional.of(new TokenWeigher<>(weigher));
@@ -162,7 +162,7 @@ public final class EvictableCacheBuilder<K, V>
     @VisibleForTesting
     EvictableCacheBuilder<K, V> disabledCacheImplementation(DisabledCacheImplementation cacheImplementation)
     {
-        checkState(!disabledCacheImplementation.isPresent(), "disabledCacheImplementation already set");
+        checkState(disabledCacheImplementation.isEmpty(), "disabledCacheImplementation already set");
         disabledCacheImplementation = Optional.of(cacheImplementation);
         return this;
     }
@@ -182,10 +182,9 @@ public final class EvictableCacheBuilder<K, V>
                     "Even when cache is disabled, the loads are synchronized and both load results and failures are shared between threads. " +
                             "This is rarely desired, thus builder caller is expected to either opt-in into this behavior with shareResultsAndFailuresEvenIfDisabled(), " +
                             "or choose not to share results (and failures) between concurrent invocations with shareNothingWhenDisabled()."));
-            switch (disabledCacheImplementation) {
-                case NOOP:
-                    return new EmptyCache<>(loader, recordStats);
-                case GUAVA:
+            return switch (disabledCacheImplementation) {
+                case NOOP -> new EmptyCache<>(loader, recordStats);
+                case GUAVA -> {
                     // Disabled cache is always empty, so doesn't exhibit invalidation problems.
                     // Avoid overhead of EvictableCache wrapper.
                     CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
@@ -194,9 +193,9 @@ public final class EvictableCacheBuilder<K, V>
                     if (recordStats) {
                         cacheBuilder.recordStats();
                     }
-                    return buildUnsafeCache(cacheBuilder, loader);
-            }
-            throw new UnsupportedOperationException("Unsupported option: " + disabledCacheImplementation);
+                    yield buildUnsafeCache(cacheBuilder, loader);
+                }
+            };
         }
 
         if (!(maximumSize.isPresent() || maximumWeight.isPresent() || expireAfterWrite.isPresent())) {
@@ -241,14 +240,12 @@ public final class EvictableCacheBuilder<K, V>
     }
 
     @ElementTypesAreNonnullByDefault
-    private static final class TokenWeigher<K, V>
+    private record TokenWeigher<K, V>(Weigher<? super K, ? super V> delegate)
             implements Weigher<Token<K>, V>
     {
-        private final Weigher<? super K, ? super V> delegate;
-
-        public TokenWeigher(Weigher<? super K, ? super V> delegate)
+        private TokenWeigher
         {
-            this.delegate = requireNonNull(delegate, "delegate is null");
+            requireNonNull(delegate, "delegate is null");
         }
 
         @Override

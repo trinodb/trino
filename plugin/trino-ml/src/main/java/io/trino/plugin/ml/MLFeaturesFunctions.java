@@ -14,8 +14,8 @@
 package io.trino.plugin.ml;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
@@ -46,7 +46,7 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1)
         {
             return featuresHelper(mapValueBuilder, f1);
         }
@@ -63,7 +63,7 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2)
         {
             return featuresHelper(mapValueBuilder, f1, f2);
         }
@@ -80,7 +80,7 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3)
         {
             return featuresHelper(mapValueBuilder, f1, f2, f3);
         }
@@ -97,7 +97,7 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4)
         {
             return featuresHelper(mapValueBuilder, f1, f2, f3, f4);
         }
@@ -114,7 +114,7 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5)
         {
             return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5);
         }
@@ -131,7 +131,7 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6)
         {
             return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5, f6);
         }
@@ -148,7 +148,7 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7)
         {
             return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5, f6, f7);
         }
@@ -165,7 +165,7 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8)
         {
             return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5, f6, f7, f8);
         }
@@ -182,7 +182,7 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8, @SqlType(StandardTypes.DOUBLE) double f9)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8, @SqlType(StandardTypes.DOUBLE) double f9)
         {
             return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5, f6, f7, f8, f9);
         }
@@ -199,13 +199,13 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8, @SqlType(StandardTypes.DOUBLE) double f9, @SqlType(StandardTypes.DOUBLE) double f10)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8, @SqlType(StandardTypes.DOUBLE) double f9, @SqlType(StandardTypes.DOUBLE) double f10)
         {
             return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10);
         }
     }
 
-    private static Block featuresHelper(BufferedMapValueBuilder mapValueBuilder, double... features)
+    private static SqlMap featuresHelper(BufferedMapValueBuilder mapValueBuilder, double... features)
     {
         return mapValueBuilder.build(features.length, (keyBuilder, valueBuilder) -> {
             for (int i = 0; i < features.length; i++) {

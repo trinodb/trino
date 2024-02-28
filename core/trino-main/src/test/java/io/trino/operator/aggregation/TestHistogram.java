@@ -28,7 +28,6 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.sql.tree.QualifiedName;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
@@ -61,9 +60,9 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
-import static org.testng.Assert.assertTrue;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHistogram
 {
@@ -76,28 +75,28 @@ public class TestHistogram
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(VARCHAR),
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
                 createStringsBlock("a", "b", "c"));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(BIGINT),
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
                 createLongsBlock(100L, 200L, 300L));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(DOUBLE),
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(BOOLEAN),
                 ImmutableMap.of(true, 1L, false, 1L),
                 createBooleansBlock(true, false));
@@ -108,27 +107,27 @@ public class TestHistogram
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(VARCHAR),
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
                 createStringsBlock("a", "b", "c"));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(BIGINT),
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
                 createLongsBlock(100L, 200L, 300L));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"), fromTypes(DOUBLE),
+                "histogram", fromTypes(DOUBLE),
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(BOOLEAN),
                 ImmutableMap.of(true, 1L, false, 1L),
                 createBooleansBlock(true, false));
@@ -139,7 +138,7 @@ public class TestHistogram
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(VARCHAR),
                 ImmutableMap.of("a", 2L, "b", 1L),
                 createStringsBlock("a", "b", "a"));
@@ -148,7 +147,7 @@ public class TestHistogram
         long timestampWithTimeZone2 = packDateTimeWithZone(new DateTime(2015, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(TIMESTAMP_TZ_MILLIS),
                 ImmutableMap.of(SqlTimestampWithTimeZone.newInstance(3, unpackMillisUtc(timestampWithTimeZone1), 0, unpackZoneKey(timestampWithTimeZone1)), 2L, SqlTimestampWithTimeZone.newInstance(3, unpackMillisUtc(timestampWithTimeZone2), 0, unpackZoneKey(timestampWithTimeZone2)), 1L),
                 createLongsBlock(timestampWithTimeZone1, timestampWithTimeZone1, timestampWithTimeZone2));
@@ -159,14 +158,14 @@ public class TestHistogram
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(BIGINT),
                 ImmutableMap.of(1L, 1L, 2L, 1L),
                 createLongsBlock(2L, null, 1L));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(BIGINT),
                 null,
                 createLongsBlock((Long) null));
@@ -178,7 +177,7 @@ public class TestHistogram
         ArrayType arrayType = new ArrayType(VARCHAR);
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(arrayType),
                 ImmutableMap.of(ImmutableList.of("a", "b", "c"), 1L, ImmutableList.of("d", "e", "f"), 1L, ImmutableList.of("c", "b", "a"), 1L),
                 createStringArraysBlock(ImmutableList.of(ImmutableList.of("a", "b", "c"), ImmutableList.of("d", "e", "f"), ImmutableList.of("c", "b", "a"))));
@@ -190,13 +189,13 @@ public class TestHistogram
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
 
         BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
-        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
-        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
-        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
+        innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
+        innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
+        innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(innerMapType),
                 ImmutableMap.of(ImmutableMap.of("a", "b"), 1L, ImmutableMap.of("c", "d"), 1L, ImmutableMap.of("e", "f"), 1L),
                 builder.build());
@@ -215,7 +214,7 @@ public class TestHistogram
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(innerRowType),
                 ImmutableMap.of(ImmutableList.of(1L, 1.0), 1L, ImmutableList.of(2L, 2.0), 1L, ImmutableList.of(3L, 3.0), 1L),
                 builder.build());
@@ -226,7 +225,7 @@ public class TestHistogram
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("histogram"),
+                "histogram",
                 fromTypes(VARCHAR),
                 ImmutableMap.of("a", 25L, "b", 10L, "c", 12L, "d", 1L, "e", 2L),
                 createStringsBlock("a", "b", "c", "d", "e", "e", "c", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c"));
@@ -241,7 +240,7 @@ public class TestHistogram
         BlockBuilder blockBuilder = function.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAggregator.evaluate(0, blockBuilder);
-        assertTrue(blockBuilder.isNull(0));
+        assertThat(blockBuilder.build().isNull(0)).isTrue();
     }
 
     @Test
@@ -391,6 +390,6 @@ public class TestHistogram
 
     private static TestingAggregationFunction getInternalDefaultVarCharAggregation()
     {
-        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("histogram"), fromTypes(VARCHAR));
+        return FUNCTION_RESOLUTION.getAggregateFunction("histogram", fromTypes(VARCHAR));
     }
 }

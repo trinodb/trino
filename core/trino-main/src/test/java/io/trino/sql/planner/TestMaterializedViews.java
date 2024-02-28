@@ -35,7 +35,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.tree.GenericLiteral;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import org.junit.jupiter.api.Test;
@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -68,7 +69,7 @@ public class TestMaterializedViews
     private static final String SCHEMA = "tiny";
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
@@ -77,12 +78,12 @@ public class TestMaterializedViews
 
         TestingMetadata testingConnectorMetadata = new TestingMetadata();
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
-        queryRunner.createCatalog(TEST_CATALOG_NAME, new StaticConnectorFactory("test", new TestMaterializedViewConnector(testingConnectorMetadata)), ImmutableMap.of());
+        PlanTester planTester = PlanTester.create(sessionBuilder.build());
+        planTester.createCatalog(TEST_CATALOG_NAME, new StaticConnectorFactory("test", new TestMaterializedViewConnector(testingConnectorMetadata)), ImmutableMap.of());
 
-        Metadata metadata = queryRunner.getMetadata();
+        Metadata metadata = planTester.getPlannerContext().getMetadata();
         SchemaTableName testTable = new SchemaTableName(SCHEMA, "test_table");
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createTable(
                     session,
                     TEST_CATALOG_NAME,
@@ -91,12 +92,12 @@ public class TestMaterializedViews
                             ImmutableList.of(
                                     new ColumnMetadata("a", BIGINT),
                                     new ColumnMetadata("b", BIGINT))),
-                    false);
+                    FAIL);
             return null;
         });
 
         SchemaTableName storageTable = new SchemaTableName(SCHEMA, "storage_table");
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createTable(
                     session,
                     TEST_CATALOG_NAME,
@@ -105,12 +106,12 @@ public class TestMaterializedViews
                             ImmutableList.of(
                                     new ColumnMetadata("a", BIGINT),
                                     new ColumnMetadata("b", BIGINT))),
-                    false);
+                    FAIL);
             return null;
         });
 
         SchemaTableName storageTableWithCasts = new SchemaTableName(SCHEMA, "storage_table_with_casts");
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createTable(
                     session,
                     TEST_CATALOG_NAME,
@@ -119,7 +120,7 @@ public class TestMaterializedViews
                             ImmutableList.of(
                                     new ColumnMetadata("a", TINYINT),
                                     new ColumnMetadata("b", VARCHAR))),
-                    false);
+                    FAIL);
             return null;
         });
 
@@ -132,13 +133,14 @@ public class TestMaterializedViews
                 Optional.of(STALE_MV_STALENESS.plusHours(1)),
                 Optional.empty(),
                 Identity.ofUser("some user"),
-                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")),
-                ImmutableMap.of());
-        queryRunner.inTransaction(session -> {
+                ImmutableList.of(),
+                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")));
+        planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
                     freshMaterializedView,
                     materializedViewDefinition,
+                    ImmutableMap.of(),
                     false,
                     false);
             return null;
@@ -146,11 +148,12 @@ public class TestMaterializedViews
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
 
         QualifiedObjectName notFreshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "not_fresh_materialized_view");
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
                     notFreshMaterializedView,
                     materializedViewDefinition,
+                    ImmutableMap.of(),
                     false,
                     false);
             return null;
@@ -164,31 +167,33 @@ public class TestMaterializedViews
                 Optional.empty(),
                 Optional.empty(),
                 Identity.ofUser("some user"),
-                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table_with_casts")),
-                ImmutableMap.of());
+                ImmutableList.of(),
+                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table_with_casts")));
         QualifiedObjectName materializedViewWithCasts = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts");
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
                     materializedViewWithCasts,
                     materializedViewDefinitionWithCasts,
+                    ImmutableMap.of(),
                     false,
                     false);
             return null;
         });
         testingConnectorMetadata.markMaterializedViewIsFresh(materializedViewWithCasts.asSchemaTableName());
 
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
                     new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "stale_materialized_view_with_casts"),
                     materializedViewDefinitionWithCasts,
+                    ImmutableMap.of(),
                     false,
                     false);
             return null;
         });
 
-        return queryRunner;
+        return planTester;
     }
 
     @Test
@@ -202,7 +207,7 @@ public class TestMaterializedViews
     @Test
     public void testNotFreshMaterializedView()
     {
-        Session defaultSession = getQueryRunner().getDefaultSession();
+        Session defaultSession = getPlanTester().getDefaultSession();
         Session legacyGracePeriod = Session.builder(defaultSession)
                 .setSystemProperty(SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
                 .build();
@@ -231,12 +236,12 @@ public class TestMaterializedViews
     @Test
     public void testMaterializedViewWithCasts()
     {
-        TestingAccessControlManager accessControl = getQueryRunner().getAccessControl();
+        TestingAccessControlManager accessControl = getPlanTester().getAccessControl();
         accessControl.columnMask(
                 new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts"),
                 "a",
                 "user",
-                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "a + 1"));
+                ViewExpression.builder().expression("a + 1").build());
         assertPlan("SELECT * FROM materialized_view_with_casts",
                 anyTree(
                         project(

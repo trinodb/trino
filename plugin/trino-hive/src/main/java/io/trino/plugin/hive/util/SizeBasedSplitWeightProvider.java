@@ -18,6 +18,7 @@ import io.trino.plugin.hive.HiveSplitWeightProvider;
 import io.trino.spi.SplitWeight;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.clamp;
 
 public class SizeBasedSplitWeightProvider
         implements HiveSplitWeightProvider
@@ -39,6 +40,6 @@ public class SizeBasedSplitWeightProvider
     {
         double computedWeight = splitSizeInBytes / targetSplitSizeInBytes;
         // Clamp the value be between the minimum weight and 1.0 (standard weight)
-        return SplitWeight.fromProportion(Math.min(Math.max(computedWeight, minimumWeight), 1.0));
+        return SplitWeight.fromProportion(clamp(computedWeight, minimumWeight, 1.0));
     }
 }

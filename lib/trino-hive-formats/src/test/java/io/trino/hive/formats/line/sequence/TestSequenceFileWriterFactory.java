@@ -19,7 +19,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineReader;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;

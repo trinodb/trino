@@ -97,6 +97,7 @@ public class ExchangeOperator
                 exchangeDataSource = new LazyExchangeDataSource(
                         taskId.getQueryId(),
                         new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
+                        taskContext.getSession().getQuerySpan(),
                         directExchangeClientSupplier,
                         memoryContext,
                         taskContext::sourceTaskFailed,

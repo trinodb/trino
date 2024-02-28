@@ -78,7 +78,7 @@ public class TestForceSingleNodeOutput
 
     private Session singleNodeOutput(boolean force)
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(this.getPlanTester().getDefaultSession())
                 .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(force))
                 .build();
     }

@@ -15,7 +15,9 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
@@ -42,10 +44,17 @@ import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.util.Strings.isNullOrEmpty;
+import static org.assertj.core.util.Strings.isNullOrEmpty;
 
 public final class DeltaLakeQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.parquet.filter2.compat.FilterCompat", Level.OFF);
+        logging.setLevel("com.amazonaws.util.Base64", Level.OFF);
+        logging.setLevel("com.google.cloud", Level.OFF);
+    }
+
     private static final Logger log = Logger.get(DeltaLakeQueryRunner.class);
     public static final String DELTA_CATALOG = "delta";
     public static final String TPCH_SCHEMA = "tpch";
@@ -105,7 +114,7 @@ public final class DeltaLakeQueryRunner
                 queryRunner.installPlugin(new TpcdsPlugin());
                 queryRunner.createCatalog("tpcds", "tpcds");
 
-                queryRunner.installPlugin(new TestingDeltaLakePlugin());
+                queryRunner.installPlugin(new TestingDeltaLakePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data")));
                 queryRunner.createCatalog(catalogName, CONNECTOR_NAME, deltaProperties.buildOrThrow());
 
                 return queryRunner;
@@ -117,7 +126,7 @@ public final class DeltaLakeQueryRunner
         }
     }
 
-    public static DistributedQueryRunner createDeltaLakeQueryRunner(String catalogName, Map<String, String> extraProperties, Map<String, String> connectorProperties)
+    public static QueryRunner createDeltaLakeQueryRunner(String catalogName, Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
         Map<String, String> deltaProperties = new HashMap<>(connectorProperties);
@@ -128,7 +137,7 @@ public final class DeltaLakeQueryRunner
             deltaProperties.put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString());
         }
 
-        DistributedQueryRunner queryRunner = builder(createSession())
+        QueryRunner queryRunner = builder(createSession())
                 .setCatalogName(catalogName)
                 .setExtraProperties(extraProperties)
                 .setDeltaProperties(deltaProperties)
@@ -139,13 +148,13 @@ public final class DeltaLakeQueryRunner
         return queryRunner;
     }
 
-    public static DistributedQueryRunner createS3DeltaLakeQueryRunner(String catalogName, String schemaName, Map<String, String> connectorProperties, String minioAddress, HiveHadoop testingHadoop)
+    public static QueryRunner createS3DeltaLakeQueryRunner(String catalogName, String schemaName, Map<String, String> connectorProperties, String minioAddress, HiveHadoop testingHadoop)
             throws Exception
     {
         return createS3DeltaLakeQueryRunner(catalogName, schemaName, ImmutableMap.of(), ImmutableMap.of(), connectorProperties, minioAddress, testingHadoop, queryRunner -> {});
     }
 
-    public static DistributedQueryRunner createS3DeltaLakeQueryRunner(
+    public static QueryRunner createS3DeltaLakeQueryRunner(
             String catalogName,
             String schemaName,
             Map<String, String> extraProperties,
@@ -170,7 +179,7 @@ public final class DeltaLakeQueryRunner
                         .put("s3.endpoint", minioAddress)
                         .put("s3.path-style-access", "true")
                         .put("s3.streaming.part-size", "5MB") // minimize memory usage
-                        .put("hive.metastore-timeout", "1m") // read timed out sometimes happens with the default timeout
+                        .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .putAll(connectorProperties)
                         .buildOrThrow(),
                 testingHadoop,
@@ -199,7 +208,7 @@ public final class DeltaLakeQueryRunner
                 queryRunner -> {});
     }
 
-    public static DistributedQueryRunner createDockerizedDeltaLakeQueryRunner(
+    public static QueryRunner createDockerizedDeltaLakeQueryRunner(
             String catalogName,
             String schemaName,
             Map<String, String> coordinatorProperties,
@@ -220,7 +229,7 @@ public final class DeltaLakeQueryRunner
                 .setCoordinatorProperties(coordinatorProperties)
                 .addExtraProperties(extraProperties)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
+                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .putAll(connectorProperties)
                         .buildOrThrow())
                 .build();
@@ -248,7 +257,7 @@ public final class DeltaLakeQueryRunner
         {
             Path metastoreDirectory = Files.createTempDirectory(DELTA_CATALOG);
             metastoreDirectory.toFile().deleteOnExit();
-            DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(
+            QueryRunner queryRunner = createDeltaLakeQueryRunner(
                     DELTA_CATALOG,
                     ImmutableMap.of("http-server.http.port", "8080"),
                     ImmutableMap.of(
@@ -272,7 +281,7 @@ public final class DeltaLakeQueryRunner
                 throws Exception
         {
             // Please set Delta Lake connector properties via VM options. e.g. -Dhive.metastore=glue -D..
-            DistributedQueryRunner queryRunner = builder()
+            QueryRunner queryRunner = builder()
                     .setCatalogName(DELTA_CATALOG)
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .build();
@@ -292,7 +301,7 @@ public final class DeltaLakeQueryRunner
 
             HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
             hiveMinioDataLake.start();
-            DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(
+            QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                     DELTA_CATALOG,
                     TPCH_SCHEMA,
                     ImmutableMap.of("http-server.http.port", "8080"),

@@ -15,8 +15,8 @@ package io.trino.operator.aggregation.minmaxn;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeUtils;
@@ -30,8 +30,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.trino.block.BlockAssertions.assertBlockEquals;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
@@ -95,26 +95,26 @@ public class TestTypedHeap
     private static <T> void test(Type type, boolean min, List<T> testData, Comparator<T> comparator)
     {
         MethodHandle readFlat = TYPE_OPERATORS.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, FLAT));
-        MethodHandle writeFlat = TYPE_OPERATORS.getReadValueOperator(type, simpleConvention(FLAT_RETURN, BLOCK_POSITION_NOT_NULL));
+        MethodHandle writeFlat = TYPE_OPERATORS.getReadValueOperator(type, simpleConvention(FLAT_RETURN, VALUE_BLOCK_POSITION_NOT_NULL));
 
         MethodHandle comparisonFlatFlat;
         MethodHandle comparisonFlatBlock;
         if (min) {
             comparisonFlatFlat = TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, FLAT));
-            comparisonFlatBlock = TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL));
+            comparisonFlatBlock = TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, VALUE_BLOCK_POSITION_NOT_NULL));
         }
         else {
             comparisonFlatFlat = TYPE_OPERATORS.getComparisonUnorderedFirstOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, FLAT));
-            comparisonFlatBlock = TYPE_OPERATORS.getComparisonUnorderedFirstOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL));
+            comparisonFlatBlock = TYPE_OPERATORS.getComparisonUnorderedFirstOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, VALUE_BLOCK_POSITION_NOT_NULL));
             comparator = comparator.reversed();
         }
 
-        Block expected = toBlock(type, testData.stream().sorted(comparator).limit(OUTPUT_SIZE).toList());
-        Block inputData = toBlock(type, testData);
+        ValueBlock expected = toBlock(type, testData.stream().sorted(comparator).limit(OUTPUT_SIZE).toList());
+        ValueBlock inputData = toBlock(type, testData);
 
         // verify basic build
         TypedHeap heap = new TypedHeap(min, readFlat, writeFlat, comparisonFlatFlat, comparisonFlatBlock, type, OUTPUT_SIZE);
-        heap.addAll(inputData);
+        addAll(heap, inputData);
         assertEqual(heap, type, expected);
 
         // verify copy constructor
@@ -122,35 +122,42 @@ public class TestTypedHeap
 
         // build in two parts and merge together
         TypedHeap part1 = new TypedHeap(min, readFlat, writeFlat, comparisonFlatFlat, comparisonFlatBlock, type, OUTPUT_SIZE);
-        part1.addAll(inputData.getRegion(0, inputData.getPositionCount() / 2));
+        addAll(part1, inputData.getRegion(0, inputData.getPositionCount() / 2));
         BlockBuilder part1BlockBuilder = type.createBlockBuilder(null, part1.getCapacity());
         part1.writeAllUnsorted(part1BlockBuilder);
-        Block part1Block = part1BlockBuilder.build();
+        ValueBlock part1Block = part1BlockBuilder.buildValueBlock();
 
         TypedHeap part2 = new TypedHeap(min, readFlat, writeFlat, comparisonFlatFlat, comparisonFlatBlock, type, OUTPUT_SIZE);
-        part2.addAll(inputData.getRegion(inputData.getPositionCount() / 2, inputData.getPositionCount() - (inputData.getPositionCount() / 2)));
+        addAll(part2, inputData.getRegion(inputData.getPositionCount() / 2, inputData.getPositionCount() - (inputData.getPositionCount() / 2)));
         BlockBuilder part2BlockBuilder = type.createBlockBuilder(null, part2.getCapacity());
         part2.writeAllUnsorted(part2BlockBuilder);
-        Block part2Block = part2BlockBuilder.build();
+        ValueBlock part2Block = part2BlockBuilder.buildValueBlock();
 
         TypedHeap merged = new TypedHeap(min, readFlat, writeFlat, comparisonFlatFlat, comparisonFlatBlock, type, OUTPUT_SIZE);
-        merged.addAll(part1Block);
-        merged.addAll(part2Block);
+        addAll(merged, part1Block);
+        addAll(merged, part2Block);
         assertEqual(merged, type, expected);
     }
 
-    private static void assertEqual(TypedHeap heap, Type type, Block expected)
+    private static void addAll(TypedHeap heap, ValueBlock inputData)
+    {
+        for (int i = 0; i < inputData.getPositionCount(); i++) {
+            heap.add(inputData, i);
+        }
+    }
+
+    private static void assertEqual(TypedHeap heap, Type type, ValueBlock expected)
     {
         BlockBuilder resultBlockBuilder = type.createBlockBuilder(null, OUTPUT_SIZE);
         heap.writeAllSorted(resultBlockBuilder);
-        Block actual = resultBlockBuilder.build();
+        ValueBlock actual = resultBlockBuilder.buildValueBlock();
         assertBlockEquals(type, actual, expected);
     }
 
-    private static <T> Block toBlock(Type type, List<T> inputStream)
+    private static <T> ValueBlock toBlock(Type type, List<T> inputStream)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, INPUT_SIZE);
         inputStream.forEach(value -> TypeUtils.writeNativeValue(type, blockBuilder, value));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 }

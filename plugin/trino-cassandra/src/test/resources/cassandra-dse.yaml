@@ -10,8 +10,6 @@ seed_provider:
       parameters:
           - seeds: "127.0.0.1"
 
-native_transport_port: 9142
-
 read_request_timeout_in_ms: 30000
 range_request_timeout_in_ms: 30000
 write_request_timeout_in_ms: 30000

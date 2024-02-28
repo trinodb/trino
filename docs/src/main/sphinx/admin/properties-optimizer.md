@@ -11,8 +11,8 @@ Enables optimization for aggregations on dictionaries.
 ## `optimizer.optimize-hash-generation`
 
 - **Type:** {ref}`prop-type-boolean`
-- **Default value:** `true`
-- **Session property:** `optimize_hash_generation
+- **Default value:** `false`
+- **Session property:** `optimize_hash_generation`
 
 Compute hash codes for distribution, joins, and aggregations early during execution,
 allowing result to be shared between operations later in the query. This can reduce
@@ -57,7 +57,7 @@ aggregation implementation cannot utilize CPU efficiently.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
-- **Session property:** `push_aggregation_through_join`
+- **Session property:** `push_aggregation_through_outer_join`
 
 When an aggregation is above an outer join and all columns from the outer side of the join
 are in the grouping clause, the aggregation is pushed below the outer join. This optimization

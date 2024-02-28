@@ -40,8 +40,9 @@ public class GeometryStateFactory
     public static class GroupedGeometryState
             implements GeometryState, GroupedAccumulatorState
     {
+        private final ObjectBigArray<OGCGeometry> geometries = new ObjectBigArray<>();
+
         private long groupId;
-        private ObjectBigArray<OGCGeometry> geometries = new ObjectBigArray<>();
         private long size;
 
         @Override

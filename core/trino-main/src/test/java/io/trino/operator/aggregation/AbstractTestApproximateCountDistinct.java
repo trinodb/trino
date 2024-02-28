@@ -20,10 +20,8 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.QualifiedName;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,7 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestApproximateCountDistinct
 {
@@ -53,35 +51,35 @@ public abstract class AbstractTestApproximateCountDistinct
         return 20000;
     }
 
-    @DataProvider(name = "provideStandardErrors")
-    public Object[][] provideStandardErrors()
+    @Test
+    public void testNoPositions()
     {
-        return new Object[][] {
-                {0.0230}, // 2k buckets
-                {0.0115}, // 8k buckets
-        };
+        assertCount(ImmutableList.of(), 0.0230, 0);
+        assertCount(ImmutableList.of(), 0.0115, 0);
     }
 
-    @Test(dataProvider = "provideStandardErrors")
-    public void testNoPositions(double maxStandardError)
+    @Test
+    public void testSinglePosition()
     {
-        assertCount(ImmutableList.of(), maxStandardError, 0);
+        assertCount(ImmutableList.of(randomValue()), 0.0230, 1);
+        assertCount(ImmutableList.of(randomValue()), 0.0115, 1);
     }
 
-    @Test(dataProvider = "provideStandardErrors")
-    public void testSinglePosition(double maxStandardError)
+    @Test
+    public void testAllPositionsNull()
     {
-        assertCount(ImmutableList.of(randomValue()), maxStandardError, 1);
+        assertCount(Collections.nCopies(100, null), 0.0230, 0);
+        assertCount(Collections.nCopies(100, null), 0.0115, 0);
     }
 
-    @Test(dataProvider = "provideStandardErrors")
-    public void testAllPositionsNull(double maxStandardError)
+    @Test
+    public void testMixedNullsAndNonNulls()
     {
-        assertCount(Collections.nCopies(100, null), maxStandardError, 0);
+        testMixedNullsAndNonNulls(0.0230);
+        testMixedNullsAndNonNulls(0.0115);
     }
 
-    @Test(dataProvider = "provideStandardErrors")
-    public void testMixedNullsAndNonNulls(double maxStandardError)
+    private void testMixedNullsAndNonNulls(double maxStandardError)
     {
         int uniques = getUniqueValuesCount();
         List<Object> baseline = createRandomSample(uniques, (int) (uniques * 1.5));
@@ -97,8 +95,14 @@ public abstract class AbstractTestApproximateCountDistinct
         assertCount(mixed, maxStandardError, estimateGroupByCount(baseline, maxStandardError));
     }
 
-    @Test(dataProvider = "provideStandardErrors")
-    public void testMultiplePositions(double maxStandardError)
+    @Test
+    public void testMultiplePositions()
+    {
+        testMultiplePositions(0.0230);
+        testMultiplePositions(0.0115);
+    }
+
+    private void testMultiplePositions(double maxStandardError)
     {
         DescriptiveStatistics stats = new DescriptiveStatistics();
 
@@ -117,23 +121,29 @@ public abstract class AbstractTestApproximateCountDistinct
         assertLessThan(stats.getStandardDeviation(), 1.0e-2 + maxStandardError);
     }
 
-    @Test(dataProvider = "provideStandardErrors")
-    public void testMultiplePositionsPartial(double maxStandardError)
+    @Test
+    public void testMultiplePositionsPartial()
+    {
+        testMultiplePositionsPartial(0.0230);
+        testMultiplePositionsPartial(0.0115);
+    }
+
+    private void testMultiplePositionsPartial(double maxStandardError)
     {
         for (int i = 0; i < 100; ++i) {
             int uniques = ThreadLocalRandom.current().nextInt(getUniqueValuesCount()) + 1;
             List<Object> values = createRandomSample(uniques, (int) (uniques * 1.5));
-            assertEquals(estimateCountPartial(values, maxStandardError), estimateGroupByCount(values, maxStandardError));
+            assertThat(estimateCountPartial(values, maxStandardError)).isEqualTo(estimateGroupByCount(values, maxStandardError));
         }
     }
 
     protected void assertCount(List<?> values, double maxStandardError, long expectedCount)
     {
         if (!values.isEmpty()) {
-            assertEquals(estimateGroupByCount(values, maxStandardError), expectedCount);
+            assertThat(estimateGroupByCount(values, maxStandardError)).isEqualTo(expectedCount);
         }
-        assertEquals(estimateCount(values, maxStandardError), expectedCount);
-        assertEquals(estimateCountPartial(values, maxStandardError), expectedCount);
+        assertThat(estimateCount(values, maxStandardError)).isEqualTo(expectedCount);
+        assertThat(estimateCountPartial(values, maxStandardError)).isEqualTo(expectedCount);
     }
 
     private long estimateGroupByCount(List<?> values, double maxStandardError)
@@ -156,7 +166,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     private TestingAggregationFunction getAggregationFunction()
     {
-        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("approx_distinct"), fromTypes(getValueType(), DOUBLE));
+        return FUNCTION_RESOLUTION.getAggregateFunction("approx_distinct", fromTypes(getValueType(), DOUBLE));
     }
 
     private Page createPage(List<?> values, double maxStandardError)

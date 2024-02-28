@@ -17,9 +17,8 @@ import io.trino.Session;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -29,18 +28,17 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_MAX_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static java.util.Collections.synchronizedMap;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true) // this class is stateful, see fields
 public abstract class BaseJdbcConnectionCreationTest
         extends AbstractTestQueryFramework
 {
     protected ConnectionCountingConnectionFactory connectionFactory;
 
-    @BeforeClass
+    @BeforeAll
     public void verifySetup()
     {
         // Test expects connectionFactory to be provided with AbstractTestQueryFramework.createQueryRunner implementation
@@ -48,7 +46,7 @@ public abstract class BaseJdbcConnectionCreationTest
         connectionFactory.assertThatNoConnectionHasLeaked();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
             throws Exception
     {
@@ -65,7 +63,7 @@ public abstract class BaseJdbcConnectionCreationTest
         else {
             // Disabling writers scaling to make expected number of opened connections constant
             Session querySession = Session.builder(getSession())
-                    .setSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, "4")
+                    .setSystemProperty(TASK_MAX_WRITER_COUNT, "4")
                     .build();
             getQueryRunner().execute(querySession, query);
         }

@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class Query
         extends Statement
 {
+    private final List<FunctionSpecification> functions;
     private final Optional<With> with;
     private final QueryBody queryBody;
     private final Optional<OrderBy> orderBy;
@@ -33,28 +34,31 @@ public class Query
     private final Optional<Node> limit;
 
     public Query(
+            List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        this(Optional.empty(), with, queryBody, orderBy, offset, limit);
+        this(Optional.empty(), functions, with, queryBody, orderBy, offset, limit);
     }
 
     public Query(
             NodeLocation location,
+            List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        this(Optional.of(location), with, queryBody, orderBy, offset, limit);
+        this(Optional.of(location), functions, with, queryBody, orderBy, offset, limit);
     }
 
     private Query(
             Optional<NodeLocation> location,
+            List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
             Optional<OrderBy> orderBy,
@@ -62,6 +66,7 @@ public class Query
             Optional<Node> limit)
     {
         super(location);
+        requireNonNull(functions, "function si snull");
         requireNonNull(with, "with is null");
         requireNonNull(queryBody, "queryBody is null");
         requireNonNull(orderBy, "orderBy is null");
@@ -69,11 +74,17 @@ public class Query
         requireNonNull(limit, "limit is null");
         checkArgument(!limit.isPresent() || limit.get() instanceof FetchFirst || limit.get() instanceof Limit, "limit must be optional of either FetchFirst or Limit type");
 
+        this.functions = ImmutableList.copyOf(functions);
         this.with = with;
         this.queryBody = queryBody;
         this.orderBy = orderBy;
         this.offset = offset;
         this.limit = limit;
+    }
+
+    public List<FunctionSpecification> getFunctions()
+    {
+        return functions;
     }
 
     public Optional<With> getWith()
@@ -111,6 +122,7 @@ public class Query
     public List<Node> getChildren()
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.addAll(functions);
         with.ifPresent(nodes::add);
         nodes.add(queryBody);
         orderBy.ifPresent(nodes::add);
@@ -123,6 +135,7 @@ public class Query
     public String toString()
     {
         return toStringHelper(this)
+                .add("functions", functions.isEmpty() ? null : functions)
                 .add("with", with.orElse(null))
                 .add("queryBody", queryBody)
                 .add("orderBy", orderBy)
@@ -142,7 +155,8 @@ public class Query
             return false;
         }
         Query o = (Query) obj;
-        return Objects.equals(with, o.with) &&
+        return Objects.equals(functions, o.functions) &&
+                Objects.equals(with, o.with) &&
                 Objects.equals(queryBody, o.queryBody) &&
                 Objects.equals(orderBy, o.orderBy) &&
                 Objects.equals(offset, o.offset) &&
@@ -152,7 +166,7 @@ public class Query
     @Override
     public int hashCode()
     {
-        return Objects.hash(with, queryBody, orderBy, offset, limit);
+        return Objects.hash(functions, with, queryBody, orderBy, offset, limit);
     }
 
     @Override

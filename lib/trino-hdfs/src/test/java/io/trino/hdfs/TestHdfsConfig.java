@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHdfsConfig
 {
@@ -104,7 +104,7 @@ public class TestHdfsConfig
         HdfsConfig expected = new HdfsConfig()
                 .setNewDirectoryPermissions("skip");
 
-        assertEquals(properties.get("hive.fs.new-directory-permissions"), expected.getNewDirectoryPermissions());
-        assertEquals(Optional.empty(), expected.getNewDirectoryFsPermissions());
+        assertThat(properties).containsEntry("hive.fs.new-directory-permissions", expected.getNewDirectoryPermissions());
+        assertThat(Optional.empty()).isEqualTo(expected.getNewDirectoryFsPermissions());
     }
 }

@@ -19,10 +19,13 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.LiteralFunction;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.Re2JCastToRegexpFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.LongTimestamp;
@@ -31,12 +34,12 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.transaction.TransactionManager;
 import io.trino.type.Re2JRegexp;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Base64;
@@ -47,6 +50,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreCase;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.operator.scalar.JoniRegexpCasts.castVarcharToJoniRegexp;
 import static io.trino.operator.scalar.JsonFunctions.castVarcharToJsonPath;
@@ -67,7 +71,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
@@ -77,15 +81,17 @@ import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLiteralEncoder
 {
     private final LiteralEncoder encoder = new LiteralEncoder(PLANNER_CONTEXT);
 
     private final ResolvedFunction literalFunction = new ResolvedFunction(
-            new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
+            new BoundSignature(
+                    builtinFunctionName(LITERAL_FUNCTION_NAME),
+                    VARBINARY,
+                    ImmutableList.of(VARBINARY)),
             GlobalSystemConnector.CATALOG_HANDLE,
             new LiteralFunction(PLANNER_CONTEXT.getBlockEncodingSerde()).getFunctionMetadata().getFunctionId(),
             SCALAR,
@@ -95,13 +101,17 @@ public class TestLiteralEncoder
             ImmutableSet.of());
 
     private final ResolvedFunction base64Function = new ResolvedFunction(
-            new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
+            new BoundSignature(
+                    builtinFunctionName("from_base64"),
+                    VARBINARY,
+                    ImmutableList.of(VARCHAR)),
             GlobalSystemConnector.CATALOG_HANDLE,
-            toFunctionId(Signature.builder()
-                    .name("from_base64")
-                    .returnType(VARBINARY)
-                    .argumentType(new TypeSignature("varchar", typeVariable("x")))
-                    .build()),
+            toFunctionId(
+                    "from_base64",
+                    Signature.builder()
+                            .returnType(VARBINARY)
+                            .argumentType(new TypeSignature("varchar", typeVariable("x")))
+                            .build()),
             SCALAR,
             true,
             new FunctionNullability(false, ImmutableList.of(false)),
@@ -271,10 +281,10 @@ public class TestLiteralEncoder
 
     private void assertEncode(Object value, Type type, String expected)
     {
-        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
-        assertEquals(getExpressionType(expression), type);
-        assertEquals(getExpressionValue(expression), value);
-        assertEquals(formatSql(expression), expected);
+        Expression expression = encoder.toExpression(value, type);
+        assertThat(getExpressionType(expression)).isEqualTo(type);
+        assertThat(getExpressionValue(expression)).isEqualTo(value);
+        assertThat(formatSql(expression)).isEqualTo(expected);
     }
 
     /**
@@ -283,26 +293,30 @@ public class TestLiteralEncoder
     @Deprecated
     private void assertEncodeCaseInsensitively(Object value, Type type, String expected)
     {
-        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
-        assertTrue(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression), "isEffectivelyLiteral returned false for: " + expression);
-        assertEquals(getExpressionType(expression), type);
-        assertEquals(getExpressionValue(expression), value);
+        Expression expression = encoder.toExpression(value, type);
+        assertThat(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression))
+                .describedAs("isEffectivelyLiteral returned false for: " + expression)
+                .isTrue();
+        assertThat(getExpressionType(expression)).isEqualTo(type);
+        assertThat(getExpressionValue(expression)).isEqualTo(value);
         assertEqualsIgnoreCase(formatSql(expression), expected);
     }
 
     private <T> void assertRoundTrip(T value, Type type, BiPredicate<T, T> predicate)
     {
-        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
-        assertTrue(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression), "isEffectivelyLiteral returned false for: " + expression);
-        assertEquals(getExpressionType(expression), type);
+        Expression expression = encoder.toExpression(value, type);
+        assertThat(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression))
+                .describedAs("isEffectivelyLiteral returned false for: " + expression)
+                .isTrue();
+        assertThat(getExpressionType(expression)).isEqualTo(type);
         @SuppressWarnings("unchecked")
         T decodedValue = (T) getExpressionValue(expression);
-        assertTrue(predicate.test(value, decodedValue));
+        assertThat(predicate.test(value, decodedValue)).isTrue();
     }
 
     private Object getExpressionValue(Expression expression)
     {
-        return new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, getExpressionTypes(expression)).evaluate();
+        return new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, getExpressionTypes(expression)).evaluate();
     }
 
     private Type getExpressionType(Expression expression)
@@ -315,18 +329,24 @@ public class TestLiteralEncoder
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
-        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        TransactionManager transactionManager = new TestingTransactionManager();
+        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
+        return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    return ExpressionUtils.getExpressionTypes(PLANNER_CONTEXT, transactionSession, expression, TypeProvider.empty());
+                    return new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(transactionSession, TypeProvider.empty(), expression);
                 });
     }
 
     private String literalVarbinary(byte[] value)
     {
-        return "\"" + literalFunction.toQualifiedName() + "\"" +
-                "(\"" + base64Function.toQualifiedName() + "\"" +
-                "('" + Base64.getEncoder().encodeToString(value) + "'))";
+        return "%s(%s('%s'))".formatted(serializeResolvedFunction(literalFunction), serializeResolvedFunction(base64Function), Base64.getEncoder().encodeToString(value));
+    }
+
+    private static String serializeResolvedFunction(ResolvedFunction function)
+    {
+        CatalogSchemaFunctionName name = function.toCatalogSchemaFunctionName();
+        return "%s.\"%s\".\"%s\"".formatted(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
     }
 
     private static Re2JRegexp castVarcharToRe2JRegexp(Slice value)

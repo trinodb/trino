@@ -79,7 +79,7 @@ public class GenericPartitioningSpiller
         requireNonNull(memoryContext, "memoryContext is null");
         closer.register(memoryContext::close);
         this.memoryContext = memoryContext;
-        int partitionCount = partitionFunction.getPartitionCount();
+        int partitionCount = partitionFunction.partitionCount();
 
         ImmutableList.Builder<PageBuilder> pageBuilders = ImmutableList.builder();
         spillers = new ArrayList<>(partitionCount);

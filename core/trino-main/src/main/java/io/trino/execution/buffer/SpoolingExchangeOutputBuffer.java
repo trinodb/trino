@@ -195,11 +195,13 @@ public class SpoolingExchangeOutputBuffer
         for (Slice page : pages) {
             dataSizeInBytes += getSerializedPageUncompressedSizeInBytes(page);
             sink.add(partition, page);
-            totalRowsAdded.addAndGet(getSerializedPagePositionCount(page));
+            int serializedPagePositionCount = getSerializedPagePositionCount(page);
+            totalRowsAdded.addAndGet(serializedPagePositionCount);
+            outputStats.updateRowCount(serializedPagePositionCount);
         }
         updateMemoryUsage(sink.getMemoryUsage());
         totalPagesAdded.addAndGet(pages.size());
-        outputStats.update(partition, dataSizeInBytes);
+        outputStats.updatePartitionDataSize(partition, dataSizeInBytes);
     }
 
     @Override

@@ -244,6 +244,7 @@ The `date_trunc` function supports the following units:
 
 | Unit      | Example Truncated Value   |
 | --------- | ------------------------- |
+| `millisecond`  | `2001-08-22 03:04:05.321` |
 | `second`  | `2001-08-22 03:04:05.000` |
 | `minute`  | `2001-08-22 03:04:00.000` |
 | `hour`    | `2001-08-22 03:00:00.000` |
@@ -426,10 +427,10 @@ SELECT date_format(TIMESTAMP '2022-10-20 05:10:00', '%m-%d-%Y %H');
 ```
 :::
 
-:::{function} date_parse(string, format) -> timestamp(3)
+:::{js:function} date_parse(string, format) → timestamp(3)
 Parses `string` into a timestamp using `format`:
 
-```
+```sql
 SELECT date_parse('2022/10/20/05', '%Y/%m/%d/%H');
 -- 2022-10-20 05:00:00.000
 ```

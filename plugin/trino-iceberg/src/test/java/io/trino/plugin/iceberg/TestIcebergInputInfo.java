@@ -20,7 +20,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -70,7 +70,7 @@ public class TestIcebergInputInfo
     private void assertInputInfo(String tableName, boolean expectedPartition, String expectedFileFormat)
     {
         inTransaction(session -> {
-            Metadata metadata = getQueryRunner().getMetadata();
+            Metadata metadata = getQueryRunner().getPlannerContext().getMetadata();
             QualifiedObjectName qualifiedObjectName = new QualifiedObjectName(
                     session.getCatalog().orElse(ICEBERG_CATALOG),
                     session.getSchema().orElse("tpch"),

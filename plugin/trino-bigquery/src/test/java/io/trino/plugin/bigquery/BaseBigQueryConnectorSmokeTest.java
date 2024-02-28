@@ -26,7 +26,6 @@ public abstract class BaseBigQueryConnectorSmokeTest
             case SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_CREATE_MATERIALIZED_VIEW,
                     SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DELETE,
                     SUPPORTS_MERGE,
                     SUPPORTS_RENAME_SCHEMA,
                     SUPPORTS_RENAME_TABLE,

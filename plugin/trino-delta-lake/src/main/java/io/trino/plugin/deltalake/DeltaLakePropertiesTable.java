@@ -83,7 +83,7 @@ public class DeltaLakePropertiesTable
 
         try {
             SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(baseTableName, tableLocation, session);
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, baseTableName, tableLocation);
             metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
             protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
         }

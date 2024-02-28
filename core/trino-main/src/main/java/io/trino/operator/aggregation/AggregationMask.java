@@ -22,6 +22,7 @@ import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public final class AggregationMask
@@ -186,7 +187,7 @@ public final class AggregationMask
         if (block.isNull(position)) {
             return false;
         }
-        if (testValue && block.getByte(position, 0) == 0) {
+        if (testValue && !BOOLEAN.getBoolean(block, position)) {
             return false;
         }
         return true;

@@ -25,6 +25,7 @@ import io.trino.grammar.type.TypeCalculationParser.NumericLiteralContext;
 import io.trino.grammar.type.TypeCalculationParser.ParenthesizedExpressionContext;
 import io.trino.grammar.type.TypeCalculationParser.TypeCalculationContext;
 import io.trino.sql.parser.ParsingException;
+import org.antlr.v4.runtime.ANTLRErrorListener;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -32,7 +33,6 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
-import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 import java.math.BigInteger;
 import java.util.Map;
@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class TypeCalculation
 {
-    private static final BaseErrorListener ERROR_LISTENER = new BaseErrorListener()
+    private static final ANTLRErrorListener ERROR_LISTENER = new BaseErrorListener()
     {
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
@@ -92,7 +92,7 @@ public final class TypeCalculation
             parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
             tree = parser.typeCalculation();
         }
-        catch (ParseCancellationException ex) {
+        catch (ParsingException ex) {
             // if we fail, parse with LL mode
             tokenStream.seek(0); // rewind input stream
             parser.reset();
@@ -101,34 +101,6 @@ public final class TypeCalculation
             tree = parser.typeCalculation();
         }
         return tree;
-    }
-
-    private static class IsSimpleExpressionVisitor
-            extends TypeCalculationBaseVisitor<Boolean>
-    {
-        @Override
-        public Boolean visitArithmeticBinary(ArithmeticBinaryContext ctx)
-        {
-            return false;
-        }
-
-        @Override
-        public Boolean visitArithmeticUnary(ArithmeticUnaryContext ctx)
-        {
-            return false;
-        }
-
-        @Override
-        protected Boolean defaultResult()
-        {
-            return true;
-        }
-
-        @Override
-        protected Boolean aggregateResult(Boolean aggregate, Boolean nextResult)
-        {
-            return aggregate && nextResult;
-        }
     }
 
     private static class CalculateTypeVisitor

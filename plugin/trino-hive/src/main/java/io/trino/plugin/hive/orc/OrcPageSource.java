@@ -22,9 +22,7 @@ import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcRecordReader;
-import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
-import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.coercions.TypeCoercer;
@@ -132,11 +130,6 @@ public class OrcPageSource
     public boolean isFinished()
     {
         return closed;
-    }
-
-    public ColumnMetadata<OrcType> getColumnTypes()
-    {
-        return recordReader.getColumnTypes();
     }
 
     @Override
@@ -422,7 +415,6 @@ public class OrcPageSource
             requireNonNull(page, "page is null");
             return maskDeletedRowsFunction.apply(fromFieldBlocks(
                     page.getPositionCount(),
-                    Optional.empty(),
                     new Block[] {
                             page.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
                             page.getBlock(BUCKET_CHANNEL),
@@ -454,7 +446,6 @@ public class OrcPageSource
             int positionCount = sourcePage.getPositionCount();
             return maskDeletedRowsFunction.apply(fromFieldBlocks(
                     positionCount,
-                    Optional.empty(),
                     new Block[] {
                             RunLengthEncodedBlock.create(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
                             RunLengthEncodedBlock.create(bucketBlock, positionCount),

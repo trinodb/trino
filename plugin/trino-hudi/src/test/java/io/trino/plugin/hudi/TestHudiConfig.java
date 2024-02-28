@@ -15,7 +15,7 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -31,7 +31,6 @@ public class TestHudiConfig
     {
         assertRecordedDefaults(recordDefaults(HudiConfig.class)
                 .setColumnsToHide(null)
-                .setMetadataEnabled(false)
                 .setUseParquetColumnNames(true)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setStandardSplitWeightSize(DataSize.of(128, MEGABYTE))
@@ -40,7 +39,8 @@ public class TestHudiConfig
                 .setMaxOutstandingSplits(1000)
                 .setSplitLoaderParallelism(4)
                 .setSplitGeneratorParallelism(4)
-                .setPerTransactionMetastoreCacheMaximumSize(2000));
+                .setPerTransactionMetastoreCacheMaximumSize(2000)
+                .setQueryPartitionFilterRequired(false));
     }
 
     @Test
@@ -48,7 +48,6 @@ public class TestHudiConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hudi.columns-to-hide", "_hoodie_record_key")
-                .put("hudi.metadata-enabled", "true")
                 .put("hudi.parquet.use-column-names", "false")
                 .put("hudi.size-based-split-weights-enabled", "false")
                 .put("hudi.standard-split-weight-size", "64MB")
@@ -58,11 +57,11 @@ public class TestHudiConfig
                 .put("hudi.split-loader-parallelism", "16")
                 .put("hudi.split-generator-parallelism", "32")
                 .put("hudi.per-transaction-metastore-cache-maximum-size", "1000")
+                .put("hudi.query-partition-filter-required", "true")
                 .buildOrThrow();
 
         HudiConfig expected = new HudiConfig()
                 .setColumnsToHide("_hoodie_record_key")
-                .setMetadataEnabled(true)
                 .setUseParquetColumnNames(false)
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setStandardSplitWeightSize(DataSize.of(64, MEGABYTE))
@@ -71,7 +70,8 @@ public class TestHudiConfig
                 .setMaxOutstandingSplits(100)
                 .setSplitLoaderParallelism(16)
                 .setSplitGeneratorParallelism(32)
-                .setPerTransactionMetastoreCacheMaximumSize(1000);
+                .setPerTransactionMetastoreCacheMaximumSize(1000)
+                .setQueryPartitionFilterRequired(true);
 
         assertFullMapping(properties, expected);
     }

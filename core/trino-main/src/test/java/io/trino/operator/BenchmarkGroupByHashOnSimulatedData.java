@@ -29,6 +29,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.gen.JoinCompiler;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -42,7 +43,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
-import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -79,22 +79,19 @@ public class BenchmarkGroupByHashOnSimulatedData
     private static final int DEFAULT_POSITIONS = 10_000_000;
     private static final int EXPECTED_GROUP_COUNT = 10_000;
     private static final int DEFAULT_PAGE_SIZE = 8192;
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
-    private final JoinCompiler joinCompiler = new JoinCompiler(TYPE_OPERATORS);
+    private final JoinCompiler joinCompiler = new JoinCompiler(new TypeOperators());
 
     @Benchmark
     @OperationsPerInvocation(DEFAULT_POSITIONS)
     public Object groupBy(BenchmarkContext data)
     {
         GroupByHash groupByHash = GroupByHash.createGroupByHash(
-                true,
                 data.getTypes(),
                 false,
                 EXPECTED_GROUP_COUNT,
                 false,
                 joinCompiler,
-                TYPE_OPERATORS,
                 NOOP);
         List<int[]> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
 
@@ -544,7 +541,7 @@ public class BenchmarkGroupByHashOnSimulatedData
 
         private void createNonDictionaryBlock(int blockCount, int positionsPerBlock, int channel, double nullChance, Block[] blocks)
         {
-            BlockBuilder allValues = generateValues(channel, distinctValuesCountInColumn);
+            Block allValues = generateValues(channel, distinctValuesCountInColumn).build();
             Random r = new Random(channel);
             for (int i = 0; i < blockCount; i++) {
                 BlockBuilder block = columnType.getType().createBlockBuilder(null, positionsPerBlock);

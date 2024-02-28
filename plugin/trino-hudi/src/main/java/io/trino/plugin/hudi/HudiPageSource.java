@@ -18,10 +18,13 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
+import java.util.concurrent.CompletableFuture;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
@@ -111,6 +114,24 @@ public class HudiPageSource
     public boolean isFinished()
     {
         return dataPageSource.isFinished();
+    }
+
+    @Override
+    public CompletableFuture<?> isBlocked()
+    {
+        return dataPageSource.isBlocked();
+    }
+
+    @Override
+    public OptionalLong getCompletedPositions()
+    {
+        return dataPageSource.getCompletedPositions();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return dataPageSource.getMetrics();
     }
 
     @Override

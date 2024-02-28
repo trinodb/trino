@@ -23,7 +23,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 
 import java.util.List;
@@ -40,20 +39,17 @@ public class DistinctAccumulatorFactory
     private final AccumulatorFactory delegate;
     private final List<Type> argumentTypes;
     private final JoinCompiler joinCompiler;
-    private final TypeOperators typeOperators;
     private final Session session;
 
     public DistinctAccumulatorFactory(
             AccumulatorFactory delegate,
             List<Type> argumentTypes,
             JoinCompiler joinCompiler,
-            TypeOperators typeOperators,
             Session session)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
     }
 
@@ -70,8 +66,7 @@ public class DistinctAccumulatorFactory
                 delegate.createAccumulator(lambdaProviders),
                 argumentTypes,
                 session,
-                joinCompiler,
-                typeOperators);
+                joinCompiler);
     }
 
     @Override
@@ -87,8 +82,7 @@ public class DistinctAccumulatorFactory
                 delegate.createGroupedAccumulator(lambdaProviders),
                 argumentTypes,
                 session,
-                joinCompiler,
-                typeOperators);
+                joinCompiler);
     }
 
     @Override
@@ -113,8 +107,7 @@ public class DistinctAccumulatorFactory
                 Accumulator accumulator,
                 List<Type> inputTypes,
                 Session session,
-                JoinCompiler joinCompiler,
-                TypeOperators typeOperators)
+                JoinCompiler joinCompiler)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.hash = new MarkDistinctHash(
@@ -122,7 +115,6 @@ public class DistinctAccumulatorFactory
                     inputTypes,
                     false,
                     joinCompiler,
-                    typeOperators,
                     UpdateMemory.NOOP);
         }
 
@@ -189,8 +181,7 @@ public class DistinctAccumulatorFactory
                 GroupedAccumulator accumulator,
                 List<Type> inputTypes,
                 Session session,
-                JoinCompiler joinCompiler,
-                TypeOperators typeOperators)
+                JoinCompiler joinCompiler)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.hash = new MarkDistinctHash(
@@ -201,7 +192,6 @@ public class DistinctAccumulatorFactory
                             .build(),
                     false,
                     joinCompiler,
-                    typeOperators,
                     UpdateMemory.NOOP);
         }
 

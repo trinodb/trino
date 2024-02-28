@@ -31,6 +31,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -47,8 +48,10 @@ import static io.trino.util.StructuralTestUtil.mapType;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestStringFunctions
 {
     private QueryAssertions assertions;
@@ -508,6 +511,51 @@ public class TestStringFunctions
         assertThat(assertions.function("reverse", "'\uD801\uDC2Dend'"))
                 .hasType(createVarcharType(4))
                 .isEqualTo("dne\uD801\uDC2D");
+    }
+
+    @Test
+    public void testCharReverse()
+    {
+        assertThat(assertions.function("reverse", "CAST('' AS CHAR(0))"))
+                .hasType(createCharType(0))
+                .isEqualTo("");
+
+        assertThat(assertions.function("reverse", "CAST('hello' AS CHAR(5))"))
+                .hasType(createCharType(5))
+                .isEqualTo("olleh");
+
+        assertThat(assertions.function("reverse", "CAST('Quadratically' AS CHAR(13))"))
+                .hasType(createCharType(13))
+                .isEqualTo("yllacitardauQ");
+
+        assertThat(assertions.function("reverse", "CAST('racecar' AS CHAR(7))"))
+                .hasType(createCharType(7))
+                .isEqualTo("racecar");
+
+        assertThat(assertions.function("reverse", "CAST('racecar' AS CHAR(10))"))
+                .hasType(createCharType(10))
+                .isEqualTo("   racecar");
+
+        // Test REVERSE for non-ASCII
+        assertThat(assertions.function("reverse", "CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7))"))
+                .hasType(createCharType(7))
+                .isEqualTo("\u671B\u5E0C,\u7231,\u5FF5\u4FE1");
+
+        assertThat(assertions.function("reverse", "CAST('\u00D6sterreich' AS CHAR(10))"))
+                .hasType(createCharType(10))
+                .isEqualTo("hcierrets\u00D6");
+
+        assertThat(assertions.function("reverse", "CAST('na\u00EFve' AS CHAR(5))"))
+                .hasType(createCharType(5))
+                .isEqualTo("ev\u00EFan");
+
+        assertThat(assertions.function("reverse", "CAST('\uD801\uDC2Dend' AS CHAR(4))"))
+                .hasType(createCharType(4))
+                .isEqualTo("dne\uD801\uDC2D");
+
+        assertThat(assertions.function("reverse", "CAST('\uD801\uDC2Dend' AS CHAR(6))"))
+                .hasType(createCharType(6))
+                .isEqualTo("  dne\uD801\uDC2D");
     }
 
     @Test
@@ -2093,6 +2141,17 @@ public class TestStringFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("lpad", "'abc'", Long.toString(maxSize + 1), "''")::evaluate)
                 .hasMessage("Target length must be in the range [0.." + maxSize + "]");
+
+        assertThat(assertions.function("lpad", "CHAR 'abc   '", "6", "'def'"))
+                .matches("VARCHAR 'abc   '");
+        assertThat(assertions.function("lpad", "CHAR 'abc   '", "4", "'def'"))
+                .matches("VARCHAR 'abc '");
+        assertThat(assertions.function("lpad", "CHAR 'abc   '", "8", "'def'"))
+                .matches("VARCHAR 'deabc   '");
+        assertThat(assertions.function("lpad", "CHAR 'abc   '", "10", "'def'"))
+                .matches("VARCHAR 'defdabc   '");
+        assertThat(assertions.function("lpad", "CAST('abc' AS char(6))", "10", "'def'"))
+                .matches("VARCHAR 'defdabc   '");
     }
 
     @Test
@@ -2237,6 +2296,10 @@ public class TestStringFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("hello");
 
+        assertThat(assertions.function("from_utf8", "to_utf8(cast('hello' as char(10)))"))
+                .hasType(VARCHAR)
+                .isEqualTo("hello     ");
+
         assertThat(assertions.function("from_utf8", "from_hex('58BF')"))
                 .hasType(VARCHAR)
                 .isEqualTo("X\uFFFD");
@@ -2265,6 +2328,12 @@ public class TestStringFunctions
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(assertions.function("from_utf8", "to_utf8('hello')", "1114112")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.function("from_utf8", "to_utf8(cast('hello' as char(10)))", "'foo'")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.function("from_utf8", "to_utf8(cast('hello' as char(10)))", "1114112")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 

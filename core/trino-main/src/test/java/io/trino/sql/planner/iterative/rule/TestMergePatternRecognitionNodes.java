@@ -44,15 +44,15 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.RowsPerMatch.ALL_SHOW_EMPTY;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
+import static io.trino.sql.planner.plan.SkipToPosition.LAST;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_SHOW_EMPTY;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
-import static io.trino.sql.tree.SkipTo.Position.LAST;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 
 public class TestMergePatternRecognitionNodes
         extends BaseRuleTest
@@ -83,7 +83,7 @@ public class TestMergePatternRecognitionNodes
                 .doesNotFire();
 
         // aggregations in variable definitions do not match
-        QualifiedName count = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("count"), fromTypes(BIGINT)).toQualifiedName();
+        QualifiedName count = tester().getMetadata().resolveBuiltinFunction("count", fromTypes(BIGINT)).toQualifiedName();
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))
@@ -102,7 +102,7 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testParentDependsOnSourceCreatedOutputs()
     {
-        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+        ResolvedFunction lag = createTestMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
 
         // parent node's measure depends on child node's measure output
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
@@ -229,7 +229,7 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testMergeWithoutProject()
     {
-        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+        ResolvedFunction lag = createTestMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
 
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
@@ -239,7 +239,7 @@ public class TestMergePatternRecognitionNodes
                         .addWindowFunction(p.symbol("parent_function"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("a").toSymbolReference()), DEFAULT_FRAME, false))
                         .rowsPerMatch(WINDOW)
                         .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
-                        .skipTo(LAST, new IrLabel("X"))
+                        .skipTo(LAST, ImmutableSet.of(new IrLabel("X")))
                         .seek()
                         .addSubset(new IrLabel("U"), ImmutableSet.of(new IrLabel("X")))
                         .pattern(new IrLabel("X"))
@@ -251,7 +251,7 @@ public class TestMergePatternRecognitionNodes
                                 .addWindowFunction(p.symbol("child_function"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
-                                .skipTo(LAST, new IrLabel("X"))
+                                .skipTo(LAST, ImmutableSet.of(new IrLabel("X")))
                                 .seek()
                                 .addSubset(new IrLabel("U"), ImmutableSet.of(new IrLabel("X")))
                                 .pattern(new IrLabel("X"))
@@ -501,7 +501,7 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testMergeWithAggregation()
     {
-        QualifiedName count = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("count"), fromTypes(BIGINT)).toQualifiedName();
+        QualifiedName count = tester().getMetadata().resolveBuiltinFunction("count", fromTypes(BIGINT)).toQualifiedName();
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))

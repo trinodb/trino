@@ -20,7 +20,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.execution.TableInfo;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.connector.ColumnHandle;
@@ -33,10 +33,13 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +47,7 @@ import java.util.function.Function;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.predicate.Domain.all;
@@ -54,11 +58,15 @@ import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol.typedSymbol;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestAnonymizeJsonRepresentation
 {
     private static final JsonCodec<JsonRenderedNode> JSON_RENDERED_NODE_CODEC = jsonCodec(JsonRenderedNode.class);
@@ -76,16 +84,17 @@ public class TestAnonymizeJsonRepresentation
             new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, "orders"),
             TEST_TUPLE_DOMAIN);
 
-    private LocalQueryRunner queryRunner;
+    private QueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        queryRunner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.of());
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog(TEST_SESSION.getCatalog().get(), "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         queryRunner.close();
@@ -109,17 +118,17 @@ public class TestAnonymizeJsonRepresentation
                                 "keys", "[symbol_1, symbol_2]",
                                 "hash", "[]"),
                         ImmutableList.of(
-                                typedSymbol("symbol_1", "bigint"),
-                                typedSymbol("symbol_2", "bigint"),
-                                typedSymbol("symbol_3", "bigint")),
+                                typedSymbol("symbol_1", BIGINT),
+                                typedSymbol("symbol_2", BIGINT),
+                                typedSymbol("symbol_3", BIGINT)),
                         ImmutableList.of("symbol_3 := sum(\"symbol_4\")"),
                         ImmutableList.of(),
                         ImmutableList.of(valuesRepresentation(
                                 "0",
                                 ImmutableList.of(
-                                        typedSymbol("symbol_4", "bigint"),
-                                        typedSymbol("symbol_1", "bigint"),
-                                        typedSymbol("symbol_2", "bigint"))))));
+                                        typedSymbol("symbol_4", BIGINT),
+                                        typedSymbol("symbol_1", BIGINT),
+                                        typedSymbol("symbol_2", BIGINT))))));
     }
 
     @Test
@@ -143,20 +152,20 @@ public class TestAnonymizeJsonRepresentation
                         ImmutableMap.of(
                                 "criteria", "(\"symbol_1\" = \"symbol_2\")",
                                 "hash", "[]"),
-                        ImmutableList.of(typedSymbol("symbol_3", "bigint")),
+                        ImmutableList.of(typedSymbol("symbol_3", BIGINT)),
                         ImmutableList.of("dynamicFilterAssignments = {symbol_2 -> #DF}"),
                         ImmutableList.of(),
                         ImmutableList.of(
                                 valuesRepresentation(
                                         "0",
                                         ImmutableList.of(
-                                                typedSymbol("symbol_1", "bigint"),
-                                                typedSymbol("symbol_3", "bigint"))),
+                                                typedSymbol("symbol_1", BIGINT),
+                                                typedSymbol("symbol_3", BIGINT))),
                                 valuesRepresentation(
                                         "1",
                                         ImmutableList.of(
-                                                typedSymbol("symbol_4", "bigint"),
-                                                typedSymbol("symbol_2", "bigint"))))));
+                                                typedSymbol("symbol_4", BIGINT),
+                                                typedSymbol("symbol_2", BIGINT))))));
     }
 
     @Test
@@ -165,7 +174,7 @@ public class TestAnonymizeJsonRepresentation
         assertAnonymizedRepresentation(
                 pb -> pb.tableScan(
                         new TableHandle(
-                                queryRunner.getCatalogHandle("tpch"),
+                                queryRunner.getPlannerContext().getMetadata().getCatalogHandle(pb.getSession(), "tpch").orElseThrow(),
                                 new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
                                 TpchTransactionHandle.INSTANCE),
                         ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", BIGINT), pb.symbol("c", BIGINT), pb.symbol("d", BIGINT)),
@@ -181,10 +190,10 @@ public class TestAnonymizeJsonRepresentation
                         ImmutableMap.of(
                                 "table", "[table = catalog_1.schema_1.table_1, connector = tpch]"),
                         ImmutableList.of(
-                                typedSymbol("symbol_1", "bigint"),
-                                typedSymbol("symbol_2", "bigint"),
-                                typedSymbol("symbol_3", "bigint"),
-                                typedSymbol("symbol_4", "bigint")),
+                                typedSymbol("symbol_1", BIGINT),
+                                typedSymbol("symbol_2", BIGINT),
+                                typedSymbol("symbol_3", BIGINT),
+                                typedSymbol("symbol_4", BIGINT)),
                         ImmutableList.of(
                                 "symbol_1 := column_1",
                                 "    :: [[bigint_value_1]]",
@@ -206,13 +215,13 @@ public class TestAnonymizeJsonRepresentation
                         "1",
                         "Sort",
                         ImmutableMap.of("orderBy", "[symbol_1 ASC NULLS FIRST]"),
-                        ImmutableList.of(typedSymbol("symbol_1", "bigint")),
+                        ImmutableList.of(typedSymbol("symbol_1", BIGINT)),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(
                                 valuesRepresentation(
                                         "0",
-                                        ImmutableList.of(typedSymbol("symbol_1", "bigint"))))));
+                                        ImmutableList.of(typedSymbol("symbol_1", BIGINT))))));
     }
 
     private static JsonRenderedNode valuesRepresentation(String id, List<NodeRepresentation.TypedSymbol> outputs)
@@ -229,18 +238,21 @@ public class TestAnonymizeJsonRepresentation
 
     private void assertAnonymizedRepresentation(Function<PlanBuilder, PlanNode> sourceNodeSupplier, JsonRenderedNode expectedRepresentation)
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getMetadata(), queryRunner.getDefaultSession());
-        ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getDefaultSession());
-        String jsonRenderedNode = new PlanPrinter(
-                sourceNodeSupplier.apply(planBuilder),
-                planBuilder.getTypes(),
-                scanNode -> TABLE_INFO,
-                ImmutableMap.of(),
-                valuePrinter,
-                StatsAndCosts.empty(),
-                Optional.empty(),
-                new CounterBasedAnonymizer())
-                .toJson();
-        assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
+        queryRunner.inTransaction(session -> {
+            PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getPlannerContext(), session);
+            ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), session);
+            String jsonRenderedNode = new PlanPrinter(
+                    sourceNodeSupplier.apply(planBuilder),
+                    planBuilder.getTypes(),
+                    scanNode -> TABLE_INFO,
+                    ImmutableMap.of(),
+                    valuePrinter,
+                    StatsAndCosts.empty(),
+                    Optional.empty(),
+                    new CounterBasedAnonymizer())
+                    .toJson();
+            assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
+            return null;
+        });
     }
 }

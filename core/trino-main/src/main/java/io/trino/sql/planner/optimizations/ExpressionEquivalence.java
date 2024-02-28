@@ -21,9 +21,11 @@ import com.google.common.collect.Ordering;
 import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
@@ -45,7 +47,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -60,13 +62,15 @@ public class ExpressionEquivalence
     private static final Ordering<RowExpression> ROW_EXPRESSION_ORDERING = Ordering.from(new RowExpressionComparator());
     private final Metadata metadata;
     private final FunctionManager functionManager;
-    private final TypeAnalyzer typeAnalyzer;
+    private final TypeManager typeManager;
+    private final IrTypeAnalyzer typeAnalyzer;
     private final CanonicalizationVisitor canonicalizationVisitor;
 
-    public ExpressionEquivalence(Metadata metadata, FunctionManager functionManager, TypeAnalyzer typeAnalyzer)
+    public ExpressionEquivalence(Metadata metadata, FunctionManager functionManager, TypeManager typeManager, IrTypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.canonicalizationVisitor = new CanonicalizationVisitor();
     }
@@ -96,6 +100,7 @@ public class ExpressionEquivalence
                 symbolInput,
                 metadata,
                 functionManager,
+                typeManager,
                 session,
                 false);
     }
@@ -112,9 +117,9 @@ public class ExpressionEquivalence
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
 
-            String callName = call.getResolvedFunction().getSignature().getName();
+            CatalogSchemaFunctionName callName = call.getResolvedFunction().getSignature().getName();
 
-            if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
+            if (callName.equals(builtinFunctionName(EQUAL)) || callName.equals(builtinFunctionName(IS_DISTINCT_FROM))) {
                 // sort arguments
                 return new CallExpression(
                         call.getResolvedFunction(),

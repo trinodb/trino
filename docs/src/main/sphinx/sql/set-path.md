@@ -46,4 +46,6 @@ FROM
 
 ## See also
 
-{doc}`use`
+* [](/sql/use)
+* [](/admin/properties-sql-environment)
+

@@ -21,7 +21,6 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -32,9 +31,9 @@ import io.trino.spi.type.TypeManager;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -52,14 +51,14 @@ import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat
 import static io.trino.plugin.hive.orc.OrcFileWriter.computeBucketValue;
 import static io.trino.plugin.hive.util.AcidTables.deleteDeltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
 
-public class MergeFileWriter
+public final class MergeFileWriter
         implements FileWriter
 {
     // The bucketPath looks like this: /root/dir/delta_nnnnnnn_mmmmmmm_ssss/bucket_bbbbb(_aaaa)?
@@ -82,7 +81,7 @@ public class MergeFileWriter
     private final RowIdSortingFileWriterMaker sortingFileWriterMaker;
     private final OrcFileWriterFactory orcFileWriterFactory;
     private final HiveCompressionCodec compressionCodec;
-    private final Properties hiveAcidSchema;
+    private final Map<String, String> hiveAcidSchema;
     private final String bucketFilename;
     private Optional<FileWriter> deleteFileWriter = Optional.empty();
     private Optional<FileWriter> insertFileWriter = Optional.empty();
@@ -112,7 +111,7 @@ public class MergeFileWriter
         this.session = requireNonNull(session, "session is null");
         checkArgument(transaction.isTransactional(), "Not in a transaction: %s", transaction);
         this.hiveAcidSchema = createAcidSchema(hiveRowType);
-        this.hiveRowTypeNullsBlock = nativeValueToBlock(hiveRowType.getType(typeManager), null);
+        this.hiveRowTypeNullsBlock = nativeValueToBlock(typeManager.getType(hiveRowType.getTypeSignature()), null);
         Matcher matcher = BASE_PATH_MATCHER.matcher(bucketPath);
         if (!matcher.matches()) {
             matcher = BUCKET_PATH_MATCHER.matcher(bucketPath);
@@ -154,7 +153,7 @@ public class MergeFileWriter
                 .filter(column -> !column.isPartitionKey() && !column.isHidden())
                 .map(column -> insertPage.getBlock(column.getBaseHiveColumnIndex()))
                 .collect(toImmutableList());
-        Block mergedColumnsBlock = RowBlock.fromFieldBlocks(positionCount, Optional.empty(), dataColumns.toArray(new Block[] {}));
+        Block mergedColumnsBlock = RowBlock.fromFieldBlocks(positionCount, dataColumns.toArray(new Block[] {}));
         Block currentTransactionBlock = RunLengthEncodedBlock.create(BIGINT, writeId, positionCount);
         Block[] blockArray = {
                 RunLengthEncodedBlock.create(INSERT_OPERATION_BLOCK, positionCount),
@@ -178,8 +177,8 @@ public class MergeFileWriter
     @Override
     public long getMemoryUsage()
     {
-        return (deleteFileWriter.map(FileWriter::getMemoryUsage).orElse(0L)) +
-                (insertFileWriter.map(FileWriter::getMemoryUsage).orElse(0L));
+        return deleteFileWriter.map(FileWriter::getMemoryUsage).orElse(0L) +
+                insertFileWriter.map(FileWriter::getMemoryUsage).orElse(0L);
     }
 
     @Override
@@ -211,8 +210,8 @@ public class MergeFileWriter
     @Override
     public long getValidationCpuNanos()
     {
-        return (deleteFileWriter.map(FileWriter::getValidationCpuNanos).orElse(0L)) +
-                (insertFileWriter.map(FileWriter::getValidationCpuNanos).orElse(0L));
+        return deleteFileWriter.map(FileWriter::getValidationCpuNanos).orElse(0L) +
+                insertFileWriter.map(FileWriter::getValidationCpuNanos).orElse(0L);
     }
 
     public PartitionUpdateAndMergeResults getPartitionUpdateAndMergeResults(PartitionUpdate partitionUpdate)
@@ -227,15 +226,18 @@ public class MergeFileWriter
 
     private Page buildDeletePage(Block rowIds, long writeId)
     {
-        ColumnarRow columnarRow = toColumnarRow(rowIds);
-        checkArgument(!columnarRow.mayHaveNull(), "The rowIdsRowBlock may not have null rows");
         int positionCount = rowIds.getPositionCount();
-        // We've verified that the rowIds block has no null rows, so it's okay to get the field blocks
+        if (rowIds.mayHaveNull()) {
+            for (int position = 0; position < positionCount; position++) {
+                checkArgument(!rowIds.isNull(position), "The rowIdsRowBlock may not have null rows");
+            }
+        }
+        List<Block> fields = getRowFieldsFromBlock(rowIds);
         Block[] blockArray = {
                 RunLengthEncodedBlock.create(DELETE_OPERATION_BLOCK, positionCount),
-                columnarRow.getField(ORIGINAL_TRANSACTION_CHANNEL),
-                columnarRow.getField(BUCKET_CHANNEL),
-                columnarRow.getField(ROW_ID_CHANNEL),
+                fields.get(ORIGINAL_TRANSACTION_CHANNEL),
+                fields.get(BUCKET_CHANNEL),
+                fields.get(ROW_ID_CHANNEL),
                 RunLengthEncodedBlock.create(BIGINT, writeId, positionCount),
                 RunLengthEncodedBlock.create(hiveRowTypeNullsBlock, positionCount),
         };
@@ -245,14 +247,12 @@ public class MergeFileWriter
     private FileWriter getOrCreateInsertFileWriter()
     {
         if (insertFileWriter.isEmpty()) {
-            Properties schemaCopy = new Properties();
-            schemaCopy.putAll(hiveAcidSchema);
             insertFileWriter = orcFileWriterFactory.createFileWriter(
                     deltaDirectory.appendPath(bucketFilename),
                     ACID_COLUMN_NAMES,
                     fromHiveStorageFormat(ORC),
                     compressionCodec,
-                    schemaCopy,
+                    hiveAcidSchema,
                     session,
                     bucketNumber,
                     transaction,
@@ -265,15 +265,13 @@ public class MergeFileWriter
     private FileWriter getOrCreateDeleteFileWriter()
     {
         if (deleteFileWriter.isEmpty()) {
-            Properties schemaCopy = new Properties();
-            schemaCopy.putAll(hiveAcidSchema);
             Location deletePath = deleteDeltaDirectory.appendPath(bucketFilename);
             FileWriter writer = getWriter(orcFileWriterFactory.createFileWriter(
                     deletePath,
                     ACID_COLUMN_NAMES,
                     fromHiveStorageFormat(ORC),
                     compressionCodec,
-                    schemaCopy,
+                    hiveAcidSchema,
                     session,
                     bucketNumber,
                     transaction,

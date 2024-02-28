@@ -25,11 +25,11 @@ import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -60,13 +60,15 @@ import static java.lang.Integer.min;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestQuantileDigestAggregationFunction
 {
     private static final Joiner ARRAY_JOINER = Joiner.on(",");
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
-    private static final QualifiedName NAME = QualifiedName.of("qdigest_agg");
+    private static final String NAME = "qdigest_agg";
 
     private QueryAssertions assertions;
 

@@ -32,7 +32,6 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.DiscreteValues;
-import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.EquatableValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
@@ -503,10 +502,9 @@ public class KuduClientSession
         }
 
         Schema schema = table.getSchema();
-        for (TupleDomain.ColumnDomain<ColumnHandle> columnDomain : constraintSummary.getColumnDomains().get()) {
-            int position = ((KuduColumnHandle) columnDomain.getColumn()).getOrdinalPosition();
+        constraintSummary.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
+            int position = ((KuduColumnHandle) columnHandle).getOrdinalPosition();
             ColumnSchema columnSchema = schema.getColumnByIndex(position);
-            Domain domain = columnDomain.getDomain();
             verify(!domain.isNone(), "Domain is none");
             if (domain.isAll()) {
                 // no restriction
@@ -560,7 +558,7 @@ public class KuduClientSession
                     throw new IllegalStateException("Unexpected domain: " + domain);
                 }
             }
-        }
+        });
     }
 
     private KuduPredicate createInListPredicate(ColumnSchema columnSchema, DiscreteValues discreteValues)

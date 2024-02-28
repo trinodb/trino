@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
@@ -48,7 +47,7 @@ import static java.util.Objects.requireNonNull;
 public class IcebergPageSinkProvider
         implements ConnectorPageSinkProvider
 {
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final IcebergFileSystemFactory fileSystemFactory;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
@@ -60,7 +59,7 @@ public class IcebergPageSinkProvider
 
     @Inject
     public IcebergPageSinkProvider(
-            TrinoFileSystemFactory fileSystemFactory,
+            IcebergFileSystemFactory fileSystemFactory,
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
@@ -104,7 +103,7 @@ public class IcebergPageSinkProvider
                 locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
-                fileSystemFactory.create(session),
+                fileSystemFactory.create(session.getIdentity(), tableHandle.getFileIoProperties()),
                 tableHandle.getInputColumns(),
                 jsonCodec,
                 session,
@@ -135,7 +134,7 @@ public class IcebergPageSinkProvider
                         locationProvider,
                         fileWriterFactory,
                         pageIndexerFactory,
-                        fileSystemFactory.create(session),
+                        fileSystemFactory.create(session.getIdentity(), executeHandle.getFileIoProperties()),
                         optimizeHandle.getTableColumns(),
                         jsonCodec,
                         session,
@@ -168,7 +167,7 @@ public class IcebergPageSinkProvider
         return new IcebergMergeSink(
                 locationProvider,
                 fileWriterFactory,
-                fileSystemFactory.create(session),
+                fileSystemFactory.create(session.getIdentity(), tableHandle.getFileIoProperties()),
                 jsonCodec,
                 session,
                 tableHandle.getFileFormat(),

@@ -29,6 +29,9 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.HIVE_VIEW_COMPATIBILITY;
+import static io.trino.tests.product.TestGroups.ICEBERG_FORMAT_VERSION_COMPATIBILITY;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -52,12 +55,12 @@ public class SuiteCompatibility
 
         ImmutableList<SuiteTestRun> trinoCompatibilityTestRuns = testedTrinoDockerImages().stream()
                 .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
-                        .withGroups("configured_features", "hive_view_compatibility", "iceberg_format_version_compatibility")
+                        .withGroups(CONFIGURED_FEATURES, HIVE_VIEW_COMPATIBILITY, ICEBERG_FORMAT_VERSION_COMPATIBILITY)
                         .build())
                 .collect(toImmutableList());
         ImmutableList<SuiteTestRun> prestoCompatibilityTestRuns = testedPrestoDockerImages().stream()
                 .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
-                        .withGroups("configured_features", "hive_view_compatibility")
+                        .withGroups(CONFIGURED_FEATURES, HIVE_VIEW_COMPATIBILITY)
                         .build())
                 .collect(toImmutableList());
 

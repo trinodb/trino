@@ -55,7 +55,7 @@ public class WindowOperation
         super(location);
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
-        checkArgument(window instanceof WindowReference || window instanceof WindowSpecification, "unexpected window: " + window.getClass().getSimpleName());
+        checkArgument(window instanceof WindowReference || window instanceof WindowSpecification, "unexpected window: %s", window.getClass().getSimpleName());
 
         this.name = name;
         this.window = window;

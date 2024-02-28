@@ -14,16 +14,15 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.spi.type.Varchars.byteCount;
 import static io.trino.spi.type.Varchars.truncateToLength;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestVarchars
 {
@@ -31,27 +30,23 @@ public class TestVarchars
     public void testTruncateToLength()
     {
         // Single byte code points
-        assertEquals(truncateToLength(Slices.utf8Slice("abc"), 0), Slices.utf8Slice(""));
-        assertEquals(truncateToLength(Slices.utf8Slice("abc"), 1), Slices.utf8Slice("a"));
-        assertEquals(truncateToLength(Slices.utf8Slice("abc"), 4), Slices.utf8Slice("abc"));
-        assertEquals(truncateToLength(Slices.utf8Slice("abcde"), 5), Slices.utf8Slice("abcde"));
+        assertThat(truncateToLength(utf8Slice("abc"), 0)).isEqualTo(utf8Slice(""));
+        assertThat(truncateToLength(utf8Slice("abc"), 1)).isEqualTo(utf8Slice("a"));
+        assertThat(truncateToLength(utf8Slice("abc"), 4)).isEqualTo(utf8Slice("abc"));
+        assertThat(truncateToLength(utf8Slice("abcde"), 5)).isEqualTo(utf8Slice("abcde"));
         // 2 bytes code points
-        assertEquals(truncateToLength(Slices.utf8Slice("абв"), 0), Slices.utf8Slice(""));
-        assertEquals(truncateToLength(Slices.utf8Slice("абв"), 1), Slices.utf8Slice("а"));
-        assertEquals(truncateToLength(Slices.utf8Slice("абв"), 4), Slices.utf8Slice("абв"));
-        assertEquals(truncateToLength(Slices.utf8Slice("абвгд"), 5), Slices.utf8Slice("абвгд"));
+        assertThat(truncateToLength(utf8Slice("абв"), 0)).isEqualTo(utf8Slice(""));
+        assertThat(truncateToLength(utf8Slice("абв"), 1)).isEqualTo(utf8Slice("а"));
+        assertThat(truncateToLength(utf8Slice("абв"), 4)).isEqualTo(utf8Slice("абв"));
+        assertThat(truncateToLength(utf8Slice("абвгд"), 5)).isEqualTo(utf8Slice("абвгд"));
         // 4 bytes code points
-        assertEquals(truncateToLength(Slices.utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79\uD843\uDC53\uD843\uDC78"), 0),
-                Slices.utf8Slice(""));
-        assertEquals(truncateToLength(Slices.utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79\uD843\uDC53\uD843\uDC78"), 1),
-                Slices.utf8Slice("\uD841\uDF0E"));
-        assertEquals(truncateToLength(Slices.utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79"), 4),
-                Slices.utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79"));
-        assertEquals(truncateToLength(Slices.utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79\uD843\uDC53\uD843\uDC78"), 5),
-                Slices.utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79\uD843\uDC53\uD843\uDC78"));
+        assertThat(truncateToLength(utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79\uD843\uDC53\uD843\uDC78"), 0)).isEqualTo(utf8Slice(""));
+        assertThat(truncateToLength(utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79\uD843\uDC53\uD843\uDC78"), 1)).isEqualTo(utf8Slice("\uD841\uDF0E"));
+        assertThat(truncateToLength(utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79"), 4)).isEqualTo(utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79"));
+        assertThat(truncateToLength(utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79\uD843\uDC53\uD843\uDC78"), 5)).isEqualTo(utf8Slice("\uD841\uDF0E\uD841\uDF31\uD841\uDF79\uD843\uDC53\uD843\uDC78"));
 
-        assertEquals(truncateToLength(Slices.utf8Slice("abc"), createVarcharType(1)), Slices.utf8Slice("a"));
-        assertEquals(truncateToLength(Slices.utf8Slice("abc"), (Type) createVarcharType(1)), Slices.utf8Slice("a"));
+        assertThat(truncateToLength(utf8Slice("abc"), createVarcharType(1))).isEqualTo(utf8Slice("a"));
+        assertThat(truncateToLength(utf8Slice("abc"), (Type) createVarcharType(1))).isEqualTo(utf8Slice("a"));
     }
 
     @Test
@@ -130,6 +125,6 @@ public class TestVarchars
         Slice slice = wrappedBuffer(actual);
         int truncatedLength = byteCount(slice, offset, length, codePointCount);
         byte[] bytes = slice.getBytes(offset, truncatedLength);
-        assertEquals(bytes, expected);
+        assertThat(bytes).isEqualTo(expected);
     }
 }

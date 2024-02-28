@@ -16,7 +16,7 @@ package io.trino.plugin.jdbc.credential;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.spi.security.ConnectorIdentity;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;

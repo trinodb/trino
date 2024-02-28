@@ -29,6 +29,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -40,7 +41,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
-import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +48,6 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
@@ -175,9 +174,9 @@ public class BenchmarkInCodeGenerator
             Metadata metadata = createTestMetadataManager();
 
             List<ResolvedFunction> functionalDependencies = ImmutableList.of(
-                    metadata.resolveOperator(TEST_SESSION, OperatorType.EQUAL, ImmutableList.of(trinoType, trinoType)),
-                    metadata.resolveOperator(TEST_SESSION, OperatorType.HASH_CODE, ImmutableList.of(trinoType)),
-                    metadata.resolveOperator(TEST_SESSION, OperatorType.INDETERMINATE, ImmutableList.of(trinoType)));
+                    metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(trinoType, trinoType)),
+                    metadata.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(trinoType)),
+                    metadata.resolveOperator(OperatorType.INDETERMINATE, ImmutableList.of(trinoType)));
             RowExpression filter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
 
             FunctionManager functionManager = createTestingFunctionManager();

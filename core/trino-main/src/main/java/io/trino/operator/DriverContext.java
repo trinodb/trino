@@ -28,6 +28,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,6 +55,7 @@ public class DriverContext
     private final PipelineContext pipelineContext;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
+    private final ScheduledExecutorService timeoutExecutor;
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
@@ -70,6 +72,7 @@ public class DriverContext
 
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
+    private final AtomicReference<Optional<Duration>> blockedTimeout = new AtomicReference<>(Optional.empty());
 
     private final MemoryTrackingContext driverMemoryContext;
 
@@ -82,12 +85,14 @@ public class DriverContext
             PipelineContext pipelineContext,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
+            ScheduledExecutorService timeoutExecutor,
             MemoryTrackingContext driverMemoryContext,
             long splitWeight)
     {
         this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
+        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.driverMemoryContext = requireNonNull(driverMemoryContext, "driverMemoryContext is null");
         this.yieldSignal = new DriverYieldSignal();
         this.splitWeight = splitWeight;
@@ -445,6 +450,21 @@ public class DriverContext
     public ScheduledExecutorService getYieldExecutor()
     {
         return yieldExecutor;
+    }
+
+    public ScheduledExecutorService getTimeoutExecutor()
+    {
+        return timeoutExecutor;
+    }
+
+    public void setBlockedTimeout(Duration duration)
+    {
+        this.blockedTimeout.set(Optional.of(duration));
+    }
+
+    public Optional<Duration> getBlockedTimeout()
+    {
+        return blockedTimeout.get();
     }
 
     private static long nanosBetween(long start, long end)

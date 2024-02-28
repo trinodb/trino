@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.thrift.transport.TTransportException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;

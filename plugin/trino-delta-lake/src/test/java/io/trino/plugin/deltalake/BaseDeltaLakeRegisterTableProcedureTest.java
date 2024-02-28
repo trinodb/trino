@@ -15,17 +15,20 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
@@ -33,23 +36,22 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.io.MoreFiles.deleteDirectoryContents;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public abstract class BaseDeltaLakeRegisterTableProcedureTest
         extends AbstractTestQueryFramework
 {
-    protected static final String CATALOG_NAME = "delta_lake";
     protected static final String SCHEMA = "test_delta_lake_register_table_" + randomNameSuffix();
 
     private Path dataDirectory;
@@ -60,22 +62,22 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
             throws Exception
     {
         Session session = testSessionBuilder()
-                .setCatalog(CATALOG_NAME)
+                .setCatalog(DELTA_CATALOG)
                 .setSchema(SCHEMA)
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
         this.metastore = createTestMetastore(dataDirectory);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore))));
 
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
                 .put("delta.unique-table-location", "true")
                 .put("delta.register-table-procedure.enabled", "true")
                 .buildOrThrow();
 
-        queryRunner.createCatalog(CATALOG_NAME, CONNECTOR_NAME, connectorProperties);
+        queryRunner.createCatalog(DELTA_CATALOG, CONNECTOR_NAME, connectorProperties);
         queryRunner.execute("CREATE SCHEMA " + SCHEMA);
 
         return queryRunner;
@@ -83,7 +85,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
 
     protected abstract HiveMetastore createTestMetastore(Path dataDirectory);
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {
@@ -107,7 +109,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         // Drop table from metastore and use the table content to register a table
         metastore.dropTable(SCHEMA, tableName, false);
         // Verify that dropTableFromMetastore actually works
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
 
         assertQuerySucceeds(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, tableLocation));
         String showCreateTableNew = (String) computeScalar("SHOW CREATE TABLE " + tableName);
@@ -168,7 +170,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         metastore.dropTable(SCHEMA, tableName, false);
 
         String tableNameNew = "test_register_table_with_different_table_name_new_" + randomNameSuffix();
-        assertQuerySucceeds(format("CALL %s.system.register_table('%s', '%s', '%s')", CATALOG_NAME, SCHEMA, tableNameNew, tableLocation));
+        assertQuerySucceeds(format("CALL %s.system.register_table('%s', '%s', '%s')", DELTA_CATALOG, SCHEMA, tableNameNew, tableLocation));
         String showCreateTableNew = (String) computeScalar("SHOW CREATE TABLE " + tableNameNew);
 
         assertThat(showCreateTableOld).isEqualTo(showCreateTableNew.replaceFirst(tableNameNew, tableName));
@@ -181,7 +183,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     public void testRegisterTableWithTrailingSpaceInLocation()
     {
         String tableName = "test_register_table_with_trailing_space_" + randomNameSuffix();
-        String tableLocationWithTrailingSpace = dataDirectory.toUri() + "/" + tableName + " ";
+        String tableLocationWithTrailingSpace = "local:///" + tableName + " ";
 
         assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
@@ -226,14 +228,18 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String tableNameNew = "test_register_table_with_no_transaction_log_new_" + randomNameSuffix();
 
         // Delete files under transaction log directory and put an invalid log file to verify register_table call fails
-        String transactionLogDir = URI.create(getTransactionLogDir(tableLocation)).getPath();
-        deleteDirectoryContents(Path.of(transactionLogDir), ALLOW_INSECURE);
-        new File("/" + getTransactionLogJsonEntryPath(transactionLogDir, 0).path()).createNewFile();
+        QueryRunner queryRunner = getQueryRunner();
+        TrinoFileSystem fileSystem = TestingDeltaLakeUtils.getConnectorService(queryRunner, TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.ofUser("test"));
+        fileSystem.deleteDirectory(Location.of(tableLocation));
+        fileSystem.newOutputFile(getTransactionLogJsonEntryPath(getTransactionLogDir(tableLocation), 0))
+                .create()
+                .close();
 
         assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation),
                 ".*Metadata not found in transaction log for (.*)");
 
-        deleteRecursively(Path.of(URI.create(tableLocation).getPath()), ALLOW_INSECURE);
+        fileSystem.deleteDirectory(Location.of(tableLocation));
         metastore.dropTable(SCHEMA, tableName, false);
     }
 
@@ -250,12 +256,15 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String tableNameNew = "test_register_table_with_no_transaction_log_new_" + randomNameSuffix();
 
         // Delete files under transaction log directory to verify register_table call fails
-        deleteDirectoryContents(Path.of(URI.create(getTransactionLogDir(tableLocation)).getPath()), ALLOW_INSECURE);
+        QueryRunner queryRunner = getQueryRunner();
+        TrinoFileSystem fileSystem = TestingDeltaLakeUtils.getConnectorService(queryRunner, TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.ofUser("test"));
+        fileSystem.deleteDirectory(Location.of(tableLocation));
 
         assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation),
                 ".*No transaction log found in location (.*)");
 
-        deleteRecursively(Path.of(URI.create(tableLocation).getPath()), ALLOW_INSECURE);
+        fileSystem.deleteDirectory(Location.of(tableLocation));
         metastore.dropTable(SCHEMA, tableName, false);
     }
 
@@ -361,7 +370,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     {
         return (String) computeScalar(format(
                 "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'",
-                CATALOG_NAME,
+                DELTA_CATALOG,
                 SCHEMA,
                 tableName));
     }

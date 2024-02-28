@@ -15,8 +15,10 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionResolver;
+import io.trino.security.AccessControl;
 import io.trino.spi.StandardErrorCode;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ScopeAware;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -118,8 +120,9 @@ class AggregationAnalyzer
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences;
 
     private final Session session;
-    private final Metadata metadata;
     private final Analysis analysis;
+    private final FunctionResolver functionResolver;
+    private final AccessControl accessControl;
 
     private final Scope sourceScope;
     private final Optional<Scope> orderByScope;
@@ -129,10 +132,11 @@ class AggregationAnalyzer
             Scope sourceScope,
             List<Expression> expressions,
             Session session,
-            Metadata metadata,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
             Analysis analysis)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), session, metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), session, plannerContext, accessControl, analysis);
         for (Expression expression : expressions) {
             analyzer.analyze(expression);
         }
@@ -144,10 +148,11 @@ class AggregationAnalyzer
             Scope orderByScope,
             List<Expression> expressions,
             Session session,
-            Metadata metadata,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
             Analysis analysis)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), session, metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), session, plannerContext, accessControl, analysis);
         for (Expression expression : expressions) {
             analyzer.analyze(expression);
         }
@@ -158,24 +163,27 @@ class AggregationAnalyzer
             Scope sourceScope,
             Optional<Scope> orderByScope,
             Session session,
-            Metadata metadata,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
             Analysis analysis)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(sourceScope, "sourceScope is null");
         requireNonNull(orderByScope, "orderByScope is null");
         requireNonNull(session, "session is null");
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "metadata is null");
+        requireNonNull(accessControl, "accessControl is null");
         requireNonNull(analysis, "analysis is null");
 
         this.sourceScope = sourceScope;
         this.orderByScope = orderByScope;
         this.session = session;
-        this.metadata = metadata;
         this.analysis = analysis;
+        this.accessControl = accessControl;
         this.expressions = groupByExpressions.stream()
                 .map(expression -> scopeAwareKey(expression, analysis, sourceScope))
                 .collect(toImmutableSet());
+        functionResolver = plannerContext.getFunctionResolver();
 
         // No defensive copy here for performance reasons.
         // Copying this map may lead to quadratic time complexity
@@ -366,9 +374,9 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
-            if (metadata.isAggregationFunction(session, node.getName())) {
+            if (functionResolver.isAggregationFunction(session, node.getName(), accessControl)) {
                 if (node.getWindow().isEmpty()) {
-                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, metadata);
+                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, functionResolver, accessControl);
                     List<Expression> windowExpressions = extractWindowExpressions(node.getArguments());
 
                     if (!aggregateFunctions.isEmpty()) {
@@ -439,10 +447,7 @@ class AggregationAnalyzer
             }
             else {
                 if (node.getFilter().isPresent()) {
-                    throw semanticException(FUNCTION_NOT_AGGREGATE,
-                            node,
-                            "Filter is only valid for aggregation functions",
-                            node);
+                    throw semanticException(FUNCTION_NOT_AGGREGATE, node, "Filter is only valid for aggregation functions");
                 }
                 if (node.getOrderBy().isPresent()) {
                     throw semanticException(FUNCTION_NOT_AGGREGATE, node, "ORDER BY is only valid for aggregation functions");
@@ -795,7 +800,7 @@ class AggregationAnalyzer
         getReferencesToScope(node, analysis, orderByScope.get())
                 .findFirst()
                 .ifPresent(expression -> {
-                    throw semanticException(errorCode, expression, errorString);
+                    throw semanticException(errorCode, expression, "%s", errorString);
                 });
     }
 }

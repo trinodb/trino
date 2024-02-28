@@ -19,13 +19,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableProperties;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.DiscretePredicates;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -33,8 +31,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.FilterNode;
@@ -55,6 +51,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Objects.requireNonNull;
 
@@ -65,7 +62,11 @@ import static java.util.Objects.requireNonNull;
 public class MetadataQueryOptimizer
         implements PlanOptimizer
 {
-    private static final Set<String> ALLOWED_FUNCTIONS = ImmutableSet.of("max", "min", "approx_distinct");
+    private static final Set<CatalogSchemaFunctionName> ALLOWED_FUNCTIONS = ImmutableSet.<CatalogSchemaFunctionName>builder()
+            .add(builtinFunctionName("max"))
+            .add(builtinFunctionName("min"))
+            .add(builtinFunctionName("approx_distinct"))
+            .build();
 
     private final PlannerContext plannerContext;
 
@@ -75,20 +76,12 @@ public class MetadataQueryOptimizer
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
-        if (!SystemSessionProperties.isOptimizeMetadataQueries(session)) {
+        if (!SystemSessionProperties.isOptimizeMetadataQueries(context.session())) {
             return plan;
         }
-        return SimplePlanRewriter.rewriteWith(new Optimizer(session, plannerContext, idAllocator), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Optimizer(context.session(), plannerContext, context.idAllocator()), plan, null);
     }
 
     private static class Optimizer
@@ -171,7 +164,7 @@ public class MetadataQueryOptimizer
                             // partition key does not have a single value, so bail out to be safe
                             return context.defaultRewrite(node);
                         }
-                        rowBuilder.add(literalEncoder.toExpression(session, value.getValue(), type));
+                        rowBuilder.add(literalEncoder.toExpression(value.getValue(), type));
                     }
                     rowsBuilder.add(new Row(rowBuilder.build()));
                 }

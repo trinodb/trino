@@ -28,32 +28,45 @@ public class CassandraType
 {
     public enum Kind
     {
-        BOOLEAN,
-        TINYINT,
-        SMALLINT,
-        INT,
-        BIGINT,
-        FLOAT,
-        DOUBLE,
-        DECIMAL,
-        DATE,
-        TIME,
-        TIMESTAMP,
-        ASCII,
-        TEXT,
-        VARCHAR,
-        BLOB,
-        UUID,
-        TIMEUUID,
-        COUNTER,
-        VARINT,
-        INET,
-        CUSTOM,
-        LIST,
-        SET,
-        MAP,
-        TUPLE,
-        UDT,
+        BOOLEAN(true),
+        TINYINT(true),
+        SMALLINT(true),
+        INT(true),
+        BIGINT(true),
+        FLOAT(true),
+        DOUBLE(true),
+        DECIMAL(true),
+        DATE(true),
+        TIME(true),
+        TIMESTAMP(true),
+        ASCII(true),
+        TEXT(true),
+        VARCHAR(true),
+        BLOB(false),
+        UUID(true),
+        TIMEUUID(true),
+        COUNTER(false),
+        VARINT(false),
+        INET(true),
+        CUSTOM(false),
+        LIST(false),
+        SET(false),
+        MAP(false),
+        TUPLE(false),
+        UDT(false),
+        /**/;
+
+        private final boolean supportedPartitionKey;
+
+        Kind(boolean supportedPartitionKey)
+        {
+            this.supportedPartitionKey = supportedPartitionKey;
+        }
+
+        public boolean isSupportedPartitionKey()
+        {
+            return supportedPartitionKey;
+        }
     }
 
     private final Kind kind;

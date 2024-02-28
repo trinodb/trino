@@ -17,14 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.trino.Session;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
@@ -32,7 +30,6 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -82,8 +79,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
-import static io.trino.SystemSessionProperties.getTaskPartitionedWriterCount;
-import static io.trino.SystemSessionProperties.getTaskWriterCount;
+import static io.trino.SystemSessionProperties.getTaskMaxWriterCount;
+import static io.trino.SystemSessionProperties.getTaskMinWriterCount;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
@@ -118,26 +115,18 @@ public class AddLocalExchanges
         implements PlanOptimizer
 {
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public AddLocalExchanges(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public AddLocalExchanges(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, session), any());
+        PlanWithProperties result = plan.accept(new Rewriter(context.symbolAllocator(), context.idAllocator(), context.session()), any());
         return result.getNode();
     }
 
@@ -487,11 +476,10 @@ public class AddLocalExchanges
                     node.getMeasures(),
                     node.getCommonBaseFrame(),
                     node.getRowsPerMatch(),
-                    node.getSkipToLabel(),
+                    node.getSkipToLabels(),
                     node.getSkipToPosition(),
                     node.isInitial(),
                     node.getPattern(),
-                    node.getSubsets(),
                     node.getVariableDefinitions());
 
             return deriveProperties(result, child.getProperties());
@@ -746,7 +734,7 @@ public class AddLocalExchanges
                 return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
             }
 
-            if (getTaskWriterCount(session) == 1) {
+            if (getTaskMinWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
@@ -755,7 +743,7 @@ public class AddLocalExchanges
 
         private PlanWithProperties visitPartitionedWriter(PlanNode node, PartitioningScheme partitioningScheme, PlanNode source, StreamPreferredProperties parentPreferences)
         {
-            if (getTaskPartitionedWriterCount(session) == 1) {
+            if (getTaskMaxWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
@@ -784,7 +772,7 @@ public class AddLocalExchanges
 
         private PlanWithProperties visitScalePartitionedWriter(PlanNode node, PartitioningScheme partitioningScheme, PlanNode source)
         {
-            if (getTaskPartitionedWriterCount(session) == 1) {
+            if (getTaskMaxWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 

@@ -78,6 +78,9 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
+            if (length == 0) {
+                return;
+            }
             int bytesOffSet = 0;
             int endOffset = offset + length;
             for (int i = offset; i < endOffset - 1; i++) {
@@ -106,6 +109,9 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
+            if (length == 0) {
+                return;
+            }
             int bytesOffSet = 0;
             int endOffset = offset + length;
             for (int i = offset; i < endOffset - 1; i++) {
@@ -133,6 +139,9 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
+            if (length == 0) {
+                return;
+            }
             int bytesOffSet = 0;
             int endOffset = offset + length;
             for (int i = offset; i < endOffset - 1; i++) {

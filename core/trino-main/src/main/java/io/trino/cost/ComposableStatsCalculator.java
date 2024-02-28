@@ -16,11 +16,8 @@ package io.trino.cost;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.inject.Inject;
-import io.trino.Session;
 import io.trino.matching.Pattern;
 import io.trino.matching.pattern.TypeOfPattern;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.lang.reflect.Modifier;
@@ -64,12 +61,12 @@ public class ComposableStatsCalculator
     }
 
     @Override
-    public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    public PlanNodeStatsEstimate calculateStats(PlanNode node, Context context)
     {
         Iterator<Rule<?>> ruleIterator = getCandidates(node).iterator();
         while (ruleIterator.hasNext()) {
             Rule<?> rule = ruleIterator.next();
-            Optional<PlanNodeStatsEstimate> calculatedStats = calculateStats(rule, node, sourceStats, lookup, session, types, tableStatsProvider);
+            Optional<PlanNodeStatsEstimate> calculatedStats = calculateStats(rule, node, context);
             if (calculatedStats.isPresent()) {
                 return calculatedStats.get();
             }
@@ -77,17 +74,17 @@ public class ComposableStatsCalculator
         return PlanNodeStatsEstimate.unknown();
     }
 
-    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculateStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculateStats(Rule<T> rule, PlanNode node, Context context)
     {
         @SuppressWarnings("unchecked")
         T typedNode = (T) node;
-        return rule.calculate(typedNode, sourceStats, lookup, session, types, tableStatsProvider);
+        return rule.calculate(typedNode, context);
     }
 
     public interface Rule<T extends PlanNode>
     {
         Pattern<T> getPattern();
 
-        Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider);
+        Optional<PlanNodeStatsEstimate> calculate(T node, Context context);
     }
 }

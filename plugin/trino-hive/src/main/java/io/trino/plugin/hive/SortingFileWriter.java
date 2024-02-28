@@ -43,7 +43,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicLong;
@@ -60,7 +59,7 @@ import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-public class SortingFileWriter
+public final class SortingFileWriter
         implements FileWriter
 {
     private static final Logger log = Logger.get(SortingFileWriter.class);
@@ -79,6 +78,9 @@ public class SortingFileWriter
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::size));
     private final AtomicLong nextFileId = new AtomicLong();
     private final TypeOperators typeOperators;
+
+    private boolean flushed;
+    private long tempFilesWrittenBytes;
 
     public SortingFileWriter(
             TrinoFileSystem fileSystem,
@@ -109,7 +111,14 @@ public class SortingFileWriter
     @Override
     public long getWrittenBytes()
     {
-        return outputWriter.getWrittenBytes();
+        if (flushed) {
+            return outputWriter.getWrittenBytes();
+        }
+
+        // This is an approximation, since the outputWriter is not used until this write is committed.
+        // Returning an approximation is important as the value is used by the PageSink to split files
+        // into a reasonable size.
+        return tempFilesWrittenBytes;
     }
 
     @Override
@@ -130,6 +139,8 @@ public class SortingFileWriter
     @Override
     public Closeable commit()
     {
+        flushed = true;
+
         Closeable rollbackAction = createRollbackAction(fileSystem, tempFiles);
         if (!sortBuffer.isEmpty()) {
             // skip temporary files entirely if the total output size is small
@@ -188,12 +199,6 @@ public class SortingFileWriter
                 .add("tempFilePrefix", tempFilePrefix)
                 .add("outputWriter", outputWriter)
                 .toString();
-    }
-
-    @Override
-    public Optional<Runnable> getVerificationTask()
-    {
-        return outputWriter.getVerificationTask();
     }
 
     private void flushToTempFile()
@@ -259,6 +264,7 @@ public class SortingFileWriter
             consumer.accept(writer);
             writer.close();
             tempFiles.add(new TempFile(tempFile, writer.getWrittenBytes()));
+            tempFilesWrittenBytes += writer.getWrittenBytes();
         }
         catch (IOException | UncheckedIOException e) {
             cleanupFile(fileSystem, tempFile);

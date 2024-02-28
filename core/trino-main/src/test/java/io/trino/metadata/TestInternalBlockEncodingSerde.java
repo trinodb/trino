@@ -23,13 +23,13 @@ import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.VariableWidthBlockEncoding;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInternalBlockEncodingSerde
 {
@@ -47,8 +47,8 @@ public class TestInternalBlockEncodingSerde
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         blockEncodingSerde.writeBlock(sliceOutput, blockBuilder.build());
         Block copy = blockEncodingSerde.readBlock(sliceOutput.slice().getInput());
-        assertEquals(VARCHAR.getSlice(copy, 0).toStringUtf8(), "hello");
-        assertEquals(VARCHAR.getSlice(copy, 1).toStringUtf8(), "world");
+        assertThat(VARCHAR.getSlice(copy, 0).toStringUtf8()).isEqualTo("hello");
+        assertThat(VARCHAR.getSlice(copy, 1).toStringUtf8()).isEqualTo("world");
     }
 
     @Test
@@ -57,6 +57,6 @@ public class TestInternalBlockEncodingSerde
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         blockEncodingSerde.writeType(sliceOutput, BOOLEAN);
         Type actualType = blockEncodingSerde.readType(sliceOutput.slice().getInput());
-        assertEquals(actualType, BOOLEAN);
+        assertThat(actualType).isEqualTo(BOOLEAN);
     }
 }

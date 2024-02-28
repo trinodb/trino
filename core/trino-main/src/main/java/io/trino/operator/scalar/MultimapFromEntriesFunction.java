@@ -18,6 +18,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
@@ -62,7 +64,7 @@ public final class MultimapFromEntriesFunction
     @TypeParameter("V")
     @SqlType("map(K,array(V))")
     @SqlNullable
-    public Block multimapFromEntries(
+    public SqlMap multimapFromEntries(
             @TypeParameter("map(K,array(V))") MapType mapType,
             @OperatorDependency(
                     operator = IS_DISTINCT_FROM,
@@ -89,28 +91,33 @@ public final class MultimapFromEntriesFunction
                 clearEntryIndices(keySet.size());
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
             }
-            Block mapEntryBlock = mapEntryType.getObject(mapEntries, i);
+            SqlRow entry = mapEntryType.getObject(mapEntries, i);
+            int rawIndex = entry.getRawIndex();
 
-            if (mapEntryBlock.isNull(0)) {
+            Block keyBlock = entry.getRawFieldBlock(0);
+            if (keyBlock.isNull(rawIndex)) {
                 clearEntryIndices(keySet.size());
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
-            if (keySet.add(mapEntryBlock, 0)) {
+            if (keySet.add(keyBlock, rawIndex)) {
                 entryIndicesList[keySet.size() - 1].add(i);
             }
             else {
-                entryIndicesList[keySet.positionOf(mapEntryBlock, 0)].add(i);
+                entryIndicesList[keySet.positionOf(keyBlock, rawIndex)].add(i);
             }
         }
 
-        Block resultMap = mapValueBuilder.build(keySet.size(), (keyBuilder, valueBuilder) -> {
+        SqlMap resultMap = mapValueBuilder.build(keySet.size(), (keyBuilder, valueBuilder) -> {
             for (int i = 0; i < keySet.size(); i++) {
                 IntList indexList = entryIndicesList[i];
-                keyType.appendTo(mapEntryType.getObject(mapEntries, indexList.getInt(0)), 0, keyBuilder);
+
+                SqlRow keyEntry = mapEntryType.getObject(mapEntries, indexList.getInt(0));
+                keyType.appendTo(keyEntry.getRawFieldBlock(0), keyEntry.getRawIndex(), keyBuilder);
                 ((ArrayBlockBuilder) valueBuilder).buildEntry(elementBuilder -> {
                     for (int entryIndex : indexList) {
-                        valueType.appendTo(mapEntryType.getObject(mapEntries, entryIndex), 1, elementBuilder);
+                        SqlRow valueEntry = mapEntryType.getObject(mapEntries, entryIndex);
+                        valueType.appendTo(valueEntry.getRawFieldBlock(1), valueEntry.getRawIndex(), elementBuilder);
                     }
                 });
             }

@@ -241,7 +241,6 @@ public class TopNRankingOperator
                         hashChannel.isPresent(),
                         operatorContext.getSession(),
                         joinCompiler,
-                        typeOperators,
                         this::updateMemoryReservation));
     }
 
@@ -251,7 +250,6 @@ public class TopNRankingOperator
             boolean hasPrecomputedHash,
             Session session,
             JoinCompiler joinCompiler,
-            TypeOperators typeOperators,
             UpdateMemory updateMemory)
     {
         if (partitionTypes.isEmpty()) {
@@ -264,7 +262,6 @@ public class TopNRankingOperator
                 hasPrecomputedHash,
                 expectedPositions,
                 joinCompiler,
-                typeOperators,
                 updateMemory);
     }
 

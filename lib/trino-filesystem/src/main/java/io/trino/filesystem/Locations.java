@@ -13,8 +13,6 @@
  */
 package io.trino.filesystem;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public final class Locations
 {
     private Locations() {}
@@ -25,18 +23,10 @@ public final class Locations
     @Deprecated
     public static String appendPath(String location, String path)
     {
-        validateLocation(location);
-
         if (!location.endsWith("/")) {
             location += "/";
         }
         return location + path;
-    }
-
-    private static void validateLocation(String location)
-    {
-        checkArgument(location.indexOf('?') < 0, "location contains a query string: %s", location);
-        checkArgument(location.indexOf('#') < 0, "location contains a fragment: %s", location);
     }
 
     /**

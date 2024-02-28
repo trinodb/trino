@@ -28,7 +28,6 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -97,7 +96,7 @@ public class ImplementExceptAll
 
         // compute expected multiplicity for every row
         checkState(result.getCountSymbols().size() > 0, "ExceptNode translation result has no count symbols");
-        ResolvedFunction greatest = metadata.resolveFunction(context.getSession(), QualifiedName.of("greatest"), fromTypes(BIGINT, BIGINT));
+        ResolvedFunction greatest = metadata.resolveBuiltinFunction("greatest", fromTypes(BIGINT, BIGINT));
 
         Expression count = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {

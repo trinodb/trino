@@ -57,6 +57,6 @@ public class TestArraySortAfterArrayDistinct
 
     private Expression expression(String sql)
     {
-        return ExpressionTestUtils.planExpression(tester().getPlannerContext(), tester().getSession(), TypeProvider.empty(), PlanBuilder.expression(sql));
+        return ExpressionTestUtils.planExpression(tester().getPlanTester().getTransactionManager(), tester().getPlannerContext(), tester().getSession(), TypeProvider.empty(), PlanBuilder.expression(sql));
     }
 }

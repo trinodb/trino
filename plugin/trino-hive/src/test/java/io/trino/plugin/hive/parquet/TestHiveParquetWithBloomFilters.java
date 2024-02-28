@@ -18,7 +18,6 @@ import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.BaseTestParquetWithBloomFilters;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.mapred.JobConf;
@@ -30,7 +29,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
@@ -48,7 +46,7 @@ public class TestHiveParquetWithBloomFilters
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder().build();
+        QueryRunner queryRunner = HiveQueryRunner.builder().build();
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
         return queryRunner;
     }
@@ -74,7 +72,7 @@ public class TestHiveParquetWithBloomFilters
         List<ObjectInspector> objectInspectors = singletonList(javaIntObjectInspector);
         List<String> columnNames = ImmutableList.of(columnName);
 
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
+        JobConf jobConf = new JobConf(false);
         jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
         jobConf.setBoolean(BLOOM_FILTER_ENABLED, true);
 

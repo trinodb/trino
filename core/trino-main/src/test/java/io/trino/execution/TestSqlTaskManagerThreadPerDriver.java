@@ -19,7 +19,7 @@ import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.dedicated.ThreadPerDriverTaskExecutor;
 import io.trino.execution.executor.scheduler.FairScheduler;
 
-import static io.trino.version.EmbedVersion.testingVersionEmbedder;
+import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 
 public class TestSqlTaskManagerThreadPerDriver
         extends BaseTestSqlTaskManager
@@ -30,6 +30,9 @@ public class TestSqlTaskManagerThreadPerDriver
         return new ThreadPerDriverTaskExecutor(
                 Tracing.noopTracer(),
                 testingVersionEmbedder(),
-                new FairScheduler(8, "Runner-%d", Ticker.systemTicker()));
+                new FairScheduler(8, "Runner-%d", Ticker.systemTicker()),
+                1,
+                Integer.MAX_VALUE,
+                8);
     }
 }

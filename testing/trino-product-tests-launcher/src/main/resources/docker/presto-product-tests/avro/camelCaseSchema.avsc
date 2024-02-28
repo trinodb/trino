@@ -1,0 +1,8 @@
+{
+  "namespace": "io.trino.test",
+  "name": "product_tests_avro_table",
+  "type": "record",
+  "fields": [
+    { "name":"stringCol", "type":"string"},
+    { "name":"intCol", "type":"int" }
+]}

@@ -98,11 +98,10 @@ public final class DecimalCasts
     private static SqlScalarFunction castFunctionFromDecimalTo(TypeSignature to, String... methodNames)
     {
         Signature signature = Signature.builder()
-                .operatorType(CAST)
                 .argumentType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .returnType(to)
                 .build();
-        return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
+        return new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -131,11 +130,10 @@ public final class DecimalCasts
     private static SqlScalarFunction castFunctionToDecimalFromBuilder(TypeSignature from, boolean nullableResult, String... methodNames)
     {
         Signature signature = Signature.builder()
-                .operatorType(CAST)
                 .argumentType(from)
                 .returnType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .build();
-        return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
+        return new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
                 .signature(signature)
                 .nullableResult(nullableResult)
                 .deterministic(true)
@@ -156,9 +154,8 @@ public final class DecimalCasts
                                 }))).build();
     }
 
-    public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
+    public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
             .signature(Signature.builder()
-                    .operatorType(CAST)
                     .argumentType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                     .returnType(new TypeSignature("varchar", typeVariable("x")))
                     .build())

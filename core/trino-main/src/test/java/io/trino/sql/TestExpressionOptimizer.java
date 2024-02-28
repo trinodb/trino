@@ -25,13 +25,14 @@ import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.optimizer.ExpressionOptimizer;
-import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.toValues;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
@@ -48,7 +49,7 @@ import static io.trino.sql.relational.Expressions.field;
 import static io.trino.sql.relational.SpecialForm.Form.IF;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.StructuralTestUtil.mapType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionOptimizer
 {
@@ -58,7 +59,8 @@ public class TestExpressionOptimizer
             functionResolution.getPlannerContext().getFunctionManager(),
             TEST_SESSION);
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testPossibleExponentialOptimizationTime()
     {
         RowExpression expression = constant(1L, BIGINT);
@@ -73,20 +75,20 @@ public class TestExpressionOptimizer
     @Test
     public void testIfConstantOptimization()
     {
-        assertEquals(optimizer.optimize(ifExpression(constant(true, BOOLEAN), 1L, 2L)), constant(1L, BIGINT));
-        assertEquals(optimizer.optimize(ifExpression(constant(false, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
-        assertEquals(optimizer.optimize(ifExpression(constant(null, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
+        assertThat(optimizer.optimize(ifExpression(constant(true, BOOLEAN), 1L, 2L))).isEqualTo(constant(1L, BIGINT));
+        assertThat(optimizer.optimize(ifExpression(constant(false, BOOLEAN), 1L, 2L))).isEqualTo(constant(2L, BIGINT));
+        assertThat(optimizer.optimize(ifExpression(constant(null, BOOLEAN), 1L, 2L))).isEqualTo(constant(2L, BIGINT));
 
         RowExpression condition = new CallExpression(
                 functionResolution.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
-        assertEquals(optimizer.optimize(ifExpression(condition, 1L, 2L)), constant(1L, BIGINT));
+        assertThat(optimizer.optimize(ifExpression(condition, 1L, 2L))).isEqualTo(constant(1L, BIGINT));
     }
 
     @Test
     public void testCastWithJsonParseOptimization()
     {
-        ResolvedFunction jsonParseFunction = functionResolution.resolveFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+        ResolvedFunction jsonParseFunction = functionResolution.resolveFunction("json_parse", fromTypes(VARCHAR));
 
         // constant
         ResolvedFunction jsonCastFunction = functionResolution.getCoercion(JSON, new ArrayType(INTEGER));
@@ -95,7 +97,7 @@ public class TestExpressionOptimizer
         assertInstanceOf(resultExpression, ConstantExpression.class);
         Object resultValue = ((ConstantExpression) resultExpression).getValue();
         assertInstanceOf(resultValue, IntArrayBlock.class);
-        assertEquals(toValues(INTEGER, (IntArrayBlock) resultValue), ImmutableList.of(1, 2));
+        assertThat(toValues(INTEGER, (IntArrayBlock) resultValue)).isEqualTo(ImmutableList.of(1, 2));
 
         // varchar to array
         testCastWithJsonParseOptimization(jsonParseFunction, new ArrayType(VARCHAR), JSON_STRING_TO_ARRAY_NAME);
@@ -112,11 +114,9 @@ public class TestExpressionOptimizer
         ResolvedFunction jsonCastFunction = functionResolution.getCoercion(JSON, targetType);
         RowExpression jsonCastExpression = new CallExpression(jsonCastFunction, ImmutableList.of(call(jsonParseFunction, field(1, VARCHAR))));
         RowExpression resultExpression = optimizer.optimize(jsonCastExpression);
-        assertEquals(
-                resultExpression,
-                call(
-                        functionResolution.getCoercion(QualifiedName.of(jsonStringToRowName), VARCHAR, targetType),
-                        field(1, VARCHAR)));
+        assertThat(resultExpression).isEqualTo(call(
+                functionResolution.getCoercion(builtinFunctionName(jsonStringToRowName), VARCHAR, targetType),
+                field(1, VARCHAR)));
     }
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)

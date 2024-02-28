@@ -23,14 +23,14 @@ import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.RowType;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,7 +42,6 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hive.formats.FormatTestUtils.createLineBuffer;
 import static io.trino.hive.formats.FormatTestUtils.getJavaObjectInspector;
 import static io.trino.hive.formats.FormatTestUtils.toSingleRowPage;
@@ -57,6 +56,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCsvFormat
 {
@@ -129,13 +129,24 @@ public class TestCsvFormat
         // For serialization the pipe character is escaped with a quote char, but for deserialization escape character is the backslash character
         assertTrinoHiveByteForByte(false, Arrays.asList("|", "a", "b"), Optional.empty(), Optional.of('|'), Optional.empty());
         assertTrinoHiveByteForByte(false, Arrays.asList("|", "a", "|"), Optional.empty(), Optional.of('|'), Optional.empty());
+
+        // Hive has strange special handling of the escape character. If the escape character is double quote (char 34)
+        // Hive will change the escape character to backslash (char 92).
+        assertLine("*a*|*b\\|b*|*c*", Arrays.asList("a", "b|b", "c"), Optional.of('|'), Optional.of('*'), Optional.of('"'));
+
+        // Hive does not allow the separator, quote, or escape characters to be the same, but this is checked after the escape character is changed
+        assertInvalidConfig(Optional.of('\\'), Optional.of('*'), Optional.of('"'));
+        assertInvalidConfig(Optional.of('*'), Optional.of('\\'), Optional.of('"'));
+
+        // Since the escape character is swapped, the quote or separator character can be the same as the original escape character
+        assertLine("\"a\"|\"b\\\"b\"|\"c\"", Arrays.asList("a", "b\"b", "c"), Optional.of('|'), Optional.of('"'), Optional.of('"'));
+        assertLine("*a*\"*b\\\"b*\"*c*", Arrays.asList("a", "b\"b", "c"), Optional.of('"'), Optional.of('*'), Optional.of('"'));
     }
 
     private static void assertLine(boolean shouldRoundTrip, String csvLine, List<String> expectedValues)
             throws Exception
     {
-        assertHiveLine(csvLine, expectedValues, Optional.empty(), Optional.empty(), Optional.empty());
-        assertTrinoLine(csvLine, expectedValues, Optional.empty(), Optional.empty(), Optional.empty());
+        assertLine(csvLine, expectedValues, Optional.empty(), Optional.empty(), Optional.empty());
         assertTrinoHiveByteForByte(shouldRoundTrip, expectedValues, Optional.empty(), Optional.empty(), Optional.empty());
 
         csvLine = rewriteSpecialChars(csvLine, '_', '|', '~');
@@ -143,8 +154,7 @@ public class TestCsvFormat
                 .map(value -> value == null ? null : rewriteSpecialChars(value, '_', '|', '~'))
                 .collect(Collectors.toList());
 
-        assertHiveLine(csvLine, expectedValues, Optional.of('_'), Optional.of('|'), Optional.of('~'));
-        assertTrinoLine(csvLine, expectedValues, Optional.of('_'), Optional.of('|'), Optional.of('~'));
+        assertLine(csvLine, expectedValues, Optional.of('_'), Optional.of('|'), Optional.of('~'));
         // after switching the special characters the values will round trip
         assertTrinoHiveByteForByte(true, expectedValues, Optional.of('_'), Optional.of('|'), Optional.of('~'));
     }
@@ -222,6 +232,13 @@ public class TestCsvFormat
                 .toList();
     }
 
+    private static void assertLine(String csvLine, List<String> expectedValues, Optional<Character> separatorChar, Optional<Character> quoteChar, Optional<Character> escapeChar)
+            throws SerDeException, IOException
+    {
+        assertHiveLine(csvLine, expectedValues, separatorChar, quoteChar, escapeChar);
+        assertTrinoLine(csvLine, expectedValues, separatorChar, quoteChar, escapeChar);
+    }
+
     private static void assertHiveLine(String csvLine, List<String> expectedValues, Optional<Character> separatorChar, Optional<Character> quoteChar, Optional<Character> escapeChar)
             throws SerDeException
     {
@@ -246,10 +263,20 @@ public class TestCsvFormat
         return serializer.serialize(expectedValues, javaObjectInspector).toString();
     }
 
+    private static void assertInvalidConfig(Optional<Character> separatorChar, Optional<Character> quoteChar, Optional<Character> escapeChar)
+    {
+        assertThatThrownBy(() -> createHiveSerDe(3, separatorChar, quoteChar, escapeChar).deserialize(new Text("")))
+                .isInstanceOf(SerDeException.class)
+                .hasMessage("java.lang.UnsupportedOperationException: The separator, quote, and escape characters must be different!");
+        assertThatThrownBy(() -> new CsvDeserializerFactory().create(createReadColumns(3), createCsvProperties(separatorChar, quoteChar, escapeChar)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("(Quote|Separator) character cannot be '\\\\' when escape character is '\"'");
+    }
+
     private static OpenCSVSerde createHiveSerDe(int columnCount, Optional<Character> separatorChar, Optional<Character> quoteChar, Optional<Character> escapeChar)
             throws SerDeException
     {
-        JobConf configuration = new JobConf(newEmptyConfiguration());
+        Configuration configuration = new Configuration(false);
 
         Properties schema = new Properties();
         schema.setProperty(META_TABLE_COLUMNS, IntStream.range(0, columnCount).mapToObj(i -> "value_" + i).collect(joining(",")));

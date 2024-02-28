@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -111,7 +112,11 @@ public class CreateViewTask
                 session.getSchema(),
                 columns,
                 statement.getComment(),
-                owner);
+                owner,
+                session.getPath().getPath().stream()
+                        // system path elements currently are not stored
+                        .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))
+                        .collect(toImmutableList()));
 
         metadata.createView(session, name, definition, statement.isReplace());
 

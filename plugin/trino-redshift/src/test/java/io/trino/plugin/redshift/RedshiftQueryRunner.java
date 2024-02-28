@@ -71,7 +71,7 @@ public final class RedshiftQueryRunner
 
     private RedshiftQueryRunner() {}
 
-    public static DistributedQueryRunner createRedshiftQueryRunner(
+    public static QueryRunner createRedshiftQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
@@ -86,7 +86,7 @@ public final class RedshiftQueryRunner
                 queryRunner -> {});
     }
 
-    public static DistributedQueryRunner createRedshiftQueryRunner(
+    public static QueryRunner createRedshiftQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
@@ -103,7 +103,7 @@ public final class RedshiftQueryRunner
                 additionalSetup);
     }
 
-    public static DistributedQueryRunner createRedshiftQueryRunner(
+    public static QueryRunner createRedshiftQueryRunner(
             Session session,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
@@ -112,7 +112,7 @@ public final class RedshiftQueryRunner
             Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
-        DistributedQueryRunner runner = DistributedQueryRunner.builder(session)
+        QueryRunner runner = DistributedQueryRunner.builder(session)
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(additionalSetup)
@@ -285,7 +285,7 @@ public final class RedshiftQueryRunner
     {
         Logging.initialize();
 
-        DistributedQueryRunner queryRunner = createRedshiftQueryRunner(
+        QueryRunner queryRunner = createRedshiftQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 ImmutableList.of());

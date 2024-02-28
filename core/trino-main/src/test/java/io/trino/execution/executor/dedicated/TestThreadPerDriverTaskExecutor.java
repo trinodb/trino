@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static io.airlift.tracing.Tracing.noopTracer;
-import static io.trino.version.EmbedVersion.testingVersionEmbedder;
+import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -121,7 +121,7 @@ public class TestThreadPerDriverTaskExecutor
     {
         TestingTicker ticker = new TestingTicker();
         FairScheduler scheduler = new FairScheduler(1, "Runner-%d", ticker);
-        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, Integer.MAX_VALUE, Integer.MAX_VALUE);
         executor.start();
 
         try {

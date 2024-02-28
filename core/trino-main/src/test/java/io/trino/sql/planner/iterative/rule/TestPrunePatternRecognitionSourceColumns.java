@@ -25,8 +25,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_SHOW_EMPTY;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.RowsPerMatch.ALL_SHOW_EMPTY;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 
 public class TestPrunePatternRecognitionSourceColumns
         extends BaseRuleTest

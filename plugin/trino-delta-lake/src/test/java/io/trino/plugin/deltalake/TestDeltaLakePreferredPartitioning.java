@@ -20,9 +20,9 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
@@ -54,7 +54,7 @@ public class TestDeltaLakePreferredPartitioning
                 .setCatalog(DELTA_CATALOG)
                 .setSchema(schema)
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -163,7 +163,7 @@ public class TestDeltaLakePreferredPartitioning
                 // It is important to explicitly set partitioned writer count to 1 since in above tests we are testing
                 // the open writers limit for partitions. So, with default value of 32 writer count, we will never
                 // hit that limit thus, tests will fail.
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
                 .build();
     }
 
@@ -174,7 +174,7 @@ public class TestDeltaLakePreferredPartitioning
                 // It is important to explicitly set partitioned writer count to 1 since in above tests we are testing
                 // the open writers limit for partitions. So, with default value of 32 writer count, we will never
                 // hit that limit thus, tests will fail.
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
                 .build();
     }
 }

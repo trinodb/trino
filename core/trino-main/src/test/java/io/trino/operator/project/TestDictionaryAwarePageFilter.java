@@ -24,7 +24,7 @@ import io.trino.spi.connector.ConnectorSession;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.stream.IntStream;
@@ -32,8 +32,9 @@ import java.util.stream.IntStream;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestDictionaryAwarePageFilter
 {
@@ -41,8 +42,8 @@ public class TestDictionaryAwarePageFilter
     public void testDelegateMethods()
     {
         DictionaryAwarePageFilter filter = new DictionaryAwarePageFilter(new TestDictionaryFilter(true));
-        assertEquals(filter.isDeterministic(), true);
-        assertEquals(filter.getInputChannels().getInputChannels(), ImmutableList.of(3));
+        assertThat(filter.isDeterministic()).isEqualTo(true);
+        assertThat(filter.getInputChannels().getInputChannels()).isEqualTo(ImmutableList.of(3));
     }
 
     @Test
@@ -196,11 +197,11 @@ public class TestDictionaryAwarePageFilter
 
         IntSet expectedSelectedPositions = new IntArraySet(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
-            if (isSelected(filterRange, block.getLong(position, 0))) {
+            if (isSelected(filterRange, BIGINT.getLong(block, position))) {
                 expectedSelectedPositions.add(position);
             }
         }
-        assertEquals(actualSelectedPositions, expectedSelectedPositions);
+        assertThat(actualSelectedPositions).isEqualTo(expectedSelectedPositions);
     }
 
     private static IntSet toSet(SelectedPositions selectedPositions)
@@ -274,13 +275,13 @@ public class TestDictionaryAwarePageFilter
         @Override
         public SelectedPositions filter(ConnectorSession session, Page page)
         {
-            assertEquals(page.getChannelCount(), 1);
+            assertThat(page.getChannelCount()).isEqualTo(1);
             Block block = page.getBlock(0);
 
             boolean sequential = true;
             IntArrayList selectedPositions = new IntArrayList();
             for (int position = 0; position < block.getPositionCount(); position++) {
-                long value = block.getLong(position, 0);
+                long value = BIGINT.getLong(block, position);
                 verifyPositive(value);
 
                 boolean selected = isSelected(filterRange, value);

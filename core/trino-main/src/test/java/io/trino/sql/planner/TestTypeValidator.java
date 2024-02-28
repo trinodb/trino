@@ -36,12 +36,8 @@ import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.sanity.TypeValidator;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.WindowFrame;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
@@ -52,58 +48,51 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Test(singleThreaded = true)
 public class TestTypeValidator
 {
     private static final TypeValidator TYPE_VALIDATOR = new TypeValidator();
 
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-    private SymbolAllocator symbolAllocator;
-    private TableScanNode baseTableScan;
-    private Symbol columnA;
-    private Symbol columnB;
-    private Symbol columnC;
-    private Symbol columnD;
-    private Symbol columnE;
+    private final SymbolAllocator symbolAllocator = new SymbolAllocator();
+    private final Symbol columnA = symbolAllocator.newSymbol("a", BIGINT);
+    private final Symbol columnB = symbolAllocator.newSymbol("b", INTEGER);
+    private final Symbol columnC = symbolAllocator.newSymbol("c", DOUBLE);
+    private final Symbol columnD = symbolAllocator.newSymbol("d", DATE);
+    // varchar(3), to test type only coercion
+    private final Symbol columnE = symbolAllocator.newSymbol("e", VarcharType.createVarcharType(3));
 
-    @BeforeMethod
-    public void setUp()
-    {
-        symbolAllocator = new SymbolAllocator();
-        columnA = symbolAllocator.newSymbol("a", BIGINT);
-        columnB = symbolAllocator.newSymbol("b", INTEGER);
-        columnC = symbolAllocator.newSymbol("c", DOUBLE);
-        columnD = symbolAllocator.newSymbol("d", DATE);
-        columnE = symbolAllocator.newSymbol("e", VarcharType.createVarcharType(3));  // varchar(3), to test type only coercion
-
-        Map<Symbol, ColumnHandle> assignments = ImmutableMap.<Symbol, ColumnHandle>builder()
-                .put(columnA, new TestingColumnHandle("a"))
-                .put(columnB, new TestingColumnHandle("b"))
-                .put(columnC, new TestingColumnHandle("c"))
-                .put(columnD, new TestingColumnHandle("d"))
-                .put(columnE, new TestingColumnHandle("e"))
-                .buildOrThrow();
-
-        baseTableScan = new TableScanNode(
-                newId(),
-                TEST_TABLE_HANDLE,
-                ImmutableList.copyOf(assignments.keySet()),
-                assignments,
-                TupleDomain.all(),
-                Optional.empty(),
-                false,
-                Optional.empty());
-    }
+    private final TableScanNode baseTableScan = new TableScanNode(
+            newId(),
+            TEST_TABLE_HANDLE,
+            ImmutableList.copyOf(((Map<Symbol, ColumnHandle>) ImmutableMap.<Symbol, ColumnHandle>builder()
+                    .put(columnA, new TestingColumnHandle("a"))
+                    .put(columnB, new TestingColumnHandle("b"))
+                    .put(columnC, new TestingColumnHandle("c"))
+                    .put(columnD, new TestingColumnHandle("d"))
+                    .put(columnE, new TestingColumnHandle("e"))
+                    .buildOrThrow()).keySet()),
+            ImmutableMap.<Symbol, ColumnHandle>builder()
+                    .put(columnA, new TestingColumnHandle("a"))
+                    .put(columnB, new TestingColumnHandle("b"))
+                    .put(columnC, new TestingColumnHandle("c"))
+                    .put(columnD, new TestingColumnHandle("d"))
+                    .put(columnE, new TestingColumnHandle("e"))
+                    .buildOrThrow(),
+            TupleDomain.all(),
+            Optional.empty(),
+            false,
+            Optional.empty());
 
     @Test
     public void testValidProject()
@@ -144,14 +133,14 @@ public class TestTypeValidator
     public void testValidWindow()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
+                RANGE,
+                UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 Optional.empty(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING,
+                UNBOUNDED_FOLLOWING,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -182,26 +171,13 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction("sum", fromTypes(DOUBLE)),
                         ImmutableList.of(columnC.toSymbolReference()),
                         false,
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)));
-
-        assertTypesValid(node);
-    }
-
-    @Test
-    public void testValidTypeOnlyCoercion()
-    {
-        Expression expression = new Cast(columnB.toSymbolReference(), toSqlType(BIGINT));
-        Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression, BIGINT), expression)
-                .put(symbolAllocator.newSymbol(columnE.toSymbolReference(), VARCHAR), columnE.toSymbolReference()) // implicit coercion from varchar(3) to varchar
-                .build();
-        PlanNode node = new ProjectNode(newId(), baseTableScan, assignments);
 
         assertTypesValid(node);
     }
@@ -234,7 +210,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction("sum", fromTypes(DOUBLE)),
                         ImmutableList.of(columnA.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -256,7 +232,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction("sum", fromTypes(DOUBLE)),
                         ImmutableList.of(columnC.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -273,14 +249,14 @@ public class TestTypeValidator
     public void testInvalidWindowFunctionCall()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
+                RANGE,
+                UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 Optional.empty(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING,
+                UNBOUNDED_FOLLOWING,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -308,14 +284,14 @@ public class TestTypeValidator
     public void testInvalidWindowFunctionSignature()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
-        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
+                RANGE,
+                UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 Optional.empty(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING,
+                UNBOUNDED_FOLLOWING,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -361,7 +337,7 @@ public class TestTypeValidator
 
     private void assertTypesValid(PlanNode node)
     {
-        TYPE_VALIDATOR.validate(node, TEST_SESSION, PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT), symbolAllocator.getTypes(), WarningCollector.NOOP);
+        TYPE_VALIDATOR.validate(node, TEST_SESSION, PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT), symbolAllocator.getTypes(), WarningCollector.NOOP);
     }
 
     private static PlanNodeId newId()

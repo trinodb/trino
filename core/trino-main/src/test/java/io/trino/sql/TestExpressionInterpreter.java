@@ -22,9 +22,9 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolResolver;
 import io.trino.sql.planner.TypeProvider;
@@ -36,12 +36,11 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TestingTransactionManager;
-import io.trino.transaction.TransactionBuilder;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
@@ -70,18 +69,16 @@ import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
 import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static io.trino.sql.ParsingUtil.createParsingOptions;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestExpressionInterpreter
 {
@@ -150,6 +147,10 @@ public class TestExpressionInterpreter
     };
 
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final TestingTransactionManager TRANSACTION_MANAGER = new TestingTransactionManager();
+    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
+            .withTransactionManager(TRANSACTION_MANAGER)
+            .build();
 
     @Test
     public void testAnd()
@@ -402,9 +403,9 @@ public class TestExpressionInterpreter
 
         // evaluate should execute
         Object value = evaluate("random()");
-        assertTrue(value instanceof Double);
+        assertThat(value instanceof Double).isTrue();
         double randomValue = (double) value;
-        assertTrue(0 <= randomValue && randomValue < 1);
+        assertThat(0 <= randomValue && randomValue < 1).isTrue();
     }
 
     @Test
@@ -441,44 +442,6 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("9876543210.98745612035 BETWEEN 9876543210.9874561203 AND 9876543210.9874561204", "true");
         assertOptimizedEquals("123.455 BETWEEN bound_decimal_short AND 123.46", "true");
         assertOptimizedEquals("12345678901234567890.1235 BETWEEN bound_decimal_long AND 12345678901234567890.123", "false");
-    }
-
-    @Test
-    public void testExtract()
-    {
-        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC);
-        double seconds = dateTime.getMillis() / 1000.0;
-
-        assertOptimizedEquals("extract(YEAR FROM from_unixtime(" + seconds + ",'UTC'))", "2001");
-        assertOptimizedEquals("extract(QUARTER FROM from_unixtime(" + seconds + ",'UTC'))", "3");
-        assertOptimizedEquals("extract(MONTH FROM from_unixtime(" + seconds + ",'UTC'))", "8");
-        assertOptimizedEquals("extract(WEEK FROM from_unixtime(" + seconds + ",'UTC'))", "34");
-        assertOptimizedEquals("extract(DOW FROM from_unixtime(" + seconds + ",'UTC'))", "3");
-        assertOptimizedEquals("extract(DOY FROM from_unixtime(" + seconds + ",'UTC'))", "234");
-        assertOptimizedEquals("extract(DAY FROM from_unixtime(" + seconds + ",'UTC'))", "22");
-        assertOptimizedEquals("extract(HOUR FROM from_unixtime(" + seconds + ",'UTC'))", "3");
-        assertOptimizedEquals("extract(MINUTE FROM from_unixtime(" + seconds + ",'UTC'))", "4");
-        assertOptimizedEquals("extract(SECOND FROM from_unixtime(" + seconds + ",'UTC'))", "5");
-        assertOptimizedEquals("extract(TIMEZONE_HOUR FROM from_unixtime(" + seconds + ", 7, 9))", "7");
-        assertOptimizedEquals("extract(TIMEZONE_MINUTE FROM from_unixtime(" + seconds + ", 7, 9))", "9");
-
-        assertOptimizedEquals("extract(YEAR FROM bound_timestamp)", "2001");
-        assertOptimizedEquals("extract(QUARTER FROM bound_timestamp)", "3");
-        assertOptimizedEquals("extract(MONTH FROM bound_timestamp)", "8");
-        assertOptimizedEquals("extract(WEEK FROM bound_timestamp)", "34");
-        assertOptimizedEquals("extract(DOW FROM bound_timestamp)", "3");
-        assertOptimizedEquals("extract(DOY FROM bound_timestamp)", "234");
-        assertOptimizedEquals("extract(DAY FROM bound_timestamp)", "22");
-        assertOptimizedEquals("extract(HOUR FROM bound_timestamp)", "3");
-        assertOptimizedEquals("extract(MINUTE FROM bound_timestamp)", "4");
-        assertOptimizedEquals("extract(SECOND FROM bound_timestamp)", "5");
-        // todo reenable when cast as timestamp with time zone is implemented
-        // todo add bound timestamp with time zone
-        //assertOptimizedEquals("extract(TIMEZONE_HOUR FROM bound_timestamp)", "0");
-        //assertOptimizedEquals("extract(TIMEZONE_MINUTE FROM bound_timestamp)", "0");
-
-        assertOptimizedEquals("extract(YEAR FROM unbound_timestamp)", "extract(YEAR FROM unbound_timestamp)");
-        assertOptimizedEquals("extract(SECOND FROM bound_timestamp + INTERVAL '3' SECOND)", "8");
     }
 
     @Test
@@ -589,23 +552,6 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[2, NULL]))", "false");
         assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]), map(ARRAY[1, 2], ARRAY[2, NULL]))", "NULL");
         assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]), map(ARRAY[1, 2], ARRAY[2, NULL]), map(ARRAY[1, 2], ARRAY[1, NULL]))", "NULL");
-    }
-
-    @Test
-    public void testDereference()
-    {
-        assertOptimizedEquals("CAST(ROW(1, true) AS ROW(id BIGINT, value BOOLEAN)).value", "true");
-        assertOptimizedEquals("CAST(ROW(1, null) AS ROW(id BIGINT, value BOOLEAN)).value", "null");
-        assertOptimizedEquals("CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value", "CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value");
-
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value"))
-                .hasErrorCode(DIVISION_BY_ZERO);
-    }
-
-    @Test
-    public void testCurrentUser()
-    {
-        assertOptimizedEquals("current_user", "'" + TEST_SESSION.getUser() + "'");
     }
 
     @Test
@@ -1551,199 +1497,6 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testLike()
-    {
-        assertOptimizedEquals("'a' LIKE 'a'", "true");
-        assertOptimizedEquals("'' LIKE 'a'", "false");
-        assertOptimizedEquals("'abc' LIKE 'a'", "false");
-
-        assertOptimizedEquals("'a' LIKE '_'", "true");
-        assertOptimizedEquals("'' LIKE '_'", "false");
-        assertOptimizedEquals("'abc' LIKE '_'", "false");
-
-        assertOptimizedEquals("'a' LIKE '%'", "true");
-        assertOptimizedEquals("'' LIKE '%'", "true");
-        assertOptimizedEquals("'abc' LIKE '%'", "true");
-
-        assertOptimizedEquals("'abc' LIKE '___'", "true");
-        assertOptimizedEquals("'ab' LIKE '___'", "false");
-        assertOptimizedEquals("'abcd' LIKE '___'", "false");
-
-        assertOptimizedEquals("'abc' LIKE 'abc'", "true");
-        assertOptimizedEquals("'xyz' LIKE 'abc'", "false");
-        assertOptimizedEquals("'abc0' LIKE 'abc'", "false");
-        assertOptimizedEquals("'0abc' LIKE 'abc'", "false");
-
-        assertOptimizedEquals("'abc' LIKE 'abc%'", "true");
-        assertOptimizedEquals("'abc0' LIKE 'abc%'", "true");
-        assertOptimizedEquals("'0abc' LIKE 'abc%'", "false");
-
-        assertOptimizedEquals("'abc' LIKE '%abc'", "true");
-        assertOptimizedEquals("'0abc' LIKE '%abc'", "true");
-        assertOptimizedEquals("'abc0' LIKE '%abc'", "false");
-
-        assertOptimizedEquals("'abc' LIKE '%abc%'", "true");
-        assertOptimizedEquals("'0abc' LIKE '%abc%'", "true");
-        assertOptimizedEquals("'abc0' LIKE '%abc%'", "true");
-        assertOptimizedEquals("'0abc0' LIKE '%abc%'", "true");
-        assertOptimizedEquals("'xyzw' LIKE '%abc%'", "false");
-
-        assertOptimizedEquals("'abc' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'0abc' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'abc0' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'0abc0' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'ab01c' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'0ab01c' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'ab01c0' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'0ab01c0' LIKE '%ab%c%'", "true");
-
-        assertOptimizedEquals("'xyzw' LIKE '%ab%c%'", "false");
-
-        // ensure regex chars are escaped
-        assertOptimizedEquals("'\' LIKE '\'", "true");
-        assertOptimizedEquals("'.*' LIKE '.*'", "true");
-        assertOptimizedEquals("'[' LIKE '['", "true");
-        assertOptimizedEquals("']' LIKE ']'", "true");
-        assertOptimizedEquals("'{' LIKE '{'", "true");
-        assertOptimizedEquals("'}' LIKE '}'", "true");
-        assertOptimizedEquals("'?' LIKE '?'", "true");
-        assertOptimizedEquals("'+' LIKE '+'", "true");
-        assertOptimizedEquals("'(' LIKE '('", "true");
-        assertOptimizedEquals("')' LIKE ')'", "true");
-        assertOptimizedEquals("'|' LIKE '|'", "true");
-        assertOptimizedEquals("'^' LIKE '^'", "true");
-        assertOptimizedEquals("'$' LIKE '$'", "true");
-
-        assertOptimizedEquals("NULL LIKE '%'", "NULL");
-        assertOptimizedEquals("'a' LIKE NULL", "NULL");
-        assertOptimizedEquals("'a' LIKE '%' ESCAPE NULL", "NULL");
-
-        assertOptimizedEquals("'%' LIKE 'z%' ESCAPE 'z'", "true");
-    }
-
-    @Test
-    public void testLikeChar()
-    {
-        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE 'abc'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE 'abc'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE 'abc '", "true");
-
-        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE '%abc'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%abc'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%abc '", "true");
-
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%c'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%c '", "true");
-
-        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE '%a%b%c'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c '", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c_'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c%'", "true");
-    }
-
-    @Test
-    public void testLikeOptimization()
-    {
-        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = VARCHAR 'abc'");
-
-        assertOptimizedEquals("unbound_string LIKE '' ESCAPE '#'", "unbound_string LIKE '' ESCAPE '#'");
-        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = VARCHAR 'abc'");
-        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = VARCHAR 'a_b'");
-        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = VARCHAR 'a%b'");
-        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = VARCHAR 'a_#b'");
-        assertOptimizedEquals("unbound_string LIKE 'a#__b' ESCAPE '#'", "unbound_string LIKE 'a#__b' ESCAPE '#'");
-        assertOptimizedEquals("unbound_string LIKE 'a##%b' ESCAPE '#'", "unbound_string LIKE 'a##%b' ESCAPE '#'");
-
-        assertOptimizedEquals("bound_string LIKE bound_pattern", "true");
-        assertOptimizedEquals("'abc' LIKE bound_pattern", "false");
-
-        assertOptimizedEquals("unbound_string LIKE bound_pattern", "unbound_string LIKE bound_pattern");
-
-        assertOptimizedEquals("unbound_string LIKE unbound_pattern ESCAPE unbound_string", "unbound_string LIKE unbound_pattern ESCAPE unbound_string");
-    }
-
-    @Test
-    public void testLikeCharOptimization()
-    {
-        // constant literal pattern of length shorter than value length
-        assertOptimizedEquals("unbound_char LIKE 'abc'", "false");
-        assertOptimizedEquals("unbound_char LIKE 'abc' ESCAPE '#'", "false");
-        assertOptimizedEquals("unbound_char LIKE 'ab#_' ESCAPE '#'", "false");
-        assertOptimizedEquals("unbound_char LIKE 'ab#%' ESCAPE '#'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abc'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abc' ESCAPE '#'", "false");
-
-        // constant non-literal pattern of length shorter than value length
-        assertOptimizedEquals("unbound_char LIKE 'ab_'", "unbound_char LIKE 'ab_'");
-        assertOptimizedEquals("unbound_char LIKE 'ab%'", "unbound_char LIKE 'ab%'");
-        assertOptimizedEquals("unbound_char LIKE 'ab%' ESCAPE '#'", "unbound_char LIKE 'ab%' ESCAPE '#'");
-
-        // constant literal pattern of length equal to value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcd'", "CAST(unbound_char AS char(4)) = CAST('abcd' AS char(4))");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcd' ESCAPE '#'", "CAST(unbound_char AS char(4)) = CAST('abcd' AS char(4))");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'jaźń'", "CAST(unbound_char AS char(4)) = CAST('jaźń' AS char(4))");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#_' ESCAPE '#'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '#'", "false");
-
-        // constant non-literal pattern of length equal to value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '\\'", "CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '\\'");
-
-        // constant pattern of length longer than value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcde'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcde' ESCAPE '#'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '#%a#%b#%c#%d#%' ESCAPE '#'", "false");
-
-        // constant non-literal pattern of length longer than value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%'", "CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%'");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%' ESCAPE '#'", "CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%' ESCAPE '#'");
-
-        // without explicit CAST on value, constant pattern of equal length
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('abc' AS char( " + TEST_CHAR_TYPE_LENGTH + ")) AS varchar(" + TEST_CHAR_TYPE_LENGTH + "))",
-                "unbound_char = CAST('abc' AS char(17))");
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('abc' AS char( " + TEST_CHAR_TYPE_LENGTH + ")) AS varchar)",
-                "unbound_char = CAST('abc' AS char(17))");
-
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('' AS char(" + TEST_CHAR_TYPE_LENGTH + ")) AS varchar(" + TEST_CHAR_TYPE_LENGTH + ")) ESCAPE '#'",
-                "unbound_char LIKE CAST('                 ' AS varchar(17)) ESCAPE '#'");
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('' AS char(" + TEST_CHAR_TYPE_LENGTH + ")) AS varchar) ESCAPE '#'",
-                "unbound_char LIKE CAST('                 ' AS varchar(17)) ESCAPE '#'");
-
-        assertOptimizedEquals("unbound_char LIKE bound_pattern", "unbound_char LIKE VARCHAR '%el%'");
-        assertOptimizedEquals("unbound_char LIKE unbound_pattern", "unbound_char LIKE unbound_pattern");
-        assertOptimizedEquals("unbound_char LIKE unbound_pattern ESCAPE unbound_string", "unbound_char LIKE unbound_pattern ESCAPE unbound_string");
-    }
-
-    @Test
-    public void testEvaluateInvalidLike()
-    {
-        // TODO This doesn't fail (https://github.com/trinodb/trino/issues/7273)
-        /*assertTrinoExceptionThrownBy(() -> evaluate("'some_string' LIKE 'abc' ESCAPE ''"))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Escape string must be a single character");*/
-
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE 'abc' ESCAPE 'bc'"))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Escape string must be a single character");
-
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE '#' ESCAPE '#'"))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
-
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE '#abc' ESCAPE '#'"))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
-
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE 'ab#' ESCAPE '#'"))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
-    }
-
-    @Test
     public void testFailedExpressionOptimization()
     {
         assertOptimizedEquals("IF(unbound_boolean, 1, 0 / 0)", "CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0 END");
@@ -1873,13 +1626,6 @@ public class TestExpressionInterpreter
         optimize("MAP(ARRAY[ARRAY[1,1]], ARRAY['a'])[ARRAY[1,1]]");
     }
 
-    @Test(timeOut = 60000)
-    public void testLikeInvalidUtf8()
-    {
-        assertLike(new byte[] {'a', 'b', 'c'}, "%b%", true);
-        assertLike(new byte[] {'a', 'b', 'c', (byte) 0xFF, 'x', 'y'}, "%b%", true);
-    }
-
     @Test
     public void testLiterals()
     {
@@ -1892,7 +1638,7 @@ public class TestExpressionInterpreter
         optimize("INTERVAL '3' DAY * unbound_long");
         optimize("INTERVAL '3' YEAR * unbound_long");
 
-        assertEquals(optimize("X'1234'"), Slices.wrappedBuffer((byte) 0x12, (byte) 0x34));
+        assertThat(optimize("X'1234'")).isEqualTo(Slices.wrappedBuffer((byte) 0x12, (byte) 0x34));
     }
 
     private static void assertLike(byte[] value, String pattern, boolean expected)
@@ -1901,7 +1647,7 @@ public class TestExpressionInterpreter
                 rawStringLiteral(Slices.wrappedBuffer(value)),
                 new StringLiteral(pattern),
                 Optional.empty());
-        assertEquals(evaluate(predicate), expected);
+        assertThat(evaluate(predicate)).isEqualTo(expected);
     }
 
     private static StringLiteral rawStringLiteral(Slice slice)
@@ -1911,7 +1657,7 @@ public class TestExpressionInterpreter
 
     private static void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        assertEquals(optimize(actual), optimize(expected));
+        assertThat(optimize(actual)).isEqualTo(optimize(expected));
     }
 
     private static void assertOptimizedMatches(@Language("SQL") String actual, @Language("SQL") String expected)
@@ -1923,7 +1669,7 @@ public class TestExpressionInterpreter
                         .map(Symbol::getName)
                         .collect(toImmutableMap(identity(), SymbolReference::new)));
 
-        Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions()));
+        Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
         assertExpressionEquals(actualOptimized, rewrittenExpected, aliases.build());
     }
 
@@ -1937,24 +1683,24 @@ public class TestExpressionInterpreter
     static Object optimize(Expression parsedExpression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, parsedExpression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         return interpreter.optimize(INPUTS);
     }
 
     // TODO replace that method with io.trino.sql.ExpressionTestUtils.planExpression
     static Expression planExpression(@Language("SQL") String expression)
     {
-        return TransactionBuilder.transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        return transaction(TRANSACTION_MANAGER, PLANNER_CONTEXT.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(transactionSession));
+                    Expression parsedExpression = SQL_PARSER.createExpression(expression);
                     parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
                     parsedExpression = resolveFunctionCalls(PLANNER_CONTEXT, transactionSession, SYMBOL_TYPES, parsedExpression);
                     parsedExpression = CanonicalizeExpressionRewriter.rewrite(
                             parsedExpression,
                             transactionSession,
                             PLANNER_CONTEXT,
-                            createTestingTypeAnalyzer(PLANNER_CONTEXT),
+                            new IrTypeAnalyzer(PLANNER_CONTEXT),
                             SYMBOL_TYPES);
                     return parsedExpression;
                 });
@@ -1962,30 +1708,29 @@ public class TestExpressionInterpreter
 
     private static void assertEvaluatedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        assertEquals(evaluate(actual), evaluate(expected));
+        assertThat(evaluate(actual)).isEqualTo(evaluate(expected));
     }
 
     private static Object evaluate(String expression)
     {
         assertRoundTrip(expression);
 
-        Expression parsedExpression = ExpressionTestUtils.createExpression(expression, PLANNER_CONTEXT, SYMBOL_TYPES);
+        Expression parsedExpression = ExpressionTestUtils.createExpression(expression, TRANSACTION_MANAGER, PLANNER_CONTEXT, SYMBOL_TYPES);
 
         return evaluate(parsedExpression);
     }
 
     private static void assertRoundTrip(String expression)
     {
-        ParsingOptions parsingOptions = createParsingOptions(TEST_SESSION);
-        Expression parsed = SQL_PARSER.createExpression(expression, parsingOptions);
+        Expression parsed = SQL_PARSER.createExpression(expression);
         String formatted = formatExpression(parsed);
-        assertEquals(parsed, SQL_PARSER.createExpression(formatted, parsingOptions));
+        assertThat(parsed).isEqualTo(SQL_PARSER.createExpression(formatted));
     }
 
     private static Object evaluate(Expression expression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate(INPUTS);
     }

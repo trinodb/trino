@@ -28,8 +28,7 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.ZoneId;
 
@@ -190,6 +189,8 @@ public class TestMongoTypeMapping
                 .addRoundTrip("NumberDecimal(\"2\")", "CAST('2' AS decimal(1, 0))")
                 .addRoundTrip("NumberDecimal(\"2.3\")", "CAST('2.3' AS decimal(2, 1))")
                 .addRoundTrip("NumberDecimal(\"-2.3\")", "CAST('-2.3' AS decimal(2, 1))")
+                .addRoundTrip("NumberDecimal(\"0.03\")", "CAST('0.03' AS decimal(2, 2))")
+                .addRoundTrip("NumberDecimal(\"-0.03\")", "CAST('-0.03' AS decimal(2, 2))")
                 .addRoundTrip("NumberDecimal(\"1234567890123456789012345678901234\")", "CAST('1234567890123456789012345678901234' AS decimal(34, 0))") // 34 is the max precision in Decimal128
                 .addRoundTrip("NumberDecimal(\"1234567890123456.789012345678901234\")", "CAST('1234567890123456.789012345678901234' AS decimal(34, 18))")
                 .execute(getQueryRunner(), mongoCreateAndInsert(getSession(), "tpch", "test_decimal"));
@@ -264,8 +265,19 @@ public class TestMongoTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_time"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testDate(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testDate(ZoneId.of("Asia/Kathmandu"));
+        testDate(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -295,8 +307,19 @@ public class TestMongoTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestamp(ZoneId sessionZone)
+    @Test
+    public void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestamp(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testTimestamp(ZoneId.of("Asia/Kathmandu"));
+        testTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -320,8 +343,19 @@ public class TestMongoTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampWithTimeZoneMapping(ZoneId sessionZone)
+    @Test
+    public void testTimestampWithTimeZoneMapping()
+    {
+        testTimestampWithTimeZoneMapping(UTC);
+        testTimestampWithTimeZoneMapping(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestampWithTimeZoneMapping(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testTimestampWithTimeZoneMapping(ZoneId.of("Asia/Kathmandu"));
+        testTimestampWithTimeZoneMapping(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampWithTimeZoneMapping(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -381,20 +415,6 @@ public class TestMongoTypeMapping
                 .addRoundTrip("json", "CAST(NULL AS json)", JSON, "CAST(NULL AS json)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_json"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_json"));
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {ZoneId.systemDefault()},
-                // no DST in 1970, but has DST in later years (e.g. 2018)
-                {ZoneId.of("Europe/Vilnius")},
-                // minutes offset change since 1970-01-01, no DST
-                {ZoneId.of("Asia/Kathmandu")},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
     }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)

@@ -15,8 +15,8 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.Type;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -39,20 +39,17 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionUtils.extractPredicates;
 import static io.trino.sql.ExpressionUtils.logicalExpression;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyExpressions
 {
@@ -77,45 +74,6 @@ public class TestSimplifyExpressions
         assertSimplifies("NOT (X IS DISTINCT FROM Y)", "NOT (X IS DISTINCT FROM Y)", ImmutableMap.of("X", BIGINT, "Y", BIGINT));
         assertSimplifies("NOT (X IS DISTINCT FROM Y)", "NOT (X IS DISTINCT FROM Y)", ImmutableMap.of("X", DOUBLE, "Y", DOUBLE));
         assertSimplifies("NOT (X IS DISTINCT FROM Y)", "NOT (X IS DISTINCT FROM Y)", ImmutableMap.of("X", VARCHAR, "Y", VARCHAR));
-    }
-
-    @Test
-    public void testLikeExpressions()
-    {
-        assertSimplifies("name LIKE '%'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(2)));
-        assertSimplifies("name LIKE '%%'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(2)));
-        assertSimplifies("name LIKE '%%%%'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(10)));
-        assertSimplifies("name LIKE '%%%%' ESCAPE '\\'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(10)));
-        assertSimplifies("name LIKE '中文%abc字母😂'", "name LIKE '中文%abc字母😂'", ImmutableMap.of("name", createCharType(10)));
-        assertSimplifies("name LIKE '中文%abc字母😂' ESCAPE '\\'", "name LIKE '中文%abc字母😂' ESCAPE '\\'", ImmutableMap.of("name", createCharType(10)));
-
-        assertSimplifies("name LIKE '%'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(2)));
-        assertSimplifies("name LIKE '%%'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(2)));
-        assertSimplifies("name LIKE '%%%%'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(10)));
-        assertSimplifies("name LIKE '%%%%' ESCAPE '\\'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(10)));
-        assertSimplifies("name LIKE '中文%abc字母😂'", "name LIKE '中文%abc字母😂'", ImmutableMap.of("name", createVarcharType(10)));
-        assertSimplifies("name LIKE '中文%abc字母😂' ESCAPE '\\'", "name LIKE '中文%abc字母😂' ESCAPE '\\'", ImmutableMap.of("name", createVarcharType(10)));
-
-        assertSimplifies("name LIKE '%'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%%'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%%%%'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%%%%' ESCAPE '\\'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '中文%abc字母😂'", "name LIKE '中文%abc字母😂'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '中文%abc字母😂' ESCAPE '\\'", "name LIKE '中文%abc字母😂' ESCAPE '\\'", ImmutableMap.of("name", VARCHAR));
-
-        // test with the like constant
-        assertSimplifies("name LIKE 'This is a constant'", "name = VARCHAR 'This is a constant'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '!@#$#!'", "name = VARCHAR '!@#$#!'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '中文abc字母😂'", "name = VARCHAR '中文abc字母😂'", ImmutableMap.of("name", VARCHAR));
-
-        // test with the escape char
-        assertSimplifies("name LIKE '\\%' ESCAPE '\\'", "name = VARCHAR '%'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE 'abc\\%' ESCAPE '\\'", "name = VARCHAR 'abc%'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '\\%%%%' ESCAPE '\\'", "name LIKE '\\%%%%' ESCAPE '\\'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%\\%\\%%%%' ESCAPE '\\'", "name LIKE '%\\%\\%%%%' ESCAPE '\\'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%%' ESCAPE '%'", "name = VARCHAR '%'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%%%%' ESCAPE '%'", "name = VARCHAR '%%'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '中文%%abc字母😂' ESCAPE '%'", "name = VARCHAR '中文%abc字母😂'", ImmutableMap.of("name", VARCHAR));
     }
 
     @Test
@@ -315,17 +273,15 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifies(@Language("SQL") String expression, @Language("SQL") String expected, Map<String, Type> symbolTypes)
     {
-        Expression expectedExpression = normalize(rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions())));
-        assertEquals(
-                simplify(expression, symbolTypes),
-                expectedExpression);
+        Expression expectedExpression = normalize(rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected)));
+        assertThat(simplify(expression, symbolTypes)).isEqualTo(expectedExpression);
     }
 
     private static Expression simplify(@Language("SQL") String expression, Map<String, Type> symbolTypes)
     {
         Map<Symbol, Type> symbols = symbolTypes.entrySet().stream().collect(toImmutableMap(symbolTypeEntry -> new Symbol(symbolTypeEntry.getKey()), Map.Entry::getValue));
-        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, new ParsingOptions()));
-        return normalize(rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(symbols), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)));
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
+        return normalize(rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(symbols), PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT)));
     }
 
     @Test
@@ -380,25 +336,12 @@ public class TestSimplifyExpressions
         assertSimplifiesNumericTypes("NOT (1 > R2)", "NOT (1 > R2)");
     }
 
-    @Test
-    public void testRewriteOrExpression()
-    {
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 ", "I1 IN (1, 2)");
-        // TODO: Implement rule for Merging IN expression
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 IN (3, 4)", "I1 IN (3, 4) OR I1 IN (1, 2)");
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 = I2", "I1 IN (1, 2, I2)");
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I2 = 3 OR I2 = 4", "I1 IN (1, 2) OR I2 IN (3, 4)");
-    }
-
     private static void assertSimplifiesNumericTypes(String expression, String expected)
     {
-        ParsingOptions parsingOptions = new ParsingOptions();
-        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
-        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT));
-        assertEquals(
-                normalize(rewritten),
-                normalize(expectedExpression));
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
+        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT));
+        assertThat(normalize(rewritten)).isEqualTo(normalize(expectedExpression));
     }
 
     private static Map<Symbol, Type> numericAndBooleanSymbolTypeMapFor(Expression expression)
@@ -445,7 +388,7 @@ public class TestSimplifyExpressions
         {
             // the `expected` Cast expression comes out of the AstBuilder with the `typeOnly` flag set to false.
             // always set the `typeOnly` flag to false so that it does not break the comparison.
-            return new Cast(node.getExpression(), node.getType(), node.isSafe(), false);
+            return new Cast(node.getExpression(), node.getType(), node.isSafe());
         }
     }
 }

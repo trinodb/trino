@@ -16,7 +16,6 @@ package io.trino.sql.testing;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.parser.ParsingException;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.DefaultTraversalVisitor;
 import io.trino.sql.tree.Node;
@@ -26,8 +25,6 @@ import jakarta.annotation.Nullable;
 import java.util.List;
 
 import static io.trino.sql.SqlFormatter.formatSql;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static java.lang.String.format;
 
 public final class TreeAssertions
 {
@@ -35,16 +32,10 @@ public final class TreeAssertions
 
     public static void assertFormattedSql(SqlParser sqlParser, Node expected)
     {
-        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
-        assertFormattedSql(sqlParser, parsingOptions, expected);
-    }
-
-    public static void assertFormattedSql(SqlParser sqlParser, ParsingOptions parsingOptions, Node expected)
-    {
         String formatted = formatSql(expected);
 
         // verify round-trip of formatting already-formatted SQL
-        Statement actual = parseFormatted(sqlParser, parsingOptions, formatted, expected);
+        Statement actual = parseFormatted(sqlParser, formatted, expected);
         assertEquals(formatSql(actual), formatted);
 
         // compare parsed tree with parsed tree of formatted SQL
@@ -55,13 +46,13 @@ public final class TreeAssertions
         assertEquals(actual, expected);
     }
 
-    private static Statement parseFormatted(SqlParser sqlParser, ParsingOptions parsingOptions, String sql, Node tree)
+    private static Statement parseFormatted(SqlParser sqlParser, String sql, Node tree)
     {
         try {
-            return sqlParser.createStatement(sql, parsingOptions);
+            return sqlParser.createStatement(sql);
         }
         catch (ParsingException e) {
-            String message = format("failed to parse formatted SQL: %s\nerror: %s\ntree: %s", sql, e.getMessage(), tree);
+            String message = "failed to parse formatted SQL: %s\nerror: %s\ntree: %s".formatted(sql, e.getMessage(), tree);
             throw new AssertionError(message, e);
         }
     }
@@ -85,10 +76,10 @@ public final class TreeAssertions
     private static <T> void assertListEquals(List<T> actual, List<T> expected)
     {
         if (actual.size() != expected.size()) {
-            throw new AssertionError(format("Lists not equal in size%n%s", formatLists(actual, expected)));
+            throw new AssertionError("Lists not equal in size%n%s".formatted(formatLists(actual, expected)));
         }
         if (!actual.equals(expected)) {
-            throw new AssertionError(format("Lists not equal at index %s%n%s",
+            throw new AssertionError("Lists not equal at index %s%n%s".formatted(
                     differingIndex(actual, expected), formatLists(actual, expected)));
         }
     }
@@ -96,7 +87,7 @@ public final class TreeAssertions
     private static <T> String formatLists(List<T> actual, List<T> expected)
     {
         Joiner joiner = Joiner.on("\n    ");
-        return format("Actual [%s]:%n    %s%nExpected [%s]:%n    %s%n",
+        return "Actual [%s]:%n    %s%nExpected [%s]:%n    %s%n".formatted(
                 actual.size(), joiner.join(actual),
                 expected.size(), joiner.join(expected));
     }
@@ -114,7 +105,7 @@ public final class TreeAssertions
     private static <T> void assertEquals(T actual, T expected)
     {
         if (!actual.equals(expected)) {
-            throw new AssertionError(format("expected [%s] but found [%s]", expected, actual));
+            throw new AssertionError("expected [%s] but found [%s]".formatted(expected, actual));
         }
     }
 }

@@ -64,6 +64,13 @@ class MemoryOutputFile
     }
 
     @Override
+    public void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
+            throws IOException
+    {
+        outputBlob.createBlob(content);
+    }
+
+    @Override
     public Location location()
     {
         return location;

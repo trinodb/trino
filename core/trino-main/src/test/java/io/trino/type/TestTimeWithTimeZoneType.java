@@ -13,8 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +32,7 @@ public class TestTimeWithTimeZoneType
         super(TIME_TZ_MILLIS, SqlTimeWithTimeZone.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = TIME_TZ_MILLIS.createBlockBuilder(null, 15);
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(1_111_000_000L, 0));
@@ -46,7 +46,7 @@ public class TestTimeWithTimeZoneType
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(3_333_000_000L, 8));
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(3_333_000_000L, 9));
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(4_444_000_000L, 10));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.trino.server.ui.OAuth2WebUiInstalled;
+import io.trino.server.ui.OAuthIdTokenCookie;
 import io.trino.server.ui.OAuthWebUiCookie;
 import jakarta.ws.rs.core.Response;
 
@@ -167,18 +168,18 @@ public class OAuth2Service
             // fetch access token
             OAuth2Client.Response oauth2Response = client.getOAuth2Response(code, callbackUri, nonce);
 
+            Instant cookieExpirationTime = tokenExpiration
+                    .map(expiration -> Instant.now().plus(expiration))
+                    .orElse(oauth2Response.getExpiration());
             if (handlerState.isEmpty()) {
-                return Response
+                Response.ResponseBuilder builder = Response
                         .seeOther(URI.create(UI_LOCATION))
-                        .cookie(
-                                OAuthWebUiCookie.create(
-                                        tokenPairSerializer.serialize(
-                                                fromOAuth2Response(oauth2Response)),
-                                                tokenExpiration
-                                                        .map(expiration -> Instant.now().plus(expiration))
-                                                        .orElse(oauth2Response.getExpiration())),
-                                NonceCookie.delete())
-                        .build();
+                        .cookie(OAuthWebUiCookie.create(tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)), cookieExpirationTime))
+                        .cookie(NonceCookie.delete());
+                if (oauth2Response.getIdToken().isPresent()) {
+                    builder.cookie(OAuthIdTokenCookie.create(oauth2Response.getIdToken().get(), cookieExpirationTime));
+                }
+                return builder.build();
             }
 
             tokenHandler.setAccessToken(handlerState.get(), tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)));
@@ -186,10 +187,11 @@ public class OAuth2Service
             Response.ResponseBuilder builder = Response.ok(getSuccessHtml());
             if (webUiOAuthEnabled) {
                 builder.cookie(
-                        OAuthWebUiCookie.create(
-                                tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)),
-                                tokenExpiration.map(expiration -> Instant.now().plus(expiration))
-                                        .orElse(oauth2Response.getExpiration())));
+                        OAuthWebUiCookie.create(tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)), cookieExpirationTime));
+
+                if (oauth2Response.getIdToken().isPresent()) {
+                    builder.cookie(OAuthIdTokenCookie.create(oauth2Response.getIdToken().get(), cookieExpirationTime));
+                }
             }
             return builder.cookie(NonceCookie.delete()).build();
         }

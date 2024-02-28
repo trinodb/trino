@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.base.io;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestByteBuffers
 {
@@ -26,10 +26,16 @@ public class TestByteBuffers
     public void testGetWrappedBytes()
     {
         ByteBuffer buffer = ByteBuffer.wrap(new byte[] {0, 1, 2, 3});
-        assertEquals(getWrappedBytes(buffer), new byte[] {0, 1, 2, 3}, "getWrappedBytes");
+        assertThat(getWrappedBytes(buffer))
+                .describedAs("getWrappedBytes")
+                .isEqualTo(new byte[] {0, 1, 2, 3});
 
         // Assert the buffer position hasn't changed
-        assertEquals(buffer.position(), 0, "position");
-        assertEquals(getWrappedBytes(buffer), new byte[] {0, 1, 2, 3}, "getWrappedBytes again");
+        assertThat(buffer.position())
+                .describedAs("position")
+                .isEqualTo(0);
+        assertThat(getWrappedBytes(buffer))
+                .describedAs("getWrappedBytes again")
+                .isEqualTo(new byte[] {0, 1, 2, 3});
     }
 }

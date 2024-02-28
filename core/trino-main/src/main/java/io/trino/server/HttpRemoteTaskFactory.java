@@ -153,7 +153,7 @@ public class HttpRemoteTaskFactory
                 session,
                 stageSpan,
                 taskId,
-                node.getNodeIdentifier(),
+                node,
                 speculative,
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,

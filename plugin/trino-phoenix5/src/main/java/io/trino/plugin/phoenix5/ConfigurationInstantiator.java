@@ -15,7 +15,6 @@ package io.trino.plugin.phoenix5;
 
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import org.apache.hadoop.conf.Configuration;
-import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 final class ConfigurationInstantiator
 {
@@ -23,19 +22,8 @@ final class ConfigurationInstantiator
 
     public static Configuration newEmptyConfiguration()
     {
-        // Ensure that the context class loader used while instantiating the `Configuration` object corresponds to the
-        // class loader of the `ConfigurationInstantiator`
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(ConfigurationInstantiator.class.getClassLoader())) {
-            return newConfigurationWithTccl();
+            return new Configuration(false);
         }
-    }
-
-    // Usage of `new Configuration(boolean)` is not allowed. Only ConfigurationInstantiator
-    // can instantiate Configuration directly. Suppress the violation so that we can use it here.
-    @SuppressModernizer
-    private static Configuration newConfigurationWithTccl()
-    {
-        // Note: the Configuration captures current thread context class loader (TCCL), so it may or may not be generally usable.
-        return new Configuration(false);
     }
 }

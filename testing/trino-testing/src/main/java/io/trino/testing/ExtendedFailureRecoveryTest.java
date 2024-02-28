@@ -15,14 +15,15 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.operator.OperatorStats;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.ErrorType;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +42,11 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIO
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class ExtendedFailureRecoveryTest
         extends BaseFailureRecoveryTest
 {
@@ -52,7 +57,7 @@ public abstract class ExtendedFailureRecoveryTest
         super(retryPolicy);
     }
 
-    @BeforeClass
+    @BeforeAll
     public void initTables()
             throws Exception
     {
@@ -62,28 +67,19 @@ public abstract class ExtendedFailureRecoveryTest
 
     protected abstract void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn);
 
-    @Override
-    @DataProvider(name = "parallelTests", parallel = true)
-    public Object[][] parallelTests()
-    {
-        return moreParallelTests(super.parallelTests(),
-                parallelTest("testSimpleSelect", this::testSimpleSelect),
-                parallelTest("testAggregation", this::testAggregation),
-                parallelTest("testJoinDynamicFilteringDisabled", this::testJoinDynamicFilteringDisabled),
-                parallelTest("testJoinDynamicFilteringEnabled", this::testJoinDynamicFilteringEnabled),
-                parallelTest("testUserFailure", this::testUserFailure));
-    }
-
+    @Test
     protected void testSimpleSelect()
     {
         testSelect("SELECT * FROM nation");
     }
 
+    @Test
     protected void testAggregation()
     {
         testSelect("SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
     }
 
+    @Test
     protected void testJoinDynamicFilteringDisabled()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
@@ -91,6 +87,7 @@ public abstract class ExtendedFailureRecoveryTest
         testSelect(selectQuery, Optional.of(enableDynamicFiltering(false)));
     }
 
+    @Test
     protected void testJoinDynamicFilteringEnabled()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
@@ -106,13 +103,10 @@ public abstract class ExtendedFailureRecoveryTest
                     DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
                     assertThat(domainStats.getSimplifiedDomain())
                             .isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-                    OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(queryId, getQualifiedTableName(PARTITIONED_LINEITEM));
-                    // Currently, stats from all attempts are combined.
-                    // Asserting on multiple of 615L as well in case the probe scan was completed twice
-                    assertThat(probeStats.getInputPositions()).isIn(615L, 1230L);
                 });
     }
 
+    @Test
     protected void testUserFailure()
     {
         // Some connectors have pushdowns enabled for arithmetic operations (like SqlServer),
@@ -130,6 +124,7 @@ public abstract class ExtendedFailureRecoveryTest
                 .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
     }
 
+    @Test
     @Override
     protected void testRequestTimeouts()
     {

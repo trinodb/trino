@@ -32,7 +32,7 @@ public class Hadoop
 {
     private static final Logger log = Logger.get(Hadoop.class);
 
-    private static final String IMAGE = "ghcr.io/trinodb/testing/hdp2.6-hive:" + getDockerImagesVersion();
+    private static final String IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive:" + getDockerImagesVersion();
 
     private static final int HDFS_PORT = 9000;
 
@@ -52,7 +52,7 @@ public class Hadoop
     protected void setupContainer()
     {
         super.setupContainer();
-        withLogConsumer(new PrintingLogConsumer("hadoop | "));
+        withLogConsumer(new PrintingLogConsumer("Hadoop"));
         withRunCommand(List.of("bash", "-e", "-c", """
                 rm /etc/supervisord.d/{hive*,mysql*,socks*,sshd*,yarn*}.conf
                 supervisord -c /etc/supervisord.conf

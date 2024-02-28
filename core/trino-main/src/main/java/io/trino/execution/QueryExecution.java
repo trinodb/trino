@@ -29,6 +29,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.function.Consumer;
 
@@ -49,7 +50,7 @@ public interface QueryExecution
 
     void resultsConsumed();
 
-    Plan getQueryPlan();
+    Optional<Plan> getQueryPlan();
 
     BasicQueryInfo getBasicQueryInfo();
 

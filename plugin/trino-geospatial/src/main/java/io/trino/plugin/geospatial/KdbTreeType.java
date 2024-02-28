@@ -19,6 +19,7 @@ import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
@@ -54,7 +55,7 @@ public final class KdbTreeType
     {
         // The KDB tree type should be KdbTree but can not be since KdbTree is in
         // both the plugin class loader and the system class loader.  This was done
-        // so the plan optimizer can process geo spatial joins.
+        // so the plan optimizer can process geospatial joins.
         super(new TypeSignature(NAME), Object.class);
     }
 
@@ -71,17 +72,6 @@ public final class KdbTreeType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
-        }
-    }
-
-    @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         byte[] jsonBytes = KdbTreeUtils.toJsonBytes(((KdbTree) value));
@@ -94,9 +84,10 @@ public final class KdbTreeType
         if (block.isNull(position)) {
             return null;
         }
-        Slice bytes = block.getSlice(position, 0, block.getSliceLength(position));
-        KdbTree kdbTree = KdbTreeUtils.fromJson(bytes.toStringUtf8());
-        return kdbTree;
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        String json = valueBlock.getSlice(valuePosition).toStringUtf8();
+        return KdbTreeUtils.fromJson(json);
     }
 
     @Override
@@ -108,7 +99,8 @@ public final class KdbTreeType
     @Override
     public int getFlatVariableWidthSize(Block block, int position)
     {
-        return block.getSliceLength(position);
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        return variableWidthBlock.getSliceLength(block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -160,14 +152,16 @@ public final class KdbTreeType
 
     @ScalarOperator(READ_VALUE)
     private static void writeBlockToFlat(
-            @BlockPosition Block block,
+            @BlockPosition VariableWidthBlock block,
             @BlockIndex int position,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
             byte[] variableSizeSlice,
             int variableSizeOffset)
     {
-        Slice bytes = block.getSlice(position, 0, block.getSliceLength(position));
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        Slice bytes = valueBlock.getSlice(valuePosition);
         bytes.getBytes(0, variableSizeSlice, variableSizeOffset, bytes.length());
 
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, bytes.length());

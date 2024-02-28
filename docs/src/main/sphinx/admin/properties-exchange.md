@@ -4,6 +4,8 @@ Exchanges transfer data between Trino nodes for different stages of
 a query. Adjusting these properties may help to resolve inter-node
 communication issues or improve network utilization.
 
+Additionally, you can configure the exchange [HTTP client usage](/admin/properties-http-client).
+
 ## `exchange.client-threads`
 
 - **Type:** {ref}`prop-type-integer`
@@ -31,6 +33,16 @@ the maximum number of clients is
 `multiplier * ((32MB - 20MB) / 2MB) = multiplier * 6`. Tuning this
 value adjusts the heuristic, which may increase concurrency and improve
 network utilization.
+
+(prop-exchange-compression-codec)=
+## `exchange.compression-codec`
+
+- **Type:** {ref}`prop-type-string`
+- **Allowed values:** `NONE`, `LZ4`, `ZSTD`
+- **Default value:** `NONE`
+
+The compression codec to use when exchanging data between nodes.
+Defaults to `LZ4` with [](/admin/fault-tolerant-execution) mode.
 
 ## `exchange.data-integrity-verification`
 

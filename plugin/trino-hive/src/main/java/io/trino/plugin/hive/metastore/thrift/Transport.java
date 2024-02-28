@@ -36,14 +36,15 @@ public final class Transport
             HostAndPort address,
             Optional<SSLContext> sslContext,
             Optional<HostAndPort> socksProxy,
-            int timeoutMillis,
+            int connectTimeoutMillis,
+            int readTimeoutMillis,
             HiveMetastoreAuthentication authentication,
             Optional<String> delegationToken)
             throws TTransportException
     {
         requireNonNull(address, "address is null");
         try {
-            TTransport rawTransport = createRaw(address, sslContext, socksProxy, timeoutMillis);
+            TTransport rawTransport = createRaw(address, sslContext, socksProxy, connectTimeoutMillis, readTimeoutMillis);
             TTransport authenticatedTransport = authentication.authenticate(rawTransport, address.getHost(), delegationToken);
             if (!authenticatedTransport.isOpen()) {
                 authenticatedTransport.open();
@@ -57,7 +58,12 @@ public final class Transport
 
     private Transport() {}
 
-    private static TTransport createRaw(HostAndPort address, Optional<SSLContext> sslContext, Optional<HostAndPort> socksProxy, int timeoutMillis)
+    private static TTransport createRaw(
+            HostAndPort address,
+            Optional<SSLContext> sslContext,
+            Optional<HostAndPort> socksProxy,
+            int connectTimeoutMillis,
+            int readTimeoutMillis)
             throws TTransportException
     {
         Proxy proxy = socksProxy
@@ -66,8 +72,8 @@ public final class Transport
 
         Socket socket = new Socket(proxy);
         try {
-            socket.connect(new InetSocketAddress(address.getHost(), address.getPort()), timeoutMillis);
-            socket.setSoTimeout(timeoutMillis);
+            socket.connect(new InetSocketAddress(address.getHost(), address.getPort()), connectTimeoutMillis);
+            socket.setSoTimeout(readTimeoutMillis);
 
             if (sslContext.isPresent()) {
                 // SSL will connect to the SOCKS address when present

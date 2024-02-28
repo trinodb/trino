@@ -265,7 +265,7 @@ public final class OrcWriter
 
             // avoid chunk with huge logical size
             while (chunk.getPositionCount() > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
-                chunk = chunk.getRegion(writeOffset, chunk.getPositionCount() / 2);
+                chunk = page.getRegion(writeOffset, chunk.getPositionCount() / 2);
             }
 
             writeOffset += chunk.getPositionCount();

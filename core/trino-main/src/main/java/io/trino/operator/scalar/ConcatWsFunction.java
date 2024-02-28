@@ -72,8 +72,7 @@ public final class ConcatWsFunction
                             if (elements.isNull(i)) {
                                 return null;
                             }
-                            int sliceLength = elements.getSliceLength(i);
-                            return elements.getSlice(i, 0, sliceLength);
+                            return VARCHAR.getSlice(elements, i);
                         }
 
                         @Override
@@ -87,9 +86,8 @@ public final class ConcatWsFunction
 
     public ConcatWsFunction()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder("concat_ws")
                 .signature(Signature.builder()
-                        .name("concat_ws")
                         .returnType(VARCHAR)
                         .argumentType(VARCHAR)
                         .argumentType(VARCHAR)

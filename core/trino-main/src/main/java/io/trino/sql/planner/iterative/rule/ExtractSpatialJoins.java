@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.Session;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
@@ -27,6 +28,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.Page;
@@ -43,9 +45,10 @@ import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.split.SplitSource.SplitBatch;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.planner.BuiltinFunctionCallBuilder;
+import io.trino.sql.planner.IrTypeAnalyzer;
+import io.trino.sql.planner.ResolvedFunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.Rule.Context;
 import io.trino.sql.planner.iterative.Rule.Result;
@@ -61,7 +64,6 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 
@@ -87,8 +89,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -156,9 +158,9 @@ public class ExtractSpatialJoins
     private final PlannerContext plannerContext;
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public ExtractSpatialJoins(PlannerContext plannerContext, SplitManager splitManager, PageSourceManager pageSourceManager, TypeAnalyzer typeAnalyzer)
+    public ExtractSpatialJoins(PlannerContext plannerContext, SplitManager splitManager, PageSourceManager pageSourceManager, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -184,9 +186,9 @@ public class ExtractSpatialJoins
         private final PlannerContext plannerContext;
         private final SplitManager splitManager;
         private final PageSourceManager pageSourceManager;
-        private final TypeAnalyzer typeAnalyzer;
+        private final IrTypeAnalyzer typeAnalyzer;
 
-        public ExtractSpatialInnerJoin(PlannerContext plannerContext, SplitManager splitManager, PageSourceManager pageSourceManager, TypeAnalyzer typeAnalyzer)
+        public ExtractSpatialInnerJoin(PlannerContext plannerContext, SplitManager splitManager, PageSourceManager pageSourceManager, IrTypeAnalyzer typeAnalyzer)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -240,9 +242,9 @@ public class ExtractSpatialJoins
         private final PlannerContext plannerContext;
         private final SplitManager splitManager;
         private final PageSourceManager pageSourceManager;
-        private final TypeAnalyzer typeAnalyzer;
+        private final IrTypeAnalyzer typeAnalyzer;
 
-        public ExtractSpatialLeftJoin(PlannerContext plannerContext, SplitManager splitManager, PageSourceManager pageSourceManager, TypeAnalyzer typeAnalyzer)
+        public ExtractSpatialLeftJoin(PlannerContext plannerContext, SplitManager splitManager, PageSourceManager pageSourceManager, IrTypeAnalyzer typeAnalyzer)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -296,7 +298,7 @@ public class ExtractSpatialJoins
             PlannerContext plannerContext,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -366,7 +368,7 @@ public class ExtractSpatialJoins
             PlannerContext plannerContext,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         // TODO Add support for distributed left spatial joins
         Optional<String> spatialPartitioningTableName = joinNode.getType() == INNER ? getSpatialPartitioningTableName(context.getSession()) : Optional.empty();
@@ -433,10 +435,12 @@ public class ExtractSpatialJoins
             }
         }
 
-        Expression newSpatialFunction = FunctionCallBuilder.resolve(context.getSession(), plannerContext.getMetadata())
-                .setName(spatialFunction.getName())
-                .addArgument(GEOMETRY_TYPE_SIGNATURE, newFirstArgument)
-                .addArgument(GEOMETRY_TYPE_SIGNATURE, newSecondArgument)
+        ResolvedFunction resolvedFunction = plannerContext.getFunctionDecoder()
+                .fromQualifiedName(spatialFunction.getName())
+                .orElseThrow(() -> new IllegalArgumentException("function call not resolved"));
+        Expression newSpatialFunction = ResolvedFunctionCallBuilder.builder(resolvedFunction)
+                .addArgument(newFirstArgument)
+                .addArgument(newSecondArgument)
                 .build();
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
 
@@ -505,6 +509,7 @@ public class ExtractSpatialJoins
         return kdbTree.get();
     }
 
+    @FormatMethod
     private static void checkSpatialPartitioningTable(boolean condition, String message, Object... arguments)
     {
         if (!condition) {
@@ -594,8 +599,8 @@ public class ExtractSpatialJoins
         }
 
         TypeSignature typeSignature = new TypeSignature(KDB_TREE_TYPENAME);
-        FunctionCallBuilder spatialPartitionsCall = FunctionCallBuilder.resolve(context.getSession(), plannerContext.getMetadata())
-                .setName(QualifiedName.of("spatial_partitions"))
+        BuiltinFunctionCallBuilder spatialPartitionsCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("spatial_partitions")
                 .addArgument(typeSignature, new Cast(new StringLiteral(KdbTreeUtils.toJson(kdbTree)), toSqlType(plannerContext.getTypeManager().getType(typeSignature))))
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry);
         radius.ifPresent(value -> spatialPartitionsCall.addArgument(DOUBLE, value));

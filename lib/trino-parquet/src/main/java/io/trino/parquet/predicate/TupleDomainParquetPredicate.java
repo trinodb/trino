@@ -61,7 +61,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetMetadataConverter.isMinMaxStatsSupported;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt64Timestamp;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
@@ -207,6 +209,10 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            // ParquetMetadataConverter#fromParquetColumnIndex returns null if the parquet primitive type does not support min/max stats
+            if (!isMinMaxStatsSupported(column.getPrimitiveType())) {
+                continue;
+            }
             ColumnIndex columnIndex = columnIndexStore.getColumnIndex(ColumnPath.get(column.getPath()));
             if (columnIndex == null) {
                 continue;
@@ -595,12 +601,12 @@ public class TupleDomainParquetPredicate
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, Statistics<?> statistics, Exception cause)
     {
-        return new ParquetCorruptionException(cause, format("Corrupted statistics for column \"%s\" in Parquet file \"%s\": [%s]", column, id, statistics));
+        return new ParquetCorruptionException(cause, id, "Corrupted statistics for column \"%s\": [%s]", column, statistics);
     }
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, ColumnIndex columnIndex, Exception cause)
     {
-        return new ParquetCorruptionException(cause, format("Corrupted statistics for column \"%s\" in Parquet file \"%s\". Corrupted column index: [%s]", column, id, columnIndex));
+        return new ParquetCorruptionException(cause, id, "Corrupted statistics for column \"%s\". Corrupted column index: [%s]", column, columnIndex);
     }
 
     private static boolean isCorruptedColumnIndex(
@@ -685,6 +691,11 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            // ParquetMetadataConverter#fromParquetColumnIndex returns null if the parquet primitive type does not support min/max stats
+            if (!isMinMaxStatsSupported(column.getPrimitiveType())) {
+                continue;
+            }
+
             FilterPredicate columnFilter = FilterApi.userDefined(
                     new TrinoIntColumn(ColumnPath.get(column.getPath())),
                     new DomainUserDefinedPredicate<>(column, domain, timeZone));
@@ -752,6 +763,15 @@ public class TupleDomainParquetPredicate
             // Since we don't use LogicalNotUserDefined, this method is not called.
             // To be safe, we just keep the record by returning false.
             return false;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("columnDescriptor", columnDescriptor)
+                    .add("columnDomain", columnDomain)
+                    .toString();
         }
     }
 

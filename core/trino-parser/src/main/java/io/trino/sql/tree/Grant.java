@@ -26,28 +26,26 @@ public class Grant
         extends Statement
 {
     private final Optional<List<String>> privileges; // missing means ALL PRIVILEGES
-    private final Optional<GrantOnType> type;
-    private final QualifiedName name;
+    private final GrantObject grantObject;
     private final PrincipalSpecification grantee;
     private final boolean grantOption;
 
-    public Grant(Optional<List<String>> privileges, Optional<GrantOnType> type, QualifiedName name, PrincipalSpecification grantee, boolean grantOption)
+    public Grant(Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee, boolean grantOption)
     {
-        this(Optional.empty(), privileges, type, name, grantee, grantOption);
+        this(Optional.empty(), privileges, grantObject, grantee, grantOption);
     }
 
-    public Grant(NodeLocation location, Optional<List<String>> privileges, Optional<GrantOnType> type, QualifiedName name, PrincipalSpecification grantee, boolean grantOption)
+    public Grant(NodeLocation location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee, boolean grantOption)
     {
-        this(Optional.of(location), privileges, type, name, grantee, grantOption);
+        this(Optional.of(location), privileges, grantObject, grantee, grantOption);
     }
 
-    private Grant(Optional<NodeLocation> location, Optional<List<String>> privileges, Optional<GrantOnType> type, QualifiedName name, PrincipalSpecification grantee, boolean grantOption)
+    private Grant(Optional<NodeLocation> location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee, boolean grantOption)
     {
         super(location);
         requireNonNull(privileges, "privileges is null");
         this.privileges = privileges.map(ImmutableList::copyOf);
-        this.type = requireNonNull(type, "type is null");
-        this.name = requireNonNull(name, "name is null");
+        this.grantObject = requireNonNull(grantObject, "grantScope is null");
         this.grantee = requireNonNull(grantee, "grantee is null");
         this.grantOption = grantOption;
     }
@@ -57,14 +55,9 @@ public class Grant
         return privileges;
     }
 
-    public Optional<GrantOnType> getType()
+    public GrantObject getGrantObject()
     {
-        return type;
-    }
-
-    public QualifiedName getName()
-    {
-        return name;
+        return grantObject;
     }
 
     public PrincipalSpecification getGrantee()
@@ -92,7 +85,7 @@ public class Grant
     @Override
     public int hashCode()
     {
-        return Objects.hash(privileges, type, name, grantee, grantOption);
+        return Objects.hash(privileges, grantObject, grantee, grantOption);
     }
 
     @Override
@@ -106,8 +99,7 @@ public class Grant
         }
         Grant o = (Grant) obj;
         return Objects.equals(privileges, o.privileges) &&
-                Objects.equals(type, o.type) &&
-                Objects.equals(name, o.name) &&
+                Objects.equals(grantObject, o.grantObject) &&
                 Objects.equals(grantee, o.grantee) &&
                 Objects.equals(grantOption, o.grantOption);
     }
@@ -117,8 +109,7 @@ public class Grant
     {
         return toStringHelper(this)
                 .add("privileges", privileges)
-                .add("type", type)
-                .add("name", name)
+                .add("grantScope", grantObject)
                 .add("grantee", grantee)
                 .add("grantOption", grantOption)
                 .toString();

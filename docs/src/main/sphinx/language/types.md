@@ -1,7 +1,7 @@
 # Data types
 
-Trino has a set of built-in data types, described below.
-Additional types can be provided by plugins.
+Trino has a set of built-in data types, described below. Additional types can be
+[provided by plugins](/develop/types).
 
 (type-mapping-overview)=
 
@@ -41,30 +41,54 @@ This type captures boolean values `true` and `false`.
 
 ## Integer
 
+Integer numbers can be expressed as numeric literals in the following formats:
+
+* Decimal integer. Examples are `-7`, `0`, or `3`.
+* Hexadecimal integer composed of `0X` or `0x` and the value. Examples are
+  `0x0A` for decimal `10` or `0x11` for decimal `17`.
+* Octal integer composed of `0O` or `0o` and the value. Examples are `0o40` for
+  decimal `32` or `0o11` for decimal `9`.
+* Binary integer composed of `0B` or `0b` and the value. Examples are `0b1001`
+  for decimal `9` or `0b101010` for decimal `42``.
+
+Underscore characters are ignored within literal values, and can be used to
+increase readability. For example, decimal integer `123_456.789_123` is
+equivalent to `123456.789123`. Preceding and trailing underscores are not
+permitted.
+
+Integers are supported by the following data types.
+
 ### `TINYINT`
 
 A 8-bit signed two's complement integer with a minimum value of
-`-2^7` and a maximum value of `2^7 - 1`.
+`-2^7` or `-0x80` and a maximum value of `2^7 - 1` or `0x7F`.
 
 ### `SMALLINT`
 
 A 16-bit signed two's complement integer with a minimum value of
-`-2^15` and a maximum value of `2^15 - 1`.
+`-2^15` or `-0x8000` and a maximum value of `2^15 - 1` or `0x7FFF`.
 
-### `INTEGER`
+### `INTEGER` or `INT`
 
-A 32-bit signed two's complement integer with a minimum value of
-`-2^31` and a maximum value of `2^31 - 1`.  The name `INT` is
-also available for this type.
+A 32-bit signed two's complement integer with a minimum value of `-2^31` or
+`-0x80000000` and a maximum value of `2^31 - 1` or `0x7FFFFFFF`.  The names
+`INTEGER` and `INT` can both be used for this type.
 
 ### `BIGINT`
 
-A 64-bit signed two's complement integer with a minimum value of
-`-2^63` and a maximum value of `2^63 - 1`.
+A 64-bit signed two's complement integer with a minimum value of `-2^63` or
+`-0x8000000000000000` and a maximum value of `2^63 - 1` or `0x7FFFFFFFFFFFFFFF`.
 
 (floating-point-data-types)=
 
 ## Floating-point
+
+Floating-point, fixed-precision numbers can be expressed as numeric literal
+using scientific notation such as `1.03e1` and are cast as `DOUBLE` data type.
+Underscore characters are ignored within literal values, and can be used to
+increase readability. For example, value `123_456.789e4` is equivalent to
+`123456.789e4`. Preceding underscores, trailing underscores, and underscores
+beside the comma (`.`) are not permitted.
 
 ### `REAL`
 
@@ -80,14 +104,24 @@ IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
 Example literals: `DOUBLE '10.3'`, `DOUBLE '1.03e1'`, `10.3e0`, `1.03e1`
 
-(fixed-precision-data-types)=
+(exact-numeric-data-types)=
+## Exact numeric
 
-## Fixed-precision
+Exact numeric values can be expressed as numeric literals such as `1.1`, and
+are supported by the `DECIMAL` data type.
+
+Underscore characters are ignored within literal values, and can be used to
+increase readability. For example, decimal `123_456.789_123` is equivalent to
+`123456.789123`. Preceding underscores, trailing underscores, and underscores
+beside the comma (`.`) are not permitted.
+
+Leading zeros in literal values are permitted and ignored. For example,
+`000123.456` is equivalent to `123.456`.
 
 ### `DECIMAL`
 
-A fixed precision decimal number. Precision up to 38 digits is supported
-but performance is best up to 18 digits.
+A exact decimal number. Precision up to 38 digits is supported but performance
+is best up to 18 digits.
 
 The decimal type takes two literal parameters:
 
@@ -120,13 +154,20 @@ before any Unicode character usage with 4 digits. In the examples above
 with 6 digits require usage of the plus symbol before the code. For example,
 you need to use `\+01F600` for a grinning face emoji.
 
+Single quotes in string literals can be escaped by using another single quote: 
+`'I am big, it''s the pictures that got small!'`
+
 ### `CHAR`
 
 Fixed length character data. A `CHAR` type without length specified has a default length of 1.
 A `CHAR(x)` value always has `x` characters. For example, casting `dog` to `CHAR(7)`
 adds 4 implicit trailing spaces. Leading and trailing spaces are included in comparisons of
 `CHAR` values. As a result, two character values with different lengths (`CHAR(x)` and
-`CHAR(y)` where `x != y`) will never be equal.
+`CHAR(y)` where `x != y`) will never be equal. As with `VARCHAR`, a single quote in a `CHAR` 
+literal can be escaped with another single quote:
+```sql
+SELECT CHAR 'All right, Mr. DeMille, I''m ready for my close-up.'
+```
 
 Example type definitions: `char`, `char(20)`
 
@@ -134,9 +175,13 @@ Example type definitions: `char`, `char(20)`
 
 Variable length binary data.
 
-SQL statements support usage of binary data with the prefix `X`. The
-binary data has to use hexadecimal format. For example, the binary form of
-`eh?` is `X'65683F'`.
+SQL statements support usage of binary literal data with the prefix `X` or `x`.
+The binary data has to use hexadecimal format. For example, the binary form of
+`eh?` is `X'65683F'` as you can confirm with the following statement:
+
+```sql
+SELECT from_utf8(x'65683F');
+```
 
 :::{note}
 Binary strings with length are not yet supported: `varbinary(n)`
@@ -232,12 +277,13 @@ SELECT cast(TIMESTAMP '2020-06-10 15:55:23.383345' as TIMESTAMP(12));
 `TIMESTAMP WITH TIME ZONE` is an alias for `TIMESTAMP(3) WITH TIME ZONE`
 (millisecond precision).
 
+(timestamp-p-with-time-zone-data-type)=
 ### `TIMESTAMP(P) WITH TIME ZONE`
 
 Instant in time that includes the date and time of day with `P` digits of
-precision for the fraction of seconds and with a time zone. Values of this
-type are rendered using the time zone from the value.
-Time zones can be expressed in the following ways:
+precision for the fraction of seconds and with a time zone. Values of this type
+are rendered using the time zone from the value. Time zones can be expressed in
+the following ways:
 
 - `UTC`, with `GMT`, `Z`, or `UT` usable as aliases for UTC.
 - `+hh:mm` or `-hh:mm` with `hh:mm` as an hour and minute offset from UTC.

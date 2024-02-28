@@ -18,9 +18,9 @@ import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
@@ -50,7 +50,7 @@ public class TestDeltaFaultTolerantExecutionTest
         MinioStorage minioStorage = closeAfterClass(new MinioStorage(bucketName));
         minioStorage.start();
 
-        DistributedQueryRunner runner = createS3DeltaLakeQueryRunner(
+        QueryRunner runner = createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 FaultTolerantExecutionConnectorTestHelper.getExtraProperties(),
@@ -66,6 +66,7 @@ public class TestDeltaFaultTolerantExecutionTest
         return runner;
     }
 
+    @Test
     @Override
     public void testExecutePreferredWritePartitioningSkewMitigation()
     {

@@ -18,6 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.trino.parquet.ParquetReaderOptions;
 import jakarta.validation.constraints.Max;
@@ -32,15 +33,15 @@ import jakarta.validation.constraints.NotNull;
 })
 public class ParquetReaderConfig
 {
+    public static final String PARQUET_READER_MAX_SMALL_FILE_THRESHOLD = "15MB";
+
     private ParquetReaderOptions options = new ParquetReaderOptions();
 
-    @Deprecated
     public boolean isIgnoreStatistics()
     {
         return options.isIgnoreStatistics();
     }
 
-    @Deprecated
     @Config("parquet.ignore-statistics")
     @ConfigDescription("Ignore statistics from Parquet to allow querying files with corrupted or incorrect statistics")
     public ParquetReaderConfig setIgnoreStatistics(boolean ignoreStatistics)
@@ -129,6 +130,21 @@ public class ParquetReaderConfig
     public boolean isUseBloomFilter()
     {
         return options.useBloomFilter();
+    }
+
+    @Config("parquet.small-file-threshold")
+    @ConfigDescription("Size below which a parquet file will be read entirely")
+    public ParquetReaderConfig setSmallFileThreshold(DataSize smallFileThreshold)
+    {
+        options = options.withSmallFileThreshold(smallFileThreshold);
+        return this;
+    }
+
+    @NotNull
+    @MaxDataSize(PARQUET_READER_MAX_SMALL_FILE_THRESHOLD)
+    public DataSize getSmallFileThreshold()
+    {
+        return options.getSmallFileThreshold();
     }
 
     public ParquetReaderOptions toParquetReaderOptions()

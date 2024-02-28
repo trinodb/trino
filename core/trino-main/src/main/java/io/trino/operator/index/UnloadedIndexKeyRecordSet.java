@@ -24,7 +24,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -54,8 +53,7 @@ public class UnloadedIndexKeyRecordSet
             Set<Integer> channelsForDistinct,
             List<Type> types,
             List<UpdateRequest> requests,
-            JoinCompiler joinCompiler,
-            TypeOperators typeOperators)
+            JoinCompiler joinCompiler)
     {
         requireNonNull(existingSnapshot, "existingSnapshot is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -68,7 +66,7 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, false, 10_000, joinCompiler, typeOperators, NOOP);
+        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, false, 10_000, joinCompiler, NOOP);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
 

@@ -26,7 +26,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingSplitManager;
 import io.trino.testing.TestingTransactionHandle;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.Set;

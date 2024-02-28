@@ -19,9 +19,11 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.nessie.NessieIcebergClient;
+import org.apache.iceberg.nessie.NessieUtil;
 import org.projectnessie.error.NessieConflictException;
 import org.projectnessie.error.NessieNotFoundException;
 import org.projectnessie.model.ContentKey;
@@ -81,6 +83,16 @@ public class IcebergNessieTableOperations
     }
 
     @Override
+    protected void refreshFromMetadataLocation(String newLocation)
+    {
+        super.refreshFromMetadataLocation(
+                newLocation,
+                location -> NessieUtil.updateTableMetadataWithNessieSpecificProperties(
+                    TableMetadataParser.read(fileIo, location),
+                    location, table, getSchemaTableName().toString(), nessieClient.getReference()));
+    }
+
+    @Override
     protected String getRefreshedLocation(boolean invalidateCaches)
     {
         table = nessieClient.table(toIdentifier(new SchemaTableName(database, tableName)));
@@ -124,6 +136,12 @@ public class IcebergNessieTableOperations
             throw new CommitFailedException(e, "Cannot commit: ref hash is out of date. Update the ref '%s' and try again", nessieClient.refName());
         }
         shouldRefresh = true;
+    }
+
+    @Override
+    protected void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private static ContentKey toKey(SchemaTableName tableName)

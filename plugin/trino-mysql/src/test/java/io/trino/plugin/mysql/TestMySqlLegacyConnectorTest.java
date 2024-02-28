@@ -18,10 +18,9 @@ import io.trino.Session;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -122,7 +121,7 @@ public class TestMySqlLegacyConnectorTest
 
             assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
                     .matches("VALUES (BIGINT '7', BIGINT '7')")
-                    .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                    .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
         }
     }
 
@@ -135,14 +134,18 @@ public class TestMySqlLegacyConnectorTest
                 .hasStackTraceContaining("RENAME COLUMN x TO before_y");
     }
 
+    @Test
     @Override
-    public void testRenameColumnName(String columnName)
+    public void testRenameColumnName()
     {
-        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
-                .hasMessageContaining("You have an error in your SQL syntax")
-                .hasStackTraceContaining("RENAME COLUMN");
+        for (String columnName : testColumnNameDataProvider()) {
+            assertThatThrownBy(() -> testRenameColumnName(columnName, requiresDelimiting(columnName)))
+                    .hasMessageContaining("You have an error in your SQL syntax")
+                    .hasStackTraceContaining("RENAME COLUMN");
+        }
     }
 
+    @Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {
@@ -168,6 +171,7 @@ public class TestMySqlLegacyConnectorTest
         assertThat(e).hasMessageMatching("Identifier name .* is too long");
     }
 
+    @Test
     @Override
     public void testNativeQueryWithClause()
     {

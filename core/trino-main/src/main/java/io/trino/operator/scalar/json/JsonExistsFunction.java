@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
-import io.trino.json.PathEvaluationError;
+import io.trino.json.PathEvaluationException;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -26,7 +26,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -58,7 +58,7 @@ public class JsonExistsFunction
         extends SqlScalarFunction
 {
     public static final String JSON_EXISTS_FUNCTION_NAME = "$json_exists";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class);
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -66,9 +66,8 @@ public class JsonExistsFunction
 
     public JsonExistsFunction(FunctionManager functionManager, Metadata metadata, TypeManager typeManager)
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder(JSON_EXISTS_FUNCTION_NAME)
                 .signature(Signature.builder()
-                        .name(JSON_EXISTS_FUNCTION_NAME)
                         .typeVariable("T")
                         .returnType(BOOLEAN)
                         .argumentTypes(ImmutableList.of(new TypeSignature(JSON_2016), new TypeSignature(JsonPath2016Type.NAME), new TypeSignature("T"), new TypeSignature(TINYINT)))
@@ -112,16 +111,16 @@ public class JsonExistsFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Block parametersRow,
+            SqlRow parametersRow,
             long errorBehavior)
     {
         if (inputExpression.equals(JSON_ERROR)) {
-            return handleError(errorBehavior, () -> new JsonInputConversionError("malformed input argument to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
+            return handleError(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
-                return handleError(errorBehavior, () -> new JsonInputConversionError("malformed JSON path parameter to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
+                return handleError(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
             }
         }
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
@@ -136,7 +135,7 @@ public class JsonExistsFunction
         try {
             pathResult = evaluator.evaluate(inputExpression, parameters);
         }
-        catch (PathEvaluationError e) {
+        catch (PathEvaluationException e) {
             return handleError(errorBehavior, () -> e);
         }
 

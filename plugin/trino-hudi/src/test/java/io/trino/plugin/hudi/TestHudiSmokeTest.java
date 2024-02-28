@@ -14,13 +14,17 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.ZonedDateTime;
 
 import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
@@ -29,7 +33,6 @@ import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.Testing
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestHudiSmokeTest
         extends AbstractTestQueryFramework
@@ -45,8 +48,8 @@ public class TestHudiSmokeTest
     public void testReadNonPartitionedTable()
     {
         assertQuery(
-                "SELECT rowid, name FROM " + HUDI_NON_PART_COW,
-                "SELECT * FROM VALUES ('row_1', 'bob'), ('row_2', 'john'), ('row_3', 'tom')");
+                "SELECT id, name FROM " + HUDI_NON_PART_COW,
+                "SELECT * FROM VALUES (1, 'a1'), (2, 'a2')");
     }
 
     @Test
@@ -133,9 +136,10 @@ public class TestHudiSmokeTest
 
     @Test
     public void testPathColumn()
+            throws Exception
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
-        assertThat(toPath(path)).exists();
+        assertThat(toInputFile(path).exists()).isTrue();
     }
 
     @Test
@@ -144,7 +148,7 @@ public class TestHudiSmokeTest
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
         long fileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
-        assertEquals(fileSize, Files.size(toPath(path)));
+        assertThat(fileSize).isEqualTo(toInputFile(path).length());
     }
 
     @Test
@@ -153,7 +157,8 @@ public class TestHudiSmokeTest
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
         ZonedDateTime fileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
-        assertEquals(fileModifiedTime.toInstant().toEpochMilli(), Files.getLastModifiedTime(toPath(path)).toInstant().toEpochMilli());
+        assertThat(fileModifiedTime.toInstant().toEpochMilli())
+                .isEqualTo(toInputFile(path).lastModified().toEpochMilli());
     }
 
     @Test
@@ -165,9 +170,207 @@ public class TestHudiSmokeTest
         assertQueryFails("SELECT \"$partition\" FROM " + HUDI_NON_PART_COW, ".* Column '\\$partition' cannot be resolved");
     }
 
-    private static Path toPath(String path)
+    @Test
+    public void testPartitionFilterRequired()
     {
-        // Remove leading 'file:' because path column returns 'file:/path-to-file' in case of local file system
-        return Path.of(path.replaceFirst("^file:", ""));
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertQueryFails(
+                session,
+                "SELECT * FROM " + HUDI_COW_PT_TBL,
+                "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+    }
+
+    @Test
+    public void testPartitionFilterRequiredPredicateOnNonPartitionColumn()
+    {
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertQueryFails(
+                session,
+                "SELECT * FROM " + HUDI_COW_PT_TBL + " WHERE id = 1",
+                "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+    }
+
+    @Test
+    public void testPartitionFilterRequiredNestedQueryWithInnerPartitionPredicate()
+    {
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertQuery(session, "SELECT name FROM (SELECT * FROM " + HUDI_COW_PT_TBL + " WHERE dt = '2021-12-09') WHERE id = 1", "VALUES 'a1'");
+    }
+
+    @Test
+    public void testPartitionFilterRequiredNestedQueryWithOuterPartitionPredicate()
+    {
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertQuery(session, "SELECT name FROM (SELECT * FROM " + HUDI_COW_PT_TBL + " WHERE id = 1) WHERE dt = '2021-12-09'", "VALUES 'a1'");
+    }
+
+    @Test
+    public void testPartitionFilterRequiredNestedWithIsNotNullFilter()
+    {
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE dt IS NOT null", "VALUES 'a1', 'a2'");
+    }
+
+    @Test
+    public void testPartitionFilterRequiredFilterRemovedByPlanner()
+    {
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertQueryFails(
+                session,
+                "SELECT id FROM " + HUDI_COW_PT_TBL + " WHERE dt IS NOT null OR true",
+                "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+    }
+
+    @Test
+    public void testPartitionFilterRequiredOnJoin()
+    {
+        Session session = withPartitionFilterRequired(getSession());
+        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh";
+
+        // ON with partition column
+        assertQueryFails(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_NON_PART_COW + " t2 ON (t1.dt = t2.dt)",
+                errorMessage);
+        // ON with partition column and WHERE with same left table's partition column
+        assertQuery(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_NON_PART_COW + " t2 ON (t1.dt = t2.dt) WHERE t1.dt = '2021-12-09'",
+                "VALUES ('a1', 'a1'), ('a2', 'a2'), ('a1', 'a2'), ('a2', 'a1')");
+        // ON with partition column and WHERE with same right table's regular column
+        assertQuery(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_NON_PART_COW + " t2 ON (t1.dt = t2.dt) WHERE t2.dt = '2021-12-09'",
+                "VALUES ('a1', 'a1'), ('a2', 'a2'), ('a1', 'a2'), ('a2', 'a1')");
+        // ON with partition column and WHERE with different left table's partition column
+        assertQuery(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_NON_PART_COW + " t2 ON (t1.dt = t2.dt) WHERE t1.hh = '10'",
+                "VALUES ('a1', 'a1'), ('a1', 'a2')");
+        // ON with partition column and WHERE with different regular column
+        assertQueryFails(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_NON_PART_COW + " t2 ON (t1.dt = t2.dt) WHERE t2.hh = '10'",
+                errorMessage);
+        // ON with partition column and WHERE with regular column
+        assertQueryFails(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_NON_PART_COW + " t2 ON (t1.dt = t2.dt) WHERE t1.id = 1",
+                errorMessage);
+
+        // ON with regular column
+        assertQueryFails(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_NON_PART_COW + " t2 ON (t1.id = t2.id)",
+                errorMessage);
+        // ON with regular column and WHERE with left table's partition column
+        assertQuery(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_NON_PART_COW + " t2 ON (t1.id = t2.id) WHERE t1.dt = '2021-12-09'",
+                "VALUES ('a1', 'a1'), ('a2', 'a2')");
+        // ON with partition column and WHERE with right table's regular column
+        assertQueryFails(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_NON_PART_COW + " t2 ON (t1.dt = t2.dt) WHERE t2.id = 1",
+                errorMessage);
+    }
+
+    @Test
+    public void testPartitionFilterRequiredOnJoinBothTablePartitioned()
+    {
+        Session session = withPartitionFilterRequired(getSession());
+
+        // ON with partition column
+        assertQueryFails(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.dt = t2.dt)",
+                "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+        // ON with partition column and WHERE with same left table's partition column
+        assertQuery(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.dt = t2.dt) WHERE t1.dt = '2021-12-09'",
+                "VALUES ('a1', 'a1'), ('a2', 'a2'), ('a1', 'a2'), ('a2', 'a1')");
+        // ON with partition column and WHERE with same right table's partition column
+        assertQuery(
+                session,
+                "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.dt = t2.dt) WHERE t2.dt = '2021-12-09'",
+                "VALUES ('a1', 'a1'), ('a2', 'a2'), ('a1', 'a2'), ('a2', 'a1')");
+
+        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh";
+        // ON with partition column and WHERE with different left table's partition column
+        assertQueryFails(session, "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.dt = t2.dt) WHERE t1.hh = '10'", errorMessage);
+        // ON with partition column and WHERE with different right table's partition column
+        assertQueryFails(session, "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.dt = t2.dt) WHERE t2.hh = '10'", errorMessage);
+        // ON with partition column and WHERE with regular column
+        assertQueryFails(session, "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.dt = t2.dt) WHERE t2.id = 1", errorMessage);
+
+        // ON with regular column
+        assertQueryFails(session, "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.id = t2.id)", errorMessage);
+        // ON with regular column and WHERE with regular column
+        assertQueryFails(session, "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.id = t2.id) WHERE t1.id = 1", errorMessage);
+        // ON with regular column and WHERE with left table's partition column
+        assertQueryFails(session, "SELECT t1.name, t2.name FROM " + HUDI_COW_PT_TBL + " t1 JOIN " + HUDI_COW_PT_TBL + " t2 ON (t1.id = t2.id) WHERE t1.dt = '2021-12-09'", errorMessage);
+    }
+
+    @Test
+    public void testPartitionFilterRequiredWithLike()
+    {
+        Session session = withPartitionFilterRequired(getSession());
+        assertQueryFails(
+                session,
+                "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE name LIKE '%1'",
+                "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh");
+    }
+
+    @Test
+    public void testPartitionFilterRequiredFilterIncluded()
+    {
+        Session session = withPartitionFilterRequired(getSession());
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh = '10'", "VALUES 'a1'");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh < '12'", "VALUES 2");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE Hh < '11'", "VALUES 1");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE HH < '10'", "VALUES 0");
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) % 2 = 1 and hh IS NOT NULL", "VALUES 'a2'");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh IS NULL", "VALUES 0");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh IS NOT NULL", "VALUES 2");
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh LIKE '10'", "VALUES 'a1'");
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh LIKE '1%'", "VALUES 'a1', 'a2'");
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE id = 1 AND dt = '2021-12-09'", "VALUES 'a1'");
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh = '11' AND dt = '2021-12-09'", "VALUES 'a2'");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '12' AND dt = '2021-12-19'", "VALUES 0");
+
+        // Predicate which could not be translated into tuple domain
+        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh";
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) % 2 = 0", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) - 11 = 0", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) * 2 = 20", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) % 2 > 0", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE name LIKE '%1' OR hh LIKE '%1'", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE name LIKE '%1' AND hh LIKE '%0'", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE id = 1 OR dt = '2021-12-09'", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '11' OR dt = '2021-12-09'", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '12' OR dt = '2021-12-19'", errorMessage);
+        assertQueryFails(session, "SELECT count(*) AS COUNT FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) > 2 GROUP BY name ", errorMessage);
+    }
+
+    private static Session withPartitionFilterRequired(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "query_partition_filter_required", "true")
+                .build();
+    }
+
+    private TrinoInputFile toInputFile(String path)
+    {
+        return ((HudiConnector) getDistributedQueryRunner().getCoordinator().getConnector("hudi")).getInjector()
+                .getInstance(TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.ofUser("test"))
+                .newInputFile(Location.of(path));
     }
 }

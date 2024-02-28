@@ -25,12 +25,14 @@ import io.trino.spi.type.StandardTypes;
 import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.util.regex.Pattern;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public final class IpAddressFunctions
 {
+    private static final Pattern IPV4_PATTERN = Pattern.compile("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$");
+
     private IpAddressFunctions() {}
 
     @Description("Determines whether given IP address exists in the CIDR")
@@ -45,55 +47,42 @@ public final class IpAddressFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid CIDR");
         }
 
-        byte[] base;
-        boolean isIpv4;
+        String cidrBase = cidr.substring(0, separator);
+        InetAddress cidrAddress;
         try {
-            InetAddress inetAddress = InetAddresses.forString(cidr.substring(0, separator));
-            base = inetAddress.getAddress();
-            isIpv4 = inetAddress instanceof Inet4Address;
+            cidrAddress = InetAddresses.forString(cidrBase);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid network IP address");
         }
 
-        int prefixLength = Integer.parseInt(cidr.substring(separator + 1));
+        byte[] cidrBytes = toBytes(cidrAddress);
 
+        int prefixLength = Integer.parseInt(cidr.substring(separator + 1));
         if (prefixLength < 0) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid prefix length");
         }
 
-        int baseLength = base.length * Byte.SIZE;
-
-        if (prefixLength > baseLength) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Prefix length exceeds address length");
+        // We do regex match instead of instanceof Inet4Address because InetAddresses.forString() normalizes
+        // IPv4 mapped IPv6 addresses (e.g., ::ffff:0102:0304) to Inet4Address. We need to be able to
+        // distinguish between the two formats in the CIDR string to be able to interpret the prefix length correctly.
+        if (IPV4_PATTERN.matcher(cidrBase).matches()) {
+            if (!isValidIpV4Cidr(cidrBytes, 12, prefixLength)) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid CIDR");
+            }
+            prefixLength += 96;
         }
-
-        if (isIpv4 && !isValidIpV4Cidr(base, prefixLength)) {
+        else if (!isValidIpV6Cidr(prefixLength)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid CIDR");
-        }
-
-        if (!isIpv4 && !isValidIpV6Cidr(prefixLength)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid CIDR");
-        }
-
-        byte[] ipAddress;
-        try {
-            ipAddress = InetAddress.getByAddress(address.getBytes()).getAddress();
-        }
-        catch (UnknownHostException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid IP address");
-        }
-
-        if (base.length != ipAddress.length) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "IP address version should be the same");
         }
 
         if (prefixLength == 0) {
             return true;
         }
 
-        BigInteger cidrPrefix = new BigInteger(base).shiftRight(baseLength - prefixLength);
-        BigInteger addressPrefix = new BigInteger(ipAddress).shiftRight(baseLength - prefixLength);
+        byte[] ipAddress = address.getBytes();
+        BigInteger cidrPrefix = new BigInteger(cidrBytes).shiftRight(cidrBytes.length * Byte.SIZE - prefixLength);
+        BigInteger addressPrefix = new BigInteger(ipAddress).shiftRight(ipAddress.length * Byte.SIZE - prefixLength);
 
         return cidrPrefix.equals(addressPrefix);
     }
@@ -103,9 +92,30 @@ public final class IpAddressFunctions
         return prefixLength >= 0 && prefixLength <= 128;
     }
 
-    private static boolean isValidIpV4Cidr(byte[] address, int prefix)
+    private static boolean isValidIpV4Cidr(byte[] address, int offset, int prefix)
     {
+        if (prefix < 0 || prefix > 32) {
+            return false;
+        }
+
         long mask = 0xFFFFFFFFL >>> prefix;
-        return (Ints.fromByteArray(address) & mask) == 0;
+        return (Ints.fromBytes(address[offset], address[offset + 1], address[offset + 2], address[offset + 3]) & mask) == 0;
+    }
+
+    private static byte[] toBytes(InetAddress address)
+    {
+        byte[] bytes = address.getAddress();
+
+        if (address instanceof Inet4Address) {
+            byte[] temp = new byte[16];
+            // IPv4 mapped addresses are encoded as ::ffff:<address>
+            temp[10] = (byte) 0xFF;
+            temp[11] = (byte) 0xFF;
+            System.arraycopy(bytes, 0, temp, 12, 4);
+
+            bytes = temp;
+        }
+
+        return bytes;
     }
 }

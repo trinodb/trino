@@ -15,13 +15,14 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Cast;
@@ -42,6 +43,7 @@ import io.trino.sql.tree.WhenClause;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -58,7 +60,7 @@ public final class CanonicalizeExpressionRewriter
 
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -85,6 +87,7 @@ public final class CanonicalizeExpressionRewriter
             this.expressionTypes = expressionTypes;
         }
 
+        @SuppressWarnings("ArgumentSelectionDefectChecker")
         @Override
         public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
@@ -97,6 +100,7 @@ public final class CanonicalizeExpressionRewriter
             return treeRewriter.defaultRewrite(node, context);
         }
 
+        @SuppressWarnings("ArgumentSelectionDefectChecker")
         @Override
         public Expression rewriteArithmeticBinary(ArithmeticBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
@@ -132,8 +136,8 @@ public final class CanonicalizeExpressionRewriter
         @Override
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            String functionName = extractFunctionName(node.getName());
-            if (functionName.equals("date") && node.getArguments().size() == 1) {
+            CatalogSchemaFunctionName functionName = extractFunctionName(node.getName());
+            if (functionName.equals(builtinFunctionName("date")) && node.getArguments().size() == 1) {
                 Expression argument = node.getArguments().get(0);
                 Type argumentType = expressionTypes.get(NodeRef.of(argument));
                 if (argumentType instanceof TimestampType

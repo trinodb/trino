@@ -13,8 +13,8 @@
  */
 package io.trino.execution.resourcegroups.db;
 
-import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.Test;
+import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.execution.resourcegroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.getSimpleQueryRunner;
@@ -25,7 +25,7 @@ public class TestResourceGroupDbIntegration
     public void testMemoryFraction()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = getSimpleQueryRunner()) {
+        try (QueryRunner queryRunner = getSimpleQueryRunner()) {
             queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
             waitForGlobalResourceGroup(queryRunner);
         }

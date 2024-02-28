@@ -23,6 +23,8 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Set;
+
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeSystemTable
@@ -59,6 +61,14 @@ public class ClassLoaderSafeSystemTable
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.cursor(transactionHandle, session, constraint);
+        }
+    }
+
+    @Override
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint, Set<Integer> requiredColumns)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.cursor(transactionHandle, session, constraint, requiredColumns);
         }
     }
 

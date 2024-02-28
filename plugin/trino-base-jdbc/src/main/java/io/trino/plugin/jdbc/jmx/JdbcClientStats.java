@@ -53,6 +53,7 @@ public final class JdbcClientStats
     private final JdbcApiStats getTableStatistics = new JdbcApiStats();
     private final JdbcApiStats renameColumn = new JdbcApiStats();
     private final JdbcApiStats setColumnType = new JdbcApiStats();
+    private final JdbcApiStats dropNotNullConstraint = new JdbcApiStats();
     private final JdbcApiStats renameTable = new JdbcApiStats();
     private final JdbcApiStats setTableProperties = new JdbcApiStats();
     private final JdbcApiStats rollbackCreateTable = new JdbcApiStats();
@@ -64,6 +65,7 @@ public final class JdbcClientStats
     private final JdbcApiStats convertPredicate = new JdbcApiStats();
     private final JdbcApiStats getTableScanRedirection = new JdbcApiStats();
     private final JdbcApiStats delete = new JdbcApiStats();
+    private final JdbcApiStats update = new JdbcApiStats();
     private final JdbcApiStats truncateTable = new JdbcApiStats();
 
     @Managed
@@ -313,6 +315,13 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
+    public JdbcApiStats getDropNotNullConstraint()
+    {
+        return dropNotNullConstraint;
+    }
+
+    @Managed
+    @Nested
     public JdbcApiStats getRenameTable()
     {
         return renameTable;
@@ -386,6 +395,13 @@ public final class JdbcClientStats
     public JdbcApiStats getDelete()
     {
         return delete;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getUpdate()
+    {
+        return update;
     }
 
     @Managed

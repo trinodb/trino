@@ -29,3 +29,7 @@ Change the comment for the `users.name` column to be `full name`:
 ```
 COMMENT ON COLUMN users.name IS 'full name';
 ```
+
+## See also
+
+[](/language/comments)

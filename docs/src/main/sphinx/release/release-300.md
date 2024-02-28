@@ -46,7 +46,7 @@
   (e.g., min > max). To disable this behavior, set the configuration
   property `hive.parquet.fail-on-corrupted-statistics`
   or session property `parquet_fail_with_corrupted_statistics` to false.
-- Add support for {ref}`s3selectpushdown`, which enables pushing down
+- Add support for S3 Select pushdown, which enables pushing down
   column selection and range filters into S3 for text files.
 
 ## Kudu connector

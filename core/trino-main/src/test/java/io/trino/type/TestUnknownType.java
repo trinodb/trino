@@ -29,7 +29,7 @@ public class TestUnknownType
                         .appendNull()
                         .appendNull()
                         .appendNull()
-                        .build());
+                        .buildValueBlock());
     }
 
     @Override
@@ -45,6 +45,7 @@ public class TestUnknownType
                 .isEmpty();
     }
 
+    @Test
     @Override
     public void testFlat()
             throws Throwable

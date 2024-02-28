@@ -16,8 +16,8 @@ package io.trino.operator.aggregation.minmaxbyn;
 import com.google.common.base.Throwables;
 import io.airlift.slice.SizeOf;
 import io.trino.operator.VariableWidthData;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import jakarta.annotation.Nullable;
@@ -48,6 +48,7 @@ public final class TypedKeyValueHeap
     private final Type valueType;
     private final int capacity;
 
+    private final int recordValueNullOffset;
     private final int recordKeyOffset;
     private final int recordValueOffset;
 
@@ -56,8 +57,7 @@ public final class TypedKeyValueHeap
      * The fixed chunk contains an array of records. The records are laid out as follows:
      * <ul>
      *     <li>12 byte optional pointer to variable width data (only present if the key or value is variable width)</li>
-     *     <li>4 byte optional integer for variable size of the key (only present if the key is variable width)</li>
-     *     <li>1 byte null flag for the value</li>
+     *     <li>1 byte null flag for the value. 0 means the value is not-null</li>
      *     <li>N byte fixed size data for the key type</li>
      *     <li>N byte fixed size data for the value type</li>
      * </ul>
@@ -101,11 +101,12 @@ public final class TypedKeyValueHeap
         boolean variableWidth = keyVariableWidth || valueVariableWidth;
         variableWidthData = variableWidth ? new VariableWidthData() : null;
 
-        recordKeyOffset = (variableWidth ? POINTER_SIZE : 0) + 1;
+        recordValueNullOffset = (variableWidth ? POINTER_SIZE : 0);
+        recordKeyOffset = recordValueNullOffset + 1;
         recordValueOffset = recordKeyOffset + keyType.getFlatFixedSize();
         recordSize = recordValueOffset + valueType.getFlatFixedSize();
 
-        // allocate the fixed chunk with on extra slow for use in swap
+        // allocate the fixed chunk with on extra slot for use in swap
         fixedChunk = new byte[recordSize * (capacity + 1)];
     }
 
@@ -126,6 +127,7 @@ public final class TypedKeyValueHeap
         this.keyVariableWidth = typedHeap.keyVariableWidth;
         this.valueVariableWidth = typedHeap.valueVariableWidth;
 
+        this.recordValueNullOffset = typedHeap.recordValueNullOffset;
         this.recordKeyOffset = typedHeap.recordKeyOffset;
         this.recordValueOffset = typedHeap.recordValueOffset;
         this.recordSize = typedHeap.recordSize;
@@ -209,7 +211,7 @@ public final class TypedKeyValueHeap
                 throw new RuntimeException(throwable);
             }
         }
-        if (fixedChunk[recordOffset + recordKeyOffset - 1] != 0) {
+        if (fixedChunk[recordOffset + recordValueNullOffset] != 0) {
             valueBlockBuilder.appendNull();
         }
         else {
@@ -227,27 +229,20 @@ public final class TypedKeyValueHeap
         }
     }
 
-    public void addAll(Block keyBlock, Block valueBlock)
+    public void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
     {
-        for (int i = 0; i < keyBlock.getPositionCount(); i++) {
-            add(keyBlock, valueBlock, i);
-        }
-    }
-
-    public void add(Block keyBlock, Block valueBlock, int position)
-    {
-        checkArgument(!keyBlock.isNull(position));
+        checkArgument(!keyBlock.isNull(keyPosition));
         if (positionCount == capacity) {
             // is it possible the value is within the top N values?
-            if (!shouldConsiderValue(keyBlock, position)) {
+            if (!shouldConsiderValue(keyBlock, keyPosition)) {
                 return;
             }
             clear(0);
-            set(0, keyBlock, valueBlock, position);
+            set(0, keyBlock, keyPosition, valueBlock, valuePosition);
             siftDown();
         }
         else {
-            set(positionCount, keyBlock, valueBlock, position);
+            set(positionCount, keyBlock, keyPosition, valueBlock, valuePosition);
             positionCount++;
             siftUp();
         }
@@ -268,13 +263,13 @@ public final class TypedKeyValueHeap
                 positionCount,
                 (fixedSizeOffset, variableWidthChunk, variableWidthChunkOffset) -> {
                     int keyVariableWidth = keyType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
-                    if (fixedChunk[fixedSizeOffset + recordKeyOffset - 1] != 0) {
+                    if (fixedChunk[fixedSizeOffset + recordValueNullOffset] == 0) {
                         valueType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordValueOffset, variableWidthChunk, variableWidthChunkOffset + keyVariableWidth);
                     }
                 });
     }
 
-    private void set(int index, Block keyBlock, Block valueBlock, int position)
+    private void set(int index, ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
     {
         int recordOffset = getRecordOffset(index);
 
@@ -283,28 +278,28 @@ public final class TypedKeyValueHeap
         int keyVariableWidthLength = 0;
         if (variableWidthData != null) {
             if (keyVariableWidth) {
-                keyVariableWidthLength = keyType.getFlatVariableWidthSize(keyBlock, position);
+                keyVariableWidthLength = keyType.getFlatVariableWidthSize(keyBlock, keyPosition);
             }
-            int valueVariableWidthLength = valueType.getFlatVariableWidthSize(valueBlock, position);
+            int valueVariableWidthLength = valueType.getFlatVariableWidthSize(valueBlock, valuePosition);
             variableWidthChunk = variableWidthData.allocate(fixedChunk, recordOffset, keyVariableWidthLength + valueVariableWidthLength);
             variableWidthChunkOffset = getChunkOffset(fixedChunk, recordOffset);
         }
 
         try {
-            keyWriteFlat.invokeExact(keyBlock, position, fixedChunk, recordOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
+            keyWriteFlat.invokeExact(keyBlock, keyPosition, fixedChunk, recordOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
             throw new RuntimeException(throwable);
         }
-        if (valueBlock.isNull(position)) {
-            fixedChunk[recordOffset + recordKeyOffset - 1] = 1;
+        if (valueBlock.isNull(valuePosition)) {
+            fixedChunk[recordOffset + recordValueNullOffset] = 1;
         }
         else {
             try {
                 valueWriteFlat.invokeExact(
                         valueBlock,
-                        position,
+                        valuePosition,
                         fixedChunk,
                         recordOffset + recordValueOffset,
                         variableWidthChunk,
@@ -394,7 +389,7 @@ public final class TypedKeyValueHeap
         }
     }
 
-    private boolean shouldConsiderValue(Block right, int rightPosition)
+    private boolean shouldConsiderValue(ValueBlock right, int rightPosition)
     {
         byte[] leftFixedRecordChunk = fixedChunk;
         int leftRecordOffset = getRecordOffset(0);

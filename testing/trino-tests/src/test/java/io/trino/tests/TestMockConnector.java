@@ -36,8 +36,9 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
@@ -57,7 +58,7 @@ public class TestMockConnector
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -86,7 +87,8 @@ public class TestMockConnector
                                                 ImmutableList.of(new ViewColumn("nationkey", BIGINT.getTypeId(), Optional.empty())),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
-                                                false)))
+                                                false,
+                                                ImmutableList.of())))
                                 .withGetMaterializedViewProperties(() -> ImmutableList.of(
                                         durationProperty(
                                                 "refresh_interval",
@@ -100,10 +102,11 @@ public class TestMockConnector
                                                 Optional.of(new CatalogSchemaTableName("mock", "default", "test_storage")),
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
-                                                ImmutableList.of(new Column("nationkey", BIGINT.getTypeId())),
+                                                ImmutableList.of(new Column("nationkey", BIGINT.getTypeId(), Optional.empty())),
+                                                Optional.of(Duration.ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
-                                                ImmutableMap.of())))
+                                                ImmutableList.of())))
                                 .withData(schemaTableName -> {
                                     if (schemaTableName.equals(new SchemaTableName("default", "nation"))) {
                                         return TPCH_NATION_DATA;
@@ -237,7 +240,7 @@ public class TestMockConnector
         assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.simple_table_function())"))
                 .hasMessage("missing ConnectorSplitSource for table function handle SimpleTableFunctionHandle");
         assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.non_existing_table_function())"))
-                .hasMessageContaining("Table function mock.system.non_existing_table_function not registered");
+                .hasMessageContaining("Table function 'mock.system.non_existing_table_function' not registered");
     }
 
     @Test

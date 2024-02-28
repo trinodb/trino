@@ -27,6 +27,11 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.tests.product.TestGroups.LDAP;
+import static io.trino.tests.product.TestGroups.LDAP_AND_FILE;
+import static io.trino.tests.product.TestGroups.LDAP_AND_FILE_CLI;
+import static io.trino.tests.product.TestGroups.LDAP_CLI;
+import static io.trino.tests.product.TestGroups.LDAP_MULTIPLE_BINDS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteLdap
@@ -38,10 +43,10 @@ public class SuiteLdap
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                testOnEnvironment(EnvSinglenodeLdap.class).withGroups("ldap").build(),
-                testOnEnvironment(EnvSinglenodeLdapAndFile.class).withGroups("ldap", "ldap_and_file", "ldap_cli", "ldap_and_file_cli").build(),
-                testOnEnvironment(EnvSinglenodeLdapInsecure.class).withGroups("ldap").build(),
-                testOnEnvironment(EnvSinglenodeLdapReferrals.class).withGroups("ldap").build(),
-                testOnEnvironment(EnvSinglenodeLdapBindDn.class).withGroups("ldap").withExcludedGroups("ldap_multiple_binds").build());
+                testOnEnvironment(EnvSinglenodeLdap.class).withGroups(LDAP).build(),
+                testOnEnvironment(EnvSinglenodeLdapAndFile.class).withGroups(LDAP, LDAP_AND_FILE, LDAP_CLI, LDAP_AND_FILE_CLI).build(),
+                testOnEnvironment(EnvSinglenodeLdapInsecure.class).withGroups(LDAP).build(),
+                testOnEnvironment(EnvSinglenodeLdapReferrals.class).withGroups(LDAP).build(),
+                testOnEnvironment(EnvSinglenodeLdapBindDn.class).withGroups(LDAP).withExcludedGroups(LDAP_MULTIPLE_BINDS).build());
     }
 }

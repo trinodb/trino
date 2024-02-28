@@ -19,8 +19,10 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
+import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -34,10 +36,11 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,11 +60,12 @@ import static io.trino.operator.TestingTaskBuffer.PAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestExchangeOperator
 {
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
@@ -81,7 +85,7 @@ public class TestExchangeOperator
     private ExecutorService pageBufferClientCallbackExecutor;
 
     @SuppressWarnings("resource")
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
@@ -89,7 +93,7 @@ public class TestExchangeOperator
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, SERDE_FACTORY), scheduler);
 
-        directExchangeClientSupplier = (queryId, exchangeId, memoryContext, taskFailureListener, retryPolicy) -> new DirectExchangeClient(
+        directExchangeClientSupplier = (queryId, exchangeId, span, memoryContext, taskFailureListener, retryPolicy) -> new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
                 new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, MEGABYTE)),
@@ -104,7 +108,7 @@ public class TestExchangeOperator
                 taskFailureListener);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         httpClient.close();
@@ -120,17 +124,12 @@ public class TestExchangeOperator
         pageBufferClientCallbackExecutor = null;
     }
 
-    @BeforeMethod
-    public void setUpMethod()
-    {
-        // the test class is single-threaded, so there should be no ongoing loads and invalidation should be effective
-        taskBuffers.invalidateAll();
-    }
-
     @Test
     public void testSimple()
             throws Exception
     {
+        taskBuffers.invalidateAll();
+
         SourceOperator operator = createExchangeOperator();
 
         operator.addSplit(newRemoteSplit(TASK_1_ID));
@@ -159,6 +158,8 @@ public class TestExchangeOperator
     public void testWaitForClose()
             throws Exception
     {
+        taskBuffers.invalidateAll();
+
         SourceOperator operator = createExchangeOperator();
 
         operator.addSplit(newRemoteSplit(TASK_1_ID));
@@ -175,9 +176,9 @@ public class TestExchangeOperator
         waitForPages(operator, 3);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertThat(operator.isFinished()).isEqualTo(false);
+        assertThat(operator.needsInput()).isEqualTo(false);
+        assertThat(operator.getOutput()).isEqualTo(null);
 
         // add more pages and close the buffers
         taskBuffers.getUnchecked(TASK_1_ID).addPages(2, true);
@@ -195,6 +196,8 @@ public class TestExchangeOperator
     public void testWaitForNoMoreSplits()
             throws Exception
     {
+        taskBuffers.invalidateAll();
+
         SourceOperator operator = createExchangeOperator();
 
         // add a buffer location containing one page and close the buffer
@@ -206,9 +209,9 @@ public class TestExchangeOperator
         waitForPages(operator, 1);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertThat(operator.isFinished()).isEqualTo(false);
+        assertThat(operator.needsInput()).isEqualTo(false);
+        assertThat(operator.getOutput()).isEqualTo(null);
 
         // add a buffer location
         operator.addSplit(newRemoteSplit(TASK_2_ID));
@@ -228,6 +231,8 @@ public class TestExchangeOperator
     public void testFinish()
             throws Exception
     {
+        taskBuffers.invalidateAll();
+
         SourceOperator operator = createExchangeOperator();
 
         operator.addSplit(newRemoteSplit(TASK_1_ID));
@@ -244,9 +249,9 @@ public class TestExchangeOperator
         waitForPages(operator, 3);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertThat(operator.isFinished()).isEqualTo(false);
+        assertThat(operator.needsInput()).isEqualTo(false);
+        assertThat(operator.getOutput()).isEqualTo(null);
 
         // finish without closing buffers
         operator.finish();
@@ -263,7 +268,7 @@ public class TestExchangeOperator
                 directExchangeClientSupplier,
                 SERDE_FACTORY,
                 RetryPolicy.NONE,
-                new ExchangeManagerRegistry());
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()));
 
         DriverContext driverContext = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -293,10 +298,10 @@ public class TestExchangeOperator
             }
             Thread.sleep(10);
         }
-        assertTrue(greaterThanZero);
+        assertThat(greaterThanZero).isTrue();
 
         while (outputPages.size() < expectedPageCount && System.nanoTime() < endTime) {
-            assertEquals(operator.needsInput(), false);
+            assertThat(operator.needsInput()).isEqualTo(false);
             if (operator.isFinished()) {
                 break;
             }
@@ -314,11 +319,11 @@ public class TestExchangeOperator
         Thread.sleep(10);
 
         // verify state
-        assertEquals(operator.needsInput(), false);
-        assertNull(operator.getOutput());
+        assertThat(operator.needsInput()).isEqualTo(false);
+        assertThat(operator.getOutput()).isNull();
 
         // verify pages
-        assertEquals(outputPages.size(), expectedPageCount);
+        assertThat(outputPages.size()).isEqualTo(expectedPageCount);
         for (Page page : outputPages) {
             assertPageEquals(TYPES, page, PAGE);
         }
@@ -332,8 +337,8 @@ public class TestExchangeOperator
         // wait for finished or until 10 seconds has passed
         long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (System.nanoTime() - endTime < 0) {
-            assertEquals(operator.needsInput(), false);
-            assertNull(operator.getOutput());
+            assertThat(operator.needsInput()).isEqualTo(false);
+            assertThat(operator.getOutput()).isNull();
             if (operator.isFinished()) {
                 break;
             }
@@ -341,13 +346,13 @@ public class TestExchangeOperator
         }
 
         // verify final state
-        assertEquals(operator.isFinished(), true);
-        assertEquals(operator.needsInput(), false);
-        assertNull(operator.getOutput());
+        assertThat(operator.isFinished()).isEqualTo(true);
+        assertThat(operator.needsInput()).isEqualTo(false);
+        assertThat(operator.getOutput()).isNull();
 
         operator.close();
         operator.getOperatorContext().destroy();
 
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
+        assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes()).isEqualTo(0);
     }
 }

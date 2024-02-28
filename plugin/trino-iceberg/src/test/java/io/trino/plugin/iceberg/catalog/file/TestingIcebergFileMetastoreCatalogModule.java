@@ -17,7 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.metastore.DecoratedHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.CachingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
@@ -45,7 +45,7 @@ public class TestingIcebergFileMetastoreCatalogModule
     protected void setup(Binder binder)
     {
         binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore));
-        install(new DecoratedHiveMetastoreModule(false));
+        install(new CachingHiveMetastoreModule(false));
         binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
 

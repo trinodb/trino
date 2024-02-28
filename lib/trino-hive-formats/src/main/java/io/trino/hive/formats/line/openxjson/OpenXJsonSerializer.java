@@ -20,6 +20,8 @@ import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
@@ -196,12 +198,16 @@ public class OpenXJsonSerializer
                 throw new RuntimeException("Unsupported map key type: " + keyType);
             }
             Type valueType = mapType.getValueType();
-            Block mapBlock = mapType.getObject(block, position);
+            SqlMap sqlMap = mapType.getObject(block, position);
+
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
 
             Map<String, Object> jsonMap = new LinkedHashMap<>();
-            for (int mapIndex = 0; mapIndex < mapBlock.getPositionCount(); mapIndex += 2) {
+            for (int mapIndex = 0; mapIndex < sqlMap.getSize(); mapIndex++) {
                 try {
-                    Object key = writeValue(keyType, mapBlock, mapIndex);
+                    Object key = writeValue(keyType, rawKeyBlock, rawOffset + mapIndex);
                     if (key == null) {
                         throw new RuntimeException("OpenX JsonSerDe can not write a null map key");
                     }
@@ -216,7 +222,7 @@ public class OpenXJsonSerializer
                         fieldName = key.toString();
                     }
 
-                    Object value = writeValue(valueType, mapBlock, mapIndex + 1);
+                    Object value = writeValue(valueType, rawValueBlock, rawOffset + mapIndex);
                     jsonMap.put(fieldName, value);
                 }
                 catch (InvalidJsonException ignored) {
@@ -226,13 +232,15 @@ public class OpenXJsonSerializer
         }
         else if (type instanceof RowType rowType) {
             List<Field> fields = rowType.getFields();
-            Block rowBlock = rowType.getObject(block, position);
+            SqlRow sqlRow = rowType.getObject(block, position);
+            int rawIndex = sqlRow.getRawIndex();
 
             Map<String, Object> jsonObject = new LinkedHashMap<>();
             for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
                 Field field = fields.get(fieldIndex);
+                Block fieldBlock = sqlRow.getRawFieldBlock(fieldIndex);
                 String fieldName = field.getName().orElseThrow();
-                Object fieldValue = writeValue(field.getType(), rowBlock, fieldIndex);
+                Object fieldValue = writeValue(field.getType(), fieldBlock, rawIndex);
                 if (options.isExplicitNull() || fieldValue != null) {
                     jsonObject.put(fieldName, fieldValue);
                 }

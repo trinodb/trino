@@ -13,7 +13,7 @@
  */
 package io.trino.client.uri;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.sql.SQLException;
@@ -34,9 +34,6 @@ import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.PropertyName.SSL_VERIFICATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestTrinoUri
 {
@@ -184,11 +181,12 @@ public class TestTrinoUri
                 "Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled");
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property user value is empty")
+    @Test
     public void testEmptyUser()
-            throws Exception
     {
-        TrinoUri.create("trino://localhost:8080?user=", new Properties());
+        assertThatThrownBy(() -> TrinoUri.create("trino://localhost:8080?user=", new Properties()))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property user value is empty");
     }
 
     @Test
@@ -196,7 +194,7 @@ public class TestTrinoUri
             throws SQLException
     {
         TrinoUri parameters = createDriverUri("trino://localhost:8080?password=");
-        assertEquals(parameters.getProperties().getProperty("password"), "");
+        assertThat(parameters.getProperties().getProperty("password")).isEqualTo("");
     }
 
     @Test
@@ -204,7 +202,7 @@ public class TestTrinoUri
             throws SQLException
     {
         TrinoUri parameters = createDriverUri("trino://localhost:8080?password=secret");
-        assertEquals(parameters.getProperties().getProperty("password"), "secret");
+        assertThat(parameters.getProperties().getProperty("password")).isEqualTo("secret");
     }
 
     @Test
@@ -215,7 +213,7 @@ public class TestTrinoUri
         assertUriPortScheme(parameters, 8080, "http");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SOCKS_PROXY.toString()), "localhost:1234");
+        assertThat(properties.getProperty(SOCKS_PROXY.toString())).isEqualTo("localhost:1234");
     }
 
     @Test
@@ -226,7 +224,7 @@ public class TestTrinoUri
         assertUriPortScheme(parameters, 8080, "http");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(HTTP_PROXY.toString()), "localhost:5678");
+        assertThat(properties.getProperty(HTTP_PROXY.toString())).isEqualTo("localhost:5678");
     }
 
     @Test
@@ -234,10 +232,10 @@ public class TestTrinoUri
             throws SQLException
     {
         TrinoUri parameters = createDriverUri("trino://localhost:8080?disableCompression=true");
-        assertTrue(parameters.isCompressionDisabled());
+        assertThat(parameters.isCompressionDisabled()).isTrue();
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(DISABLE_COMPRESSION.toString()), "true");
+        assertThat(properties.getProperty(DISABLE_COMPRESSION.toString())).isEqualTo("true");
     }
 
     @Test
@@ -264,8 +262,8 @@ public class TestTrinoUri
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
-        assertNull(properties.getProperty(SSL_TRUST_STORE_PATH.toString()));
-        assertNull(properties.getProperty(SSL_TRUST_STORE_PASSWORD.toString()));
+        assertThat(properties.getProperty(SSL_TRUST_STORE_PATH.toString())).isNull();
+        assertThat(properties.getProperty(SSL_TRUST_STORE_PASSWORD.toString())).isNull();
     }
 
     @Test
@@ -292,8 +290,8 @@ public class TestTrinoUri
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SSL_TRUST_STORE_PATH.toString()), "truststore.jks");
-        assertNull(properties.getProperty(SSL_TRUST_STORE_PASSWORD.toString()));
+        assertThat(properties.getProperty(SSL_TRUST_STORE_PATH.toString())).isEqualTo("truststore.jks");
+        assertThat(properties.getProperty(SSL_TRUST_STORE_PASSWORD.toString())).isNull();
     }
 
     @Test
@@ -304,8 +302,8 @@ public class TestTrinoUri
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SSL_TRUST_STORE_PATH.toString()), "truststore.jks");
-        assertEquals(properties.getProperty(SSL_TRUST_STORE_PASSWORD.toString()), "password");
+        assertThat(properties.getProperty(SSL_TRUST_STORE_PATH.toString())).isEqualTo("truststore.jks");
+        assertThat(properties.getProperty(SSL_TRUST_STORE_PASSWORD.toString())).isEqualTo("password");
     }
 
     @Test
@@ -316,7 +314,7 @@ public class TestTrinoUri
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SSL_VERIFICATION.toString()), FULL.name());
+        assertThat(properties.getProperty(SSL_VERIFICATION.toString())).isEqualTo(FULL.name());
     }
 
     @Test
@@ -327,7 +325,7 @@ public class TestTrinoUri
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SSL_VERIFICATION.toString()), CA.name());
+        assertThat(properties.getProperty(SSL_VERIFICATION.toString())).isEqualTo(CA.name());
     }
 
     @Test
@@ -338,7 +336,7 @@ public class TestTrinoUri
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SSL_VERIFICATION.toString()), NONE.name());
+        assertThat(properties.getProperty(SSL_VERIFICATION.toString())).isEqualTo(NONE.name());
     }
 
     @Test
@@ -349,7 +347,7 @@ public class TestTrinoUri
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SSL_USE_SYSTEM_TRUST_STORE.toString()), "true");
+        assertThat(properties.getProperty(SSL_USE_SYSTEM_TRUST_STORE.toString())).isEqualTo("true");
     }
 
     @Test
@@ -360,8 +358,8 @@ public class TestTrinoUri
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SSL_TRUST_STORE_TYPE.toString()), "Override");
-        assertEquals(properties.getProperty(SSL_USE_SYSTEM_TRUST_STORE.toString()), "true");
+        assertThat(properties.getProperty(SSL_TRUST_STORE_TYPE.toString())).isEqualTo("Override");
+        assertThat(properties.getProperty(SSL_USE_SYSTEM_TRUST_STORE.toString())).isEqualTo("true");
     }
 
     @Test
@@ -371,7 +369,7 @@ public class TestTrinoUri
         String extraCredentials = "test.token.foo:bar;test.token.abc:xyz";
         TrinoUri parameters = createDriverUri("trino://localhost:8080?extraCredentials=" + extraCredentials);
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(EXTRA_CREDENTIALS.toString()), extraCredentials);
+        assertThat(properties.getProperty(EXTRA_CREDENTIALS.toString())).isEqualTo(extraCredentials);
     }
 
     @Test
@@ -381,7 +379,7 @@ public class TestTrinoUri
         String clientTags = "c1,c2";
         TrinoUri parameters = createDriverUri("trino://localhost:8080?clientTags=" + clientTags);
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(CLIENT_TAGS.toString()), clientTags);
+        assertThat(properties.getProperty(CLIENT_TAGS.toString())).isEqualTo(clientTags);
     }
 
     @Test
@@ -423,8 +421,8 @@ public class TestTrinoUri
     private static void assertUriPortScheme(TrinoUri parameters, int port, String scheme)
     {
         URI uri = parameters.getHttpUri();
-        assertEquals(uri.getPort(), port);
-        assertEquals(uri.getScheme(), scheme);
+        assertThat(uri.getPort()).isEqualTo(port);
+        assertThat(uri.getScheme()).isEqualTo(scheme);
     }
 
     private static TrinoUri createDriverUri(String url)

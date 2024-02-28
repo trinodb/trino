@@ -43,19 +43,15 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestLocalDynamicFilterConsumer
         extends BasePlanTest
@@ -78,12 +74,12 @@ public class TestLocalDynamicFilterConsumer
                 ImmutableList.of(collector),
                 DataSize.of(100, KILOBYTE));
         filter.setPartitionCount(1);
-        assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0));
-        assertFalse(collector.isCollectionComplete());
+        assertThat(filter.getBuildChannels()).isEqualTo(ImmutableMap.of(new DynamicFilterId("123"), 0));
+        assertThat(collector.isCollectionComplete()).isFalse();
 
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 7L))));
-        assertEquals(collector.getCollectedDomains(), ImmutableMap.of(
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 7L)));
     }
 
@@ -97,17 +93,17 @@ public class TestLocalDynamicFilterConsumer
                 ImmutableList.of(collector),
                 DataSize.of(100, KILOBYTE));
 
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
 
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.all(INTEGER))));
-        assertEquals(collector.getCollectedDomains(), ImmutableMap.of(new DynamicFilterId("123"), Domain.all(INTEGER)));
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(new DynamicFilterId("123"), Domain.all(INTEGER)));
 
         filter.setPartitionCount(2);
         // adding another partition domain won't change final domain
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 1L))));
-        assertEquals(collector.getCollectedDomains(), ImmutableMap.of(new DynamicFilterId("123"), Domain.all(INTEGER)));
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(new DynamicFilterId("123"), Domain.all(INTEGER)));
     }
 
     @Test
@@ -119,19 +115,19 @@ public class TestLocalDynamicFilterConsumer
                 ImmutableMap.of(new DynamicFilterId("123"), INTEGER),
                 ImmutableList.of(collector),
                 DataSize.of(100, KILOBYTE));
-        assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0));
+        assertThat(filter.getBuildChannels()).isEqualTo(ImmutableMap.of(new DynamicFilterId("123"), 0));
 
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 10L))));
 
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 20L))));
 
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
         filter.setPartitionCount(2);
-        assertEquals(collector.getCollectedDomains(), ImmutableMap.of(
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L))));
     }
 
@@ -152,12 +148,12 @@ public class TestLocalDynamicFilterConsumer
                 DataSize.of(100, KILOBYTE));
         filter.setPartitionCount(1);
 
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
 
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filter1, Domain.all(INTEGER),
                 filter2, Domain.singleValue(INTEGER, 1L))));
-        assertEquals(collector.getCollectedDomains(), ImmutableMap.of(filter1, Domain.all(INTEGER), filter2, Domain.singleValue(INTEGER, 1L)));
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(filter1, Domain.all(INTEGER), filter2, Domain.singleValue(INTEGER, 1L)));
     }
 
     @Test
@@ -170,12 +166,12 @@ public class TestLocalDynamicFilterConsumer
                 ImmutableList.of(collector),
                 DataSize.of(100, KILOBYTE));
         filter.setPartitionCount(1);
-        assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0));
+        assertThat(filter.getBuildChannels()).isEqualTo(ImmutableMap.of(new DynamicFilterId("123"), 0));
 
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
         filter.addPartition(TupleDomain.none());
 
-        assertEquals(collector.getCollectedDomains(), ImmutableMap.of(
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.none(INTEGER)));
     }
 
@@ -189,13 +185,13 @@ public class TestLocalDynamicFilterConsumer
                 ImmutableList.of(collector),
                 DataSize.of(100, KILOBYTE));
         filter.setPartitionCount(1);
-        assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0, new DynamicFilterId("456"), 1));
-        assertFalse(collector.isCollectionComplete());
+        assertThat(filter.getBuildChannels()).isEqualTo(ImmutableMap.of(new DynamicFilterId("123"), 0, new DynamicFilterId("456"), 1));
+        assertThat(collector.isCollectionComplete()).isFalse();
 
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 10L),
                 new DynamicFilterId("456"), Domain.singleValue(INTEGER, 20L))));
-        assertEquals(collector.getCollectedDomains(), ImmutableMap.of(
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 10L),
                 new DynamicFilterId("456"), Domain.singleValue(INTEGER, 20L)));
     }
@@ -210,19 +206,19 @@ public class TestLocalDynamicFilterConsumer
                 ImmutableList.of(collector),
                 DataSize.of(100, KILOBYTE));
         filter.setPartitionCount(2);
-        assertEquals(filter.getBuildChannels(), ImmutableMap.of(new DynamicFilterId("123"), 0, new DynamicFilterId("456"), 1));
+        assertThat(filter.getBuildChannels()).isEqualTo(ImmutableMap.of(new DynamicFilterId("123"), 0, new DynamicFilterId("456"), 1));
 
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 10L),
                 new DynamicFilterId("456"), Domain.singleValue(BIGINT, 100L))));
 
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 20L),
                 new DynamicFilterId("456"), Domain.singleValue(BIGINT, 200L))));
 
-        assertEquals(collector.getCollectedDomains(), ImmutableMap.of(
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)),
                 new DynamicFilterId("456"), Domain.multipleValues(BIGINT, ImmutableList.of(100L, 200L))));
     }
@@ -230,7 +226,7 @@ public class TestLocalDynamicFilterConsumer
     @Test
     public void testDynamicFilterPruning()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), getQueryRunner().getDefaultSession());
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), getPlanTester().getPlannerContext(), getPlanTester().getDefaultSession());
         Symbol left1 = planBuilder.symbol("left1", BIGINT);
         Symbol left2 = planBuilder.symbol("left2", INTEGER);
         Symbol left3 = planBuilder.symbol("left3", SMALLINT);
@@ -261,16 +257,14 @@ public class TestLocalDynamicFilterConsumer
                 ImmutableSet.of(filter1, filter3),
                 ImmutableList.of(collector),
                 DataSize.of(100, KILOBYTE));
-        assertEquals(consumer.getBuildChannels(), ImmutableMap.of(filter1, 0, filter3, 2));
+        assertThat(consumer.getBuildChannels()).isEqualTo(ImmutableMap.of(filter1, 0, filter3, 2));
 
         // make sure domain types got propagated correctly
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
         consumer.addPartition(TupleDomain.none());
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
         consumer.setPartitionCount(1);
-        assertEquals(
-                collector.getCollectedDomains(),
-                ImmutableMap.of(filter1, Domain.none(BIGINT), filter3, Domain.none(SMALLINT)));
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(filter1, Domain.none(BIGINT), filter3, Domain.none(SMALLINT)));
     }
 
     @Test
@@ -284,7 +278,7 @@ public class TestLocalDynamicFilterConsumer
                 ImmutableMap.of(filterId, VARCHAR),
                 ImmutableList.of(collector),
                 sizeLimit);
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
 
         Domain domain1 = Domain.multipleValues(VARCHAR, LongStream.range(0, 5)
                 .mapToObj(i -> utf8Slice("value" + i))
@@ -296,15 +290,15 @@ public class TestLocalDynamicFilterConsumer
         assertThat(domain1.union(domain2).getRetainedSizeInBytes()).isGreaterThanOrEqualTo(sizeLimit.toBytes());
 
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(filterId, domain1)));
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(filterId, domain2)));
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
 
         filter.setPartitionCount(2);
-        assertTrue(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isTrue();
 
         Domain collectedDomain = collector.getCollectedDomains().get(filterId);
-        assertEquals(collectedDomain.getValues(), ValueSet.ofRanges(range(VARCHAR, utf8Slice("value0"), true, utf8Slice("value9"), true)));
+        assertThat(collectedDomain.getValues()).isEqualTo(ValueSet.ofRanges(range(VARCHAR, utf8Slice("value0"), true, utf8Slice("value9"), true)));
     }
 
     @Test
@@ -318,7 +312,7 @@ public class TestLocalDynamicFilterConsumer
                 ImmutableMap.of(filterId, VARCHAR),
                 ImmutableList.of(collector),
                 sizeLimit);
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
 
         Domain domain1 = Domain.multipleValues(VARCHAR, LongStream.range(0, 5)
                 .mapToObj(i -> utf8Slice("value" + i))
@@ -330,10 +324,10 @@ public class TestLocalDynamicFilterConsumer
         assertThat(domain1.union(domain2).simplify(1).getRetainedSizeInBytes()).isLessThanOrEqualTo(sizeLimit.toBytes());
 
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(filterId, domain1)));
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
 
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(filterId, domain2)));
-        assertFalse(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isFalse();
 
         Domain domain3 = Domain.singleValue(VARCHAR, utf8Slice(IntStream.range(0, 800)
                 .mapToObj(i -> "x")
@@ -343,9 +337,9 @@ public class TestLocalDynamicFilterConsumer
                 .isGreaterThanOrEqualTo(sizeLimit.toBytes());
 
         filter.addPartition(TupleDomain.withColumnDomains(ImmutableMap.of(filterId, domain3)));
-        assertTrue(collector.isCollectionComplete());
+        assertThat(collector.isCollectionComplete()).isTrue();
 
-        assertEquals(collector.getCollectedDomains(), ImmutableMap.of(filterId, Domain.all(VARCHAR)));
+        assertThat(collector.getCollectedDomains()).isEqualTo(ImmutableMap.of(filterId, Domain.all(VARCHAR)));
     }
 
     private static class TestingDynamicFilterCollector

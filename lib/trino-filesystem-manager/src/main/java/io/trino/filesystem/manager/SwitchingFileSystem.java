@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -128,6 +129,20 @@ final class SwitchingFileSystem
             throws IOException
     {
         fileSystem(source).renameDirectory(source, target);
+    }
+
+    @Override
+    public Set<Location> listDirectories(Location location)
+            throws IOException
+    {
+        return fileSystem(location).listDirectories(location);
+    }
+
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+            throws IOException
+    {
+        return fileSystem(targetPath).createTemporaryDirectory(targetPath, temporaryPrefix, relativePrefix);
     }
 
     private TrinoFileSystem fileSystem(Location location)

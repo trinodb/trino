@@ -67,8 +67,8 @@ public class DateEncoding
                 builder.appendNull();
             }
             else {
-                long daysSinceEpoch = readVInt(slice, offset, length);
-                type.writeLong(builder, toIntExact(daysSinceEpoch));
+                int daysSinceEpoch = toIntExact(readVInt(slice, offset, length));
+                type.writeLong(builder, daysSinceEpoch);
             }
         }
         return builder.build();

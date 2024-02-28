@@ -16,10 +16,10 @@ package io.trino.plugin.example;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.HostAddress;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExampleSplit
 {
@@ -30,23 +30,23 @@ public class TestExampleSplit
     {
         // http split with default port
         ExampleSplit httpSplit = new ExampleSplit("http://example.com/example");
-        assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("example.com")));
-        assertEquals(httpSplit.isRemotelyAccessible(), true);
+        assertThat(httpSplit.getAddresses()).isEqualTo(ImmutableList.of(HostAddress.fromString("example.com")));
+        assertThat(httpSplit.isRemotelyAccessible()).isEqualTo(true);
 
         // http split with custom port
         httpSplit = new ExampleSplit("http://example.com:8080/example");
-        assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("example.com", 8080)));
-        assertEquals(httpSplit.isRemotelyAccessible(), true);
+        assertThat(httpSplit.getAddresses()).isEqualTo(ImmutableList.of(HostAddress.fromParts("example.com", 8080)));
+        assertThat(httpSplit.isRemotelyAccessible()).isEqualTo(true);
 
         // http split with default port
         ExampleSplit httpsSplit = new ExampleSplit("https://example.com/example");
-        assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("example.com")));
-        assertEquals(httpsSplit.isRemotelyAccessible(), true);
+        assertThat(httpsSplit.getAddresses()).isEqualTo(ImmutableList.of(HostAddress.fromString("example.com")));
+        assertThat(httpsSplit.isRemotelyAccessible()).isEqualTo(true);
 
         // http split with custom port
         httpsSplit = new ExampleSplit("https://example.com:8443/example");
-        assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("example.com", 8443)));
-        assertEquals(httpsSplit.isRemotelyAccessible(), true);
+        assertThat(httpsSplit.getAddresses()).isEqualTo(ImmutableList.of(HostAddress.fromParts("example.com", 8443)));
+        assertThat(httpsSplit.isRemotelyAccessible()).isEqualTo(true);
     }
 
     @Test
@@ -55,9 +55,9 @@ public class TestExampleSplit
         JsonCodec<ExampleSplit> codec = jsonCodec(ExampleSplit.class);
         String json = codec.toJson(split);
         ExampleSplit copy = codec.fromJson(json);
-        assertEquals(copy.getUri(), split.getUri());
+        assertThat(copy.getUri()).isEqualTo(split.getUri());
 
-        assertEquals(copy.getAddresses(), ImmutableList.of(HostAddress.fromString("127.0.0.1")));
-        assertEquals(copy.isRemotelyAccessible(), true);
+        assertThat(copy.getAddresses()).isEqualTo(ImmutableList.of(HostAddress.fromString("127.0.0.1")));
+        assertThat(copy.isRemotelyAccessible()).isEqualTo(true);
     }
 }

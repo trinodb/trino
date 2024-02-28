@@ -16,15 +16,17 @@ package io.trino.hdfs;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RawLocalFileSystem;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,30 +34,30 @@ import java.nio.file.Files;
 import java.util.Arrays;
 
 import static io.airlift.testing.Closeables.closeAll;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true) // e.g. test methods operate on shared, mutated tempFile
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // e.g. test methods operate on shared, mutated tempFile
 public class TestFSDataInputStreamTail
 {
     private File tempRoot;
     private Path tempFile;
     private RawLocalFileSystem fs;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
         fs = new RawLocalFileSystem();
-        fs.initialize(fs.getUri(), newEmptyConfiguration());
+        fs.initialize(fs.getUri(), new Configuration(false));
         tempRoot = Files.createTempDirectory("test_fsdatainputstream_tail").toFile();
         tempFile = new Path(Files.createTempFile(tempRoot.toPath(), "tempfile", "txt").toUri());
     }
 
-    @BeforeMethod
+    @BeforeEach
     public void truncateTempFile()
             throws Exception
     {
@@ -63,7 +65,7 @@ public class TestFSDataInputStreamTail
         fs.truncate(tempFile, 0);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
@@ -79,14 +81,28 @@ public class TestFSDataInputStreamTail
     {
         try (FSDataInputStream is = fs.open(tempFile)) {
             FSDataInputStreamTail tail = FSDataInputStreamTail.readTail(tempFile.toString(), FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES, is, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES);
-            assertEquals(tail.getFileSize(), 0);
-            assertEquals(tail.getTailSlice().length(), 0);
-            assertSame(tail.getTailSlice(), Slices.EMPTY_SLICE);
+            assertThat(tail.getFileSize()).isEqualTo(0);
+            assertThat(tail.getTailSlice().length()).isEqualTo(0);
+            assertThat(tail.getTailSlice()).isSameAs(Slices.EMPTY_SLICE);
         }
     }
 
-    @Test(dataProvider = "validFileSizeAndPaddedFileSize")
-    public void testReadTailForFileSize(int fileSize, int paddedFileSize)
+    @Test
+    public void testReadTailForFileSize()
+            throws Exception
+    {
+        testReadTailForFileSize(0, 0);
+        testReadTailForFileSize(0, 1);
+        testReadTailForFileSize(0, 15);
+        testReadTailForFileSize(0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES - 1);
+        testReadTailForFileSize(0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES);
+        testReadTailForFileSize(63, 63);
+        testReadTailForFileSize(63, 64);
+        testReadTailForFileSize(64, 74);
+        testReadTailForFileSize(65, 65 + FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES);
+    }
+
+    private void testReadTailForFileSize(int fileSize, int paddedFileSize)
             throws Exception
     {
         // Cleanup between each input run
@@ -98,17 +114,33 @@ public class TestFSDataInputStreamTail
             }
         }
 
-        assertEquals(fs.getFileLinkStatus(tempFile).getLen(), fileSize);
+        assertThat(fs.getFileLinkStatus(tempFile).getLen()).isEqualTo(fileSize);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
-            assertEquals(FSDataInputStreamTail.readTailForFileSize(tempFile.toString(), paddedFileSize, is), fileSize);
+            assertThat(FSDataInputStreamTail.readTailForFileSize(tempFile.toString(), paddedFileSize, is)).isEqualTo(fileSize);
         }
     }
 
-    @Test(dataProvider = "validFileSizeAndPaddedFileSize")
-    public void testReadTailCompletely(int fileSize, int paddedFileSize)
+    @Test
+    public void testReadTailCompletely()
             throws Exception
     {
+        testReadTailCompletely(0, 0);
+        testReadTailCompletely(0, 1);
+        testReadTailCompletely(0, 15);
+        testReadTailCompletely(0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES - 1);
+        testReadTailCompletely(0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES);
+        testReadTailCompletely(63, 63);
+        testReadTailCompletely(63, 64);
+        testReadTailCompletely(64, 74);
+        testReadTailCompletely(65, 65 + FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES);
+    }
+
+    private void testReadTailCompletely(int fileSize, int paddedFileSize)
+            throws Exception
+    {
+        fs.truncate(tempFile, 0);
+
         byte[] contents = countingTestFileContentsWithLength(fileSize);
         if (contents.length > 0) {
             try (FSDataOutputStream os = fs.append(tempFile)) {
@@ -116,14 +148,15 @@ public class TestFSDataInputStreamTail
             }
         }
 
-        assertEquals(fs.getFileLinkStatus(tempFile).getLen(), fileSize);
+        assertThat(fs.getFileLinkStatus(tempFile).getLen()).isEqualTo(fileSize);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
             FSDataInputStreamTail tail = FSDataInputStreamTail.readTail(tempFile.toString(), paddedFileSize, is, fileSize);
-            assertEquals(tail.getFileSize(), fileSize);
+            assertThat(tail.getFileSize()).isEqualTo(fileSize);
             Slice tailSlice = tail.getTailSlice();
-            assertEquals(tailSlice.length(), fileSize);
-            assertCountingTestFileContents(tailSlice.getBytes());
+            assertThat(tailSlice.length()).isEqualTo(fileSize);
+            byte[] tailContents = tailSlice.getBytes();
+            assertThat(tailContents).isEqualTo(countingTestFileContentsWithLength(tailContents.length));
         }
     }
 
@@ -136,15 +169,15 @@ public class TestFSDataInputStreamTail
             os.write(contents);
         }
 
-        assertEquals(fs.getFileLinkStatus(tempFile).getLen(), contents.length);
+        assertThat(fs.getFileLinkStatus(tempFile).getLen()).isEqualTo(contents.length);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
             FSDataInputStreamTail tail = FSDataInputStreamTail.readTail(tempFile.toString(), contents.length + 32, is, 16);
-            assertEquals(tail.getFileSize(), contents.length);
+            assertThat(tail.getFileSize()).isEqualTo(contents.length);
             Slice tailSlice = tail.getTailSlice();
 
-            assertTrue(tailSlice.length() < contents.length);
-            assertEquals(tailSlice.getBytes(), Arrays.copyOfRange(contents, contents.length - tailSlice.length(), contents.length));
+            assertThat(tailSlice.length() < contents.length).isTrue();
+            assertThat(tailSlice.getBytes()).isEqualTo(Arrays.copyOfRange(contents, contents.length - tailSlice.length(), contents.length));
         }
     }
 
@@ -157,7 +190,7 @@ public class TestFSDataInputStreamTail
             os.write(contents);
         }
 
-        assertEquals(fs.getFileLinkStatus(tempFile).getLen(), contents.length);
+        assertThat(fs.getFileLinkStatus(tempFile).getLen()).isEqualTo(contents.length);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
             assertThatThrownBy(() -> FSDataInputStreamTail.readTail(tempFile.toString(), 128, is, 16))
@@ -175,33 +208,13 @@ public class TestFSDataInputStreamTail
             os.write(contents);
         }
 
-        assertEquals(fs.getFileLinkStatus(tempFile).getLen(), contents.length);
+        assertThat(fs.getFileLinkStatus(tempFile).getLen()).isEqualTo(contents.length);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
             assertThatThrownBy(() -> FSDataInputStreamTail.readTailForFileSize(tempFile.toString(), 128, is))
                     .isInstanceOf(IOException.class)
                     .hasMessage("Incorrect file size (128) for file (end of stream not reached): " + tempFile);
         }
-    }
-
-    @DataProvider(name = "validFileSizeAndPaddedFileSize")
-    public static Object[][] validFileSizeAndPaddedFileSize()
-    {
-        return new Object[][] {
-                {0, 0},
-                {0, 1},
-                {0, 15},
-                {0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES - 1},
-                {0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES},
-                {63, 63},
-                {63, 64},
-                {64, 74},
-                {65, 65 + FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES}};
-    }
-
-    private static void assertCountingTestFileContents(byte[] contents)
-    {
-        assertEquals(contents, countingTestFileContentsWithLength(contents.length));
     }
 
     private static byte[] countingTestFileContentsWithLength(int length)

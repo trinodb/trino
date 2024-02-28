@@ -18,13 +18,13 @@ import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -39,9 +39,10 @@ import static io.trino.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestKafkaIntegrationPushDown
         extends AbstractTestQueryFramework
 {
@@ -89,8 +90,8 @@ public class TestKafkaIntegrationPushDown
         String sql = format("SELECT count(*) FROM default.%s WHERE _partition_id=1", topicNamePartition);
 
         assertEventually(() -> {
-            MaterializedResultWithQueryId queryResult = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-            assertEquals(getQueryInfo(getDistributedQueryRunner(), queryResult).getQueryStats().getProcessedInputPositions(), MESSAGE_NUM / 2);
+            MaterializedResultWithPlan queryResult = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
+            assertThat(getQueryInfo(getDistributedQueryRunner(), queryResult).getQueryStats().getProcessedInputPositions()).isEqualTo(MESSAGE_NUM / 2);
         });
     }
 
@@ -150,16 +151,16 @@ public class TestKafkaIntegrationPushDown
 
     private void assertProcessedInputPositions(String sql, long expectedProcessedInputPositions, Session session)
     {
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        QueryRunner queryRunner = getDistributedQueryRunner();
         assertEventually(() -> {
-            MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(session, sql);
-            assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), expectedProcessedInputPositions);
+            MaterializedResultWithPlan queryResult = queryRunner.executeWithPlan(session, sql);
+            assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions()).isEqualTo(expectedProcessedInputPositions);
         });
     }
 
-    private static QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, MaterializedResultWithQueryId queryResult)
+    private static QueryInfo getQueryInfo(QueryRunner queryRunner, MaterializedResultWithPlan queryResult)
     {
-        return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
+        return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.queryId());
     }
 
     private RecordMessage createTimestampTestMessages(String topicName)

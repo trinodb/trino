@@ -16,7 +16,7 @@ package io.trino.plugin.base.util;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -75,7 +75,7 @@ public class TestJsonUtils
     }
 
     @Test
-    public void testFactoryHasNoReadContraints()
+    public void testFactoryHasNoReadConstraints()
     {
         assertReadConstraints(jsonFactory().streamReadConstraints());
         assertReadConstraints(jsonFactoryBuilder().build().streamReadConstraints());

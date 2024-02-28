@@ -20,7 +20,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.SqlVarbinary;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -38,7 +37,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Math.abs;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTDigestAggregationFunction
 {
@@ -106,14 +105,14 @@ public class TestTDigestAggregationFunction
         // Test without weights
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("tdigest_agg"),
+                "tdigest_agg",
                 fromTypes(DOUBLE),
                 getExpectedValue(nCopies(inputs.length, DEFAULT_WEIGHT), inputs),
                 new Page(doublesBlock));
         // Test with weights
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("tdigest_agg"),
+                "tdigest_agg",
                 fromTypes(DOUBLE, DOUBLE),
                 getExpectedValue(weights, inputs),
                 new Page(doublesBlock, weightsBlock));
@@ -124,14 +123,14 @@ public class TestTDigestAggregationFunction
         // Test without weights
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("tdigest_agg"),
+                "tdigest_agg",
                 fromTypes(DOUBLE),
                 equalAssertion, "Test multiple values",
                 new Page(doublesBlock), getExpectedValue(nCopies(inputs.length, DEFAULT_WEIGHT), inputs));
         // Test with weights
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("tdigest_agg"),
+                "tdigest_agg",
                 fromTypes(DOUBLE, DOUBLE),
                 equalAssertion,
                 "Test multiple values",
@@ -141,7 +140,9 @@ public class TestTDigestAggregationFunction
 
     private Object getExpectedValue(List<Double> weights, double... values)
     {
-        assertEquals(weights.size(), values.length, "mismatched weights and values");
+        assertThat(weights.size())
+                .describedAs("mismatched weights and values")
+                .isEqualTo(values.length);
         if (values.length == 0) {
             return null;
         }

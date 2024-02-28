@@ -68,7 +68,9 @@ public class BigQueryConnectorModule
         {
             // BigQuery related
             binder.bind(BigQueryReadClientFactory.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryWriteClientFactory.class).in(Scopes.SINGLETON);
             binder.bind(BigQueryClientFactory.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryTypeManager.class).in(Scopes.SINGLETON);
 
             // Connector implementation
             binder.bind(BigQueryConnector.class).in(Scopes.SINGLETON);
@@ -92,6 +94,7 @@ public class BigQueryConnectorModule
             optionsConfigurers.addBinding().to(HeaderOptionsConfigurer.class).in(Scopes.SINGLETON);
             optionsConfigurers.addBinding().to(RetryOptionsConfigurer.class).in(Scopes.SINGLETON);
             optionsConfigurers.addBinding().to(GrpcChannelOptionsConfigurer.class).in(Scopes.SINGLETON);
+            optionsConfigurers.addBinding().to(TracingOptionsConfigurer.class).in(Scopes.SINGLETON);
             newOptionalBinder(binder, ProxyTransportFactory.class);
 
             install(conditionalModule(

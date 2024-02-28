@@ -46,7 +46,7 @@ public class HadoopKerberosKmsWithImpersonation
                 HADOOP,
                 container ->
                         container
-                                .withCopyFileToContainer(forHostPath(configDir.getPath("kms-acls.xml")), "/etc/hadoop-kms/conf/kms-acls.xml")
+                                .withCopyFileToContainer(forHostPath(configDir.getPath("kms-acls.xml")), "/opt/hadoop/etc/kms-acls.xml")
                                 .withCopyFileToContainer(forHostPath(configDir.getPath("hiveserver2-site.xml")), "/etc/hive/conf/hiveserver2-site.xml"));
     }
 

@@ -19,22 +19,23 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,8 +44,7 @@ import java.util.Set;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -53,34 +53,44 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeProjectionPushdownPlans
         extends BasePushdownPlanTest
 {
-    private static final String CATALOG = "delta";
     private static final String SCHEMA = "test_schema";
 
-    private File baseDir;
+    private Path baseDir;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session session = testSessionBuilder()
-                .setCatalog(CATALOG)
+                .setCatalog(DELTA_CATALOG)
                 .setSchema(SCHEMA)
                 .build();
         try {
-            baseDir = Files.createTempDirectory("delta_lake_projection_pushdown").toFile();
+            baseDir = Files.createTempDirectory("delta_lake_projection_pushdown");
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
+
+        PlanTester planTester = PlanTester.create(session);
+        planTester.installPlugin(new TestingDeltaLakePlugin(baseDir));
+        planTester.createCatalog(DELTA_CATALOG, "delta_lake", ImmutableMap.<String, String>builder()
+                .put("hive.metastore", "file")
+                .put("hive.metastore.catalog.dir", baseDir.toString())
+                .buildOrThrow());
+
+        HiveMetastore metastore = TestingDeltaLakeUtils.getConnectorService(planTester, HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA)
                 .setOwnerName(Optional.of("public"))
@@ -89,19 +99,15 @@ public class TestDeltaLakeProjectionPushdownPlans
 
         metastore.createDatabase(database);
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
-        queryRunner.createCatalog(CATALOG, "delta_lake", ImmutableMap.of());
-
-        return queryRunner;
+        return planTester;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws Exception
     {
         if (baseDir != null) {
-            deleteRecursively(baseDir.toPath(), ALLOW_INSECURE);
+            deleteRecursively(baseDir, ALLOW_INSECURE);
         }
     }
 
@@ -110,11 +116,11 @@ public class TestDeltaLakeProjectionPushdownPlans
     {
         String testTable = "test_pushdown_disabled_" + randomNameSuffix();
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty(CATALOG, "projection_pushdown_enabled", "false")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setCatalogSessionProperty(DELTA_CATALOG, "projection_pushdown_enabled", "false")
                 .build();
 
-        getQueryRunner().execute(format(
+        getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0) AS SELECT CAST(row(5, 6) AS row(a bigint, b bigint)) AS col0 WHERE false",
                 testTable));
 
@@ -131,14 +137,14 @@ public class TestDeltaLakeProjectionPushdownPlans
     public void testDereferencePushdown()
     {
         String testTable = "test_simple_projection_pushdown" + randomNameSuffix();
-        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
+        QualifiedObjectName completeTableName = new QualifiedObjectName(DELTA_CATALOG, SCHEMA, testTable);
 
-        getQueryRunner().execute(format(
+        getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0, col1) WITH (partitioned_by = ARRAY['col1']) AS" +
                         " SELECT CAST(row(5, 6) AS row(x bigint, y bigint)) AS col0, 5 AS col1",
                 testTable));
 
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
         assertThat(tableHandle).as("expected the table handle to be present").isPresent();

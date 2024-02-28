@@ -13,8 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type.Range;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +22,6 @@ import java.util.Optional;
 
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestTinyintType
         extends AbstractTestType
@@ -32,7 +31,7 @@ public class TestTinyintType
         super(TINYINT, Byte.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = TINYINT.createBlockBuilder(null, 15);
         TINYINT.writeLong(blockBuilder, 111);
@@ -46,7 +45,7 @@ public class TestTinyintType
         TINYINT.writeLong(blockBuilder, 33);
         TINYINT.writeLong(blockBuilder, 33);
         TINYINT.writeLong(blockBuilder, 44);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -59,8 +58,8 @@ public class TestTinyintType
     public void testRange()
     {
         Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), (long) Byte.MIN_VALUE);
-        assertEquals(range.getMax(), (long) Byte.MAX_VALUE);
+        assertThat(range.getMin()).isEqualTo((long) Byte.MIN_VALUE);
+        assertThat(range.getMax()).isEqualTo((long) Byte.MAX_VALUE);
     }
 
     @Test

@@ -407,7 +407,6 @@ public class HashAggregationOperator
                         operatorContext,
                         maxPartialMemory,
                         joinCompiler,
-                        typeOperators,
                         () -> {
                             memoryContext.setBytes(((InMemoryHashAggregationBuilder) aggregationBuilder).getSizeInMemory());
                             if (step.isOutputPartial() && maxPartialMemory.isPresent()) {

@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>426-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-base-jdbc</artifactId>
-    <description>Trino - Base JDBC Connector</description>
+    <description>Trino - Base JDBC connector library</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -178,6 +178,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -259,8 +265,14 @@
         </dependency>
 
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -278,9 +290,11 @@
                     <rules combine.children="append">
                         <RestrictImports>
                             <reason>Use AssertJ assertions instead of TestNG</reason>
-                            <bannedImport>org.testng.Assert.*</bannedImport>
-                            <bannedImport>org.testng.AssertJUnit.*</bannedImport>
-                            <bannedImport>org.testng.asserts.**</bannedImport>
+                            <bannedImports>
+                                <bannedImport>org.testng.Assert.*</bannedImport>
+                                <bannedImport>org.testng.AssertJUnit.*</bannedImport>
+                                <bannedImport>org.testng.asserts.**</bannedImport>
+                            </bannedImports>
                         </RestrictImports>
                     </rules>
                 </configuration>

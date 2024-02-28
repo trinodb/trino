@@ -17,9 +17,12 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -48,7 +51,7 @@ import static java.lang.invoke.MethodHandles.lookup;
  * The value is encoded as microseconds from the 1970-01-01 00:00:00 epoch and is to be interpreted as
  * local date time without regards to any time zone.
  */
-class ShortTimestampType
+final class ShortTimestampType
         extends TimestampType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortTimestampType.class, lookup(), long.class);
@@ -57,13 +60,13 @@ class ShortTimestampType
 
     public ShortTimestampType(int precision)
     {
-        super(precision, long.class);
+        super(precision, long.class, LongArrayBlock.class);
 
         if (precision < 0 || precision > MAX_SHORT_PRECISION) {
             throw new IllegalArgumentException(format("Precision must be in the range [0, %s]", MAX_SHORT_PRECISION));
         }
 
-        // ShortTimestampType instances are created eagerly and shared so it's OK to precompute some things.
+        // ShortTimestampType instances are created eagerly and shared, so it's OK to precompute some things.
         if (getPrecision() == MAX_SHORT_PRECISION) {
             range = new Range(Long.MIN_VALUE, Long.MAX_VALUE);
         }
@@ -80,25 +83,25 @@ class ShortTimestampType
     }
 
     @Override
-    public final int getFixedSize()
+    public int getFixedSize()
     {
         return Long.BYTES;
     }
 
     @Override
-    public final long getLong(Block block, int position)
+    public long getLong(Block block, int position)
     {
-        return block.getLong(position, 0);
+        return read((LongArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
-    public final void writeLong(BlockBuilder blockBuilder, long value)
+    public void writeLong(BlockBuilder blockBuilder, long value)
     {
         ((LongArrayBlockBuilder) blockBuilder).writeLong(value);
     }
 
     @Override
-    public final void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
             blockBuilder.appendNull();
@@ -109,7 +112,7 @@ class ShortTimestampType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;
         if (blockBuilderStatus == null) {
@@ -124,13 +127,13 @@ class ShortTimestampType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, Long.BYTES);
     }
 
     @Override
-    public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new LongArrayBlockBuilder(null, positionCount);
     }
@@ -174,6 +177,12 @@ class ShortTimestampType
             return Optional.empty();
         }
         return Optional.of((long) value + rescale(1_000_000, getPrecision(), 0));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
+    {
+        return block.getLong(position);
     }
 
     @ScalarOperator(READ_VALUE)

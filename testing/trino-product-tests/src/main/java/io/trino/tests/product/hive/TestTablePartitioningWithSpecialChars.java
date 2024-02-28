@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -57,7 +56,7 @@ public class TestTablePartitioningWithSpecialChars
             row(11, "with%%percents"),
             row(12, "with space"));
 
-    @Test(groups = HIVE_PARTITIONING)
+    @Test
     public void testStringPartitioningWithSpecialCharactersCtasInTrino()
     {
         String tableName = "test_string_partitioning_with_special_chars_ctas_in_trino";
@@ -72,7 +71,7 @@ public class TestTablePartitioningWithSpecialChars
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).contains(EXPECTED_PARTITION_VALUES);
     }
 
-    @Test(groups = HIVE_PARTITIONING)
+    @Test
     public void testStringPartitioningWithSpecialCharactersInsertInTrino()
     {
         String tableName = "test_string_partitioning_with_special_chars_insert_in_trino";
@@ -85,7 +84,7 @@ public class TestTablePartitioningWithSpecialChars
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).contains(EXPECTED_PARTITION_VALUES);
     }
 
-    @Test(groups = HIVE_PARTITIONING)
+    @Test
     public void testStringPartitioningWithSpecialCharactersInsertInHive()
     {
         String sourceTableName = "test_string_partitioning_with_special_chars_insert_in_hive_source";
@@ -103,7 +102,7 @@ public class TestTablePartitioningWithSpecialChars
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).contains(EXPECTED_PARTITION_VALUES);
     }
 
-    @Test(groups = HIVE_PARTITIONING)
+    @Test
     public void testStringPartitioningWithUtfChars()
     {
         String tableName = "test_string_partitioning_with_utf_chars";

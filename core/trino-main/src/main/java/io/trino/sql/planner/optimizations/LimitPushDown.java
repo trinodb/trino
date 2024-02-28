@@ -14,13 +14,7 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -45,23 +39,10 @@ public class LimitPushDown
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
-        requireNonNull(idAllocator, "idAllocator is null");
-
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(context.idAllocator()), plan, null);
     }
 
     private static class LimitContext
@@ -135,8 +116,10 @@ public class LimitPushDown
             }
 
             if (!node.requiresPreSortedInputs() && (!node.isWithTies() || (limit != null && node.getCount() >= limit.getCount()))) {
+                // The new limit context is partial if neither the existing context nor this limit node is final
+                boolean partial = node.isPartial() && (limit == null || limit.isPartial());
                 // default visitPlan logic will insert the limit node
-                return context.rewrite(node.getSource(), new LimitContext(count, false));
+                return context.rewrite(node.getSource(), new LimitContext(count, partial));
             }
 
             return context.defaultRewrite(node, context.get());

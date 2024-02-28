@@ -27,7 +27,7 @@ import io.trino.hdfs.s3.HiveS3Config;
 import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -36,7 +36,7 @@ import java.util.Properties;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.hdfs.s3.TestTrinoS3FileSystem.getAwsCredentialsProvider;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveCosServiceConfigurationProvider
 {
@@ -91,10 +91,10 @@ public class TestHiveCosServiceConfigurationProvider
         HdfsContext hdfsContext = new HdfsContext(ConnectorIdentity.forUser("test").build());
         Configuration configuration = hiveHdfsConfiguration.getConfiguration(hdfsContext, URI.create(uri));
         fileSystem.initialize(URI.create(uri), configuration);
-        assertEquals(fileSystem.getBucketName(URI.create(uri)), expectedBucket);
+        assertThat(fileSystem.getBucketName(URI.create(uri))).isEqualTo(expectedBucket);
         AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(fileSystem);
         assertInstanceOf(awsCredentialsProvider, AWSStaticCredentialsProvider.class);
-        assertEquals(awsCredentialsProvider.getCredentials().getAWSAccessKeyId(), expectedAccessKey);
-        assertEquals(awsCredentialsProvider.getCredentials().getAWSSecretKey(), expectedSecretKey);
+        assertThat(awsCredentialsProvider.getCredentials().getAWSAccessKeyId()).isEqualTo(expectedAccessKey);
+        assertThat(awsCredentialsProvider.getCredentials().getAWSSecretKey()).isEqualTo(expectedSecretKey);
     }
 }

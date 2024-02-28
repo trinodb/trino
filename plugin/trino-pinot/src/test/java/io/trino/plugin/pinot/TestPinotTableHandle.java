@@ -15,10 +15,10 @@ package io.trino.plugin.pinot;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.testing.EquivalenceTester;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotTableHandle
 {
@@ -30,7 +30,7 @@ public class TestPinotTableHandle
         JsonCodec<PinotTableHandle> codec = jsonCodec(PinotTableHandle.class);
         String json = codec.toJson(tableHandle);
         PinotTableHandle copy = codec.fromJson(json);
-        assertEquals(copy, tableHandle);
+        assertThat(copy).isEqualTo(tableHandle);
     }
 
     @Test

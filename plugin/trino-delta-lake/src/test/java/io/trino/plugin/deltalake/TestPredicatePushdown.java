@@ -15,31 +15,34 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
+import io.trino.Session;
+import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
-import org.testng.asserts.SoftAssert;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPredicatePushdown
         extends AbstractTestQueryFramework
 {
-    private static final Path RESOURCE_PATH = Path.of("databricks/pushdown/");
+    private static final Path RESOURCE_PATH = Path.of("databricks73/pushdown/");
     private static final String TEST_SCHEMA = "default";
 
     private final String bucketName = "delta-test-pushdown-" + randomNameSuffix();
@@ -97,9 +100,7 @@ public class TestPredicatePushdown
                 200,
                 500);
         // Check that the correct data was deleted
-        assertEquals(
-                execute(format("SELECT custkey FROM %s", table)).getOnlyColumnAsSet(),
-                ContiguousSet.closed(1L, 1300L));
+        assertThat(execute(format("SELECT custkey FROM %s", table)).getOnlyColumnAsSet()).isEqualTo(ContiguousSet.closed(1L, 1300L));
 
         table = testTable.register("delete_pushdown_disjoint");
         // 11 groups have data outside of (500, 1100]
@@ -107,9 +108,7 @@ public class TestPredicatePushdown
                 format("DELETE FROM %s WHERE custkey <= 500 OR custkey > 1100", table),
                 900,
                 1100);
-        assertEquals(
-                execute(format("SELECT custkey FROM %s", table)).getOnlyColumnAsSet(),
-                ContiguousSet.closed(501L, 1100L));
+        assertThat(execute(format("SELECT custkey FROM %s", table)).getOnlyColumnAsSet()).isEqualTo(ContiguousSet.closed(501L, 1100L));
     }
 
     @Test
@@ -136,6 +135,42 @@ public class TestPredicatePushdown
                 table));
     }
 
+    @Test
+    public void testIgnoreParquetStatistics()
+    {
+        String table = testTable.register("ignore_parquet_statistics");
+        @Language("SQL") String query = "SELECT * FROM " + table + " WHERE custkey = 1450";
+
+        QueryRunner queryRunner = getDistributedQueryRunner();
+        MaterializedResultWithPlan resultWithoutParquetStatistics = queryRunner.executeWithPlan(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_ignore_statistics", "true")
+                        .build(),
+                query);
+        OperatorStats queryStatsWithoutParquetStatistics = getOperatorStats(resultWithoutParquetStatistics.queryId());
+        assertThat(queryStatsWithoutParquetStatistics.getPhysicalInputPositions()).isGreaterThan(0);
+
+        MaterializedResultWithPlan resultWithParquetStatistics = queryRunner.executeWithPlan(getSession(), query);
+        OperatorStats queryStatsWithParquetStatistics = getOperatorStats(resultWithParquetStatistics.queryId());
+        assertThat(queryStatsWithParquetStatistics.getPhysicalInputPositions()).isGreaterThan(0);
+        assertThat(queryStatsWithParquetStatistics.getPhysicalInputPositions())
+                .isLessThan(queryStatsWithoutParquetStatistics.getPhysicalInputPositions());
+
+        assertEqualsIgnoreOrder(resultWithParquetStatistics.result(), resultWithoutParquetStatistics.result());
+    }
+
+    private OperatorStats getOperatorStats(QueryId queryId)
+    {
+        return getDistributedQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().startsWith("TableScan") || summary.getOperatorType().startsWith("Scan"))
+                .collect(onlyElement());
+    }
+
     /**
      * Assert on the number of rows read and updated by a read operation
      *
@@ -145,29 +180,19 @@ public class TestPredicatePushdown
      */
     private void assertPushdown(String actual, String expected, long countProcessed)
     {
-        MaterializedResultWithQueryId result = executeWithQueryId(actual);
-        Set<MaterializedRow> actualRows = Set.copyOf(result.getResult().getMaterializedRows());
+        MaterializedResultWithPlan result = executeWithQueryId(actual);
+        Set<MaterializedRow> actualRows = Set.copyOf(result.result().getMaterializedRows());
         Set<MaterializedRow> expectedRows = Set.copyOf(
-                computeExpected(expected, result.getResult().getTypes()).getMaterializedRows());
+                computeExpected(expected, result.result().getTypes()).getMaterializedRows());
 
-        SoftAssert softly = new SoftAssert();
-        softly.assertTrue(
-                result.getResult().getUpdateType().isEmpty(),
-                "Query should not have update type");
-        softly.assertEqualsNoOrder(
-                actualRows.toArray(),
-                expectedRows.toArray(),
-                format(
-                        "Wrong query results:\n"
-                                + "\t\tmissing rows: %s\n"
-                                + "\t\textra rows: %s",
-                        Sets.difference(expectedRows, actualRows),
-                        Sets.difference(actualRows, expectedRows)));
-        softly.assertEquals(
-                getProcessedPositions(result.getQueryId()),
-                countProcessed,
-                "Wrong number of rows processed after pushdown to Parquet");
-        softly.assertAll();
+        assertThat(result.result().getUpdateType())
+                .describedAs("Query should not have update type")
+                .isEmpty();
+
+        assertThat(actualRows).isEqualTo(expectedRows);
+        assertThat(getProcessedPositions(result.queryId()))
+                .describedAs("Wrong number of rows processed after pushdown to Parquet")
+                        .isEqualTo(countProcessed);
     }
 
     /**
@@ -179,22 +204,25 @@ public class TestPredicatePushdown
      */
     private void assertPushdownUpdate(String sql, long count, long countProcessed)
     {
-        MaterializedResultWithQueryId result = executeWithQueryId(sql);
-        OptionalLong actualCount = result.getResult().getUpdateCount();
+        MaterializedResultWithPlan result = executeWithQueryId(sql);
+        OptionalLong actualCount = result.result().getUpdateCount();
 
-        SoftAssert softly = new SoftAssert();
-        softly.assertTrue(actualCount.isPresent(), "Missing update count");
-        softly.assertEquals(actualCount.getAsLong(), count, "Wrong number of rows updated");
-        softly.assertEquals(
-                getProcessedPositions(result.getQueryId()),
-                countProcessed,
-                "Wrong amount of data filtered by pushdown to Parquet");
-        softly.assertAll();
+        assertThat(actualCount)
+                .describedAs("Missing update count")
+                .isPresent();
+
+        assertThat(actualCount.getAsLong())
+                .describedAs("Wrong number of rows updated")
+                        .isEqualTo(count);
+
+        assertThat(getProcessedPositions(result.queryId()))
+                .describedAs("Wrong amount of data filtered by pushdown to Parquet")
+                .isEqualTo(countProcessed);
     }
 
-    private MaterializedResultWithQueryId executeWithQueryId(String sql)
+    private MaterializedResultWithPlan executeWithQueryId(String sql)
     {
-        return getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+        return getDistributedQueryRunner().executeWithPlan(getSession(), sql);
     }
 
     private MaterializedResult execute(String sql)

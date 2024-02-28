@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import static io.trino.filesystem.hdfs.HdfsFileSystem.withCause;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 class HdfsTrinoInputStream
@@ -96,6 +97,7 @@ class HdfsTrinoInputStream
             throws IOException
     {
         ensureOpen();
+        checkFromIndexSize(off, len, b.length);
         try {
             return stream.read(b, off, len);
         }
@@ -104,6 +106,19 @@ class HdfsTrinoInputStream
         }
         catch (IOException e) {
             throw new IOException("Read of file %s failed: %s".formatted(location, e.getMessage()), e);
+        }
+    }
+
+    @Override
+    public long skip(long n)
+            throws IOException
+    {
+        ensureOpen();
+        try {
+            return stream.skip(n);
+        }
+        catch (IOException e) {
+            throw new IOException("Skipping %s bytes of file %s failed: %s".formatted(n, location, e.getMessage()), e);
         }
     }
 

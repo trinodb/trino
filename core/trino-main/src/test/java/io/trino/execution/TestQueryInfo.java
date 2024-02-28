@@ -17,6 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.tracing.SpanSerialization.SpanDeserializer;
+import io.airlift.tracing.SpanSerialization.SpanSerializer;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
@@ -26,72 +32,85 @@ import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.transaction.TransactionId;
-import org.testng.annotations.Test;
+import io.trino.type.TypeSignatureDeserializer;
+import io.trino.type.TypeSignatureKeyDeserializer;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.FINISHED;
-import static io.trino.tracing.TracingJsonCodec.tracingJsonCodecFactory;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestQueryInfo
 {
     @Test
     public void testQueryInfoRoundTrip()
     {
-        JsonCodec<QueryInfo> codec = tracingJsonCodecFactory().jsonCodec(QueryInfo.class);
+        JsonCodec<QueryInfo> codec = new JsonCodecFactory(
+                new ObjectMapperProvider()
+                        .withJsonSerializers(Map.of(
+                                Span.class, new SpanSerializer(OpenTelemetry.noop())))
+                        .withJsonDeserializers(Map.of(
+                                Span.class, new SpanDeserializer(OpenTelemetry.noop()),
+                                TypeSignature.class, new TypeSignatureDeserializer()))
+                        .withKeyDeserializers(Map.of(
+                                TypeSignature.class, new TypeSignatureKeyDeserializer())))
+                .jsonCodec(QueryInfo.class);
+
         QueryInfo expected = createQueryInfo();
         QueryInfo actual = codec.fromJson(codec.toJsonBytes(expected));
 
-        assertEquals(actual.getQueryId(), expected.getQueryId());
+        assertThat(actual.getQueryId()).isEqualTo(expected.getQueryId());
         // Note: SessionRepresentation.equals?
-        assertEquals(actual.getState(), expected.getState());
-        assertEquals(actual.isScheduled(), expected.isScheduled());
-        assertEquals(actual.getProgressPercentage(), expected.getProgressPercentage());
-        assertEquals(actual.getRunningPercentage(), expected.getRunningPercentage());
+        assertThat(actual.getState()).isEqualTo(expected.getState());
+        assertThat(actual.isScheduled()).isEqualTo(expected.isScheduled());
+        assertThat(actual.getProgressPercentage()).isEqualTo(expected.getProgressPercentage());
+        assertThat(actual.getRunningPercentage()).isEqualTo(expected.getRunningPercentage());
 
-        assertEquals(actual.getSelf(), expected.getSelf());
-        assertEquals(actual.getFieldNames(), expected.getFieldNames());
-        assertEquals(actual.getQuery(), expected.getQuery());
-        assertEquals(actual.getPreparedQuery(), expected.getPreparedQuery());
+        assertThat(actual.getSelf()).isEqualTo(expected.getSelf());
+        assertThat(actual.getFieldNames()).isEqualTo(expected.getFieldNames());
+        assertThat(actual.getQuery()).isEqualTo(expected.getQuery());
+        assertThat(actual.getPreparedQuery()).isEqualTo(expected.getPreparedQuery());
         // Assert all of queryStats
         TestQueryStats.assertExpectedQueryStats(actual.getQueryStats());
 
-        assertEquals(actual.getSetCatalog(), expected.getSetCatalog());
-        assertEquals(actual.getSetSchema(), expected.getSetSchema());
-        assertEquals(actual.getSetPath(), expected.getSetPath());
-        assertEquals(actual.getSetSessionProperties(), expected.getSetSessionProperties());
-        assertEquals(actual.getResetSessionProperties(), expected.getResetSessionProperties());
-        assertEquals(actual.getSetRoles(), expected.getSetRoles());
-        assertEquals(actual.getAddedPreparedStatements(), expected.getAddedPreparedStatements());
-        assertEquals(actual.getDeallocatedPreparedStatements(), expected.getDeallocatedPreparedStatements());
+        assertThat(actual.getSetCatalog()).isEqualTo(expected.getSetCatalog());
+        assertThat(actual.getSetSchema()).isEqualTo(expected.getSetSchema());
+        assertThat(actual.getSetPath()).isEqualTo(expected.getSetPath());
+        assertThat(actual.getSetSessionProperties()).isEqualTo(expected.getSetSessionProperties());
+        assertThat(actual.getResetSessionProperties()).isEqualTo(expected.getResetSessionProperties());
+        assertThat(actual.getSetRoles()).isEqualTo(expected.getSetRoles());
+        assertThat(actual.getAddedPreparedStatements()).isEqualTo(expected.getAddedPreparedStatements());
+        assertThat(actual.getDeallocatedPreparedStatements()).isEqualTo(expected.getDeallocatedPreparedStatements());
 
-        assertEquals(actual.getStartedTransactionId(), expected.getStartedTransactionId());
-        assertEquals(actual.isClearTransactionId(), expected.isClearTransactionId());
+        assertThat(actual.getStartedTransactionId()).isEqualTo(expected.getStartedTransactionId());
+        assertThat(actual.isClearTransactionId()).isEqualTo(expected.isClearTransactionId());
 
-        assertEquals(actual.getUpdateType(), expected.getUpdateType());
-        assertEquals(actual.getOutputStage(), expected.getOutputStage());
+        assertThat(actual.getUpdateType()).isEqualTo(expected.getUpdateType());
+        assertThat(actual.getOutputStage()).isEqualTo(expected.getOutputStage());
 
-        assertEquals(actual.getFailureInfo(), expected.getFailureInfo());
-        assertEquals(actual.getErrorCode(), expected.getErrorCode());
-        assertEquals(actual.getWarnings(), expected.getWarnings());
+        assertThat(actual.getFailureInfo()).isEqualTo(expected.getFailureInfo());
+        assertThat(actual.getErrorCode()).isEqualTo(expected.getErrorCode());
+        assertThat(actual.getWarnings()).isEqualTo(expected.getWarnings());
 
-        assertEquals(actual.getInputs(), expected.getInputs());
-        assertEquals(actual.getOutput(), expected.getOutput());
+        assertThat(actual.getInputs()).isEqualTo(expected.getInputs());
+        assertThat(actual.getOutput()).isEqualTo(expected.getOutput());
 
-        assertEquals(actual.getReferencedTables(), expected.getReferencedTables());
-        assertEquals(actual.getRoutines(), expected.getRoutines());
+        assertThat(actual.getReferencedTables()).isEqualTo(expected.getReferencedTables());
+        assertThat(actual.getRoutines()).isEqualTo(expected.getRoutines());
 
-        assertEquals(actual.isFinalQueryInfo(), expected.isFinalQueryInfo());
+        assertThat(actual.isFinalQueryInfo()).isEqualTo(expected.isFinalQueryInfo());
 
-        assertEquals(actual.getResourceGroupId(), expected.getResourceGroupId());
-        assertEquals(actual.getQueryType(), expected.getQueryType());
-        assertEquals(actual.getRetryPolicy(), expected.getRetryPolicy());
+        assertThat(actual.getResourceGroupId()).isEqualTo(expected.getResourceGroupId());
+        assertThat(actual.getQueryType()).isEqualTo(expected.getQueryType());
+        assertThat(actual.getRetryPolicy()).isEqualTo(expected.getRetryPolicy());
     }
 
     private static QueryInfo createQueryInfo()
@@ -108,6 +127,8 @@ public class TestQueryInfo
                 Optional.of("set_catalog"),
                 Optional.of("set_schema"),
                 Optional.of("set_path"),
+                Optional.of("set_authorization_user"),
+                false,
                 ImmutableMap.of("set_property", "set_value"),
                 ImmutableSet.of("reset_property"),
                 ImmutableMap.of("set_roles", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))),

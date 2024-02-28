@@ -23,10 +23,9 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Parameters;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -44,12 +43,16 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.requiredNonEmptySystemProperty;
+import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.testcontainers.containers.Network.newNetwork;
 
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeAdlsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
@@ -59,15 +62,11 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     private final BlobContainerClient azureContainerClient;
     private final String adlsDirectory;
 
-    @Parameters({
-            "hive.hadoop2.azure-abfs-container",
-            "hive.hadoop2.azure-abfs-account",
-            "hive.hadoop2.azure-abfs-access-key"})
-    public TestDeltaLakeAdlsConnectorSmokeTest(String container, String account, String accessKey)
+    public TestDeltaLakeAdlsConnectorSmokeTest()
     {
-        this.container = requireNonNull(container, "container is null");
-        this.account = requireNonNull(account, "account is null");
-        this.accessKey = requireNonNull(accessKey, "accessKey is null");
+        this.container = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-container"), "container is null");
+        this.account = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-account"), "account is null");
+        this.accessKey = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-access-key"), "accessKey is null");
 
         String connectionString = format("DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net", account, accessKey);
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
@@ -76,7 +75,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    protected HiveMinioDataLake createHiveMinioDataLake()
+    protected HiveHadoop createHiveHadoop()
             throws Exception
     {
         String abfsSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("io/trino/plugin/deltalake/hdp3.1-core-site.xml.abfs-template"), UTF_8)
@@ -88,12 +87,13 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
         Files.writeString(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent);
 
-        HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(
-                bucketName,
-                ImmutableMap.of("/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()),
-                HiveHadoop.HIVE3_IMAGE);
-        hiveMinioDataLake.start();
-        return hiveMinioDataLake;  // closed by superclass
+        HiveHadoop hiveHadoop = HiveHadoop.builder()
+                .withImage(HIVE3_IMAGE)
+                .withNetwork(closeAfterClass(newNetwork()))
+                .withFilesToMount(ImmutableMap.of("/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()))
+                .build();
+        hiveHadoop.start();
+        return hiveHadoop; // closed by superclass
     }
 
     @Override
@@ -111,11 +111,11 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         return hiveStorageConfiguration();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void removeTestData()
     {
         if (adlsDirectory != null) {
-            hiveMinioDataLake.getHiveHadoop().executeInContainerFailOnError("hadoop", "fs", "-rm", "-f", "-r", adlsDirectory);
+            hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-rm", "-f", "-r", adlsDirectory);
         }
         assertThat(azureContainerClient.listBlobsByHierarchy(bucketName + "/").stream()).hasSize(0);
     }
@@ -126,7 +126,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         String targetDirectory = bucketName + "/" + table;
 
         try {
-            List<ClassPath.ResourceInfo> resources = ClassPath.from(TestDeltaLakeAdlsConnectorSmokeTest.class.getClassLoader())
+            List<ClassPath.ResourceInfo> resources = ClassPath.from(getClass().getClassLoader())
                     .getResources()
                     .stream()
                     .filter(resourceInfo -> resourceInfo.getResourceName().startsWith(resourcePath + "/"))
@@ -157,10 +157,9 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    protected List<String> listCheckpointFiles(String transactionLogDirectory)
+    protected List<String> listFiles(String directory)
     {
-        return listAllFilesRecursive(transactionLogDirectory).stream()
-                .filter(path -> path.contains("checkpoint.parquet"))
+        return listAllFilesRecursive(directory).stream()
                 .collect(toImmutableList());
     }
 
@@ -180,6 +179,14 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         return allPaths.stream()
                 .filter(path -> !path.endsWith("/") && !directories.contains(path))
                 .collect(toImmutableList());
+    }
+
+    @Override
+    protected void deleteFile(String filePath)
+    {
+        String blobName = bucketName + "/" + filePath.substring(bucketUrl().length());
+        azureContainerClient.getBlobClient(blobName)
+                .delete();
     }
 
     @Override

@@ -33,7 +33,7 @@ import org.apache.avro.SchemaBuilder;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
@@ -45,7 +45,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAvroPageDataWriterWithoutTypeManager
         extends TestAvroBase
@@ -75,7 +75,7 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 ALL_TYPES_RECORD_SCHEMA.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                AvroTypeUtils.typeFromAvro(ALL_TYPES_RECORD_SCHEMA, NoOpAvroTypeManager.INSTANCE).getTypeParameters())) {
+                AvroTypeUtils.typeFromAvro(ALL_TYPES_RECORD_SCHEMA, NoOpAvroTypeManager.INSTANCE).getTypeParameters(), false)) {
             fileWriter.write(ALL_TYPES_PAGE);
         }
 
@@ -140,7 +140,7 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 testBlocksSchema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                AvroTypeUtils.typeFromAvro(testBlocksSchema, NoOpAvroTypeManager.INSTANCE).getTypeParameters())) {
+                AvroTypeUtils.typeFromAvro(testBlocksSchema, NoOpAvroTypeManager.INSTANCE).getTypeParameters(), false)) {
             avroFileWriter.write(toWrite);
         }
 
@@ -204,7 +204,7 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 ImmutableList.of("byteToInt", "shortToInt", "byteToLong", "shortToLong", "intToLong"),
-                ImmutableList.of(TINYINT, SMALLINT, TINYINT, SMALLINT, INTEGER))) {
+                ImmutableList.of(TINYINT, SMALLINT, TINYINT, SMALLINT, INTEGER), false)) {
             avroFileWriter.write(toWrite);
         }
 

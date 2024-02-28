@@ -22,7 +22,7 @@ Like {func}`cast`, but returns null if the cast fails.
 ## Formatting
 
 :::{function} format(format, args...) -> varchar
-Returns a formatted string using the specified [format string](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Formatter.html#syntax)
+Returns a formatted string using the specified [format string](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Formatter.html#syntax)
 and arguments:
 
 ```
@@ -62,42 +62,41 @@ SELECT format_number(1000000); -- '1M'
 
 The `parse_data_size` function supports the following units:
 
-```{eval-rst}
-.. list-table::
-   :widths: 30, 40, 30
-   :header-rows: 1
+:::{list-table}
+:widths: 30, 40, 30
+:header-rows: 1
 
-   * - Unit
-     - Description
-     - Value
-   * - ``B``
-     - Bytes
-     - 1
-   * - ``kB``
-     - Kilobytes
-     - 1024
-   * - ``MB``
-     - Megabytes
-     - 1024\ :sup:`2`
-   * - ``GB``
-     - Gigabytes
-     - 1024\ :sup:`3`
-   * - ``TB``
-     - Terabytes
-     - 1024\ :sup:`4`
-   * - ``PB``
-     - Petabytes
-     - 1024\ :sup:`5`
-   * - ``EB``
-     - Exabytes
-     - 1024\ :sup:`6`
-   * - ``ZB``
-     - Zettabytes
-     - 1024\ :sup:`7`
-   * - ``YB``
-     - Yottabytes
-     - 1024\ :sup:`8`
-```
+* - Unit
+  - Description
+  - Value
+* - ``B``
+  - Bytes
+  - 1
+* - ``kB``
+  - Kilobytes
+  - 1024
+* - ``MB``
+  - Megabytes
+  - 1024{sup}`2`
+* - ``GB``
+  - Gigabytes
+  - 1024{sup}`3`
+* - ``TB``
+  - Terabytes
+  - 1024{sup}`4`
+* - ``PB``
+  - Petabytes
+  - 1024{sup}`5`
+* - ``EB``
+  - Exabytes
+  - 1024{sup}`6`
+* - ``ZB``
+  - Zettabytes
+  - 1024{sup}`7`
+* - ``YB``
+  - Yottabytes
+  - 1024{sup}`8`
+:::
 
 :::{function} parse_data_size(string) -> decimal(38)
 Parses `string` of format `value unit` into a number, where

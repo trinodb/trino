@@ -15,7 +15,7 @@
 package io.trino.type.setdigest;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
@@ -77,7 +77,7 @@ public final class SetDigestFunctions
 
     @ScalarFunction
     @SqlType("map(bigint,smallint)")
-    public static Block hashCounts(@TypeParameter("map(bigint,smallint)") Type mapType, @SqlType(SetDigestType.NAME) Slice slice)
+    public static SqlMap hashCounts(@TypeParameter("map(bigint,smallint)") Type mapType, @SqlType(SetDigestType.NAME) Slice slice)
     {
         SetDigest digest = SetDigest.newInstance(slice);
         return buildMapValue(

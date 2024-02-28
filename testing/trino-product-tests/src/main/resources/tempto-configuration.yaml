@@ -1,7 +1,7 @@
 hdfs:
   username: hive
   webhdfs:
-    uri: http://${databases.hive.host}:50070
+    uri: http://${databases.hive.host}:9870
 
 databases:
   hive:
@@ -14,6 +14,8 @@ databases:
     schema: default
     prepare_statement:
       - USE ${databases.hive.schema}
+      # Hive 3 gathers stats by default. For test purposes we need to disable this behavior.
+      - SET hive.stats.column.autogather=false
     table_manager_type: hive
     warehouse_directory_path: /user/hive/warehouse
     inject_stats_for_immutable_tables: true
@@ -147,6 +149,7 @@ databases:
   spark:
     host: spark
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+    jdbc_jar: /docker/jdbc/hive-jdbc.jar
     jdbc_url: jdbc:hive2://${databases.spark.host}:10213
     jdbc_user: hive
     jdbc_password: na
@@ -169,6 +172,7 @@ databases:
 
   delta:
       jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+      jdbc_jar: /docker/jdbc/hive-jdbc.jar
       schema: default
       prepare_statement:
           - USE ${databases.delta.schema}

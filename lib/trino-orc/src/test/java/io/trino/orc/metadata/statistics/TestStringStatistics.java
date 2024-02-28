@@ -14,7 +14,7 @@
 package io.trino.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.EMPTY_SLICE;

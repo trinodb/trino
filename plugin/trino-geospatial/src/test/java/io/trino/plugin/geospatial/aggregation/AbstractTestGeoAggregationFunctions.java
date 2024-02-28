@@ -20,10 +20,12 @@ import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.spi.Page;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -36,21 +38,25 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class AbstractTestGeoAggregationFunctions
 {
-    private LocalQueryRunner runner;
+    private QueryRunner runner;
     private TestingFunctionResolution functionResolution;
 
-    @BeforeClass
+    @BeforeAll
     public final void initTestFunctions()
     {
-        runner = LocalQueryRunner.builder(TEST_SESSION).build();
+        runner = new StandaloneQueryRunner(TEST_SESSION);
         runner.installPlugin(new GeoPlugin());
         functionResolution = new TestingFunctionResolution(runner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroyTestFunctions()
     {
         closeAllRuntimeException(runner);
@@ -82,7 +88,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         // Test in forward and reverse order to verify that ordering doesn't affect the output
         assertAggregation(
                 functionResolution,
-                QualifiedName.of(getFunctionName()),
+                getFunctionName(),
                 fromTypes(GEOMETRY),
                 equalityFunction,
                 testDescription,
@@ -91,7 +97,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         Collections.reverse(geometrySlices);
         assertAggregation(
                 functionResolution,
-                QualifiedName.of(getFunctionName()),
+                getFunctionName(),
                 fromTypes(GEOMETRY),
                 equalityFunction,
                 testDescription,

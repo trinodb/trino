@@ -18,12 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import org.jdbi.v3.core.Handle;
-import org.jdbi.v3.core.Jdbi;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestMySqlAutomaticJoinPushdown
         extends BaseAutomaticJoinPushdownTest
@@ -48,10 +47,11 @@ public class TestMySqlAutomaticJoinPushdown
                 ImmutableList.of());
     }
 
+    @Test
     @Override
     public void testJoinPushdownWithEmptyStatsInitially()
     {
-        throw new SkipException("MySQL statistics are automatically collected");
+        abort("MySQL statistics are automatically collected");
     }
 
     @Override
@@ -71,9 +71,6 @@ public class TestMySqlAutomaticJoinPushdown
 
     protected void onRemoteDatabase(String sql)
     {
-        try (Handle handle = Jdbi.open(() -> mySqlServer.createConnection())) {
-            handle.execute("USE tpch");
-            handle.execute(sql);
-        }
+        mySqlServer.execute(sql);
     }
 }

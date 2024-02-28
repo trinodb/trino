@@ -22,6 +22,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
@@ -32,6 +33,7 @@ import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NodeRef;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.transaction.TransactionManager;
 
 import java.util.Map;
 
@@ -39,14 +41,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.transaction.TransactionBuilder.transaction;
-import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
-import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;
-import static org.testng.internal.EclipseInterface.ASSERT_RIGHT;
+import static io.trino.testing.TransactionBuilder.transaction;
 
 public final class ExpressionTestUtils
 {
@@ -73,26 +70,26 @@ public final class ExpressionTestUtils
         if (message != null) {
             formatted = message + " ";
         }
-        throw new AssertionError(formatted + ASSERT_LEFT + expected + ASSERT_MIDDLE + actual + ASSERT_RIGHT);
+        throw new AssertionError(formatted + " expected [" + expected + "] but found [" + actual + "]");
     }
 
-    public static Expression createExpression(Session session, String expression, PlannerContext plannerContext, TypeProvider symbolTypes)
+    public static Expression createExpression(Session session, String expression, TransactionManager transactionManager, PlannerContext plannerContext, TypeProvider symbolTypes)
     {
-        Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(session));
-        return planExpression(plannerContext, session, symbolTypes, parsedExpression);
+        Expression parsedExpression = SQL_PARSER.createExpression(expression);
+        return planExpression(transactionManager, plannerContext, session, symbolTypes, parsedExpression);
     }
 
-    public static Expression createExpression(String expression, PlannerContext plannerContext, TypeProvider symbolTypes)
+    public static Expression createExpression(String expression, TransactionManager transactionManager, PlannerContext plannerContext, TypeProvider symbolTypes)
     {
-        return createExpression(TEST_SESSION, expression, plannerContext, symbolTypes);
+        return createExpression(TEST_SESSION, expression, transactionManager, plannerContext, symbolTypes);
     }
 
-    public static Expression planExpression(PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression)
+    public static Expression planExpression(TransactionManager transactionManager, PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression)
     {
         if (session.getTransactionId().isPresent()) {
             return planExpressionInExistingTx(plannerContext, typeProvider, expression, session);
         }
-        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        return transaction(transactionManager, plannerContext.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
                     return planExpressionInExistingTx(plannerContext, typeProvider, expression, transactionSession);
@@ -158,11 +155,7 @@ public final class ExpressionTestUtils
                 // cast expression if coercion is registered
                 Type coercion = analyzer.getExpressionCoercions().get(NodeRef.of(originalExpression));
                 if (coercion != null) {
-                    rewrittenExpression = new Cast(
-                            rewrittenExpression,
-                            toSqlType(coercion),
-                            false,
-                            analyzer.getTypeOnlyCoercions().contains(NodeRef.of(originalExpression)));
+                    rewrittenExpression = new Cast(rewrittenExpression, toSqlType(coercion), false);
                 }
                 return rewrittenExpression;
             }
@@ -172,12 +165,12 @@ public final class ExpressionTestUtils
     public static Map<NodeRef<Expression>, Type> getTypes(Session session, PlannerContext plannerContext, TypeProvider typeProvider, Expression expression)
     {
         if (session.getTransactionId().isPresent()) {
-            return createTestingTypeAnalyzer(plannerContext).getTypes(session, typeProvider, expression);
+            return new IrTypeAnalyzer(plannerContext).getTypes(session, typeProvider, expression);
         }
-        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        return transaction(new TestingTransactionManager(), plannerContext.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return createTestingTypeAnalyzer(plannerContext).getTypes(transactionSession, typeProvider, expression);
+                    return new IrTypeAnalyzer(plannerContext).getTypes(transactionSession, typeProvider, expression);
                 });
     }
 }

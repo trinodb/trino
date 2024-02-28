@@ -1,11 +1,11 @@
-# REVOKE ROLES
+# REVOKE role
 
 ## Synopsis
 
 ```text
 REVOKE
 [ ADMIN OPTION FOR ]
-role [, ...]
+role_name [, ...]
 FROM ( user | USER user | ROLE role) [, ...]
 [ GRANTED BY ( user | USER user | ROLE role | CURRENT_USER | CURRENT_ROLE ) ]
 [ IN catalog ]

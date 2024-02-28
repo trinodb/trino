@@ -14,11 +14,10 @@
 package io.trino.operator.aggregation.minmaxn;
 
 import com.google.common.base.Throwables;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.SizeOf;
 import io.trino.operator.VariableWidthData;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 
@@ -36,6 +35,7 @@ import static io.trino.operator.VariableWidthData.POINTER_SIZE;
 import static io.trino.operator.VariableWidthData.getChunkOffset;
 import static io.trino.operator.VariableWidthData.getValueLength;
 import static io.trino.operator.VariableWidthData.writePointer;
+import static java.lang.Math.clamp;
 import static java.util.Objects.requireNonNull;
 
 public final class TypedHeap
@@ -184,14 +184,7 @@ public final class TypedHeap
         }
     }
 
-    public void addAll(Block block)
-    {
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            add(block, i);
-        }
-    }
-
-    public void add(Block block, int position)
+    public void add(ValueBlock block, int position)
     {
         checkArgument(!block.isNull(position));
         if (positionCount == capacity) {
@@ -227,7 +220,7 @@ public final class TypedHeap
                         elementType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordElementOffset, variableWidthChunk, variableWidthChunkOffset));
     }
 
-    private void set(int index, Block block, int position)
+    private void set(int index, ValueBlock block, int position)
     {
         int recordOffset = getRecordOffset(index);
 
@@ -325,7 +318,7 @@ public final class TypedHeap
         }
     }
 
-    private boolean shouldConsiderValue(Block right, int rightPosition)
+    private boolean shouldConsiderValue(ValueBlock right, int rightPosition)
     {
         byte[] leftFixedRecordChunk = fixedChunk;
         int leftRecordOffset = getRecordOffset(0);
@@ -389,7 +382,7 @@ public final class TypedHeap
         if (newSize > 0) {
             int openSliceSize = newSize;
             if (newSize < MAX_CHUNK_SIZE) {
-                openSliceSize = Ints.constrainToRange(Ints.saturatedCast(openSliceSize * 2L), MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
+                openSliceSize = clamp(openSliceSize * 2L, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
             }
             moveVariableWidthToNewSlice(data, fixedSizeChunk, fixedRecordSize, fixedRecordPointerOffset, indexStart, recordCount, newSlices, openSliceSize, relocateVariableWidthOffsets);
             openChunkOffset = newSize;

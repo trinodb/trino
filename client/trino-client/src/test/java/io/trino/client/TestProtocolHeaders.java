@@ -14,13 +14,13 @@
 package io.trino.client;
 
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.client.ProtocolHeaders.detectProtocol;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestProtocolHeaders
 {
@@ -29,15 +29,15 @@ public class TestProtocolHeaders
             throws Exception
     {
         // default is Trino
-        assertEquals(detectProtocol(Optional.empty(), ImmutableSet.of()).getProtocolName(), "Trino");
+        assertThat(detectProtocol(Optional.empty(), ImmutableSet.of()).getProtocolName()).isEqualTo("Trino");
 
         // simple match
-        assertEquals(detectProtocol(Optional.of("Trino"), ImmutableSet.of("X-Trino-User")).getProtocolName(), "Trino");
-        assertEquals(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Taco-User")).getProtocolName(), "Taco");
-        assertEquals(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Taco-Source")).getProtocolName(), "Taco");
+        assertThat(detectProtocol(Optional.of("Trino"), ImmutableSet.of("X-Trino-User")).getProtocolName()).isEqualTo("Trino");
+        assertThat(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Taco-User")).getProtocolName()).isEqualTo("Taco");
+        assertThat(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Taco-Source")).getProtocolName()).isEqualTo("Taco");
 
         // only specified header name is tested
-        assertEquals(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Burrito-User", "X-Burrito-Source")).getProtocolName(), "Trino");
+        assertThat(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Burrito-User", "X-Burrito-Source")).getProtocolName()).isEqualTo("Trino");
 
         // multiple protocols is not allowed
         assertThatThrownBy(() -> detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Taco-User", "X-Trino-Source")))

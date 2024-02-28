@@ -13,9 +13,9 @@
  */
 package io.trino.operator.aggregation.histogram;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -39,7 +39,7 @@ public final class Histogram
     public static void input(
             @TypeParameter("T") Type type,
             @AggregationState("T") HistogramState state,
-            @BlockPosition @SqlType("T") Block key,
+            @BlockPosition @SqlType("T") ValueBlock key,
             @BlockIndex int position)
     {
         state.add(key, position, 1L);

@@ -25,6 +25,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 import java.util.logging.Logger;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class TracingDataSource
@@ -70,7 +71,9 @@ public class TracingDataSource
         public Connection getConnection()
                 throws SQLException
         {
-            return driver.connect(connectionUrl, properties);
+            Connection connection = driver.connect(connectionUrl, properties);
+            checkState(connection != null, "Driver returned null connection, make sure the connection URL '%s' is valid for the driver %s", connectionUrl, driver);
+            return connection;
         }
 
         @Override

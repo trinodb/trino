@@ -25,27 +25,31 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.operator.output.SkewedPartitionRebalancer.createSkewedPartitionRebalancer;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestSkewedPartitionRebalancer
+class TestSkewedPartitionRebalancer
 {
     private static final long MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD = DataSize.of(1, MEGABYTE).toBytes();
     private static final long MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = DataSize.of(50, MEGABYTE).toBytes();
 
     @Test
-    public void testRebalanceWithSkewness()
+    void testRebalanceWithSkewness()
     {
         int partitionCount = 3;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                3,
+                3,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
         rebalancer.addPartitionRowCount(1, 1000);
         rebalancer.addPartitionRowCount(2, 1000);
         rebalancer.addDataProcessed(DataSize.of(40, MEGABYTE).toBytes());
-        // No rebalancing will happen since data processed is less than 50MB limit
+        // No rebalancing will happen since the data processed is less than 50MB
         rebalancer.rebalance();
 
         assertThat(getPartitionPositions(function, 17))
@@ -90,10 +94,15 @@ public class TestSkewedPartitionRebalancer
     }
 
     @Test
-    public void testRebalanceWithoutSkewness()
+    void testRebalanceWithoutSkewness()
     {
         int partitionCount = 6;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 4, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                3,
+                2,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -116,10 +125,15 @@ public class TestSkewedPartitionRebalancer
     }
 
     @Test
-    public void testNoRebalanceWhenDataWrittenIsLessThanTheRebalanceLimit()
+    void testNoRebalanceWhenDataWrittenIsLessThanTheRebalanceLimit()
     {
         int partitionCount = 3;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                3,
+                3,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -139,11 +153,16 @@ public class TestSkewedPartitionRebalancer
     }
 
     @Test
-    public void testNoRebalanceWhenDataWrittenByThePartitionIsLessThanWriterScalingMinDataProcessed()
+    void testNoRebalanceWhenDataWrittenByThePartitionIsLessThanWriterScalingMinDataProcessed()
     {
         int partitionCount = 3;
         long minPartitionDataProcessedRebalanceThreshold = DataSize.of(50, MEGABYTE).toBytes();
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, minPartitionDataProcessedRebalanceThreshold, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                3,
+                3,
+                minPartitionDataProcessedRebalanceThreshold,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -163,10 +182,15 @@ public class TestSkewedPartitionRebalancer
     }
 
     @Test
-    public void testRebalancePartitionToSingleTaskInARebalancingLoop()
+    void testRebalancePartitionToSingleTaskInARebalancingLoop()
     {
         int partitionCount = 3;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                3,
+                3,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -174,7 +198,7 @@ public class TestSkewedPartitionRebalancer
         rebalancer.addPartitionRowCount(2, 0);
 
         rebalancer.addDataProcessed(DataSize.of(60, MEGABYTE).toBytes());
-        // rebalancing will only happen to single task even though two tasks are available
+        // rebalancing will only happen to a single task even though two tasks are available
         rebalancer.rebalance();
 
         assertThat(getPartitionPositions(function, 17))
@@ -201,10 +225,58 @@ public class TestSkewedPartitionRebalancer
                 .containsExactly(ImmutableList.of(0, 1, 2), ImmutableList.of(1), ImmutableList.of(2));
     }
 
-    private List<List<Integer>> getPartitionPositions(PartitionFunction function, int maxPosition)
+    @Test
+    public void testConsiderSkewedPartitionOnlyWithinACycle()
+    {
+        int partitionCount = 3;
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                3,
+                1,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionFunction function = new SkewedPartitionFunction(
+                new TestPartitionFunction(partitionCount),
+                rebalancer);
+
+        rebalancer.addPartitionRowCount(0, 1000);
+        rebalancer.addPartitionRowCount(1, 800);
+        rebalancer.addPartitionRowCount(2, 0);
+
+        rebalancer.addDataProcessed(DataSize.of(60, MEGABYTE).toBytes());
+        // rebalancing will happen for partition 0 to task 2 since partition 0 is skewed.
+        rebalancer.rebalance();
+
+        assertThat(getPartitionPositions(function, 17))
+                .containsExactly(
+                        new IntArrayList(ImmutableList.of(0, 6, 12)),
+                        new IntArrayList(ImmutableList.of(1, 4, 7, 10, 13, 16)),
+                        new IntArrayList(ImmutableList.of(2, 3, 5, 8, 9, 11, 14, 15)));
+        assertThat(rebalancer.getPartitionAssignments())
+                .containsExactly(ImmutableList.of(0, 2), ImmutableList.of(1), ImmutableList.of(2));
+
+        rebalancer.addPartitionRowCount(0, 0);
+        rebalancer.addPartitionRowCount(1, 800);
+        rebalancer.addPartitionRowCount(2, 1000);
+        // rebalancing will happen for partition 2 to task 0 since partition 2 is skewed. Even though partition 1 has
+        // written more amount of data from start, it will not be considered since it is not the most skewed in
+        // this rebalancing cycle.
+        rebalancer.addDataProcessed(DataSize.of(60, MEGABYTE).toBytes());
+        rebalancer.rebalance();
+
+        assertThat(getPartitionPositions(function, 17))
+                .containsExactly(
+                        new IntArrayList(ImmutableList.of(0, 2, 6, 8, 12, 14)),
+                        new IntArrayList(ImmutableList.of(1, 4, 7, 10, 13, 16)),
+                        new IntArrayList(ImmutableList.of(3, 5, 9, 11, 15)));
+        assertThat(rebalancer.getPartitionAssignments())
+                .containsExactly(ImmutableList.of(0, 2), ImmutableList.of(1), ImmutableList.of(2, 0));
+    }
+
+    private static List<List<Integer>> getPartitionPositions(PartitionFunction function, int maxPosition)
     {
         List<List<Integer>> partitionPositions = new ArrayList<>();
-        for (int partition = 0; partition < function.getPartitionCount(); partition++) {
+        for (int partition = 0; partition < function.partitionCount(); partition++) {
             partitionPositions.add(new ArrayList<>());
         }
 
@@ -221,22 +293,9 @@ public class TestSkewedPartitionRebalancer
         return SequencePageBuilder.createSequencePage(ImmutableList.of(BIGINT), 100, 0);
     }
 
-    private static class TestPartitionFunction
+    private record TestPartitionFunction(int partitionCount)
             implements PartitionFunction
     {
-        private final int partitionCount;
-
-        private TestPartitionFunction(int partitionCount)
-        {
-            this.partitionCount = partitionCount;
-        }
-
-        @Override
-        public int getPartitionCount()
-        {
-            return partitionCount;
-        }
-
         @Override
         public int getPartition(Page page, int position)
         {

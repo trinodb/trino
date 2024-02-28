@@ -15,12 +15,14 @@ package io.trino.tests.tpch;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.ColumnNaming;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.statistics.StatisticsAssertion;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
@@ -31,16 +33,20 @@ import static io.trino.testing.statistics.MetricComparisonStrategies.noError;
 import static io.trino.testing.statistics.MetricComparisonStrategies.relativeError;
 import static io.trino.testing.statistics.Metrics.OUTPUT_ROW_COUNT;
 import static io.trino.testing.statistics.Metrics.distinctValuesCount;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTpchDistributedStats
 {
     private StatisticsAssertion statisticsAssertion;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws Exception
     {
-        DistributedQueryRunner runner = TpchQueryRunnerBuilder.builder()
+        QueryRunner runner = TpchQueryRunnerBuilder.builder()
                 .amendSession(builder -> builder
                         // Stats for non-EXPLAIN queries are not collected by default
                         .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true"))
@@ -52,7 +58,7 @@ public class TestTpchDistributedStats
         statisticsAssertion = new StatisticsAssertion(runner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         statisticsAssertion.close();

@@ -13,13 +13,15 @@
  */
 package io.trino.spi.type;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -49,7 +51,7 @@ public abstract class AbstractLongType
 
     public AbstractLongType(TypeSignature signature)
     {
-        super(signature, long.class);
+        super(signature, long.class, LongArrayBlock.class);
     }
 
     @Override
@@ -79,13 +81,7 @@ public abstract class AbstractLongType
     @Override
     public final long getLong(Block block, int position)
     {
-        return block.getLong(position, 0);
-    }
-
-    @Override
-    public final Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, getFixedSize());
+        return read((LongArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -142,6 +138,12 @@ public abstract class AbstractLongType
     {
         // xxHash64 mix
         return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
+    {
+        return block.getLong(position);
     }
 
     @ScalarOperator(READ_VALUE)

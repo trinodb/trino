@@ -41,9 +41,12 @@ import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.validateMaxDataSize;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.validateMinDataSize;
+import static io.trino.plugin.hive.parquet.ParquetReaderConfig.PARQUET_READER_MAX_SMALL_FILE_THRESHOLD;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_BLOCK_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_PAGE_SIZE;
+import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_PAGE_VALUE_COUNT;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_SIZE;
+import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_VALUE_COUNT;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
@@ -62,22 +65,10 @@ public final class HiveSessionProperties
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
     private static final String PARALLEL_PARTITIONED_BUCKETED_WRITES = "parallel_partitioned_bucketed_writes";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
-    private static final String AVRO_NATIVE_READER_ENABLED = "avro_native_reader_enabled";
-    private static final String AVRO_NATIVE_WRITER_ENABLED = "avro_native_writer_enabled";
-    private static final String CSV_NATIVE_READER_ENABLED = "csv_native_reader_enabled";
-    private static final String CSV_NATIVE_WRITER_ENABLED = "csv_native_writer_enabled";
-    private static final String JSON_NATIVE_READER_ENABLED = "json_native_reader_enabled";
-    private static final String JSON_NATIVE_WRITER_ENABLED = "json_native_writer_enabled";
-    private static final String OPENX_JSON_NATIVE_READER_ENABLED = "openx_json_native_reader_enabled";
-    private static final String OPENX_JSON_NATIVE_WRITER_ENABLED = "openx_json_native_writer_enabled";
-    private static final String REGEX_NATIVE_READER_ENABLED = "regex_native_reader_enabled";
-    private static final String TEXT_FILE_NATIVE_READER_ENABLED = "text_file_native_reader_enabled";
-    private static final String TEXT_FILE_NATIVE_WRITER_ENABLED = "text_file_native_writer_enabled";
-    private static final String SEQUENCE_FILE_NATIVE_READER_ENABLED = "sequence_file_native_reader_enabled";
-    private static final String SEQUENCE_FILE_NATIVE_WRITER_ENABLED = "sequence_file_native_writer_enabled";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
@@ -105,8 +96,10 @@ public final class HiveSessionProperties
     private static final String PARQUET_USE_BLOOM_FILTER = "parquet_use_bloom_filter";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
+    private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String PARQUET_WRITER_PAGE_VALUE_COUNT = "parquet_writer_page_value_count";
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
     private static final String PARQUET_OPTIMIZED_WRITER_VALIDATION_PERCENTAGE = "parquet_optimized_writer_validation_percentage";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
@@ -119,7 +112,6 @@ public final class HiveSessionProperties
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
-    private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     private static final String DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE = "delegate_transactional_managed_table_location_to_metastore";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
@@ -127,7 +119,6 @@ public final class HiveSessionProperties
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
-    private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String HIVE_VIEWS_LEGACY_TRANSLATION = "hive_views_legacy_translation";
     private static final String ICEBERG_CATALOG_NAME = "iceberg_catalog_name";
     public static final String DELTA_LAKE_CATALOG_NAME = "delta_lake_catalog_name";
@@ -161,7 +152,6 @@ public final class HiveSessionProperties
     @Inject
     public HiveSessionProperties(
             HiveConfig hiveConfig,
-            HiveFormatsConfig hiveFormatsConfig,
             OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
@@ -183,6 +173,11 @@ public final class HiveSessionProperties
                         "Target maximum size of written files; the actual size may be larger",
                         hiveConfig.getTargetMaxFileSize(),
                         false),
+                dataSizeProperty(
+                        IDLE_WRITER_MIN_FILE_SIZE,
+                        "Minimum data written by a single partition writer before it can be consider as 'idle' and could be closed by the engine",
+                        hiveConfig.getIdleWriterMinFileSize(),
+                        false),
                 booleanProperty(
                         PARALLEL_PARTITIONED_BUCKETED_WRITES,
                         "Improve parallelism of partitioned and bucketed table writes",
@@ -202,71 +197,6 @@ public final class HiveSessionProperties
                         false,
                         value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveConfig.isImmutablePartitions()),
                         InsertExistingPartitionsBehavior::toString),
-                booleanProperty(
-                        AVRO_NATIVE_READER_ENABLED,
-                        "Use native Avro file reader",
-                        hiveFormatsConfig.isAvroFileNativeReaderEnabled(),
-                        false),
-                booleanProperty(
-                        AVRO_NATIVE_WRITER_ENABLED,
-                        "Use native Avro file writer",
-                        hiveFormatsConfig.isAvroFileNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        CSV_NATIVE_READER_ENABLED,
-                        "Use native CSV reader",
-                        hiveFormatsConfig.isCsvNativeReaderEnabled(),
-                        false),
-                booleanProperty(
-                        CSV_NATIVE_WRITER_ENABLED,
-                        "Use native CSV writer",
-                        hiveFormatsConfig.isCsvNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        JSON_NATIVE_READER_ENABLED,
-                        "Use native JSON reader",
-                        hiveFormatsConfig.isJsonNativeReaderEnabled(),
-                        false),
-                booleanProperty(
-                        JSON_NATIVE_WRITER_ENABLED,
-                        "Use native JSON writer",
-                        hiveFormatsConfig.isJsonNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        OPENX_JSON_NATIVE_READER_ENABLED,
-                        "Use native OpenX JSON reader",
-                        hiveFormatsConfig.isOpenXJsonNativeReaderEnabled(),
-                        false),
-                booleanProperty(
-                        OPENX_JSON_NATIVE_WRITER_ENABLED,
-                        "Use native OpenX JSON writer",
-                        hiveFormatsConfig.isOpenXJsonNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        REGEX_NATIVE_READER_ENABLED,
-                        "Use native REGEX reader",
-                        hiveFormatsConfig.isRegexNativeReaderEnabled(),
-                        false),
-                booleanProperty(
-                        TEXT_FILE_NATIVE_READER_ENABLED,
-                        "Use native text file reader",
-                        hiveFormatsConfig.isTextFileNativeReaderEnabled(),
-                        false),
-                booleanProperty(
-                        TEXT_FILE_NATIVE_WRITER_ENABLED,
-                        "Use native text file writer",
-                        hiveFormatsConfig.isTextFileNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        SEQUENCE_FILE_NATIVE_READER_ENABLED,
-                        "Use native sequence file reader",
-                        hiveFormatsConfig.isSequenceFileNativeReaderEnabled(),
-                        false),
-                booleanProperty(
-                        SEQUENCE_FILE_NATIVE_WRITER_ENABLED,
-                        "Use native sequence file writer",
-                        hiveFormatsConfig.isSequenceFileNativeWriterEnabled(),
-                        false),
                 booleanProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
                         "ORC: Enable bloom filters for predicate pushdown",
@@ -425,6 +355,12 @@ public final class HiveSessionProperties
                         },
                         false),
                 dataSizeProperty(
+                        PARQUET_SMALL_FILE_THRESHOLD,
+                        "Parquet: Size below which a parquet file will be read entirely",
+                        parquetReaderConfig.getSmallFileThreshold(),
+                        value -> validateMaxDataSize(PARQUET_SMALL_FILE_THRESHOLD, value, DataSize.valueOf(PARQUET_READER_MAX_SMALL_FILE_THRESHOLD)),
+                        false),
+                dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
                         "Parquet: Writer block size",
                         parquetWriterConfig.getBlockSize(),
@@ -437,6 +373,18 @@ public final class HiveSessionProperties
                         value -> {
                             validateMinDataSize(PARQUET_WRITER_PAGE_SIZE, value, DataSize.valueOf(PARQUET_WRITER_MIN_PAGE_SIZE));
                             validateMaxDataSize(PARQUET_WRITER_PAGE_SIZE, value, DataSize.valueOf(PARQUET_WRITER_MAX_PAGE_SIZE));
+                        },
+                        false),
+                integerProperty(
+                        PARQUET_WRITER_PAGE_VALUE_COUNT,
+                        "Parquet: Writer page row count",
+                        parquetWriterConfig.getPageValueCount(),
+                        value -> {
+                            if (value < PARQUET_WRITER_MIN_PAGE_VALUE_COUNT || value > PARQUET_WRITER_MAX_PAGE_VALUE_COUNT) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be between %s and %s: %s", PARQUET_WRITER_PAGE_VALUE_COUNT, PARQUET_WRITER_MIN_PAGE_VALUE_COUNT, PARQUET_WRITER_MAX_PAGE_VALUE_COUNT, value));
+                            }
                         },
                         false),
                 integerProperty(
@@ -512,11 +460,6 @@ public final class HiveSessionProperties
                         hiveConfig.isOptimizeMismatchedBucketCount(),
                         false),
                 booleanProperty(
-                        S3_SELECT_PUSHDOWN_ENABLED,
-                        "S3 Select pushdown enabled",
-                        hiveConfig.isS3SelectPushdownEnabled(),
-                        false),
-                booleanProperty(
                         DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE,
                         "When transactional managed table is created via Trino the location will not be set in request sent to HMS and location will be determined by metastore; if this property is set to true CREATE TABLE AS queries are not supported.",
                         hiveConfig.isDelegateTransactionalManagedTableLocationToMetastore(),
@@ -563,11 +506,6 @@ public final class HiveSessionProperties
                         DYNAMIC_FILTERING_WAIT_TIMEOUT,
                         "Duration to wait for completion of dynamic filters during split generation",
                         hiveConfig.getDynamicFilteringWaitTimeout(),
-                        false),
-                booleanProperty(
-                        OPTIMIZE_SYMLINK_LISTING,
-                        "Optimize listing for SymlinkTextFormat tables with files in a single directory",
-                        hiveConfig.isOptimizeSymlinkListing(),
                         false),
                 booleanProperty(
                         HIVE_VIEWS_LEGACY_TRANSLATION,
@@ -638,6 +576,11 @@ public final class HiveSessionProperties
         return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class);
     }
 
+    public static DataSize getIdleWriterMinFileSize(ConnectorSession session)
+    {
+        return session.getProperty(IDLE_WRITER_MIN_FILE_SIZE, DataSize.class);
+    }
+
     public static boolean isParallelPartitionedBucketedWrites(ConnectorSession session)
     {
         return session.getProperty(PARALLEL_PARTITIONED_BUCKETED_WRITES, Boolean.class);
@@ -651,71 +594,6 @@ public final class HiveSessionProperties
     public static InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior(ConnectorSession session)
     {
         return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
-    }
-
-    public static boolean isAvroNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(AVRO_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isAvroNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(AVRO_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isCsvNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(CSV_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isCsvNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(CSV_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isJsonNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(JSON_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isJsonNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(JSON_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isOpenXJsonNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(OPENX_JSON_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isOpenXJsonNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(OPENX_JSON_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isRegexNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(REGEX_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isTextFileNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(TEXT_FILE_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isTextFileNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(TEXT_FILE_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isSequenceFileNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(SEQUENCE_FILE_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isSequenceFileNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(SEQUENCE_FILE_NATIVE_WRITER_ENABLED, Boolean.class);
     }
 
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)
@@ -860,6 +738,11 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_MAX_READ_BLOCK_ROW_COUNT, Integer.class);
     }
 
+    public static DataSize getParquetSmallFileThreshold(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_SMALL_FILE_THRESHOLD, DataSize.class);
+    }
+
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_BLOCK_SIZE, DataSize.class);
@@ -868,6 +751,11 @@ public final class HiveSessionProperties
     public static DataSize getParquetWriterPageSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+    }
+
+    public static int getParquetWriterPageValueCount(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_PAGE_VALUE_COUNT, Integer.class);
     }
 
     public static int getParquetBatchSize(ConnectorSession session)
@@ -905,11 +793,6 @@ public final class HiveSessionProperties
     public static boolean isPropagateTableScanSortingProperties(ConnectorSession session)
     {
         return session.getProperty(PROPAGATE_TABLE_SCAN_SORTING_PROPERTIES, Boolean.class);
-    }
-
-    public static boolean isS3SelectPushdownEnabled(ConnectorSession session)
-    {
-        return session.getProperty(S3_SELECT_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public static boolean isStatisticsEnabled(ConnectorSession session)
@@ -977,11 +860,6 @@ public final class HiveSessionProperties
     public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
     {
         return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
-    }
-
-    public static boolean isOptimizeSymlinkListing(ConnectorSession session)
-    {
-        return session.getProperty(OPTIMIZE_SYMLINK_LISTING, Boolean.class);
     }
 
     public static boolean isHiveViewsLegacyTranslation(ConnectorSession session)

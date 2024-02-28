@@ -38,9 +38,8 @@ public final class CastFromUnknownOperator
 
     public CastFromUnknownOperator()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .operatorType(CAST)
                         .typeVariable("E")
                         .returnType(new TypeSignature("E"))
                         .argumentType(UNKNOWN)

@@ -43,9 +43,11 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
@@ -55,11 +57,17 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.Signature;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
@@ -83,8 +91,11 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
+import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.function.FunctionDependencyDeclaration.NO_DEPENDENCIES;
 import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -93,6 +104,8 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 public abstract class AbstractMockMetadata
         implements Metadata
 {
+    private static final CatalogSchemaFunctionName RAND_NAME = builtinFunctionName("rand");
+
     public static Metadata dummyMetadata()
     {
         return new AbstractMockMetadata() {};
@@ -221,6 +234,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Map<SchemaTableName, RelationType> getRelationTypes(Session session, QualifiedTablePrefix prefix)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
@@ -269,7 +288,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         throw new UnsupportedOperationException();
     }
@@ -359,6 +378,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
@@ -383,7 +408,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout)
+    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout, boolean replace)
     {
         throw new UnsupportedOperationException();
     }
@@ -425,10 +456,10 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void cleanupQuery(Session session)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void beginQuery(Session session) {}
+
+    @Override
+    public void cleanupQuery(Session session) {}
 
     @Override
     public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columns)
@@ -443,7 +474,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
     }
@@ -473,7 +504,20 @@ public abstract class AbstractMockMetadata
             InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<TableHandle> sourceTableHandles)
+            List<TableHandle> sourceTableHandles,
+            List<String> sourceTableFunctions)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<TableHandle> applyUpdate(Session session, TableHandle tableHandle, Map<ColumnHandle, Constant> assignments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public OptionalLong executeUpdate(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -758,7 +802,13 @@ public abstract class AbstractMockMetadata
     //
 
     @Override
-    public Collection<FunctionMetadata> listFunctions(Session session)
+    public Collection<FunctionMetadata> listGlobalFunctions(Session session)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema)
     {
         throw new UnsupportedOperationException();
     }
@@ -771,15 +821,14 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
-        String nameSuffix = name.getSuffix();
-        if (nameSuffix.equals("rand") && parameterTypes.isEmpty()) {
-            BoundSignature boundSignature = new BoundSignature(nameSuffix, DOUBLE, ImmutableList.of());
+        if (name.equals("rand") && parameterTypes.isEmpty()) {
+            BoundSignature boundSignature = new BoundSignature(builtinFunctionName(name), DOUBLE, ImmutableList.of());
             return new ResolvedFunction(
                     boundSignature,
                     GlobalSystemConnector.CATALOG_HANDLE,
-                    toFunctionId(boundSignature.toSignature()),
+                    toFunctionId(name, boundSignature.toSignature()),
                     SCALAR,
                     true,
                     new FunctionNullability(false, ImmutableList.of()),
@@ -790,52 +839,67 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ResolvedFunction resolveOperator(Session session, OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ResolvedFunction getCoercion(Session session, QualifiedName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean isAggregationFunction(Session session, QualifiedName name)
+    public Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName catalogSchemaFunctionName)
     {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isWindowFunction(Session session, QualifiedName name)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
-    {
-        BoundSignature signature = resolvedFunction.getSignature();
-        if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
-            return FunctionMetadata.scalarBuilder()
-                    .signature(signature.toSignature())
-                    .nondeterministic()
-                    .noDescription()
-                    .build();
+        if (!catalogSchemaFunctionName.equals(RAND_NAME)) {
+            return ImmutableList.of();
         }
-        throw new TrinoException(FUNCTION_NOT_FOUND, signature.toString());
+        return ImmutableList.of(new CatalogFunctionMetadata(
+                GlobalSystemConnector.CATALOG_HANDLE,
+                BUILTIN_SCHEMA,
+                FunctionMetadata.scalarBuilder("random")
+                        .signature(Signature.builder().returnType(DOUBLE).build())
+                        .alias(RAND_NAME.getFunctionName())
+                        .nondeterministic()
+                        .noDescription()
+                        .build()));
     }
 
     @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FunctionDependencyDeclaration getFunctionDependencies(Session session, CatalogHandle catalogHandle, FunctionId functionId, BoundSignature boundSignature)
+    {
+        return NO_DEPENDENCIES;
+    }
+
+    @Override
+    public boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createLanguageFunction(Session session, QualifiedObjectName name, LanguageFunction function, boolean replace)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken)
     {
         throw new UnsupportedOperationException();
     }
@@ -853,7 +917,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting)
     {
         throw new UnsupportedOperationException();
     }
@@ -878,6 +948,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName viewName, MaterializedViewDefinition materializedViewDefinition)
     {
         throw new UnsupportedOperationException();
     }

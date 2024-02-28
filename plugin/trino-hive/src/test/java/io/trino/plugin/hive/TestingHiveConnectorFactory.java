@@ -13,44 +13,47 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
-import io.opentelemetry.api.OpenTelemetry;
-import io.trino.plugin.hive.fs.DirectoryLister;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.InternalHiveConnectorFactory.createConnector;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.hive.HiveConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
 public class TestingHiveConnectorFactory
         implements ConnectorFactory
 {
     private final Optional<HiveMetastore> metastore;
-    private final Optional<OpenTelemetry> openTelemetry;
     private final Module module;
-    private final Optional<DirectoryLister> directoryLister;
 
-    public TestingHiveConnectorFactory(HiveMetastore metastore)
+    public TestingHiveConnectorFactory(Path localFileSystemRootPath)
     {
-        this(Optional.of(metastore), Optional.empty(), EMPTY_MODULE, Optional.empty());
+        this(localFileSystemRootPath, Optional.empty());
     }
 
-    public TestingHiveConnectorFactory(
-            Optional<HiveMetastore> metastore,
-            Optional<OpenTelemetry> openTelemetry,
-            Module module,
-            Optional<DirectoryLister> directoryLister)
+    @Deprecated
+    public TestingHiveConnectorFactory(Path localFileSystemRootPath, Optional<HiveMetastore> metastore)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
-        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
-        this.module = requireNonNull(module, "module is null");
-        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
+
+        localFileSystemRootPath.toFile().mkdirs();
+        this.module = binder -> {
+            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+            configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
+        };
     }
 
     @Override
@@ -62,6 +65,12 @@ public class TestingHiveConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, module, metastore, Optional.empty(), openTelemetry, directoryLister);
+        ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.<String, String>builder()
+                .putAll(config)
+                .put("bootstrap.quiet", "true");
+        if (metastore.isEmpty() && !config.containsKey("hive.metastore")) {
+            configBuilder.put("hive.metastore", "file");
+        }
+        return createConnector(catalogName, configBuilder.buildOrThrow(), context, module, metastore, Optional.empty());
     }
 }

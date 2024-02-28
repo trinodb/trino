@@ -127,27 +127,22 @@ final class JsonWriter
 
         beforeValue();
 
-        if (value == null || value instanceof Boolean) {
-            out.append(value);
-        }
-        else if (value instanceof Number number) {
-            writeJsonNumber(number);
-        }
-        else if (value instanceof String string) {
-            writeJsonString(string);
-        }
-        else if (value instanceof JsonString string) {
-            if (!string.quoted()) {
-                String canonicalUnquotedString = canonicalizeUnquotedString(string.value());
-                if (canonicalUnquotedString != null) {
-                    out.append(canonicalUnquotedString);
-                    return;
+        switch (value) {
+            case null -> out.append(value);
+            case Boolean booleanValue -> out.append(booleanValue);
+            case Number number -> writeJsonNumber(number);
+            case String string -> writeJsonString(string);
+            case JsonString(String jsonString, boolean quoted) -> {
+                if (!quoted) {
+                    String canonicalUnquotedString = canonicalizeUnquotedString(jsonString);
+                    if (canonicalUnquotedString != null) {
+                        out.append(canonicalUnquotedString);
+                        return;
+                    }
                 }
+                writeJsonString(jsonString);
             }
-            writeJsonString(string.value());
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getSimpleName());
+            default -> throw new IllegalArgumentException("Unsupported value type: " + value.getClass().getSimpleName());
         }
     }
 

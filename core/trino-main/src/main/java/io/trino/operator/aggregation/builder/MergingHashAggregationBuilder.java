@@ -24,7 +24,6 @@ import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode;
 
@@ -50,7 +49,6 @@ public class MergingHashAggregationBuilder
     private final long memoryLimitForMerge;
     private final int overwriteIntermediateChannelOffset;
     private final JoinCompiler joinCompiler;
-    private final TypeOperators typeOperators;
 
     public MergingHashAggregationBuilder(
             List<AggregatorFactory> aggregatorFactories,
@@ -63,8 +61,7 @@ public class MergingHashAggregationBuilder
             AggregatedMemoryContext aggregatedMemoryContext,
             long memoryLimitForMerge,
             int overwriteIntermediateChannelOffset,
-            JoinCompiler joinCompiler,
-            TypeOperators typeOperators)
+            JoinCompiler joinCompiler)
     {
         ImmutableList.Builder<Integer> groupByPartialChannels = ImmutableList.builder();
         for (int i = 0; i < groupByTypes.size(); i++) {
@@ -83,7 +80,6 @@ public class MergingHashAggregationBuilder
         this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
         this.joinCompiler = joinCompiler;
-        this.typeOperators = typeOperators;
 
         rebuildHashAggregationBuilder();
     }
@@ -154,7 +150,6 @@ public class MergingHashAggregationBuilder
                 Optional.of(DataSize.succinctBytes(0)),
                 Optional.of(overwriteIntermediateChannelOffset),
                 joinCompiler,
-                typeOperators,
                 // TODO: merging should also yield on memory reservations
                 () -> true);
     }

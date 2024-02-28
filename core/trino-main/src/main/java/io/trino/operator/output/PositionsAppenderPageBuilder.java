@@ -13,39 +13,61 @@
  */
 package io.trino.operator.output;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class PositionsAppenderPageBuilder
 {
     private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
-    private final PositionsAppender[] channelAppenders;
+    @VisibleForTesting
+    static final int MAX_POSITION_COUNT = PageProcessor.MAX_BATCH_SIZE * 4;
+    // Maximum page size before being considered full based on current direct appender size and if RLE channels were converted to direct. Currently,
+    // dictionary mode appenders still under-report because computing their equivalent size if converted to direct is prohibitively expensive.
+    private static final int MAXIMUM_DIRECT_SIZE_MULTIPLIER = 8;
+
+    private final UnnestingPositionsAppender[] channelAppenders;
     private final int maxPageSizeInBytes;
+    private final int maxDirectPageSizeInBytes;
     private int declaredPositions;
 
     public static PositionsAppenderPageBuilder withMaxPageSize(int maxPageBytes, List<Type> sourceTypes, PositionsAppenderFactory positionsAppenderFactory)
     {
-        return new PositionsAppenderPageBuilder(DEFAULT_INITIAL_EXPECTED_ENTRIES, maxPageBytes, sourceTypes, positionsAppenderFactory);
+        return withMaxPageSize(maxPageBytes, maxPageBytes * MAXIMUM_DIRECT_SIZE_MULTIPLIER, sourceTypes, positionsAppenderFactory);
+    }
+
+    @VisibleForTesting
+    static PositionsAppenderPageBuilder withMaxPageSize(int maxPageBytes, int maxDirectSizeInBytes, List<Type> sourceTypes, PositionsAppenderFactory positionsAppenderFactory)
+    {
+        return new PositionsAppenderPageBuilder(DEFAULT_INITIAL_EXPECTED_ENTRIES, maxPageBytes, maxDirectSizeInBytes, sourceTypes, positionsAppenderFactory);
     }
 
     private PositionsAppenderPageBuilder(
             int initialExpectedEntries,
             int maxPageSizeInBytes,
+            int maxDirectPageSizeInBytes,
             List<? extends Type> types,
             PositionsAppenderFactory positionsAppenderFactory)
     {
         requireNonNull(types, "types is null");
         requireNonNull(positionsAppenderFactory, "positionsAppenderFactory is null");
+        checkArgument(maxPageSizeInBytes > 0, "maxPageSizeInBytes is negative: %s", maxPageSizeInBytes);
+        checkArgument(maxDirectPageSizeInBytes > 0, "maxDirectPageSizeInBytes is negative: %s", maxDirectPageSizeInBytes);
+        checkArgument(maxDirectPageSizeInBytes >= maxPageSizeInBytes, "maxDirectPageSizeInBytes (%s) must be >= maxPageSizeInBytes (%s)", maxDirectPageSizeInBytes, maxPageSizeInBytes);
 
         this.maxPageSizeInBytes = maxPageSizeInBytes;
-        channelAppenders = new PositionsAppender[types.size()];
+        this.maxDirectPageSizeInBytes = maxDirectPageSizeInBytes;
+        channelAppenders = new UnnestingPositionsAppender[types.size()];
         for (int i = 0; i < channelAppenders.length; i++) {
             channelAppenders[i] = positionsAppenderFactory.create(types.get(i), initialExpectedEntries, maxPageSizeInBytes);
         }
@@ -76,7 +98,7 @@ public class PositionsAppenderPageBuilder
         // We use a foreach loop instead of streams
         // as it has much better performance.
         long retainedSizeInBytes = 0;
-        for (PositionsAppender positionsAppender : channelAppenders) {
+        for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
             retainedSizeInBytes += positionsAppender.getRetainedSizeInBytes();
         }
         return retainedSizeInBytes;
@@ -85,25 +107,68 @@ public class PositionsAppenderPageBuilder
     public long getSizeInBytes()
     {
         long sizeInBytes = 0;
-        for (PositionsAppender positionsAppender : channelAppenders) {
+        for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
             sizeInBytes += positionsAppender.getSizeInBytes();
         }
         return sizeInBytes;
     }
 
-    public void declarePositions(int positions)
+    private void declarePositions(int positions)
     {
         declaredPositions += positions;
     }
 
     public boolean isFull()
     {
-        return declaredPositions == Integer.MAX_VALUE || getSizeInBytes() >= maxPageSizeInBytes;
+        if (declaredPositions == 0) {
+            return false;
+        }
+        if (declaredPositions >= MAX_POSITION_COUNT) {
+            return true;
+        }
+        PositionsAppenderSizeAccumulator accumulator = computeAppenderSizes();
+        return accumulator.getSizeInBytes() >= maxPageSizeInBytes || accumulator.getDirectSizeInBytes() >= maxDirectPageSizeInBytes;
+    }
+
+    @VisibleForTesting
+    PositionsAppenderSizeAccumulator computeAppenderSizes()
+    {
+        PositionsAppenderSizeAccumulator accumulator = new PositionsAppenderSizeAccumulator();
+        for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
+            positionsAppender.addSizesToAccumulator(accumulator);
+        }
+        return accumulator;
     }
 
     public boolean isEmpty()
     {
         return declaredPositions == 0;
+    }
+
+    public Optional<Page> flushOrFlattenBeforeRelease()
+    {
+        if (declaredPositions == 0) {
+            return Optional.empty();
+        }
+
+        for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
+            if (positionsAppender.shouldForceFlushBeforeRelease()) {
+                // dictionary encoding will be preserved, so force the current page to be flushed
+                return Optional.of(build());
+            }
+        }
+
+        // transition from dictionary to direct mode if necessary, since we won't be able to reuse the
+        // same dictionary from the new operator
+        for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
+            positionsAppender.flattenPendingDictionary();
+        }
+
+        // flush the current page if forced or if the builder is now full as a result of transitioning dictionaries to direct mode
+        if (isFull()) {
+            return Optional.of(build());
+        }
+        return Optional.empty();
     }
 
     public Page build()

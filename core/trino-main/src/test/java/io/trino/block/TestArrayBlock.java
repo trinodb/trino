@@ -15,11 +15,12 @@ package io.trino.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlock;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -27,10 +28,10 @@ import java.util.Random;
 
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestArrayBlock
         extends AbstractTestBlock
@@ -46,18 +47,16 @@ public class TestArrayBlock
             expectedValues[i] = rand.longs(ARRAY_SIZES[i]).toArray();
         }
 
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 1, 3, 4, 7);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 2, 3, 5, 6);
+        Block block = createBlockBuilderWithValues(expectedValues).build();
+        assertBlock(block, expectedValues);
+        assertBlockFilteredPositions(expectedValues, block, 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, block, 2, 3, 5, 6);
 
         long[][] expectedValuesWithNull = alternatingNullValues(expectedValues);
-        BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
-        assertBlock(blockBuilderWithNull, expectedValuesWithNull);
-        assertBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 0, 1, 5, 6, 7, 10, 11, 12, 15);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 2, 3, 4, 9, 13, 14);
+        Block blockWithNull = createBlockBuilderWithValues(expectedValuesWithNull).build();
+        assertBlock(blockWithNull, expectedValuesWithNull);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, 2, 3, 4, 9, 13, 14);
     }
 
     @Test
@@ -71,19 +70,16 @@ public class TestArrayBlock
             }
         }
 
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 1, 3, 4, 7);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 2, 3, 5, 6);
+        Block block = createBlockBuilderWithValues(expectedValues).build();
+        assertBlock(block, expectedValues);
+        assertBlockFilteredPositions(expectedValues, block, 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, block, 2, 3, 5, 6);
 
         Slice[][] expectedValuesWithNull = alternatingNullValues(expectedValues);
-        BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
-        assertBlock(blockBuilderWithNull, expectedValuesWithNull);
-        assertBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 0, 1, 5, 6, 7, 10, 11, 12, 15);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 2, 3, 4, 9, 13, 14);
+        Block blockWithNull = createBlockBuilderWithValues(expectedValuesWithNull).build();
+        assertBlock(blockWithNull, expectedValuesWithNull);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, 2, 3, 4, 9, 13, 14);
     }
 
     @Test
@@ -91,19 +87,16 @@ public class TestArrayBlock
     {
         long[][][] expectedValues = createExpectedValues();
 
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 1, 3, 4, 7);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 2, 3, 5, 6);
+        Block block = createBlockBuilderWithValues(expectedValues).build();
+        assertBlock(block, expectedValues);
+        assertBlockFilteredPositions(expectedValues, block, 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, block, 2, 3, 5, 6);
 
         long[][][] expectedValuesWithNull = alternatingNullValues(expectedValues);
-        BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
-        assertBlock(blockBuilderWithNull, expectedValuesWithNull);
-        assertBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 0, 1, 5, 6, 7, 10, 11, 12, 15);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 2, 3, 4, 9, 13, 14);
+        Block blockWithNull = createBlockBuilderWithValues(expectedValuesWithNull).build();
+        assertBlock(blockWithNull, expectedValuesWithNull);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, 2, 3, 4, 9, 13, 14);
     }
 
     private static long[][][] createExpectedValues()
@@ -134,29 +127,27 @@ public class TestArrayBlock
         ArrayBlockBuilder emptyBlockBuilder = new ArrayBlockBuilder(BIGINT, null, 0, 0);
 
         BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, 100, 100);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
         writeValues(expectedValues, blockBuilder);
-        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
-        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
+        assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
         blockBuilder = blockBuilder.newBlockBuilderLike(null);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
     @Test
     public void testEstimatedDataSizeForStats()
     {
         long[][][] expectedValues = alternatingNullValues(createExpectedValues());
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        Block block = blockBuilder.build();
-        assertEquals(block.getPositionCount(), expectedValues.length);
+        Block block = createBlockBuilderWithValues(expectedValues).build();
+        assertThat(block.getPositionCount()).isEqualTo(expectedValues.length);
         for (int i = 0; i < block.getPositionCount(); i++) {
             int expectedSize = getExpectedEstimatedDataSize(expectedValues[i]);
-            assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
-            assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
+            assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(expectedSize);
         }
     }
 
@@ -185,9 +176,9 @@ public class TestArrayBlock
 
         testCompactBlock(fromElementBlock(0, Optional.empty(), new int[1], emptyValueBlock));
         testCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, compactValueBlock));
-        testIncompactBlock(fromElementBlock(valueIsNull.length - 1, Optional.of(valueIsNull), offsets, compactValueBlock));
+        testNotCompactBlock(fromElementBlock(valueIsNull.length - 1, Optional.of(valueIsNull), offsets, compactValueBlock));
         // underlying value block is not compact
-        testIncompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, inCompactValueBlock));
+        testNotCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, inCompactValueBlock));
     }
 
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)
@@ -252,5 +243,51 @@ public class TestArrayBlock
             }
         }
         return blockBuilder;
+    }
+
+    @Override
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    {
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
+
+        assertThat(block.isNull(position)).isFalse();
+
+        ArrayBlock arrayBlock = (ArrayBlock) block;
+        Block actual = arrayBlock.getArray(position);
+        if (expectedValue instanceof Byte[] expected) {
+            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                if (expected[i] == null) {
+                    assertThat(actual.isNull(i)).isTrue();
+                }
+                else {
+                    assertThat(TINYINT.getByte(actual, i)).isEqualTo(expected[i].byteValue());
+                }
+            }
+        }
+        else if (expectedValue instanceof long[] expected) {
+            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertThat(BIGINT.getLong(actual, i)).isEqualTo(expected[i]);
+            }
+        }
+        else if (expectedValue instanceof Slice[] expected) {
+            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertThat(VARCHAR.getSlice(actual, i)).isEqualTo(expected[i]);
+            }
+        }
+        else if (expectedValue instanceof long[][] expected) {
+            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertPositionValue(actual, i, expected[i]);
+            }
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type: " + expectedValue.getClass().getSimpleName());
+        }
     }
 }

@@ -15,14 +15,14 @@ package io.trino.plugin.example;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnMetadata;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 
 import static io.trino.plugin.example.MetadataUtil.TABLE_CODEC;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExampleTable
 {
@@ -33,7 +33,7 @@ public class TestExampleTable
     @Test
     public void testColumnMetadata()
     {
-        assertEquals(exampleTable.getColumnsMetadata(), ImmutableList.of(
+        assertThat(exampleTable.getColumnsMetadata()).isEqualTo(ImmutableList.of(
                 new ColumnMetadata("a", createUnboundedVarcharType()),
                 new ColumnMetadata("b", BIGINT)));
     }
@@ -44,8 +44,8 @@ public class TestExampleTable
         String json = TABLE_CODEC.toJson(exampleTable);
         ExampleTable exampleTableCopy = TABLE_CODEC.fromJson(json);
 
-        assertEquals(exampleTableCopy.getName(), exampleTable.getName());
-        assertEquals(exampleTableCopy.getColumns(), exampleTable.getColumns());
-        assertEquals(exampleTableCopy.getSources(), exampleTable.getSources());
+        assertThat(exampleTableCopy.getName()).isEqualTo(exampleTable.getName());
+        assertThat(exampleTableCopy.getColumns()).isEqualTo(exampleTable.getColumns());
+        assertThat(exampleTableCopy.getSources()).isEqualTo(exampleTable.getSources());
     }
 }

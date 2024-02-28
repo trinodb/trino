@@ -19,12 +19,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -40,11 +42,14 @@ public class IcebergSplit
     private final long start;
     private final long length;
     private final long fileSize;
+    private final long fileRecordCount;
     private final IcebergFileFormat fileFormat;
     private final String partitionSpecJson;
     private final String partitionDataJson;
     private final List<DeleteFile> deletes;
     private final SplitWeight splitWeight;
+    private final Map<String, String> fileIoProperties;
+    private final List<HostAddress> addresses;
 
     @JsonCreator
     public IcebergSplit(
@@ -52,21 +57,55 @@ public class IcebergSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
+            @JsonProperty("fileRecordCount") long fileRecordCount,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") String partitionDataJson,
             @JsonProperty("deletes") List<DeleteFile> deletes,
-            @JsonProperty("splitWeight") SplitWeight splitWeight)
+            @JsonProperty("splitWeight") SplitWeight splitWeight,
+            @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties)
+    {
+        this(
+                path,
+                start,
+                length,
+                fileSize,
+                fileRecordCount,
+                fileFormat,
+                partitionSpecJson,
+                partitionDataJson,
+                deletes,
+                splitWeight,
+                fileIoProperties,
+                ImmutableList.of());
+    }
+
+    public IcebergSplit(
+            String path,
+            long start,
+            long length,
+            long fileSize,
+            long fileRecordCount,
+            IcebergFileFormat fileFormat,
+            String partitionSpecJson,
+            String partitionDataJson,
+            List<DeleteFile> deletes,
+            SplitWeight splitWeight,
+            Map<String, String> fileIoProperties,
+            List<HostAddress> addresses)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
+        this.fileRecordCount = fileRecordCount;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
+        this.addresses = requireNonNull(addresses, "addresses is null");
     }
 
     @Override
@@ -79,7 +118,7 @@ public class IcebergSplit
     @Override
     public List<HostAddress> getAddresses()
     {
-        return ImmutableList.of();
+        return addresses;
     }
 
     @JsonProperty
@@ -104,6 +143,12 @@ public class IcebergSplit
     public long getFileSize()
     {
         return fileSize;
+    }
+
+    @JsonProperty
+    public long getFileRecordCount()
+    {
+        return fileRecordCount;
     }
 
     @JsonProperty
@@ -137,6 +182,12 @@ public class IcebergSplit
         return splitWeight;
     }
 
+    @JsonProperty
+    public Map<String, String> getFileIoProperties()
+    {
+        return fileIoProperties;
+    }
+
     @Override
     public Object getInfo()
     {
@@ -155,7 +206,8 @@ public class IcebergSplit
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
                 + estimatedSizeOf(deletes, DeleteFile::getRetainedSizeInBytes)
-                + splitWeight.getRetainedSizeInBytes();
+                + splitWeight.getRetainedSizeInBytes()
+                + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
     }
 
     @Override

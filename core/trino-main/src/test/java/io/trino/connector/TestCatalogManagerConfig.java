@@ -15,7 +15,7 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 

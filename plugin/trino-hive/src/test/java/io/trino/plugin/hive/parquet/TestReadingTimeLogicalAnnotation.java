@@ -14,16 +14,22 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.io.Resources;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.Test;
+import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
-import java.io.File;
+import java.io.OutputStream;
+import java.net.URL;
+import java.util.UUID;
 
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestReadingTimeLogicalAnnotation
@@ -32,17 +38,27 @@ public class TestReadingTimeLogicalAnnotation
     public void testReadingTimeLogicalAnnotationAsBigInt()
             throws Exception
     {
-        File parquetFile = new File(Resources.getResource("parquet_file_with_time_logical_annotation").toURI());
-        try (DistributedQueryRunner queryRunner = HiveQueryRunner.builder().build();
+        try (QueryRunner queryRunner = HiveQueryRunner.builder().build();
                 QueryAssertions assertions = new QueryAssertions(queryRunner)) {
-            queryRunner.execute(format("""
+            URL resourceLocation = Resources.getResource("parquet_file_with_time_logical_annotation/time-micros.parquet");
+
+            TrinoFileSystem fileSystem = getConnectorService(queryRunner, TrinoFileSystemFactory.class)
+                    .create(ConnectorIdentity.ofUser("test"));
+
+            Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+            fileSystem.createDirectory(tempDir);
+            Location dataFile = tempDir.appendPath("data.parquet");
+            try (OutputStream out = fileSystem.newOutputFile(dataFile).create()) {
+                Resources.copy(resourceLocation, out);
+            }
+
+            queryRunner.execute("""
                             CREATE TABLE table_with_time_logical_annotation (
                                 "opens" row(member0 bigint, member_1 varchar))
                             WITH (
                                 external_location = '%s',
                                 format = 'PARQUET')
-                            """,
-                    parquetFile.getAbsolutePath()));
+                            """.formatted(dataFile.parentDirectory()));
 
             assertThat(assertions.query("SELECT opens.member0 FROM table_with_time_logical_annotation GROUP BY 1 ORDER BY 1 LIMIT 5"))
                     .matches(resultBuilder(queryRunner.getDefaultSession(), BIGINT)

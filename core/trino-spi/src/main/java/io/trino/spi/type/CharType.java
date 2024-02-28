@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.ScalarOperator;
@@ -33,7 +34,6 @@ import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Slices.sliceRepresentation;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
@@ -58,18 +58,6 @@ public final class CharType
 
     private final int length;
     private volatile Optional<Range> range;
-
-    /**
-     * @deprecated Use {@link #createCharType(int)} instead.
-     */
-    @Deprecated
-    public static CharType createCharType(long length)
-    {
-        if (length < 0 || length > MAX_LENGTH) {
-            throw new IllegalArgumentException(format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
-        }
-        return createCharType(toIntExact(length));
-    }
 
     public static CharType createCharType(int length)
     {
@@ -125,7 +113,7 @@ public final class CharType
         if (!cachedRangePresent) {
             if (length > 100) {
                 // The max/min values may be materialized in the plan, so we don't want them to be too large.
-                // Range comparison against large values are usually nonsensical, too, so no need to support them
+                // Range comparison against large values is usually nonsensical, too, so no need to support them
                 // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
                 range = Optional.empty();
             }
@@ -158,7 +146,7 @@ public final class CharType
             return null;
         }
 
-        Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
+        Slice slice = getSlice(block, position);
         if (slice.length() > 0) {
             if (countCodePoints(slice) > length) {
                 throw new IllegalArgumentException(format("Character count exceeds length limit %s: %s", length, sliceRepresentation(slice)));
@@ -180,20 +168,11 @@ public final class CharType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
-        }
-    }
-
-    @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getSliceLength(position));
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return valueBlock.getSlice(valuePosition);
     }
 
     public void writeString(BlockBuilder blockBuilder, String value)

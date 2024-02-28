@@ -19,25 +19,27 @@ import io.trino.hive.formats.ReadWriteUtils;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
+import io.trino.spi.type.ArrayType;
 
 import static java.lang.Math.toIntExact;
 
 public class ListEncoding
         extends BlockEncoding
 {
+    private final ArrayType arrayType;
     private final BinaryColumnEncoding elementEncoding;
 
-    public ListEncoding(Type type, BinaryColumnEncoding elementEncoding)
+    public ListEncoding(ArrayType arrayType, BinaryColumnEncoding elementEncoding)
     {
-        super(type);
+        super(arrayType);
+        this.arrayType = arrayType;
         this.elementEncoding = elementEncoding;
     }
 
     @Override
     public void encodeValue(Block block, int position, SliceOutput output)
     {
-        Block list = block.getObject(position, Block.class);
+        Block list = arrayType.getObject(block, position);
         ReadWriteUtils.writeVInt(output, list.getPositionCount());
 
         // write null bits

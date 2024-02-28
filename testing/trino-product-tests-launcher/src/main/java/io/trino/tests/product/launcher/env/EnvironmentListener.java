@@ -22,6 +22,7 @@ import io.trino.tests.product.launcher.util.ConsoleTable;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -29,6 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.tests.product.launcher.env.StatisticsFetcher.Stats.HEADER;
@@ -82,7 +84,7 @@ public interface EnvironmentListener
     {
         return new EnvironmentListener()
         {
-            private FailsafeExecutor<?> executor = Failsafe
+            private final FailsafeExecutor<?> executor = Failsafe
                     .with(Timeout.builder(ofMinutes(5)).withInterrupt().build())
                     .with(newCachedThreadPool(daemonThreadsNamed("environment-listener-%d")));
 
@@ -259,6 +261,34 @@ public interface EnvironmentListener
                 catch (Exception e) {
                     e.printStackTrace();
                 }
+            }
+        };
+    }
+
+    static EnvironmentListener printStartupLogs(List<Supplier<String>> lines)
+    {
+        return new EnvironmentListener()
+        {
+            @Override
+            public void environmentStarted(Environment environment)
+            {
+                if (lines.isEmpty()) {
+                    return;
+                }
+
+                String separator = "=".repeat(80);
+                StringBuilder startupInfo = new StringBuilder()
+                        .append("\n".repeat(3))
+                        .append(separator)
+                        .append("\n");
+
+                for (Supplier<String> line : lines) {
+                    startupInfo.append("\n").append(line.get());
+                }
+                startupInfo.append("\n".repeat(2))
+                        .append(separator)
+                        .append("\n".repeat(3));
+                log.info(startupInfo.toString());
             }
         };
     }

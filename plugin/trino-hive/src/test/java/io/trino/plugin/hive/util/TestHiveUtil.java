@@ -13,46 +13,25 @@
  */
 package io.trino.plugin.hive.util;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
-import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
-import org.apache.hadoop.hive.serde2.thrift.ThriftDeserializer;
-import org.apache.hadoop.hive.serde2.thrift.test.IntString;
-import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.thrift.protocol.TBinaryProtocol;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 
-import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
-import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
-import static io.trino.plugin.hive.util.HiveReaderUtil.getDeserializer;
-import static io.trino.plugin.hive.util.HiveReaderUtil.getInputFormat;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.parseHiveTimestamp;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveUtil
 {
@@ -60,22 +39,11 @@ public class TestHiveUtil
     public void testParseHiveTimestamp()
     {
         DateTime time = new DateTime(2011, 5, 6, 7, 8, 9, 123, DateTimeZone.UTC);
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss"), unixTime(time, 0));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.S"), unixTime(time, 1));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSS"), unixTime(time, 3));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSS"), unixTime(time, 6));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSSSS"), unixTime(time, 7));
-    }
-
-    @Test
-    public void testGetThriftDeserializer()
-    {
-        Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, ThriftDeserializer.class.getName());
-        schema.setProperty(SERIALIZATION_CLASS, IntString.class.getName());
-        schema.setProperty(SERIALIZATION_FORMAT, TBinaryProtocol.class.getName());
-
-        assertInstanceOf(getDeserializer(newEmptyConfiguration(), schema), ThriftDeserializer.class);
+        assertThat(parse(time, "yyyy-MM-dd HH:mm:ss")).isEqualTo(unixTime(time, 0));
+        assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.S")).isEqualTo(unixTime(time, 1));
+        assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.SSS")).isEqualTo(unixTime(time, 3));
+        assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSS")).isEqualTo(unixTime(time, 6));
+        assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSSSS")).isEqualTo(unixTime(time, 7));
     }
 
     @Test
@@ -88,37 +56,6 @@ public class TestHiveUtil
         assertToPartitionValues("a=1");
         assertToPartitionValues("pk=!@%23$%25%5E&%2A()%2F%3D");
         assertToPartitionValues("pk=__HIVE_DEFAULT_PARTITION__");
-    }
-
-    @Test
-    public void testGetInputFormat()
-    {
-        Configuration configuration = newEmptyConfiguration();
-
-        // LazySimpleSerDe is used by TEXTFILE and SEQUENCEFILE. getInputFormat should default to TEXTFILE
-        // per Hive spec.
-        Properties sequenceFileSchema = new Properties();
-        sequenceFileSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
-        sequenceFileSchema.setProperty(SERIALIZATION_LIB, SEQUENCEFILE.getSerde());
-        assertInstanceOf(getInputFormat(configuration, sequenceFileSchema), TextInputFormat.class);
-
-        Properties avroSymlinkSchema = new Properties();
-        avroSymlinkSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
-        avroSymlinkSchema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
-        assertInstanceOf(getInputFormat(configuration, avroSymlinkSchema), AvroContainerInputFormat.class);
-
-        Properties parquetSymlinkSchema = new Properties();
-        parquetSymlinkSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
-        parquetSymlinkSchema.setProperty(SERIALIZATION_LIB, PARQUET.getSerde());
-        assertInstanceOf(getInputFormat(configuration, parquetSymlinkSchema), MapredParquetInputFormat.class);
-
-        Properties parquetSchema = new Properties();
-        parquetSchema.setProperty(FILE_INPUT_FORMAT, PARQUET.getInputFormat());
-        assertInstanceOf(getInputFormat(configuration, parquetSchema), MapredParquetInputFormat.class);
-
-        Properties legacyParquetSchema = new Properties();
-        legacyParquetSchema.setProperty(FILE_INPUT_FORMAT, "parquet.hive.MapredParquetInputFormat");
-        assertInstanceOf(getInputFormat(configuration, legacyParquetSchema), MapredParquetInputFormat.class);
     }
 
     @Test
@@ -217,7 +154,7 @@ public class TestHiveUtil
         AbstractList<String> expected = new ArrayList<>();
         actual.forEach(s -> expected.add(null));
         Warehouse.makeValsFromName(partitionName, expected);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     private static long parse(DateTime time, String pattern)

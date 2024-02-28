@@ -78,12 +78,6 @@ public class KuduSplit
         return bucketNumber;
     }
 
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
     @JsonProperty
     @Override
     public List<HostAddress> getAddresses()

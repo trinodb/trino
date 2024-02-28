@@ -27,11 +27,10 @@ import org.apache.iceberg.Metrics;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IcebergSortingFileWriter
+public final class IcebergSortingFileWriter
         implements IcebergFileWriter
 {
     private final IcebergFileWriter outputWriter;
@@ -104,11 +103,5 @@ public class IcebergSortingFileWriter
     public long getValidationCpuNanos()
     {
         return sortingFileWriter.getValidationCpuNanos();
-    }
-
-    @Override
-    public Optional<Runnable> getVerificationTask()
-    {
-        return sortingFileWriter.getVerificationTask();
     }
 }

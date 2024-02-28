@@ -13,37 +13,37 @@
  */
 package io.trino.spi.type;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigInteger;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlDecimal
 {
     @Test
     public void testToString()
     {
-        assertEquals(new SqlDecimal(new BigInteger("0"), 2, 1).toString(), "0.0");
-        assertEquals(new SqlDecimal(new BigInteger("0"), 3, 2).toString(), "0.00");
-        assertEquals(new SqlDecimal(new BigInteger("0"), 6, 5).toString(), "0.00000");
-        assertEquals(new SqlDecimal(new BigInteger("0"), 10, 5).toString(), "0.00000");
-        assertEquals(new SqlDecimal(new BigInteger("1"), 2, 1).toString(), "0.1");
-        assertEquals(new SqlDecimal(new BigInteger("0"), 3, 3).toString(), "0.000");
-        assertEquals(new SqlDecimal(new BigInteger("1"), 1, 0).toString(), "1");
-        assertEquals(new SqlDecimal(new BigInteger("1000"), 4, 3).toString(), "1.000");
-        assertEquals(new SqlDecimal(new BigInteger("12345678901234567890123456789012345678"), 38, 20)
-                .toString(), "123456789012345678.90123456789012345678");
+        assertThat(new SqlDecimal(new BigInteger("0"), 2, 1).toString()).isEqualTo("0.0");
+        assertThat(new SqlDecimal(new BigInteger("0"), 3, 2).toString()).isEqualTo("0.00");
+        assertThat(new SqlDecimal(new BigInteger("0"), 6, 5).toString()).isEqualTo("0.00000");
+        assertThat(new SqlDecimal(new BigInteger("0"), 10, 5).toString()).isEqualTo("0.00000");
+        assertThat(new SqlDecimal(new BigInteger("1"), 2, 1).toString()).isEqualTo("0.1");
+        assertThat(new SqlDecimal(new BigInteger("0"), 3, 3).toString()).isEqualTo("0.000");
+        assertThat(new SqlDecimal(new BigInteger("1"), 1, 0).toString()).isEqualTo("1");
+        assertThat(new SqlDecimal(new BigInteger("1000"), 4, 3).toString()).isEqualTo("1.000");
+        assertThat(new SqlDecimal(new BigInteger("12345678901234567890123456789012345678"), 38, 20)
+                .toString()).isEqualTo("123456789012345678.90123456789012345678");
 
-        assertEquals(new SqlDecimal(new BigInteger("-10"), 2, 1).toString(), "-1.0");
-        assertEquals(new SqlDecimal(new BigInteger("-100"), 3, 2).toString(), "-1.00");
-        assertEquals(new SqlDecimal(new BigInteger("-100000"), 6, 5).toString(), "-1.00000");
-        assertEquals(new SqlDecimal(new BigInteger("-100000"), 10, 5).toString(), "-1.00000");
-        assertEquals(new SqlDecimal(new BigInteger("-1"), 2, 1).toString(), "-0.1");
-        assertEquals(new SqlDecimal(new BigInteger("-1"), 3, 3).toString(), "-0.001");
-        assertEquals(new SqlDecimal(new BigInteger("-1"), 1, 0).toString(), "-1");
-        assertEquals(new SqlDecimal(new BigInteger("-1000"), 4, 3).toString(), "-1.000");
-        assertEquals(new SqlDecimal(new BigInteger("-12345678901234567890123456789012345678"), 38, 20)
-                .toString(), "-123456789012345678.90123456789012345678");
+        assertThat(new SqlDecimal(new BigInteger("-10"), 2, 1).toString()).isEqualTo("-1.0");
+        assertThat(new SqlDecimal(new BigInteger("-100"), 3, 2).toString()).isEqualTo("-1.00");
+        assertThat(new SqlDecimal(new BigInteger("-100000"), 6, 5).toString()).isEqualTo("-1.00000");
+        assertThat(new SqlDecimal(new BigInteger("-100000"), 10, 5).toString()).isEqualTo("-1.00000");
+        assertThat(new SqlDecimal(new BigInteger("-1"), 2, 1).toString()).isEqualTo("-0.1");
+        assertThat(new SqlDecimal(new BigInteger("-1"), 3, 3).toString()).isEqualTo("-0.001");
+        assertThat(new SqlDecimal(new BigInteger("-1"), 1, 0).toString()).isEqualTo("-1");
+        assertThat(new SqlDecimal(new BigInteger("-1000"), 4, 3).toString()).isEqualTo("-1.000");
+        assertThat(new SqlDecimal(new BigInteger("-12345678901234567890123456789012345678"), 38, 20)
+                .toString()).isEqualTo("-123456789012345678.90123456789012345678");
     }
 }

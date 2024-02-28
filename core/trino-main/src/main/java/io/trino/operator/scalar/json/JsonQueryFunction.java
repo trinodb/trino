@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
-import io.trino.json.PathEvaluationError;
+import io.trino.json.PathEvaluationException;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.TypedValue;
 import io.trino.metadata.FunctionManager;
@@ -30,7 +30,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -64,7 +64,7 @@ public class JsonQueryFunction
         extends SqlScalarFunction
 {
     public static final String JSON_QUERY_FUNCTION_NAME = "$json_query";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonQueryFunction.class, "jsonQuery", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, long.class, long.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonQueryFunction.class, "jsonQuery", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, long.class, long.class);
     private static final JsonNode EMPTY_ARRAY_RESULT = new ArrayNode(JsonNodeFactory.instance);
     private static final JsonNode EMPTY_OBJECT_RESULT = new ObjectNode(JsonNodeFactory.instance);
 
@@ -74,9 +74,8 @@ public class JsonQueryFunction
 
     public JsonQueryFunction(FunctionManager functionManager, Metadata metadata, TypeManager typeManager)
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder(JSON_QUERY_FUNCTION_NAME)
                 .signature(Signature.builder()
-                        .name(JSON_QUERY_FUNCTION_NAME)
                         .typeVariable("T")
                         .returnType(new TypeSignature(JSON_2016))
                         .argumentTypes(ImmutableList.of(
@@ -126,18 +125,18 @@ public class JsonQueryFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Block parametersRow,
+            SqlRow parametersRow,
             long wrapperBehavior,
             long emptyBehavior,
             long errorBehavior)
     {
         if (inputExpression.equals(JSON_ERROR)) {
-            return handleSpecialCase(errorBehavior, () -> new JsonInputConversionError("malformed input argument to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
+            return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
-                return handleSpecialCase(errorBehavior, () -> new JsonInputConversionError("malformed JSON path parameter to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
+                return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
             }
         }
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
@@ -152,13 +151,13 @@ public class JsonQueryFunction
         try {
             pathResult = evaluator.evaluate(inputExpression, parameters);
         }
-        catch (PathEvaluationError e) {
+        catch (PathEvaluationException e) {
             return handleSpecialCase(errorBehavior, () -> e);
         }
 
         // handle empty sequence
         if (pathResult.isEmpty()) {
-            return handleSpecialCase(emptyBehavior, () -> new JsonOutputConversionError("JSON path found no items"));
+            return handleSpecialCase(emptyBehavior, () -> new JsonOutputConversionException("JSON path found no items"));
         }
 
         // translate sequence to JSON items
@@ -167,7 +166,7 @@ public class JsonQueryFunction
             if (item instanceof TypedValue) {
                 Optional<JsonNode> jsonNode = getJsonNode((TypedValue) item);
                 if (jsonNode.isEmpty()) {
-                    return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionError(format(
+                    return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException(format(
                             "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
                             ((TypedValue) item).getType())));
                 }
@@ -202,7 +201,7 @@ public class JsonQueryFunction
             // if the only item is a TextNode, need to apply the KEEP / OMIT QUOTES behavior. this is done by the JSON output function
         }
 
-        return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionError("JSON path found multiple items"));
+        return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException("JSON path found multiple items"));
     }
 
     private static JsonNode handleSpecialCase(long behavior, Supplier<TrinoException> error)

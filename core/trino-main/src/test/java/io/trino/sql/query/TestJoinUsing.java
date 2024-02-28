@@ -14,30 +14,24 @@
 package io.trino.sql.query;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJoinUsing
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -49,11 +43,11 @@ public class TestJoinUsing
                         "(VALUES (1, 'b')) AS u(k, v2) USING (k)"))
                 .matches("VALUES (1, 'a', 'b', 'a', 'b')");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT t.k FROM " +
                         "(VALUES (1, 'a')) AS t(k, v1) JOIN" +
                         "(VALUES (1, 'b')) AS u(k, v2) USING (k)"))
-                .hasMessageMatching(".*Column 't.k' cannot be resolved.*");
+                .failure().hasMessageMatching(".*Column 't.k' cannot be resolved.*");
     }
 
     @Test
@@ -122,11 +116,11 @@ public class TestJoinUsing
     @Test
     public void testDuplicateColumns()
     {
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT * FROM " +
                         "(VALUES (1, 'a')) AS t(k, v1) JOIN" +
                         "(VALUES (1, 'b')) AS u(k, v2) USING (k, k)"))
-                .hasMessageMatching(".*Column 'k' appears multiple times in USING clause.*");
+                .failure().hasMessageMatching(".*Column 'k' appears multiple times in USING clause.*");
     }
 
     @Test

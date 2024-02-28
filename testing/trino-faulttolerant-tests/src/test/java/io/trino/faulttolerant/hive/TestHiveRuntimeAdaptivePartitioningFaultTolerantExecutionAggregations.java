@@ -22,8 +22,6 @@ import io.trino.testing.QueryRunner;
 
 import java.util.Map;
 
-import static io.trino.tpch.TpchTable.getTables;
-
 public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionAggregations
         extends AbstractTestFaultTolerantExecutionAggregations
 {
@@ -42,7 +40,7 @@ public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionAggregatio
                     runner.loadExchangeManager("filesystem", ImmutableMap.of("exchange.base-directories",
                             System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 })
-                .setInitialTables(getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 }

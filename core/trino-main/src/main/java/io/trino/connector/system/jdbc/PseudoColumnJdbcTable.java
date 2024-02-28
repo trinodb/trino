@@ -23,7 +23,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class PseudoColumnJdbcTable
         extends JdbcTable
@@ -31,16 +31,16 @@ public class PseudoColumnJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "pseudo_columns");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", createUnboundedVarcharType())
-            .column("table_schem", createUnboundedVarcharType())
-            .column("table_name", createUnboundedVarcharType())
-            .column("column_name", createUnboundedVarcharType())
+            .column("table_cat", VARCHAR)
+            .column("table_schem", VARCHAR)
+            .column("table_name", VARCHAR)
+            .column("column_name", VARCHAR)
             .column("data_type", BIGINT)
             .column("column_size", BIGINT)
             .column("decimal_digits", BIGINT)
             .column("num_prec_radix", BIGINT)
-            .column("column_usage", createUnboundedVarcharType())
-            .column("remarks", createUnboundedVarcharType())
+            .column("column_usage", VARCHAR)
+            .column("remarks", VARCHAR)
             .column("char_octet_length", BIGINT)
             .column("is_nullable", BIGINT)
             .build();

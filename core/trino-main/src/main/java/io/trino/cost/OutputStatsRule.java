@@ -13,11 +13,9 @@
  */
 package io.trino.cost;
 
-import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.OutputNode;
 
 import java.util.Optional;
@@ -36,8 +34,8 @@ public class OutputStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(OutputNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    public Optional<PlanNodeStatsEstimate> calculate(OutputNode node, Context context)
     {
-        return Optional.of(sourceStats.getStats(node.getSource()));
+        return Optional.of(context.statsProvider().getStats(node.getSource()));
     }
 }

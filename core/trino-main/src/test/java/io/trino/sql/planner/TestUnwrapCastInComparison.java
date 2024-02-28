@@ -419,7 +419,7 @@ public class TestUnwrapCastInComparison
     @Test
     public void testCastDateToTimestampWithTimeZone()
     {
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Session utcSession = withZone(session, TimeZoneKey.UTC_KEY);
         // east of Greenwich
@@ -513,7 +513,7 @@ public class TestUnwrapCastInComparison
     @Test
     public void testCastTimestampToTimestampWithTimeZone()
     {
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Session utcSession = withZone(session, TimeZoneKey.UTC_KEY);
         // east of Greenwich
@@ -628,16 +628,12 @@ public class TestUnwrapCastInComparison
         // INTEGER->REAL implicit cast is not injective if the real constant is >= 2^23 and <= 2^31 - 1
         testUnwrap("integer", "a = REAL '8388608'", "CAST(a AS REAL) = REAL '8388608.0'");
 
-        testUnwrap("integer", "a = REAL '2147483647'", Runtime.version().feature() >= 19
-                ? "CAST(a AS REAL) = REAL '2.1474836E9'"
-                : "CAST(a AS REAL) = REAL '2.14748365E9'");
+        testUnwrap("integer", "a = REAL '2147483647'", "CAST(a AS REAL) = REAL '2.1474836E9'");
 
         // INTEGER->REAL implicit cast is not injective if the real constant is <= -2^23 and >= -2^31 + 1
         testUnwrap("integer", "a = REAL '-8388608'", "CAST(a AS REAL) = REAL '-8388608.0'");
 
-        testUnwrap("integer", "a = REAL '-2147483647'", Runtime.version().feature() >= 19
-                ? "CAST(a AS REAL) = REAL '-2.1474836E9'"
-                : "CAST(a AS REAL) = REAL '-2.14748365E9'");
+        testUnwrap("integer", "a = REAL '-2147483647'", "CAST(a AS REAL) = REAL '-2.1474836E9'");
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
         testUnwrap("decimal(16)", "a = DOUBLE '1'", "CAST(a AS DOUBLE) = 1E0");
@@ -786,7 +782,7 @@ public class TestUnwrapCastInComparison
 
     private void testNoUnwrap(String inputType, String inputPredicate, String expectedCastType)
     {
-        testNoUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedCastType);
+        testNoUnwrap(getPlanTester().getDefaultSession(), inputType, inputPredicate, expectedCastType);
     }
 
     private void testNoUnwrap(Session session, String inputType, String inputPredicate, String expectedCastType)
@@ -802,13 +798,13 @@ public class TestUnwrapCastInComparison
     {
         assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42", inputType, inputPredicate),
                 output(
-                        filter("rand() = 42e0",
+                        filter("random() = 42e0",
                                 values("a"))));
     }
 
     private void testUnwrap(String inputType, String inputPredicate, String expectedPredicate)
     {
-        testUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedPredicate);
+        testUnwrap(getPlanTester().getDefaultSession(), inputType, inputPredicate, expectedPredicate);
     }
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)
@@ -816,7 +812,7 @@ public class TestUnwrapCastInComparison
         assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s OR rand() = 42", inputType, inputPredicate),
                 session,
                 output(
-                        filter(format("%s OR rand() = 42e0", expectedPredicate),
+                        filter(format("%s OR random() = 42e0", expectedPredicate),
                                 values("a"))));
     }
 

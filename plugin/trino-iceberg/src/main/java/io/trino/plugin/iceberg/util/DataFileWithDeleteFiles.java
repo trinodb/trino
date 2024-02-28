@@ -21,24 +21,11 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class DataFileWithDeleteFiles
+public record DataFileWithDeleteFiles(DataFile dataFile, List<DeleteFile> deleteFiles)
 {
-    private final DataFile dataFile;
-    private final List<DeleteFile> deleteFiles;
-
-    public DataFileWithDeleteFiles(DataFile dataFile, List<DeleteFile> deleteFiles)
+    public DataFileWithDeleteFiles
     {
-        this.dataFile = requireNonNull(dataFile, "dataFile is null");
-        this.deleteFiles = ImmutableList.copyOf(requireNonNull(deleteFiles, "deleteFiles is null"));
-    }
-
-    public DataFile getDataFile()
-    {
-        return dataFile;
-    }
-
-    public List<DeleteFile> getDeleteFiles()
-    {
-        return deleteFiles;
+        requireNonNull(dataFile, "dataFile is null");
+        deleteFiles = ImmutableList.copyOf(requireNonNull(deleteFiles, "deleteFiles is null"));
     }
 }

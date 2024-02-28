@@ -27,13 +27,14 @@ import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CurrentCatalog;
+import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
 import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.DecimalLiteral;
@@ -71,6 +72,8 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
@@ -93,8 +96,6 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.TypeParameter;
@@ -119,7 +120,6 @@ import static io.trino.sql.ReservedIdentifiers.reserved;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
 import static io.trino.sql.SqlFormatter.formatName;
 import static io.trino.sql.SqlFormatter.formatSql;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -172,16 +172,15 @@ public final class ExpressionFormatter
         @Override
         protected String visitExpression(Expression node, Void context)
         {
-            throw new UnsupportedOperationException(format("not yet implemented: %s.visit%s", getClass().getName(), node.getClass().getSimpleName()));
+            throw new UnsupportedOperationException("not yet implemented: %s.visit%s".formatted(getClass().getName(), node.getClass().getSimpleName()));
         }
 
         @Override
         protected String visitAtTimeZone(AtTimeZone node, Void context)
         {
-            return new StringBuilder()
-                    .append(process(node.getValue(), context))
-                    .append(" AT TIME ZONE ")
-                    .append(process(node.getTimeZone(), context)).toString();
+            return process(node.getValue(), context) +
+                    " AT TIME ZONE " +
+                    process(node.getTimeZone(), context);
         }
 
         @Override
@@ -212,10 +211,10 @@ public final class ExpressionFormatter
         protected String visitTrim(Trim node, Void context)
         {
             if (!node.getTrimCharacter().isPresent()) {
-                return format("trim(%s FROM %s)", node.getSpecification(), process(node.getTrimSource(), context));
+                return "trim(%s FROM %s)".formatted(node.getSpecification(), process(node.getTrimSource(), context));
             }
 
-            return format("trim(%s %s FROM %s)", node.getSpecification(), process(node.getTrimCharacter().get(), context), process(node.getTrimSource(), context));
+            return "trim(%s %s FROM %s)".formatted(node.getSpecification(), process(node.getTrimCharacter().get(), context), process(node.getTrimSource(), context));
         }
 
         @Override
@@ -225,17 +224,51 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitCurrentDate(CurrentDate node, Void context)
+        {
+            return "current_date";
+        }
+
+        @Override
         protected String visitCurrentTime(CurrentTime node, Void context)
         {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(node.getFunction().getName());
+            builder.append("current_time");
+            node.getPrecision().ifPresent(precision -> builder.append('(').append(precision).append(')'));
 
-            if (node.getPrecision() != null) {
-                builder.append('(')
-                        .append(node.getPrecision())
-                        .append(')');
-            }
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitCurrentTimestamp(CurrentTimestamp node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("current_timestamp");
+            node.getPrecision().ifPresent(precision -> builder.append('(').append(precision).append(')'));
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitLocalTime(LocalTime node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("localtime");
+            node.getPrecision().ifPresent(precision -> builder.append('(').append(precision).append(')'));
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitLocalTimestamp(LocalTimestamp node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("localtimestamp");
+            node.getPrecision().ifPresent(precision -> builder.append('(').append(precision).append(')'));
 
             return builder.toString();
         }
@@ -260,14 +293,6 @@ public final class ExpressionFormatter
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
                     .orElseGet(() -> formatStringLiteral(node.getValue()));
-        }
-
-        @Override
-        protected String visitCharLiteral(CharLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> "CHAR " + formatStringLiteral(node.getValue()));
         }
 
         @Override
@@ -335,22 +360,6 @@ public final class ExpressionFormatter
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
                     .orElseGet(() -> node.getType() + " " + formatStringLiteral(node.getValue()));
-        }
-
-        @Override
-        protected String visitTimeLiteral(TimeLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> "TIME '" + node.getValue() + "'");
-        }
-
-        @Override
-        protected String visitTimestampLiteral(TimestampLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> "TIMESTAMP '" + node.getValue() + "'");
         }
 
         @Override
@@ -717,17 +726,11 @@ public final class ExpressionFormatter
         @Override
         protected String visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Void context)
         {
-            return new StringBuilder()
-                    .append("(")
-                    .append(process(node.getValue(), context))
-                    .append(' ')
-                    .append(node.getOperator().getValue())
-                    .append(' ')
-                    .append(node.getQuantifier().toString())
-                    .append(' ')
-                    .append(process(node.getSubquery(), context))
-                    .append(")")
-                    .toString();
+            return "(%s %s %s %s)".formatted(
+                    process(node.getValue(), context),
+                    node.getOperator().getValue(),
+                    node.getQuantifier(),
+                    process(node.getSubquery(), context));
         }
 
         @Override
@@ -887,7 +890,7 @@ public final class ExpressionFormatter
             builder.append(switch (node.getWrapperBehavior()) {
                 case WITHOUT -> " WITHOUT ARRAY WRAPPER";
                 case CONDITIONAL -> " WITH CONDITIONAL ARRAY WRAPPER";
-                case UNCONDITIONAL -> (" WITH UNCONDITIONAL ARRAY WRAPPER");
+                case UNCONDITIONAL -> " WITH UNCONDITIONAL ARRAY WRAPPER";
             });
 
             if (node.getQuotesBehavior().isPresent()) {
@@ -1021,6 +1024,10 @@ public final class ExpressionFormatter
                         .append('(')
                         .append(formatOrderBy(node.getOrderBy().get()))
                         .append(')');
+            }
+
+            if (node.getFilter().isPresent()) {
+                builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), null));
             }
 
             return builder.toString();

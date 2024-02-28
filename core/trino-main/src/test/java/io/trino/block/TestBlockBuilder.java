@@ -21,7 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,10 +30,8 @@ import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestBlockBuilder
 {
@@ -47,10 +45,10 @@ public class TestBlockBuilder
         BIGINT.writeLong(blockBuilder, 42);
         Block block = blockBuilder.build();
 
-        assertTrue(block.isNull(0));
-        assertEquals(BIGINT.getLong(block, 1), 42L);
-        assertTrue(block.isNull(2));
-        assertEquals(BIGINT.getLong(block, 3), 42L);
+        assertThat(block.isNull(0)).isTrue();
+        assertThat(BIGINT.getLong(block, 1)).isEqualTo(42L);
+        assertThat(block.isNull(2)).isTrue();
+        assertThat(BIGINT.getLong(block, 3)).isEqualTo(42L);
     }
 
     @Test
@@ -76,11 +74,12 @@ public class TestBlockBuilder
 
         PageBuilder newPageBuilder = pageBuilder.newPageBuilderLike();
         for (int i = 0; i < channels.size(); i++) {
-            assertEquals(newPageBuilder.getType(i), pageBuilder.getType(i));
+            assertThat(newPageBuilder.getType(i)).isEqualTo(pageBuilder.getType(i));
             // we should get new block builder instances
-            assertNotEquals(pageBuilder.getBlockBuilder(i), newPageBuilder.getBlockBuilder(i));
-            assertEquals(newPageBuilder.getBlockBuilder(i).getPositionCount(), 0);
-            assertTrue(newPageBuilder.getBlockBuilder(i).getRetainedSizeInBytes() < pageBuilder.getBlockBuilder(i).getRetainedSizeInBytes());
+            assertThat(pageBuilder.getBlockBuilder(i))
+                    .isNotEqualTo(newPageBuilder.getBlockBuilder(i));
+            assertThat(newPageBuilder.getBlockBuilder(i).getPositionCount()).isEqualTo(0);
+            assertThat(newPageBuilder.getBlockBuilder(i).getRetainedSizeInBytes() < pageBuilder.getBlockBuilder(i).getRetainedSizeInBytes()).isTrue();
         }
     }
 
@@ -94,20 +93,6 @@ public class TestBlockBuilder
         BIGINT.writeLong(blockBuilder, 43L);
         blockBuilder.appendNull();
         int[] positions = new int[] {0, 1, 1, 1, 4};
-
-        // test getPositions for block builder
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 0, positions.length), buildBigintBlock(null, 42, 42, 42, null));
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 1, 4), buildBigintBlock(42, 42, 42, null));
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 2, 1), buildBigintBlock(42));
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 0, 0), buildBigintBlock());
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 1, 0), buildBigintBlock());
-
-        // out of range
-        assertInvalidPosition(blockBuilder, new int[] {-1}, 0, 1);
-        assertInvalidPosition(blockBuilder, new int[] {6}, 0, 1);
-        assertInvalidOffset(blockBuilder, new int[] {6}, 1, 1);
-        assertInvalidOffset(blockBuilder, new int[] {6}, -1, 1);
-        assertInvalidOffset(blockBuilder, new int[] {6}, 2, -1);
 
         // test getPositions for block
         Block block = blockBuilder.build();
@@ -131,7 +116,7 @@ public class TestBlockBuilder
                 isIdentical.set(true);
             }
         });
-        assertTrue(isIdentical.get());
+        assertThat(isIdentical.get()).isTrue();
     }
 
     private static Block buildBigintBlock(Integer... values)
@@ -150,14 +135,14 @@ public class TestBlockBuilder
 
     private static void assertInvalidPosition(Block block, int[] positions, int offset, int length)
     {
-        assertThatThrownBy(() -> block.getPositions(positions, offset, length).getLong(0, 0))
+        assertThatThrownBy(() -> BIGINT.getLong(block.getPositions(positions, offset, length), 0))
                 .isInstanceOfAny(IllegalArgumentException.class, IndexOutOfBoundsException.class)
-                .hasMessage("Invalid position %d in block with %d positions", positions[0], block.getPositionCount());
+                .hasMessage("Invalid position %d and length 1 in block with %d positions", positions[0], block.getPositionCount());
     }
 
     private static void assertInvalidOffset(Block block, int[] positions, int offset, int length)
     {
-        assertThatThrownBy(() -> block.getPositions(positions, offset, length).getLong(0, 0))
+        assertThatThrownBy(() -> BIGINT.getLong(block.getPositions(positions, offset, length), 0))
                 .isInstanceOfAny(IllegalArgumentException.class, IndexOutOfBoundsException.class)
                 .hasMessage(format("Invalid offset %d and length %d in array with %d elements", offset, length, positions.length));
     }

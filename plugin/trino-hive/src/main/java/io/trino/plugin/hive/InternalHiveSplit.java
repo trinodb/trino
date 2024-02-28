@@ -14,15 +14,16 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.spi.HostAddress;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -37,13 +38,14 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class InternalHiveSplit
 {
-    private static final int INSTANCE_SIZE = instanceSize(InternalHiveSplit.class) + instanceSize(Properties.class) + instanceSize(OptionalInt.class);
+    private static final int INSTANCE_SIZE = instanceSize(InternalHiveSplit.class) + instanceSize(OptionalInt.class);
+    private static final int INTEGER_INSTANCE_SIZE = instanceSize(Integer.class);
 
     private final String path;
     private final long end;
     private final long estimatedFileSize;
     private final long fileModifiedTime;
-    private final Properties schema;
+    private final Map<String, String> schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<InternalHiveBlock> blocks;
     private final String partitionName;
@@ -51,10 +53,9 @@ public class InternalHiveSplit
     private final OptionalInt tableBucketNumber;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
-    private final TableToPartitionMapping tableToPartitionMapping;
+    private final Map<Integer, HiveTypeName> hiveColumnCoercions;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<BucketValidation> bucketValidation;
-    private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
     private final BooleanSupplier partitionMatchSupplier;
 
@@ -68,17 +69,16 @@ public class InternalHiveSplit
             long end,
             long estimatedFileSize,
             long fileModifiedTime,
-            Properties schema,
+            Map<String, String> schema,
             List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
             boolean splittable,
             boolean forceLocalScheduling,
-            TableToPartitionMapping tableToPartitionMapping,
+            Map<Integer, HiveTypeName> hiveColumnCoercions,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
-            boolean s3SelectPushdownEnabled,
             Optional<AcidInfo> acidInfo,
             BooleanSupplier partitionMatchSupplier)
     {
@@ -92,7 +92,7 @@ public class InternalHiveSplit
         requireNonNull(blocks, "blocks is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
-        requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
+        requireNonNull(hiveColumnCoercions, "hiveColumnCoercions is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
@@ -111,10 +111,9 @@ public class InternalHiveSplit
         this.tableBucketNumber = tableBucketNumber;
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
-        this.tableToPartitionMapping = tableToPartitionMapping;
+        this.hiveColumnCoercions = ImmutableMap.copyOf(hiveColumnCoercions);
         this.bucketConversion = bucketConversion;
         this.bucketValidation = bucketValidation;
-        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
         this.partitionMatchSupplier = partitionMatchSupplier;
     }
@@ -144,12 +143,7 @@ public class InternalHiveSplit
         return fileModifiedTime;
     }
 
-    public boolean isS3SelectPushdownEnabled()
-    {
-        return s3SelectPushdownEnabled;
-    }
-
-    public Properties getSchema()
+    public Map<String, String> getSchema()
     {
         return schema;
     }
@@ -184,9 +178,9 @@ public class InternalHiveSplit
         return forceLocalScheduling;
     }
 
-    public TableToPartitionMapping getTableToPartitionMapping()
+    public Map<Integer, HiveTypeName> getHiveColumnCoercions()
     {
-        return tableToPartitionMapping;
+        return hiveColumnCoercions;
     }
 
     public Optional<BucketConversion> getBucketConversion()
@@ -229,7 +223,7 @@ public class InternalHiveSplit
                 estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes) +
                 estimatedSizeOf(blocks, InternalHiveBlock::getEstimatedSizeInBytes) +
                 estimatedSizeOf(partitionName) +
-                tableToPartitionMapping.getEstimatedSizeInBytes();
+                estimatedSizeOf(hiveColumnCoercions, (Integer key) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes);
         return toIntExact(result);
     }
 

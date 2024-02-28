@@ -15,24 +15,33 @@ package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.reader.ChunkedInputStream;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.PageReader;
 import io.trino.parquet.reader.TestingParquetDataSource;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.format.PageHeader;
+import org.apache.parquet.format.PageType;
+import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.PrimitiveType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -42,14 +51,20 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
+import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -97,6 +112,7 @@ public class TestParquetWriter
         Map<Integer, ChunkedInputStream> chunkReader = dataSource.planRead(ImmutableListMultimap.of(0, range), newSimpleAggregatedMemoryContext());
 
         PageReader pageReader = PageReader.createPageReader(
+                new ParquetDataSourceId("test"),
                 chunkReader.get(0),
                 chunkMetaData,
                 new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
@@ -116,6 +132,120 @@ public class TestParquetWriter
             assertThat(dataPage.getValueCount()).isBetween(4500, 5500);
         }
         assertThat(pagesRead).isGreaterThan(10);
+    }
+
+    @Test
+    public void testWrittenPageValueCount()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(INTEGER, BIGINT);
+
+        // Write a file with many small input pages and parquet max page value count of 1000
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxPageValueCount(1000)
+                                .setBatchSize(100)
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, 1000)),
+                new ParquetReaderOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        assertThat(parquetMetadata.getBlocks().size()).isEqualTo(1);
+        assertThat(parquetMetadata.getBlocks().get(0).getRowCount()).isEqualTo(100 * 1000);
+
+        ColumnChunkMetaData columnAMetaData = parquetMetadata.getBlocks().get(0).getColumns().get(0);
+        ColumnChunkMetaData columnBMetaData = parquetMetadata.getBlocks().get(0).getColumns().get(1);
+        Map<Integer, ChunkedInputStream> chunkReader = dataSource.planRead(
+                ImmutableListMultimap.of(
+                        0, new DiskRange(columnAMetaData.getStartingPos(), columnAMetaData.getTotalSize()),
+                        1, new DiskRange(columnBMetaData.getStartingPos(), columnBMetaData.getTotalSize())),
+                newSimpleAggregatedMemoryContext());
+
+        PageReader pageReader = PageReader.createPageReader(
+                new ParquetDataSourceId("test"),
+                chunkReader.get(0),
+                columnAMetaData,
+                new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
+                null,
+                Optional.empty());
+
+        pageReader.readDictionaryPage();
+        assertThat(pageReader.hasNext()).isTrue();
+        int pagesRead = 0;
+        DataPage dataPage;
+        while (pageReader.hasNext()) {
+            dataPage = pageReader.readPage();
+            pagesRead++;
+            assertThat(dataPage.getValueCount()).isEqualTo(1000);
+        }
+        assertThat(pagesRead).isEqualTo(100);
+
+        pageReader = PageReader.createPageReader(
+                new ParquetDataSourceId("test"),
+                chunkReader.get(1),
+                columnAMetaData,
+                new ColumnDescriptor(new String[] {"columnb"}, new PrimitiveType(REQUIRED, INT64, "columnb"), 0, 0),
+                null,
+                Optional.empty());
+
+        pageReader.readDictionaryPage();
+        assertThat(pageReader.hasNext()).isTrue();
+        pagesRead = 0;
+        while (pageReader.hasNext()) {
+            dataPage = pageReader.readPage();
+            pagesRead++;
+            assertThat(dataPage.getValueCount()).isEqualTo(1000);
+        }
+        assertThat(pagesRead).isEqualTo(100);
+    }
+
+    @Test
+    public void testLargeStringTruncation()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR);
+
+        Slice minA = Slices.utf8Slice("abc".repeat(300)); // within truncation threshold
+        Block blockA = VARCHAR.createBlockBuilder(null, 2)
+                .writeEntry(minA)
+                .writeEntry(Slices.utf8Slice("y".repeat(3200))) // bigger than truncation threshold
+                .build();
+
+        String threeByteCodePoint = new String(Character.toChars(0x20AC));
+        String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
+        Slice minB = Slices.utf8Slice(threeByteCodePoint.repeat(300)); // truncation in middle of unicode bytes
+        Block blockB = VARCHAR.createBlockBuilder(null, 2)
+                .writeEntry(minB)
+                // start with maxCodePoint to make it max value in stats
+                // last character for truncation is maxCodePoint
+                .writeEntry(Slices.utf8Slice(maxCodePoint + "d".repeat(1017) + maxCodePoint))
+                .build();
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().build(),
+                        types,
+                        columnNames,
+                        ImmutableList.of(new Page(2, blockA, blockB))),
+                new ParquetReaderOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        BlockMetaData blockMetaData = getOnlyElement(parquetMetadata.getBlocks());
+
+        ColumnChunkMetaData chunkMetaData = blockMetaData.getColumns().get(0);
+        assertThat(chunkMetaData.getStatistics().getMinBytes()).isEqualTo(minA.getBytes());
+        Slice truncatedMax = Slices.utf8Slice("y".repeat(1023) + "z");
+        assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());
+
+        chunkMetaData = blockMetaData.getColumns().get(1);
+        Slice truncatedMin = varcharToVarcharSaturatedFloorCast(1024, minB);
+        assertThat(chunkMetaData.getStatistics().getMinBytes()).isEqualTo(truncatedMin.getBytes());
+        truncatedMax = Slices.utf8Slice(maxCodePoint + "d".repeat(1016) + "e");
+        assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());
     }
 
     @Test
@@ -174,5 +304,48 @@ public class TestParquetWriter
         assertThat(previousRetainedBytes).isGreaterThanOrEqualTo(2 * Integer.BYTES * 1000 * 100);
         writer.close();
         assertThat(previousRetainedBytes - writer.getRetainedBytes()).isGreaterThanOrEqualTo(2 * Integer.BYTES * 1000 * 100);
+    }
+
+    @Test
+    public void testDictionaryPageOffset()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(INTEGER);
+
+        // Write a file with dictionary encoded data
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, 100)),
+                new ParquetReaderOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        assertThat(parquetMetadata.getBlocks().size()).isGreaterThanOrEqualTo(1);
+        for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
+            ColumnChunkMetaData chunkMetaData = getOnlyElement(blockMetaData.getColumns());
+            assertThat(chunkMetaData.getDictionaryPageOffset()).isGreaterThan(0);
+            int dictionaryPageSize = toIntExact(chunkMetaData.getFirstDataPageOffset() - chunkMetaData.getDictionaryPageOffset());
+            assertThat(dictionaryPageSize).isGreaterThan(0);
+
+            // verify reading dictionary page
+            SliceInput inputStream = dataSource.readFully(chunkMetaData.getStartingPos(), dictionaryPageSize).getInput();
+            PageHeader pageHeader = Util.readPageHeader(inputStream);
+            assertThat(pageHeader.getType()).isEqualTo(PageType.DICTIONARY_PAGE);
+            assertThat(pageHeader.getDictionary_page_header().getNum_values()).isEqualTo(100);
+            Slice compressedData = inputStream.readSlice(pageHeader.getCompressed_page_size());
+            Slice uncompressedData = decompress(
+                    new ParquetDataSourceId("test"),
+                    chunkMetaData.getCodec().getParquetCompressionCodec(),
+                    compressedData,
+                    pageHeader.getUncompressed_page_size());
+            int[] ids = new int[100];
+            uncompressedData.getInts(0, ids, 0, 100);
+            for (int i = 0; i < 100; i++) {
+                assertThat(ids[i]).isEqualTo(i);
+            }
+        }
     }
 }

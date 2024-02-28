@@ -62,7 +62,7 @@ public class MinioClient
     public static final String DEFAULT_MINIO_ACCESS_KEY = "minio-access-key";
     public static final String DEFAULT_MINIO_SECRET_KEY = "minio-secret-key";
 
-    private static Set<String> createdBuckets = Sets.newConcurrentHashSet();
+    private static final Set<String> createdBuckets = Sets.newConcurrentHashSet();
 
     private final io.minio.MinioClient client;
     private final ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(32));
@@ -91,7 +91,7 @@ public class MinioClient
         ensureBucketExists(bucket);
 
         try {
-            ClassPath.from(MinioClient.class.getClassLoader())
+            ClassPath.from(getClass().getClassLoader())
                     .getResources().stream()
                     .filter(resourceInfo -> resourceInfo.getResourceName().startsWith(resourcePath))
                     .forEach(resourceInfo -> {

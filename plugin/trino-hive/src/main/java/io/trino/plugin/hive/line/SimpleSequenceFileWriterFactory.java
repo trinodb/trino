@@ -17,7 +17,6 @@ import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.line.sequence.SequenceFileWriterFactory;
 import io.trino.hive.formats.line.simple.SimpleSerializerFactory;
-import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.type.TypeManager;
 
@@ -31,7 +30,6 @@ public class SimpleSequenceFileWriterFactory
                 typeManager,
                 new SimpleSerializerFactory(),
                 new SequenceFileWriterFactory(nodeVersion.toString()),
-                HiveSessionProperties::isSequenceFileNativeWriterEnabled,
                 false);
     }
 }

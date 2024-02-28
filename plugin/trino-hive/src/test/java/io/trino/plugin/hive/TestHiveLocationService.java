@@ -13,18 +13,16 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.LocationService.WriteInfo;
-import io.trino.plugin.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
-import io.trino.spi.TrinoException;
-import org.testng.annotations.Test;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
-import static org.testng.Assert.assertEquals;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 
 public class TestHiveLocationService
 {
@@ -57,16 +55,18 @@ public class TestHiveLocationService
                 .producesWriteInfo(writeInfo("/target", "/write", STAGE_AND_MOVE_TO_TARGET_DIRECTORY));
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Overwriting unpartitioned table not supported when writing directly to target directory")
+    @Test
     public void testGetTableWriteInfoOverwriteFailDirectNew()
     {
-        assertThat(locationHandle(DIRECT_TO_TARGET_NEW_DIRECTORY, "/target", "/target"), true);
+        assertTrinoExceptionThrownBy(() -> assertThat(locationHandle(DIRECT_TO_TARGET_NEW_DIRECTORY, "/target", "/target"), true))
+                .hasMessage("Overwriting unpartitioned table not supported when writing directly to target directory");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Overwriting unpartitioned table not supported when writing directly to target directory")
+    @Test
     public void testGetTableWriteInfoOverwriteFailDirectExisting()
     {
-        assertThat(locationHandle(DIRECT_TO_TARGET_EXISTING_DIRECTORY, "/target", "/target"), true);
+        assertTrinoExceptionThrownBy(() -> assertThat(locationHandle(DIRECT_TO_TARGET_EXISTING_DIRECTORY, "/target", "/target"), true))
+                .hasMessage("Overwriting unpartitioned table not supported when writing directly to target directory");
     }
 
     private static Assertion assertThat(LocationHandle locationHandle, boolean overwrite)
@@ -80,16 +80,15 @@ public class TestHiveLocationService
 
         public Assertion(LocationHandle locationHandle, boolean overwrite)
         {
-            HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(ImmutableList.of());
-            LocationService service = new HiveLocationService(hdfsEnvironment, new HiveConfig());
+            LocationService service = new HiveLocationService(HDFS_FILE_SYSTEM_FACTORY, new HiveConfig());
             this.actual = service.getTableWriteInfo(locationHandle, overwrite);
         }
 
         public void producesWriteInfo(WriteInfo expected)
         {
-            assertEquals(actual.writePath(), expected.writePath());
-            assertEquals(actual.targetPath(), expected.targetPath());
-            assertEquals(actual.writeMode(), expected.writeMode());
+            Assertions.assertThat(actual.writePath()).isEqualTo(expected.writePath());
+            Assertions.assertThat(actual.targetPath()).isEqualTo(expected.targetPath());
+            Assertions.assertThat(actual.writeMode()).isEqualTo(expected.writeMode());
         }
     }
 

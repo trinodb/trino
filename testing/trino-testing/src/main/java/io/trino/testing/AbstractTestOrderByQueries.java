@@ -14,7 +14,7 @@
 package io.trino.testing;
 
 import io.trino.Session;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.DISTRIBUTED_SORT;
 import static io.trino.tests.QueryTemplate.parameter;

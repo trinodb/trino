@@ -25,6 +25,7 @@ import io.trino.tracing.TrinoAttributes;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -104,5 +105,13 @@ public class TracingSplitSource
     public Optional<List<Object>> getTableExecuteSplitsInfo()
     {
         return source.getTableExecuteSplitsInfo();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("source", source)
+                .toString();
     }
 }

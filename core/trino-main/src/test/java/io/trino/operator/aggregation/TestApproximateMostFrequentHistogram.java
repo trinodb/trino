@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestApproximateMostFrequentHistogram
 {
@@ -37,8 +37,8 @@ public class TestApproximateMostFrequentHistogram
 
         Map<Long, Long> buckets = histogram.getBuckets();
 
-        assertEquals(buckets.size(), 3);
-        assertEquals(buckets, ImmutableMap.of(1L, 2L, 2L, 1L, 3L, 1L));
+        assertThat(buckets.size()).isEqualTo(3);
+        assertThat(buckets).isEqualTo(ImmutableMap.of(1L, 2L, 2L, 1L, 3L, 1L));
     }
 
     @Test
@@ -56,7 +56,7 @@ public class TestApproximateMostFrequentHistogram
 
         ApproximateMostFrequentHistogram<Long> deserialized = new ApproximateMostFrequentHistogram<Long>(serialized, LongApproximateMostFrequentStateSerializer::serializeBucket, LongApproximateMostFrequentStateSerializer::deserializeBucket);
 
-        assertEquals(deserialized.getBuckets(), original.getBuckets());
+        assertThat(deserialized.getBuckets()).isEqualTo(original.getBuckets());
     }
 
     @Test
@@ -75,8 +75,8 @@ public class TestApproximateMostFrequentHistogram
         histogram1.merge(histogram2);
         Map<Long, Long> buckets = histogram1.getBuckets();
 
-        assertEquals(buckets.size(), 3);
-        assertEquals(buckets, ImmutableMap.of(1L, 2L, 2L, 1L, 3L, 1L));
+        assertThat(buckets.size()).isEqualTo(3);
+        assertThat(buckets).isEqualTo(ImmutableMap.of(1L, 2L, 2L, 1L, 3L, 1L));
     }
 
     @Test
@@ -105,8 +105,8 @@ public class TestApproximateMostFrequentHistogram
         histogram1.merge(histogram2);
         Map<Long, Long> buckets = histogram1.getBuckets();
 
-        assertEquals(buckets.size(), 3);
-        assertEquals(buckets, ImmutableMap.of(1L, 4L, 2L, 4L, 3L, 4L));
+        assertThat(buckets.size()).isEqualTo(3);
+        assertThat(buckets).isEqualTo(ImmutableMap.of(1L, 4L, 2L, 4L, 3L, 4L));
     }
 
     @Test
@@ -122,8 +122,8 @@ public class TestApproximateMostFrequentHistogram
 
         Map<Slice, Long> buckets = histogram.getBuckets();
 
-        assertEquals(buckets.size(), 3);
-        assertEquals(buckets, ImmutableMap.of(Slices.utf8Slice("A"), 2L, Slices.utf8Slice("B"), 1L, Slices.utf8Slice("C"), 1L));
+        assertThat(buckets.size()).isEqualTo(3);
+        assertThat(buckets).isEqualTo(ImmutableMap.of(Slices.utf8Slice("A"), 2L, Slices.utf8Slice("B"), 1L, Slices.utf8Slice("C"), 1L));
     }
 
     @Test
@@ -141,7 +141,7 @@ public class TestApproximateMostFrequentHistogram
 
         ApproximateMostFrequentHistogram<Slice> deserialized = new ApproximateMostFrequentHistogram<Slice>(serialized, StringApproximateMostFrequentStateSerializer::serializeBucket, StringApproximateMostFrequentStateSerializer::deserializeBucket);
 
-        assertEquals(deserialized.getBuckets(), original.getBuckets());
+        assertThat(deserialized.getBuckets()).isEqualTo(original.getBuckets());
     }
 
     @Test
@@ -170,7 +170,7 @@ public class TestApproximateMostFrequentHistogram
         histogram1.merge(histogram2);
         Map<Slice, Long> buckets = histogram1.getBuckets();
 
-        assertEquals(buckets.size(), 3);
-        assertEquals(buckets, ImmutableMap.of(Slices.utf8Slice("A"), 4L, Slices.utf8Slice("B"), 4L, Slices.utf8Slice("C"), 4L));
+        assertThat(buckets.size()).isEqualTo(3);
+        assertThat(buckets).isEqualTo(ImmutableMap.of(Slices.utf8Slice("A"), 4L, Slices.utf8Slice("B"), 4L, Slices.utf8Slice("C"), 4L));
     }
 }

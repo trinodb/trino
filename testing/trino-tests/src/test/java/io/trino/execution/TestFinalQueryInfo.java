@@ -21,9 +21,11 @@ import io.trino.client.StatementClient;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.time.ZoneId;
 import java.util.Locale;
@@ -34,15 +36,16 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFinalQueryInfo
 {
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testFinalQueryInfoSetOnAbort()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(TEST_SESSION)) {
+        try (QueryRunner queryRunner = createQueryRunner(TEST_SESSION)) {
             QueryId queryId = startQuery("SELECT COUNT(*) FROM tpch.sf1000.lineitem", queryRunner);
             SettableFuture<QueryInfo> finalQueryInfoFuture = SettableFuture.create();
             queryRunner.getCoordinator().addFinalQueryInfoListener(queryId, finalQueryInfoFuture::set);
@@ -54,11 +57,11 @@ public class TestFinalQueryInfo
             // wait for final query info
             QueryInfo finalQueryInfo = tryGetFutureValue(finalQueryInfoFuture, 10, SECONDS)
                     .orElseThrow(() -> new AssertionError("Final query info never set"));
-            assertTrue(finalQueryInfo.isFinalQueryInfo());
+            assertThat(finalQueryInfo.isFinalQueryInfo()).isTrue();
         }
     }
 
-    private static QueryId startQuery(String sql, DistributedQueryRunner queryRunner)
+    private static QueryId startQuery(String sql, QueryRunner queryRunner)
     {
         OkHttpClient httpClient = new OkHttpClient();
         try {
@@ -90,10 +93,10 @@ public class TestFinalQueryInfo
         }
     }
 
-    public static DistributedQueryRunner createQueryRunner(Session session)
+    public static QueryRunner createQueryRunner(Session session)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(2)
                 .build();
 

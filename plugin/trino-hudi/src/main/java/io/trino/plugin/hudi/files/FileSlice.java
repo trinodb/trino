@@ -56,7 +56,7 @@ public class FileSlice
 
     public boolean isEmpty()
     {
-        return (baseFile == null) && (logFiles.isEmpty());
+        return (baseFile == null) && logFiles.isEmpty();
     }
 
     @Override

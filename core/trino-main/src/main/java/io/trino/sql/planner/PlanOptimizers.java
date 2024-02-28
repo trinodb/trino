@@ -160,6 +160,7 @@ import io.trino.sql.planner.iterative.rule.PushLimitThroughProject;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughUnion;
 import io.trino.sql.planner.iterative.rule.PushMergeWriterDeleteIntoConnector;
+import io.trino.sql.planner.iterative.rule.PushMergeWriterUpdateIntoConnector;
 import io.trino.sql.planner.iterative.rule.PushOffsetThroughProject;
 import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
@@ -271,7 +272,7 @@ public class PlanOptimizers
     @Inject
     public PlanOptimizers(
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TaskManagerConfig taskManagerConfig,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
@@ -302,7 +303,7 @@ public class PlanOptimizers
 
     public PlanOptimizers(
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TaskManagerConfig taskManagerConfig,
             boolean forceSingleNode,
             SplitManager splitManager,
@@ -414,7 +415,6 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(columnPruningRules)
                                 .addAll(projectionPushdownRules)
-                                .addAll(limitPushdownRules)
                                 .addAll(new UnwrapRowSubscript().rules())
                                 .addAll(new PushCastIntoRow().rules())
                                 .addAll(ImmutableSet.of(
@@ -429,6 +429,7 @@ public class PlanOptimizers
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
                                         new PushOffsetThroughProject(),
+                                        new MergeUnion(),
                                         new MergeLimits(),
                                         new MergeLimitWithSort(),
                                         new MergeLimitOverProjectWithSort(),
@@ -455,6 +456,29 @@ public class PlanOptimizers
                                         new RewriteSpatialPartitioningAggregation(plannerContext),
                                         new SimplifyCountOverConstant(plannerContext),
                                         new PreAggregateCaseAggregations(plannerContext, typeAnalyzer)))
+                                .build()),
+                // MergeUnion and related projection pruning rules must run before limit pushdown rules, otherwise
+                // an intermediate limit node will prevent unions from being merged later on
+                new IterativeOptimizer(
+                        plannerContext,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(projectionPushdownRules)
+                                .addAll(columnPruningRules)
+                                .addAll(limitPushdownRules)
+                                .addAll(ImmutableSet.of(
+                                        new MergeUnion(),
+                                        new RemoveEmptyUnionBranches(),
+                                        new MergeFilters(metadata),
+                                        new RemoveTrivialFilters(),
+                                        new MergeLimits(),
+                                        new MergeLimitWithSort(),
+                                        new MergeLimitOverProjectWithSort(),
+                                        new MergeLimitWithTopN(),
+                                        new InlineProjections(plannerContext, typeAnalyzer),
+                                        new RemoveRedundantIdentityProjections()))
                                 .build()),
                 new IterativeOptimizer(
                         plannerContext,
@@ -796,6 +820,7 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         // Must run before AddExchanges
                         new PushMergeWriterDeleteIntoConnector(metadata),
+                        new PushMergeWriterUpdateIntoConnector(plannerContext, typeAnalyzer, metadata),
                         new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator),
                         // Must run after join reordering because join reordering creates
                         // new join nodes without JoinNode.maySkipOutputDuplicates flag set
@@ -855,7 +880,7 @@ public class PlanOptimizers
             builder.add(new UnaliasSymbolReferences(metadata));
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(plannerContext, typeAnalyzer, statsCalculator, taskCountEstimator)));
             // It can only run after AddExchanges since it estimates the hash partition count for all remote exchanges
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new DeterminePartitionCount(statsCalculator)));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new DeterminePartitionCount(statsCalculator, taskCountEstimator)));
         }
 
         // use cost calculator without estimated exchanges after AddExchanges

@@ -13,11 +13,11 @@
  */
 package io.trino.spi.statistics;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.statistics.DoubleRange.union;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestDoubleRange
 {
@@ -61,17 +61,17 @@ public class TestDoubleRange
     @Test
     public void testUnion()
     {
-        assertEquals(union(new DoubleRange(1, 2), new DoubleRange(4, 5)), new DoubleRange(1, 5));
-        assertEquals(union(new DoubleRange(1, 2), new DoubleRange(1, 2)), new DoubleRange(1, 2));
-        assertEquals(union(new DoubleRange(4, 5), new DoubleRange(1, 2)), new DoubleRange(1, 5));
-        assertEquals(union(new DoubleRange(Double.NEGATIVE_INFINITY, 0), new DoubleRange(0, Double.POSITIVE_INFINITY)), new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
-        assertEquals(union(new DoubleRange(0, Double.POSITIVE_INFINITY), new DoubleRange(Double.NEGATIVE_INFINITY, 0)), new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+        assertThat(union(new DoubleRange(1, 2), new DoubleRange(4, 5))).isEqualTo(new DoubleRange(1, 5));
+        assertThat(union(new DoubleRange(1, 2), new DoubleRange(1, 2))).isEqualTo(new DoubleRange(1, 2));
+        assertThat(union(new DoubleRange(4, 5), new DoubleRange(1, 2))).isEqualTo(new DoubleRange(1, 5));
+        assertThat(union(new DoubleRange(Double.NEGATIVE_INFINITY, 0), new DoubleRange(0, Double.POSITIVE_INFINITY))).isEqualTo(new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+        assertThat(union(new DoubleRange(0, Double.POSITIVE_INFINITY), new DoubleRange(Double.NEGATIVE_INFINITY, 0))).isEqualTo(new DoubleRange(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
     }
 
     private static void assertRange(double min, double max)
     {
         DoubleRange range = new DoubleRange(min, max);
-        assertEquals(range.getMin(), min);
-        assertEquals(range.getMax(), max);
+        assertThat(range.getMin()).isEqualTo(min);
+        assertThat(range.getMax()).isEqualTo(max);
     }
 }

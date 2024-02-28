@@ -40,17 +40,17 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.RowsPerMatch.ALL_SHOW_EMPTY;
+import static io.trino.sql.planner.plan.RowsPerMatch.ALL_WITH_UNMATCHED;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
+import static io.trino.sql.planner.plan.SkipToPosition.NEXT;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_SHOW_EMPTY;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_WITH_UNMATCHED;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
-import static io.trino.sql.tree.SkipTo.Position.NEXT;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 
 public class TestPrunePattenRecognitionColumns
         extends BaseRuleTest
@@ -58,7 +58,7 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testRemovePatternRecognitionNode()
     {
-        ResolvedFunction rank = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("rank"), ImmutableList.of());
+        ResolvedFunction rank = createTestMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
 
         // MATCH_RECOGNIZE with options: AFTER MATCH SKIP PAST LAST ROW, ALL ROWS WITH UNMATCHED ROW
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -113,7 +113,7 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedWindowFunctionAndSources()
     {
-        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+        ResolvedFunction lag = createTestMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
 
         // remove window function "lag" and input symbol "b" used only by that function
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -146,7 +146,7 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedMeasureAndSources()
     {
-        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+        ResolvedFunction lag = createTestMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
 
         // remove row pattern measure "measure" and input symbol "a" used only by that measure
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -199,7 +199,7 @@ public class TestPrunePattenRecognitionColumns
                                                 values("a", "b")))));
 
         // inputs "a", "b" are used as aggregation arguments
-        QualifiedName maxBy = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("max_by"), fromTypes(BIGINT, BIGINT)).toQualifiedName();
+        QualifiedName maxBy = tester().getMetadata().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT)).toQualifiedName();
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.of(),

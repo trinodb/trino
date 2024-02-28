@@ -15,9 +15,10 @@ package io.trino.cli;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -37,14 +38,15 @@ import static io.trino.cli.TestQueryRunner.createQueryRunner;
 import static io.trino.cli.TestQueryRunner.createResults;
 import static io.trino.cli.TestQueryRunner.createTrinoUri;
 import static io.trino.cli.TestQueryRunner.nullPrintStream;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestInsecureQueryRunner
 {
     private MockWebServer server;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws Exception
     {
@@ -54,7 +56,7 @@ public class TestInsecureQueryRunner
         server.start();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws Exception
     {
@@ -79,7 +81,7 @@ public class TestInsecureQueryRunner
             query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
         }
 
-        assertEquals(server.takeRequest().getPath(), "/v1/statement");
+        assertThat(server.takeRequest().getPath()).isEqualTo("/v1/statement");
     }
 
     private SSLContext buildTestSslContext()

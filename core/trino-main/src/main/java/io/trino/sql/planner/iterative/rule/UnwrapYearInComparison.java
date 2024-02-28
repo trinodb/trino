@@ -21,10 +21,10 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.Cast;
@@ -45,6 +45,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -81,12 +82,12 @@ import static java.util.Objects.requireNonNull;
 public class UnwrapYearInComparison
         extends ExpressionRewriteRuleSet
 {
-    public UnwrapYearInComparison(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public UnwrapYearInComparison(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         super(createRewrite(plannerContext, typeAnalyzer));
     }
 
-    private static ExpressionRewriter createRewrite(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -96,7 +97,7 @@ public class UnwrapYearInComparison
 
     private static Expression unwrapYear(Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             Expression expression)
     {
@@ -107,12 +108,12 @@ public class UnwrapYearInComparison
             extends io.trino.sql.tree.ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
-        private final TypeAnalyzer typeAnalyzer;
+        private final IrTypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
         private final LiteralEncoder literalEncoder;
 
-        public Visitor(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
+        public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -136,7 +137,7 @@ public class UnwrapYearInComparison
             Expression valueList = inPredicate.getValueList();
 
             if (!(value instanceof FunctionCall call) ||
-                    !extractFunctionName(call.getName()).equals("year") ||
+                    !extractFunctionName(call.getName()).equals(builtinFunctionName("year")) ||
                     call.getArguments().size() != 1 ||
                     !(valueList instanceof InListExpression inListExpression)) {
                 return inPredicate;
@@ -163,7 +164,7 @@ public class UnwrapYearInComparison
             // Expect year on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
             if (!(expression.getLeft() instanceof FunctionCall call) ||
-                    !extractFunctionName(call.getName()).equals("year") ||
+                    !extractFunctionName(call.getName()).equals(builtinFunctionName("year")) ||
                     call.getArguments().size() != 1) {
                 return expression;
             }
@@ -173,7 +174,7 @@ public class UnwrapYearInComparison
             Expression argument = getOnlyElement(call.getArguments());
             Type argumentType = expressionTypes.get(NodeRef.of(argument));
 
-            Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, expressionTypes)
+            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session, expressionTypes)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             if (right == null || right instanceof NullLiteral) {
@@ -220,7 +221,7 @@ public class UnwrapYearInComparison
 
         private Expression toExpression(Object value, Type type)
         {
-            return literalEncoder.toExpression(session, value, type);
+            return literalEncoder.toExpression(value, type);
         }
     }
 

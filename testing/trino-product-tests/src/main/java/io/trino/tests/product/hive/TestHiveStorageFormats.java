@@ -29,7 +29,7 @@ import io.trino.tempto.query.QueryExecutor.QueryParam;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.utils.JdbcDriverUtils;
-import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.column.ParquetProperties;
 import org.assertj.core.api.SoftAssertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -775,13 +775,13 @@ public class TestHiveStorageFormats
     @Test(groups = STORAGE_FORMATS_DETAILED)
     public void testLargeParquetInsert()
     {
-        DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
+        DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE / 4);
         runLargeInsert(storageFormat(
                 "PARQUET",
                 ImmutableMap.of(
                         "hive.parquet_writer_page_size", reducedRowGroupSize.toBytesValueString(),
                         "task_scale_writers_enabled", "false",
-                        "task_writer_count", "1")));
+                        "task_min_writer_count", "1")));
     }
 
     @Test(groups = STORAGE_FORMATS_DETAILED)
@@ -1005,7 +1005,7 @@ public class TestHiveStorageFormats
     {
         try {
             // create more than one split
-            setSessionProperty(connection, "task_writer_count", "4");
+            setSessionProperty(connection, "task_min_writer_count", "4");
             setSessionProperty(connection, "task_scale_writers_enabled", "false");
             setSessionProperty(connection, "redistribute_writes", "false");
             for (Map.Entry<String, String> sessionProperty : sessionProperties.entrySet()) {

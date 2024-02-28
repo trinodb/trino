@@ -18,6 +18,7 @@ import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.CreateDatabaseRequest;
 import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -25,33 +26,42 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestTrinoGlueCatalog
         extends BaseTrinoCatalogTest
@@ -61,25 +71,31 @@ public class TestTrinoGlueCatalog
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
-        TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
+        return createGlueTrinoCatalog(useUniqueTableLocations, false);
+    }
+
+    private TrinoCatalog createGlueTrinoCatalog(boolean useUniqueTableLocations, boolean useSystemSecurity)
+    {
         AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
-                fileSystemFactory,
+                HDFS_FILE_SYSTEM_FACTORY,
                 new TestingTypeManager(),
                 catalogConfig.isCacheTableMetadata(),
                 new GlueIcebergTableOperationsProvider(
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
-                        fileSystemFactory,
+                        HDFS_FILE_SYSTEM_FACTORY,
                         new GlueMetastoreStats(),
                         glueClient),
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
+                useSystemSecurity,
                 Optional.empty(),
-                useUniqueTableLocations);
+                useUniqueTableLocations,
+                new IcebergConfig().isHideMaterializedViewStorageTable());
     }
 
     /**
@@ -114,7 +130,7 @@ public class TestTrinoGlueCatalog
                     CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    connectorIdentity -> {
+                    (connectorIdentity, fileIoProperties) -> {
                         throw new UnsupportedOperationException();
                     },
                     new TableStatisticsWriter(new NodeVersion("test-version")));
@@ -129,6 +145,55 @@ public class TestTrinoGlueCatalog
         finally {
             glueClient.deleteDatabase(new DeleteDatabaseRequest()
                     .withName(databaseName));
+        }
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithSystemSecurity()
+    {
+        TrinoCatalog glueTrinoCatalog = createGlueTrinoCatalog(false, true);
+        String namespace = "test_create_mv_" + randomNameSuffix();
+        String table = "materialized_view_name";
+        SchemaTableName viewName = new SchemaTableName(namespace, table);
+        Map<String, Object> properties = ImmutableMap.of(LOCATION_PROPERTY, "file:///tmp/a/path/");
+        try {
+            glueTrinoCatalog.createNamespace(SESSION, namespace, properties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            glueTrinoCatalog.createMaterializedView(
+                    SESSION,
+                    viewName,
+                    new ConnectorMaterializedViewDefinition(
+                            "CREATE * FROM tpch.tiny.nations",
+                            Optional.empty(),
+                            Optional.of("catalog_name"),
+                            Optional.of("schema_name"),
+                            ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("col1", INTEGER.getTypeId(), Optional.empty())),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.of("test_owner"),
+                            ImmutableList.of()),
+                    ImmutableMap.of(FILE_FORMAT_PROPERTY, PARQUET, FORMAT_VERSION_PROPERTY, 1),
+                    false,
+                    false);
+            List<SchemaTableName> materializedViews = glueTrinoCatalog.listMaterializedViews(SESSION, Optional.of(namespace));
+            assertThat(materializedViews.size()).isEqualTo(1);
+            assertThat(materializedViews.get(0).getTableName()).isEqualTo(table);
+            Optional<ConnectorMaterializedViewDefinition> returned = glueTrinoCatalog.getMaterializedView(SESSION, materializedViews.get(0));
+            assertThat(returned).isPresent();
+            assertThat(returned.get().getOwner()).isEmpty();
+        }
+        finally {
+            try {
+                glueTrinoCatalog.dropMaterializedView(SESSION, viewName);
+            }
+            catch (MaterializedViewNotFoundException e) {
+                LOG.warn("Failed to clean up view: %s", viewName);
+            }
+            try {
+                glueTrinoCatalog.dropNamespace(SESSION, namespace);
+            }
+            catch (Exception e) {
+                LOG.warn("Failed to clean up namespace: %s", namespace);
+            }
         }
     }
 
@@ -156,8 +221,10 @@ public class TestTrinoGlueCatalog
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
+                false,
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
-                false);
+                false,
+                new IcebergConfig().isHideMaterializedViewStorageTable());
 
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";
@@ -166,7 +233,7 @@ public class TestTrinoGlueCatalog
         try {
             File expectedSchemaDirectory = new File(tmpDirectory.toFile(), namespace + ".db");
             File expectedTableDirectory = new File(expectedSchemaDirectory, schemaTableName.getTableName());
-            assertEquals(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName), expectedTableDirectory.toPath().toAbsolutePath().toString());
+            assertThat(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName)).isEqualTo(expectedTableDirectory.toPath().toAbsolutePath().toString());
         }
         finally {
             try {

@@ -22,7 +22,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TableTypeJdbcTable
         extends JdbcTable
@@ -30,7 +30,7 @@ public class TableTypeJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "table_types");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_type", createUnboundedVarcharType())
+            .column("table_type", VARCHAR)
             .build();
 
     @Override

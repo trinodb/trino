@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -43,9 +44,10 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestBingTileFunctions
 {
     private QueryAssertions assertions;
@@ -72,8 +74,8 @@ public class TestBingTileFunctions
         ObjectMapper objectMapper = new ObjectMapper();
         BingTile tile = fromCoordinates(1, 2, 3);
         String json = objectMapper.writeValueAsString(tile);
-        assertEquals("{\"x\":1,\"y\":2,\"zoom\":3}", json);
-        assertEquals(tile, objectMapper.readerFor(BingTile.class).readValue(json));
+        assertThat("{\"x\":1,\"y\":2,\"zoom\":3}").isEqualTo(json);
+        assertThat(tile).isEqualTo(objectMapper.readerFor(BingTile.class).readValue(json));
     }
 
     @Test
@@ -452,7 +454,7 @@ public class TestBingTileFunctions
 
         assertThat(assertions.function("ST_AsText", "ST_Centroid(bing_tile_polygon(bing_tile('123030123010121')))"))
                 .hasType(VARCHAR)
-                .isEqualTo("POINT (60.0018310442288 30.121372968273892)");
+                .isEqualTo("POINT (60.0018310546875 30.121372973521975)");
 
         // Check bottom right corner of a stack of tiles at different zoom levels
         assertThat(assertions.function("ST_AsText", "apply(bing_tile_polygon(bing_tile(1, 1, 1)), g -> ST_Point(ST_XMax(g), ST_YMin(g)))"))

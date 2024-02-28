@@ -15,8 +15,8 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +34,6 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.type.UuidOperators.castFromVarcharToUuid;
 import static java.lang.Long.reverseBytes;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestUuidType
         extends AbstractTestType
@@ -44,14 +43,14 @@ public class TestUuidType
         super(UUID, String.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = UUID.createBlockBuilder(null, 1);
         for (int i = 0; i < 10; i++) {
             String uuid = "6b5f5b65-67e4-43b0-8ee3-586cd49f58a" + i;
             UUID.writeSlice(blockBuilder, castFromVarcharToUuid(utf8Slice(uuid)));
         }
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -73,7 +72,7 @@ public class TestUuidType
     @Test
     public void testDisplayName()
     {
-        assertEquals(UUID.getDisplayName(), "uuid");
+        assertThat(UUID.getDisplayName()).isEqualTo("uuid");
     }
 
     @Test

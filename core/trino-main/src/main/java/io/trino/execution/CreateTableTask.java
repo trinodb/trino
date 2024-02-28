@@ -32,6 +32,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
@@ -83,7 +84,6 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
-import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
@@ -130,10 +130,6 @@ public class CreateTableTask
     ListenableFuture<Void> internalExecute(CreateTable statement, Session session, List<Expression> parameters, Consumer<Output> outputConsumer)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
-        // TODO: Remove when engine is supporting table replacement
-        if (statement.getSaveMode() == REPLACE) {
-            throw semanticException(NOT_SUPPORTED, statement, "Replace table is not supported");
-        }
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
@@ -147,7 +143,7 @@ public class CreateTableTask
             }
             throw e;
         }
-        if (tableHandle.isPresent()) {
+        if (tableHandle.isPresent() && statement.getSaveMode() != REPLACE) {
             if (statement.getSaveMode() == FAIL) {
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
             }
@@ -156,6 +152,16 @@ public class CreateTableTask
 
         String catalogName = tableName.getCatalogName();
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
+
+        Map<String, Object> properties = tablePropertyManager.getProperties(
+                catalogName,
+                catalogHandle,
+                statement.getProperties(),
+                session,
+                plannerContext,
+                accessControl,
+                parameterLookup,
+                true);
 
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
@@ -194,7 +200,7 @@ public class CreateTableTask
 
                 columns.put(name.getValue().toLowerCase(ENGLISH), ColumnMetadata.builder()
                         .setName(name.getValue().toLowerCase(ENGLISH))
-                        .setType(type)
+                        .setType(getSupportedType(session, catalogHandle, properties, type))
                         .setNullable(column.isNullable())
                         .setComment(column.getComment())
                         .setProperties(columnProperties)
@@ -203,7 +209,7 @@ public class CreateTableTask
             else if (element instanceof LikeClause likeClause) {
                 QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
                 if (plannerContext.getMetadata().getCatalogHandle(session, originalLikeTableName.getCatalogName()).isEmpty()) {
-                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", originalLikeTableName.getCatalogName());
+                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' not found", originalLikeTableName.getCatalogName());
                 }
 
                 RedirectionAwareTableHandle redirection = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, originalLikeTableName);
@@ -263,22 +269,17 @@ public class CreateTableTask
                             if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {
                                 throw semanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
                             }
-                            columns.put(column.getName().toLowerCase(Locale.ENGLISH), column);
+                            columns.put(
+                                    column.getName().toLowerCase(Locale.ENGLISH),
+                                    ColumnMetadata.builderFrom(column)
+                                            .setType(getSupportedType(session, catalogHandle, properties, column.getType()))
+                                            .build());
                         });
             }
             else {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid TableElement: " + element.getClass().getName());
             }
         }
-        Map<String, Object> properties = tablePropertyManager.getProperties(
-                catalogName,
-                catalogHandle,
-                statement.getProperties(),
-                session,
-                plannerContext,
-                accessControl,
-                parameterLookup,
-                true);
 
         Set<String> specifiedPropertyKeys = statement.getProperties().stream()
                 // property names are case-insensitive and normalized to lower case
@@ -293,7 +294,7 @@ public class CreateTableTask
         Map<String, Object> finalProperties = combineProperties(specifiedPropertyKeys, properties, inheritedProperties);
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
         try {
-            plannerContext.getMetadata().createTable(session, catalogName, tableMetadata, statement.getSaveMode() == IGNORE);
+            plannerContext.getMetadata().createTable(session, catalogName, tableMetadata, toConnectorSaveMode(statement.getSaveMode()));
         }
         catch (TrinoException e) {
             // connectors are not required to handle the ignoreExisting flag
@@ -312,6 +313,13 @@ public class CreateTableTask
         return immediateVoidFuture();
     }
 
+    private Type getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
+    {
+        return plannerContext.getMetadata()
+                .getSupportedType(session, catalogHandle, tableProperties, type)
+                .orElse(type);
+    }
+
     private static Map<String, Object> combineProperties(Set<String> specifiedPropertyKeys, Map<String, Object> defaultProperties, Map<String, Object> inheritedProperties)
     {
         Map<String, Object> finalProperties = new HashMap<>(inheritedProperties);
@@ -321,5 +329,14 @@ public class CreateTableTask
             }
         }
         return finalProperties;
+    }
+
+    private static SaveMode toConnectorSaveMode(io.trino.sql.tree.SaveMode saveMode)
+    {
+        return switch (saveMode) {
+            case FAIL -> SaveMode.FAIL;
+            case IGNORE -> SaveMode.IGNORE;
+            case REPLACE -> SaveMode.REPLACE;
+        };
     }
 }

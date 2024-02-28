@@ -13,15 +13,12 @@
  */
 package io.trino.util;
 
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongLong2LongOpenCustomBigHashMap
 {
@@ -40,23 +37,25 @@ public class TestLongLong2LongOpenCustomBigHashMap
         }
     };
 
-    @DataProvider
-    public static Object[][] nullKeyValues()
+    @Test
+    public void testBasicOps()
     {
-        return new Object[][] {{0L, 0L}, {1L, 1L}, {-1L, -1L}, {0L, -1L}};
+        testBasicOps(0L, 0L);
+        testBasicOps(1L, 1L);
+        testBasicOps(-1L, -1L);
+        testBasicOps(0L, -1L);
     }
 
-    @Test(dataProvider = "nullKeyValues")
-    public void testBasicOps(long nullKey1, long nullKey2)
+    private void testBasicOps(long nullKey1, long nullKey2)
     {
         int expected = 100_000;
         LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(expected, DEFAULT_STRATEGY, nullKey1, nullKey2);
         map.defaultReturnValue(-1);
 
-        assertTrue(map.isEmpty());
-        assertEquals(map.size(), 0);
-        assertEquals(map.get(0, 0), -1);
-        assertEquals(map.get(1, -1), -1);
+        assertThat(map.isEmpty()).isTrue();
+        assertThat(map.size()).isEqualTo(0);
+        assertThat(map.get(0, 0)).isEqualTo(-1);
+        assertThat(map.get(1, -1)).isEqualTo(-1);
 
         List<Long> values = Arrays.asList(Long.MIN_VALUE, -10L, 0L, 10L, Long.MAX_VALUE);
 
@@ -65,9 +64,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertEquals(map.put(key1, key2, count - 1), -1);
-                assertFalse(map.isEmpty());
-                assertEquals(map.size(), count);
+                assertThat(map.put(key1, key2, count - 1)).isEqualTo(-1);
+                assertThat(map.isEmpty()).isFalse();
+                assertThat(map.size()).isEqualTo(count);
             }
         }
 
@@ -76,9 +75,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertTrue(map.replace(key1, key2, count - 1, count));
-                assertFalse(map.isEmpty());
-                assertEquals(map.size(), (long) values.size() * values.size());
+                assertThat(map.replace(key1, key2, count - 1, count)).isTrue();
+                assertThat(map.isEmpty()).isFalse();
+                assertThat(map.size()).isEqualTo((long) values.size() * values.size());
             }
         }
 
@@ -87,9 +86,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertTrue(map.containsKey(key1, key2));
-                assertTrue(map.containsValue(count));
-                assertEquals(map.get(key1, key2), count);
+                assertThat(map.containsKey(key1, key2)).isTrue();
+                assertThat(map.containsValue(count)).isTrue();
+                assertThat(map.get(key1, key2)).isEqualTo(count);
             }
         }
 
@@ -98,13 +97,21 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertEquals(map.remove(key1, key2), count);
+                assertThat(map.remove(key1, key2)).isEqualTo(count);
             }
         }
     }
 
-    @Test(dataProvider = "nullKeyValues")
-    public void testHashCollision(long nullKey1, long nullKey2)
+    @Test
+    public void testHashCollision()
+    {
+        testHashCollision(0L, 0L);
+        testHashCollision(1L, 1L);
+        testHashCollision(-1L, -1L);
+        testHashCollision(0L, -1L);
+    }
+
+    private void testHashCollision(long nullKey1, long nullKey2)
     {
         LongLong2LongOpenCustomBigHashMap.HashStrategy collisionHashStrategy = new LongLong2LongOpenCustomBigHashMap.HashStrategy()
         {
@@ -132,9 +139,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertEquals(map.put(key1, key2, count - 1), -1);
-                assertFalse(map.isEmpty());
-                assertEquals(map.size(), count);
+                assertThat(map.put(key1, key2, count - 1)).isEqualTo(-1);
+                assertThat(map.isEmpty()).isFalse();
+                assertThat(map.size()).isEqualTo(count);
             }
         }
 
@@ -143,9 +150,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertTrue(map.replace(key1, key2, count - 1, count));
-                assertFalse(map.isEmpty());
-                assertEquals(map.size(), (long) values.size() * values.size());
+                assertThat(map.replace(key1, key2, count - 1, count)).isTrue();
+                assertThat(map.isEmpty()).isFalse();
+                assertThat(map.size()).isEqualTo((long) values.size() * values.size());
             }
         }
 
@@ -154,9 +161,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertTrue(map.containsKey(key1, key2));
-                assertTrue(map.containsValue(count));
-                assertEquals(map.get(key1, key2), count);
+                assertThat(map.containsKey(key1, key2)).isTrue();
+                assertThat(map.containsValue(count)).isTrue();
+                assertThat(map.get(key1, key2)).isEqualTo(count);
             }
         }
 
@@ -165,13 +172,21 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertEquals(map.remove(key1, key2), count);
+                assertThat(map.remove(key1, key2)).isEqualTo(count);
             }
         }
     }
 
-    @Test(dataProvider = "nullKeyValues")
-    public void testRehash(long nullKey1, long nullKey2)
+    @Test
+    public void testRehash()
+    {
+        testRehash(0L, 0L);
+        testRehash(1L, 1L);
+        testRehash(-1L, -1L);
+        testRehash(0L, -1L);
+    }
+
+    private void testRehash(long nullKey1, long nullKey2)
     {
         int initialCapacity = 1;
         LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(initialCapacity, DEFAULT_STRATEGY, nullKey1, nullKey2);
@@ -183,7 +198,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 = 0; key1 < 1000; key1++) {
             for (long key2 = 0; key2 < 1000; key2++) {
                 count++;
-                assertEquals(map.put(key1, key2, count), -1);
+                assertThat(map.put(key1, key2, count)).isEqualTo(-1);
             }
         }
 
@@ -191,7 +206,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 = 0; key1 < 1000; key1++) {
             for (long key2 = 0; key2 < 1000; key2++) {
                 count++;
-                assertEquals(map.get(key1, key2), count);
+                assertThat(map.get(key1, key2)).isEqualTo(count);
             }
         }
 
@@ -207,7 +222,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
         count = 0;
         for (long key2 = 0; key2 < 1000; key2++) {
             count++;
-            assertEquals(map.get(0, key2), count);
+            assertThat(map.get(0, key2)).isEqualTo(count);
         }
     }
 }

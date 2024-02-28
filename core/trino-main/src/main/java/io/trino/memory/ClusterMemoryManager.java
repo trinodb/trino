@@ -392,7 +392,7 @@ public class ClusterMemoryManager
             stringBuilder.append("MaxBytes ").append(memoryPoolInfo.getMaxBytes()).append(' ');
             stringBuilder.append("FreeBytes ").append(memoryPoolInfo.getFreeBytes() + memoryPoolInfo.getReservedRevocableBytes()).append(' ');
             stringBuilder.append("Queries ");
-            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getQueryMemoryReservations()).append((' '));
+            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getQueryMemoryReservations()).append(' ');
             stringBuilder.append("Tasks ");
             Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getTaskMemoryReservations());
             stringBuilder.append('\n');

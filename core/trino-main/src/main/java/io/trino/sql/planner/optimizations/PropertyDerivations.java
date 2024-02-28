@@ -31,11 +31,11 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.ActualProperties.Global;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -53,6 +53,7 @@ import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -76,6 +77,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -105,11 +107,12 @@ import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitra
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSinglePartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.singlePartition;
+import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.isLocalExchangesSourceSingleStreamDistributed;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -123,7 +126,7 @@ public final class PropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         List<ActualProperties> inputProperties = node.getSources().stream()
                 .map(source -> derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer))
@@ -137,7 +140,7 @@ public final class PropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         ActualProperties output = node.accept(new Visitor(plannerContext, session, types, typeAnalyzer), inputProperties);
 
@@ -160,7 +163,7 @@ public final class PropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         return node.accept(new Visitor(plannerContext, session, types, typeAnalyzer), inputProperties);
     }
@@ -171,9 +174,9 @@ public final class PropertyDerivations
         private final PlannerContext plannerContext;
         private final Session session;
         private final TypeProvider types;
-        private final TypeAnalyzer typeAnalyzer;
+        private final IrTypeAnalyzer typeAnalyzer;
 
-        public Visitor(PlannerContext plannerContext, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+        public Visitor(PlannerContext plannerContext, Session session, TypeProvider types, IrTypeAnalyzer typeAnalyzer)
         {
             this.plannerContext = plannerContext;
             this.session = session;
@@ -500,6 +503,14 @@ public final class PropertyDerivations
         }
 
         @Override
+        public ActualProperties visitTableUpdate(TableUpdateNode node, List<ActualProperties> context)
+        {
+            return ActualProperties.builder()
+                    .global(coordinatorSinglePartition())
+                    .build();
+        }
+
+        @Override
         public ActualProperties visitTableExecute(TableExecuteNode node, List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
@@ -687,18 +698,19 @@ public final class PropertyDerivations
             if (node.getScope() == LOCAL) {
                 if (inputProperties.size() == 1) {
                     ActualProperties inputProperty = inputProperties.get(0);
-                    if (inputProperty.isEffectivelySinglePartition() && node.getOrderingScheme().isEmpty()) {
+                    if (inputProperty.isEffectivelySinglePartition() && node.getOrderingScheme().isEmpty() && !inputProperty.getLocalProperties().isEmpty()) {
                         verify(node.getInputs().size() == 1);
                         verify(node.getSources().size() == 1);
-                        PlanNode source = node.getSources().get(0);
-                        StreamPropertyDerivations.StreamProperties streamProperties = StreamPropertyDerivations.derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer);
-                        if (streamProperties.isSingleStream()) {
-                            Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, 0);
+                        Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, 0);
+                        List<LocalProperty<Symbol>> inputLocalProperties = LocalProperties.translate(inputProperty.getLocalProperties(), symbol -> Optional.ofNullable(inputToOutput.get(symbol)));
+                        // If no local properties are present to propagate, then we can skip recursive stream properties derivation
+                        // which traverses all child plan nodes again and is therefore expensive to check
+                        @SuppressWarnings("deprecation")
+                        boolean propagateLocalProperties = !inputLocalProperties.isEmpty() && isLocalExchangesSourceSingleStreamDistributed(node, plannerContext.getMetadata(), session);
+                        if (propagateLocalProperties) {
                             // Single stream input's local sorting and grouping properties are preserved
                             // In case of merging exchange, it's orderingScheme takes precedence
-                            localProperties.addAll(LocalProperties.translate(
-                                    inputProperty.getLocalProperties(),
-                                    symbol -> Optional.ofNullable(inputToOutput.get(symbol))));
+                            localProperties.addAll(inputLocalProperties);
                         }
                     }
                 }
@@ -772,7 +784,7 @@ public final class PropertyDerivations
 
                 Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
                 Type type = requireNonNull(expressionTypes.get(NodeRef.of(expression)));
-                ExpressionInterpreter optimizer = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
+                IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
                 // TODO:
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions
@@ -922,7 +934,7 @@ public final class PropertyDerivations
         }
     }
 
-    static boolean spillPossible(Session session, JoinNode.Type joinType)
+    static boolean spillPossible(Session session, JoinType joinType)
     {
         if (!SystemSessionProperties.isSpillEnabled(session)) {
             return false;

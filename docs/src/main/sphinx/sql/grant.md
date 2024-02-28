@@ -1,4 +1,4 @@
-# GRANT
+# GRANT privilege
 
 ## Synopsis
 

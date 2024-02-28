@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.buffer.CompressionCodec;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
@@ -53,6 +54,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class SystemSessionProperties
         implements SystemSessionPropertiesProvider
@@ -66,8 +68,8 @@ public final class SystemSessionProperties
     public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
     public static final String MIN_HASH_PARTITION_COUNT_FOR_WRITE = "min_hash_partition_count_for_write";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
-    public static final String TASK_WRITER_COUNT = "task_writer_count";
-    public static final String TASK_PARTITIONED_WRITER_COUNT = "task_partitioned_writer_count";
+    public static final String TASK_MIN_WRITER_COUNT = "task_min_writer_count";
+    public static final String TASK_MAX_WRITER_COUNT = "task_max_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
@@ -83,10 +85,10 @@ public final class SystemSessionProperties
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
-    public static final String MAX_WRITER_TASKS_COUNT = "max_writer_tasks_count";
-    public static final String TASK_SCALE_WRITERS_MAX_WRITER_COUNT = "task_scale_writers_max_writer_count";
+    public static final String MAX_WRITER_TASK_COUNT = "max_writer_task_count";
     public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
     public static final String SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = "skewed_partition_min_data_processed_rebalance_threshold";
+    public static final String MAX_MEMORY_PER_PARTITION_WRITER = "max_memory_per_partition_writer";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
@@ -106,12 +108,11 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
-    public static final String EXCHANGE_COMPRESSION = "exchange_compression";
+    public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED = "pre_aggregate_case_aggregations_enabled";
-    public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
@@ -136,7 +137,6 @@ public final class SystemSessionProperties
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
-    public static final String LATE_MATERIALIZATION = "late_materialization";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION = "enable_coordinator_dynamic_filters_distribution";
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
@@ -195,6 +195,7 @@ public final class SystemSessionProperties
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD = "fault_tolerant_execution_small_stage_estimation_threshold";
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER = "fault_tolerant_execution_small_stage_source_size_multiplier";
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS = "fault_tolerant_execution_small_stage_require_no_more_partitions";
+    private static final String FAULT_TOLERANT_EXECUTION_STAGE_ESTIMATION_FOR_EAGER_PARENT_ENABLED = "fault_tolerant_execution_stage_estimation_for_eager_parent_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
@@ -208,7 +209,8 @@ public final class SystemSessionProperties
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
-    public static final String FLAT_GROUP_BY_HASH = "flat_group_by_hash";
+    public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
+    public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -296,15 +298,15 @@ public final class SystemSessionProperties
                         false,
                         false),
                 integerProperty(
-                        TASK_WRITER_COUNT,
-                        "Number of local parallel table writers per task when prefer partitioning and task writer scaling are not used",
-                        taskManagerConfig.getWriterCount(),
+                        TASK_MIN_WRITER_COUNT,
+                        "Minimum number of local parallel table writers per task when preferred partitioning and task writer scaling are not used",
+                        taskManagerConfig.getMinWriterCount(),
                         false),
                 integerProperty(
-                        TASK_PARTITIONED_WRITER_COUNT,
-                        "Number of local parallel table writers per task when prefer partitioning is used",
-                        taskManagerConfig.getPartitionedWriterCount(),
-                        value -> validateValueIsPowerOfTwo(value, TASK_PARTITIONED_WRITER_COUNT),
+                        TASK_MAX_WRITER_COUNT,
+                        "Maximum number of local parallel table writers per task when either task writer scaling or preferred partitioning is used",
+                        taskManagerConfig.getMaxWriterCount(),
+                        value -> validateValueIsPowerOfTwo(value, TASK_MAX_WRITER_COUNT),
                         false),
                 booleanProperty(
                         REDISTRIBUTE_WRITES,
@@ -322,21 +324,16 @@ public final class SystemSessionProperties
                         featuresConfig.isScaleWriters(),
                         false),
                 integerProperty(
-                        MAX_WRITER_TASKS_COUNT,
+                        MAX_WRITER_TASK_COUNT,
                         "Maximum number of tasks that will participate in writing data",
-                        queryManagerConfig.getMaxWriterTasksCount(),
-                        value -> validateIntegerValue(value, MAX_WRITER_TASKS_COUNT, 1, false),
+                        queryManagerConfig.getMaxWriterTaskCount(),
+                        value -> validateIntegerValue(value, MAX_WRITER_TASK_COUNT, 1, false),
                         false),
                 booleanProperty(
                         TASK_SCALE_WRITERS_ENABLED,
                         "Scale the number of concurrent table writers per task based on throughput",
                         taskManagerConfig.isScaleWritersEnabled(),
                         false),
-                integerProperty(
-                        TASK_SCALE_WRITERS_MAX_WRITER_COUNT,
-                        "Maximum number of writers per task up to which scaling will happen if task.scale-writers.enabled is set",
-                        taskManagerConfig.getScaleWritersMaxWriterCount(),
-                        true),
                 dataSizeProperty(
                         WRITER_SCALING_MIN_DATA_PROCESSED,
                         "Minimum amount of uncompressed output data processed by writers before writer scaling can happen",
@@ -345,7 +342,12 @@ public final class SystemSessionProperties
                 dataSizeProperty(
                         SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
                         "Minimum data processed to trigger skewed partition rebalancing in local and remote exchange",
-                        DataSize.of(50, MEGABYTE),
+                        DataSize.of(200, MEGABYTE),
+                        true),
+                dataSizeProperty(
+                        MAX_MEMORY_PER_PARTITION_WRITER,
+                        "Estimated maximum memory required per partition writer in a single thread",
+                        featuresConfig.getMaxMemoryPerPartitionWriter(),
                         true),
                 booleanProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
@@ -504,10 +506,11 @@ public final class SystemSessionProperties
                         "Enable a stats-based rule adding exchanges below GroupId",
                         optimizerConfig.isEnableForcedExchangeBelowGroupId(),
                         true),
-                booleanProperty(
-                        EXCHANGE_COMPRESSION,
-                        "Enable compression in exchanges",
-                        featuresConfig.isExchangeCompressionEnabled(),
+                enumProperty(
+                        EXCHANGE_COMPRESSION_CODEC,
+                        "Compression codec used for data in exchanges, supports NONE, LZ4, ZSTD",
+                        CompressionCodec.class,
+                        featuresConfig.getExchangeCompressionCodec(),
                         false),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
@@ -528,11 +531,6 @@ public final class SystemSessionProperties
                         PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED,
                         "Pre-aggregate rows before GROUP BY with multiple CASE aggregations on same column",
                         optimizerConfig.isPreAggregateCaseAggregationsEnabled(),
-                        false),
-                booleanProperty(
-                        PARSE_DECIMAL_LITERALS_AS_DOUBLE,
-                        "Parse decimal literals as DOUBLE instead of DECIMAL",
-                        featuresConfig.isParseDecimalLiteralsAsDouble(),
                         false),
                 booleanProperty(
                         FORCE_SINGLE_NODE_OUTPUT,
@@ -671,11 +669,6 @@ public final class SystemSessionProperties
                         optimizerConfig.isPredicatePushdownUseTableProperties(),
                         false),
                 booleanProperty(
-                        LATE_MATERIALIZATION,
-                        "Experimental: Use late materialization (including WorkProcessor pipelines)",
-                        featuresConfig.isLateMaterializationEnabled(),
-                        false),
-                booleanProperty(
                         ENABLE_DYNAMIC_FILTERING,
                         "Enable dynamic filtering",
                         dynamicFilterConfig.isEnableDynamicFiltering(),
@@ -724,6 +717,7 @@ public final class SystemSessionProperties
                         COST_ESTIMATION_WORKER_COUNT,
                         "Set the estimate count of workers while planning",
                         null,
+                        value -> validateIntegerValue(value, COST_ESTIMATION_WORKER_COUNT, 1, true),
                         true),
                 booleanProperty(
                         OMIT_DATETIME_TYPE_PRECISION,
@@ -907,51 +901,51 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE,
                         "Standard split size for a single fault tolerant task (split weight aware)",
                         queryManagerConfig.getFaultTolerantExecutionStandardSplitSize(),
-                        false),
+                        true),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT,
                         "Maximal number of splits for a single fault tolerant task (count based)",
                         queryManagerConfig.getFaultTolerantExecutionMaxTaskSplitCount(),
-                        false),
+                        true),
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY,
                         "Estimated amount of memory a single coordinator task will use when task level retries are used; value is used when allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionCoordinatorTaskMemory(),
-                        false),
+                        true),
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY,
                         "Estimated amount of memory a single task will use when task level retries are used; value is used when allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemory(),
-                        false),
+                        true),
                 doubleProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR,
                         "Factor by which estimated task memory is increased if task execution runs out of memory; value is used allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemoryGrowthFactor(),
-                        false),
+                        true),
                 doubleProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE,
                         "What quantile of memory usage of completed tasks to look at when estimating memory usage for upcoming tasks",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemoryEstimationQuantile(),
                         value -> validateDoubleRange(value, FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, 0.0, 1.0),
-                        false),
+                        true),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT,
                         "Maximum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
                         queryManagerConfig.getFaultTolerantExecutionMaxPartitionCount(),
                         value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
-                        false),
+                        true),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT,
                         "Minimum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
                         queryManagerConfig.getFaultTolerantExecutionMinPartitionCount(),
                         value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
-                        false),
+                        true),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE,
                         "Minimum number of partitions for distributed joins and aggregations in write queries executed with fault tolerant execution enabled",
                         queryManagerConfig.getFaultTolerantExecutionMinPartitionCountForWrite(),
                         value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
-                        false),
+                        true),
                 booleanProperty(
                         FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED,
                         "Enables change of number of partitions at runtime when intermediate data size is large",
@@ -977,12 +971,12 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_ENABLED,
                         "Enable small stage estimation heuristic, used for more aggresive speculative stage scheduling",
                         queryManagerConfig.isFaultTolerantExecutionSmallStageEstimationEnabled(),
-                        false),
+                        true),
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD,
                         "Threshold until which stage is considered small",
                         queryManagerConfig.getFaultTolerantExecutionSmallStageEstimationThreshold(),
-                        false),
+                        true),
                 doubleProperty(
                         FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER,
                         "Multiplier used for heuristic estimation is stage is small; the bigger the more conservative estimation is",
@@ -994,12 +988,17 @@ public final class SystemSessionProperties
                                         format("%s must be greater than or equal to 1.0: %s", FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, value));
                             }
                         },
-                        false),
+                        true),
                 booleanProperty(
                         FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS,
                         "Is it required for all stage partitions (tasks) to be enumerated for stage to be used in heuristic to determine if parent stage is small",
                         queryManagerConfig.isFaultTolerantExecutionSmallStageRequireNoMorePartitions(),
-                        false),
+                        true),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_STAGE_ESTIMATION_FOR_EAGER_PARENT_ENABLED,
+                        "Enable aggressive stage output size estimation heuristic for children of stages to be executed eagerly",
+                        queryManagerConfig.isFaultTolerantExecutionStageEstimationForEagerParentEnabled(),
+                        true),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
@@ -1066,10 +1065,13 @@ public final class SystemSessionProperties
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
                         true),
-                booleanProperty(
-                        FLAT_GROUP_BY_HASH,
-                        "Enable new flat group by hash",
-                        featuresConfig.isFlatGroupByHash(),
+                dataSizeProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD,
+                        "Minimum amount of data written by a writer operator on average before it tries to close the idle writers",
+                        DataSize.of(256, MEGABYTE),
+                        true),
+                durationProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION,
+                        "The duration after which the writer operator tries to close the idle writers",
+                        new Duration(5, SECONDS),
                         true));
     }
 
@@ -1129,14 +1131,14 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PREFER_STREAMING_OPERATORS, Boolean.class);
     }
 
-    public static int getTaskWriterCount(Session session)
+    public static int getTaskMinWriterCount(Session session)
     {
-        return session.getSystemProperty(TASK_WRITER_COUNT, Integer.class);
+        return session.getSystemProperty(TASK_MIN_WRITER_COUNT, Integer.class);
     }
 
-    public static int getTaskPartitionedWriterCount(Session session)
+    public static int getTaskMaxWriterCount(Session session)
     {
-        return session.getSystemProperty(TASK_PARTITIONED_WRITER_COUNT, Integer.class);
+        return session.getSystemProperty(TASK_MAX_WRITER_COUNT, Integer.class);
     }
 
     public static boolean isRedistributeWrites(Session session)
@@ -1159,14 +1161,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(TASK_SCALE_WRITERS_ENABLED, Boolean.class);
     }
 
-    public static int getTaskScaleWritersMaxWriterCount(Session session)
-    {
-        return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, Integer.class);
-    }
-
     public static int getMaxWriterTaskCount(Session session)
     {
-        return session.getSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.class);
+        return session.getSystemProperty(MAX_WRITER_TASK_COUNT, Integer.class);
     }
 
     public static DataSize getWriterScalingMinDataProcessed(Session session)
@@ -1177,6 +1174,11 @@ public final class SystemSessionProperties
     public static DataSize getSkewedPartitionMinDataProcessedRebalanceThreshold(Session session)
     {
         return session.getSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, DataSize.class);
+    }
+
+    public static DataSize getMaxMemoryPerPartitionWriter(Session session)
+    {
+        return session.getSystemProperty(MAX_MEMORY_PER_PARTITION_WRITER, DataSize.class);
     }
 
     public static boolean isPushTableWriteThroughUnion(Session session)
@@ -1328,9 +1330,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID, Boolean.class);
     }
 
-    public static boolean isExchangeCompressionEnabled(Session session)
+    public static CompressionCodec getExchangeCompressionCodec(Session session)
     {
-        return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
+        return session.getSystemProperty(EXCHANGE_COMPRESSION_CODEC, CompressionCodec.class);
     }
 
     public static boolean isEnableIntermediateAggregations(Session session)
@@ -1351,11 +1353,6 @@ public final class SystemSessionProperties
     public static boolean isPreAggregateCaseAggregationsEnabled(Session session)
     {
         return session.getSystemProperty(PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED, Boolean.class);
-    }
-
-    public static boolean isParseDecimalLiteralsAsDouble(Session session)
-    {
-        return session.getSystemProperty(PARSE_DECIMAL_LITERALS_AS_DOUBLE, Boolean.class);
     }
 
     public static boolean isForceSingleNodeOutput(Session session)
@@ -1551,11 +1548,6 @@ public final class SystemSessionProperties
     public static boolean isPredicatePushdownUseTableProperties(Session session)
     {
         return session.getSystemProperty(PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES, Boolean.class);
-    }
-
-    public static boolean isLateMaterializationEnabled(Session session)
-    {
-        return session.getSystemProperty(LATE_MATERIALIZATION, Boolean.class);
     }
 
     public static boolean isEnableDynamicFiltering(Session session)
@@ -1849,6 +1841,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS, Boolean.class);
     }
 
+    public static boolean isFaultTolerantExecutionStageEstimationForEagerParentEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_STAGE_ESTIMATION_FOR_EAGER_PARENT_ENABLED, Boolean.class);
+    }
+
     public static boolean isAdaptivePartialAggregationEnabled(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
@@ -1914,8 +1911,13 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
     }
 
-    public static boolean isFlatGroupByHash(Session session)
+    public static DataSize getIdleWriterMinDataSizeThreshold(Session session)
     {
-        return session.getSystemProperty(FLAT_GROUP_BY_HASH, Boolean.class);
+        return session.getSystemProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD, DataSize.class);
+    }
+
+    public static Duration getCloseIdleWritersTriggerDuration(Session session)
+    {
+        return session.getSystemProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION, Duration.class);
     }
 }

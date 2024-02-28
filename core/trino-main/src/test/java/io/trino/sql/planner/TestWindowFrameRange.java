@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -44,10 +43,10 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
-import static io.trino.sql.tree.WindowFrame.Type.RANGE;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static java.lang.String.format;
 
 public class TestWindowFrameRange
@@ -70,7 +69,7 @@ public class TestWindowFrameRange
                                         .addFunction(
                                                 "array_agg_result",
                                                 functionCall("array_agg", ImmutableList.of("key")),
-                                                createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(INTEGER)),
+                                                createTestMetadataManager().resolveBuiltinFunction("array_agg", fromTypes(INTEGER)),
                                                 windowFrame(
                                                         RANGE,
                                                         PRECEDING,
@@ -117,7 +116,7 @@ public class TestWindowFrameRange
                                         .addFunction(
                                                 "array_agg_result",
                                                 functionCall("array_agg", ImmutableList.of("key")),
-                                                createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(createDecimalType(2, 1))),
+                                                createTestMetadataManager().resolveBuiltinFunction("array_agg", fromTypes(createDecimalType(2, 1))),
                                                 windowFrame(
                                                         RANGE,
                                                         CURRENT_ROW,
@@ -164,7 +163,7 @@ public class TestWindowFrameRange
                                         .addFunction(
                                                 "array_agg_result",
                                                 functionCall("array_agg", ImmutableList.of("key")),
-                                                createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(INTEGER)),
+                                                createTestMetadataManager().resolveBuiltinFunction("array_agg", fromTypes(INTEGER)),
                                                 windowFrame(
                                                         RANGE,
                                                         PRECEDING,

@@ -24,12 +24,12 @@ import java.nio.file.Paths;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestParquetSymlinkInputFormat
 {
@@ -66,7 +66,34 @@ public class TestParquetSymlinkInputFormat
         hdfsClient.delete(dataDir);
     }
 
-    @Test(groups = {AVRO, STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
+    public void testSymlinkTableWithSymlinkFileContainingNonExistentPath()
+            throws Exception
+    {
+        String table = "test_parquet_invalid_symlink";
+        onHive().executeQuery("DROP TABLE IF EXISTS " + table);
+
+        onHive().executeQuery("" +
+                "CREATE TABLE " + table +
+                "(col int) " +
+                "ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe' " +
+                "STORED AS " +
+                "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat' " +
+                "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
+
+        String tableRoot = warehouseDirectory + '/' + table;
+        String dataDir = warehouseDirectory + "/data_test_parquet_invalid_symlink";
+
+        saveResourceOnHdfs("data.parquet", dataDir + "/data.parquet");
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/data.parquet\nhdfs:%s/missingfile.parquet", dataDir, dataDir));
+        assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM " + table))
+                .hasMessageMatching(".*Manifest file from the location \\[.*data_test_parquet_invalid_symlink\\] contains non-existent path:.*missingfile.parquet");
+
+        onHive().executeQuery("DROP TABLE " + table);
+        hdfsClient.delete(dataDir);
+    }
+
+    @Test(groups = STORAGE_FORMATS)
     public void testSymlinkTableWithMultipleParentDirectories()
             throws Exception
     {

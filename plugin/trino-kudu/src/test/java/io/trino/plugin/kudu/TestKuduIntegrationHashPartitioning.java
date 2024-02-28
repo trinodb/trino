@@ -17,10 +17,10 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKuduIntegrationHashPartitioning
         extends AbstractTestQueryFramework
@@ -78,6 +78,6 @@ public class TestKuduIntegrationHashPartitioning
         assertUpdate(insert, 1);
 
         MaterializedResult result = computeActual("SELECT id FROM " + tableName);
-        assertEquals(result.getRowCount(), 1);
+        assertThat(result.getRowCount()).isEqualTo(1);
     }
 }

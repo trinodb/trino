@@ -19,11 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
-import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.DynamicFilters;
@@ -31,10 +27,8 @@ import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.NodeAndMappings;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PartitioningScheme;
-import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -82,6 +76,7 @@ import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -116,7 +111,7 @@ import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolReallocator;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static java.util.Objects.requireNonNull;
 
@@ -142,21 +137,9 @@ public class UnaliasSymbolReferences
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
-        requireNonNull(idAllocator, "idAllocator is null");
 
         Visitor visitor = new Visitor(metadata, SymbolMapper::symbolMapper);
         PlanAndMappings result = plan.accept(visitor, UnaliasContext.empty());
@@ -691,6 +674,19 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanAndMappings visitTableUpdate(TableUpdateNode node, UnaliasContext context)
+        {
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            Symbol newOutput = mapper.map(node.getOutput());
+
+            return new PlanAndMappings(
+                    new TableUpdateNode(node.getId(), node.getTarget(), newOutput),
+                    mapping);
+        }
+
+        @Override
         public PlanAndMappings visitTableExecute(TableExecuteNode node, UnaliasContext context)
         {
             PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
@@ -1018,35 +1014,28 @@ public class UnaliasSymbolReferences
             resultMapping.putAll(rewrittenSubquery.getMappings());
             mapper = symbolMapper(resultMapping);
 
-            ImmutableList.Builder<Map.Entry<Symbol, Expression>> rewrittenAssignments = ImmutableList.builder();
-            for (Map.Entry<Symbol, Expression> assignment : node.getSubqueryAssignments().entrySet()) {
+            ImmutableList.Builder<Map.Entry<Symbol, ApplyNode.SetExpression>> rewrittenAssignments = ImmutableList.builder();
+            for (Map.Entry<Symbol, ApplyNode.SetExpression> assignment : node.getSubqueryAssignments().entrySet()) {
                 rewrittenAssignments.add(new SimpleEntry<>(mapper.map(assignment.getKey()), mapper.map(assignment.getValue())));
             }
 
             // deduplicate assignments
-            Map<Symbol, Expression> deduplicateAssignments = rewrittenAssignments.build().stream()
+            Map<Symbol, ApplyNode.SetExpression> deduplicateAssignments = rewrittenAssignments.build().stream()
                     .distinct()
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            // derive new mappings for Subquery assignments outputs
-            Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments, false);
-
-            Map<Symbol, Symbol> assignmentsOutputMapping = new HashMap<>();
-            assignmentsOutputMapping.putAll(resultMapping);
-            assignmentsOutputMapping.putAll(newMapping);
-
-            mapper = symbolMapper(assignmentsOutputMapping);
+            mapper = symbolMapper(resultMapping);
 
             // build new Assignments with canonical outputs
             // duplicate entries will be removed by the Builder
-            Assignments.Builder newAssignments = Assignments.builder();
-            for (Map.Entry<Symbol, Expression> assignment : deduplicateAssignments.entrySet()) {
+            ImmutableMap.Builder<Symbol, ApplyNode.SetExpression> newAssignments = ImmutableMap.builder();
+            for (Map.Entry<Symbol, ApplyNode.SetExpression> assignment : deduplicateAssignments.entrySet()) {
                 newAssignments.put(mapper.map(assignment.getKey()), assignment.getValue());
             }
 
             return new PlanAndMappings(
-                    new ApplyNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), newAssignments.build(), rewrittenCorrelation, node.getOriginSubquery()),
-                    assignmentsOutputMapping);
+                    new ApplyNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), newAssignments.buildOrThrow(), rewrittenCorrelation, node.getOriginSubquery()),
+                    resultMapping);
         }
 
         @Override

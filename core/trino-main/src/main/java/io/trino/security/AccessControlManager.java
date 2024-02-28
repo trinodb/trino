@@ -17,9 +17,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -33,16 +37,20 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
+import io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -56,6 +64,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -65,7 +74,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -74,6 +86,7 @@ import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -85,9 +98,11 @@ public class AccessControlManager
     private static final File CONFIG_FILE = new File("etc/access-control.properties");
     private static final String NAME_PROPERTY = "access-control.name";
 
+    private final NodeVersion nodeVersion;
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
     private final List<File> configFiles;
+    private final OpenTelemetry openTelemetry;
     private final String defaultAccessControlName;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final AtomicReference<CatalogServiceProvider<Optional<ConnectorAccessControl>>> connectorAccessControlProvider = new AtomicReference<>();
@@ -99,14 +114,18 @@ public class AccessControlManager
 
     @Inject
     public AccessControlManager(
+            NodeVersion nodeVersion,
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             AccessControlConfig config,
+            OpenTelemetry openTelemetry,
             @DefaultSystemAccessControlName String defaultAccessControlName)
     {
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.defaultAccessControlName = requireNonNull(defaultAccessControlName, "defaultAccessControl is null");
         addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
@@ -178,7 +197,7 @@ public class AccessControlManager
 
         SystemAccessControl systemAccessControl;
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
+            systemAccessControl = factory.create(ImmutableMap.copyOf(properties), createContext(name));
         }
 
         log.info("-- Loaded system access control %s --", name);
@@ -196,7 +215,7 @@ public class AccessControlManager
 
         SystemAccessControl systemAccessControl;
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
+            systemAccessControl = factory.create(ImmutableMap.copyOf(properties), createContext(name));
         }
 
         systemAccessControl.getEventListeners()
@@ -205,19 +224,36 @@ public class AccessControlManager
         setSystemAccessControls(ImmutableList.of(systemAccessControl));
     }
 
-    @VisibleForTesting
-    public void addSystemAccessControl(SystemAccessControl systemAccessControl)
+    private SystemAccessControlContext createContext(String systemAccessControlName)
     {
-        systemAccessControls.updateAndGet(currentControls ->
-                ImmutableList.<SystemAccessControl>builder()
-                        .addAll(currentControls)
-                        .add(systemAccessControl)
-                        .build());
+        return new SystemAccessControlContext()
+        {
+            private final Tracer tracer = openTelemetry.getTracer("trino.system-access-control." + systemAccessControlName);
+            private final String version = nodeVersion.getVersion();
+
+            @Override
+            public String getVersion()
+            {
+                return version;
+            }
+
+            @Override
+            public OpenTelemetry getOpenTelemetry()
+            {
+                return openTelemetry;
+            }
+
+            @Override
+            public Tracer getTracer()
+            {
+                return tracer;
+            }
+        };
     }
 
-    @VisibleForTesting
     public void setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
     {
+        systemAccessControls.forEach(AccessControlManager::verifySystemAccessControl);
         checkState(this.systemAccessControls.compareAndSet(null, systemAccessControls), "System access control already initialized");
     }
 
@@ -227,7 +263,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(userName, "userName is null");
 
-        systemAuthorizationCheck(control -> control.checkCanImpersonateUser(new SystemSecurityContext(identity, Optional.empty()), userName));
+        systemAuthorizationCheck(control -> control.checkCanImpersonateUser(identity, userName));
     }
 
     @Override
@@ -245,7 +281,7 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
 
-        systemAuthorizationCheck(control -> control.checkCanReadSystemInformation(new SystemSecurityContext(identity, Optional.empty())));
+        systemAuthorizationCheck(control -> control.checkCanReadSystemInformation(identity));
     }
 
     @Override
@@ -253,7 +289,7 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
 
-        systemAuthorizationCheck(control -> control.checkCanWriteSystemInformation(new SystemSecurityContext(identity, Optional.empty())));
+        systemAuthorizationCheck(control -> control.checkCanWriteSystemInformation(identity));
     }
 
     @Override
@@ -261,7 +297,7 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
 
-        systemAuthorizationCheck(control -> control.checkCanExecuteQuery(new SystemSecurityContext(identity, Optional.empty())));
+        systemAuthorizationCheck(control -> control.checkCanExecuteQuery(identity));
     }
 
     @Override
@@ -269,7 +305,7 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
 
-        systemAuthorizationCheck(control -> control.checkCanViewQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwner));
+        systemAuthorizationCheck(control -> control.checkCanViewQueryOwnedBy(identity, queryOwner));
     }
 
     @Override
@@ -280,7 +316,7 @@ public class AccessControlManager
             return ImmutableSet.of();
         }
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwners);
+            queryOwners = systemAccessControl.filterViewQueryOwnedBy(identity, queryOwners);
         }
         return queryOwners;
     }
@@ -291,7 +327,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(queryOwner, "queryOwner is null");
 
-        systemAuthorizationCheck(control -> control.checkCanKillQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwner));
+        systemAuthorizationCheck(control -> control.checkCanKillQueryOwnedBy(identity, queryOwner));
     }
 
     @Override
@@ -594,29 +630,31 @@ public class AccessControlManager
     }
 
     @Override
-    public Set<String> filterColumns(SecurityContext securityContext, CatalogSchemaTableName table, Set<String> columns)
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext securityContext, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
         requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(table, "tableName is null");
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(tableColumns, "tableColumns is null");
 
-        if (columns.isEmpty()) {
-            // Do not call plugin-provided implementation unnecessarily.
-            return ImmutableSet.of();
+        Set<SchemaTableName> filteredTables = filterTables(securityContext, catalogName, tableColumns.keySet());
+        if (!filteredTables.equals(tableColumns.keySet())) {
+            tableColumns = Maps.filterKeys(tableColumns, filteredTables::contains);
         }
 
-        if (filterTables(securityContext, table.getCatalogName(), ImmutableSet.of(table.getSchemaTableName())).isEmpty()) {
-            return ImmutableSet.of();
+        if (tableColumns.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableMap.of();
         }
 
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            columns = systemAccessControl.filterColumns(securityContext.toSystemSecurityContext(), table, columns);
+            tableColumns = systemAccessControl.filterColumns(securityContext.toSystemSecurityContext(), catalogName, tableColumns);
         }
 
-        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), table.getCatalogName());
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
         if (connectorAccessControl != null) {
-            columns = connectorAccessControl.filterColumns(toConnectorSecurityContext(table.getCatalogName(), securityContext), table.getSchemaTableName(), columns);
+            tableColumns = connectorAccessControl.filterColumns(toConnectorSecurityContext(catalogName, securityContext), tableColumns);
         }
-        return columns;
+        return tableColumns;
     }
 
     @Override
@@ -886,44 +924,6 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext securityContext, String functionName, Identity grantee, boolean grantOption)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(functionName, "functionName is null");
-
-        systemAuthorizationCheck(control -> control.checkCanGrantExecuteFunctionPrivilege(
-                securityContext.toSystemSecurityContext(),
-                functionName,
-                new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
-                grantOption));
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext securityContext, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(functionKind, "functionKind is null");
-        requireNonNull(functionName, "functionName is null");
-
-        systemAuthorizationCheck(control -> control.checkCanGrantExecuteFunctionPrivilege(
-                securityContext.toSystemSecurityContext(),
-                functionKind,
-                functionName.asCatalogSchemaRoutineName(),
-                new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
-                grantOption));
-
-        catalogAuthorizationCheck(
-                functionName.getCatalogName(),
-                securityContext,
-                (control, context) -> control.checkCanGrantExecuteFunctionPrivilege(
-                        context,
-                        functionKind,
-                        functionName.asSchemaRoutineName(),
-                        new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
-                        grantOption));
-    }
-
-    @Override
     public void checkCanGrantSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -1017,12 +1017,42 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanGrantEntityPrivilege(SecurityContext securityContext, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(entity, "entity is null");
+        requireNonNull(privilege, "privilege is null");
+
+        systemAuthorizationCheck(control -> control.checkCanGrantEntityPrivilege(securityContext.toSystemSecurityContext(), privilege, entity, grantee, grantOption));
+    }
+
+    @Override
+    public void checkCanDenyEntityPrivilege(SecurityContext securityContext, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(entity, "entity is null");
+        requireNonNull(privilege, "privilege is null");
+
+        systemAuthorizationCheck(control -> control.checkCanDenyEntityPrivilege(securityContext.toSystemSecurityContext(), privilege, entity, grantee));
+    }
+
+    @Override
+    public void checkCanRevokeEntityPrivilege(SecurityContext securityContext, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(entity, "entity is null");
+        requireNonNull(privilege, "privilege is null");
+
+        systemAuthorizationCheck(control -> control.checkCanRevokeEntityPrivilege(securityContext.toSystemSecurityContext(), privilege, entity, revokee, grantOption));
+    }
+
+    @Override
     public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(propertyName, "propertyName is null");
 
-        systemAuthorizationCheck(control -> control.checkCanSetSystemSessionProperty(new SystemSecurityContext(identity, Optional.empty()), propertyName));
+        systemAuthorizationCheck(control -> control.checkCanSetSystemSessionProperty(identity, propertyName));
     }
 
     @Override
@@ -1202,32 +1232,43 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    public boolean canExecuteFunction(SecurityContext securityContext, QualifiedObjectName functionName)
     {
-        requireNonNull(context, "context is null");
+        requireNonNull(securityContext, "securityContext is null");
         requireNonNull(functionName, "functionName is null");
 
-        systemAuthorizationCheck(control -> control.checkCanExecuteFunction(context.toSystemSecurityContext(), functionName));
+        if (!canAccessCatalog(securityContext, functionName.getCatalogName())) {
+            return false;
+        }
+
+        if (!systemAuthorizationTest(control -> control.canExecuteFunction(securityContext.toSystemSecurityContext(), functionName.asCatalogSchemaRoutineName()))) {
+            return false;
+        }
+
+        return catalogAuthorizationTest(
+                functionName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.canExecuteFunction(context, functionName.asSchemaRoutineName()));
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext securityContext, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext securityContext, QualifiedObjectName functionName)
     {
         requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(functionKind, "functionKind is null");
         requireNonNull(functionName, "functionName is null");
 
-        checkCanAccessCatalog(securityContext, functionName.getCatalogName());
+        if (!canAccessCatalog(securityContext, functionName.getCatalogName())) {
+            return false;
+        }
 
-        systemAuthorizationCheck(control -> control.checkCanExecuteFunction(
-                securityContext.toSystemSecurityContext(),
-                functionKind,
-                functionName.asCatalogSchemaRoutineName()));
+        if (!systemAuthorizationTest(control -> control.canCreateViewWithExecuteFunction(securityContext.toSystemSecurityContext(), functionName.asCatalogSchemaRoutineName()))) {
+            return false;
+        }
 
-        catalogAuthorizationCheck(
+        return catalogAuthorizationTest(
                 functionName.getCatalogName(),
                 securityContext,
-                (control, context) -> control.checkCanExecuteFunction(context, functionKind, functionName.asSchemaRoutineName()));
+                (control, context) -> control.canCreateViewWithExecuteFunction(context, functionName.asSchemaRoutineName()));
     }
 
     @Override
@@ -1249,6 +1290,72 @@ public class AccessControlManager
                         context,
                         tableName.asSchemaTableName(),
                         procedureName));
+    }
+
+    @Override
+    public void checkCanShowFunctions(SecurityContext securityContext, CatalogSchemaName schema)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schema, "schema is null");
+
+        checkCanAccessCatalog(securityContext, schema.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanShowFunctions(securityContext.toSystemSecurityContext(), schema));
+
+        catalogAuthorizationCheck(schema.getCatalogName(), securityContext, (control, context) -> control.checkCanShowFunctions(context, schema.getSchemaName()));
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SecurityContext securityContext, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(functionNames, "functionNames is null");
+
+        if (functionNames.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        if (filterCatalogs(securityContext, ImmutableSet.of(catalogName)).isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
+            functionNames = systemAccessControl.filterFunctions(securityContext.toSystemSecurityContext(), catalogName, functionNames);
+        }
+
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
+        if (connectorAccessControl != null) {
+            functionNames = connectorAccessControl.filterFunctions(toConnectorSecurityContext(catalogName, securityContext), functionNames);
+        }
+
+        return functionNames;
+    }
+
+    @Override
+    public void checkCanCreateFunction(SecurityContext securityContext, QualifiedObjectName functionName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(functionName, "functionName is null");
+
+        checkCanAccessCatalog(securityContext, functionName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanCreateFunction(securityContext.toSystemSecurityContext(), functionName.asCatalogSchemaRoutineName()));
+
+        catalogAuthorizationCheck(functionName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateFunction(context, functionName.asSchemaRoutineName()));
+    }
+
+    @Override
+    public void checkCanDropFunction(SecurityContext securityContext, QualifiedObjectName functionName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(functionName, "functionName is null");
+
+        checkCanAccessCatalog(securityContext, functionName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanDropFunction(securityContext.toSystemSecurityContext(), functionName.asCatalogSchemaRoutineName()));
+
+        catalogAuthorizationCheck(functionName.getCatalogName(), securityContext, (control, context) -> control.checkCanDropFunction(context, functionName.asSchemaRoutineName()));
     }
 
     @Override
@@ -1307,9 +1414,11 @@ public class AccessControlManager
             return null;
         }
 
-        return transactionManager.getCatalogHandle(transactionId, catalogName)
+        ConnectorAccessControl connectorAccessControl = transactionManager.getCatalogHandle(transactionId, catalogName)
                 .flatMap(connectorAccessControlProvider::getService)
                 .orElse(null);
+
+        return connectorAccessControl;
     }
 
     @Managed
@@ -1328,16 +1437,33 @@ public class AccessControlManager
 
     private void checkCanAccessCatalog(SecurityContext securityContext, String catalogName)
     {
-        try {
-            for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-                systemAccessControl.checkCanAccessCatalog(securityContext.toSystemSecurityContext(), catalogName);
+        if (!canAccessCatalog(securityContext, catalogName)) {
+            denyCatalogAccess(catalogName);
+        }
+    }
+
+    private boolean canAccessCatalog(SecurityContext securityContext, String catalogName)
+    {
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
+            if (!systemAccessControl.canAccessCatalog(securityContext.toSystemSecurityContext(), catalogName)) {
+                authorizationFail.update(1);
+                return false;
             }
-            authorizationSuccess.update(1);
         }
-        catch (TrinoException e) {
-            authorizationFail.update(1);
-            throw e;
+        authorizationSuccess.update(1);
+        return true;
+    }
+
+    private boolean systemAuthorizationTest(Predicate<SystemAccessControl> check)
+    {
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
+            if (!check.test(systemAccessControl)) {
+                authorizationFail.update(1);
+                return false;
+            }
         }
+        authorizationSuccess.update(1);
+        return true;
     }
 
     private void systemAuthorizationCheck(Consumer<SystemAccessControl> check)
@@ -1352,6 +1478,23 @@ public class AccessControlManager
             authorizationFail.update(1);
             throw e;
         }
+    }
+
+    private boolean catalogAuthorizationTest(String catalogName, SecurityContext securityContext, BiPredicate<ConnectorAccessControl, ConnectorSecurityContext> check)
+    {
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
+        if (connectorAccessControl == null) {
+            return true;
+        }
+
+        boolean result = check.test(connectorAccessControl, toConnectorSecurityContext(catalogName, securityContext));
+        if (result) {
+            authorizationSuccess.update(1);
+        }
+        else {
+            authorizationFail.update(1);
+        }
+        return result;
     }
 
     private void catalogAuthorizationCheck(String catalogName, SecurityContext securityContext, BiConsumer<ConnectorAccessControl, ConnectorSecurityContext> check)
@@ -1399,6 +1542,28 @@ public class AccessControlManager
                 transactionManager.getRequiredCatalogMetadata(requiredTransactionId, catalogName).getTransactionHandleFor(CatalogHandleType.NORMAL),
                 identity.toConnectorIdentity(catalogName),
                 queryId);
+    }
+
+    private static void verifySystemAccessControl(SystemAccessControl systemAccessControl)
+    {
+        Class<?> clazz = systemAccessControl.getClass();
+        mustNotDeclareMethod(clazz, "checkCanAccessCatalog", SystemSecurityContext.class, String.class);
+        mustNotDeclareMethod(clazz, "checkCanGrantExecuteFunctionPrivilege", SystemSecurityContext.class, String.class, TrinoPrincipal.class, boolean.class);
+        mustNotDeclareMethod(clazz, "checkCanExecuteFunction", SystemSecurityContext.class, String.class);
+        mustNotDeclareMethod(clazz, "checkCanExecuteFunction", SystemSecurityContext.class, FunctionKind.class, CatalogSchemaRoutineName.class);
+        mustNotDeclareMethod(clazz, "checkCanGrantExecuteFunctionPrivilege", SystemSecurityContext.class, FunctionKind.class, CatalogSchemaRoutineName.class, TrinoPrincipal.class, boolean.class);
+    }
+
+    private static void mustNotDeclareMethod(Class<?> clazz, String name, Class<?>... parameterTypes)
+    {
+        try {
+            clazz.getMethod(name, parameterTypes);
+            throw new IllegalArgumentException(format("Access control %s must not implement removed method %s(%s)",
+                    clazz.getName(),
+                    name, Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
+        }
+        catch (ReflectiveOperationException ignored) {
+        }
     }
 
     private static class InitializingSystemAccessControl

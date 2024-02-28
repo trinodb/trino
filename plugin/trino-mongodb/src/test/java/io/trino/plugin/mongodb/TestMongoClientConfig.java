@@ -14,7 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -43,7 +43,8 @@ public class TestMongoClientConfig
                 .setWriteConcern(WriteConcernType.ACKNOWLEDGED)
                 .setRequiredReplicaSetName(null)
                 .setImplicitRowFieldPrefix("_pos")
-                .setProjectionPushdownEnabled(true));
+                .setProjectionPushdownEnabled(true)
+                .setAllowLocalScheduling(false));
     }
 
     @Test
@@ -67,6 +68,7 @@ public class TestMongoClientConfig
                 .put("mongodb.required-replica-set", "replica_set")
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
                 .put("mongodb.projection-pushdown-enabled", "false")
+                .put("mongodb.allow-local-scheduling", "true")
                 .buildOrThrow();
 
         MongoClientConfig expected = new MongoClientConfig()
@@ -85,7 +87,8 @@ public class TestMongoClientConfig
                 .setWriteConcern(WriteConcernType.UNACKNOWLEDGED)
                 .setRequiredReplicaSetName("replica_set")
                 .setImplicitRowFieldPrefix("_prefix")
-                .setProjectionPushdownEnabled(false);
+                .setProjectionPushdownEnabled(false)
+                .setAllowLocalScheduling(true);
 
         assertFullMapping(properties, expected);
     }

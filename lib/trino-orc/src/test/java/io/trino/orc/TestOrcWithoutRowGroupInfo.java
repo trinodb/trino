@@ -17,10 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.RowType;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.OptionalInt;
@@ -31,7 +32,7 @@ import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.createOrcReader;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcWithoutRowGroupInfo
 {
@@ -59,8 +60,8 @@ public class TestOrcWithoutRowGroupInfo
 
         OrcReader orcReader = createOrcReader(new FileOrcDataSource(file, new OrcReaderOptions()), new OrcReaderOptions()).orElseThrow();
 
-        assertEquals(orcReader.getFooter().getNumberOfRows(), 2);
-        assertEquals(orcReader.getFooter().getRowsInRowGroup(), OptionalInt.empty());
+        assertThat(orcReader.getFooter().getNumberOfRows()).isEqualTo(2);
+        assertThat(orcReader.getFooter().getRowsInRowGroup()).isEqualTo(OptionalInt.empty());
 
         RowType rowType = RowType.from(ImmutableList.of(RowType.field("a", BIGINT)));
         OrcRecordReader reader = orcReader.createRecordReader(
@@ -84,12 +85,11 @@ public class TestOrcWithoutRowGroupInfo
             Block rowBlock = page.getBlock(5);
 
             for (int position = 0; position < page.getPositionCount(); position++) {
-                BIGINT.getLong(
-                        rowType.getObject(rowBlock, 0),
-                        0);
+                SqlRow sqlRow = rowType.getObject(rowBlock, 0);
+                BIGINT.getLong(sqlRow.getRawFieldBlock(0), sqlRow.getRawIndex());
             }
         }
 
-        assertEquals(rows, reader.getFileRowCount());
+        assertThat(rows).isEqualTo(reader.getFileRowCount());
     }
 }

@@ -16,8 +16,7 @@ package io.trino.plugin.hive;
 import io.trino.filesystem.Location;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.orc.OriginalFilesUtils;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,15 +25,13 @@ import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.hive.AcidInfo.OriginalFileInfo;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOriginalFilesUtils
 {
-    private Location tablePath;
+    private final Location tablePath;
 
-    @BeforeClass
-    public void setup()
-            throws Exception
+    public TestOriginalFilesUtils()
     {
         tablePath = Location.of(getResource("dummy_id_data_orc").toString());
     }
@@ -52,7 +49,9 @@ public class TestOriginalFilesUtils
                 SESSION.getIdentity(),
                 new OrcReaderOptions(),
                 new FileFormatDataSourceStats());
-        assertEquals(rowCountResult, 0, "Original file should have 0 as the starting row count");
+        assertThat(rowCountResult)
+                .describedAs("Original file should have 0 as the starting row count")
+                .isEqualTo(0);
     }
 
     @Test
@@ -73,6 +72,8 @@ public class TestOriginalFilesUtils
                 new FileFormatDataSourceStats());
         // Bucket-2 has original files: 000002_0, 000002_0_copy_1. Each file original file has 4 rows.
         // So, starting row ID of 000002_0_copy_2 = row count of original files in Bucket-2 before it in lexicographic order.
-        assertEquals(rowCountResult, 8, "Original file 000002_0_copy_2 should have 8 as the starting row count");
+        assertThat(rowCountResult)
+                .describedAs("Original file 000002_0_copy_2 should have 8 as the starting row count")
+                .isEqualTo(8);
     }
 }

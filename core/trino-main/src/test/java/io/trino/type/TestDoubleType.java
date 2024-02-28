@@ -16,6 +16,7 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LongArrayBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestDoubleType
         extends AbstractTestType
@@ -34,7 +34,7 @@ public class TestDoubleType
         super(DOUBLE, Double.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 15);
         DOUBLE.writeDouble(blockBuilder, 11.11);
@@ -48,7 +48,7 @@ public class TestDoubleType
         DOUBLE.writeDouble(blockBuilder, 33.33);
         DOUBLE.writeDouble(blockBuilder, 33.33);
         DOUBLE.writeDouble(blockBuilder, 44.44);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -67,18 +67,19 @@ public class TestDoubleType
         // the following two are the long values of a double NaN
         blockBuilder.writeLong(-0x000fffffffffffffL);
         blockBuilder.writeLong(0x7ff8000000000000L);
+        Block block = blockBuilder.build();
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(DOUBLE);
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 1));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 4));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 1));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 2));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 3));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 4));
 
         BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(DOUBLE);
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 1));
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 2));
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 3));
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 4));
+        assertThat(xxHash64Operator.xxHash64(block, 0)).isEqualTo(xxHash64Operator.xxHash64(block, 1));
+        assertThat(xxHash64Operator.xxHash64(block, 0)).isEqualTo(xxHash64Operator.xxHash64(block, 2));
+        assertThat(xxHash64Operator.xxHash64(block, 0)).isEqualTo(xxHash64Operator.xxHash64(block, 3));
+        assertThat(xxHash64Operator.xxHash64(block, 0)).isEqualTo(xxHash64Operator.xxHash64(block, 4));
     }
 
     @Test

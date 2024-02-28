@@ -16,17 +16,45 @@ package io.trino.spi.block;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 
 public interface BlockBuilder
-        extends Block
 {
     /**
-     * Create a new block from the current materialized block by keeping the same elements
-     * only with respect to {@code visiblePositions}.
+     * Returns the number of positions in this block builder.
      */
-    @Override
-    default Block getPositions(int[] visiblePositions, int offset, int length)
-    {
-        return build().getPositions(visiblePositions, offset, length);
-    }
+    int getPositionCount();
+
+    /**
+     * Returns the size of this block as if it was compacted, ignoring any over-allocations
+     * and any unloaded nested blocks.
+     * For example, in dictionary blocks, this only counts each dictionary entry once,
+     * rather than each time a value is referenced.
+     */
+    long getSizeInBytes();
+
+    /**
+     * Returns the retained size of this block in memory, including over-allocations.
+     * This method is called from the innermost execution loop and must be fast.
+     */
+    long getRetainedSizeInBytes();
+
+    /**
+     * Append the specified value.
+     */
+    void append(ValueBlock block, int position);
+
+    /**
+     * Append the specified value multiple times.
+     */
+    void appendRepeated(ValueBlock block, int position, int count);
+
+    /**
+     * Append the values in the specified range.
+     */
+    void appendRange(ValueBlock block, int offset, int length);
+
+    /**
+     * Append the values at the specified positions.
+     */
+    void appendPositions(ValueBlock block, int[] positions, int offset, int length);
 
     /**
      * Appends a null value to the block.
@@ -34,9 +62,24 @@ public interface BlockBuilder
     BlockBuilder appendNull();
 
     /**
+     * Rolls back added data to the specified position.
+     * Resetting may result in a block without nulls with the may-have-nulls flag set.
+     * The PageBuilder status will not be updated to reflect the removed data size.
+     *
+     * @throws IllegalArgumentException if the position is greater than the current position count
+     */
+    void resetTo(int position);
+
+    /**
      * Builds the block. This method can be called multiple times.
+     * The return value may be a block such as RLE to allow for optimizations when all block values are the same.
      */
     Block build();
+
+    /**
+     * Builds a ValueBlock. This method can be called multiple times.
+     */
+    ValueBlock buildValueBlock();
 
     /**
      * Creates a new block builder of the same type based on the current usage statistics of this block builder.
@@ -46,15 +89,5 @@ public interface BlockBuilder
     default BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         return newBlockBuilderLike(calculateBlockResetSize(getPositionCount()), blockBuilderStatus);
-    }
-
-    /**
-     * This method is not expected to be implemented for {@code BlockBuilder} implementations, the method
-     * {@link BlockBuilder#appendNull} should be used instead.
-     */
-    @Override
-    default Block copyWithAppendedNull()
-    {
-        throw new UnsupportedOperationException("BlockBuilder implementation does not support newBlockWithAppendedNull");
     }
 }

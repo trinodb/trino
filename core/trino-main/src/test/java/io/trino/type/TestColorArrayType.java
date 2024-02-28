@@ -13,8 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
@@ -35,14 +35,14 @@ public class TestColorArrayType
         super(TESTING_TYPE_MANAGER.getType(arrayType(COLOR.getTypeSignature())), List.class, createTestBlock(TESTING_TYPE_MANAGER.getType(arrayType(COLOR.getTypeSignature()))));
     }
 
-    public static Block createTestBlock(Type arrayType)
+    public static ValueBlock createTestBlock(Type arrayType)
     {
         BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 4);
         arrayType.writeObject(blockBuilder, arrayBlockOf(COLOR, 1, 2));
         arrayType.writeObject(blockBuilder, arrayBlockOf(COLOR, 1, 2, 3));
         arrayType.writeObject(blockBuilder, arrayBlockOf(COLOR, 1, 2, 3));
         arrayType.writeObject(blockBuilder, arrayBlockOf(COLOR, 100, 200, 300));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

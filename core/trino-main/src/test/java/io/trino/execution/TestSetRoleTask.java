@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.client.NodeVersion;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
@@ -26,14 +27,16 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.SetRole;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.Map;
@@ -50,8 +53,12 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestSetRoleTask
 {
     private static final String CATALOG_NAME = "foo";
@@ -59,35 +66,35 @@ public class TestSetRoleTask
     private static final String USER_NAME = "user";
     private static final String ROLE_NAME = "bar";
 
-    private LocalQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private Metadata metadata;
     private ExecutorService executor;
     private SqlParser parser;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, USER_NAME), ROLE_NAME, false)))
-                .build();
-        queryRunner.createCatalog(CATALOG_NAME, mockConnectorFactory, ImmutableMap.of());
+                .build()));
+        queryRunner.createCatalog(CATALOG_NAME, "mock", ImmutableMap.of());
 
-        MockConnectorFactory systemConnectorFactory = MockConnectorFactory.builder()
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withName("system_role_connector")
-                .build();
-        queryRunner.createCatalog(SYSTEM_ROLE_CATALOG_NAME, systemConnectorFactory, ImmutableMap.of());
+                .build()));
+        queryRunner.createCatalog(SYSTEM_ROLE_CATALOG_NAME, "system_role_connector", ImmutableMap.of());
 
         transactionManager = queryRunner.getTransactionManager();
         accessControl = queryRunner.getAccessControl();
-        metadata = queryRunner.getMetadata();
-        parser = queryRunner.getSqlParser();
+        metadata = queryRunner.getPlannerContext().getMetadata();
+        parser = new SqlParser();
         executor = newCachedThreadPool(daemonThreadsNamed("test-set-role-task-executor-%s"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (queryRunner != null) {
@@ -126,7 +133,7 @@ public class TestSetRoleTask
     {
         assertTrinoExceptionThrownBy(() -> executeSetRole("SET ROLE foo IN invalid"))
                 .hasErrorCode(CATALOG_NOT_FOUND)
-                .hasMessage("line 1:1: Catalog 'invalid' does not exist");
+                .hasMessage("line 1:1: Catalog 'invalid' not found");
     }
 
     @Test
@@ -141,12 +148,12 @@ public class TestSetRoleTask
     {
         QueryStateMachine stateMachine = executeSetRole(statement);
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
-        assertEquals(queryInfo.getSetRoles(), expected);
+        assertThat(queryInfo.getSetRoles()).isEqualTo(expected);
     }
 
     private QueryStateMachine executeSetRole(String statement)
     {
-        SetRole setRole = (SetRole) parser.createStatement(statement, new ParsingOptions());
+        SetRole setRole = (SetRole) parser.createStatement(statement);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 Optional.empty(),
                 statement,

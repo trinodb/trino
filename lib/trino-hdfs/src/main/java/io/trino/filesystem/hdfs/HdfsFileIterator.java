@@ -84,23 +84,26 @@ class HdfsFileIterator
             throw new IOException("Listing location is a file, not a directory: " + listingLocation);
         }
 
-        String root = listingPath.toUri().getPath();
-        String path = status.getPath().toUri().getPath();
-
-        verify(path.startsWith(root), "iterator path [%s] not a child of listing path [%s] for location [%s]", path, root, listingLocation);
-
-        int index = root.endsWith("/") ? root.length() : root.length() + 1;
-        Location location = listingLocation.appendPath(path.substring(index));
-
         List<Block> blocks = Stream.of(status.getBlockLocations())
                 .map(HdfsFileIterator::toTrinoBlock)
                 .collect(toImmutableList());
 
         return new FileEntry(
-                location,
+                listedLocation(listingLocation, listingPath, status.getPath()),
                 status.getLen(),
                 Instant.ofEpochMilli(status.getModificationTime()),
                 blocks.isEmpty() ? Optional.empty() : Optional.of(blocks));
+    }
+
+    static Location listedLocation(Location listingLocation, Path listingPath, Path listedPath)
+    {
+        String root = listingPath.toUri().getPath();
+        String path = listedPath.toUri().getPath();
+
+        verify(path.startsWith(root), "iterator path [%s] not a child of listing path [%s] for location [%s]", path, root, listingLocation);
+
+        int index = root.endsWith("/") ? root.length() : root.length() + 1;
+        return listingLocation.appendPath(path.substring(index));
     }
 
     private static Block toTrinoBlock(BlockLocation location)

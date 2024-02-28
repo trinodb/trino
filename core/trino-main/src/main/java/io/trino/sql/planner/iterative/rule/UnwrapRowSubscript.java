@@ -62,7 +62,7 @@ public class UnwrapRowSubscript
                 int index = (int) ((LongLiteral) node.getIndex()).getParsedValue();
                 DataType type = rowType.getFields().get(index - 1).getType();
                 if (!(type instanceof GenericDataType) || !((GenericDataType) type).getName().getValue().equalsIgnoreCase(UnknownType.NAME)) {
-                    coercions.push(new Coercion(type, cast.isTypeOnly(), cast.isSafe()));
+                    coercions.push(new Coercion(type, cast.isSafe()));
                 }
 
                 base = cast.getExpression();
@@ -74,7 +74,7 @@ public class UnwrapRowSubscript
 
                 while (!coercions.isEmpty()) {
                     Coercion coercion = coercions.pop();
-                    result = new Cast(result, coercion.getType(), coercion.isSafe(), coercion.isTypeOnly());
+                    result = new Cast(result, coercion.getType(), coercion.isSafe());
                 }
 
                 return result;
@@ -90,24 +90,17 @@ public class UnwrapRowSubscript
     private static class Coercion
     {
         private final DataType type;
-        private final boolean typeOnly;
         private final boolean safe;
 
-        public Coercion(DataType type, boolean typeOnly, boolean safe)
+        public Coercion(DataType type, boolean safe)
         {
             this.type = type;
-            this.typeOnly = typeOnly;
             this.safe = safe;
         }
 
         public DataType getType()
         {
             return type;
-        }
-
-        public boolean isTypeOnly()
-        {
-            return typeOnly;
         }
 
         public boolean isSafe()

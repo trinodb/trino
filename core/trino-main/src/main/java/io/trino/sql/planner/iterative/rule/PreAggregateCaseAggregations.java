@@ -22,15 +22,16 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -40,7 +41,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
@@ -57,6 +57,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.isPreAggregateCaseAggregationsEnabled;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -102,7 +103,14 @@ public class PreAggregateCaseAggregations
         implements Rule<AggregationNode>
 {
     private static final int MIN_AGGREGATION_COUNT = 4;
-    private static final Set<String> ALLOWED_FUNCTIONS = ImmutableSet.of("max", "min", "sum");
+
+    // BE EXTREMELY CAREFUL WHEN ADDING NEW FUNCTIONS TO THIS SET
+    // This code appears to be generic, but is not. It only works because the allowed functions have very specific behavior.
+    private static final CatalogSchemaFunctionName MAX = builtinFunctionName("max");
+    private static final CatalogSchemaFunctionName MIN = builtinFunctionName("min");
+    private static final CatalogSchemaFunctionName SUM = builtinFunctionName("sum");
+    private static final Set<CatalogSchemaFunctionName> ALLOWED_FUNCTIONS = ImmutableSet.of(MAX, MIN, SUM);
+
     private static final Capture<ProjectNode> PROJECT_CAPTURE = newCapture();
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(aggregation -> aggregation.getStep() == SINGLE && aggregation.getGroupingSetCount() == 1)
@@ -111,9 +119,9 @@ public class PreAggregateCaseAggregations
                     .with(source().matching(not(AggregationNode.class::isInstance)))));
 
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PreAggregateCaseAggregations(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public PreAggregateCaseAggregations(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -329,7 +337,8 @@ public class PreAggregateCaseAggregations
             return Optional.empty();
         }
 
-        String name = aggregation.getResolvedFunction().getSignature().getName();
+        ResolvedFunction resolvedFunction = aggregation.getResolvedFunction();
+        CatalogSchemaFunctionName name = resolvedFunction.getSignature().getName();
         if (!ALLOWED_FUNCTIONS.contains(name)) {
             // only cumulative aggregations (e.g. that can be split into aggregation of aggregations) are supported
             return Optional.empty();
@@ -354,10 +363,10 @@ public class PreAggregateCaseAggregations
             return Optional.empty();
         }
 
-        Type aggregationType = aggregation.getResolvedFunction().getSignature().getReturnType();
+        Type aggregationType = resolvedFunction.getSignature().getReturnType();
         ResolvedFunction cumulativeFunction;
         try {
-            cumulativeFunction = plannerContext.getMetadata().resolveFunction(context.getSession(), QualifiedName.of(name), fromTypes(aggregationType));
+            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(name.getFunctionName(), fromTypes(aggregationType));
         }
         catch (TrinoException e) {
             // there is no cumulative aggregation
@@ -374,7 +383,7 @@ public class PreAggregateCaseAggregations
             Type defaultType = getType(context, caseExpression.getDefaultValue().get());
             Object defaultValue = optimizeExpression(caseExpression.getDefaultValue().get(), context);
             if (defaultValue != null) {
-                if (!name.equals("sum")) {
+                if (!name.equals(SUM)) {
                     return Optional.empty();
                 }
 
@@ -403,7 +412,7 @@ public class PreAggregateCaseAggregations
 
         return Optional.of(new CaseAggregation(
                 aggregationSymbol,
-                aggregation.getResolvedFunction(),
+                resolvedFunction,
                 cumulativeFunction,
                 name,
                 caseExpression.getWhenClauses().get(0).getOperand(),
@@ -419,7 +428,7 @@ public class PreAggregateCaseAggregations
     private Object optimizeExpression(Expression expression, Context context)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(context.getSession(), context.getSymbolAllocator().getTypes(), expression);
-        ExpressionInterpreter expressionInterpreter = new ExpressionInterpreter(expression, plannerContext, context.getSession(), expressionTypes);
+        IrExpressionInterpreter expressionInterpreter = new IrExpressionInterpreter(expression, plannerContext, context.getSession(), expressionTypes);
         return expressionInterpreter.optimize(Symbol::toSymbolReference);
     }
 
@@ -432,7 +441,7 @@ public class PreAggregateCaseAggregations
         // cumulative aggregation function (e.g. aggregation of aggregations)
         private final ResolvedFunction cumulativeFunction;
         // aggregation function name
-        private final String name;
+        private final CatalogSchemaFunctionName name;
         // CASE expression only operand expression
         private final Expression operand;
         // CASE expression only result expression
@@ -444,7 +453,7 @@ public class PreAggregateCaseAggregations
                 Symbol aggregationSymbol,
                 ResolvedFunction function,
                 ResolvedFunction cumulativeFunction,
-                String name,
+                CatalogSchemaFunctionName name,
                 Expression operand,
                 Expression result,
                 Optional<Expression> cumulativeAggregationDefaultValue)
@@ -473,7 +482,7 @@ public class PreAggregateCaseAggregations
             return cumulativeFunction;
         }
 
-        public String getName()
+        public CatalogSchemaFunctionName getName()
         {
             return name;
         }

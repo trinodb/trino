@@ -20,7 +20,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -38,8 +37,8 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
 
 public class TestMapAggAggregation
 {
@@ -50,7 +49,7 @@ public class TestMapAggAggregation
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, VARCHAR),
                 ImmutableMap.of(1.0, "a"),
                 createDoublesBlock(1.0, 1.0, 1.0),
@@ -58,7 +57,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, INTEGER),
                 ImmutableMap.of(1.0, 99, 2.0, 99, 3.0, 99),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -70,7 +69,7 @@ public class TestMapAggAggregation
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, VARCHAR),
                 ImmutableMap.of(1.0, "a", 2.0, "b", 3.0, "c"),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -78,7 +77,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, INTEGER),
                 ImmutableMap.of(1.0, 3, 2.0, 2, 3.0, 1),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -86,7 +85,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, BOOLEAN),
                 ImmutableMap.of(1.0, true, 2.0, false, 3.0, false),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -98,7 +97,7 @@ public class TestMapAggAggregation
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, DOUBLE),
                 ImmutableMap.of(1.0, 2.0),
                 createDoublesBlock(1.0, null, null),
@@ -106,7 +105,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, DOUBLE),
                 null,
                 createDoublesBlock(null, null, null),
@@ -118,7 +117,7 @@ public class TestMapAggAggregation
         expected.put(3.0, null);
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, DOUBLE),
                 expected,
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -132,7 +131,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, arrayType),
                 ImmutableMap.of(1.0, ImmutableList.of("a", "b"),
                         2.0, ImmutableList.of("c", "d"),
@@ -147,13 +146,13 @@ public class TestMapAggAggregation
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
 
         BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
-        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
-        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
-        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
+        innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
+        innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
+        innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, innerMapType),
                 ImmutableMap.of(1.0, ImmutableMap.of("a", "b"),
                         2.0, ImmutableMap.of("c", "d"),
@@ -176,7 +175,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(DOUBLE, innerRowType),
                 ImmutableMap.of(1.0, ImmutableList.of(1, 1.0),
                         2.0, ImmutableList.of(2, 2.0),
@@ -192,7 +191,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("map_agg"),
+                "map_agg",
                 fromTypes(arrayType, DOUBLE),
                 ImmutableMap.of(
                         ImmutableList.of("a", "b"), 1.0,

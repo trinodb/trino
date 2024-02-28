@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -43,12 +42,12 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
-import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 
 public class TestWindowClause
         extends BasePlanTest
@@ -90,7 +89,7 @@ public class TestWindowClause
                                         .addFunction(
                                                 "max_result",
                                                 functionCall("max", ImmutableList.of("b")),
-                                                createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(INTEGER)),
+                                                createTestMetadataManager().resolveBuiltinFunction("max", fromTypes(INTEGER)),
                                                 windowFrame(
                                                         RANGE,
                                                         PRECEDING,
@@ -160,7 +159,7 @@ public class TestWindowClause
                                         .addFunction(
                                                 "count_result",
                                                 functionCall("count", ImmutableList.of()),
-                                                createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes()),
+                                                createTestMetadataManager().resolveBuiltinFunction("count", fromTypes()),
                                                 windowFrame(
                                                         RANGE,
                                                         CURRENT_ROW,

@@ -125,84 +125,83 @@ trino:tiny>
 Many other options are available to further configure the CLI in interactive
 mode:
 
-```{eval-rst}
-.. list-table::
-  :widths: 40, 60
-  :header-rows: 1
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
 
-  * - Option
-    - Description
-  * - ``--catalog``
-    - Sets the default catalog. You can change the default catalog and schema
-      with :doc:`/sql/use`.
-  * - ``--client-info``
-    - Adds arbitrary text as extra information about the client.
-  * - ``--client-request-timeout``
-    - Sets the duration for query processing, after which, the client request is
-      terminated. Defaults to ``2m``.
-  * - ``--client-tags``
-    - Adds extra tags information about the client and the CLI user. Separate
-      multiple tags with commas. The tags can be used as input for
-      :doc:`/admin/resource-groups`.
-  * - ``--debug``
-    - Enables display of debug information during CLI usage for
-      :ref:`cli-troubleshooting`. Displays more information about query
-      processing statistics.
-  * - ``--disable-auto-suggestion``
-    - Disables autocomplete suggestions.
-  * - ``--disable-compression``
-    - Disables compression of query results.
-  * - ``--editing-mode``
-    - Sets key bindings in the CLI to be compatible with VI or
-      EMACS editors. Defaults to ``EMACS``.
-  * - ``--http-proxy``
-    - Configures the URL of the HTTP proxy to connect to Trino.
-  * - ``--history-file``
-    - Path to the :ref:`history file <cli-history>`. Defaults to ``~/.trino_history``.
-  * - ``--network-logging``
-    - Configures the level of detail provided for network logging of the CLI.
-      Defaults to ``NONE``, other options are ``BASIC``, ``HEADERS``, or
-      ``BODY``.
-  * - ``--output-format-interactive=<format>``
-    - Specify the :ref:`format <cli-output-format>` to use
-      for printing query results. Defaults to ``ALIGNED``.
-  * - ``--pager=<pager>``
-    - Path to the pager program used to display the query results. Set to
-      an empty value to completely disable pagination. Defaults to ``less``
-      with a carefully selected set of options.
-  * - ``--no-progress``
-    - Do not show query processing progress.
-  * - ``--password``
-    - Prompts for a password. Use if your Trino server requires password
-      authentication. You can set the ``TRINO_PASSWORD`` environment variable
-      with the password value to avoid the prompt. For more information, see :ref:`cli-username-password-auth`.
-  * - ``--schema``
-    - Sets the default schema. You can change the default catalog and schema
-      with :doc:`/sql/use`.
-  * - ``--server``
-    - The HTTP/HTTPS address and port of the Trino coordinator. The port must be
-      set to the port the Trino coordinator is listening for connections on.
-      Trino server location defaults to ``http://localhost:8080``.
-      Can only be set if URL is not specified.
-  * - ``--session``
-    - Sets one or more :ref:`session properties
-      <session-properties-definition>`. Property can be used multiple times with
-      the format ``session_property_name=value``.
-  * - ``--socks-proxy``
-    - Configures the URL of the SOCKS proxy to connect to Trino.
-  * - ``--source``
-    - Specifies the name of the application or source connecting to Trino.
-      Defaults to ``trino-cli``. The value can be used as input for
-      :doc:`/admin/resource-groups`.
-  * - ``--timezone``
-    - Sets the time zone for the session using the `time zone name
-      <https://wikipedia.org/wiki/List_of_tz_database_time_zones>`_. Defaults
-      to the timezone set on your workstation.
-  * - ``--user``
-    - Sets the username for :ref:`cli-username-password-auth`. Defaults to your
-      operating system username. You can override the default username,
-      if your cluster uses a different username or authentication mechanism.
-```
+* - Option
+  - Description
+* - `--catalog`
+  - Sets the default catalog. You can change the default catalog and schema with
+    [](/sql/use).
+* - `--client-info`
+  - Adds arbitrary text as extra information about the client.
+* - `--client-request-timeout`
+  - Sets the duration for query processing, after which, the client request is
+    terminated. Defaults to `2m`.
+* - `--client-tags`
+  - Adds extra tags information about the client and the CLI user. Separate
+    multiple tags with commas. The tags can be used as input for
+    [](/admin/resource-groups).
+* - `--debug`
+  - Enables display of debug information during CLI usage for
+    [](cli-troubleshooting). Displays more information about query
+    processing statistics.
+* - `--disable-auto-suggestion`
+  - Disables autocomplete suggestions.
+* - `--disable-compression`
+  - Disables compression of query results.
+* - `--editing-mode`
+  - Sets key bindings in the CLI to be compatible with VI or
+    EMACS editors. Defaults to `EMACS`.
+* - `--http-proxy`
+  - Configures the URL of the HTTP proxy to connect to Trino.
+* - `--history-file`
+  - Path to the [history file](cli-history). Defaults to `~/.trino_history`.
+* - `--network-logging`
+  - Configures the level of detail provided for network logging of the CLI.
+    Defaults to `NONE`, other options are `BASIC`, `HEADERS`, or `BODY`.
+* - `--output-format-interactive=<format>`
+  - Specify the [format](cli-output-format) to use for printing query results.
+    Defaults to `ALIGNED`.
+* - `--pager=<pager>`
+  - Path to the pager program used to display the query results. Set to an empty
+    value to completely disable pagination. Defaults to `less` with a carefully
+    selected set of options.
+* - `--no-progress`
+  - Do not show query processing progress.
+* - `--password`
+  - Prompts for a password. Use if your Trino server requires password
+    authentication. You can set the `TRINO_PASSWORD` environment variable with
+    the password value to avoid the prompt. For more information, see
+    [](cli-username-password-auth).
+* - `--schema`
+  - Sets the default schema. You can change the default catalog and schema
+    with [](/sql/use).
+* - `--server`
+  - The HTTP/HTTPS address and port of the Trino coordinator. The port must be
+    set to the port the Trino coordinator is listening for connections on. Trino
+    server location defaults to `http://localhost:8080`. Can only be set if URL
+    is not specified.
+* - `--session`
+  - Sets one or more [session properties](session-properties-definition).
+    Property can be used multiple times with the format
+    `session_property_name=value`.
+* - `--socks-proxy`
+  - Configures the URL of the SOCKS proxy to connect to Trino.
+* - `--source`
+  - Specifies the name of the application or source connecting to Trino.
+    Defaults to `trino-cli`. The value can be used as input for
+    [](/admin/resource-groups).
+* - `--timezone`
+  - Sets the time zone for the session using the [time zone name](
+    <https://wikipedia.org/wiki/List_of_tz_database_time_zones>). Defaults to
+    the timezone set on your workstation.
+* - `--user`
+  - Sets the username for [](cli-username-password-auth). Defaults to your
+    operating system username. You can override the default username, if your
+    cluster uses a different username or authentication mechanism. 
+:::
 
 Most of the options can also be set as parameters in the URL. This means
 a JDBC URL can be used in the CLI after removing the `jdbc:` prefix.
@@ -236,41 +235,40 @@ recognizes these certificates.
 Use the options from the following table to further configure TLS and
 certificate usage:
 
-```{eval-rst}
-.. list-table::
-  :widths: 40, 60
-  :header-rows: 1
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
 
-  * - Option
-    - Description
-  * - ``--insecure``
-    - Skip certificate validation when connecting with TLS/HTTPS (should only be
-      used for debugging).
-  * - ``--keystore-path``
-    - The location of the Java Keystore file that contains the certificate of
-      the server to connect with TLS.
-  * - ``--keystore-password``
-    - The password for the keystore. This must match the password you specified
-      when creating the keystore.
-  * - ``--keystore-type``
-    - Determined by the keystore file format. The default keystore type is JKS.
-      This advanced option is only necessary if you use a custom Java
-      Cryptography Architecture (JCA) provider implementation.
-  * - ``--truststore-password``
-    - The password for the truststore. This must match the password you
-      specified when creating the truststore.
-  * - ``--truststore-path``
-    - The location of the Java truststore file that will be used to secure TLS.
-  * - ``--truststore-type``
-    - Determined by the truststore file format. The default keystore type is
-      JKS. This advanced option is only necessary if you use a custom Java
-      Cryptography Architecture (JCA) provider implementation.
-  * - ``--use-system-truststore``
-    - Verify the server certificate using the system truststore of the
-      operating system. Windows and macOS are supported. For other operating
-      systems, the default Java truststore is used. The truststore type can
-      be overridden using ``--truststore-type``.
-```
+* - Option
+  - Description
+* - `--insecure`
+  - Skip certificate validation when connecting with TLS/HTTPS (should only be
+    used for debugging).
+* - `--keystore-path`
+  - The location of the Java Keystore file that contains the certificate of the
+    server to connect with TLS.
+* - `--keystore-password`
+  - The password for the keystore. This must match the password you specified
+    when creating the keystore.
+* - `--keystore-type`
+  - Determined by the keystore file format. The default keystore type is JKS.
+    This advanced option is only necessary if you use a custom Java Cryptography
+    Architecture (JCA) provider implementation.
+* - `--truststore-password`
+  - The password for the truststore. This must match the password you specified
+    when creating the truststore.
+* - `--truststore-path`
+  - The location of the Java truststore file that will be used to secure TLS.
+* - `--truststore-type`
+  - Determined by the truststore file format. The default keystore type is JKS.
+    This advanced option is only necessary if you use a custom Java Cryptography
+    Architecture (JCA) provider implementation.
+* - `--use-system-truststore`
+  - Verify the server certificate using the system truststore of the operating
+    system. Windows and macOS are supported. For other operating systems, the
+    default Java truststore is used. The truststore type can be overridden using
+    `--truststore-type`.
+:::
 
 (cli-authentication)=
 
@@ -340,20 +338,19 @@ The detailed behavior is as follows:
 Use the following CLI arguments to connect to a cluster that uses
 {doc}`certificate authentication </security/certificate>`.
 
-```{eval-rst}
-.. list-table:: CLI options for certificate authentication
-   :widths: 35 65
-   :header-rows: 1
+:::{list-table} CLI options for certificate authentication
+:widths: 35 65
+:header-rows: 1
 
-   * - Option
-     - Description
-   * - ``--keystore-path=<path>``
-     - Absolute or relative path to a :doc:`PEM </security/inspect-pem>` or
-       :doc:`JKS </security/inspect-jks>` file, which must contain a certificate
-       that is trusted by the Trino cluster you are connecting to.
-   * - ``--keystore-password=<password>``
-     - Only required if the keystore has a password.
-```
+* - Option
+  - Description
+* - `--keystore-path=<path>`
+  - Absolute or relative path to a [PEM](/security/inspect-pem) or
+    [JKS](/security/inspect-jks) file, which must contain a certificate
+    that is trusted by the Trino cluster you are connecting to.
+* - `--keystore-password=<password>`
+  - Only required if the keystore has a password.
+:::
 
 The truststore related options are independent of client certificate
 authentication with the CLI; instead, they control the client's trust of the
@@ -394,30 +391,28 @@ through {doc}`TLS and HTTPS </security/tls>`.
 
 The following table lists the available options for Kerberos authentication:
 
-```{eval-rst}
-.. list-table:: CLI options for Kerberos authentication
-  :widths: 40, 60
-  :header-rows: 1
+:::{list-table} CLI options for Kerberos authentication
+:widths: 40, 60
+:header-rows: 1
 
-  * - Option
-    - Description
-  * - ``--krb5-config-path``
-    - Path to Kerberos configuration files.
-  * - ``--krb5-credential-cache-path``
-    - Kerberos credential cache path.
-  * - ``--krb5-disable-remote-service-hostname-canonicalization``
-    - Disable service hostname canonicalization using the DNS reverse lookup.
-  * - ``--krb5-keytab-path``
-    - The location of the keytab that can be used to authenticate the principal
-      specified by ``--krb5-principal``.
-  * - ``--krb5-principal``
-    - The principal to use when authenticating to the coordinator.
-  * - ``--krb5-remote-service-name``
-    - Trino coordinator Kerberos service name.
-  * - ``--krb5-service-principal-pattern``
-    - Remote kerberos service principal pattern. Defaults to
-      ``${SERVICE}@${HOST}``.
-```
+* - Option
+  - Description
+* - `--krb5-config-path`
+  - Path to Kerberos configuration files.
+* - `--krb5-credential-cache-path`
+  - Kerberos credential cache path.
+* - `--krb5-disable-remote-service-hostname-canonicalization`
+  - Disable service hostname canonicalization using the DNS reverse lookup.
+* - `--krb5-keytab-path`
+  - The location of the keytab that can be used to authenticate the principal
+    specified by `--krb5-principal`.
+* - `--krb5-principal`
+  - The principal to use when authenticating to the coordinator.
+* - `--krb5-remote-service-name`
+  - Trino coordinator Kerberos service name.
+* - `--krb5-service-principal-pattern`
+  - Remote kerberos service principal pattern. Defaults to `${SERVICE}@${HOST}`.
+:::
 
 (cli-kerberos-debug)=
 
@@ -520,27 +515,26 @@ other formats and redirect the output to a file.
 The following options are available to further configure the CLI in batch
 mode:
 
-```{eval-rst}
-.. list-table::
-  :widths: 40, 60
-  :header-rows: 1
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
 
-  * - Option
-    - Description
-  * - ``--execute=<execute>``
-    - Execute specified statements and exit.
-  * - ``-f``, ``--file=<file>``
-    - Execute statements from file and exit.
-  * - ``--ignore-errors``
-    - Continue processing in batch mode when an error occurs. Default is to
-      exit immediately.
-  * - ``--output-format=<format>``
-    - Specify the :ref:`format <cli-output-format>` to use
-      for printing query results. Defaults to ``CSV``.
-  * - ``--progress``
-    - Show query progress in batch mode. It does not affect the output,
-      which, for example can be safely redirected to a file.
-```
+* - Option
+  - Description
+* - `--execute=<execute>`
+  - Execute specified statements and exit.
+* - `-f`, `--file=<file>`
+  - Execute statements from file and exit.
+* - `--ignore-errors`
+  - Continue processing in batch mode when an error occurs. Default is to exit
+    immediately.
+* - `--output-format=<format>`
+  - Specify the [format](cli-output-format) to use for printing query results.
+    Defaults to `CSV`.
+* - `--progress`
+  - Show query progress in batch mode. It does not affect the output, which, for
+    example can be safely redirected to a file.
+:::
 
 ### Examples
 
@@ -615,41 +609,40 @@ The available options shown in the following table must be entered
 in uppercase. The default value is `ALIGNED` in interactive mode,
 and `CSV` in non-interactive mode.
 
-```{eval-rst}
-.. list-table:: Output format options
-  :widths: 25, 75
-  :header-rows: 1
+:::{list-table} Output format options
+:widths: 25, 75
+:header-rows: 1
 
-  * - Option
-    - Description
-  * - ``CSV``
-    - Comma-separated values, each value quoted. No header row.
-  * - ``CSV_HEADER``
-    - Comma-separated values, quoted with header row.
-  * - ``CSV_UNQUOTED``
-    - Comma-separated values without quotes.
-  * - ``CSV_HEADER_UNQUOTED``
-    - Comma-separated values with header row but no quotes.
-  * - ``TSV``
-    - Tab-separated values.
-  * - ``TSV_HEADER``
-    - Tab-separated values with header row.
-  * - ``JSON``
-    - Output rows emitted as JSON objects with name-value pairs.
-  * - ``ALIGNED``
-    - Output emitted as an ASCII character table with values.
-  * - ``VERTICAL``
-    - Output emitted as record-oriented top-down lines, one per value.
-  * - ``AUTO``
-    - Same as ``ALIGNED`` if output would fit the current terminal width,
-      and ``VERTICAL`` otherwise.
-  * - ``MARKDOWN``
-    - Output emitted as a Markdown table.
-  * - ``NULL``
-    - Suppresses normal query results. This can be useful during development
-      to test a query's shell return code or to see whether it results in
-      error messages.
-```
+* - Option
+  - Description
+* - `CSV`
+  - Comma-separated values, each value quoted. No header row.
+* - `CSV_HEADER`
+  - Comma-separated values, quoted with header row.
+* - `CSV_UNQUOTED`
+  - Comma-separated values without quotes.
+* - `CSV_HEADER_UNQUOTED`
+  - Comma-separated values with header row but no quotes.
+* - `TSV`
+  - Tab-separated values.
+* - `TSV_HEADER`
+  - Tab-separated values with header row.
+* - `JSON`
+  - Output rows emitted as JSON objects with name-value pairs.
+* - `ALIGNED`
+  - Output emitted as an ASCII character table with values.
+* - `VERTICAL`
+  - Output emitted as record-oriented top-down lines, one per value.
+* - `AUTO`
+  - Same as `ALIGNED` if output would fit the current terminal width,
+    and `VERTICAL` otherwise.
+* - `MARKDOWN`
+  - Output emitted as a Markdown table.
+* - `NULL`
+  - Suppresses normal query results. This can be useful during development to
+    test a query's shell return code or to see whether it results in error
+    messages. 
+:::
 
 (cli-troubleshooting)=
 

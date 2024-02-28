@@ -18,7 +18,6 @@ import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
-import static io.trino.tests.product.TestGroups.COMMENT;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -43,7 +42,7 @@ public class TestComments
         onHive().executeQuery("DROP VIEW IF EXISTS " + COMMENT_HIVE_VIEW_NAME);
     }
 
-    @Test(groups = COMMENT)
+    @Test
     public void testCommentTable()
     {
         String createTableSql = format("" +
@@ -69,7 +68,7 @@ public class TestComments
         assertThat(getTableComment("hive", "default", COMMENT_TABLE_NAME)).isNull();
     }
 
-    @Test(groups = COMMENT)
+    @Test
     public void testCommentView()
     {
         String createViewSql = format("" +
@@ -102,7 +101,7 @@ public class TestComments
         return (String) onTrino().executeQuery(sql).getOnlyValue();
     }
 
-    @Test(groups = COMMENT)
+    @Test
     public void testCommentViewColumn()
     {
         String columnName = "col";
@@ -136,65 +135,42 @@ public class TestComments
         return (String) onTrino().executeQuery(sql).getOnlyValue();
     }
 
-    @Test(groups = COMMENT)
+    @Test
     public void testCommentColumn()
     {
-        String createTableSql = format("" +
-                        "CREATE TABLE hive.default.%s (\n" +
-                        "   c1 bigint COMMENT 'test comment',\n" +
-                        "   c2 bigint COMMENT '',\n" +
-                        "   c3 bigint\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'RCBINARY'\n" +
-                        ")",
-                COMMENT_COLUMN_NAME);
-        onTrino().executeQuery(createTableSql);
-
-        String createTableSqlPattern = format("\\Q" +
-                        "CREATE TABLE hive.default.%s (\n" +
-                        "   c1 bigint COMMENT 'test comment',\n" +
-                        "   c2 bigint COMMENT '',\n" +
-                        "   c3 bigint\n" +
-                        ")\\E(?s:.*)",
-                COMMENT_COLUMN_NAME);
-        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
-                .matches(createTableSqlPattern);
-
-        createTableSqlPattern = format("\\Q" +
-                        "CREATE TABLE hive.default.%s (\n" +
-                        "   c1 bigint COMMENT 'new comment',\n" +
-                        "   c2 bigint COMMENT '',\n" +
-                        "   c3 bigint\n" +
-                        ")\\E(?s:.*)",
-                COMMENT_COLUMN_NAME);
+        onTrino().executeQuery("""
+                CREATE TABLE hive.default.%s (
+                   c1 bigint COMMENT 'test comment',
+                   c2 bigint COMMENT '',
+                   c3 bigint,
+                   c4 bigint COMMENT 'test partition comment',
+                   c5 bigint COMMENT '',
+                   c6 bigint
+                )
+                WITH (
+                   partitioned_by = ARRAY['c4', 'c5', 'c6']
+                )
+                """.formatted(COMMENT_COLUMN_NAME));
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isEqualTo("test comment");
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c2")).isEmpty();
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c3")).isNull();
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c4")).isEqualTo("test partition comment");
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c5")).isEmpty();
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c6")).isNull();
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS 'new comment'", COMMENT_COLUMN_NAME));
-        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
-                .matches(createTableSqlPattern);
-
-        createTableSqlPattern = format("\\Q" +
-                        "CREATE TABLE hive.default.%s (\n" +
-                        "   c1 bigint COMMENT '',\n" +
-                        "   c2 bigint COMMENT '',\n" +
-                        "   c3 bigint\n" +
-                        ")\\E(?s:.*)",
-                COMMENT_COLUMN_NAME);
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isEqualTo("new comment");
+        onTrino().executeQuery(format("COMMENT ON COLUMN %s.c4 IS 'new partition comment'", COMMENT_COLUMN_NAME));
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c4")).isEqualTo("new partition comment");
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS ''", COMMENT_COLUMN_NAME));
-        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
-                .matches(createTableSqlPattern);
-
-        createTableSqlPattern = format("\\Q" +
-                        "CREATE TABLE hive.default.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   c2 bigint COMMENT '',\n" +
-                        "   c3 bigint\n" +
-                        ")\\E(?s:.*)",
-                COMMENT_COLUMN_NAME);
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isEmpty();
+        onTrino().executeQuery(format("COMMENT ON COLUMN %s.c4 IS ''", COMMENT_COLUMN_NAME));
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c4")).isEmpty();
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS NULL", COMMENT_COLUMN_NAME));
-        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
-                .matches(createTableSqlPattern);
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isNull();
+        onTrino().executeQuery(format("COMMENT ON COLUMN %s.c4 IS NULL", COMMENT_COLUMN_NAME));
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c4")).isNull();
     }
 }

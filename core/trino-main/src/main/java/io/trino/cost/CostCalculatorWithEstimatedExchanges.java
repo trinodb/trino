@@ -32,6 +32,7 @@ import io.trino.sql.planner.plan.UnionNode;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.cost.LocalCostEstimate.addPartialComponents;
 import static java.util.Objects.requireNonNull;
 
@@ -206,6 +207,7 @@ public class CostCalculatorWithEstimatedExchanges
             boolean replicated,
             int estimatedSourceDistributedTaskCount)
     {
+        checkArgument(estimatedSourceDistributedTaskCount > 0, "estimatedSourceDistributedTaskCount must be positive: %s", estimatedSourceDistributedTaskCount);
         LocalCostEstimate exchangesCost = calculateJoinExchangeCost(
                 probe,
                 build,

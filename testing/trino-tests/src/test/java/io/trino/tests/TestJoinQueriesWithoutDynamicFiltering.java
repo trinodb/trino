@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestJoinQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * @see TestJoinQueries for tests with dynamic filtering enabled

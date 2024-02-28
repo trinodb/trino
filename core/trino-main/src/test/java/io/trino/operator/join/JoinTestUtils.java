@@ -152,7 +152,8 @@ public final class JoinTestUtils
                 buildPages.getHashChannel(),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 TYPE_OPERATORS,
-                DataSize.of(32, DataSize.Unit.MEGABYTE));
+                DataSize.of(32, DataSize.Unit.MEGABYTE),
+                () -> 0L);
 
         // collect input data into the partitioned exchange
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
@@ -317,14 +318,16 @@ public final class JoinTestUtils
         private volatile boolean failSpill;
         private volatile boolean failUnspill;
 
-        public void failSpill()
+        public DummySpillerFactory failSpill()
         {
             failSpill = true;
+            return this;
         }
 
-        public void failUnspill()
+        public DummySpillerFactory failUnspill()
         {
             failUnspill = true;
+            return this;
         }
 
         @Override

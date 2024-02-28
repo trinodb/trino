@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.plugin.deltalake.transactionlog.writer.S3NativeTransactionLogSynchronizer;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;
@@ -51,11 +51,14 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
     protected Map<String, String> hiveStorageConfiguration()
     {
         return ImmutableMap.<String, String>builder()
-                .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                .put("hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
-                .put("hive.s3.path-style-access", "true")
-                .put("hive.s3.max-connections", "2")
+                .put("fs.hadoop.enabled", "false")
+                .put("fs.native-s3.enabled", "true")
+                .put("s3.aws-access-key", MINIO_ACCESS_KEY)
+                .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .put("s3.region", MINIO_REGION)
+                .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                .put("s3.path-style-access", "true")
+                .put("s3.max-connections", "2")
                 .buildOrThrow();
     }
 
@@ -76,8 +79,16 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
                 .buildOrThrow();
     }
 
-    @Test(dataProvider = "writesLockedQueryProvider")
-    public void testWritesLocked(String writeStatement)
+    @Test
+    public void testWritesLocked()
+            throws Exception
+    {
+        testWritesLocked("INSERT INTO %s VALUES (3, 'kota'), (4, 'psa')");
+        testWritesLocked("UPDATE %s SET a_string = 'kota' WHERE a_number = 2");
+        testWritesLocked("DELETE FROM %s WHERE a_number = 1");
+    }
+
+    private void testWritesLocked(String writeStatement)
             throws Exception
     {
         String tableName = "test_writes_locked" + randomNameSuffix();
@@ -112,18 +123,16 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
         }
     }
 
-    @DataProvider
-    public static Object[][] writesLockedQueryProvider()
+    @Test
+    public void testWritesLockExpired()
+            throws Exception
     {
-        return new Object[][] {
-                {"INSERT INTO %s VALUES (3, 'kota'), (4, 'psa')"},
-                {"UPDATE %s SET a_string = 'kota' WHERE a_number = 2"},
-                {"DELETE FROM %s WHERE a_number = 1"},
-        };
+        testWritesLockExpired("INSERT INTO %s VALUES (3, 'kota')", "VALUES (1,'ala'), (2,'ma'), (3,'kota')");
+        testWritesLockExpired("UPDATE %s SET a_string = 'kota' WHERE a_number = 2", "VALUES (1,'ala'), (2,'kota')");
+        testWritesLockExpired("DELETE FROM %s WHERE a_number = 2", "VALUES (1,'ala')");
     }
 
-    @Test(dataProvider = "writesLockExpiredValuesProvider")
-    public void testWritesLockExpired(String writeStatement, String expectedValues)
+    private void testWritesLockExpired(String writeStatement, String expectedValues)
             throws Exception
     {
         String tableName = "test_writes_locked" + randomNameSuffix();
@@ -143,18 +152,15 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @DataProvider
-    public static Object[][] writesLockExpiredValuesProvider()
+    @Test
+    public void testWritesLockInvalidContents()
     {
-        return new Object[][] {
-                {"INSERT INTO %s VALUES (3, 'kota')", "VALUES (1,'ala'), (2,'ma'), (3,'kota')"},
-                {"UPDATE %s SET a_string = 'kota' WHERE a_number = 2", "VALUES (1,'ala'), (2,'kota')"},
-                {"DELETE FROM %s WHERE a_number = 2", "VALUES (1,'ala')"},
-        };
+        testWritesLockInvalidContents("INSERT INTO %s VALUES (3, 'kota')", "VALUES (1,'ala'), (2,'ma'), (3,'kota')");
+        testWritesLockInvalidContents("UPDATE %s SET a_string = 'kota' WHERE a_number = 2", "VALUES (1,'ala'), (2,'kota')");
+        testWritesLockInvalidContents("DELETE FROM %s WHERE a_number = 2", "VALUES (1,'ala')");
     }
 
-    @Test(dataProvider = "writesLockInvalidContentsValuesProvider")
-    public void testWritesLockInvalidContents(String writeStatement, String expectedValues)
+    private void testWritesLockInvalidContents(String writeStatement, String expectedValues)
     {
         String tableName = "test_writes_locked" + randomNameSuffix();
         assertUpdate(
@@ -177,54 +183,74 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
     public void testDeltaColumnInvariant()
     {
         String tableName = "test_invariants_" + randomNameSuffix();
-        hiveMinioDataLake.copyResources("databricks/invariants", tableName);
+        hiveMinioDataLake.copyResources("deltalake/invariants", tableName);
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, getLocationForTable(bucketName, tableName)));
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1");
         assertUpdate("INSERT INTO " + tableName + " VALUES(2)", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
 
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3)"))
-                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
-        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET dummy = 3 WHERE dummy = 1"))
-                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+        assertThat(query("INSERT INTO " + tableName + " VALUES(3)"))
+                .failure().hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+        assertThat(query("UPDATE " + tableName + " SET dummy = 3 WHERE dummy = 1"))
+                .failure().hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
+    }
+
+    /**
+     * @see databricks122.invariants_writer_feature
+     */
+    @Test
+    public void testDeltaColumnInvariantWriterFeature()
+    {
+        String tableName = "test_invariants_writer_feature_" + randomNameSuffix();
+        hiveMinioDataLake.copyResources("databricks122/invariants_writer_feature", tableName);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, getLocationForTable(bucketName, tableName)));
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2");
+
+        assertThat(query("INSERT INTO " + tableName + " VALUES 3"))
+                .failure().hasMessageContaining("Check constraint violation: (\"col_invariants\" < 3)");
+        assertThat(query("UPDATE " + tableName + " SET col_invariants = 3 WHERE col_invariants = 1"))
+                .failure().hasMessageContaining("Check constraint violation: (\"col_invariants\" < 3)");
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2");
     }
 
     @Test
     public void testSchemaEvolutionOnTableWithColumnInvariant()
     {
         String tableName = "test_schema_evolution_on_table_with_column_invariant_" + randomNameSuffix();
-        hiveMinioDataLake.copyResources("databricks/invariants", tableName);
+        hiveMinioDataLake.copyResources("deltalake/invariants", tableName);
         getQueryRunner().execute(format(
                 "CALL system.register_table('%s', '%s', '%s')",
                 SCHEMA,
                 tableName,
                 getLocationForTable(bucketName, tableName)));
 
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3)"))
-                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+        assertThat(query("INSERT INTO " + tableName + " VALUES(3)"))
+                .failure().hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INT");
         assertUpdate("COMMENT ON COLUMN " + tableName + ".c IS 'example column comment'");
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'example table comment'");
 
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3, 30)"))
-                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+        assertThat(query("INSERT INTO " + tableName + " VALUES(3, 30)"))
+                .failure().hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20)", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, 20)");
     }
 
-    @DataProvider
-    public static Object[][] writesLockInvalidContentsValuesProvider()
+    @Override
+    @Test
+    @Disabled
+    public void testConcurrentInsertsReconciliationForBlindInserts()
     {
-        return new Object[][] {
-                {"INSERT INTO %s VALUES (3, 'kota')", "VALUES (1,'ala'), (2,'ma'), (3,'kota')"},
-                {"UPDATE %s SET a_string = 'kota' WHERE a_number = 2", "VALUES (1,'ala'), (2,'kota')"},
-                {"DELETE FROM %s WHERE a_number = 2", "VALUES (1,'ala')"},
-        };
+        // testConcurrentInsertsReconciliation requires safe writes capability to avoid test flakiness
     }
 
     private String lockTable(String tableName, java.time.Duration lockDuration)

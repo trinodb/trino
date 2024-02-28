@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
@@ -30,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class ScaleWriterPartitioningExchanger
         implements LocalExchanger
 {
+    private static final double SCALE_WRITER_MEMORY_PERCENTAGE = 0.7;
     private final List<Consumer<Page>> buffers;
     private final LocalExchangeMemoryManager memoryManager;
     private final long maxBufferedBytes;
@@ -41,6 +43,8 @@ public class ScaleWriterPartitioningExchanger
     private final int[] partitionRowCounts;
     private final int[] partitionWriterIds;
     private final int[] partitionWriterIndexes;
+    private final Supplier<Long> totalMemoryUsed;
+    private final long maxMemoryPerNode;
 
     public ScaleWriterPartitioningExchanger(
             List<Consumer<Page>> buffers,
@@ -49,7 +53,9 @@ public class ScaleWriterPartitioningExchanger
             Function<Page, Page> partitionedPagePreparer,
             PartitionFunction partitionFunction,
             int partitionCount,
-            SkewedPartitionRebalancer partitionRebalancer)
+            SkewedPartitionRebalancer partitionRebalancer,
+            Supplier<Long> totalMemoryUsed,
+            long maxMemoryPerNode)
     {
         this.buffers = requireNonNull(buffers, "buffers is null");
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
@@ -57,6 +63,8 @@ public class ScaleWriterPartitioningExchanger
         this.partitionedPagePreparer = requireNonNull(partitionedPagePreparer, "partitionedPagePreparer is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionRebalancer = requireNonNull(partitionRebalancer, "partitionRebalancer is null");
+        this.totalMemoryUsed = requireNonNull(totalMemoryUsed, "totalMemoryUsed is null");
+        this.maxMemoryPerNode = maxMemoryPerNode;
 
         // Initialize writerAssignments with the buffer size
         writerAssignments = new IntArrayList[buffers.size()];
@@ -76,8 +84,18 @@ public class ScaleWriterPartitioningExchanger
     @Override
     public void accept(Page page)
     {
-        // Scale up writers when current buffer memory utilization is more than 50% of the maximum
-        if (memoryManager.getBufferedBytes() > maxBufferedBytes * 0.5) {
+        // Reset the value of partition row count, writer ids and data processed for this page
+        long dataProcessed = 0;
+        for (int partitionId = 0; partitionId < partitionRowCounts.length; partitionId++) {
+            partitionRowCounts[partitionId] = 0;
+            partitionWriterIds[partitionId] = -1;
+        }
+
+        // Scale up writers when current buffer memory utilization is more than 50% of the maximum.
+        // Do not scale up if total memory used is greater than 70% of max memory per node.
+        // We have to be conservative here otherwise scaling of writers will happen first
+        // before we hit this limit, and then we won't be able to do anything to stop OOM error.
+        if (memoryManager.getBufferedBytes() > maxBufferedBytes * 0.5 && totalMemoryUsed.get() < maxMemoryPerNode * SCALE_WRITER_MEMORY_PERCENTAGE) {
             partitionRebalancer.rebalance();
         }
 
@@ -101,13 +119,6 @@ public class ScaleWriterPartitioningExchanger
             writerAssignments[writerId].add(position);
         }
 
-        for (int partitionId = 0; partitionId < partitionRowCounts.length; partitionId++) {
-            partitionRebalancer.addPartitionRowCount(partitionId, partitionRowCounts[partitionId]);
-            // Reset the value of partition row count
-            partitionRowCounts[partitionId] = 0;
-            partitionWriterIds[partitionId] = -1;
-        }
-
         // build a page for each writer
         for (int bucket = 0; bucket < writerAssignments.length; bucket++) {
             IntArrayList positionsList = writerAssignments[bucket];
@@ -125,12 +136,22 @@ public class ScaleWriterPartitioningExchanger
                 // whole input page will go to this partition, compact the input page avoid over-retaining memory and to
                 // match the behavior of sub-partitioned pages that copy positions out
                 page.compact();
-                sendPageToPartition(buffers.get(bucket), page);
-                return;
+                dataProcessed += sendPageToPartition(buffers.get(bucket), page);
+                break;
             }
 
             Page pageSplit = page.copyPositions(positions, 0, bucketSize);
-            sendPageToPartition(buffers.get(bucket), pageSplit);
+            dataProcessed += sendPageToPartition(buffers.get(bucket), pageSplit);
+        }
+
+        // Only update the scaling state if the memory used is below the SCALE_WRITER_MEMORY_PERCENTAGE limit. Otherwise, if we keep updating
+        // the scaling state and the memory used is fluctuating around the limit, then we could do massive scaling
+        // in a single rebalancing cycle which could cause OOM error.
+        if (totalMemoryUsed.get() < maxMemoryPerNode * SCALE_WRITER_MEMORY_PERCENTAGE) {
+            for (int partitionId = 0; partitionId < partitionRowCounts.length; partitionId++) {
+                partitionRebalancer.addPartitionRowCount(partitionId, partitionRowCounts[partitionId]);
+            }
+            partitionRebalancer.addDataProcessed(dataProcessed);
         }
     }
 
@@ -145,11 +166,11 @@ public class ScaleWriterPartitioningExchanger
         return partitionRebalancer.getTaskId(partitionId, partitionWriterIndexes[partitionId]++);
     }
 
-    private void sendPageToPartition(Consumer<Page> buffer, Page pageSplit)
+    private long sendPageToPartition(Consumer<Page> buffer, Page pageSplit)
     {
         long retainedSizeInBytes = pageSplit.getRetainedSizeInBytes();
-        partitionRebalancer.addDataProcessed(retainedSizeInBytes);
         memoryManager.updateMemoryUsage(retainedSizeInBytes);
         buffer.accept(pageSplit);
+        return retainedSizeInBytes;
     }
 }

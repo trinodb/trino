@@ -14,6 +14,7 @@
 package io.trino.cache;
 
 import com.google.common.cache.Cache;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -26,6 +27,10 @@ public final class CacheUtils
 {
     private CacheUtils() {}
 
+    /**
+     * @throws UncheckedExecutionException when {@code loader} throws an unchecked exception
+     * @throws RuntimeException when{@code loader} throws a checked exception (which should not happen) or an {@link Error}
+     */
     public static <K, V> V uncheckedCacheGet(Cache<K, V> cache, K key, Supplier<V> loader)
     {
         try {

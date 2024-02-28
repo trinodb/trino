@@ -161,22 +161,6 @@ public class MetadataEntry
         }
     }
 
-    @JsonIgnore
-    public Optional<Boolean> isChangeDataFeedEnabled()
-    {
-        if (this.getConfiguration() == null) {
-            return Optional.empty();
-        }
-
-        String value = this.getConfiguration().get(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY);
-        if (value == null) {
-            return Optional.empty();
-        }
-
-        boolean changeDataFeedEnabled = Boolean.parseBoolean(value);
-        return Optional.of(changeDataFeedEnabled);
-    }
-
     public static Map<String, String> configurationForNewTable(
             Optional<Long> checkpointInterval,
             Optional<Boolean> changeDataFeedEnabled,

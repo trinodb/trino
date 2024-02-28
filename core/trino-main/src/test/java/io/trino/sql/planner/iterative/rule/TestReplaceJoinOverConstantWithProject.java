@@ -19,7 +19,6 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import org.junit.jupiter.api.Test;
 
@@ -29,10 +28,10 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 
 public class TestReplaceJoinOverConstantWithProject
         extends BaseRuleTest
@@ -313,7 +312,7 @@ public class TestReplaceJoinOverConstantWithProject
     public void testNonDeterministicValues()
     {
         FunctionCall randomFunction = new FunctionCall(
-                tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
+                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
@@ -325,7 +324,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .doesNotFire();
 
         FunctionCall uuidFunction = new FunctionCall(
-                tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("uuid"), ImmutableList.of()).toQualifiedName(),
+                tester().getMetadata().resolveBuiltinFunction("uuid", ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))

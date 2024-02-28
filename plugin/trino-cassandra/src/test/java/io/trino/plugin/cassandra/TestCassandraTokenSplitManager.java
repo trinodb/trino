@@ -14,9 +14,11 @@
 package io.trino.plugin.cassandra;
 
 import io.trino.plugin.cassandra.CassandraTokenSplitManager.TokenSplit;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,8 +26,11 @@ import java.util.Optional;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createKeyspace;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestCassandraTokenSplitManager
 {
     private static final int SPLIT_SIZE = 100;
@@ -36,7 +41,7 @@ public class TestCassandraTokenSplitManager
     private CassandraSession session;
     private CassandraTokenSplitManager splitManager;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
@@ -46,7 +51,7 @@ public class TestCassandraTokenSplitManager
         splitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.empty());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         server.close();
@@ -64,16 +69,16 @@ public class TestCassandraTokenSplitManager
         server.refreshSizeEstimates(KEYSPACE, tableName);
 
         CassandraTokenSplitManager onlyConfigSplitsPerNode = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.of(12_345L));
-        assertEquals(onlyConfigSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty()), 12_345L);
+        assertThat(onlyConfigSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty())).isEqualTo(12_345L);
 
         CassandraTokenSplitManager onlySessionSplitsPerNode = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.empty());
-        assertEquals(onlySessionSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L)), 67_890L);
+        assertThat(onlySessionSplitsPerNode.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L))).isEqualTo(67_890L);
 
         CassandraTokenSplitManager sessionOverrideConfig = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.of(12_345L));
-        assertEquals(sessionOverrideConfig.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L)), 67_890L);
+        assertThat(sessionOverrideConfig.getTotalPartitionsCount(KEYSPACE, tableName, Optional.of(67_890L))).isEqualTo(67_890L);
 
         CassandraTokenSplitManager defaultSplitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.empty());
-        assertEquals(defaultSplitManager.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty()), 0);
+        assertThat(defaultSplitManager.getTotalPartitionsCount(KEYSPACE, tableName, Optional.empty())).isEqualTo(0);
     }
 
     @Test

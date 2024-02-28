@@ -16,9 +16,9 @@ package io.trino.metadata;
 import io.trino.Session;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
@@ -27,11 +27,11 @@ import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.transaction.TransactionManager;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -39,8 +39,8 @@ import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 
 public class TestingFunctionResolution
@@ -64,9 +64,9 @@ public class TestingFunctionResolution
         metadata = plannerContext.getMetadata();
     }
 
-    public TestingFunctionResolution(LocalQueryRunner localQueryRunner)
+    public TestingFunctionResolution(QueryRunner queryRunner)
     {
-        this(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext());
+        this(queryRunner.getTransactionManager(), queryRunner.getPlannerContext());
     }
 
     public TestingFunctionResolution(TransactionManager transactionManager, PlannerContext plannerContext)
@@ -101,23 +101,28 @@ public class TestingFunctionResolution
         return new PageFunctionCompiler(plannerContext.getFunctionManager(), expressionCacheSize);
     }
 
+    public Collection<FunctionMetadata> listGlobalFunctions()
+    {
+        return inTransaction(metadata::listGlobalFunctions);
+    }
+
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        return inTransaction(session -> metadata.resolveOperator(session, operatorType, argumentTypes));
+        return inTransaction(session -> metadata.resolveOperator(operatorType, argumentTypes));
     }
 
     public ResolvedFunction getCoercion(Type fromType, Type toType)
     {
-        return inTransaction(session -> metadata.getCoercion(session, fromType, toType));
+        return inTransaction(session -> metadata.getCoercion(fromType, toType));
     }
 
-    public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
-        return inTransaction(session -> metadata.getCoercion(session, name, fromType, toType));
+        return inTransaction(session -> metadata.getCoercion(name, fromType, toType));
     }
 
-    public TestingFunctionCallBuilder functionCallBuilder(QualifiedName name)
+    public TestingFunctionCallBuilder functionCallBuilder(String name)
     {
         return new TestingFunctionCallBuilder(name);
     }
@@ -127,20 +132,15 @@ public class TestingFunctionResolution
     // legal, but works for tests
     //
 
-    public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
-        return inTransaction(session -> metadata.resolveFunction(session, name, parameterTypes));
+        return metadata.resolveBuiltinFunction(name, parameterTypes);
     }
 
-    public ScalarFunctionImplementation getScalarFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes, InvocationConvention invocationConvention)
-    {
-        return inTransaction(session -> plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveFunction(session, name, parameterTypes), invocationConvention));
-    }
-
-    public TestingAggregationFunction getAggregateFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public TestingAggregationFunction getAggregateFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
         return inTransaction(session -> {
-            ResolvedFunction resolvedFunction = metadata.resolveFunction(session, name, parameterTypes);
+            ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, parameterTypes);
             return new TestingAggregationFunction(
                     resolvedFunction.getSignature(),
                     resolvedFunction.getFunctionNullability(),
@@ -150,7 +150,7 @@ public class TestingFunctionResolution
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(transactionManager, new AllowAllAccessControl())
+        return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, session -> {
                     // metadata.getCatalogHandle() registers the catalog for the transaction
@@ -161,11 +161,11 @@ public class TestingFunctionResolution
 
     public class TestingFunctionCallBuilder
     {
-        private final QualifiedName name;
+        private final String name;
         private List<TypeSignature> argumentTypes = new ArrayList<>();
         private List<Expression> argumentValues = new ArrayList<>();
 
-        public TestingFunctionCallBuilder(QualifiedName name)
+        public TestingFunctionCallBuilder(String name)
         {
             this.name = name;
         }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -570,6 +571,8 @@ public class OrcRecordReader
         orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
     }
 
+    @SuppressWarnings("FormatStringAnnotation")
+    @FormatMethod
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
             throws OrcCorruptionException
     {

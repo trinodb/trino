@@ -19,8 +19,7 @@ import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ShortArrayBlock;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -32,23 +31,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestAggregationMaskCompiler
 {
-    @DataProvider
-    public Object[][] maskBuilderSuppliers()
+    private static final Supplier<AggregationMaskBuilder> INTERPRETED_MASK_BUILDER_SUPPLIER = () -> new InterpretedAggregationMaskBuilder(1);
+    private static final Supplier<AggregationMaskBuilder> COMPILED_MASK_BUILDER_SUPPLIER = () -> {
+        try {
+            return generateAggregationMaskBuilder(1).newInstance();
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    };
+
+    @Test
+    public void testSupplier()
     {
-        Supplier<AggregationMaskBuilder> interpretedMaskBuilderSupplier = () -> new InterpretedAggregationMaskBuilder(1);
-        Supplier<AggregationMaskBuilder> compiledMaskBuilderSupplier = () -> {
-            try {
-                return generateAggregationMaskBuilder(1).newInstance();
-            }
-            catch (ReflectiveOperationException e) {
-                throw new RuntimeException(e);
-            }
-        };
-        return new Object[][] {{compiledMaskBuilderSupplier}, {interpretedMaskBuilderSupplier}};
+        testSupplier(INTERPRETED_MASK_BUILDER_SUPPLIER);
+        testSupplier(COMPILED_MASK_BUILDER_SUPPLIER);
     }
 
-    @Test(dataProvider = "maskBuilderSuppliers")
-    public void testSupplier(Supplier<AggregationMaskBuilder> maskBuilderSupplier)
+    private void testSupplier(Supplier<AggregationMaskBuilder> maskBuilderSupplier)
     {
         // each builder produced from a supplier could be completely independent
         assertThat(maskBuilderSupplier.get()).isNotSameAs(maskBuilderSupplier.get());
@@ -74,8 +74,14 @@ public class TestAggregationMaskCompiler
                 .isSameAs(maskBuilder.buildAggregationMask(pageWithNulls, Optional.empty()).getSelectedPositions());
     }
 
-    @Test(dataProvider = "maskBuilderSuppliers")
-    public void testUnsetNulls(Supplier<AggregationMaskBuilder> maskBuilderSupplier)
+    @Test
+    public void testUnsetNulls()
+    {
+        testUnsetNulls(INTERPRETED_MASK_BUILDER_SUPPLIER);
+        testUnsetNulls(COMPILED_MASK_BUILDER_SUPPLIER);
+    }
+
+    private void testUnsetNulls(Supplier<AggregationMaskBuilder> maskBuilderSupplier)
     {
         AggregationMaskBuilder maskBuilder = maskBuilderSupplier.get();
         AggregationMask aggregationMask = maskBuilder.buildAggregationMask(buildSingleColumnPage(0), Optional.empty());
@@ -107,12 +113,20 @@ public class TestAggregationMaskCompiler
         }
     }
 
-    @Test(dataProvider = "maskBuilderSuppliers")
-    public void testApplyMask(Supplier<AggregationMaskBuilder> maskBuilderSupplier)
+    @Test
+    public void testApplyMask()
+    {
+        testApplyMask(INTERPRETED_MASK_BUILDER_SUPPLIER);
+        testApplyMask(COMPILED_MASK_BUILDER_SUPPLIER);
+    }
+
+    private void testApplyMask(Supplier<AggregationMaskBuilder> maskBuilderSupplier)
     {
         AggregationMaskBuilder maskBuilder = maskBuilderSupplier.get();
 
         for (int positionCount = 7; positionCount < 10; positionCount++) {
+            assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockRle(positionCount, (byte) 1))), positionCount);
+
             byte[] mask = new byte[positionCount];
             Arrays.fill(mask, (byte) 1);
 
@@ -135,8 +149,14 @@ public class TestAggregationMaskCompiler
         }
     }
 
-    @Test(dataProvider = "maskBuilderSuppliers")
-    public void testApplyMaskNulls(Supplier<AggregationMaskBuilder> maskBuilderSupplier)
+    @Test
+    public void testApplyMaskNulls()
+    {
+        testApplyMaskNulls(INTERPRETED_MASK_BUILDER_SUPPLIER);
+        testApplyMaskNulls(COMPILED_MASK_BUILDER_SUPPLIER);
+    }
+
+    private void testApplyMaskNulls(Supplier<AggregationMaskBuilder> maskBuilderSupplier)
     {
         AggregationMaskBuilder maskBuilder = maskBuilderSupplier.get();
 

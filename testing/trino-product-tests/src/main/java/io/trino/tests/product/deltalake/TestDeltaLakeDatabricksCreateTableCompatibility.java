@@ -51,7 +51,6 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     @BeforeMethodWithContext
     public void setup()
     {
-        super.setUp();
         databricksRuntimeVersion = getDatabricksRuntimeVersion().orElseThrow();
     }
 
@@ -401,12 +400,6 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     {
         if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
-                    "  'delta.minReaderVersion' = '1',\n" +
-                    "  'delta.minWriterVersion' = '2')\n";
-        }
-        if (databricksRuntimeVersion.equals(DATABRICKS_104_RUNTIME_VERSION)) {
-            return "TBLPROPERTIES (\n" +
-                    "  'Type' = 'EXTERNAL',\n" +
                     "  'delta.minReaderVersion' = '1',\n" +
                     "  'delta.minWriterVersion' = '2')\n";
         }

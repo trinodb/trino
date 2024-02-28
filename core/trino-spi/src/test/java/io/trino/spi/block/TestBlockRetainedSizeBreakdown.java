@@ -17,7 +17,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash.Strategy;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenCustomHashMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -29,7 +29,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBlockRetainedSizeBreakdown
 {
@@ -145,18 +145,18 @@ public class TestBlockRetainedSizeBreakdown
         };
 
         block.retainedBytesForEachPart(consumer);
-        assertEquals(objectSize.get(), block.getRetainedSizeInBytes());
+        assertThat(objectSize.get()).isEqualTo(block.getRetainedSizeInBytes());
 
         Block copyBlock = block.getRegion(0, block.getPositionCount() / 2);
         copyBlock.retainedBytesForEachPart(consumer);
-        assertEquals(objectSize.get(), block.getRetainedSizeInBytes() + copyBlock.getRetainedSizeInBytes());
+        assertThat(objectSize.get()).isEqualTo(block.getRetainedSizeInBytes() + copyBlock.getRetainedSizeInBytes());
 
-        assertEquals(trackedObjects.getLong(block), 1);
-        assertEquals(trackedObjects.getLong(copyBlock), 1);
+        assertThat(trackedObjects.getLong(block)).isEqualTo(1);
+        assertThat(trackedObjects.getLong(copyBlock)).isEqualTo(1);
         trackedObjects.remove(block);
         trackedObjects.remove(copyBlock);
         for (long value : trackedObjects.values()) {
-            assertEquals(value, getRegionCreateNewObjects ? 1 : 2);
+            assertThat(value).isEqualTo(getRegionCreateNewObjects ? 1 : 2);
         }
     }
 

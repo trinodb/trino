@@ -20,7 +20,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,9 +29,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestAllOrNoneValueSet
 {
@@ -39,11 +36,11 @@ public class TestAllOrNoneValueSet
     public void testAll()
     {
         AllOrNoneValueSet valueSet = AllOrNoneValueSet.all(HYPER_LOG_LOG);
-        assertEquals(valueSet.getType(), HYPER_LOG_LOG);
-        assertFalse(valueSet.isNone());
-        assertTrue(valueSet.isAll());
-        assertFalse(valueSet.isSingleValue());
-        assertTrue(valueSet.containsValue(Slices.EMPTY_SLICE));
+        assertThat(valueSet.getType()).isEqualTo(HYPER_LOG_LOG);
+        assertThat(valueSet.isNone()).isFalse();
+        assertThat(valueSet.isAll()).isTrue();
+        assertThat(valueSet.isSingleValue()).isFalse();
+        assertThat(valueSet.containsValue(Slices.EMPTY_SLICE)).isTrue();
 
         assertThatThrownBy(valueSet::getSingleValue)
                 .isInstanceOf(UnsupportedOperationException.class);
@@ -53,11 +50,11 @@ public class TestAllOrNoneValueSet
     public void testNone()
     {
         AllOrNoneValueSet valueSet = AllOrNoneValueSet.none(HYPER_LOG_LOG);
-        assertEquals(valueSet.getType(), HYPER_LOG_LOG);
-        assertTrue(valueSet.isNone());
-        assertFalse(valueSet.isAll());
-        assertFalse(valueSet.isSingleValue());
-        assertFalse(valueSet.containsValue(Slices.EMPTY_SLICE));
+        assertThat(valueSet.getType()).isEqualTo(HYPER_LOG_LOG);
+        assertThat(valueSet.isNone()).isTrue();
+        assertThat(valueSet.isAll()).isFalse();
+        assertThat(valueSet.isSingleValue()).isFalse();
+        assertThat(valueSet.containsValue(Slices.EMPTY_SLICE)).isFalse();
 
         assertThatThrownBy(valueSet::getSingleValue)
                 .isInstanceOf(UnsupportedOperationException.class);
@@ -69,10 +66,10 @@ public class TestAllOrNoneValueSet
         AllOrNoneValueSet all = AllOrNoneValueSet.all(HYPER_LOG_LOG);
         AllOrNoneValueSet none = AllOrNoneValueSet.none(HYPER_LOG_LOG);
 
-        assertEquals(all.intersect(all), all);
-        assertEquals(all.intersect(none), none);
-        assertEquals(none.intersect(all), none);
-        assertEquals(none.intersect(none), none);
+        assertThat(all.intersect(all)).isEqualTo(all);
+        assertThat(all.intersect(none)).isEqualTo(none);
+        assertThat(none.intersect(all)).isEqualTo(none);
+        assertThat(none.intersect(none)).isEqualTo(none);
     }
 
     @Test
@@ -81,10 +78,10 @@ public class TestAllOrNoneValueSet
         AllOrNoneValueSet all = AllOrNoneValueSet.all(HYPER_LOG_LOG);
         AllOrNoneValueSet none = AllOrNoneValueSet.none(HYPER_LOG_LOG);
 
-        assertEquals(all.union(all), all);
-        assertEquals(all.union(none), all);
-        assertEquals(none.union(all), all);
-        assertEquals(none.union(none), none);
+        assertThat(all.union(all)).isEqualTo(all);
+        assertThat(all.union(none)).isEqualTo(all);
+        assertThat(none.union(all)).isEqualTo(all);
+        assertThat(none.union(none)).isEqualTo(none);
     }
 
     @Test
@@ -93,8 +90,8 @@ public class TestAllOrNoneValueSet
         AllOrNoneValueSet all = AllOrNoneValueSet.all(HYPER_LOG_LOG);
         AllOrNoneValueSet none = AllOrNoneValueSet.none(HYPER_LOG_LOG);
 
-        assertEquals(all.complement(), none);
-        assertEquals(none.complement(), all);
+        assertThat(all.complement()).isEqualTo(none);
+        assertThat(none.complement()).isEqualTo(all);
     }
 
     @Test
@@ -103,10 +100,10 @@ public class TestAllOrNoneValueSet
         AllOrNoneValueSet all = AllOrNoneValueSet.all(HYPER_LOG_LOG);
         AllOrNoneValueSet none = AllOrNoneValueSet.none(HYPER_LOG_LOG);
 
-        assertTrue(all.overlaps(all));
-        assertFalse(all.overlaps(none));
-        assertFalse(none.overlaps(all));
-        assertFalse(none.overlaps(none));
+        assertThat(all.overlaps(all)).isTrue();
+        assertThat(all.overlaps(none)).isFalse();
+        assertThat(none.overlaps(all)).isFalse();
+        assertThat(none.overlaps(none)).isFalse();
     }
 
     @Test
@@ -115,10 +112,10 @@ public class TestAllOrNoneValueSet
         AllOrNoneValueSet all = AllOrNoneValueSet.all(HYPER_LOG_LOG);
         AllOrNoneValueSet none = AllOrNoneValueSet.none(HYPER_LOG_LOG);
 
-        assertEquals(all.subtract(all), none);
-        assertEquals(all.subtract(none), all);
-        assertEquals(none.subtract(all), none);
-        assertEquals(none.subtract(none), none);
+        assertThat(all.subtract(all)).isEqualTo(none);
+        assertThat(all.subtract(none)).isEqualTo(all);
+        assertThat(none.subtract(all)).isEqualTo(none);
+        assertThat(none.subtract(none)).isEqualTo(none);
     }
 
     @Test
@@ -127,17 +124,17 @@ public class TestAllOrNoneValueSet
         AllOrNoneValueSet all = AllOrNoneValueSet.all(HYPER_LOG_LOG);
         AllOrNoneValueSet none = AllOrNoneValueSet.none(HYPER_LOG_LOG);
 
-        assertTrue(all.contains(all));
-        assertTrue(all.contains(none));
-        assertFalse(none.contains(all));
-        assertTrue(none.contains(none));
+        assertThat(all.contains(all)).isTrue();
+        assertThat(all.contains(none)).isTrue();
+        assertThat(none.contains(all)).isFalse();
+        assertThat(none.contains(none)).isTrue();
     }
 
     @Test
     public void testContainsValue()
     {
-        assertTrue(AllOrNoneValueSet.all(BIGINT).containsValue(42L));
-        assertFalse(AllOrNoneValueSet.none(BIGINT).containsValue(42L));
+        assertThat(AllOrNoneValueSet.all(BIGINT).containsValue(42L)).isTrue();
+        assertThat(AllOrNoneValueSet.none(BIGINT).containsValue(42L)).isFalse();
     }
 
     @Test
@@ -150,10 +147,10 @@ public class TestAllOrNoneValueSet
                 .registerModule(new SimpleModule().addDeserializer(Type.class, new TestingTypeDeserializer(typeManager)));
 
         AllOrNoneValueSet all = AllOrNoneValueSet.all(HYPER_LOG_LOG);
-        assertEquals(all, mapper.readValue(mapper.writeValueAsString(all), AllOrNoneValueSet.class));
+        assertThat(all).isEqualTo(mapper.readValue(mapper.writeValueAsString(all), AllOrNoneValueSet.class));
 
         AllOrNoneValueSet none = AllOrNoneValueSet.none(HYPER_LOG_LOG);
-        assertEquals(none, mapper.readValue(mapper.writeValueAsString(none), AllOrNoneValueSet.class));
+        assertThat(none).isEqualTo(mapper.readValue(mapper.writeValueAsString(none), AllOrNoneValueSet.class));
     }
 
     @Test

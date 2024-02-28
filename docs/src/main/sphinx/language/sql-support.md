@@ -24,7 +24,6 @@ Details of the support for specific statements is available with the
 documentation for each connector.
 
 (sql-globally-available)=
-
 ## Globally available statements
 
 The following statements are implemented in the core engine and available with
@@ -48,7 +47,6 @@ any connector:
 - {doc}`/sql/values`
 
 (sql-read-operations)=
-
 ## Read operations
 
 The following statements provide read access to data and meta data exposed by a
@@ -69,7 +67,6 @@ connector accessing a data source. They are supported by all connectors:
 - {doc}`/sql/show-stats`
 
 (sql-write-operations)=
-
 ## Write operations
 
 The following statements provide write access to data and meta data exposed
@@ -77,7 +74,6 @@ by a connector accessing a data source. Availability varies widely from
 connector to connector:
 
 (sql-data-management)=
-
 ### Data management
 
 - {doc}`/sql/insert`
@@ -86,17 +82,16 @@ connector to connector:
 - {doc}`/sql/truncate`
 - {doc}`/sql/merge`
 
-(sql-materialized-view-management)=
+(sql-catalog-management)=
+### Catalog management
 
-### Materialized view management
+The following statements are used to [manage dynamic
+catalogs](/admin/properties-catalog):
 
-- {doc}`/sql/create-materialized-view`
-- {doc}`/sql/alter-materialized-view`
-- {doc}`/sql/drop-materialized-view`
-- {doc}`/sql/refresh-materialized-view`
+- {doc}`/sql/create-catalog`
+- {doc}`/sql/drop-catalog`
 
 (sql-schema-table-management)=
-
 ### Schema and table management
 
 - {doc}`/sql/create-table`
@@ -109,15 +104,30 @@ connector to connector:
 - {doc}`/sql/comment`
 
 (sql-view-management)=
-
 ### View management
 
 - {doc}`/sql/create-view`
 - {doc}`/sql/drop-view`
 - {doc}`/sql/alter-view`
 
-(sql-security-operations)=
+(sql-materialized-view-management)=
+### Materialized view management
 
+- {doc}`/sql/create-materialized-view`
+- {doc}`/sql/alter-materialized-view`
+- {doc}`/sql/drop-materialized-view`
+- {doc}`/sql/refresh-materialized-view`
+
+(sql-routine-management)=
+### Routine management
+
+The following statements are used to manage [catalog routines](routine-catalog):
+
+- [](/sql/create-function)
+- [](/sql/drop-function)
+- [](/sql/show-functions)
+
+(sql-security-operations)=
 ## Security operations
 
 The following statements provide security-related operations to security
@@ -140,7 +150,6 @@ Grants management:
 - {doc}`/sql/revoke`
 
 (sql-transactions)=
-
 ## Transactions
 
 The following statements manage transactions. Most connectors do not support

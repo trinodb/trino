@@ -87,8 +87,8 @@ public class DockerContainer
     @GuardedBy("this")
     private OptionalLong lastStartFinishTimeNanos = OptionalLong.empty();
 
-    private List<String> logPaths = new ArrayList<>();
-    private List<ContainerListener> listeners = new ArrayList<>();
+    private final List<String> logPaths = new ArrayList<>();
+    private final List<ContainerListener> listeners = new ArrayList<>();
     private boolean temporary;
     private static final ImagePullPolicy pullPolicy = new ConditionalPullPolicy();
 

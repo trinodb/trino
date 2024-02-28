@@ -84,7 +84,7 @@ public class TextRenderer
             output.append(indentMultilineString(reorderJoinStatsAndCost, indent.detailIndent()));
         }
 
-        List<PlanNodeStatsAndCostSummary> estimates = node.getEstimates(plan.getTypes());
+        List<PlanNodeStatsAndCostSummary> estimates = node.getEstimates();
         if (!estimates.isEmpty()) {
             output.append(indentMultilineString(printEstimates(estimates), indent.detailIndent()));
         }

@@ -153,10 +153,10 @@ public class RegisterTableProcedure
             throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid metadata file: " + metadataLocation, e);
         }
 
-        if (!tableMetadata.location().equals(tableLocation)) {
+        if (!locationEquivalent(tableLocation, tableMetadata.location())) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, """
-                Table metadata file [%s] declares table location as [%s] which is differs from location provided [%s]. \
-                Iceberg table can only be registered with the same location it was created with.""".formatted(metadataLocation, tableMetadata.location(), tableLocation));
+                    Table metadata file [%s] declares table location as [%s] which is differs from location provided [%s]. \
+                    Iceberg table can only be registered with the same location it was created with.""".formatted(metadataLocation, tableMetadata.location(), tableLocation));
         }
 
         catalog.registerTable(clientSession, schemaTableName, tableMetadata);
@@ -229,5 +229,17 @@ public class RegisterTableProcedure
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Invalid metadata file location: " + location, e);
         }
+    }
+
+    private static boolean locationEquivalent(String a, String b)
+    {
+        return normalizeS3Uri(a).equals(normalizeS3Uri(b));
+    }
+
+    private static String normalizeS3Uri(String tableLocation)
+    {
+        // Normalize e.g. s3a to s3, so that table can be registed using s3:// location
+        // even if internally it uses s3a:// paths.
+        return tableLocation.replaceFirst("^s3[an]://", "s3://");
     }
 }

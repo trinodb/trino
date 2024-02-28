@@ -16,7 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Optional;

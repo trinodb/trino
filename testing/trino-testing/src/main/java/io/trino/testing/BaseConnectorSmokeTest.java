@@ -19,8 +19,7 @@ import io.trino.spi.security.Identity;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import io.trino.tpch.TpchTable;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.regex.Pattern;
@@ -41,6 +40,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_UPDATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -48,6 +48,8 @@ import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * A connector smoke test exercising various connector functionalities without going in depth on any of them.
@@ -72,8 +74,7 @@ public abstract class BaseConnectorSmokeTest
     }
 
     /**
-     * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
-     * shortcuts, not exercising certain aspects.
+     * Ensure the tests are run with {@link io.trino.testing.DistributedQueryRunner} with multiple workers.
      */
     @Test
     public void ensureDistributedQueryRunner()
@@ -203,7 +204,7 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "AS SELECT * FROM region")) {
             assertQueryFails("DELETE FROM " + table.getName(), MODIFYING_ROWS_MESSAGE);
         }
@@ -217,16 +218,54 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "AS SELECT * FROM region")) {
             assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
 
     @Test
+    public void verifySupportsUpdateDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_UPDATE)) {
+            // Covered by testUpdate
+            return;
+        }
+
+        assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
+        }
+    }
+
+    @Test
+    public void verifySupportsRowLevelUpdateDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
+            // Covered by testRowLevelUpdate
+            return;
+        }
+
+        assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM nation")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = nationkey * 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
+        }
+    }
+
+    @Test
+    public void testUpdate()
+    {
+        assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM nation")) {
+            assertUpdate("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE nationkey = 100", "VALUES 5");
+        }
+    }
+
+    @Test
     public void testDeleteAllDataFromTable()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
+        assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_all_data", "AS SELECT * FROM region")) {
             // not using assertUpdate as some connectors provide update count and some do not
             getQueryRunner().execute("DELETE FROM " + table.getName());
@@ -237,7 +276,7 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testRowLevelDelete()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_delete", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
@@ -257,7 +296,7 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        assumeTrue(hasBehavior(SUPPORTS_CREATE_TABLE));
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_truncate", "AS SELECT * FROM region")) {
             assertUpdate("TRUNCATE TABLE " + table.getName());
@@ -267,9 +306,9 @@ public abstract class BaseConnectorSmokeTest
     }
 
     @Test
-    public void testUpdate()
+    public void testRowLevelUpdate()
     {
-        if (!hasBehavior(SUPPORTS_UPDATE)) {
+        if (!hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
             // Note this change is a no-op, if actually run
             assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
             return;
@@ -341,7 +380,7 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testCreateSchemaWithNonLowercaseOwnerName()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
+        assumeTrue(hasBehavior(SUPPORTS_CREATE_SCHEMA));
 
         Session newSession = Session.builder(getSession())
                 .setIdentity(Identity.ofUser("ADMIN"))
@@ -366,12 +405,12 @@ public abstract class BaseConnectorSmokeTest
         }
 
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            throw new SkipException("Skipping as connector does not support CREATE SCHEMA");
+            abort("Skipping as connector does not support CREATE SCHEMA");
         }
 
         String schemaName = "test_rename_schema_" + randomNameSuffix();
         try {
-            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate(createSchemaSql(schemaName));
             assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
         }
         finally {
@@ -428,7 +467,7 @@ public abstract class BaseConnectorSmokeTest
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
-                throw new SkipException("Skipping since rename table is not supported at all");
+                abort("Skipping since rename table is not supported at all");
             }
             assertQueryFails("ALTER TABLE nation RENAME TO other_schema.yyyy", "This connector does not support renaming tables across schemas");
             return;
@@ -602,7 +641,7 @@ public abstract class BaseConnectorSmokeTest
                 }
                 return;
             }
-            throw new SkipException("Skipping as connector does not support CREATE VIEW");
+            abort("Skipping as connector does not support CREATE VIEW");
         }
 
         try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
@@ -637,7 +676,7 @@ public abstract class BaseConnectorSmokeTest
                 }
                 return;
             }
-            throw new SkipException("Skipping as connector does not support CREATE VIEW");
+            abort("Skipping as connector does not support CREATE VIEW");
         }
 
         String viewColumnName = "regionkey";
@@ -671,7 +710,7 @@ public abstract class BaseConnectorSmokeTest
                 assertUpdate("DROP MATERIALIZED VIEW " + viewName);
                 return;
             }
-            throw new SkipException("Skipping as connector does not support MATERIALIZED VIEW COLUMN COMMENT");
+            abort("Skipping as connector does not support MATERIALIZED VIEW COLUMN COMMENT");
         }
 
         String viewName = "test_materialized_view_" + randomNameSuffix();

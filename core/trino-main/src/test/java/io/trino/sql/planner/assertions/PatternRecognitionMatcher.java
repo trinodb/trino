@@ -14,6 +14,7 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
@@ -22,15 +23,15 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.RowsPerMatch;
+import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointersEquivalence;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.SkipTo;
 
 import java.util.AbstractMap;
 import java.util.HashMap;
@@ -47,8 +48,8 @@ import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.PatternRecognitionExpressionRewriter.rewrite;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 import static java.util.Objects.requireNonNull;
 
 public class PatternRecognitionMatcher
@@ -57,32 +58,29 @@ public class PatternRecognitionMatcher
     private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
     private final Optional<ExpectedValueProvider<WindowNode.Frame>> frame;
     private final RowsPerMatch rowsPerMatch;
-    private final Optional<IrLabel> skipToLabel;
-    private final SkipTo.Position skipToPosition;
+    private final Set<IrLabel> skipToLabels;
+    private final SkipToPosition skipToPosition;
     private final boolean initial;
     private final IrRowPattern pattern;
-    private final Map<IrLabel, Set<IrLabel>> subsets;
     private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
 
     private PatternRecognitionMatcher(
             Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
             Optional<ExpectedValueProvider<WindowNode.Frame>> frame,
             RowsPerMatch rowsPerMatch,
-            Optional<IrLabel> skipToLabel,
-            SkipTo.Position skipToPosition,
+            Set<IrLabel> skipToLabels,
+            SkipToPosition skipToPosition,
             boolean initial,
             IrRowPattern pattern,
-            Map<IrLabel, Set<IrLabel>> subsets,
             Map<IrLabel, ExpressionAndValuePointers> variableDefinitions)
     {
         this.specification = requireNonNull(specification, "specification is null");
         this.frame = requireNonNull(frame, "frame is null");
         this.rowsPerMatch = requireNonNull(rowsPerMatch, "rowsPerMatch is null");
-        this.skipToLabel = requireNonNull(skipToLabel, "skipToLabel is null");
+        this.skipToLabels = ImmutableSet.copyOf(skipToLabels);
         this.skipToPosition = requireNonNull(skipToPosition, "skipToPosition is null");
         this.initial = initial;
         this.pattern = requireNonNull(pattern, "pattern is null");
-        this.subsets = requireNonNull(subsets, "subsets is null");
         this.variableDefinitions = requireNonNull(variableDefinitions, "variableDefinitions is null");
     }
 
@@ -117,7 +115,7 @@ public class PatternRecognitionMatcher
             return NO_MATCH;
         }
 
-        if (!skipToLabel.equals(patternRecognitionNode.getSkipToLabel())) {
+        if (!skipToLabels.equals(patternRecognitionNode.getSkipToLabels())) {
             return NO_MATCH;
         }
 
@@ -130,10 +128,6 @@ public class PatternRecognitionMatcher
         }
 
         if (!pattern.equals(patternRecognitionNode.getPattern())) {
-            return NO_MATCH;
-        }
-
-        if (!subsets.equals(patternRecognitionNode.getSubsets())) {
             return NO_MATCH;
         }
 
@@ -168,11 +162,10 @@ public class PatternRecognitionMatcher
                 .add("specification", specification.orElse(null))
                 .add("frame", frame.orElse(null))
                 .add("rowsPerMatch", rowsPerMatch)
-                .add("skipToLabel", skipToLabel.orElse(null))
+                .add("skipToLabels", skipToLabels)
                 .add("skipToPosition", skipToPosition)
                 .add("initial", initial)
                 .add("pattern", pattern)
-                .add("subsets", subsets)
                 .add("variableDefinitions", variableDefinitions)
                 .toString();
     }
@@ -185,8 +178,8 @@ public class PatternRecognitionMatcher
         private final Map<String, Map.Entry<String, Type>> measures = new HashMap<>();
         private Optional<ExpectedValueProvider<WindowNode.Frame>> frame = Optional.empty();
         private RowsPerMatch rowsPerMatch = ONE;
-        private Optional<IrLabel> skipToLabel = Optional.empty();
-        private SkipTo.Position skipToPosition = PAST_LAST;
+        private Set<IrLabel> skipToLabels = ImmutableSet.of();
+        private SkipToPosition skipToPosition = PAST_LAST;
         private boolean initial = true;
         private IrRowPattern pattern;
         private final Map<IrLabel, Set<IrLabel>> subsets = new HashMap<>();
@@ -234,15 +227,15 @@ public class PatternRecognitionMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder skipTo(SkipTo.Position position, IrLabel label)
+        public Builder skipTo(SkipToPosition position, IrLabel label)
         {
-            this.skipToLabel = Optional.of(label);
+            this.skipToLabels = ImmutableSet.of(label);
             this.skipToPosition = position;
             return this;
         }
 
         @CanIgnoreReturnValue
-        public Builder skipTo(SkipTo.Position position)
+        public Builder skipTo(SkipToPosition position)
         {
             this.skipToPosition = position;
             return this;
@@ -296,11 +289,10 @@ public class PatternRecognitionMatcher
                             specification,
                             frame,
                             rowsPerMatch,
-                            skipToLabel,
+                            skipToLabels,
                             skipToPosition,
                             initial,
                             pattern,
-                            subsets,
                             variableDefinitions.buildOrThrow()));
             windowFunctionMatchers.forEach(result::with);
             measures.entrySet().stream()

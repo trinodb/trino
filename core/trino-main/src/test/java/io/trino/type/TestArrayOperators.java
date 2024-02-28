@@ -30,11 +30,11 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Collections;
 
@@ -46,6 +46,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
@@ -79,9 +80,10 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestArrayOperators
 {
     private QueryAssertions assertions;
@@ -117,7 +119,7 @@ public class TestArrayOperators
         ArrayType arrayType = new ArrayType(BIGINT);
         Block actualBlock = arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 1L, 2L), arrayBlockOf(BIGINT, 3L));
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
+        writeBlock(assertions.getQueryRunner().getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
 
         ArrayBlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(null, 3);
         expectedBlockBuilder.buildEntry(elementBuilder -> {
@@ -127,9 +129,9 @@ public class TestArrayOperators
         expectedBlockBuilder.buildEntry(elementBuilder -> BIGINT.writeLong(elementBuilder, 3));
         Block expectedBlock = expectedBlockBuilder.build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
+        writeBlock(assertions.getQueryRunner().getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
 
-        assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
+        assertThat(actualSliceOutput.slice()).isEqualTo(expectedSliceOutput.slice());
     }
 
     @Test
@@ -263,11 +265,8 @@ public class TestArrayOperators
     public void testArraySize()
     {
         int size = toIntExact(MAX_FUNCTION_MEMORY.toBytes() + 1);
-        assertTrinoExceptionThrownBy(() -> assertions.expression("array_distinct(ARRAY['" +
-                                                                 "x".repeat(size) + "', '" +
-                                                                 "y".repeat(size) + "', '" +
-                                                                 "z".repeat(size) +
-                                                                 "'])").evaluate())
+        assertTrinoExceptionThrownBy(
+                () -> assertions.expression("array_distinct(ARRAY[lpad('', %1$s , 'x'), lpad('', %1$s , 'y'), lpad('', %1$s , 'z')])".formatted(size)).evaluate())
                 .hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
     }
 
@@ -321,9 +320,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null]"))
                 .hasType(JSON)
-                .isEqualTo(Runtime.version().feature() >= 19
-                        ? "[3.14,9.9E-324,1.0E308,\"NaN\",\"Infinity\",\"-Infinity\",null]"
-                        : "[3.14,1.0E-323,1.0E308,\"NaN\",\"Infinity\",\"-Infinity\",null]");
+                .isEqualTo("[3.14,9.9E-324,1.0E308,\"NaN\",\"Infinity\",\"-Infinity\",null]");
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[DECIMAL '3.14', null]"))
@@ -951,7 +948,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[ARRAY[1]]")
                 .binding("b", "ARRAY[ARRAY['x']]")
                 .evaluate())
-                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(array(varchar(1)))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
+                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(array(varchar(1)))) for function concat. Expected: concat(E, array(E)) E, concat(array(E)) E, concat(array(E), E) E, concat(char(x), char(y)), concat(varbinary), concat(varchar)");
     }
 
     @Test
@@ -1060,7 +1057,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[ARRAY[1]]")
                 .binding("b", "ARRAY['x']")
                 .evaluate())
-                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(varchar(1))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
+                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(varchar(1))) for function concat. Expected: concat(E, array(E)) E, concat(array(E)) E, concat(array(E), E) E, concat(char(x), char(y)), concat(varbinary), concat(varchar)");
     }
 
     @Test
@@ -1279,13 +1276,13 @@ public class TestArrayOperators
                 .isEqualTo("1.0E0x2.1E0x3.3E0");
 
         assertTrinoExceptionThrownBy(assertions.function("array_join", "ARRAY[ARRAY[1], ARRAY[2]]", "'-'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND);
+                .hasErrorCode(OPERATOR_NOT_FOUND);
 
         assertTrinoExceptionThrownBy(assertions.function("array_join", "ARRAY[MAP(ARRAY[1], ARRAY[2])]", "'-'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND);
+                .hasErrorCode(OPERATOR_NOT_FOUND);
 
         assertTrinoExceptionThrownBy(assertions.function("array_join", "ARRAY[CAST(row(1, 2) AS row(col0 bigint, col1 bigint))]", "'-'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND);
+                .hasErrorCode(OPERATOR_NOT_FOUND);
     }
 
     @Test
@@ -2870,7 +2867,7 @@ public class TestArrayOperators
                 .isEqualTo(ImmutableList.of(asList(123, 456), asList(123, 789)));
 
         assertThat(assertions.function("array_intersect", "ARRAY[ARRAY[123, 456], ARRAY[123, 789]]", "ARRAY[ARRAY[123, 456], ARRAY[123, 456], ARRAY[123, 789]]"))
-                .hasType(new ArrayType(new ArrayType((INTEGER))))
+                .hasType(new ArrayType(new ArrayType(INTEGER)))
                 .isEqualTo(ImmutableList.of(asList(123, 456), asList(123, 789)));
 
         assertThat(assertions.function("array_intersect", "ARRAY[(123, 'abc'), (123, 'cde')]", "ARRAY[(123, 'abc'), (123, 'cde')]"))

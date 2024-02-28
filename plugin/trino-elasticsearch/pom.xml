@@ -5,31 +5,23 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>426-SNAPSHOT</version>
+        <version>440-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-elasticsearch</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Elasticsearch Connector</description>
+    <description>Trino - Elasticsearch connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.elasticsearch.version>6.8.23</dep.elasticsearch.version>
-        <air.test.parallel>instances</air.test.parallel>
+        <dep.elasticsearch.version>7.17.18</dep.elasticsearch.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
-            <exclusions>
-                <!-- org.elasticsearch:elasticsearch:6.8.23 brings in version 4.5.13 (vs 4.5.2)  -->
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -115,7 +107,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpasyncclient</artifactId>
-            <version>4.1.2</version>
+            <version>4.1.5</version>
             <exclusions>
                 <!-- Brings in duplicate classes already in org.slf4j:jcl-over-slf4j (from io.airlift:log-manager) -->
                 <exclusion>
@@ -128,7 +120,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.13</version>
+            <version>4.5.14</version>
             <exclusions>
                 <!-- Brings in duplicate classes already in org.slf4j:jcl-over-slf4j (from io.airlift:log-manager) -->
                 <exclusion>
@@ -141,13 +133,13 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
-            <version>4.4.13</version>
+            <version>4.4.16</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore-nio</artifactId>
-            <version>4.4.13</version>
+            <version>4.4.16</version>
         </dependency>
 
         <dependency>
@@ -157,17 +149,12 @@
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-api</artifactId>
+                    <artifactId>log4j-core</artifactId>
                 </exclusion>
-                <!-- trino-main brings in 8.4.1 (vs 7.7.3) -->
+                <!-- trino-main brings in 9.7.0 (vs 8.11.1) -->
                 <exclusion>
                     <groupId>org.apache.lucene</groupId>
                     <artifactId>lucene-analyzers-common</artifactId>
-                </exclusion>
-                <!-- Brings in duplicate classes already in net.java.dev.jna:jna -->
-                <exclusion>
-                    <groupId>org.elasticsearch</groupId>
-                    <artifactId>jna</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -182,12 +169,6 @@
             <groupId>org.elasticsearch</groupId>
             <artifactId>elasticsearch-x-content</artifactId>
             <version>${dep.elasticsearch.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.yaml</groupId>
-                    <artifactId>snakeyaml</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -271,6 +252,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>http-server</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -395,31 +382,11 @@
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
         <pluginManagement>
             <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-enforcer-plugin</artifactId>
-                    <configuration>
-                        <rules>
-                            <requireUpperBoundDeps>
-                                <excludes combine.children="append">
-                                    <!-- trino-main depends on 8.4.1 while org.elasticsearch:elasticsearch:6.8.23 depends on 7.7.3 -->
-                                    <exclude>org.apache.lucene:lucene-core</exclude>
-                                </excludes>
-                            </requireUpperBoundDeps>
-                        </rules>
-                    </configuration>
-                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
@@ -433,25 +400,5 @@
                 </plugin>
             </plugins>
         </pluginManagement>
-
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <dependencies>
-                    <!-- allow both JUnit and TestNG -->
-                    <dependency>
-                        <groupId>org.apache.maven.surefire</groupId>
-                        <artifactId>surefire-junit-platform</artifactId>
-                        <version>${dep.plugin.surefire.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.apache.maven.surefire</groupId>
-                        <artifactId>surefire-testng</artifactId>
-                        <version>${dep.plugin.surefire.version}</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
-        </plugins>
     </build>
 </project>

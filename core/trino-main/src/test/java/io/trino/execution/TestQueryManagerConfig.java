@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.operator.RetryPolicy;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -57,6 +57,7 @@ public class TestQueryManagerConfig
                 .setQueryManagerExecutorPoolSize(5)
                 .setQueryExecutorPoolSize(1000)
                 .setMaxStateMachineCallbackThreads(5)
+                .setMaxSplitManagerCallbackThreads(100)
                 .setRemoteTaskMaxErrorDuration(new Duration(5, MINUTES))
                 .setRemoteTaskMaxCallbackThreads(1000)
                 .setQueryExecutionPolicy("phased")
@@ -107,7 +108,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionSmallStageEstimationThreshold(DataSize.of(20, GIGABYTE))
                 .setFaultTolerantExecutionSmallStageSourceSizeMultiplier(1.2)
                 .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(false)
-                .setMaxWriterTasksCount(100));
+                .setFaultTolerantExecutionStageEstimationForEagerParentEnabled(true)
+                .setMaxWriterTaskCount(100));
     }
 
     @Test
@@ -131,6 +133,7 @@ public class TestQueryManagerConfig
                 .put("query.manager-executor-pool-size", "11")
                 .put("query.executor-pool-size", "111")
                 .put("query.max-state-machine-callback-threads", "112")
+                .put("query.max-split-manager-callback-threads", "113")
                 .put("query.remote-task.max-error-duration", "60s")
                 .put("query.remote-task.max-callback-threads", "10")
                 .put("query.execution-policy", "foo-bar-execution-policy")
@@ -182,6 +185,7 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-small-stage-estimation-threshold", "6GB")
                 .put("fault-tolerant-execution-small-stage-source-size-multiplier", "1.6")
                 .put("fault-tolerant-execution-small-stage-require-no-more-partitions", "true")
+                .put("fault-tolerant-execution-stage-estimation-for-eager-parent-enabled", "false")
                 .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -202,6 +206,7 @@ public class TestQueryManagerConfig
                 .setQueryManagerExecutorPoolSize(11)
                 .setQueryExecutorPoolSize(111)
                 .setMaxStateMachineCallbackThreads(112)
+                .setMaxSplitManagerCallbackThreads(113)
                 .setRemoteTaskMaxErrorDuration(new Duration(60, SECONDS))
                 .setRemoteTaskMaxCallbackThreads(10)
                 .setQueryExecutionPolicy("foo-bar-execution-policy")
@@ -252,7 +257,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionSmallStageEstimationThreshold(DataSize.of(6, GIGABYTE))
                 .setFaultTolerantExecutionSmallStageSourceSizeMultiplier(1.6)
                 .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(true)
-                .setMaxWriterTasksCount(101);
+                .setFaultTolerantExecutionStageEstimationForEagerParentEnabled(false)
+                .setMaxWriterTaskCount(101);
 
         assertFullMapping(properties, expected);
     }

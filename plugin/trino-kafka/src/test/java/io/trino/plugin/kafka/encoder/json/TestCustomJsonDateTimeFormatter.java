@@ -20,7 +20,7 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -31,7 +31,7 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimeWithTimeZoneOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampWithTimeZoneOf;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCustomJsonDateTimeFormatter
 {
@@ -43,31 +43,31 @@ public class TestCustomJsonDateTimeFormatter
     private static void testDate(SqlDate value, String formatHint, String expectedLiteral)
     {
         String actualLiteral = getFormatter(formatHint).formatDate(value);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     private static void testTime(SqlTime value, String formatHint, int precision, String expectedLiteral)
     {
         String actualLiteral = getFormatter(formatHint).formatTime(value, precision);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     private static void testTimeWithTZ(SqlTimeWithTimeZone value, String formatHint, String expectedLiteral)
     {
         String actualLiteral = getFormatter(formatHint).formatTimeWithZone(value);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     private static void testTimestamp(SqlTimestamp value, String formatHint, String expectedLiteral)
     {
         String actualLiteral = getFormatter(formatHint).formatTimestamp(value);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     private static void testTimestampWithTZ(SqlTimestampWithTimeZone value, String formatHint, String expectedLiteral)
     {
         String actualLiteral = getFormatter(formatHint).formatTimestampWithZone(value);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     @Test

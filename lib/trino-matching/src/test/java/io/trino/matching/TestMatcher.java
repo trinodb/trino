@@ -18,7 +18,7 @@ import io.trino.matching.example.rel.JoinNode;
 import io.trino.matching.example.rel.ProjectNode;
 import io.trino.matching.example.rel.RelNode;
 import io.trino.matching.example.rel.ScanNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -36,11 +36,8 @@ import static io.trino.matching.example.rel.Patterns.project;
 import static io.trino.matching.example.rel.Patterns.scan;
 import static io.trino.matching.example.rel.Patterns.source;
 import static io.trino.matching.example.rel.Patterns.tableName;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.expectThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMatcher
 {
@@ -146,9 +143,9 @@ public class TestMatcher
         Match match = assertMatch(pattern, tree);
         //notice the concrete type despite no casts:
         FilterNode capturedFilter = match.capture(filter);
-        assertEquals(tree.getSource(), capturedFilter);
-        assertEquals(((FilterNode) tree.getSource()).getSource(), match.capture(scan));
-        assertEquals("orders", match.capture(name));
+        assertThat(tree.getSource()).isEqualTo(capturedFilter);
+        assertThat(((FilterNode) tree.getSource()).getSource()).isEqualTo(match.capture(scan));
+        assertThat("orders").isEqualTo(match.capture(name));
     }
 
     @Test
@@ -160,7 +157,7 @@ public class TestMatcher
         Optional<Match> match = pattern.match(42)
                 .collect(toOptional());
 
-        assertFalse(match.isPresent());
+        assertThat(match.isPresent()).isFalse();
     }
 
     @Test
@@ -172,8 +169,9 @@ public class TestMatcher
         Match match = pattern.match(42)
                 .collect(onlyElement());
 
-        Throwable throwable = expectThrows(NoSuchElementException.class, () -> match.capture(unknownCapture));
-        assertTrue(throwable.getMessage().contains("unknown Capture"));
+        assertThatThrownBy(() -> match.capture(unknownCapture))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessageContaining("unknown Capture");
     }
 
     @Test
@@ -195,9 +193,9 @@ public class TestMatcher
                         }).equalTo(true));
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        assertNotNull(pattern.match("object", wasContextUsed)
-                .collect(onlyElement()));
-        assertEquals(wasContextUsed.get(), true);
+        assertThat(pattern.match("object", wasContextUsed)
+                .collect(onlyElement())).isNotNull();
+        assertThat(wasContextUsed.get()).isEqualTo(true);
     }
 
     @Test
@@ -210,9 +208,9 @@ public class TestMatcher
                 });
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        assertNotNull(pattern.match("object", wasContextUsed)
-                .collect(onlyElement()));
-        assertEquals(wasContextUsed.get(), true);
+        assertThat(pattern.match("object", wasContextUsed)
+                .collect(onlyElement())).isNotNull();
+        assertThat(wasContextUsed.get()).isEqualTo(true);
     }
 
     private <T> Match assertMatch(Pattern<T> pattern, T object)
@@ -225,6 +223,6 @@ public class TestMatcher
     {
         Optional<Match> match = pattern.match(expectedNoMatch)
                 .collect(toOptional());
-        assertFalse(match.isPresent());
+        assertThat(match.isPresent()).isFalse();
     }
 }

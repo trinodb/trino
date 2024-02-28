@@ -653,76 +653,74 @@ record it calls `advanceNextPosition` on the cursor.
 
 The built-in SQL data types use different Java types as carrier types.
 
-```{eval-rst}
-.. list-table:: SQL type to carrier type mapping
-  :widths: 45, 55
-  :header-rows: 1
+:::{list-table} SQL type to carrier type mapping
+:widths: 45, 55
+:header-rows: 1
 
-  * - SQL type
-    - Java type
-  * - ``BOOLEAN``
-    - ``boolean``
-  * - ``TINYINT``
-    - ``long``
-  * - ``SMALLINT``
-    - ``long``
-  * - ``INTEGER``
-    - ``long``
-  * - ``BIGINT``
-    - ``long``
-  * - ``REAL``
-    - ``double``
-  * - ``DOUBLE``
-    - ``double``
-  * - ``DECIMAL``
-    - ``long`` for precision up to 19, inclusive;
-      ``Int128`` for precision greater than 19
-  * - ``VARCHAR``
-    - ``Slice``
-  * - ``CHAR``
-    - ``Slice``
-  * - ``VARBINARY``
-    - ``Slice``
-  * - ``JSON``
-    - ``Slice``
-  * - ``DATE``
-    - ``long``
-  * - ``TIME(P)``
-    - ``long``
-  * - ``TIME WITH TIME ZONE``
-    - ``long`` for precision up to 9;
-      ``LongTimeWithTimeZone`` for precision greater than 9
-  * - ``TIMESTAMP(P)``
-    - ``long`` for precision up to 6;
-      ``LongTimestamp`` for precision greater than 6
-  * - ``TIMESTAMP(P) WITH TIME ZONE``
-    - ``long`` for precision up to 3;
-      ``LongTimestampWithTimeZone`` for precision greater than 3
-  * - ``INTERVAL YEAR TO MONTH``
-    - ``long``
-  * - ``INTERVAL DAY TO SECOND``
-    - ``long``
-  * - ``ARRAY``
-    - ``Block``
-  * - ``MAP``
-    - ``Block``
-  * - ``ROW``
-    - ``Block``
-  * - ``IPADDRESS``
-    - ``Slice``
-  * - ``UUID``
-    - ``Slice``
-  * - ``HyperLogLog``
-    - ``Slice``
-  * - ``P4HyperLogLog``
-    - ``Slice``
-  * - ``SetDigest``
-    - ``Slice``
-  * - ``QDigest``
-    - ``Slice``
-  * - ``TDigest``
-    - ``TDigest``
-```
+* - SQL type
+  - Java type
+* - `BOOLEAN`
+  - `boolean`
+* - `TINYINT`
+  - `long`
+* - `SMALLINT`
+  - `long`
+* - `INTEGER`
+  - `long`
+* - `BIGINT`
+  - `long`
+* - `REAL`
+  - `long`
+* - `DOUBLE`
+  - `double`
+* - `DECIMAL`
+  - `long` for precision up to 19, inclusive; `Int128` for precision greater
+    than 19
+* - `VARCHAR`
+  - `Slice`
+* - `CHAR`
+  - `Slice`
+* - `VARBINARY`
+  - `Slice`
+* - `JSON`
+  - `Slice`
+* - `DATE`
+  - `long`
+* - `TIME(P)`
+  - `long`
+* - `TIME WITH TIME ZONE`
+  - `long` for precision up to 9; `LongTimeWithTimeZone` for precision greater
+    than 9
+* - `TIMESTAMP(P)`
+  - `long` for precision up to 6; `LongTimestamp` for precision greater than 6
+* - `TIMESTAMP(P) WITH TIME ZONE`
+  - `long` for precision up to 3; `LongTimestampWithTimeZone` for precision
+    greater than 3
+* - `INTERVAL YEAR TO MONTH`
+  - `long`
+* - `INTERVAL DAY TO SECOND`
+  - `long`
+* - `ARRAY`
+  - `Block`
+* - `MAP`
+  - `Block`
+* - `ROW`
+  - `Block`
+* - `IPADDRESS`
+  - `Slice`
+* - `UUID`
+  - `Slice`
+* - `HyperLogLog`
+  - `Slice`
+* - `P4HyperLogLog`
+  - `Slice`
+* - `SetDigest`
+  - `Slice`
+* - `QDigest`
+  - `Slice`
+* - `TDigest`
+  - `TDigest`
+:::
 
 The `RecordCursor.getType(int field)` method returns the SQL type for a field
 and the field value is returned by one of the following methods, matching
@@ -733,6 +731,10 @@ the carrier type:
 - `getDouble(int field)`
 - `getSlice(int field)`
 - `getObject(int field)`
+
+Values for the `real` type are encoded into `long` using the IEEE 754
+floating-point "single format" bit layout, with NaN preservation. This can be
+accomplished using the `java.lang.Float.floatToRawIntBits` static method.
 
 Values for the `timestamp(p) with time zone` and `time(p) with time zone`
 types of regular precision can be converted into `long` using static methods
@@ -754,44 +756,41 @@ The following example creates a block for an `array(varchar)`  column:
 private Block encodeArray(List<String> names)
 {
     BlockBuilder builder = VARCHAR.createBlockBuilder(null, names.size());
-    for (String name : names) {
+    blockBuilder.buildEntry(elementBuilder -> names.forEach(name -> {
         if (name == null) {
-            builder.appendNull();
+            elementBuilder.appendNull();
         }
         else {
-            VARCHAR.writeString(builder, name);
+            VARCHAR.writeString(elementBuilder, name);
         }
-    }
+    }));
     return builder.build();
 }
 ```
 
-The following example creates a block for a `map(varchar, varchar)` column:
+The following example creates a SqlMap object for a `map(varchar, varchar)` column:
 
 ```java
-private Block encodeMap(Map<String, ?> map)
+private SqlMap encodeMap(Map<String, ?> map)
 {
     MapType mapType = typeManager.getType(TypeSignature.mapType(
                             VARCHAR.getTypeSignature(),
                             VARCHAR.getTypeSignature()));
-    BlockBuilder values = mapType.createBlockBuilder(null, map != null ? map.size() : 0);
+    MapBlockBuilder values = mapType.createBlockBuilder(null, map != null ? map.size() : 0);
     if (map == null) {
         values.appendNull();
         return values.build().getObject(0, Block.class);
     }
-    BlockBuilder builder = values.beginBlockEntry();
-    for (Map.Entry<String, ?> entry : map.entrySet()) {
-        VARCHAR.writeString(builder, entry.getKey());
-        Object value = entry.getValue();
+    values.buildEntry((keyBuilder, valueBuilder) -> map.foreach((key, value) -> {
+        VARCHAR.writeString(keyBuilder, key);
         if (value == null) {
-            builder.appendNull();
+            valueBuilder.appendNull();
         }
         else {
-            VARCHAR.writeString(builder, value.toString());
+            VARCHAR.writeString(valueBuilder, value.toString());
         }
-    }
-    values.closeEntry();
-    return values.build().getObject(0, Block.class);
+    }));
+    return values.build().getObject(0, SqlMap.class);
 }
 ```
 

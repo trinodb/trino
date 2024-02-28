@@ -19,7 +19,6 @@ import com.google.common.primitives.Ints;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -50,7 +49,6 @@ public class DistinctLimitOperator
         private final Optional<Integer> hashChannel;
         private boolean closed;
         private final JoinCompiler joinCompiler;
-        private final TypeOperators typeOperators;
 
         public DistinctLimitOperatorFactory(
                 int operatorId,
@@ -59,8 +57,7 @@ public class DistinctLimitOperator
                 List<Integer> distinctChannels,
                 long limit,
                 Optional<Integer> hashChannel,
-                JoinCompiler joinCompiler,
-                TypeOperators typeOperators)
+                JoinCompiler joinCompiler)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -71,7 +68,6 @@ public class DistinctLimitOperator
             this.limit = limit;
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         }
 
         @Override
@@ -82,7 +78,7 @@ public class DistinctLimitOperator
             List<Type> distinctTypes = distinctChannels.stream()
                     .map(sourceTypes::get)
                     .collect(toImmutableList());
-            return new DistinctLimitOperator(operatorContext, distinctChannels, distinctTypes, limit, hashChannel, joinCompiler, typeOperators);
+            return new DistinctLimitOperator(operatorContext, distinctChannels, distinctTypes, limit, hashChannel, joinCompiler);
         }
 
         @Override
@@ -94,7 +90,7 @@ public class DistinctLimitOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new DistinctLimitOperatorFactory(operatorId, planNodeId, sourceTypes, distinctChannels, limit, hashChannel, joinCompiler, typeOperators);
+            return new DistinctLimitOperatorFactory(operatorId, planNodeId, sourceTypes, distinctChannels, limit, hashChannel, joinCompiler);
         }
     }
 
@@ -114,7 +110,13 @@ public class DistinctLimitOperator
     private int[] groupByIds;
     private Work<int[]> unfinishedWork;
 
-    public DistinctLimitOperator(OperatorContext operatorContext, List<Integer> distinctChannels, List<Type> distinctTypes, long limit, Optional<Integer> hashChannel, JoinCompiler joinCompiler, TypeOperators typeOperators)
+    public DistinctLimitOperator(
+            OperatorContext operatorContext,
+            List<Integer> distinctChannels,
+            List<Type> distinctTypes,
+            long limit,
+            Optional<Integer> hashChannel,
+            JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -138,7 +140,6 @@ public class DistinctLimitOperator
                 hashChannel.isPresent(),
                 toIntExact(min(limit, 10_000)),
                 joinCompiler,
-                typeOperators,
                 this::updateMemoryReservation);
         remainingLimit = limit;
     }

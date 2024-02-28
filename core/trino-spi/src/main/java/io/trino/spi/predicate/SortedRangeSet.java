@@ -15,6 +15,7 @@ package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
@@ -136,8 +137,9 @@ public final class SortedRangeSet
                         .build());
     }
 
-    @Deprecated // For JSON deserialization only
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
+    @Deprecated // Discourage usages in SPI consumers
     public static SortedRangeSet fromJson(
             @JsonProperty("type") Type type,
             @JsonProperty("inclusive") boolean[] inclusive,
@@ -1077,7 +1079,7 @@ public final class SortedRangeSet
             writeRange(type, blockBuilder, inclusive, rangeIndex, range);
         }
 
-        return new SortedRangeSet(type, inclusive, blockBuilder);
+        return new SortedRangeSet(type, inclusive, blockBuilder.build());
     }
 
     private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, Range range)

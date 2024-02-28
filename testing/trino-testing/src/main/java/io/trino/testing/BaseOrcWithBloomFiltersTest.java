@@ -15,7 +15,7 @@ package io.trino.testing;
 
 import io.trino.Session;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;

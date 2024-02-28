@@ -18,7 +18,7 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;

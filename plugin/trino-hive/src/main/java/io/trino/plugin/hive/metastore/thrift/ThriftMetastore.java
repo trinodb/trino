@@ -24,10 +24,12 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -35,17 +37,18 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.function.Function;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
-public interface ThriftMetastore
+public sealed interface ThriftMetastore
+        permits ThriftHiveMetastore
 {
     void createDatabase(Database database);
 
@@ -91,13 +94,15 @@ public interface ThriftMetastore
 
     Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type);
 
-    PartitionStatistics getTableStatistics(Table table);
+    Map<String, HiveColumnStatistics> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
 
-    Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions);
+    Map<String, Map<String, HiveColumnStatistics>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames);
 
-    void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update);
+    boolean useSparkTableStatistics();
 
-    void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
+    void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate);
+
+    void updatePartitionStatistics(Table table, String partitionName, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate);
 
     void createRole(String role, String grantor);
 
@@ -108,8 +113,6 @@ public interface ThriftMetastore
     void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
     void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
-
-    Set<RoleGrant> listGrantedPrincipals(String role);
 
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 
@@ -215,13 +218,18 @@ public interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     default void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         throw new UnsupportedOperationException();
     }
+
+    Optional<io.trino.hive.thrift.metastore.Function> getFunction(String databaseName, String functionName);
+
+    Collection<String> getFunctions(String databaseName, String functionNamePattern);
+
+    void createFunction(io.trino.hive.thrift.metastore.Function function);
+
+    void alterFunction(io.trino.hive.thrift.metastore.Function function);
+
+    void dropFunction(String databaseName, String functionName);
 }

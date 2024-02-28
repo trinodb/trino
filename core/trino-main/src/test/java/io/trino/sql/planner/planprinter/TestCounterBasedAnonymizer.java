@@ -16,22 +16,17 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -64,34 +59,42 @@ public class TestCounterBasedAnonymizer
                 .isEqualTo("((\"symbol_1\" > 'long_literal_1') AND (\"symbol_2\" < 'long_literal_2') AND (\"symbol_3\" = 'long_literal_3'))");
     }
 
-    @Test(dataProvider = "literals")
-    public void testLiteralAnonymization(Literal actual, String expected)
+    @Test
+    public void testLiteralAnonymization()
     {
         CounterBasedAnonymizer anonymizer = new CounterBasedAnonymizer();
-        assertThat(anonymizer.anonymize(actual)).isEqualTo(expected);
-    }
 
-    @DataProvider
-    public static Object[][] literals()
-    {
-        return new Object[][] {
-                {new BinaryLiteral("DEF321"), "'binary_literal_1'"},
-                {new StringLiteral("abc"), "'string_literal_1'"},
-                {new GenericLiteral("bigint", "1"), "'bigint_literal_1'"},
-                {new CharLiteral("a"), "'char_literal_1'"},
-                {new DecimalLiteral("123"), "'decimal_literal_1'"},
-                {new DoubleLiteral(String.valueOf(6554)), "'double_literal_1'"},
-                {new DoubleLiteral(String.valueOf(Double.MAX_VALUE)), "'double_literal_1'"},
-                {new LongLiteral(String.valueOf(6554)), "'long_literal_1'"},
-                {new LongLiteral(String.valueOf(Long.MAX_VALUE)), "'long_literal_1'"},
-                {new BooleanLiteral("true"), "true"},
-                {new TimeLiteral("03:04:05"), "'time_literal_1'"},
-                {new TimestampLiteral("2012-10-31 01:00 UTC"), "'timestamp_literal_1'"},
-                {new NullLiteral(), "null"},
-                {
-                    new IntervalLiteral("33", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.DAY, Optional.empty()),
-                    "'interval_literal_1'"
-                }
-        };
+        assertThat(anonymizer.anonymize(new BinaryLiteral("DEF321")))
+                .isEqualTo("'binary_literal_1'");
+
+        assertThat(anonymizer.anonymize(new StringLiteral("abc")))
+                .isEqualTo("'string_literal_2'");
+
+        assertThat(anonymizer.anonymize(new GenericLiteral("bigint", "1")))
+                .isEqualTo("'bigint_literal_3'");
+
+        assertThat(anonymizer.anonymize(new DecimalLiteral("123")))
+                .isEqualTo("'decimal_literal_4'");
+
+        assertThat(anonymizer.anonymize(new DoubleLiteral(String.valueOf(6554))))
+                .isEqualTo("'double_literal_5'");
+
+        assertThat(anonymizer.anonymize(new DoubleLiteral(String.valueOf(Double.MAX_VALUE))))
+                .isEqualTo("'double_literal_6'");
+
+        assertThat(anonymizer.anonymize(new LongLiteral(String.valueOf(6554))))
+                .isEqualTo("'long_literal_7'");
+
+        assertThat(anonymizer.anonymize(new LongLiteral(String.valueOf(Long.MAX_VALUE))))
+                .isEqualTo("'long_literal_8'");
+
+        assertThat(anonymizer.anonymize(new BooleanLiteral("true")))
+                .isEqualTo("true");
+
+        assertThat(anonymizer.anonymize(new NullLiteral()))
+                .isEqualTo("null");
+
+        assertThat(anonymizer.anonymize(new IntervalLiteral("33", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.DAY, Optional.empty())))
+                .isEqualTo("'interval_literal_9'");
     }
 }

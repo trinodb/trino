@@ -15,6 +15,8 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.opentelemetry.api.OpenTelemetry;
+import io.trino.client.NodeVersion;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
@@ -24,7 +26,6 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
@@ -38,6 +39,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -45,6 +47,7 @@ import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
@@ -62,10 +65,8 @@ import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedVi
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
-import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
-import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
@@ -141,14 +142,18 @@ public class TestingAccessControlManager
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
 
     @Inject
-    public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager, AccessControlConfig accessControlConfig)
+    public TestingAccessControlManager(
+            TransactionManager transactionManager,
+            EventListenerManager eventListenerManager,
+            AccessControlConfig accessControlConfig,
+            OpenTelemetry openTelemetry)
     {
-        super(transactionManager, eventListenerManager, accessControlConfig, DefaultSystemAccessControl.NAME);
+        super(NodeVersion.UNKNOWN, transactionManager, eventListenerManager, accessControlConfig, openTelemetry, DefaultSystemAccessControl.NAME);
     }
 
     public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
     {
-        this(transactionManager, eventListenerManager, new AccessControlConfig());
+        this(transactionManager, eventListenerManager, new AccessControlConfig(), OpenTelemetry.noop());
     }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)
@@ -626,28 +631,6 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
-    {
-        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName, GRANT_EXECUTE_FUNCTION)) {
-            denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), grantee);
-        }
-        if (denyPrivileges.isEmpty()) {
-            super.checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
-        }
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
-    {
-        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), GRANT_EXECUTE_FUNCTION)) {
-            denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
-        }
-        if (denyPrivileges.isEmpty()) {
-            super.checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
-        }
-    }
-
-    @Override
     public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName table)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), table.getSchemaTableName().getTableName(), SHOW_COLUMNS)) {
@@ -659,15 +642,24 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        tableColumns = tableColumns.entrySet().stream()
+                .collect(toImmutableMap(
+                        Entry::getKey,
+                        e -> localFilterColumns(context, e.getKey(), e.getValue())));
+        return super.filterColumns(context, catalogName, tableColumns);
+    }
+
+    private Set<String> localFilterColumns(SecurityContext context, SchemaTableName table, Set<String> columns)
     {
         ImmutableSet.Builder<String> visibleColumns = ImmutableSet.builder();
         for (String column : columns) {
-            if (!shouldDenyPrivilege(context.getIdentity().getUser(), table.getSchemaTableName().getTableName() + "." + column, SELECT_COLUMN)) {
+            if (!shouldDenyPrivilege(context.getIdentity().getUser(), table.getTableName() + "." + column, SELECT_COLUMN)) {
                 visibleColumns.add(column);
             }
         }
-        return super.filterColumns(context, table, visibleColumns.build());
+        return visibleColumns.build();
     }
 
     @Override
@@ -701,25 +693,27 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
-        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName, EXECUTE_FUNCTION)) {
-            denyExecuteFunction(functionName);
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), EXECUTE_FUNCTION)) {
+            return false;
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanExecuteFunction(context, functionName);
+            return super.canExecuteFunction(context, functionName);
         }
+        return true;
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
-        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), EXECUTE_FUNCTION)) {
-            denyExecuteFunction(functionName.toString());
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), GRANT_EXECUTE_FUNCTION)) {
+            return false;
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanExecuteFunction(context, functionKind, functionName);
+            return super.canCreateViewWithExecuteFunction(context, functionName);
         }
+        return true;
     }
 
     @Override
@@ -803,8 +797,8 @@ public class TestingAccessControlManager
         public boolean matches(Optional<String> actorName, String entityName, TestingPrivilegeType type)
         {
             return (this.actorName.isEmpty() || this.actorName.equals(actorName)) &&
-                    this.entityPredicate.test(entityName) &&
-                    this.type == type;
+                    this.type == type &&
+                    this.entityPredicate.test(entityName);
         }
 
         @Override

@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstantExpression;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -147,9 +147,8 @@ public final class PropertyUtil
             Object value = evaluateConstantExpression(rewritten, propertyType, plannerContext, session, accessControl, parameters);
 
             // convert to object value type of SQL type
-            BlockBuilder blockBuilder = propertyType.createBlockBuilder(null, 1);
-            writeNativeValue(propertyType, blockBuilder, value);
-            sqlObjectValue = propertyType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
+            Block block = writeNativeValue(propertyType, value);
+            sqlObjectValue = propertyType.getObjectValue(session.toConnectorSession(), block, 0);
         }
         catch (TrinoException e) {
             throw new TrinoException(

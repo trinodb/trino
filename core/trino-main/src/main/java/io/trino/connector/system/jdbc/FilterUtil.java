@@ -16,25 +16,21 @@ package io.trino.connector.system.jdbc;
 import io.airlift.slice.Slice;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.Domain.DiscreteSet;
 
 import java.util.Optional;
+
+import static java.util.Locale.ENGLISH;
 
 public final class FilterUtil
 {
     private FilterUtil() {}
 
-    public static <T> Optional<String> tryGetSingleVarcharValue(TupleDomain<T> constraint, T index)
+    public static <T> Optional<String> tryGetSingleVarcharValue(Domain domain)
     {
-        if (constraint.isNone()) {
+        if (!domain.isSingleValue()) {
             return Optional.empty();
         }
-
-        Domain domain = constraint.getDomains().get().get(index);
-        if ((domain == null) || !domain.isSingleValue()) {
-            return Optional.empty();
-        }
-
         Object value = domain.getSingleValue();
         return Optional.of(((Slice) value).toStringUtf8());
     }
@@ -50,8 +46,20 @@ public final class FilterUtil
         return new QualifiedTablePrefix(catalog);
     }
 
-    public static <T> boolean emptyOrEquals(Optional<T> value, T other)
+    public static boolean isImpossibleObjectName(Domain domain)
     {
-        return value.isEmpty() || value.get().equals(other);
+        if (!domain.isNullableDiscreteSet()) {
+            return false;
+        }
+        DiscreteSet discreteSet = domain.getNullableDiscreteSet();
+        return discreteSet.getNonNullValues().stream()
+                .allMatch(element -> isImpossibleObjectName(((Slice) element).toStringUtf8()));
+    }
+
+    public static boolean isImpossibleObjectName(String candidate)
+    {
+        return candidate.equals("") ||
+                // TODO (https://github.com/trinodb/trino/issues/17) Currently all object names are lowercase in Trino
+                !candidate.equals(candidate.toLowerCase(ENGLISH));
     }
 }

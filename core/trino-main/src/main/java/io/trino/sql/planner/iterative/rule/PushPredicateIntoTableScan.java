@@ -36,13 +36,13 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LayoutConstraintEvaluator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -89,11 +89,11 @@ public class PushPredicateIntoTableScan
             tableScan().capturedAs(TABLE_SCAN)));
 
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
     private final boolean pruneWithPredicateExpression;
 
-    public PushPredicateIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, boolean pruneWithPredicateExpression)
+    public PushPredicateIntoTableScan(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, boolean pruneWithPredicateExpression)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -160,7 +160,7 @@ public class PushPredicateIntoTableScan
             Session session,
             SymbolAllocator symbolAllocator,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             StatsProvider statsProvider,
             DomainTranslator domainTranslator)
     {
@@ -206,7 +206,7 @@ public class PushPredicateIntoTableScan
                             splitExpression.getDeterministicPredicate(),
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
-                            domainTranslator.toPredicate(session, newDomain.simplify().transformKeys(assignments::get))));
+                            domainTranslator.toPredicate(newDomain.simplify().transformKeys(assignments::get))));
             constraint = new Constraint(newDomain, expressionTranslation.connectorExpression(), connectorExpressionAssignments, evaluator::isCandidate, evaluator.getArguments());
         }
         else {
@@ -288,8 +288,7 @@ public class PushPredicateIntoTableScan
             // by ensuring expression is optimized.
             Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), translatedExpression);
             translatedExpression = literalEncoder.toExpression(
-                    session,
-                    new ExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
+                    new IrExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
                             .optimize(NoOpSymbolResolver.INSTANCE),
                     translatedExpressionTypes.get(NodeRef.of(translatedExpression)));
             remainingDecomposedPredicate = combineConjuncts(plannerContext.getMetadata(), translatedExpression, expressionTranslation.remainingExpression());
@@ -301,7 +300,7 @@ public class PushPredicateIntoTableScan
                 symbolAllocator,
                 typeAnalyzer,
                 splitExpression.getDynamicFilter(),
-                domainTranslator.toPredicate(session, remainingFilter.transformKeys(assignments::get)),
+                domainTranslator.toPredicate(remainingFilter.transformKeys(assignments::get)),
                 splitExpression.getNonDeterministicPredicate(),
                 remainingDecomposedPredicate);
 
@@ -362,7 +361,7 @@ public class PushPredicateIntoTableScan
             PlannerContext plannerContext,
             Session session,
             SymbolAllocator symbolAllocator,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             Expression dynamicFilter,
             Expression unenforcedConstraints,
             Expression nonDeterministicPredicate,

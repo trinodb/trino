@@ -57,7 +57,9 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedBufferInfo;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.SpoolingOutputStats;
+import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.operator.RetryPolicy;
 import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.FailTaskRequest;
@@ -110,6 +112,7 @@ import static io.trino.SystemSessionProperties.getMaxRemoteTaskRequestSize;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static io.trino.SystemSessionProperties.getRemoteTaskGuaranteedSplitsPerRequest;
 import static io.trino.SystemSessionProperties.getRemoteTaskRequestSizeHeadroom;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isRemoteTaskAdaptiveUpdateRequestSizeEnabled;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskInfo.createInitialTask;
@@ -117,9 +120,11 @@ import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskStatus.failWith;
 import static io.trino.server.remotetask.RequestErrorTracker.logError;
 import static io.trino.spi.HostAddress.fromUri;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.addExact;
+import static java.lang.Math.clamp;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -206,7 +211,7 @@ public final class HttpRemoteTask
             Session session,
             Span stageSpan,
             TaskId taskId,
-            String nodeId,
+            InternalNode node,
             boolean speculative,
             URI location,
             PlanFragment planFragment,
@@ -236,7 +241,7 @@ public final class HttpRemoteTask
         requireNonNull(session, "session is null");
         requireNonNull(stageSpan, "stageSpan is null");
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(nodeId, "nodeId is null");
+        requireNonNull(node, "node is null");
         requireNonNull(location, "location is null");
         requireNonNull(planFragment, "planFragment is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
@@ -254,7 +259,7 @@ public final class HttpRemoteTask
             this.taskId = taskId;
             this.session = session;
             this.stageSpan = stageSpan;
-            this.nodeId = nodeId;
+            this.nodeId = node.getNodeIdentifier();
             this.speculative = new AtomicBoolean(speculative);
             this.planFragment = planFragment;
             this.outputBuffers.set(outputBuffers);
@@ -342,6 +347,7 @@ public final class HttpRemoteTask
                     errorScheduledExecutor,
                     stats);
 
+            RetryPolicy retryPolicy = getRetryPolicy(session);
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::fatalUnacknowledgedFailure,
                     taskStatusFetcher,
@@ -356,7 +362,8 @@ public final class HttpRemoteTask
                     updateScheduledExecutor,
                     errorScheduledExecutor,
                     stats,
-                    estimatedMemory);
+                    estimatedMemory,
+                    retryPolicy);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();
@@ -696,8 +703,7 @@ public final class HttpRemoteTask
                 }
             }
             if (numSplits != 0) {
-                newSplitBatchSize = (int) ((numSplits * (maxRequestSizeInBytes - requestSizeHeadroomInBytes)) / requestSize);
-                newSplitBatchSize = Math.max(guaranteedSplitsPerRequest, Math.min(maxUnacknowledgedSplits, newSplitBatchSize));
+                newSplitBatchSize = clamp((numSplits * (maxRequestSizeInBytes - requestSizeHeadroomInBytes)) / requestSize, guaranteedSplitsPerRequest, maxUnacknowledgedSplits);
             }
             if (newSplitBatchSize != currentSplitBatchSize) {
                 log.debug("%s - Split batch size changed: prevSize=%s, newSize=%s", taskId, currentSplitBatchSize, newSplitBatchSize);
@@ -714,6 +720,16 @@ public final class HttpRemoteTask
     }
 
     private void sendUpdate()
+    {
+        try {
+            sendUpdateInternal();
+        }
+        catch (Throwable e) {
+            fatalUnacknowledgedFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "unexpected error calling sendUpdate()", e));
+        }
+    }
+
+    private void sendUpdateInternal()
     {
         TaskStatus taskStatus = getTaskStatus();
         // don't update if the task is already finishing or finished, or if we have sent a termination command
@@ -1056,6 +1072,14 @@ public final class HttpRemoteTask
                     // Let the status callbacks trigger the cleanup command remotely after switching states
                     taskStatusFetcher.updateTaskStatus(taskStatus);
                 }
+            }
+            else {
+                // Even though state in taskStatus is Done already it could not be the case for task info.
+                // We could have received valid response from taskStatusFetcher just before the worker went
+                // down, but taskInfoFetcher still holds old state.
+                // Update taskInfo so task is not stuck in FTE execution mode which depends on final task info
+                // being delivered.
+                updateTaskInfo(getTaskInfo().withTaskStatus(taskStatus));
             }
         }
     }

@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.Page;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ValueDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoders;
@@ -63,6 +64,7 @@ import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
 import static io.trino.parquet.reader.TestingRowRanges.toRowRange;
 import static io.trino.parquet.reader.TestingRowRanges.toRowRanges;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.concat;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -129,7 +131,7 @@ public abstract class AbstractColumnReaderRowRangesTest
                     assertThat(rowValueCounts.getInt(i)).isEqualTo(expectedDefinitions.size());
                     for (int j = 0; j < rowValueCounts.getInt(i); j++) {
                         if (expectedDefinitions.getBoolean(j)) {
-                            assertThat(block.getInt(blockIndex++, 0)).isEqualTo(selectedRowNumber);
+                            assertThat(INTEGER.getInt(block, blockIndex++)).isEqualTo(selectedRowNumber);
                         }
                         else {
                             assertThat(block.isNull(blockIndex++)).isTrue();
@@ -558,6 +560,7 @@ public abstract class AbstractColumnReaderRowRangesTest
             inputPages = ImmutableList.<Page>builder().add(toTrinoDictionaryPage(encoder.toDictPageAndClose())).addAll(inputPages).build();
         }
         return new PageReader(
+                new ParquetDataSourceId("test"),
                 UNCOMPRESSED,
                 inputPages.iterator(),
                 dictionaryEncoding == DictionaryEncoding.ALL || (dictionaryEncoding == DictionaryEncoding.MIXED && testingPages.size() == 1),
@@ -594,7 +597,7 @@ public abstract class AbstractColumnReaderRowRangesTest
                 getParquetEncoding(encoder.getEncoding()),
                 Slices.wrappedBuffer(encodedBytes),
                 valueCount * 4,
-                OptionalLong.of(toIntExact(testingPage.pageRowRange().start())),
+                OptionalLong.of(testingPage.pageRowRange().start()),
                 null,
                 false);
         encoder.reset();

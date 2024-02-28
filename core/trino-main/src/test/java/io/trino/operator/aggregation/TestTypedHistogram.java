@@ -17,6 +17,7 @@ import io.trino.operator.aggregation.histogram.TypedHistogram;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -27,8 +28,8 @@ import java.util.function.ObjIntConsumer;
 import java.util.stream.IntStream;
 
 import static io.trino.block.BlockAssertions.assertBlockEquals;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
@@ -37,7 +38,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestTypedHistogram
 {
@@ -58,15 +58,15 @@ public class TestTypedHistogram
         IntStream.range(1, 2000)
                 .flatMap(value -> IntStream.iterate(value, IntUnaryOperator.identity()).limit(value))
                 .forEach(value -> writeData.accept(inputBlockBuilder, value));
-        Block inputBlock = inputBlockBuilder.build();
+        ValueBlock inputBlock = inputBlockBuilder.buildValueBlock();
 
         TypedHistogram typedHistogram = new TypedHistogram(
                 type,
                 TYPE_OPERATORS.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, FLAT)),
-                TYPE_OPERATORS.getReadValueOperator(type, simpleConvention(FLAT_RETURN, BLOCK_POSITION_NOT_NULL)),
+                TYPE_OPERATORS.getReadValueOperator(type, simpleConvention(FLAT_RETURN, VALUE_BLOCK_POSITION_NOT_NULL)),
                 TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, FLAT)),
-                TYPE_OPERATORS.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL)),
-                TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)),
+                TYPE_OPERATORS.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, VALUE_BLOCK_POSITION_NOT_NULL)),
+                TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL)),
                 grouped);
 
         int groupId = 0;
@@ -91,7 +91,7 @@ public class TestTypedHistogram
                 }));
         Block expectedBlock = expectedBuilder.build();
         assertBlockEquals(mapType, actualBlock, expectedBlock);
-        assertEquals(typedHistogram.size(), 1999);
+        assertThat(typedHistogram.size()).isEqualTo(1999);
 
         if (grouped) {
             actualBuilder = mapType.createBlockBuilder(null, 1);

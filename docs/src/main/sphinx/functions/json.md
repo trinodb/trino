@@ -590,37 +590,36 @@ diverge from the expected schema.
 
 The following table shows the differences between the two modes.
 
-```{eval-rst}
-.. list-table::
-   :widths: 40 20 40
-   :header-rows: 1
+:::{list-table}
+:widths: 40 20 40
+:header-rows: 1
 
-   * - Condition
-     - strict mode
-     - lax mode
-   * - Performing an operation which requires a non-array on an array, e.g.:
+* - Condition
+  - strict mode
+  - lax mode
+* - Performing an operation which requires a non-array on an array, e.g.:
 
-       ``$.key`` requires a JSON object
+    `$.key` requires a JSON object
 
-       ``$.floor()`` requires a numeric value
-     - ERROR
-     - The array is automatically unnested, and the operation is performed on
-       each array element.
-   * - Performing an operation which requires an array on an non-array, e.g.:
+    `$.floor()` requires a numeric value
+  - ERROR
+  - The array is automatically unnested, and the operation is performed on
+    each array element.
+* - Performing an operation which requires an array on an non-array, e.g.:
 
-       ``$[0]``, ``$[*]``, ``$.size()``
-     - ERROR
-     - The non-array item is automatically wrapped in a singleton array, and
-       the operation is performed on the array.
-   * - A structural error: accessing a non-existent element of an array or a
-       non-existent member of a JSON object, e.g.:
+    `$[0]`, `$[*]`, `$.size()`
+  - ERROR
+  - The non-array item is automatically wrapped in a singleton array, and
+    the operation is performed on the array.
+* - A structural error: accessing a non-existent element of an array or a
+    non-existent member of a JSON object, e.g.:
 
-       ``$[-1]`` (array index out of bounds)
+    `$[-1]` (array index out of bounds)
 
-       ``$.key``, where the input JSON object does not have a member ``key``
-     - ERROR
-     - The error is suppressed, and the operation results in an empty sequence.
-```
+    `$.key`, where the input JSON object does not have a member `key`
+  - ERROR
+  - The error is suppressed, and the operation results in an empty sequence.
+:::
 
 #### Examples of the lax mode behavior
 
@@ -797,8 +796,9 @@ JSON_QUERY(
     )
 ```
 
-The `json_path` is evaluated using the `json_input` as the context variable
-(`$`), and the passed arguments as the named variables (`$variable_name`).
+The constant string `json_path` is evaluated using the `json_input` as the
+context variable (`$`), and the passed arguments as the named variables
+(`$variable_name`).
 
 The returned value is a JSON item returned by the path. By default, it is
 represented as a character string (`varchar`). In the `RETURNING` clause,

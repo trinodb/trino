@@ -23,11 +23,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.MaterializedResult;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Optional;
@@ -55,31 +55,30 @@ import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestAggregationOperator
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
-    private static final TestingAggregationFunction LONG_AVERAGE = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("avg"), fromTypes(BIGINT));
-    private static final TestingAggregationFunction DOUBLE_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
-    private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
-    private static final TestingAggregationFunction REAL_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(REAL));
-    private static final TestingAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), ImmutableList.of());
+    private static final TestingAggregationFunction LONG_AVERAGE = FUNCTION_RESOLUTION.getAggregateFunction("avg", fromTypes(BIGINT));
+    private static final TestingAggregationFunction DOUBLE_SUM = FUNCTION_RESOLUTION.getAggregateFunction("sum", fromTypes(DOUBLE));
+    private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction("sum", fromTypes(BIGINT));
+    private static final TestingAggregationFunction REAL_SUM = FUNCTION_RESOLUTION.getAggregateFunction("sum", fromTypes(REAL));
+    private static final TestingAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunction("count", ImmutableList.of());
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         executor.shutdownNow();
@@ -149,8 +148,8 @@ public class TestAggregationOperator
     @Test
     public void testAggregation()
     {
-        TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), fromTypes(VARCHAR));
-        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("max"), fromTypes(VARCHAR));
+        TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("count", fromTypes(VARCHAR));
+        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();
@@ -177,7 +176,7 @@ public class TestAggregationOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
-        assertEquals(driverContext.getMemoryUsage(), 0);
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
     }
 
     @Test
@@ -196,7 +195,7 @@ public class TestAggregationOperator
                 .addDriverContext();
 
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
-            assertTrue(operator.needsInput());
+            assertThat(operator.needsInput()).isTrue();
             operator.addInput(input);
 
             assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
@@ -204,6 +203,6 @@ public class TestAggregationOperator
             toPages(operator, emptyIterator());
         }
 
-        assertEquals(driverContext.getMemoryUsage(), 0);
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
     }
 }

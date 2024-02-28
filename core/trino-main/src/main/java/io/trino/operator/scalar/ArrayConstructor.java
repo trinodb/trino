@@ -70,9 +70,8 @@ public final class ArrayConstructor
 
     public ArrayConstructor()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder(NAME)
                 .signature(Signature.builder()
-                        .name(NAME)
                         .typeVariable("E")
                         .returnType(arrayType(new TypeSignature("E")))
                         .argumentType(new TypeSignature("E"))

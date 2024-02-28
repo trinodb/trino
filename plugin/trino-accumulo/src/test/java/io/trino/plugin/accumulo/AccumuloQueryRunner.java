@@ -15,7 +15,9 @@ package io.trino.plugin.accumulo;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
@@ -38,16 +40,23 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class AccumuloQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.accumulo", Level.OFF);
+        logging.setLevel("org.apache.zookeeper", Level.OFF);
+        logging.setLevel("org.apache.curator", Level.OFF);
+    }
+
     private static final Logger LOG = Logger.get(AccumuloQueryRunner.class);
 
     private static boolean tpchLoaded;
 
     private AccumuloQueryRunner() {}
 
-    public static synchronized DistributedQueryRunner createAccumuloQueryRunner(Map<String, String> extraProperties)
+    public static synchronized QueryRunner createAccumuloQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
 
@@ -70,7 +79,7 @@ public final class AccumuloQueryRunner
         if (!tpchLoaded) {
             queryRunner.execute("CREATE SCHEMA accumulo.tpch");
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
-            server.getConnector().tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
+            server.getClient().tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
             tpchLoaded = true;
         }
 
@@ -142,7 +151,7 @@ public final class AccumuloQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createAccumuloQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        QueryRunner queryRunner = createAccumuloQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(AccumuloQueryRunner.class);
         log.info("======== SERVER STARTED ========");

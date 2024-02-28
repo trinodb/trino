@@ -21,6 +21,7 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TopNNode;
 
@@ -28,8 +29,8 @@ import java.util.List;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.Join.type;
 import static io.trino.sql.planner.plan.Patterns.TopN.step;
 import static io.trino.sql.planner.plan.Patterns.join;
@@ -83,7 +84,7 @@ public class PushTopNThroughOuterJoin
 
         PlanNode left = joinNode.getLeft();
         PlanNode right = joinNode.getRight();
-        JoinNode.Type type = joinNode.getType();
+        JoinType type = joinNode.getType();
 
         if ((type == LEFT)
                 && ImmutableSet.copyOf(left.getOutputSymbols()).containsAll(orderBySymbols)

@@ -20,7 +20,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -37,9 +37,6 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestBlockSet
 {
@@ -64,17 +61,21 @@ public class TestBlockSet
     public void testGetElementPosition()
     {
         int elementCount = 100;
-        BlockSet blockSet = createBlockSet(BIGINT, elementCount);
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             BIGINT.writeLong(blockBuilder, i);
-            blockSet.add(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+
+        BlockSet blockSet = createBlockSet(BIGINT, elementCount);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            blockSet.add(block, i);
         }
 
-        assertEquals(blockSet.size(), elementCount);
+        assertThat(blockSet.size()).isEqualTo(elementCount);
 
-        for (int j = 0; j < blockBuilder.getPositionCount(); j++) {
-            assertEquals(blockSet.positionOf(blockBuilder, j), j);
+        for (int j = 0; j < block.getPositionCount(); j++) {
+            assertThat(blockSet.positionOf(block, j)).isEqualTo(j);
         }
     }
 
@@ -82,7 +83,6 @@ public class TestBlockSet
     public void testGetElementPositionWithNull()
     {
         int elementCount = 100;
-        BlockSet blockSet = createBlockSet(BIGINT, elementCount);
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -91,22 +91,27 @@ public class TestBlockSet
             else {
                 BIGINT.writeLong(blockBuilder, i);
             }
-            blockSet.add(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+
+        BlockSet blockSet = createBlockSet(BIGINT, elementCount);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            blockSet.add(block, i);
         }
 
         // The internal elementBlock and hashtable of the blockSet should contain
         // all distinct non-null elements plus one null
-        assertEquals(blockSet.size(), elementCount - elementCount / 10 + 1);
+        assertThat(blockSet.size()).isEqualTo(elementCount - elementCount / 10 + 1);
 
         int nullCount = 0;
-        for (int j = 0; j < blockBuilder.getPositionCount(); j++) {
+        for (int j = 0; j < block.getPositionCount(); j++) {
             // The null is only added to blockSet once, so the internal elementBlock subscript is shifted by nullCountMinusOne
-            if (!blockBuilder.isNull(j)) {
-                assertEquals(blockSet.positionOf(blockBuilder, j), j - nullCount + 1);
+            if (!block.isNull(j)) {
+                assertThat(blockSet.positionOf(block, j)).isEqualTo(j - nullCount + 1);
             }
             else {
                 // The first null added to blockSet is at position 0
-                assertEquals(blockSet.positionOf(blockBuilder, j), 0);
+                assertThat(blockSet.positionOf(block, j)).isEqualTo(0);
                 nullCount++;
             }
         }
@@ -155,31 +160,33 @@ public class TestBlockSet
     @Test
     public void testGetElementPositionRandom()
     {
-        BlockBuilder keys = VARCHAR.createBlockBuilder(null, 5);
-        VARCHAR.writeSlice(keys, utf8Slice("hello"));
-        VARCHAR.writeSlice(keys, utf8Slice("bye"));
-        VARCHAR.writeSlice(keys, utf8Slice("abc"));
+        BlockBuilder keysBuilder = VARCHAR.createBlockBuilder(null, 5);
+        VARCHAR.writeSlice(keysBuilder, utf8Slice("hello"));
+        VARCHAR.writeSlice(keysBuilder, utf8Slice("bye"));
+        VARCHAR.writeSlice(keysBuilder, utf8Slice("abc"));
+        Block keys = keysBuilder.build();
 
         BlockSet set = createBlockSet(VARCHAR, 4);
         for (int i = 0; i < keys.getPositionCount(); i++) {
             set.add(keys, i);
         }
 
-        BlockBuilder values = VARCHAR.createBlockBuilder(null, 5);
-        VARCHAR.writeSlice(values, utf8Slice("bye"));
-        VARCHAR.writeSlice(values, utf8Slice("abc"));
-        VARCHAR.writeSlice(values, utf8Slice("hello"));
-        VARCHAR.writeSlice(values, utf8Slice("bad"));
-        values.appendNull();
+        BlockBuilder valuesBuilder = VARCHAR.createBlockBuilder(null, 5);
+        VARCHAR.writeSlice(valuesBuilder, utf8Slice("bye"));
+        VARCHAR.writeSlice(valuesBuilder, utf8Slice("abc"));
+        VARCHAR.writeSlice(valuesBuilder, utf8Slice("hello"));
+        VARCHAR.writeSlice(valuesBuilder, utf8Slice("bad"));
+        valuesBuilder.appendNull();
+        Block values = valuesBuilder.build();
 
-        assertEquals(set.positionOf(values, 4), -1);
-        assertEquals(set.positionOf(values, 2), 0);
-        assertEquals(set.positionOf(values, 1), 2);
-        assertEquals(set.positionOf(values, 0), 1);
-        assertFalse(set.contains(values, 3));
+        assertThat(set.positionOf(values, 4)).isEqualTo(-1);
+        assertThat(set.positionOf(values, 2)).isEqualTo(0);
+        assertThat(set.positionOf(values, 1)).isEqualTo(2);
+        assertThat(set.positionOf(values, 0)).isEqualTo(1);
+        assertThat(set.contains(values, 3)).isFalse();
 
         set.add(values, 4);
-        assertTrue(set.contains(values, 4));
+        assertThat(set.contains(values, 4)).isTrue();
     }
 
     @Test
@@ -205,14 +212,14 @@ public class TestBlockSet
         Set<Long> set = new HashSet<>();
         for (int blockPosition = 0; blockPosition < longBlock.getPositionCount(); blockPosition++) {
             long number = BIGINT.getLong(longBlock, blockPosition);
-            assertEquals(blockSet.contains(longBlock, blockPosition), set.contains(number));
-            assertEquals(blockSet.size(), set.size());
+            assertThat(blockSet.contains(longBlock, blockPosition)).isEqualTo(set.contains(number));
+            assertThat(blockSet.size()).isEqualTo(set.size());
 
             set.add(number);
             blockSet.add(longBlock, blockPosition);
 
-            assertEquals(blockSet.contains(longBlock, blockPosition), set.contains(number));
-            assertEquals(blockSet.size(), set.size());
+            assertThat(blockSet.contains(longBlock, blockPosition)).isEqualTo(set.contains(number));
+            assertThat(blockSet.size()).isEqualTo(set.size());
         }
     }
 

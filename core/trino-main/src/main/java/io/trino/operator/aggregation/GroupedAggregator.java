@@ -78,13 +78,15 @@ public class GroupedAggregator
             Page arguments = page.getColumns(inputChannels);
             Optional<Block> maskBlock = Optional.empty();
             if (maskChannel.isPresent()) {
-                maskBlock = Optional.of(page.getBlock(maskChannel.getAsInt()));
+                maskBlock = Optional.of(page.getBlock(maskChannel.getAsInt()).getLoadedBlock());
             }
             AggregationMask mask = maskBuilder.buildAggregationMask(arguments, maskBlock);
 
             if (mask.isSelectNone()) {
                 return;
             }
+            // Unwrap any LazyBlock values before evaluating the accumulator
+            arguments = arguments.getLoadedPage();
             accumulator.addInput(groupIds, arguments, mask);
         }
         else {

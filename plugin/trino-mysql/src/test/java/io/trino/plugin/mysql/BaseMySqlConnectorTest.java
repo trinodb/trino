@@ -23,8 +23,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -46,9 +45,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public abstract class BaseMySqlConnectorTest
         extends BaseJdbcConnectorTest
@@ -69,6 +65,7 @@ public abstract class BaseMySqlConnectorTest
                     SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
                     SUPPORTS_NEGATIVE_DATE,
@@ -103,6 +100,7 @@ public abstract class BaseMySqlConnectorTest
                 "(one bigint, two decimal(50,0), three varchar(10))");
     }
 
+    @Test
     @Override
     public void testShowColumns()
     {
@@ -119,9 +117,19 @@ public abstract class BaseMySqlConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("timestamp(3) with time zone") ||
-                typeName.equals("timestamp(6) with time zone")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
+
+        // MySQL TIMESTAMP has a range of '1970-01-01 00:00:01' UTC to '2038-01-19 03:14:07' UTC.
+        if (typeName.equals("timestamp(3) with time zone")) {
+            if (dataMappingTestSetup.getSampleValueLiteral().contains("1969")) {
+                return Optional.of(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '1970-01-01 15:03:00.123 +01:00'", "TIMESTAMP '1970-01-31 17:03:00.456 +01:00'"));
+            }
+            return Optional.of(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '2038-01-19 03:14:07.000 UTC'"));
+        }
+        else if (typeName.equals("timestamp(6) with time zone")) {
+            if (dataMappingTestSetup.getSampleValueLiteral().contains("1969")) {
+                return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '1970-01-01 15:03:00.123456 +01:00'", "TIMESTAMP '1970-01-31 17:03:00.123456 +01:00'"));
+            }
+            return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '2038-01-19 03:14:07.000 UTC'"));
         }
 
         if (typeName.equals("timestamp")) {
@@ -154,6 +162,7 @@ public abstract class BaseMySqlConnectorTest
                 .build();
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -171,6 +180,7 @@ public abstract class BaseMySqlConnectorTest
                         ")");
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -194,15 +204,15 @@ public abstract class BaseMySqlConnectorTest
                 .setSchema(getSession().getSchema())
                 .build();
 
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_table")).isFalse();
 
         assertUpdate(session, "CREATE TABLE test_table AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(session, "test_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_table")).isTrue();
 
         assertQuery(session, "SELECT * FROM test_table", "SELECT 123");
 
         assertUpdate(session, "DROP TABLE test_table");
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_table")).isFalse();
     }
 
     @Test
@@ -214,7 +224,8 @@ public abstract class BaseMySqlConnectorTest
 
         onRemoteDatabase().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
         MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
-        assertEquals(materializedRows.getOnlyValue(), (byte) 127);
+        assertThat(materializedRows.getOnlyValue())
+                .isEqualTo((byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
     }
@@ -251,6 +262,7 @@ public abstract class BaseMySqlConnectorTest
         assertUpdate("DROP TABLE test_column_comment");
     }
 
+    @Test
     @Override
     public void testAddNotNullColumn()
     {
@@ -368,16 +380,28 @@ public abstract class BaseMySqlConnectorTest
                 .isFullyPushedDown();
     }
 
-    @Test(dataProvider = "charsetAndCollation")
-    public void testPredicatePushdownWithCollationView(String charset, String collation)
+    @Test
+    public void testPredicatePushdownWithCollationView()
     {
-        onRemoteDatabase().execute(format("CREATE OR REPLACE VIEW tpch.test_view AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation;", charset, collation));
-        testNationCollationQueries("test_view");
-        onRemoteDatabase().execute("DROP VIEW tpch.test_view");
+        testPredicatePushdownWithCollationView("latin1", "latin1_general_cs");
+        testPredicatePushdownWithCollationView("utf8", "utf8_bin");
     }
 
-    @Test(dataProvider = "charsetAndCollation")
-    public void testPredicatePushdownWithCollation(String charset, String collation)
+    private void testPredicatePushdownWithCollationView(String charset, String collation)
+    {
+        onRemoteDatabase().execute(format("CREATE OR REPLACE VIEW tpch.test_view_pushdown AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation;", charset, collation));
+        testNationCollationQueries("test_view_pushdown");
+        onRemoteDatabase().execute("DROP VIEW tpch.test_view_pushdown");
+    }
+
+    @Test
+    public void testPredicatePushdownWithCollation()
+    {
+        testPredicatePushdownWithCollation("latin1", "latin1_general_cs");
+        testPredicatePushdownWithCollation("utf8", "utf8_bin");
+    }
+
+    private void testPredicatePushdownWithCollation(String charset, String collation)
     {
         try (TestTable testTable = new TestTable(
                 onRemoteDatabase(),
@@ -463,12 +487,6 @@ public abstract class BaseMySqlConnectorTest
                 .joinIsNotFullyPushedDown();
     }
 
-    @DataProvider
-    public static Object[][] charsetAndCollation()
-    {
-        return new Object[][] {{"latin1", "latin1_general_cs"}, {"utf8", "utf8_bin"}};
-    }
-
     /**
      * This test helps to tune TupleDomain simplification threshold.
      */
@@ -493,21 +511,23 @@ public abstract class BaseMySqlConnectorTest
         onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
         // override because MySQL succeeds in preparing query, and then fails because of no metadata available
-        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+        assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
 
+    @Test
     @Override
     public void testNativeQueryIncorrectSyntax()
     {
         // override because MySQL succeeds in preparing query, and then fails because of no metadata available
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
     }
 
     @Test

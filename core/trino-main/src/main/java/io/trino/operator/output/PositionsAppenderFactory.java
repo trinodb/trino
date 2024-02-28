@@ -13,64 +13,50 @@
  */
 package io.trino.operator.output;
 
-import io.trino.spi.block.Fixed12Block;
-import io.trino.spi.block.Int128ArrayBlock;
-import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VariableWidthType;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
+import java.util.Optional;
+
+import static io.trino.operator.output.PositionsAppenderUtil.MAX_ARRAY_SIZE;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class PositionsAppenderFactory
 {
     private final BlockTypeOperators blockTypeOperators;
+    private static final int EXPECTED_VARIABLE_WIDTH_BYTES_PER_ENTRY = 32;
 
     public PositionsAppenderFactory(BlockTypeOperators blockTypeOperators)
     {
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
-    public PositionsAppender create(Type type, int expectedPositions, long maxPageSizeInBytes)
+    public UnnestingPositionsAppender create(Type type, int expectedPositions, long maxPageSizeInBytes)
     {
-        if (!type.isComparable()) {
-            return new UnnestingPositionsAppender(createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes));
+        Optional<BlockPositionIsDistinctFrom> distinctFromOperator = Optional.empty();
+        if (type.isComparable()) {
+            distinctFromOperator = Optional.of(blockTypeOperators.getDistinctFromOperator(type));
         }
-
-        return new UnnestingPositionsAppender(
-                new RleAwarePositionsAppender(
-                        blockTypeOperators.getDistinctFromOperator(type),
-                        createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes)));
+        return new UnnestingPositionsAppender(createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes), distinctFromOperator);
     }
 
     private PositionsAppender createPrimitiveAppender(Type type, int expectedPositions, long maxPageSizeInBytes)
     {
-        if (type instanceof FixedWidthType) {
-            switch (((FixedWidthType) type).getFixedSize()) {
-                case Byte.BYTES:
-                    return new BytePositionsAppender(expectedPositions);
-                case Short.BYTES:
-                    return new ShortPositionsAppender(expectedPositions);
-                case Integer.BYTES:
-                    return new IntPositionsAppender(expectedPositions);
-                case Long.BYTES:
-                    return new LongPositionsAppender(expectedPositions);
-                case Fixed12Block.FIXED12_BYTES:
-                    return new Fixed12PositionsAppender(expectedPositions);
-                case Int128ArrayBlock.INT128_BYTES:
-                    return new Int128PositionsAppender(expectedPositions);
-                default:
-                    // size not supported directly, fallback to the generic appender
-            }
-        }
-        else if (type instanceof VariableWidthType) {
-            return new SlicePositionsAppender(expectedPositions, maxPageSizeInBytes);
-        }
-        else if (type instanceof RowType) {
+        if (type.getValueBlockType() == RowBlock.class) {
             return RowPositionsAppender.createRowAppender(this, (RowType) type, expectedPositions, maxPageSizeInBytes);
         }
-
+        if (type.getValueBlockType() == VariableWidthBlock.class) {
+            // it is guaranteed Math.min will not overflow; safe to cast
+            int expectedBytes = (int) min((long) expectedPositions * EXPECTED_VARIABLE_WIDTH_BYTES_PER_ENTRY, maxPageSizeInBytes);
+            expectedBytes = min(expectedBytes, MAX_ARRAY_SIZE);
+            return new TypedPositionsAppender(new VariableWidthBlockBuilder(null, expectedPositions, expectedBytes));
+        }
         return new TypedPositionsAppender(type, expectedPositions);
     }
 }

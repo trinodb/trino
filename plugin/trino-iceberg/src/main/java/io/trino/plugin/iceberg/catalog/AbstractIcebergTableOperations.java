@@ -36,9 +36,11 @@ import org.apache.iceberg.types.Types.NestedField;
 import java.io.FileNotFoundException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -48,6 +50,7 @@ import static io.trino.plugin.hive.util.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
+import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
@@ -152,6 +155,11 @@ public abstract class AbstractIcebergTableOperations
             return;
         }
 
+        if (isMaterializedViewStorage(tableName)) {
+            commitMaterializedViewRefresh(base, metadata);
+            return;
+        }
+
         if (base == null) {
             if (PROVIDER_PROPERTY_VALUE.equals(metadata.properties().get(PROVIDER_PROPERTY_KEY))) {
                 // Assume this is a table executing migrate procedure
@@ -175,6 +183,8 @@ public abstract class AbstractIcebergTableOperations
     protected abstract void commitNewTable(TableMetadata metadata);
 
     protected abstract void commitToExistingTable(TableMetadata base, TableMetadata metadata);
+
+    protected abstract void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata);
 
     @Override
     public FileIO io()
@@ -225,8 +235,21 @@ public abstract class AbstractIcebergTableOperations
 
     protected void refreshFromMetadataLocation(String newLocation)
     {
+        refreshFromMetadataLocation(
+                newLocation,
+                metadataLocation -> TableMetadataParser.read(fileIo, fileIo.newInputFile(metadataLocation)));
+    }
+
+    protected void refreshFromMetadataLocation(String newLocation, Function<String, TableMetadata> metadataLoader)
+    {
         // use null-safe equality check because new tables have a null metadata location
         if (Objects.equals(currentMetadataLocation, newLocation)) {
+            shouldRefresh = false;
+            return;
+        }
+
+        // a table that is replaced doesn't need its metadata reloaded
+        if (newLocation == null) {
             shouldRefresh = false;
             return;
         }
@@ -239,7 +262,7 @@ public abstract class AbstractIcebergTableOperations
                             .withMaxDuration(Duration.ofMinutes(10))
                             .abortOn(failure -> failure instanceof ValidationException || isNotFoundException(failure))
                             .build())
-                    .get(() -> TableMetadataParser.read(fileIo, io().newInputFile(newLocation)));
+                    .get(() -> metadataLoader.apply(newLocation));
         }
         catch (Throwable failure) {
             if (isNotFoundException(failure)) {
@@ -292,7 +315,8 @@ public abstract class AbstractIcebergTableOperations
                 .map(column -> new Column(
                         column.name(),
                         toHiveType(HiveSchemaUtil.convert(column.type())),
-                        Optional.empty()))
+                        Optional.empty(),
+                        Map.of()))
                 .collect(toImmutableList());
     }
 }

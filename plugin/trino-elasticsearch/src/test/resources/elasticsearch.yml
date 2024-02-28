@@ -1,4 +1,14 @@
 cluster.name: "docker-cluster"
+node.name: "elasticsearch-server"
 network.host: 0.0.0.0
 
 xpack.security.enabled: true
+xpack.security.http.ssl.enabled: true
+xpack.security.http.ssl.certificate_authorities: /usr/share/elasticsearch/config/ca.crt
+xpack.security.http.ssl.certificate: /usr/share/elasticsearch/config/server.crt
+xpack.security.http.ssl.key: /usr/share/elasticsearch/config/server.key
+xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.verification_mode: none
+xpack.security.transport.ssl.certificate_authorities: /usr/share/elasticsearch/config/ca.crt
+xpack.security.transport.ssl.certificate: /usr/share/elasticsearch/config/server.crt
+xpack.security.transport.ssl.key: /usr/share/elasticsearch/config/server.key

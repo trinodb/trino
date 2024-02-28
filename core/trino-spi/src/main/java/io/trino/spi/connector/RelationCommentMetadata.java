@@ -13,11 +13,14 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.Experimental;
+
 import java.util.Optional;
 
 import static io.trino.spi.connector.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2024-01-01")
 public record RelationCommentMetadata(
         SchemaTableName name,
         boolean tableRedirected,
@@ -30,7 +33,7 @@ public record RelationCommentMetadata(
         checkArgument(!tableRedirected || comment.isEmpty(), "Unexpected comment for redirected table");
     }
 
-    public static RelationCommentMetadata forTable(SchemaTableName name, Optional<String> comment)
+    public static RelationCommentMetadata forRelation(SchemaTableName name, Optional<String> comment)
     {
         return new RelationCommentMetadata(name, false, comment);
     }

@@ -18,24 +18,22 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
-import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
-import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
+import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static java.util.Objects.requireNonNull;
 
@@ -86,16 +84,7 @@ public class RowConstructorCodeGenerator
             block.append(fieldBlocks.setElement(i, blockBuilder.invoke("build", Block.class)));
         }
 
-        BytecodeExpression rowBlock = invokeStatic(
-                RowBlock.class,
-                "fromFieldBlocks",
-                Block.class,
-                constantInt(1),
-                invokeStatic(Optional.class, "empty", Optional.class),
-                fieldBlocks);
-
-        block.append(constantType(binder, rowType).invoke("getObject", Object.class, rowBlock, constantInt(0))
-                .cast(Block.class));
+        block.append(newInstance(SqlRow.class, constantInt(0), fieldBlocks));
         block.append(context.wasNull().set(constantFalse()));
         return block;
     }

@@ -16,6 +16,7 @@ package io.trino.likematcher;
 import com.google.common.base.Strings;
 import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
@@ -95,6 +96,12 @@ public class TestLikeMatcher
 
         assertFalse(match("%abaaa%", "ababaa"));
 
+        assertTrue(match("%paya%", "papaya"));
+        assertTrue(match("%paya%", "papapaya"));
+        assertTrue(match("%paya%", "papapapaya"));
+        assertTrue(match("%paya%", "papapapapaya"));
+        assertTrue(match("%paya%", "papapapapapaya"));
+
         // utf-8
         LikeMatcher singleOptimized = LikePattern.compile("_", Optional.empty(), true).getMatcher();
         LikeMatcher multipleOptimized = LikePattern.compile("_a%b_", Optional.empty(), true).getMatcher(); // prefix and suffix with _a and b_ to avoid optimizations
@@ -108,6 +115,13 @@ public class TestLikeMatcher
             assertTrue(multipleOptimized.match(value.getBytes(StandardCharsets.UTF_8)));
             assertTrue(multiple.match(value.getBytes(StandardCharsets.UTF_8)));
         }
+    }
+
+    @Test
+    @Timeout(2)
+    public void testExponentialBehavior()
+    {
+        assertTrue(match("%a________________", "xyza1234567890123456"));
     }
 
     @Test

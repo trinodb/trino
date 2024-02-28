@@ -13,7 +13,9 @@
  */
 package io.trino.spi.type;
 
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ValueBlock;
 
 import java.util.List;
 
@@ -60,9 +62,9 @@ public abstract sealed class DecimalType
     private final int precision;
     private final int scale;
 
-    DecimalType(int precision, int scale, Class<?> javaType)
+    DecimalType(int precision, int scale, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(StandardTypes.DECIMAL, buildTypeParameters(precision, scale)), javaType);
+        super(new TypeSignature(StandardTypes.DECIMAL, buildTypeParameters(precision, scale)), javaType, valueBlockType);
         this.precision = precision;
         this.scale = scale;
     }
@@ -99,6 +101,7 @@ public abstract sealed class DecimalType
         return List.of(numericParameter(precision), numericParameter(scale));
     }
 
+    @FormatMethod
     static void checkArgument(boolean condition, String format, Object... args)
     {
         if (!condition) {

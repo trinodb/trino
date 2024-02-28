@@ -20,8 +20,7 @@ import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -33,12 +32,10 @@ import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
-@Test(singleThreaded = true)
 public class TestIgniteCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
@@ -76,6 +73,7 @@ public class TestIgniteCaseInsensitiveMapping
         return identifierQuote + name + identifierQuote;
     }
 
+    @Test
     @Override
     public void testNonLowerCaseSchemaName()
             throws Exception
@@ -101,6 +99,7 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
+    @Test
     @Override
     public void testNonLowerCaseTableName()
             throws Exception
@@ -120,11 +119,9 @@ public class TestIgniteCaseInsensitiveMapping
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertEquals(
-                    computeActual("SHOW COLUMNS FROM public.nonlowercasetable").getMaterializedRows().stream()
+            assertThat(computeActual("SHOW COLUMNS FROM public.nonlowercasetable").getMaterializedRows().stream()
                             .map(row -> row.getField(0))
-                            .collect(toImmutableSet()),
-                    ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
+                            .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
 
             assertQuery("SELECT lower_case_name FROM public.nonlowercasetable", "VALUES 'a'");
             assertQuery("SELECT mixed_case_name FROM public.nonlowercasetable", "VALUES 'b'");
@@ -144,6 +141,7 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
+    @Test
     @Override
     public void testSchemaNameClash()
             throws Exception
@@ -167,6 +165,7 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
+    @Test
     @Override
     public void testTableNameClash()
             throws Exception
@@ -179,12 +178,12 @@ public class TestIgniteCaseInsensitiveMapping
         try (AutoCloseable ignore = withTable("public", nameVariants[0], "(a varchar(1), b int primary key)");
                 AutoCloseable ignore1 = withTable("public", "some_table", "(d varchar(5), ignore varchar(1) primary key)")) {
             List<MaterializedRow> rows = computeActual("SHOW COLUMNS FROM some_table").getMaterializedRows();
-            assertTrue(rows != null && rows.size() == 2);
-            assertEquals(rows.get(0).getField(0), "d");
-            assertEquals(rows.get(0).getField(1), "varchar(5)");
-            assertEquals(rows.get(0).getField(2), "");
-            assertEquals(rows.get(1).getField(0), "ignore");
-            assertEquals(rows.get(1).getField(1), "varchar(1)");
+            assertThat(rows != null && rows.size() == 2).isTrue();
+            assertThat(rows.get(0).getField(0)).isEqualTo("d");
+            assertThat(rows.get(0).getField(1)).isEqualTo("varchar(5)");
+            assertThat(rows.get(0).getField(2)).isEqualTo("");
+            assertThat(rows.get(1).getField(0)).isEqualTo("ignore");
+            assertThat(rows.get(1).getField(1)).isEqualTo("varchar(1)");
 
             assertQueryReturnsEmptyResult("SELECT * FROM some_table");
             for (String nameVariant : nameVariants) {
@@ -193,34 +192,39 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
+    @Test
     @Override
     public void testTableNameClashWithRuleMapping()
     {
-        throw new SkipException("Not support creating Ignite custom schema");
+        abort("Not support creating Ignite custom schema");
     }
 
+    @Test
     @Override
     public void testSchemaNameClashWithRuleMapping()
     {
-        throw new SkipException("Not support creating Ignite custom schema");
+        abort("Not support creating Ignite custom schema");
     }
 
+    @Test
     @Override
     public void testSchemaAndTableNameRuleMapping()
     {
-        throw new SkipException("Not support creating Ignite custom schema");
+        abort("Not support creating Ignite custom schema");
     }
 
+    @Test
     @Override
     public void testSchemaNameRuleMapping()
     {
-        throw new SkipException("Not support creating Ignite custom schema");
+        abort("Not support creating Ignite custom schema");
     }
 
+    @Test
     @Override
     public void testTableNameRuleMapping()
     {
-        throw new SkipException("Not support creating Ignite custom schema");
+        abort("Not support creating Ignite custom schema");
     }
 
     @Override

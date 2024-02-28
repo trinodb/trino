@@ -13,30 +13,14 @@
  */
 package io.trino.spi.exchange;
 
-import io.trino.spi.Experimental;
+import io.opentelemetry.api.trace.Span;
 import io.trino.spi.QueryId;
 
-import static java.util.Objects.requireNonNull;
-
-@Experimental(eta = "2023-09-01")
-public class ExchangeContext
+public interface ExchangeContext
 {
-    private final QueryId queryId;
-    private final ExchangeId exchangeId;
+    QueryId getQueryId();
 
-    public ExchangeContext(QueryId queryId, ExchangeId exchangeId)
-    {
-        this.queryId = requireNonNull(queryId, "queryId is null");
-        this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
-    }
+    ExchangeId getExchangeId();
 
-    public QueryId getQueryId()
-    {
-        return queryId;
-    }
-
-    public ExchangeId getExchangeId()
-    {
-        return exchangeId;
-    }
+    Span getParentSpan();
 }

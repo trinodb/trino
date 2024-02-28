@@ -16,16 +16,13 @@ package io.trino.plugin.bigquery;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestBigQueryAvroConnectorTest
         extends BaseBigQueryConnectorTest
@@ -60,30 +57,27 @@ public class TestBigQueryAvroConnectorTest
     }
 
     // TODO: Disable all operations for unsupported column names
-    @Test(dataProvider = "unsupportedColumnNameDataProvider")
-    public void testSelectFailsForColumnName(String columnName)
+    @Test
+    public void testSelectFailsForColumnName()
     {
-        String tableName = "test.test_unsupported_column_name" + randomNameSuffix();
+        for (String columnName : UNSUPPORTED_COLUMN_NAMES) {
+            String tableName = "test.test_unsupported_column_name" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + "(\"" + columnName + "\" varchar(50))");
-        try {
-            assertUpdate("INSERT INTO " + tableName + " VALUES ('test value')", 1);
-            // The storage API can't read the table, but query based API can read it
-            assertThatThrownBy(() -> query("SELECT * FROM " + tableName))
-                    .cause()
-                    .hasMessageMatching(".*(Illegal initial character|Invalid name).*");
-            assertThat(bigQuerySqlExecutor.executeQuery("SELECT * FROM " + tableName).getValues())
-                    .extracting(field -> field.get(0).getStringValue())
-                    .containsExactly("test value");
+            assertUpdate("CREATE TABLE " + tableName + "(\"" + columnName + "\" varchar(50))");
+            try {
+                assertUpdate("INSERT INTO " + tableName + " VALUES ('test value')", 1);
+                // The storage API can't read the table, but query based API can read it
+                assertThat(query("SELECT * FROM " + tableName))
+                        // TODO should be TrinoException, provide better error message
+                        .nonTrinoExceptionFailure().cause()
+                        .hasMessageMatching(".*(Illegal initial character|Invalid name).*");
+                assertThat(bigQuerySqlExecutor.executeQuery("SELECT * FROM " + tableName).getValues())
+                        .extracting(field -> field.get(0).getStringValue())
+                        .containsExactly("test value");
+            }
+            finally {
+                assertUpdate("DROP TABLE " + tableName);
+            }
         }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-        }
-    }
-
-    @DataProvider
-    public Object[][] unsupportedColumnNameDataProvider()
-    {
-        return UNSUPPORTED_COLUMN_NAMES.stream().collect(toDataProvider());
     }
 }

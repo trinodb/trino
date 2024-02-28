@@ -13,36 +13,31 @@
  */
 package io.trino.tests.product.launcher.local;
 
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Properties;
 
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 
 public class TestManuallyJdbcOauth2
 {
-    @BeforeClass(alwaysRun = true)
-    public void verifyEtcHostsEntries()
-            throws UnknownHostException
+    private static void verifyEtcHostsEntries()
+            throws Exception
     {
         assertThat(InetAddress.getByName("presto-master").isLoopbackAddress()).isTrue();
         assertThat(InetAddress.getByName("hydra").isLoopbackAddress()).isTrue();
         assertThat(InetAddress.getByName("hydra-consent").isLoopbackAddress()).isTrue();
 
-        assertThatNoException()
-                .describedAs("Trino server is not available under 7778 port")
-                .isThrownBy(() -> new Socket("presto-master", 7778).close());
+        // Trino server should be available under 7778 port
+        new Socket("presto-master", 7778).close();
     }
 
     /**
@@ -53,10 +48,13 @@ public class TestManuallyJdbcOauth2
      * 127.0.0.1 hydra
      * 127.0.0.1 hydra-consent
      */
-    @Test(enabled = false)
+    @Test
+    @Disabled
     public void shouldAuthenticateAndExecuteQuery()
-            throws SQLException
+            throws Exception
     {
+        verifyEtcHostsEntries();
+
         Properties properties = new Properties();
         String jdbcUrl = format("jdbc:trino://presto-master:7778?"
                 + "SSL=true&"

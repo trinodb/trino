@@ -29,21 +29,12 @@ public class FixedPageSource
     private long completedBytes;
     private boolean closed;
 
-    /**
-     * @deprecated This constructor hides the fact {@code pages} are iterated twice.
-     */
-    @Deprecated
-    public FixedPageSource(Iterable<Page> pages)
-    {
-        this(pages.iterator(), memoryUsage(pages));
-    }
-
     public FixedPageSource(List<Page> pages)
     {
         this(pages.iterator(), memoryUsage(pages));
     }
 
-    private static long memoryUsage(Iterable<Page> pages)
+    private static long memoryUsage(List<Page> pages)
     {
         long memoryUsageBytes = 0;
         for (Page page : pages) {

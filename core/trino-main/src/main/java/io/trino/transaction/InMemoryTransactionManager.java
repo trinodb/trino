@@ -59,8 +59,8 @@ import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static io.trino.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static java.util.Objects.requireNonNull;
@@ -232,7 +232,7 @@ public class InMemoryTransactionManager
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
 
         CatalogHandle catalogHandle = transactionMetadata.tryRegisterCatalog(catalogName)
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+                .orElseThrow(() -> new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' not found".formatted(catalogName)));
 
         return getCatalogMetadataForWrite(transactionId, catalogHandle);
     }
@@ -243,7 +243,7 @@ public class InMemoryTransactionManager
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
 
         CatalogHandle catalogHandle = transactionMetadata.tryRegisterCatalog(catalogName)
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+                .orElseThrow(() -> new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' not found".formatted(catalogName)));
 
         return transactionMetadata.getTransactionCatalogMetadata(catalogHandle).getTransactionHandleFor(catalogHandle);
     }

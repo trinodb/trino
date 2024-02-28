@@ -13,8 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.Type.Range;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,6 @@ import java.util.Optional;
 
 import static io.trino.spi.type.DateType.DATE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestDateType
         extends AbstractTestType
@@ -33,7 +32,7 @@ public class TestDateType
         super(DATE, SqlDate.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = DATE.createBlockBuilder(null, 15);
         DATE.writeLong(blockBuilder, 1111);
@@ -47,7 +46,7 @@ public class TestDateType
         DATE.writeLong(blockBuilder, 3333);
         DATE.writeLong(blockBuilder, 3333);
         DATE.writeLong(blockBuilder, 4444);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -60,8 +59,8 @@ public class TestDateType
     public void testRange()
     {
         Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), (long) Integer.MIN_VALUE);
-        assertEquals(range.getMax(), (long) Integer.MAX_VALUE);
+        assertThat(range.getMin()).isEqualTo((long) Integer.MIN_VALUE);
+        assertThat(range.getMax()).isEqualTo((long) Integer.MAX_VALUE);
     }
 
     @Test

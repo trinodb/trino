@@ -34,7 +34,6 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.DynamicFilteringStats;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
-import io.trino.plugin.jdbc.ForLazyConnectionFactory;
 import io.trino.plugin.jdbc.ForRecordCursor;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcDiagnosticModule;
@@ -48,6 +47,7 @@ import io.trino.plugin.jdbc.JdbcWriteSessionProperties;
 import io.trino.plugin.jdbc.LazyConnectionFactory;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RetryingConnectionFactoryModule;
 import io.trino.plugin.jdbc.ReusableConnectionFactoryModule;
 import io.trino.plugin.jdbc.StatsCollecting;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
@@ -97,6 +97,7 @@ public class PhoenixClientModule
     protected void setup(Binder binder)
     {
         install(new RemoteQueryModifierModule());
+        install(new RetryingConnectionFactoryModule());
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForJdbcDynamicFiltering.class).to(PhoenixSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
@@ -130,10 +131,6 @@ public class PhoenixClientModule
         binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
 
-        binder.bind(ConnectionFactory.class)
-                .annotatedWith(ForLazyConnectionFactory.class)
-                .to(Key.get(ConnectionFactory.class, StatsCollecting.class))
-                .in(Scopes.SINGLETON);
         install(conditionalModule(
                 PhoenixConfig.class,
                 PhoenixConfig::isReuseConnection,

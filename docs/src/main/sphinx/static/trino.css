@@ -18,6 +18,7 @@ div.highlight {
     color: #F57C00;
 }
 
+/* Fix vertical alignment for links to header from other documents */
 .md-typeset span[id]:target:before {
     display:block;
     margin-top:-40px;
@@ -25,10 +26,20 @@ div.highlight {
     content:"";
 }
 
+/* Fix vertical alignment for links to header from right hand nav */
+.md-typeset h1[id]:before,
+.md-typeset h2[id]:before,
+.md-typeset h3[id]:before,
+.md-typeset h4[id]:before,
+.md-typeset h5[id]:before,
+.md-typeset h6[id]:before,
+.md-typeset dl[id]:before {
+    margin-top:-3.45rem;
+    padding-top:3.45rem;
+}
+
 .md-typeset dl[id]:target:before {
     display:block;
-    margin-top:-82px;
-    padding-top:82px;
     content:"";
 }
 

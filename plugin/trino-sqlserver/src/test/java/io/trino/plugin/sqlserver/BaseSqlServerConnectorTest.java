@@ -24,10 +24,8 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
-import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import io.trino.testing.sql.TestView;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,8 +41,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public abstract class BaseSqlServerConnectorTest
         extends BaseJdbcConnectorTest
@@ -67,6 +63,7 @@ public abstract class BaseSqlServerConnectorTest
                     SUPPORTS_COMMENT_ON_TABLE,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                     SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_DROP_SCHEMA_CASCADE,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                     SUPPORTS_NEGATIVE_DATE,
@@ -105,12 +102,6 @@ public abstract class BaseSqlServerConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("date")) {
-            // SQL Server plus 10 days when the date is the range of 1582 Oct 5 and 14
-            if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'") || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-14'")) {
-                return Optional.empty();
-            }
-        }
         if (typeName.equals("timestamp(3) with time zone") ||
                 typeName.equals("timestamp(6) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
@@ -122,38 +113,9 @@ public abstract class BaseSqlServerConnectorTest
     @Test
     public void testReadFromView()
     {
-        onRemoteDatabase().execute("CREATE VIEW test_view AS SELECT * FROM orders");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
-        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
-        onRemoteDatabase().execute("DROP VIEW IF EXISTS test_view");
-    }
-
-    // TODO (https://github.com/trinodb/trino/issues/10846): Test is expected to be flaky because tests execute in parallel
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/10846", match = "was deadlocked on lock resources with another process and has been chosen as the deadlock victim")
-    @Test
-    @Override
-    public void testSelectInformationSchemaColumns()
-    {
-        super.testSelectInformationSchemaColumns();
-    }
-
-    @Test
-    @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        try {
-            super.testReadMetadataWithRelationsConcurrentModifications();
-        }
-        catch (Exception expected) {
-            // The test failure is not guaranteed
-            assertThat(expected)
-                    .hasMessageMatching("(?s).*(" +
-                            "No task completed before timeout|" +
-                            "was deadlocked on lock resources with another process and has been chosen as the deadlock victim|" +
-                            "Lock request time out period exceeded|" +
-                            // E.g. system.metadata.table_comments can return empty results, when underlying metadata list tables call fails
-                            "Expecting actual not to be empty).*");
-            throw new SkipException("to be fixed");
+        try (TestView view = new TestView(onRemoteDatabase(), "test_view", "SELECT * FROM orders")) {
+            assertThat(getQueryRunner().tableExists(getSession(), view.getName())).isTrue();
+            assertQuery("SELECT orderkey FROM " + view.getName(), "SELECT orderkey FROM orders");
         }
     }
 
@@ -468,8 +430,15 @@ public abstract class BaseSqlServerConnectorTest
                         ")");
     }
 
-    @Test(dataProvider = "dataCompression")
-    public void testCreateWithDataCompression(DataCompression dataCompression)
+    @Test
+    public void testCreateWithDataCompression()
+    {
+        testCreateWithDataCompression(NONE);
+        testCreateWithDataCompression(ROW);
+        testCreateWithDataCompression(PAGE);
+    }
+
+    private void testCreateWithDataCompression(DataCompression dataCompression)
     {
         String tableName = "test_create_with_compression_" + randomNameSuffix();
         String createQuery = format("CREATE TABLE sqlserver.dbo.%s (\n" +
@@ -483,49 +452,49 @@ public abstract class BaseSqlServerConnectorTest
                 dataCompression);
         assertUpdate(createQuery);
 
-        assertEquals(getQueryRunner().execute("SHOW CREATE TABLE " + tableName).getOnlyValue(), createQuery);
+        assertThat(getQueryRunner().execute("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                .isEqualTo(createQuery);
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @DataProvider
-    public Object[][] dataCompression()
-    {
-        return new Object[][] {
-                {NONE},
-                {ROW},
-                {PAGE}
-        };
     }
 
     @Test
     public void testShowCreateForPartitionedTablesWithDataCompression()
     {
-        onRemoteDatabase().execute("CREATE PARTITION FUNCTION pfSales (DATE)\n" +
-                "AS RANGE LEFT FOR VALUES \n" +
-                "('2013-01-01', '2014-01-01', '2015-01-01')");
-        onRemoteDatabase().execute("CREATE PARTITION SCHEME psSales\n" +
-                "AS PARTITION pfSales \n" +
-                "ALL TO ([PRIMARY])");
-        onRemoteDatabase().execute("CREATE TABLE partitionedsales (\n" +
-                "   SalesDate DATE,\n" +
-                "   Quantity INT\n" +
-                ") ON psSales(SalesDate) WITH (DATA_COMPRESSION = PAGE)");
-        assertThat((String) computeActual("SHOW CREATE TABLE partitionedsales").getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.partitionedsales \\Q(\n" +
-                        "   salesdate date,\n" +
-                        "   quantity integer\n" +
-                        ")");
-        assertUpdate("DROP TABLE partitionedSales");
-        onRemoteDatabase().execute("DROP PARTITION SCHEME psSales");
-        onRemoteDatabase().execute("DROP PARTITION FUNCTION pfSales");
+        String partitionFunction = "pfSales" + randomNameSuffix();
+        String partitionScheme = "psSales" + randomNameSuffix();
+        String tableName = "partitionedsales" + randomNameSuffix();
+
+        try {
+            onRemoteDatabase().execute("CREATE PARTITION FUNCTION " + partitionFunction + " (DATE)\n" +
+                    "AS RANGE LEFT FOR VALUES \n" +
+                    "('2013-01-01', '2014-01-01', '2015-01-01')");
+            onRemoteDatabase().execute("CREATE PARTITION SCHEME " + partitionScheme + "\n" +
+                    "AS PARTITION " + partitionFunction + " \n" +
+                    "ALL TO ([PRIMARY])");
+            onRemoteDatabase().execute("CREATE TABLE " + tableName + " (\n" +
+                    "   SalesDate DATE,\n" +
+                    "   Quantity INT\n" +
+                    ") ON " + partitionScheme + "(SalesDate) WITH (DATA_COMPRESSION = PAGE)");
+            assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                    .matches("CREATE TABLE \\w+\\.\\w+\\." + tableName + " \\Q(\n" +
+                            "   salesdate date,\n" +
+                            "   quantity integer\n" +
+                            ")");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            onRemoteDatabase().execute("DROP PARTITION SCHEME " + partitionScheme);
+            onRemoteDatabase().execute("DROP PARTITION FUNCTION " + partitionFunction);
+        }
     }
 
     @Test
     public void testShowCreateForIndexedAndCompressedTable()
     {
         // SHOW CREATE doesn't expose data compression for Indexed tables
-        onRemoteDatabase().execute("CREATE TABLE test_show_indexed_table (\n" +
+        String tableName = "test_show_indexed_table" + randomNameSuffix();
+        onRemoteDatabase().execute("CREATE TABLE " + tableName + " (\n" +
                 "   key1 BIGINT NOT NULL,\n" +
                 "   key2 BIGINT NOT NULL,\n" +
                 "   key3 BIGINT NOT NULL,\n" +
@@ -535,23 +504,26 @@ public abstract class BaseSqlServerConnectorTest
                 "   CONSTRAINT IX_IndexedTable UNIQUE (key2, key3),\n" +
                 "   INDEX IX_MyTable4 NONCLUSTERED (key4, key5))\n" +
                 "   WITH (DATA_COMPRESSION = PAGE)");
-
-        assertThat((String) computeActual("SHOW CREATE TABLE test_show_indexed_table").getOnlyValue())
-                .isEqualTo("CREATE TABLE sqlserver.dbo.test_show_indexed_table (\n" +
-                        "   key1 bigint NOT NULL,\n" +
-                        "   key2 bigint NOT NULL,\n" +
-                        "   key3 bigint NOT NULL,\n" +
-                        "   key4 bigint NOT NULL,\n" +
-                        "   key5 bigint NOT NULL\n" +
-                        ")");
-
-        assertUpdate("DROP TABLE test_show_indexed_table");
+        try {
+            assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                    .isEqualTo("CREATE TABLE sqlserver.dbo." + tableName + " (\n" +
+                            "   key1 bigint NOT NULL,\n" +
+                            "   key2 bigint NOT NULL,\n" +
+                            "   key3 bigint NOT NULL,\n" +
+                            "   key4 bigint NOT NULL,\n" +
+                            "   key5 bigint NOT NULL\n" +
+                            ")");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test
     public void testShowCreateForUniqueConstraintCompressedTable()
     {
-        onRemoteDatabase().execute("CREATE TABLE test_show_unique_constraint_table (\n" +
+        String tableName = "test_show_unique_constraint_table" + randomNameSuffix();
+        onRemoteDatabase().execute("CREATE TABLE " + tableName + " (\n" +
                 "   key1 BIGINT NOT NULL,\n" +
                 "   key2 BIGINT NOT NULL,\n" +
                 "   key3 BIGINT NOT NULL,\n" +
@@ -560,20 +532,22 @@ public abstract class BaseSqlServerConnectorTest
                 "   UNIQUE (key1, key4),\n" +
                 "   UNIQUE (key2, key3))\n" +
                 "   WITH (DATA_COMPRESSION = PAGE)");
-
-        assertThat((String) computeActual("SHOW CREATE TABLE test_show_unique_constraint_table").getOnlyValue())
-                .isEqualTo("CREATE TABLE sqlserver.dbo.test_show_unique_constraint_table (\n" +
-                        "   key1 bigint NOT NULL,\n" +
-                        "   key2 bigint NOT NULL,\n" +
-                        "   key3 bigint NOT NULL,\n" +
-                        "   key4 bigint NOT NULL,\n" +
-                        "   key5 bigint NOT NULL\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   data_compression = 'PAGE'\n" +
-                        ")");
-
-        assertUpdate("DROP TABLE test_show_unique_constraint_table");
+        try {
+            assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                    .isEqualTo("CREATE TABLE sqlserver.dbo." + tableName + " (\n" +
+                            "   key1 bigint NOT NULL,\n" +
+                            "   key2 bigint NOT NULL,\n" +
+                            "   key3 bigint NOT NULL,\n" +
+                            "   key4 bigint NOT NULL,\n" +
+                            "   key5 bigint NOT NULL\n" +
+                            ")\n" +
+                            "WITH (\n" +
+                            "   data_compression = 'PAGE'\n" +
+                            ")");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test
@@ -587,6 +561,7 @@ public abstract class BaseSqlServerConnectorTest
                 ".*\\QConversion failed when converting date and/or time from character string.\\E");
     }
 
+    @Test
     @Override
     public void testNativeQuerySimple()
     {
@@ -849,6 +824,17 @@ public abstract class BaseSqlServerConnectorTest
                         "Failed to get table handle for procedure query. The statement did not return a result set.");
                 assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES (3), (4), (5)");
             }
+        }
+    }
+
+    @Test
+    @Override
+    public void testConstantUpdateWithVarcharInequalityPredicates()
+    {
+        // Sql Server supports push down predicate for not equal operator
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
+            assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (2, 'A')");
         }
     }
 

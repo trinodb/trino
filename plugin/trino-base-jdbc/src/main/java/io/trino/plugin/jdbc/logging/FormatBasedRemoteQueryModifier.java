@@ -39,11 +39,14 @@ public class FormatBasedRemoteQueryModifier
     @Override
     public String apply(ConnectorSession session, String query)
     {
-        try {
-            return query + " /*" + interpolator.interpolate(session) + "*/";
+        return query + " /*" + checkForSqlInjection(interpolator.interpolate(session)) + "*/";
+    }
+
+    private String checkForSqlInjection(String sql)
+    {
+        if (sql.contains("*/")) {
+            throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, "Rendering metadata using 'query.comment-format' does not meet security criteria: " + sql);
         }
-        catch (SecurityException e) {
-            throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, e.getMessage());
-        }
+        return sql;
     }
 }

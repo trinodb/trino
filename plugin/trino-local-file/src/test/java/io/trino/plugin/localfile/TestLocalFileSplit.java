@@ -16,10 +16,10 @@ package io.trino.plugin.localfile;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.HostAddress;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLocalFileSplit
 {
@@ -33,9 +33,9 @@ public class TestLocalFileSplit
         String json = codec.toJson(split);
         LocalFileSplit copy = codec.fromJson(json);
 
-        assertEquals(copy.getAddress(), split.getAddress());
+        assertThat(copy.getAddress()).isEqualTo(split.getAddress());
 
-        assertEquals(copy.getAddresses(), ImmutableList.of(address));
-        assertEquals(copy.isRemotelyAccessible(), false);
+        assertThat(copy.getAddresses()).isEqualTo(ImmutableList.of(address));
+        assertThat(copy.isRemotelyAccessible()).isEqualTo(false);
     }
 }

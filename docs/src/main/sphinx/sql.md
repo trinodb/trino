@@ -1,10 +1,12 @@
 # SQL statement syntax
 
-This section describes the SQL syntax used in Trino.
+This section describes the syntax for SQL statements that can be executed in
+Trino.
 
-A {doc}`reference to the supported SQL data types</language>` is available.
+Refer to the following sections for further details:
 
-Trino also provides {doc}`numerous SQL functions and operators<functions>`.
+* [SQL data types and other general aspects](/language)
+* [SQL functions and operators](/functions)
 
 ```{toctree}
 :maxdepth: 1
@@ -17,6 +19,8 @@ sql/analyze
 sql/call
 sql/comment
 sql/commit
+sql/create-catalog
+sql/create-function
 sql/create-materialized-view
 sql/create-role
 sql/create-schema
@@ -29,6 +33,8 @@ sql/deny
 sql/describe
 sql/describe-input
 sql/describe-output
+sql/drop-catalog
+sql/drop-function
 sql/drop-materialized-view
 sql/drop-role
 sql/drop-schema
@@ -43,10 +49,10 @@ sql/grant-roles
 sql/insert
 sql/match-recognize
 sql/merge
-sql/pattern-recognition-in-window
 sql/prepare
 sql/refresh-materialized-view
 sql/reset-session
+sql/reset-session-authorization
 sql/revoke
 sql/revoke-roles
 sql/rollback
@@ -54,6 +60,7 @@ sql/select
 sql/set-path
 sql/set-role
 sql/set-session
+sql/set-session-authorization
 sql/set-time-zone
 sql/show-catalogs
 sql/show-columns
@@ -74,4 +81,10 @@ sql/truncate
 sql/update
 sql/use
 sql/values
+```
+
+```{toctree}
+:hidden:
+
+sql/pattern-recognition-in-window
 ```

@@ -17,21 +17,21 @@ import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
-import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkValidRegion;
+import static io.trino.spi.block.BlockUtil.appendRawBlockRange;
+import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static java.lang.Math.max;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlockBuilder
-        extends AbstractArrayBlock
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(ArrayBlockBuilder.class);
+    private static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
 
     private int positionCount;
 
@@ -43,7 +43,7 @@ public class ArrayBlockBuilder
     private int[] offsets = new int[1];
     private boolean[] valueIsNull = new boolean[0];
     private boolean hasNullValue;
-    private boolean hasNonNullRow;
+    private boolean hasNonNullValue;
 
     private final BlockBuilder values;
     private boolean currentEntryOpened;
@@ -86,7 +86,7 @@ public class ArrayBlockBuilder
         this.values = requireNonNull(values, "values is null");
         this.initialEntryCount = max(expectedEntries, 1);
 
-        updateDataSize();
+        updateRetainedSize();
     }
 
     @Override
@@ -98,53 +98,13 @@ public class ArrayBlockBuilder
     @Override
     public long getSizeInBytes()
     {
-        return values.getSizeInBytes() + ((Integer.BYTES + Byte.BYTES) * (long) positionCount);
+        return values.getSizeInBytes() + (SIZE_IN_BYTES_PER_POSITION * (long) positionCount);
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes + values.getRetainedSizeInBytes();
-    }
-
-    @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
-    {
-        consumer.accept(values, values.getRetainedSizeInBytes());
-        consumer.accept(offsets, sizeOf(offsets));
-        consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, INSTANCE_SIZE);
-    }
-
-    @Override
-    protected Block getRawElementBlock()
-    {
-        return values;
-    }
-
-    @Override
-    protected int[] getOffsets()
-    {
-        return offsets;
-    }
-
-    @Override
-    protected int getOffsetBase()
-    {
-        return 0;
-    }
-
-    @Nullable
-    @Override
-    protected boolean[] getValueIsNull()
-    {
-        return hasNullValue ? valueIsNull : null;
-    }
-
-    @Override
-    public boolean mayHaveNull()
-    {
-        return hasNullValue;
     }
 
     public <E extends Throwable> void buildEntry(ArrayValueBuilder<E> builder)
@@ -161,6 +121,97 @@ public class ArrayBlockBuilder
     }
 
     @Override
+    public void append(ValueBlock block, int position)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before a null can be written");
+        }
+
+        ArrayBlock arrayBlock = (ArrayBlock) block;
+        if (block.isNull(position)) {
+            entryAdded(true);
+            return;
+        }
+
+        int offsetBase = arrayBlock.getOffsetBase();
+        int[] offsets = arrayBlock.getOffsets();
+        int startOffset = offsets[offsetBase + position];
+        int length = offsets[offsetBase + position + 1] - startOffset;
+
+        appendRawBlockRange(arrayBlock.getRawElementBlock(), startOffset, length, values);
+        entryAdded(false);
+    }
+
+    @Override
+    public void appendRepeated(ValueBlock block, int position, int count)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before a null can be written");
+        }
+        for (int i = 0; i < count; i++) {
+            append(block, position);
+        }
+    }
+
+    @Override
+    public void appendRange(ValueBlock block, int offset, int length)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before a null can be written");
+        }
+
+        ensureCapacity(positionCount + length);
+
+        ArrayBlock arrayBlock = (ArrayBlock) block;
+
+        int rawOffsetBase = arrayBlock.getOffsetBase();
+        int[] rawOffsets = arrayBlock.getOffsets();
+        int startOffset = rawOffsets[rawOffsetBase + offset];
+        int endOffset = rawOffsets[rawOffsetBase + offset + length];
+
+        appendRawBlockRange(arrayBlock.getRawElementBlock(), startOffset, endOffset - startOffset, values);
+
+        // update offsets for copied data
+        for (int i = 0; i < length; i++) {
+            int entrySize = rawOffsets[rawOffsetBase + offset + i + 1] - rawOffsets[rawOffsetBase + offset + i];
+            offsets[positionCount + i + 1] = offsets[positionCount + i] + entrySize;
+        }
+
+        boolean[] rawValueIsNull = arrayBlock.getRawValueIsNull();
+        if (rawValueIsNull != null) {
+            for (int i = 0; i < length; i++) {
+                if (rawValueIsNull[rawOffsetBase + offset + i]) {
+                    valueIsNull[positionCount + i] = true;
+                    hasNullValue = true;
+                }
+                else {
+                    hasNonNullValue = true;
+                }
+            }
+        }
+        else {
+            hasNonNullValue = true;
+        }
+
+        positionCount += length;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(length * SIZE_IN_BYTES_PER_POSITION);
+        }
+    }
+
+    @Override
+    public void appendPositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before a null can be written");
+        }
+        for (int i = 0; i < length; i++) {
+            append(block, positions[offset + i]);
+        }
+    }
+
+    @Override
     public BlockBuilder appendNull()
     {
         if (currentEntryOpened) {
@@ -171,39 +222,54 @@ public class ArrayBlockBuilder
         return this;
     }
 
+    @Override
+    public void resetTo(int position)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
+        }
+        checkIndex(position, positionCount + 1);
+        positionCount = position;
+        values.resetTo(offsets[positionCount]);
+    }
+
     private void entryAdded(boolean isNull)
     {
-        if (valueIsNull.length <= positionCount) {
-            growCapacity();
-        }
+        ensureCapacity(positionCount + 1);
+
         offsets[positionCount + 1] = values.getPositionCount();
         valueIsNull[positionCount] = isNull;
         hasNullValue |= isNull;
-        hasNonNullRow |= !isNull;
+        hasNonNullValue |= !isNull;
         positionCount++;
 
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+            blockBuilderStatus.addBytes(SIZE_IN_BYTES_PER_POSITION);
         }
     }
 
-    private void growCapacity()
+    private void ensureCapacity(int capacity)
     {
+        if (valueIsNull.length >= capacity) {
+            return;
+        }
+
         int newSize;
         if (initialized) {
-            newSize = BlockUtil.calculateNewArraySize(valueIsNull.length);
+            newSize = calculateNewArraySize(capacity);
         }
         else {
             newSize = initialEntryCount;
             initialized = true;
         }
+        newSize = max(newSize, capacity);
 
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         offsets = Arrays.copyOf(offsets, newSize + 1);
-        updateDataSize();
+        updateRetainedSize();
     }
 
-    private void updateDataSize()
+    private void updateRetainedSize()
     {
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(offsets);
         if (blockBuilderStatus != null) {
@@ -217,8 +283,17 @@ public class ArrayBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
-        if (!hasNonNullRow) {
+        if (!hasNonNullValue) {
             return nullRle(positionCount);
+        }
+        return buildValueBlock();
+    }
+
+    @Override
+    public ValueBlock buildValueBlock()
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
         return createArrayBlockInternal(0, positionCount, hasNullValue ? valueIsNull : null, offsets, values.build());
     }
@@ -232,45 +307,9 @@ public class ArrayBlockBuilder
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("ArrayBlockBuilder{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
-    }
-
-    @Override
-    public Block copyPositions(int[] positions, int offset, int length)
-    {
-        checkArrayRange(positions, offset, length);
-
-        if (!hasNonNullRow) {
-            return nullRle(length);
-        }
-        return super.copyPositions(positions, offset, length);
-    }
-
-    @Override
-    public Block getRegion(int position, int length)
-    {
-        int positionCount = getPositionCount();
-        checkValidRegion(positionCount, position, length);
-
-        if (!hasNonNullRow) {
-            return nullRle(length);
-        }
-        return super.getRegion(position, length);
-    }
-
-    @Override
-    public Block copyRegion(int position, int length)
-    {
-        int positionCount = getPositionCount();
-        checkValidRegion(positionCount, position, length);
-
-        if (!hasNonNullRow) {
-            return nullRle(length);
-        }
-        return super.copyRegion(position, length);
+        return "ArrayBlockBuilder{" +
+                "positionCount=" + getPositionCount() +
+                '}';
     }
 
     private Block nullRle(int positionCount)

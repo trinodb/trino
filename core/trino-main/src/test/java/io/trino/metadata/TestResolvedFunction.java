@@ -24,7 +24,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeSignature;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -32,11 +32,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Integer.parseInt;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestResolvedFunction
 {
@@ -48,21 +48,25 @@ public class TestResolvedFunction
         ResolvedFunction resolvedFunction = createResolvedFunction("top", 3);
         ResolvedFunctionDecoder decoder = new ResolvedFunctionDecoder(TestResolvedFunction::varcharTypeLoader);
         Optional<ResolvedFunction> copy = decoder.fromQualifiedName(resolvedFunction.toQualifiedName());
-        assertTrue(copy.isPresent());
-        assertEquals(copy.get(), resolvedFunction);
+        assertThat(copy.isPresent()).isTrue();
+        assertThat(copy.get()).isEqualTo(resolvedFunction);
     }
 
     private static ResolvedFunction createResolvedFunction(String name, int depth)
     {
         return new ResolvedFunction(
-                new BoundSignature(name + "_" + depth, createVarcharType(10 + depth), ImmutableList.of(createVarcharType(20 + depth), createVarcharType(30 + depth))),
+                new BoundSignature(
+                        builtinFunctionName(name + "_" + depth),
+                        createVarcharType(10 + depth),
+                        ImmutableList.of(createVarcharType(20 + depth), createVarcharType(30 + depth))),
                 GlobalSystemConnector.CATALOG_HANDLE,
-                FunctionId.toFunctionId(Signature.builder()
-                        .name(name)
-                        .returnType(new TypeSignature("x"))
-                        .argumentType(new TypeSignature("y"))
-                        .argumentType(new TypeSignature("z"))
-                        .build()),
+                FunctionId.toFunctionId(
+                        name,
+                        Signature.builder()
+                                .returnType(new TypeSignature("x"))
+                                .argumentType(new TypeSignature("y"))
+                                .argumentType(new TypeSignature("z"))
+                                .build()),
                 SCALAR,
                 true,
                 new FunctionNullability(false, ImmutableList.of(false, false)),
@@ -75,7 +79,7 @@ public class TestResolvedFunction
     {
         Matcher matcher = VARCHAR_MATCHER.matcher(typeId.getId());
         boolean matches = matcher.matches();
-        assertTrue(matches);
+        assertThat(matches).isTrue();
         return createVarcharType(parseInt(matcher.group(1)));
     }
 }

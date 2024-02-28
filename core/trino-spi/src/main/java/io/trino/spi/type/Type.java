@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.List;
@@ -80,6 +81,11 @@ public interface Type
      * Currently, this can be {@code boolean}, {@code long}, {@code double}, or a non-primitive type.
      */
     Class<?> getJavaType();
+
+    /**
+     * Gets the ValueBlock type used to store values of this type.
+     */
+    Class<? extends ValueBlock> getValueBlockType();
 
     /**
      * For parameterized types returns the list of parameters.

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.units.DataSize;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -55,6 +56,9 @@ public class IcebergTableHandle
     // Filter guaranteed to be enforced by Iceberg connector
     private final TupleDomain<IcebergColumnHandle> enforcedPredicate;
 
+    // Columns that are present in {@link Constraint#predicate()} applied on the table scan
+    private final Set<IcebergColumnHandle> constraintColumns;
+
     // semantically limit is applied after enforcedPredicate
     private final OptionalLong limit;
 
@@ -65,7 +69,11 @@ public class IcebergTableHandle
     private final boolean recordScannedFiles;
     private final Optional<DataSize> maxScannedFileSize;
 
+    // ANALYZE only. Coordinator-only
+    private final Optional<Boolean> forAnalyze;
+
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static IcebergTableHandle fromJsonForDeserializationOnly(
             @JsonProperty("catalog") CatalogHandle catalog,
             @JsonProperty("schemaName") String schemaName,
@@ -100,6 +108,8 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 false,
+                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty());
     }
 
@@ -120,7 +130,9 @@ public class IcebergTableHandle
             String tableLocation,
             Map<String, String> storageProperties,
             boolean recordScannedFiles,
-            Optional<DataSize> maxScannedFileSize)
+            Optional<DataSize> maxScannedFileSize,
+            Set<IcebergColumnHandle> constraintColumns,
+            Optional<Boolean> forAnalyze)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -139,6 +151,8 @@ public class IcebergTableHandle
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
+        this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
+        this.forAnalyze = requireNonNull(forAnalyze, "forAnalyze is null");
     }
 
     @JsonProperty
@@ -244,6 +258,18 @@ public class IcebergTableHandle
         return maxScannedFileSize;
     }
 
+    @JsonIgnore
+    public Set<IcebergColumnHandle> getConstraintColumns()
+    {
+        return constraintColumns;
+    }
+
+    @JsonIgnore
+    public Optional<Boolean> getForAnalyze()
+    {
+        return forAnalyze;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -273,7 +299,33 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 recordScannedFiles,
-                maxScannedFileSize);
+                maxScannedFileSize,
+                constraintColumns,
+                forAnalyze);
+    }
+
+    public IcebergTableHandle forAnalyze()
+    {
+        return new IcebergTableHandle(
+                catalog,
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                limit,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                recordScannedFiles,
+                maxScannedFileSize,
+                constraintColumns,
+                Optional.of(true));
     }
 
     public IcebergTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -295,7 +347,9 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 recordScannedFiles,
-                Optional.of(maxScannedFileSize));
+                Optional.of(maxScannedFileSize),
+                constraintColumns,
+                forAnalyze);
     }
 
     @Override
@@ -325,7 +379,9 @@ public class IcebergTableHandle
                 Objects.equals(nameMappingJson, that.nameMappingJson) &&
                 Objects.equals(tableLocation, that.tableLocation) &&
                 Objects.equals(storageProperties, that.storageProperties) &&
-                Objects.equals(maxScannedFileSize, that.maxScannedFileSize);
+                Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
+                Objects.equals(constraintColumns, that.constraintColumns) &&
+                Objects.equals(forAnalyze, that.forAnalyze);
     }
 
     @Override
@@ -348,7 +404,9 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 recordScannedFiles,
-                maxScannedFileSize);
+                maxScannedFileSize,
+                constraintColumns,
+                forAnalyze);
     }
 
     @Override

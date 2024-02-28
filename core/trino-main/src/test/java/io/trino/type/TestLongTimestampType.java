@@ -14,8 +14,8 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type.Range;
@@ -26,7 +26,6 @@ import java.util.List;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestLongTimestampType
         extends AbstractTestType
@@ -36,7 +35,7 @@ public class TestLongTimestampType
         super(TIMESTAMP_NANOS, SqlTimestamp.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = TIMESTAMP_NANOS.createBlockBuilder(null, 15);
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(1111_123, 123_000));
@@ -50,7 +49,7 @@ public class TestLongTimestampType
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(3333_123, 123_000));
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(3333_123, 123_000));
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(4444_123, 123_000));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -64,8 +63,8 @@ public class TestLongTimestampType
     public void testRange()
     {
         Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), new LongTimestamp(Long.MIN_VALUE, 0));
-        assertEquals(range.getMax(), new LongTimestamp(Long.MAX_VALUE, 999_000));
+        assertThat(range.getMin()).isEqualTo(new LongTimestamp(Long.MIN_VALUE, 0));
+        assertThat(range.getMax()).isEqualTo(new LongTimestamp(Long.MAX_VALUE, 999_000));
     }
 
     @Test
@@ -73,8 +72,8 @@ public class TestLongTimestampType
     {
         for (MaxPrecision entry : maxPrecisions()) {
             Range range = createTimestampType(entry.precision()).getRange().orElseThrow();
-            assertEquals(range.getMin(), new LongTimestamp(Long.MIN_VALUE, 0));
-            assertEquals(range.getMax(), entry.expectedMax());
+            assertThat(range.getMin()).isEqualTo(new LongTimestamp(Long.MIN_VALUE, 0));
+            assertThat(range.getMax()).isEqualTo(entry.expectedMax());
         }
     }
 

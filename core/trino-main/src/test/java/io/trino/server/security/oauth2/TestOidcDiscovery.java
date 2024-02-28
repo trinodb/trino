@@ -29,8 +29,7 @@ import io.trino.server.ui.WebUiAuthenticationFilter;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URI;
@@ -49,8 +48,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOidcDiscovery
 {
-    @Test(dataProvider = "staticConfiguration")
-    public void testStaticConfiguration(Optional<String> accessTokenPath, Optional<String> userinfoPath)
+    @Test
+    public void testStaticConfiguration()
+            throws Exception
+    {
+        testStaticConfiguration(Optional.empty(), Optional.empty());
+        testStaticConfiguration(Optional.of("/access-token-issuer"), Optional.of("/userinfo"));
+    }
+
+    private void testStaticConfiguration(Optional<String> accessTokenPath, Optional<String> userinfoPath)
             throws Exception
     {
         try (MetadataServer metadataServer = new MetadataServer(ImmutableMap.of("/jwks.json", "jwk/jwk-public.json"))) {
@@ -62,7 +68,8 @@ public class TestOidcDiscovery
                     .put("http-server.authentication.oauth2.oidc.discovery", "false")
                     .put("http-server.authentication.oauth2.auth-url", issuer.resolve("/connect/authorize").toString())
                     .put("http-server.authentication.oauth2.token-url", issuer.resolve("/connect/token").toString())
-                    .put("http-server.authentication.oauth2.jwks-url", issuer.resolve("/jwks.json").toString());
+                    .put("http-server.authentication.oauth2.jwks-url", issuer.resolve("/jwks.json").toString())
+                    .put("http-server.authentication.oauth2.end-session-url", issuer.resolve("/connect/logout").toString());
             accessTokenIssuer.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.access-token-issuer", uri));
             userinfoUrl.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.userinfo-url", uri));
             try (TestingTrinoServer server = createServer(properties.buildOrThrow())) {
@@ -71,17 +78,16 @@ public class TestOidcDiscovery
         }
     }
 
-    @DataProvider(name = "staticConfiguration")
-    public static Object[][] staticConfiguration()
+    @Test
+    public void testOidcDiscovery()
+            throws Exception
     {
-        return new Object[][] {
-                {Optional.empty(), Optional.empty()},
-                {Optional.of("/access-token-issuer"), Optional.of("/userinfo")},
-        };
+        testOidcDiscovery("openid-configuration.json", Optional.empty(), Optional.of("/connect/userinfo"));
+        testOidcDiscovery("openid-configuration-without-userinfo.json", Optional.empty(), Optional.empty());
+        testOidcDiscovery("openid-configuration-with-access-token-issuer.json", Optional.of("http://access-token-issuer.com/adfs/services/trust"), Optional.of("/connect/userinfo"));
     }
 
-    @Test(dataProvider = "oidcDiscovery")
-    public void testOidcDiscovery(String configuration, Optional<String> accessTokenIssuer, Optional<String> userinfoUrl)
+    private void testOidcDiscovery(String configuration, Optional<String> accessTokenIssuer, Optional<String> userinfoUrl)
             throws Exception
     {
         try (MetadataServer metadataServer = new MetadataServer(
@@ -99,52 +105,42 @@ public class TestOidcDiscovery
         }
     }
 
-    @DataProvider(name = "oidcDiscovery")
-    public static Object[][] oidcDiscovery()
-    {
-        return new Object[][] {
-                {"openid-configuration.json", Optional.empty(), Optional.of("/connect/userinfo")},
-                {"openid-configuration-without-userinfo.json", Optional.empty(), Optional.empty()},
-                {"openid-configuration-with-access-token-issuer.json", Optional.of("http://access-token-issuer.com/adfs/services/trust"), Optional.of("/connect/userinfo")},
-        };
-    }
-
     @Test
     public void testIssuerCheck()
+            throws Exception
     {
-        assertThatThrownBy(() -> {
-            try (MetadataServer metadataServer = new MetadataServer(
-                    ImmutableMap.<String, String>builder()
-                            .put("/.well-known/openid-configuration", "oidc/openid-configuration-invalid-issuer.json")
-                            .put("/jwks.json", "jwk/jwk-public.json")
-                            .buildOrThrow());
-                    TestingTrinoServer server = createServer(
-                            ImmutableMap.<String, String>builder()
-                                    .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
-                                    .put("http-server.authentication.oauth2.oidc.discovery", "true")
-                                    .buildOrThrow())) {
-                // should throw an exception
-                server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-            }
-        }).hasMessageContaining(
-                "Invalid response from OpenID Metadata endpoint. " +
-                        "The value of the \"issuer\" claim in Metadata document different than the Issuer URL used for the Configuration Request.");
+        try (MetadataServer metadataServer = new MetadataServer(
+                ImmutableMap.<String, String>builder()
+                        .put("/.well-known/openid-configuration", "oidc/openid-configuration-invalid-issuer.json")
+                        .put("/jwks.json", "jwk/jwk-public.json")
+                        .buildOrThrow());
+                TestingTrinoServer server = createServer(
+                        ImmutableMap.<String, String>builder()
+                                .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
+                                .put("http-server.authentication.oauth2.oidc.discovery", "true")
+                                .buildOrThrow())) {
+            OAuth2ServerConfigProvider provider = server.getInstance(Key.get(OAuth2ServerConfigProvider.class));
+            assertThatThrownBy(provider::get)
+                    .hasMessageContaining(
+                            "Invalid response from OpenID Metadata endpoint. " +
+                                    "The value of the \"issuer\" claim in Metadata document different than the Issuer URL used for the Configuration Request.");
+        }
     }
 
     @Test
     public void testStopOnClientError()
+            throws Exception
     {
-        assertThatThrownBy(() -> {
-            try (MetadataServer metadataServer = new MetadataServer(ImmutableMap.of());
-                    TestingTrinoServer server = createServer(
-                            ImmutableMap.<String, String>builder()
-                                    .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
-                                    .put("http-server.authentication.oauth2.oidc.discovery", "true")
-                                    .buildOrThrow())) {
-                // should throw an exception
-                server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-            }
-        }).hasMessageContaining("Invalid response from OpenID Metadata endpoint. Expected response code to be 200, but was 404");
+        try (MetadataServer metadataServer = new MetadataServer(ImmutableMap.of());
+                TestingTrinoServer server = createServer(
+                        ImmutableMap.<String, String>builder()
+                                .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
+                                .put("http-server.authentication.oauth2.oidc.discovery", "true")
+                                .buildOrThrow())) {
+            OAuth2ServerConfigProvider provider = server.getInstance(Key.get(OAuth2ServerConfigProvider.class));
+            assertThatThrownBy(provider::get)
+                    .hasMessageContaining("Invalid response from OpenID Metadata endpoint. Expected response code to be 200, but was 404");
+        }
     }
 
     @Test
@@ -169,23 +165,23 @@ public class TestOidcDiscovery
 
     @Test
     public void testOidcDiscoveryTimesOut()
+            throws Exception
     {
-        assertThatThrownBy(() -> {
-            try (MetadataServer metadataServer = new MetadataServer(new MetadataServletWithStartup(
-                    ImmutableMap.<String, String>builder()
-                            .put("/.well-known/openid-configuration", "oidc/openid-configuration.json")
-                            .put("/jwks.json", "jwk/jwk-public.json")
-                            .buildOrThrow(), 10));
-                    TestingTrinoServer server = createServer(
-                            ImmutableMap.<String, String>builder()
-                                    .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
-                                    .put("http-server.authentication.oauth2.oidc.discovery", "true")
-                                    .put("http-server.authentication.oauth2.oidc.discovery.timeout", "5s")
-                                    .buildOrThrow())) {
-                // should throw an exception
-                server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-            }
-        }).hasMessageContaining("Invalid response from OpenID Metadata endpoint: 429");
+        try (MetadataServer metadataServer = new MetadataServer(new MetadataServletWithStartup(
+                ImmutableMap.<String, String>builder()
+                        .put("/.well-known/openid-configuration", "oidc/openid-configuration.json")
+                        .put("/jwks.json", "jwk/jwk-public.json")
+                        .buildOrThrow(), 60));
+                TestingTrinoServer server = createServer(
+                        ImmutableMap.<String, String>builder()
+                                .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
+                                .put("http-server.authentication.oauth2.oidc.discovery", "true")
+                                .put("http-server.authentication.oauth2.oidc.discovery.timeout", "5s")
+                                .buildOrThrow())) {
+            OAuth2ServerConfigProvider provider = server.getInstance(Key.get(OAuth2ServerConfigProvider.class));
+            assertThatThrownBy(provider::get)
+                    .hasMessageContaining("Invalid response from OpenID Metadata endpoint: 429");
+        }
     }
 
     @Test
@@ -235,11 +231,11 @@ public class TestOidcDiscovery
                             .buildOrThrow())) {
                 assertComponents(server);
                 OAuth2ServerConfig config = server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-                assertThat(config.getAccessTokenIssuer()).isEqualTo(Optional.of(accessTokenIssuer));
-                assertThat(config.getAuthUrl()).isEqualTo(authUrl);
-                assertThat(config.getTokenUrl()).isEqualTo(tokenUrl);
-                assertThat(config.getJwksUrl()).isEqualTo(jwksUrl);
-                assertThat(config.getUserinfoUrl()).isEqualTo(Optional.of(userinfoUrl));
+                assertThat(config.accessTokenIssuer()).isEqualTo(Optional.of(accessTokenIssuer));
+                assertThat(config.authUrl()).isEqualTo(authUrl);
+                assertThat(config.tokenUrl()).isEqualTo(tokenUrl);
+                assertThat(config.jwksUrl()).isEqualTo(jwksUrl);
+                assertThat(config.userinfoUrl()).isEqualTo(Optional.of(userinfoUrl));
             }
         }
     }
@@ -248,11 +244,11 @@ public class TestOidcDiscovery
     {
         assertComponents(server);
         OAuth2ServerConfig config = server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-        assertThat(config.getAccessTokenIssuer()).isEqualTo(accessTokenIssuer.map(URI::toString));
-        assertThat(config.getAuthUrl()).isEqualTo(issuer.resolve("/connect/authorize"));
-        assertThat(config.getTokenUrl()).isEqualTo(issuer.resolve("/connect/token"));
-        assertThat(config.getJwksUrl()).isEqualTo(issuer.resolve("/jwks.json"));
-        assertThat(config.getUserinfoUrl()).isEqualTo(userinfoUrl);
+        assertThat(config.accessTokenIssuer()).isEqualTo(accessTokenIssuer.map(URI::toString));
+        assertThat(config.authUrl()).isEqualTo(issuer.resolve("/connect/authorize"));
+        assertThat(config.tokenUrl()).isEqualTo(issuer.resolve("/connect/token"));
+        assertThat(config.jwksUrl()).isEqualTo(issuer.resolve("/jwks.json"));
+        assertThat(config.userinfoUrl()).isEqualTo(userinfoUrl);
     }
 
     private static void assertComponents(TestingTrinoServer server)

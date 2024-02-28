@@ -21,6 +21,7 @@ import io.trino.connector.InMemoryCatalogStore;
 import io.trino.connector.LazyCatalogFactory;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.security.AllowAllAccessControl;
@@ -36,7 +37,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -46,7 +47,6 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.planner.RuntimeAdaptivePartitioningRewriter.consumesHashPartitionedInput;
 import static io.trino.sql.planner.RuntimeAdaptivePartitioningRewriter.getMaxPlanFragmentId;
 import static io.trino.sql.planner.RuntimeAdaptivePartitioningRewriter.getMaxPlanId;
@@ -58,12 +58,10 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.TopologicalOrderSubPlanVisitor.sortPlanInTopologicalOrder;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.tpch.TpchTable.getTables;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestOverridePartitionCountRecursively
         extends AbstractTestQueryFramework
@@ -231,10 +229,10 @@ public class TestOverridePartitionCountRecursively
             PlanFragment fragment = subPlan.getFragment();
             int fragmentIdAsInt = Integer.parseInt(fragment.getId().toString());
             FragmentPartitioningInfo fragmentPartitioningInfo = fragmentPartitioningInfoBefore.get(fragmentIdAsInt);
-            assertEquals(fragment.getPartitionCount(), fragmentPartitioningInfo.inputPartitionCount());
-            assertEquals(fragment.getPartitioning(), fragmentPartitioningInfo.inputPartitioning());
-            assertEquals(fragment.getOutputPartitioningScheme().getPartitionCount(), fragmentPartitioningInfo.outputPartitionCount());
-            assertEquals(fragment.getOutputPartitioningScheme().getPartitioning().getHandle(), fragmentPartitioningInfo.outputPartitioning());
+            assertThat(fragment.getPartitionCount()).isEqualTo(fragmentPartitioningInfo.inputPartitionCount());
+            assertThat(fragment.getPartitioning()).isEqualTo(fragmentPartitioningInfo.inputPartitioning());
+            assertThat(fragment.getOutputPartitioningScheme().getPartitionCount()).isEqualTo(fragmentPartitioningInfo.outputPartitionCount());
+            assertThat(fragment.getOutputPartitioningScheme().getPartitioning().getHandle()).isEqualTo(fragmentPartitioningInfo.outputPartitioning());
         }
 
         PlanFragmentIdAllocator planFragmentIdAllocator = new PlanFragmentIdAllocator(getMaxPlanFragmentId(planInTopologicalOrder) + 1);
@@ -251,7 +249,7 @@ public class TestOverridePartitionCountRecursively
                 })
                 .max()
                 .orElseThrow();
-        assertTrue(oldPartitionCount > 0);
+        assertThat(oldPartitionCount > 0).isTrue();
 
         SubPlan newPlan = overridePartitionCountRecursively(
                 plan,
@@ -266,27 +264,29 @@ public class TestOverridePartitionCountRecursively
             PlanFragment fragment = subPlan.getFragment();
             int fragmentIdAsInt = Integer.parseInt(fragment.getId().toString());
             FragmentPartitioningInfo fragmentPartitioningInfo = fragmentPartitioningInfoAfter.get(fragmentIdAsInt);
-            assertEquals(fragment.getPartitionCount(), fragmentPartitioningInfo.inputPartitionCount());
-            assertEquals(fragment.getPartitioning(), fragmentPartitioningInfo.inputPartitioning());
-            assertEquals(fragment.getOutputPartitioningScheme().getPartitionCount(), fragmentPartitioningInfo.outputPartitionCount());
-            assertEquals(fragment.getOutputPartitioningScheme().getPartitioning().getHandle(), fragmentPartitioningInfo.outputPartitioning());
+            assertThat(fragment.getPartitionCount()).isEqualTo(fragmentPartitioningInfo.inputPartitionCount());
+            assertThat(fragment.getPartitioning()).isEqualTo(fragmentPartitioningInfo.inputPartitioning());
+            assertThat(fragment.getOutputPartitioningScheme().getPartitionCount()).isEqualTo(fragmentPartitioningInfo.outputPartitionCount());
+            assertThat(fragment.getOutputPartitioningScheme().getPartitioning().getHandle()).isEqualTo(fragmentPartitioningInfo.outputPartitioning());
         }
     }
 
     private SubPlan getSubPlan(Session session, @Language("SQL") String sql)
     {
         QueryRunner queryRunner = getDistributedQueryRunner();
-        Plan plan = queryRunner.createPlan(session, sql, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
-        return transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
+        Metadata metadata = queryRunner.getPlannerContext().getMetadata();
+        return transaction(queryRunner.getTransactionManager(), metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
+                    Plan plan = queryRunner.createPlan(transactionSession, sql);
                     // metadata.getCatalogHandle() registers the catalog for the transaction
-                    transactionSession.getCatalog().ifPresent(catalog -> queryRunner.getMetadata().getCatalogHandle(transactionSession, catalog));
+                    transactionSession.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(transactionSession, catalog));
                     return new PlanFragmenter(
-                            queryRunner.getMetadata(),
-                            queryRunner.getFunctionManager(),
+                            metadata,
+                            queryRunner.getPlannerContext().getFunctionManager(),
                             queryRunner.getTransactionManager(),
                             new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), new LazyCatalogFactory(), directExecutor()),
+                            queryRunner.getPlannerContext().getLanguageFunctionManager(),
                             new QueryManagerConfig()).createSubPlans(transactionSession, plan, false, WarningCollector.NOOP);
                 });
     }

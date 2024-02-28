@@ -15,12 +15,14 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.testing.AbstractTestEngineOnlyQueries;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.CustomFunctionBundle;
 import io.trino.testing.QueryRunner;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestLocalEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
@@ -28,16 +30,15 @@ public class TestLocalEngineOnlyQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        LocalQueryRunner queryRunner = TestLocalQueries.createLocalQueryRunner();
+        QueryRunner queryRunner = TestLocalQueries.createTestQueryRunner();
         try {
+            queryRunner.addFunctions(CustomFunctionBundle.CUSTOM_FUNCTIONS);
             // for testing session properties
             queryRunner.getSessionPropertyManager().addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-            queryRunner.createCatalog(
-                    TESTING_CATALOG,
-                    MockConnectorFactory.builder()
-                            .withSessionProperties(TEST_CATALOG_PROPERTIES)
-                            .build(),
-                    ImmutableMap.of());
+            queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                    .withSessionProperties(TEST_CATALOG_PROPERTIES)
+                    .build()));
+            queryRunner.createCatalog(TESTING_CATALOG, "mock", ImmutableMap.of());
         }
         catch (RuntimeException e) {
             throw closeAllSuppress(e, queryRunner);
@@ -45,15 +46,17 @@ public class TestLocalEngineOnlyQueries
         return queryRunner;
     }
 
+    @Test
     @Override
     public void testSetSession()
     {
-        throw new SkipException("SET SESSION is not supported by LocalQueryRunner");
+        abort("SET SESSION is not supported by PlanTester");
     }
 
+    @Test
     @Override
     public void testResetSession()
     {
-        throw new SkipException("RESET SESSION is not supported by LocalQueryRunner");
+        abort("RESET SESSION is not supported by PlanTester");
     }
 }

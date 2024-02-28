@@ -74,39 +74,34 @@ http-server.authentication.jwt.key-file=https://cluster.example.net/.well-known/
 
 The following configuration properties are available:
 
-```{eval-rst}
-.. list-table:: Configuration properties for JWT authentication
-   :widths: 50 50
-   :header-rows: 1
+:::{list-table} Configuration properties for JWT authentication
+:widths: 50 50
+:header-rows: 1
 
-   * - Property
-     - Description
-   * - ``http-server.authentication.jwt.key-file``
-     - Required. Specifies either the URL to a JWKS service or the path to a
-       PEM or HMAC file, as described below this table.
-   * - ``http-server.authentication.jwt.required-issuer``
-     - Specifies a string that must match the value of the JWT's
-       issuer (``iss``) field in order to consider this JWT valid.
-       The ``iss`` field in the JWT identifies the principal that issued the
-       JWT.
-   * - ``http-server.authentication.jwt.required-audience``
-     - Specifies a string that must match the value of the JWT's
-       Audience (``aud``) field in order to consider this JWT valid.
-       The ``aud`` field in the JWT identifies the recipients that the
-       JWT is intended for.
-   * - ``http-server.authentication.jwt.principal-field``
-     - String to identify the field in the JWT that identifies the
-       subject of the JWT. The default value is ``sub``. This field is used to
-       create the Trino principal.
-   * - ``http-server.authentication.jwt.user-mapping.pattern``
-     - A regular expression pattern to :doc:`map all user names
-       </security/user-mapping>` for this authentication system to the format
-       expected by the Trino server.
-   * - ``http-server.authentication.jwt.user-mapping.file``
-     - The path to a JSON file that contains a set of
-       :doc:`user mapping rules </security/user-mapping>` for this
-       authentication system.
-```
+* - Property
+  - Description
+* - `http-server.authentication.jwt.key-file`
+  - Required. Specifies either the URL to a JWKS service or the path to a PEM or
+    HMAC file, as described below this table.
+* - `http-server.authentication.jwt.required-issuer`
+  - Specifies a string that must match the value of the JWT's issuer (`iss`)
+    field in order to consider this JWT valid. The `iss` field in the JWT
+    identifies the principal that issued the JWT.
+* - `http-server.authentication.jwt.required-audience`
+  - Specifies a string that must match the value of the JWT's Audience (`aud`)
+    field in order to consider this JWT valid. The `aud` field in the JWT
+    identifies the recipients that the JWT is intended for.
+* - `http-server.authentication.jwt.principal-field`
+  - String to identify the field in the JWT that identifies the subject of the
+    JWT. The default value is `sub`. This field is used to create the Trino
+    principal.
+* - `http-server.authentication.jwt.user-mapping.pattern`
+  - A regular expression pattern to [map all user names](/security/user-mapping)
+    for this authentication system to the format expected by the Trino server.
+* - `http-server.authentication.jwt.user-mapping.file`
+  - The path to a JSON file that contains a set of [user mapping
+    rules](/security/user-mapping) for this authentication system.
+:::
 
 Use the `http-server.authentication.jwt.key-file` property to specify
 either:

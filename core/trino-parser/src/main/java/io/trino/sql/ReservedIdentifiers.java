@@ -14,7 +14,6 @@
 package io.trino.sql;
 
 import io.trino.sql.parser.ParsingException;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Identifier;
 
@@ -31,7 +30,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.grammar.sql.SqlKeywords.sqlKeywords;
-import static java.lang.String.format;
 
 public final class ReservedIdentifiers
 {
@@ -107,7 +105,7 @@ public final class ReservedIdentifiers
             }
         }
 
-        System.out.println(format("Validated %s reserved identifiers", reserved.size()));
+        System.out.println("Validated %s reserved identifiers".formatted(reserved.size()));
     }
 
     public static Set<String> reservedIdentifiers()
@@ -121,7 +119,7 @@ public final class ReservedIdentifiers
     public static boolean reserved(String name)
     {
         try {
-            return !(PARSER.createExpression(name, new ParsingOptions()) instanceof Identifier);
+            return !(PARSER.createExpression(name) instanceof Identifier);
         }
         catch (ParsingException ignored) {
             return true;

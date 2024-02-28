@@ -17,8 +17,8 @@ import com.google.common.io.Resources;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
+import org.junit.jupiter.api.Test;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -38,7 +38,7 @@ public class TestDeletionVectors
             throws Exception
     {
         // The deletion vector has a deleted row at position 1
-        Path path = new File(Resources.getResource("databricks/deletion_vectors").toURI()).toPath();
+        Path path = new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath();
         TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
         DeletionVectorEntry deletionVector = new DeletionVectorEntry("u", "R7QFX3rGXPFLhHGq&7g<", OptionalInt.of(1), 34, 1);
 

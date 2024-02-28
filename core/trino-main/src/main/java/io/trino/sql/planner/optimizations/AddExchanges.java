@@ -27,8 +27,6 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
 import io.trino.cost.TaskCountEstimator;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.GroupingProperty;
@@ -36,6 +34,7 @@ import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
@@ -43,7 +42,6 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -82,6 +80,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -142,11 +141,11 @@ public class AddExchanges
         implements PlanOptimizer
 {
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
     private final StatsCalculator statsCalculator;
     private final TaskCountEstimator taskCountEstimator;
 
-    public AddExchanges(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, StatsCalculator statsCalculator, TaskCountEstimator taskCountEstimator)
+    public AddExchanges(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, StatsCalculator statsCalculator, TaskCountEstimator taskCountEstimator)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -155,17 +154,11 @@ public class AddExchanges
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session, tableStatsProvider), PreferredProperties.any());
+        PlanWithProperties result = plan.accept(
+                new Rewriter(context.idAllocator(), context.symbolAllocator(), context.session(), context.tableStatsProvider()),
+                PreferredProperties.any());
         return result.getNode();
     }
 
@@ -607,18 +600,6 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
 
-            if (child.getProperties().isSingleNode()) {
-                // current plan so far is single node, so local properties are effectively global properties
-                // skip the SortNode if the local properties guarantee ordering on Sort keys
-                // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
-                List<LocalProperty<Symbol>> desiredProperties = node.getOrderingScheme().toLocalProperties();
-
-                if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
-                        .noneMatch(Optional::isPresent)) {
-                    return child;
-                }
-            }
-
             if (isDistributedSortEnabled(session)) {
                 child = planChild(node, PreferredProperties.any());
                 // insert round robin exchange to eliminate skewness issues
@@ -654,7 +635,7 @@ public class AddExchanges
 
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
-            if (!child.getProperties().isSingleNode()) {
+            if (!node.isPartial() && !child.getProperties().isSingleNode()) {
                 child = withDerivedProperties(
                         new LimitNode(idAllocator.getNextId(), child.getNode(), node.getCount(), true),
                         child.getProperties());
@@ -821,6 +802,16 @@ public class AddExchanges
 
         @Override
         public PlanWithProperties visitTableDelete(TableDeleteNode node, PreferredProperties context)
+        {
+            return new PlanWithProperties(
+                    node,
+                    ActualProperties.builder()
+                            .global(singlePartition())
+                            .build());
+        }
+
+        @Override
+        public PlanWithProperties visitTableUpdate(TableUpdateNode node, PreferredProperties context)
         {
             return new PlanWithProperties(
                     node,

@@ -15,12 +15,10 @@ package io.trino.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.trino.spi.type.Type;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Random;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
@@ -83,10 +81,14 @@ public abstract class BaseBlockEncodingTest<T>
         roundTrip(values);
     }
 
-    @Test(dataProvider = "testRandomDataDataProvider")
-    public void testRandomData(int size, BlockFill fill)
+    @Test
+    public void testRandomData()
     {
-        roundTrip(getObjects(size, fill, getRandom()));
+        for (int size : RANDOM_BLOCK_SIZES) {
+            for (BlockFill fill : BlockFill.values()) {
+                roundTrip(getObjects(size, fill, getRandom()));
+            }
+        }
     }
 
     private Object[] getObjects(int size, BlockFill fill, Random random)
@@ -111,14 +113,6 @@ public abstract class BaseBlockEncodingTest<T>
             }
         }
         return values;
-    }
-
-    @DataProvider
-    public static Object[][] testRandomDataDataProvider()
-    {
-        return Arrays.stream(BlockFill.values())
-                .flatMap(fill -> IntStream.of(RANDOM_BLOCK_SIZES).mapToObj(size -> new Object[] {size, fill}))
-                .toArray(Object[][]::new);
     }
 
     protected final void roundTrip(Object... values)

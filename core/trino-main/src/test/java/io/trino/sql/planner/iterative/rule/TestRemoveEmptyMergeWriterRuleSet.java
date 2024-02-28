@@ -90,7 +90,7 @@ public class TestRemoveEmptyMergeWriterRuleSet
                             List.of(rowCount));
                     return p.tableFinish(
                             planWithExchange ? withExchange(p, merge, rowCount) : merge,
-                            p.createTarget(catalogHandle, schemaTableName, true, WriterScalingOptions.ENABLED),
+                            p.createTarget(catalogHandle, schemaTableName, true, WriterScalingOptions.ENABLED, false),
                             rowCount);
                 })
                 .matches(values("A"));

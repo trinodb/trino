@@ -16,15 +16,9 @@ package io.trino.plugin.hive.util;
 public final class SerdeConstants
 {
     public static final String SERIALIZATION_LIB = "serialization.lib";
-    public static final String SERIALIZATION_FORMAT = "serialization.format";
     public static final String SERIALIZATION_NULL_FORMAT = "serialization.null.format";
-    public static final String SERIALIZATION_LAST_COLUMN_TAKES_REST = "serialization.last.column.takes.rest";
 
     public static final String FIELD_DELIM = "field.delim";
-    public static final String COLLECTION_DELIM = "collection.delim";
-    public static final String LINE_DELIM = "line.delim";
-    public static final String MAPKEY_DELIM = "mapkey.delim";
-    public static final String QUOTE_CHAR = "quote.delim";
     public static final String ESCAPE_CHAR = "escape.delim";
 
     public static final String HEADER_COUNT = "skip.header.line.count";
@@ -33,8 +27,6 @@ public final class SerdeConstants
     public static final String LIST_COLUMNS = "columns";
     public static final String LIST_COLUMN_TYPES = "columns.types";
     public static final String LIST_COLUMN_COMMENTS = "columns.comments";
-
-    public static final String COLUMN_NAME_DELIMITER = "column.name.delimiter";
 
     public static final String VOID_TYPE_NAME = "void";
     public static final String BOOLEAN_TYPE_NAME = "boolean";

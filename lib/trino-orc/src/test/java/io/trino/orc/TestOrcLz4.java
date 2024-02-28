@@ -18,8 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.Random;
@@ -35,21 +34,28 @@ import static io.trino.orc.metadata.CompressionKind.LZ4;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.nio.file.Files.readAllBytes;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcLz4
 {
     private static final long POSITION_COUNT = 10_000;
 
-    @Test(dataProvider = "testOrcDataProvider")
-    public void testReadLz4(byte[] data)
+    @Test
+    public void testReadLz4()
+            throws Exception
+    {
+        testReadLz4(readOrcTestData("apache-lz4.orc"));
+        testReadLz4(generateOrcTestData());
+    }
+
+    private void testReadLz4(byte[] data)
             throws Exception
     {
         OrcReader orcReader = OrcReader.createOrcReader(new MemoryOrcDataSource(new OrcDataSourceId("memory"), Slices.wrappedBuffer(data)), new OrcReaderOptions())
                 .orElseThrow(() -> new RuntimeException("File is empty"));
 
-        assertEquals(orcReader.getCompressionKind(), LZ4);
-        assertEquals(orcReader.getFooter().getNumberOfRows(), POSITION_COUNT);
+        assertThat(orcReader.getCompressionKind()).isEqualTo(LZ4);
+        assertThat(orcReader.getFooter().getNumberOfRows()).isEqualTo(POSITION_COUNT);
 
         try (OrcRecordReader reader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
@@ -79,18 +85,8 @@ public class TestOrcLz4
                 }
             }
 
-            assertEquals(rows, reader.getFileRowCount());
+            assertThat(rows).isEqualTo(reader.getFileRowCount());
         }
-    }
-
-    @DataProvider
-    public static Object[][] testOrcDataProvider()
-            throws Exception
-    {
-        return new Object[][] {
-                {readOrcTestData("apache-lz4.orc")},
-                {generateOrcTestData()}
-        };
     }
 
     private static byte[] readOrcTestData(String resourceFile)

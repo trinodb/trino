@@ -19,13 +19,14 @@ import io.trino.filesystem.Location;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Resources.getResource;
@@ -104,6 +105,13 @@ public class TestIcebergMinioOrcConnectorTest
         return checkOrcFileSorting(fileSystem, Location.of(path), sortColumnName);
     }
 
+    @Override
+    protected boolean supportsPhysicalPushdown()
+    {
+        // TODO https://github.com/trinodb/trino/issues/17156
+        return false;
+    }
+
     @Test
     public void testTinyintType()
             throws Exception
@@ -155,6 +163,7 @@ public class TestIcebergMinioOrcConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testDropAmbiguousRowFieldCaseSensitivity()
     {
@@ -162,5 +171,17 @@ public class TestIcebergMinioOrcConnectorTest
         assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
                 .hasMessageContaining("Error opening Iceberg split")
                 .hasStackTraceContaining("Multiple entries with same key");
+    }
+
+    @Override
+    protected Optional<TimestampPrecisionTestSetup> filterTimestampPrecisionOnCreateTableAsSelectProvider(TimestampPrecisionTestSetup setup)
+    {
+        if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.999999499999'")) {
+            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.999999'"));
+        }
+        if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.9999994'")) {
+            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.999999'"));
+        }
+        return Optional.of(setup);
     }
 }

@@ -14,7 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -23,8 +23,8 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestChars
 {
@@ -51,26 +51,26 @@ public class TestChars
 
     private void testPadSpaces(String input, int length, String expected)
     {
-        assertEquals(padSpaces(input, createCharType(length)), expected);
-        assertEquals(padSpaces(utf8Slice(input), createCharType(length)), utf8Slice(expected));
-        assertEquals(padSpaces(utf8Slice(input), length), utf8Slice(expected));
+        assertThat(padSpaces(input, createCharType(length))).isEqualTo(expected);
+        assertThat(padSpaces(utf8Slice(input), createCharType(length))).isEqualTo(utf8Slice(expected));
+        assertThat(padSpaces(utf8Slice(input), length)).isEqualTo(utf8Slice(expected));
     }
 
     @Test
     public void testTruncateToLengthAndTrimSpaces()
     {
-        assertEquals(utf8Slice("a"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 1));
-        assertEquals(utf8Slice("a"), truncateToLengthAndTrimSpaces(utf8Slice("a  "), 1));
-        assertEquals(utf8Slice("a"), truncateToLengthAndTrimSpaces(utf8Slice("abc"), 1));
-        assertEquals(utf8Slice(""), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 0));
-        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c "), 3));
-        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c "), 4));
-        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c "), 5));
-        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 3));
-        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 4));
-        assertEquals(utf8Slice("a c"), truncateToLengthAndTrimSpaces(utf8Slice("a c"), 5));
-        assertEquals(utf8Slice(""), truncateToLengthAndTrimSpaces(utf8Slice("  "), 1));
-        assertEquals(utf8Slice(""), truncateToLengthAndTrimSpaces(utf8Slice(""), 1));
+        assertThat(utf8Slice("a")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("a c"), 1));
+        assertThat(utf8Slice("a")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("a  "), 1));
+        assertThat(utf8Slice("a")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("abc"), 1));
+        assertThat(utf8Slice("")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("a c"), 0));
+        assertThat(utf8Slice("a c")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("a c "), 3));
+        assertThat(utf8Slice("a c")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("a c "), 4));
+        assertThat(utf8Slice("a c")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("a c "), 5));
+        assertThat(utf8Slice("a c")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("a c"), 3));
+        assertThat(utf8Slice("a c")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("a c"), 4));
+        assertThat(utf8Slice("a c")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("a c"), 5));
+        assertThat(utf8Slice("")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice("  "), 1));
+        assertThat(utf8Slice("")).isEqualTo(truncateToLengthAndTrimSpaces(utf8Slice(""), 1));
     }
 
     @Test
@@ -135,7 +135,7 @@ public class TestChars
         Slice slice = wrappedBuffer(actual);
         int trimmedLength = byteCountWithoutTrailingSpace(slice, offset, length);
         byte[] bytes = slice.getBytes(offset, trimmedLength);
-        assertEquals(bytes, expected);
+        assertThat(bytes).isEqualTo(expected);
     }
 
     private static void assertByteCountWithoutTrailingSpace(String actual, int offset, int length, int codePointCount, String expected)
@@ -148,6 +148,6 @@ public class TestChars
         Slice slice = wrappedBuffer(actual);
         int truncatedLength = byteCountWithoutTrailingSpace(slice, offset, length, codePointCount);
         byte[] bytes = slice.getBytes(offset, truncatedLength);
-        assertEquals(bytes, expected);
+        assertThat(bytes).isEqualTo(expected);
     }
 }

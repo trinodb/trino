@@ -16,8 +16,8 @@ package io.trino.operator.aggregation;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.trino.operator.aggregation.state.HyperLogLogState;
 import io.trino.operator.aggregation.state.StateCompiler;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -51,7 +51,7 @@ public final class ApproximateSetGenericAggregation
     @InputFunction
     public static void input(
             @AggregationState HyperLogLogState state,
-            @BlockPosition @SqlType("unknown") Block block,
+            @BlockPosition @SqlType("unknown") ValueBlock block,
             @BlockIndex int index)
     {
         // do nothing -- unknown type is always NULL

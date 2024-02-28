@@ -33,7 +33,7 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static io.trino.SystemSessionProperties.MAX_WRITER_TASKS_COUNT;
+import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -53,7 +53,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_D
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -72,34 +71,34 @@ public class TestLimitMaxWriterNodesCount
     public static final ConnectorPartitioningHandle SINGLE_BUCKET_HANDLE = new ConnectorPartitioningHandle() {};
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         List<String> tables = ImmutableList.of(partitionedTable, unPartitionedTable, sourceTable, bucketedTable);
         Session session = testSessionBuilder()
                 .setCatalog(catalogName)
                 .setSchema("default")
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.createCatalog(
+        PlanTester planTester = PlanTester.create(session);
+        planTester.createCatalog(
                 catalogName,
                 prepareConnectorFactory(catalogName, OptionalInt.empty(), tables),
                 ImmutableMap.of());
-        queryRunner.createCatalog(
+        planTester.createCatalog(
                 catalogNameWithMaxWriterTasksSpecified,
                 prepareConnectorFactory(catalogNameWithMaxWriterTasksSpecified, OptionalInt.of(1), tables),
                 ImmutableMap.of());
-        return queryRunner;
+        return planTester;
     }
 
     private MockConnectorFactory prepareConnectorFactory(String catalogName, OptionalInt maxWriterTasks, List<String> tables)
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle(((session, tableName) -> {
+                .withGetTableHandle((session, tableName) -> {
                     if (tables.contains(tableName.getTableName())) {
                         return new MockConnectorTableHandle(tableName);
                     }
                     return null;
-                }))
+                })
                 .withWriterScalingOptions(WriterScalingOptions.ENABLED)
                 .withGetInsertLayout((session, tableMetadata) -> {
                     if (tableMetadata.getTableName().equals(partitionedTable)) {
@@ -144,8 +143,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO unpartitioned_target_table VALUES ('one', 'two')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setCatalog(catalogName)
                 .build();
@@ -156,7 +155,7 @@ public class TestLimitMaxWriterNodesCount
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL, Optional.empty(),
-                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASKS_COUNT is set to 2
+                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
                                         exchange(REMOTE, FIXED_ARBITRARY_DISTRIBUTION, Optional.of(2),
                                                 values("column_a", "column_b"))))));
     }
@@ -166,8 +165,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO unpartitioned_target_table VALUES ('one', 'two')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "true")
                 .setCatalog(catalogName)
                 .build();
@@ -178,7 +177,7 @@ public class TestLimitMaxWriterNodesCount
                 anyTree(
                         node(TableWriterNode.class,
                                 exchange(LOCAL, Optional.empty(),
-                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASKS_COUNT is set to 2
+                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
                                         exchange(REMOTE, SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, Optional.of(2),
                                                 values("column_a", "column_b"))))));
     }
@@ -188,8 +187,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO unpartitioned_target_table VALUES ('one', 'two')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(REDISTRIBUTE_WRITES, "false")
                 .setCatalog(catalogName)
@@ -209,8 +208,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO partitioned_target_table VALUES ('one', 'two'), ('three', 'four')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogName)
                 .build();
@@ -220,12 +219,10 @@ public class TestLimitMaxWriterNodesCount
                 session,
                 anyTree(
                         node(TableWriterNode.class,
-                                project(
                                 exchange(LOCAL,
-                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASKS_COUNT is set to 2
+                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
                                         exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(2),
-                                                project(
-                                                        values("column_a", "column_b"))))))));
+                                                values("column_a", "column_b"))))));
     }
 
     @Test
@@ -233,8 +230,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO partitioned_bucketed_target_table VALUES ('one', 'two'), ('three', 'four')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setCatalog(catalogName)
                 .build();
 
@@ -254,8 +251,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO partitioned_target_table VALUES ('one', 'two'), ('three', 'four')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
                 .build();
@@ -265,12 +262,10 @@ public class TestLimitMaxWriterNodesCount
                 session,
                 anyTree(
                         node(TableWriterNode.class,
-                                project(
-                                        exchange(LOCAL,
-                                                // partitionCount for writing stage should be set to 4 because it was specified by connector
-                                                exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(1),
-                                                        project(
-                                                                values("column_a", "column_b"))))))));
+                                exchange(LOCAL,
+                                        // partitionCount for writing stage should be set to 4 because it was specified by connector
+                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(1),
+                                                values("column_a", "column_b"))))));
     }
 
     @Test
@@ -278,8 +273,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO partitioned_target_table VALUES ('one', 'two'), ('three', 'four')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(RETRY_POLICY, "TASK")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
@@ -290,11 +285,9 @@ public class TestLimitMaxWriterNodesCount
                 session,
                 anyTree(
                         node(TableWriterNode.class,
-                                project(
-                                        exchange(LOCAL,
-                                                exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.empty(),
-                                                        project(
-                                                                values("column_a", "column_b"))))))));
+                                exchange(LOCAL,
+                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.empty(),
+                                                values("column_a", "column_b"))))));
     }
 
     @Test
@@ -302,8 +295,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE unpartitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setCatalog(catalogName)
                 .build();
@@ -314,7 +307,7 @@ public class TestLimitMaxWriterNodesCount
                 anyTree(
                         node(TableExecuteNode.class,
                                 exchange(LOCAL, Optional.empty(),
-                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASKS_COUNT is set to 2
+                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
                                         exchange(REMOTE, FIXED_ARBITRARY_DISTRIBUTION, Optional.of(2),
                                                 tableScan(unPartitionedTable))))));
     }
@@ -324,8 +317,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE unpartitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "true")
                 .setCatalog(catalogName)
                 .build();
@@ -336,7 +329,7 @@ public class TestLimitMaxWriterNodesCount
                 anyTree(
                         node(TableExecuteNode.class,
                                 exchange(LOCAL, Optional.empty(),
-                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASKS_COUNT is set to 2
+                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
                                         exchange(REMOTE, SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, Optional.of(2),
                                                 tableScan(unPartitionedTable))))));
     }
@@ -346,8 +339,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE unpartitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(REDISTRIBUTE_WRITES, "false")
                 .setCatalog(catalogName)
@@ -367,8 +360,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE partitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogName)
                 .build();
@@ -378,12 +371,10 @@ public class TestLimitMaxWriterNodesCount
                 session,
                 anyTree(
                         node(TableExecuteNode.class,
-                                project(
-                                        exchange(LOCAL,
-                                                // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASKS_COUNT is set to 2
-                                                exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(2),
-                                                        project(
-                                                                node(TableScanNode.class))))))));
+                                exchange(LOCAL,
+                                        // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
+                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(2),
+                                                node(TableScanNode.class))))));
     }
 
     @Test
@@ -391,8 +382,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE partitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
                 .build();
@@ -402,12 +393,10 @@ public class TestLimitMaxWriterNodesCount
                 session,
                 anyTree(
                         node(TableExecuteNode.class,
-                                    project(
-                                        exchange(LOCAL,
-                                                // partitionCount for writing stage should be set to 4 because it was specified by connector
-                                                exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(1),
-                                                        project(
-                                                                node(TableScanNode.class))))))));
+                                exchange(LOCAL,
+                                        // partitionCount for writing stage should be set to 4 because it was specified by connector
+                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(1),
+                                                node(TableScanNode.class))))));
     }
 
     @Test
@@ -415,8 +404,8 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE partitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(RETRY_POLICY, "TASK")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
@@ -427,11 +416,9 @@ public class TestLimitMaxWriterNodesCount
                 session,
                 anyTree(
                         node(TableExecuteNode.class,
-                                project(
-                                        exchange(LOCAL,
-                                                // partitionCount for writing stage is empty because it is FTE mode
-                                                exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.empty(),
-                                                        project(
-                                                                node(TableScanNode.class))))))));
+                                exchange(LOCAL,
+                                        // partitionCount for writing stage is empty because it is FTE mode
+                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.empty(),
+                                                node(TableScanNode.class))))));
     }
 }

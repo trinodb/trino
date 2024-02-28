@@ -13,9 +13,9 @@
  */
 package io.trino.spi.block;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIntArrayList
 {
@@ -30,11 +30,11 @@ public class TestIntArrayList
             list.add(i);
         }
 
-        assertEquals(list.size(), N_ELEMENTS);
+        assertThat(list.size()).isEqualTo(N_ELEMENTS);
 
         int[] elements = list.elements();
         for (int i = 0; i < N_ELEMENTS; ++i) {
-            assertEquals(elements[i], i);
+            assertThat(elements[i]).isEqualTo(i);
         }
     }
 }

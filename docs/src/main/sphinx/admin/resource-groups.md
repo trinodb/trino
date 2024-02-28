@@ -56,39 +56,37 @@ Trino clusters to be stored in the same database if required.
 The configuration is reloaded from the database every second, and the changes
 are reflected automatically for incoming queries.
 
-```{eval-rst}
-.. list-table:: Database resource group manager properties
-   :widths: 40, 50, 10
-   :header-rows: 1
+:::{list-table} Database resource group manager properties
+:widths: 40, 50, 10
+:header-rows: 1
 
-   * - Property name
-     - Description
-     - Default value
-   * - ``resource-groups.config-db-url``
-     - Database URL to load configuration from.
-     - ``none``
-   * - ``resource-groups.config-db-user``
-     - Database user to connect with.
-     - ``none``
-   * - ``resource-groups.config-db-password``
-     - Password for database user to connect with.
-     - ``none``
-   * - ``resource-groups.max-refresh-interval``
-     - The maximum time period for which the cluster will continue to accept
-       queries after refresh failures, causing configuration to become stale.
-     - ``1h``
-   * - ``resource-groups.refresh-interval``
-     -  How often the cluster reloads from the database
-     - ``1s``
-   * - ``resource-groups.exact-match-selector-enabled``
-     - Setting this flag enables usage of an additional
-       ``exact_match_source_selectors`` table to configure resource group
-       selection rules defined exact name based matches for source, environment
-       and query type. By default, the rules are only loaded from the
-       ``selectors`` table, with a regex-based filter for ``source``, among
-       other filters.
-     - ``false``
-```
+* - Property name
+  - Description
+  - Default value
+* - `resource-groups.config-db-url`
+  - Database URL to load configuration from.
+  - `none`
+* - `resource-groups.config-db-user`
+  - Database user to connect with.
+  - `none`
+* - `resource-groups.config-db-password`
+  - Password for database user to connect with.
+  - `none`
+* - `resource-groups.max-refresh-interval`
+  - The maximum time period for which the cluster will continue to accept
+    queries after refresh failures, causing configuration to become stale.
+  - `1h`
+* - `resource-groups.refresh-interval`
+  -  How often the cluster reloads from the database
+  - `1s`
+* - `resource-groups.exact-match-selector-enabled`
+  - Setting this flag enables usage of an additional
+    `exact_match_source_selectors` table to configure resource group selection
+    rules defined exact name based matches for source, environment and query
+    type. By default, the rules are only loaded from the `selectors` table, with
+    a regex-based filter for `source`, among other filters.
+  - `false`
+:::
 
 ## Resource group properties
 
@@ -129,7 +127,7 @@ are reflected automatically for incoming queries.
   - `query_priority`: all sub-groups must also be configured with `query_priority`.
     Queued queries are selected strictly according to their priority.
 
-- `schedulingWeight` (optional): weight of this sub-group used in `weight`
+- `schedulingWeight` (optional): weight of this sub-group used in `weighted`
   and the `weighted_fair` scheduling policy. Defaults to `1`. See
   {ref}`scheduleweight-example`.
 
@@ -161,11 +159,16 @@ evenly and each receive 50% of the queries in a given timeframe.
 
 ## Selector rules
 
-- `user` (optional): regex to match against user name.
+The selector rules for pattern matching use Java's regular expression
+capabilities. Java implements regular expressions through the `java.util.regex`
+package. For more information, see the [Java
+documentation](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/regex/Pattern.html).
 
-- `userGroup` (optional): regex to match against every user group the user belongs to.
+- `user` (optional): Java regex to match against user name.
 
-- `source` (optional): regex to match against source string.
+- `userGroup` (optional): Java regex to match against every user group the user belongs to.
+
+- `source` (optional): Java regex to match against source string.
 
 - `queryType` (optional): string to match against the type of the query submitted:
 

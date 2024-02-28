@@ -17,7 +17,7 @@ database.
 
 To connect to MariaDB, you need:
 
-- MariaDB version 10.2 or higher.
+- MariaDB version 10.10 or higher.
 - Network access from the Trino coordinator and workers to MariaDB. Port
   3306 is the default port.
 
@@ -103,96 +103,97 @@ each direction.
 The connector maps MariaDB types to the corresponding Trino types according
 to the following table:
 
-```{eval-rst}
-.. list-table:: MariaDB type to Trino type mapping
-  :widths: 30, 30, 50
-  :header-rows: 1
+:::{list-table} MariaDB type to Trino type mapping
+:widths: 30, 30, 50
+:header-rows: 1
 
-  * - MariaDB type
-    - Trino type
-    - Notes
-  * - ``BOOLEAN``
-    - ``TINYINT``
-    - ``BOOL`` and ``BOOLEAN`` are aliases of ``TINYINT(1)``
-  * - ``TINYINT``
-    - ``TINYINT``
-    -
-  * - ``TINYINT UNSIGNED``
-    - ``SMALLINT``
-    -
-  * - ``SMALLINT``
-    - ``SMALLINT``
-    -
-  * - ``SMALLINT UNSIGNED``
-    - ``INTEGER``
-    -
-  * - ``INT``
-    - ``INTEGER``
-    -
-  * - ``INT UNSIGNED``
-    - ``BIGINT``
-    -
-  * - ``BIGINT``
-    - ``BIGINT``
-    -
-  * - ``BIGINT UNSIGNED``
-    - ``DECIMAL(20, 0)``
-    -
-  * - ``FLOAT``
-    - ``REAL``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``DECIMAL(p,s)``
-    - ``DECIMAL(p,s)``
-    -
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-    -
-  * - ``TINYTEXT``
-    - ``VARCHAR(255)``
-    -
-  * - ``TEXT``
-    - ``VARCHAR(65535)``
-    -
-  * - ``MEDIUMTEXT``
-    - ``VARCHAR(16777215)``
-    -
-  * - ``LONGTEXT``
-    - ``VARCHAR``
-    -
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``TINYBLOB``
-    - ``VARBINARY``
-    -
-  * - ``BLOB``
-    - ``VARBINARY``
-    -
-  * - ``MEDIUMBLOB``
-    - ``VARBINARY``
-    -
-  * - ``LONGBLOB``
-    - ``VARBINARY``
-    -
-  * - ``VARBINARY(n)``
-    - ``VARBINARY``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``TIME(n)``
-    - ``TIME(n)``
-    -
-  * - ``TIMESTAMP(n)``
-    - ``TIMESTAMP(n)``
-    - MariaDB stores the current timestamp by default. Enable
-      `explicit_defaults_for_timestamp
-      <https://mariadb.com/docs/reference/mdb/system-variables/explicit_defaults_for_timestamp/>`_
-      to avoid implicit default values and use ``NULL`` as the default value.
-```
+* - MariaDB type
+  - Trino type
+  - Notes
+* - `BOOLEAN`
+  - `TINYINT`
+  - `BOOL` and `BOOLEAN` are aliases of `TINYINT(1)`
+* - `TINYINT`
+  - `TINYINT`
+  -
+* - `TINYINT UNSIGNED`
+  - `SMALLINT`
+  -
+* - `SMALLINT`
+  - `SMALLINT`
+  -
+* - `SMALLINT UNSIGNED`
+  - `INTEGER`
+  -
+* - `INT`
+  - `INTEGER`
+  -
+* - `INT UNSIGNED`
+  - `BIGINT`
+  -
+* - `BIGINT`
+  - `BIGINT`
+  -
+* - `BIGINT UNSIGNED`
+  - `DECIMAL(20, 0)`
+  -
+* - `FLOAT`
+  - `REAL`
+  -
+* - `DOUBLE`
+  - `DOUBLE`
+  -
+* - `DECIMAL(p,s)`
+  - `DECIMAL(p,s)`
+  -
+* - `CHAR(n)`
+  - `CHAR(n)`
+  -
+* - `TINYTEXT`
+  - `VARCHAR(255)`
+  -
+* - `TEXT`
+  - `VARCHAR(65535)`
+  -
+* - `MEDIUMTEXT`
+  - `VARCHAR(16777215)`
+  -
+* - `LONGTEXT`
+  - `VARCHAR`
+  -
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+  -
+* - `TINYBLOB`
+  - `VARBINARY`
+  -
+* - `BLOB`
+  - `VARBINARY`
+  -
+* - `MEDIUMBLOB`
+  - `VARBINARY`
+  -
+* - `LONGBLOB`
+  - `VARBINARY`
+  -
+* - `VARBINARY(n)`
+  - `VARBINARY`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `TIME(n)`
+  - `TIME(n)`
+  -
+* - `TIMESTAMP(n)`
+  - `TIMESTAMP(n)`
+  - MariaDB stores the current timestamp by default. Enable
+    [explicit_defaults_for_timestamp](https://mariadb.com/docs/reference/mdb/system-variables/explicit_defaults_for_timestamp/)
+    to avoid implicit default values and use `NULL` as the default value.
+* - `DATETIME(n)`
+  - `TIMESTAMP(n)`
+  - 
+:::
 
 No other types are supported.
 
@@ -201,70 +202,70 @@ No other types are supported.
 The connector maps Trino types to the corresponding MariaDB types according
 to the following table:
 
-```{eval-rst}
-.. list-table:: Trino type mapping to MariaDB type mapping
-  :widths: 30, 25, 50
-  :header-rows: 1
+:::{list-table} Trino type mapping to MariaDB type mapping
+:widths: 30, 25, 50
+:header-rows: 1
 
-  * - Trino type
-    - MariaDB type
-    - Notes
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``TINYINT``
-    - ``TINYINT``
-    -
-  * - ``SMALLINT``
-    - ``SMALLINT``
-    -
-  * - ``INTEGER``
-    - ``INT``
-    -
-  * - ``BIGINT``
-    - ``BIGINT``
-    -
-  * - ``REAL``
-    - ``FLOAT``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``DECIMAL(p,s)``
-    - ``DECIMAL(p,s)``
-    -
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-    -
-  * - ``VARCHAR(255)``
-    - ``TINYTEXT``
-    - Maps on ``VARCHAR`` of length 255 or less.
-  * - ``VARCHAR(65535)``
-    - ``TEXT``
-    - Maps on ``VARCHAR`` of length between 256 and 65535, inclusive.
-  * - ``VARCHAR(16777215)``
-    - ``MEDIUMTEXT``
-    - Maps on ``VARCHAR`` of length between 65536 and 16777215, inclusive.
-  * - ``VARCHAR``
-    - ``LONGTEXT``
-    - ``VARCHAR`` of length greater than 16777215 and unbounded ``VARCHAR`` map
-      to ``LONGTEXT``.
-  * - ``VARBINARY``
-    - ``MEDIUMBLOB``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``TIME(n)``
-    - ``TIME(n)``
-    -
-  * - ``TIMESTAMP(n)``
-    - ``TIMESTAMP(n)``
-    - MariaDB stores the current timestamp by default. Enable
+* - Trino type
+  - MariaDB type
+  - Notes
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `TINYINT`
+  - `TINYINT`
+  -
+* - `SMALLINT`
+  - `SMALLINT`
+  -
+* - `INTEGER`
+  - `INT`
+  -
+* - `BIGINT`
+  - `BIGINT`
+  -
+* - `REAL`
+  - `FLOAT`
+  -
+* - `DOUBLE`
+  - `DOUBLE`
+  -
+* - `DECIMAL(p,s)`
+  - `DECIMAL(p,s)`
+  -
+* - `CHAR(n)`
+  - `CHAR(n)`
+  -
+* - `VARCHAR(255)`
+  - `TINYTEXT`
+  - Maps on `VARCHAR` of length 255 or less.
+* - `VARCHAR(65535)`
+  - `TEXT`
+  - Maps on `VARCHAR` of length between 256 and 65535, inclusive.
+* - `VARCHAR(16777215)`
+  - `MEDIUMTEXT`
+  - Maps on `VARCHAR` of length between 65536 and 16777215, inclusive.
+* - `VARCHAR`
+  - `LONGTEXT`
+  - `VARCHAR` of length greater than 16777215 and unbounded `VARCHAR` map
+      to `LONGTEXT`.
+* - `VARBINARY`
+  - `MEDIUMBLOB`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `TIME(n)`
+  - `TIME(n)`
+  -
+* - `TIMESTAMP(n)`
+  - `TIMESTAMP(n)`
+  - MariaDB stores the current timestamp by default. Enable
       `explicit_defaults_for_timestamp
       <https://mariadb.com/docs/reference/mdb/system-variables/explicit_defaults_for_timestamp/>`_
-      to avoid implicit default values and use ``NULL`` as the default value.
-```
+      to avoid implicit default values and use `NULL` as the default value.
+
+:::
 
 No other types are supported.
 
@@ -283,6 +284,7 @@ a MariaDB database.  In addition to the {ref}`globally available
 statements, the connector supports the following features:
 
 - {doc}`/sql/insert`
+- {doc}`/sql/update`
 - {doc}`/sql/delete`
 - {doc}`/sql/truncate`
 - {doc}`/sql/create-table`
@@ -291,6 +293,9 @@ statements, the connector supports the following features:
 - {doc}`/sql/alter-table`
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
+
+```{include} sql-update-limitation.fragment
+```
 
 ```{include} sql-delete-limitation.fragment
 ```
@@ -341,6 +346,26 @@ FROM
 
 The connector includes a number of performance improvements, detailed in the
 following sections.
+
+(mariadb-table-statistics)=
+### Table statistics
+
+The MariaDB connector can use [table and column
+statistics](/optimizer/statistics) for [cost based
+optimizations](/optimizer/cost-based-optimizations) to improve query processing
+performance based on the actual data in the data source.
+
+The statistics are collected by MariaDB and retrieved by the connector.
+
+To collect statistics for a table, execute the following statement in
+MariaDB.
+
+```text
+ANALYZE TABLE table_name;
+```
+
+Refer to [MariaDB documentation](https://mariadb.com/kb/en/analyze-table/) for
+additional information.
 
 (mariadb-pushdown)=
 

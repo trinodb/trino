@@ -13,10 +13,10 @@
  */
 package io.trino.sql.planner.assertions;
 
+import io.trino.sql.planner.plan.FrameBoundType;
+import io.trino.sql.planner.plan.WindowFrameType;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.WindowFrame;
 
 import java.util.Optional;
 
@@ -26,20 +26,20 @@ import static java.util.Objects.requireNonNull;
 public class WindowFrameProvider
         implements ExpectedValueProvider<WindowNode.Frame>
 {
-    private final WindowFrame.Type type;
-    private final FrameBound.Type startType;
+    private final WindowFrameType type;
+    private final FrameBoundType startType;
     private final Optional<SymbolAlias> startValue;
     private final Optional<SymbolAlias> sortKeyForStartComparison;
-    private final FrameBound.Type endType;
+    private final FrameBoundType endType;
     private final Optional<SymbolAlias> endValue;
     private final Optional<SymbolAlias> sortKeyForEndComparison;
 
     WindowFrameProvider(
-            WindowFrame.Type type,
-            FrameBound.Type startType,
+            WindowFrameType type,
+            FrameBoundType startType,
             Optional<SymbolAlias> startValue,
             Optional<SymbolAlias> sortKeyForStartComparison,
-            FrameBound.Type endType,
+            FrameBoundType endType,
             Optional<SymbolAlias> endValue,
             Optional<SymbolAlias> sortKeyForEndComparison)
     {

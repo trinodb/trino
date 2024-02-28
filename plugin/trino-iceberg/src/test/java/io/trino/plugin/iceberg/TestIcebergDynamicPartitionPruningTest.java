@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.testing.BaseDynamicPartitionPruningTest;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 
 import java.util.List;
 import java.util.Map;
@@ -36,12 +36,6 @@ public class TestIcebergDynamicPartitionPruningTest
                 .setIcebergProperties(Map.of("iceberg.dynamic-filtering.wait-timeout", "1h"))
                 .setInitialTables(REQUIRED_TABLES)
                 .build();
-    }
-
-    @Override
-    public void testJoinDynamicFilteringMultiJoinOnBucketedTables()
-    {
-        throw new SkipException("Iceberg does not support bucketing");
     }
 
     @Override
@@ -69,6 +63,15 @@ public class TestIcebergDynamicPartitionPruningTest
     @Override
     protected void createPartitionedAndBucketedTable(String tableName, List<String> columns, List<String> partitionColumns, List<String> bucketColumns)
     {
-        throw new UnsupportedOperationException();
+        ImmutableList.Builder<String> partitioning = ImmutableList.builder();
+        partitionColumns.forEach(partitioning::add);
+        bucketColumns.forEach(column -> partitioning.add("bucket(%s,10)".formatted(column)));
+
+        String sql = format(
+                "CREATE TABLE %s (%s) WITH (partitioning=ARRAY[%s])",
+                tableName,
+                String.join(",", columns),
+                String.join(",", partitioning.build().stream().map("'%s'"::formatted).toList()));
+        getQueryRunner().execute(sql);
     }
 }

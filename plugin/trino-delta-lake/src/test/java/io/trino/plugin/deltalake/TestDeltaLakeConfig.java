@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.TimeZone;
@@ -27,6 +27,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -53,6 +54,7 @@ public class TestDeltaLakeConfig
                 .setMaxPartitionsPerWriter(100)
                 .setUnsafeWritesEnabled(false)
                 .setDefaultCheckpointWritingInterval(10)
+                .setCheckpointFilteringEnabled(false)
                 .setCheckpointRowStatisticsWritingEnabled(true)
                 .setVacuumMinRetention(new Duration(7, DAYS))
                 .setHiveCatalogName(null)
@@ -65,8 +67,8 @@ public class TestDeltaLakeConfig
                 .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
+                .setIdleWriterMinFileSize(DataSize.of(16, MEGABYTE))
                 .setUniqueTableLocation(true)
-                .setLegacyCreateTableWithExistingLocationEnabled(false)
                 .setRegisterTableProcedureEnabled(false)
                 .setProjectionPushdownEnabled(true)
                 .setQueryPartitionFilterRequired(false));
@@ -90,6 +92,7 @@ public class TestDeltaLakeConfig
                 .put("delta.max-partitions-per-writer", "200")
                 .put("delta.enable-non-concurrent-writes", "true")
                 .put("delta.default-checkpoint-writing-interval", "15")
+                .put("delta.checkpoint-filtering.enabled", "true")
                 .put("delta.checkpoint-row-statistics-writing.enabled", "false")
                 .put("delta.vacuum.min-retention", "13h")
                 .put("delta.hive-catalog-name", "hive")
@@ -102,8 +105,8 @@ public class TestDeltaLakeConfig
                 .put("delta.delete-schema-locations-fallback", "true")
                 .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
                 .put("delta.target-max-file-size", "2 GB")
+                .put("delta.idle-writer-min-file-size", "1MB")
                 .put("delta.unique-table-location", "false")
-                .put("delta.legacy-create-table-with-existing-location.enabled", "true")
                 .put("delta.register-table-procedure.enabled", "true")
                 .put("delta.projection-pushdown-enabled", "false")
                 .put("delta.query-partition-filter-required", "true")
@@ -125,6 +128,7 @@ public class TestDeltaLakeConfig
                 .setUnsafeWritesEnabled(true)
                 .setDefaultCheckpointWritingInterval(15)
                 .setCheckpointRowStatisticsWritingEnabled(false)
+                .setCheckpointFilteringEnabled(true)
                 .setVacuumMinRetention(new Duration(13, HOURS))
                 .setHiveCatalogName("hive")
                 .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES))
@@ -136,8 +140,8 @@ public class TestDeltaLakeConfig
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(500)
                 .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
+                .setIdleWriterMinFileSize(DataSize.of(1, MEGABYTE))
                 .setUniqueTableLocation(false)
-                .setLegacyCreateTableWithExistingLocationEnabled(true)
                 .setRegisterTableProcedureEnabled(true)
                 .setProjectionPushdownEnabled(false)
                 .setQueryPartitionFilterRequired(true);

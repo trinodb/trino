@@ -60,6 +60,8 @@ public class QueryInfo
     private final Optional<String> setCatalog;
     private final Optional<String> setSchema;
     private final Optional<String> setPath;
+    private final Optional<String> setAuthorizationUser;
+    private final boolean resetAuthorizationUser;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
     private final Map<String, SelectedRole> setRoles;
@@ -97,6 +99,8 @@ public class QueryInfo
             @JsonProperty("setCatalog") Optional<String> setCatalog,
             @JsonProperty("setSchema") Optional<String> setSchema,
             @JsonProperty("setPath") Optional<String> setPath,
+            @JsonProperty("setAuthorizationUser") Optional<String> setAuthorizationUser,
+            @JsonProperty("resetAuthorizationUser") boolean resetAuthorizationUser,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
             @JsonProperty("setRoles") Map<String, SelectedRole> setRoles,
@@ -129,6 +133,7 @@ public class QueryInfo
         requireNonNull(setCatalog, "setCatalog is null");
         requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setPath, "setPath is null");
+        requireNonNull(setAuthorizationUser, "setAuthorizationUser is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
         requireNonNull(addedPreparedStatements, "addedPreparedStatements is null");
@@ -158,6 +163,8 @@ public class QueryInfo
         this.setCatalog = setCatalog;
         this.setSchema = setSchema;
         this.setPath = setPath;
+        this.setAuthorizationUser = setAuthorizationUser;
+        this.resetAuthorizationUser = resetAuthorizationUser;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
         this.setRoles = ImmutableMap.copyOf(setRoles);
@@ -266,6 +273,18 @@ public class QueryInfo
     public Optional<String> getSetPath()
     {
         return setPath;
+    }
+
+    @JsonProperty
+    public Optional<String> getSetAuthorizationUser()
+    {
+        return setAuthorizationUser;
+    }
+
+    @JsonProperty
+    public boolean isResetAuthorizationUser()
+    {
+        return resetAuthorizationUser;
     }
 
     @JsonProperty

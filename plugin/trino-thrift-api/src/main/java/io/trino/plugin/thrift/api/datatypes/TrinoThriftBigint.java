@@ -19,6 +19,7 @@ import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
@@ -71,7 +72,7 @@ public final class TrinoThriftBigint
     }
 
     @Override
-    public Block toBlock(Type desiredType)
+    public ValueBlock toBlock(Type desiredType)
     {
         checkArgument(BIGINT.equals(desiredType), "type doesn't match: %s", desiredType);
         int numberOfRecords = numberOfRecords();

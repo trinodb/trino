@@ -18,7 +18,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.Session;
 import io.trino.spi.connector.ColumnHandle;
@@ -48,7 +47,6 @@ import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-@ThreadSafe
 public class LocalDynamicFiltersCollector
 {
     private final Session session;

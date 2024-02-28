@@ -66,7 +66,7 @@ public class TestTableFunctionInvocation
     @BeforeAll
     public final void setup()
     {
-        getQueryRunner().installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+        getPlanTester().installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(
                         new DifferentArgumentTypesFunction(),
                         new TwoScalarArgumentsFunction(),
@@ -80,7 +80,7 @@ public class TestTableFunctionInvocation
                     throw new IllegalStateException("Unsupported table function handle: " + handle.getClass().getSimpleName());
                 })
                 .build()));
-        getQueryRunner().createCatalog(TESTING_CATALOG, "mock", ImmutableMap.of());
+        getPlanTester().createCatalog(TESTING_CATALOG, "mock", ImmutableMap.of());
     }
 
     @Test

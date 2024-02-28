@@ -18,7 +18,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.line.simple.SimpleDeserializerFactory;
 import io.trino.hive.formats.line.text.TextLineReaderFactory;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveSessionProperties;
 
 import static java.lang.Math.toIntExact;
 
@@ -30,7 +29,6 @@ public class SimpleTextFilePageSourceFactory
     {
         super(trinoFileSystemFactory,
                 new SimpleDeserializerFactory(),
-                new TextLineReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())),
-                HiveSessionProperties::isTextFileNativeReaderEnabled);
+                new TextLineReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())));
     }
 }

@@ -19,10 +19,12 @@ import io.trino.plugin.redis.util.JsonEncoder;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import redis.clients.jedis.Jedis;
 
 import java.util.Map;
@@ -32,8 +34,11 @@ import static io.trino.plugin.redis.util.RedisTestUtils.createTableDescription;
 import static io.trino.plugin.redis.util.RedisTestUtils.installRedisPlugin;
 import static io.trino.plugin.redis.util.RedisTestUtils.loadSimpleTableDescription;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public abstract class AbstractTestMinimalFunctionality
 {
     protected static final Session SESSION = testSessionBuilder()
@@ -45,12 +50,12 @@ public abstract class AbstractTestMinimalFunctionality
     protected String tableName;
     protected String stringValueTableName;
     protected String hashValueTableName;
-    protected StandaloneQueryRunner queryRunner;
+    protected QueryRunner queryRunner;
     protected QueryAssertions assertions;
 
     protected abstract Map<String, String> connectorProperties();
 
-    @BeforeClass
+    @BeforeAll
     public void startRedis()
             throws Exception
     {
@@ -76,7 +81,7 @@ public abstract class AbstractTestMinimalFunctionality
         populateData(1000);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void stopRedis()
     {
         clearData();

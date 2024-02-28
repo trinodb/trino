@@ -15,7 +15,7 @@ package io.trino.hive.formats.avro;
 
 import com.google.common.primitives.Longs;
 import io.trino.spi.type.Int128;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
@@ -23,8 +23,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.fitBigEndianValueToByteArraySize;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.fromBigEndian;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.padBigEndianToSize;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLongFromBigEndian
 {

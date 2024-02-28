@@ -13,12 +13,12 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
@@ -26,11 +26,14 @@ import io.trino.security.AccessControl;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.ResetSession;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.Optional;
@@ -45,48 +48,42 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestResetSessionTask
 {
     private static final String CATALOG_NAME = "my_catalog";
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-    private LocalQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private Metadata metadata;
     private SessionPropertyManager sessionPropertyManager;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.builder(TEST_SESSION)
-                .withExtraSystemSessionProperties(ImmutableSet.of(() -> ImmutableList.of(
-                        stringProperty(
-                                "foo",
-                                "test property",
-                                null,
-                                false))))
-                .build();
-
-        queryRunner.createCatalog(
-                CATALOG_NAME,
-                MockConnectorFactory.builder()
-                        .withSessionProperty(stringProperty(
-                                "baz",
-                                "test property",
-                                null,
-                                false))
-                        .build(),
-                ImmutableMap.of());
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withSessionProperty(stringProperty(
+                        "baz",
+                        "test property",
+                        null,
+                        false))
+                .build()));
+        queryRunner.createCatalog(CATALOG_NAME, "mock", ImmutableMap.of());
 
         transactionManager = queryRunner.getTransactionManager();
         accessControl = queryRunner.getAccessControl();
-        metadata = queryRunner.getMetadata();
+        metadata = queryRunner.getPlannerContext().getMetadata();
         sessionPropertyManager = queryRunner.getSessionPropertyManager();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
@@ -103,7 +100,6 @@ public class TestResetSessionTask
     public void test()
     {
         Session session = testSessionBuilder(sessionPropertyManager)
-                .setSystemProperty("foo", "bar")
                 .setCatalogSessionProperty(CATALOG_NAME, "baz", "blah")
                 .build();
 
@@ -132,6 +128,6 @@ public class TestResetSessionTask
                 WarningCollector.NOOP));
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
-        assertEquals(sessionProperties, ImmutableSet.of(CATALOG_NAME + ".baz"));
+        assertThat(sessionProperties).isEqualTo(ImmutableSet.of(CATALOG_NAME + ".baz"));
     }
 }

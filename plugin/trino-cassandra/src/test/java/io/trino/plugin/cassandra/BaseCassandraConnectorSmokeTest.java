@@ -16,7 +16,8 @@ package io.trino.plugin.cassandra;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -26,6 +27,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Isolated
 public abstract class BaseCassandraConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
@@ -36,7 +38,6 @@ public abstract class BaseCassandraConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_DELETE -> true;
             case SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_COMMENT_ON_TABLE,
@@ -51,6 +52,7 @@ public abstract class BaseCassandraConnectorSmokeTest
         };
     }
 
+    @Test
     @Override
     public void testDeleteAllDataFromTable()
     {

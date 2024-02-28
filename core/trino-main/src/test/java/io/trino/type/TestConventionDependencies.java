@@ -16,6 +16,8 @@ package io.trino.type;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.Convention;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.lang.invoke.MethodHandle;
 
@@ -37,12 +40,15 @@ import static io.trino.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestConventionDependencies
 {
     private QueryAssertions assertions;
@@ -55,6 +61,7 @@ public class TestConventionDependencies
         assertions.addFunctions(InternalFunctionBundle.builder()
                 .scalar(RegularConvention.class)
                 .scalar(BlockPositionConvention.class)
+                .scalar(ValueBlockPositionConvention.class)
                 .scalar(Add.class)
                 .build());
 
@@ -87,6 +94,15 @@ public class TestConventionDependencies
                 .isEqualTo(30);
 
         assertThat(assertions.function("block_position_convention", "ARRAY[56, 275, 36]"))
+                .isEqualTo(367);
+
+        assertThat(assertions.function("value_block_position_convention", "ARRAY[1, 2, 3]"))
+                .isEqualTo(6);
+
+        assertThat(assertions.function("value_block_position_convention", "ARRAY[25, 0, 5]"))
+                .isEqualTo(30);
+
+        assertThat(assertions.function("value_block_position_convention", "ARRAY[56, 275, 36]"))
                 .isEqualTo(367);
     }
 
@@ -138,6 +154,34 @@ public class TestConventionDependencies
         }
     }
 
+    @ScalarFunction("value_block_position_convention")
+    public static final class ValueBlockPositionConvention
+    {
+        @SqlType(StandardTypes.INTEGER)
+        public static long testBlockPositionConvention(
+                @FunctionDependency(
+                        name = "add",
+                        argumentTypes = {StandardTypes.INTEGER, StandardTypes.INTEGER},
+                        convention = @Convention(arguments = {NEVER_NULL, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle function,
+                @SqlType("array(integer)") Block array)
+        {
+            ValueBlock arrayValues = array.getUnderlyingValueBlock();
+
+            long sum = 0;
+            for (int i = 0; i < array.getPositionCount(); i++) {
+                try {
+                    sum = (long) function.invokeExact(sum, arrayValues, array.getUnderlyingValuePosition(i));
+                }
+                catch (Throwable t) {
+                    throwIfInstanceOf(t, Error.class);
+                    throwIfInstanceOf(t, TrinoException.class);
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
+                }
+            }
+            return sum;
+        }
+    }
+
     @ScalarFunction("add")
     public static final class Add
     {
@@ -152,7 +196,7 @@ public class TestConventionDependencies
         @SqlType(StandardTypes.INTEGER)
         public static long addBlockPosition(
                 @SqlType(StandardTypes.INTEGER) long first,
-                @BlockPosition @SqlType(value = StandardTypes.INTEGER, nativeContainerType = long.class) Block block,
+                @BlockPosition @SqlType(value = StandardTypes.INTEGER, nativeContainerType = long.class) IntArrayBlock block,
                 @BlockIndex int position)
         {
             return Math.addExact((int) first, INTEGER.getInt(block, position));

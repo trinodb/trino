@@ -16,11 +16,14 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.spi.QueryId;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryRunnerUtil.createQuery;
@@ -29,13 +32,17 @@ import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPendingStageState
 {
-    private DistributedQueryRunner queryRunner;
+    private QueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws Exception
     {
@@ -43,7 +50,8 @@ public class TestPendingStageState
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "10000"));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testPendingState()
             throws Exception
     {
@@ -53,21 +61,21 @@ public class TestPendingStageState
         // wait for the query to finish producing results, but don't poll them
         assertEventually(
                 new Duration(10, SECONDS),
-                () -> assertEquals(queryRunner.getCoordinator().getFullQueryInfo(queryId).getOutputStage().get().getState(), StageState.RUNNING));
+                () -> assertThat(queryRunner.getCoordinator().getFullQueryInfo(queryId).getOutputStage().get().getState()).isEqualTo(StageState.RUNNING));
 
         // wait for the sub stages to go to pending state
         assertEventually(
                 new Duration(10, SECONDS),
-                () -> assertEquals(queryRunner.getCoordinator().getFullQueryInfo(queryId).getOutputStage().get().getSubStages().get(0).getState(), StageState.PENDING));
+                () -> assertThat(queryRunner.getCoordinator().getFullQueryInfo(queryId).getOutputStage().get().getSubStages().get(0).getState()).isEqualTo(StageState.PENDING));
 
         QueryInfo queryInfo = queryRunner.getCoordinator().getFullQueryInfo(queryId);
-        assertEquals(queryInfo.getState(), RUNNING);
-        assertEquals(queryInfo.getOutputStage().get().getState(), StageState.RUNNING);
-        assertEquals(queryInfo.getOutputStage().get().getSubStages().size(), 1);
-        assertEquals(queryInfo.getOutputStage().get().getSubStages().get(0).getState(), StageState.PENDING);
+        assertThat(queryInfo.getState()).isEqualTo(RUNNING);
+        assertThat(queryInfo.getOutputStage().get().getState()).isEqualTo(StageState.RUNNING);
+        assertThat(queryInfo.getOutputStage().get().getSubStages().size()).isEqualTo(1);
+        assertThat(queryInfo.getOutputStage().get().getSubStages().get(0).getState()).isEqualTo(StageState.PENDING);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (queryRunner != null) {

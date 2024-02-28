@@ -34,11 +34,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -116,7 +115,7 @@ public class EqualityInference
                 // 2) Prefer smaller expression trees
                 // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
                 // TODO: be more precise in determining the cost of an expression
-                .comparingInt((ToIntFunction<Expression>) (expression -> extractAllSymbols(expression).size()))
+                .comparingInt((ToIntFunction<Expression>) expression -> extractAllSymbols(expression).size())
                 .thenComparingLong(expression -> extractSubExpressions(expression).size())
                 .thenComparing(Expression::toString);
 
@@ -215,17 +214,34 @@ public class EqualityInference
                         .forEach(scopeComplementEqualities::add);
             }
 
-            // Compile the scope straddling equality expressions
-            List<Expression> connectingExpressions = new ArrayList<>();
-            connectingExpressions.add(matchingCanonical);
-            connectingExpressions.add(complementCanonical);
-            connectingExpressions.addAll(scopeStraddlingExpressions);
-            connectingExpressions = connectingExpressions.stream()
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-            Expression connectingCanonical = getCanonical(connectingExpressions.stream());
+            // Compile single equality between matching and complement scope.
+            // Only consider expressions that don't have derived expression in other scope.
+            // Otherwise, redundant equality would be generated.
+            Optional<Expression> matchingConnecting = scopeExpressions.stream()
+                    .filter(expression -> SymbolsExtractor.extractAll(expression).isEmpty() || rewrite(expression, symbol -> !scope.contains(symbol), false) == null)
+                    .min(canonicalComparator);
+            Optional<Expression> complementConnecting = scopeComplementExpressions.stream()
+                    .filter(expression -> SymbolsExtractor.extractAll(expression).isEmpty() || rewrite(expression, scope::contains, false) == null)
+                    .min(canonicalComparator);
+            if (matchingConnecting.isPresent() && complementConnecting.isPresent() && !matchingConnecting.equals(complementConnecting)) {
+                scopeStraddlingEqualities.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, matchingConnecting.get(), complementConnecting.get()));
+            }
+
+            // Compile the scope straddling equality expressions.
+            // scopeStraddlingExpressions couldn't be pushed to either side,
+            // therefore there needs to be an equality generated with
+            // one of the scopes (either matching or complement).
+            List<Expression> straddlingExpressions = new ArrayList<>();
+            if (matchingCanonical != null) {
+                straddlingExpressions.add(matchingCanonical);
+            }
+            else if (complementCanonical != null) {
+                straddlingExpressions.add(complementCanonical);
+            }
+            straddlingExpressions.addAll(scopeStraddlingExpressions);
+            Expression connectingCanonical = getCanonical(straddlingExpressions.stream());
             if (connectingCanonical != null) {
-                connectingExpressions.stream()
+                straddlingExpressions.stream()
                         .filter(expression -> !expression.equals(connectingCanonical))
                         .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, connectingCanonical, expression))
                         .forEach(scopeStraddlingEqualities::add);

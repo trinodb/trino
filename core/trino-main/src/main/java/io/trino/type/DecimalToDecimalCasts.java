@@ -28,13 +28,12 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 public final class DecimalToDecimalCasts
 {
     public static final Signature SIGNATURE = Signature.builder()
-            .operatorType(CAST)
             .argumentType(parseTypeSignature("decimal(from_precision,from_scale)", ImmutableSet.of("from_precision", "from_scale")))
             .returnType(parseTypeSignature("decimal(to_precision,to_scale)", ImmutableSet.of("to_precision", "to_scale")))
             .build();
 
     // TODO: filtering mechanism could be used to return NoOp method when only precision is increased
-    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = new PolymorphicScalarFunctionBuilder(DecimalConversions.class)
+    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = new PolymorphicScalarFunctionBuilder(CAST, DecimalConversions.class)
             .signature(SIGNATURE)
             .deterministic(true)
             .choice(choice -> choice

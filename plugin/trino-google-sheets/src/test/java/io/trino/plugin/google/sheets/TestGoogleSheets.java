@@ -29,7 +29,7 @@ import io.airlift.units.Duration;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -41,8 +41,7 @@ import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.toIntExact;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGoogleSheets
         extends AbstractTestQueryFramework
@@ -93,7 +92,7 @@ public class TestGoogleSheets
                 .update(spreadsheetId, "Metadata", updateValues)
                 .setValueInputOption("RAW")
                 .execute();
-        assertEquals(toIntExact(updateResult.getUpdatedRows()), 5);
+        assertThat(toIntExact(updateResult.getUpdatedRows())).isEqualTo(5);
 
         updateValues = new ValueRange().setValues(ImmutableList.of(
                 ImmutableList.of("number", "text"),
@@ -106,7 +105,7 @@ public class TestGoogleSheets
                 .update(spreadsheetId, "Number Text", updateValues)
                 .setValueInputOption("RAW")
                 .execute();
-        assertEquals(toIntExact(updateResult.getUpdatedRows()), 6);
+        assertThat(toIntExact(updateResult.getUpdatedRows())).isEqualTo(6);
 
         updateValues = new ValueRange().setValues(ImmutableList.of(
                 ImmutableList.of("a", "A", "", "C"),
@@ -115,13 +114,13 @@ public class TestGoogleSheets
                 .update(spreadsheetId, "Table with duplicate and missing column names", updateValues)
                 .setValueInputOption("RAW")
                 .execute();
-        assertEquals(toIntExact(updateResult.getUpdatedRows()), 2);
+        assertThat(toIntExact(updateResult.getUpdatedRows())).isEqualTo(2);
 
         updateValues = new ValueRange().setValues(ImmutableList.of(ImmutableList.of("nationkey", "name", "regionkey", "comment")));
         updateResult = sheetsService.spreadsheets().values().update(spreadsheetId, "Nation Insert test", updateValues)
                 .setValueInputOption("RAW")
                 .execute();
-        assertEquals(toIntExact(updateResult.getUpdatedRows()), 1);
+        assertThat(toIntExact(updateResult.getUpdatedRows())).isEqualTo(1);
 
         return spreadsheetId;
     }
@@ -134,7 +133,7 @@ public class TestGoogleSheets
         assertQueryReturnsEmptyResult("SHOW TABLES IN gsheets.information_schema LIKE 'number_text'");
         assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema'", expectedTableNamesStatement);
         assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema' LIMIT 1000", expectedTableNamesStatement);
-        assertEquals(getQueryRunner().execute("select table_name from gsheets.information_schema.tables WHERE table_schema = 'unknown_schema'").getRowCount(), 0);
+        assertThat(getQueryRunner().execute("select table_name from gsheets.information_schema.tables WHERE table_schema = 'unknown_schema'").getRowCount()).isEqualTo(0);
     }
 
     @Test
@@ -266,33 +265,33 @@ public class TestGoogleSheets
     public void testSheetQueryWithSheetRangeInIdFails()
     {
         // Sheet ids with "#" are explicitly forbidden since "#" is the sheet separator
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s#%s'))".formatted(DATA_SHEET_ID, "number_text")))
-                .hasMessageContaining("Google sheet ID %s cannot contain '#'. Provide a range through the 'range' argument.".formatted(DATA_SHEET_ID + "#number_text"));
+                .failure().hasMessageContaining("Google sheet ID %s cannot contain '#'. Provide a range through the 'range' argument.".formatted(DATA_SHEET_ID + "#number_text"));
 
         // Attempting to put a sheet range in the id fails since the sheet id is invalid
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s%s'))".formatted(DATA_SHEET_ID, "number_text")))
-                .hasMessageContaining("Failed reading data from sheet: %snumber_text#$1:$10000".formatted(DATA_SHEET_ID));
+                .failure().hasMessageContaining("Failed reading data from sheet: %snumber_text#$1:$10000".formatted(DATA_SHEET_ID));
     }
 
     @Test
     public void testSheetQueryWithNoDataInRangeFails()
     {
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!D1:D1")))
-                .hasMessageContaining("No non-empty cells found in sheet: %s#number_text!D1:D1".formatted(DATA_SHEET_ID));
+                .failure().hasMessageContaining("No non-empty cells found in sheet: %s#number_text!D1:D1".formatted(DATA_SHEET_ID));
 
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!D12:E13")))
-                .hasMessageContaining("No non-empty cells found in sheet: %s#number_text!D12:E13".formatted(DATA_SHEET_ID));
+                .failure().hasMessageContaining("No non-empty cells found in sheet: %s#number_text!D12:E13".formatted(DATA_SHEET_ID));
     }
 
     @Test
     public void testSheetQueryWithInvalidSheetId()
     {
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(gsheets.system.sheet(id => 'DOESNOTEXIST'))"))
-                .hasMessageContaining("Failed reading data from sheet: DOESNOTEXIST");
+        assertThat(query("SELECT * FROM TABLE(gsheets.system.sheet(id => 'DOESNOTEXIST'))"))
+                .failure().hasMessageContaining("Failed reading data from sheet: DOESNOTEXIST");
     }
 
     @Test

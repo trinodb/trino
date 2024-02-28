@@ -37,6 +37,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.SerDeUtils;
@@ -44,8 +45,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -59,7 +59,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hive.formats.FormatTestUtils.assertColumnValueEquals;
 import static io.trino.hive.formats.FormatTestUtils.createLineBuffer;
 import static io.trino.hive.formats.FormatTestUtils.decodeRecordReaderValue;
@@ -96,8 +95,8 @@ import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.SerDeUtils.escapeString;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertTrue;
 
 public class TestJsonFormat
 {
@@ -126,17 +125,15 @@ public class TestJsonFormat
 
         // Duplicate fields are supported, and the last value is used
         assertValue(rowType, "{ \"a\" : 1, \"a\" : 2 }", Arrays.asList(2L, null, null));
-        // but Hive parses all fields
-        assertValueFailsHive(rowType, "{ \"a\" : true, \"a\" : 42 }", false);
-        // and we only parse the last field
-        assertValueTrino(rowType, "{ \"a\" : true, \"a\" : 42 }", Arrays.asList(42L, null, null));
+        // but all fields are parsed
+        assertValueFails(rowType, "{ \"a\" : true, \"a\" : 42 }", false);
 
         // Hive allows columns to have names based on ordinals
         assertValue(rowType, "{ \"_col0\" : 1, \"_col1\" : 2, \"_col2\" : 3 }", ImmutableList.of(1L, 2L, 3L));
         assertValue(rowType, "{ \"_col2\" : 3, \"_col0\" : 1, \"_col1\" : 2 }", ImmutableList.of(1L, 2L, 3L));
         assertValue(rowType, "{ \"_col2\" : 3, \"a\" : 1, \"b\" : 2 }", ImmutableList.of(1L, 2L, 3L));
-        assertValueTrino(rowType, "{ \"_col0\" : true, \"a\" : 42 }", Arrays.asList(42L, null, null));
-        assertValueTrino(rowType, "{ \"a\" : true, \"_col0\" : 42 }", Arrays.asList(42L, null, null));
+        assertValueTrino(rowType, "{ \"_col0\" : -7, \"a\" : 42 }", Arrays.asList(42L, null, null));
+        assertValueTrino(rowType, "{ \"a\" : -7, \"_col0\" : 42 }", Arrays.asList(42L, null, null));
 
         assertValueFails(rowType, "true");
         assertValueFails(rowType, "12");
@@ -179,14 +176,8 @@ public class TestJsonFormat
                         .put("b", 4L)
                         .buildOrThrow());
 
-        // but Trino parses only the last value whereas Hive parses all values
-        assertValueTrino(
-                mapType,
-                "{ \"a\" : false, \"a\" : 2 }",
-                ImmutableMap.builder()
-                        .put("a", 2L)
-                        .buildOrThrow());
-        assertValueFailsHive(mapType, "{ \"a\" : false, \"a\" : 2 }", false);
+        // but all values are parsed
+        assertValueFails(mapType, "{ \"a\" : false, \"a\" : 2 }", false);
 
         assertValueFails(mapType, "true");
         assertValueFails(mapType, "12");
@@ -1011,7 +1002,7 @@ public class TestJsonFormat
     private static Deserializer createHiveDeserializer(List<Column> columns, List<String> timestampFormats, boolean hcatalog)
             throws SerDeException
     {
-        JobConf configuration = new JobConf(newEmptyConfiguration());
+        Configuration configuration = new Configuration(false);
 
         Properties schema = new Properties();
         schema.put(LIST_COLUMNS, columns.stream()
@@ -1101,7 +1092,7 @@ public class TestJsonFormat
 
     private static MapType toMapKeyType(Type type)
     {
-        assertTrue(isScalarType(type));
+        assertThat(isScalarType(type)).isTrue();
         return new MapType(type, BIGINT, TYPE_OPERATORS);
     }
 

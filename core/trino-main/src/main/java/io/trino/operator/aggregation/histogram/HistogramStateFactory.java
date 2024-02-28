@@ -22,8 +22,8 @@ import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
@@ -48,7 +48,7 @@ public class HistogramStateFactory
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "T",
-                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle writeFlat,
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle writeFlat,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "T",
@@ -56,11 +56,11 @@ public class HistogramStateFactory
             @OperatorDependency(
                     operator = OperatorType.IS_DISTINCT_FROM,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {FLAT, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle distinctFlatBlock,
+                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle distinctFlatBlock,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "T",
-                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle hashBlock)
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle hashBlock)
     {
         this.type = requireNonNull(type, "type is null");
         this.readFlat = requireNonNull(readFlat, "readFlat is null");

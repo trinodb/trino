@@ -38,6 +38,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import org.testcontainers.containers.MySQLContainer;
 
 import java.net.URI;
@@ -55,13 +56,16 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestMysqlEventListener
 {
     private static final QueryMetadata FULL_QUERY_METADATA = new QueryMetadata(
@@ -132,7 +136,9 @@ public class TestMysqlEventListener
 
     private static final QueryContext FULL_QUERY_CONTEXT = new QueryContext(
             "user",
+            "originalUser",
             Optional.of("principal"),
+            Set.of("role1", "role2"),
             Set.of("group1", "group2"),
             Optional.of("traceToken"),
             Optional.of("remoteAddress"),
@@ -142,6 +148,7 @@ public class TestMysqlEventListener
             // not stored
             Set.of(),
             Optional.of("source"),
+            UTC_KEY.getId(),
             Optional.of("catalog"),
             Optional.of("schema"),
             Optional.of(new ResourceGroupId("resourceGroup")),
@@ -284,7 +291,9 @@ public class TestMysqlEventListener
 
     private static final QueryContext MINIMAL_QUERY_CONTEXT = new QueryContext(
             "user",
+            "originalUser",
             Optional.empty(),
+            Set.of(),
             Set.of(),
             Optional.empty(),
             Optional.empty(),
@@ -294,6 +303,7 @@ public class TestMysqlEventListener
             // not stored
             Set.of(),
             Optional.empty(),
+            UTC_KEY.getId(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),

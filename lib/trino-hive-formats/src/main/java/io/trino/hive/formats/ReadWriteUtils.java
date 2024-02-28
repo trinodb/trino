@@ -327,6 +327,8 @@ public final class ReadWriteUtils
         if (indexEnd < 0) {
             return length;
         }
-        return indexEnd - offset;
+        // end index could run over length because of large code points (e.g., 4-byte code points)
+        // or within length because of small code points (e.g., 1-byte code points)
+        return min(indexEnd - offset, length);
     }
 }

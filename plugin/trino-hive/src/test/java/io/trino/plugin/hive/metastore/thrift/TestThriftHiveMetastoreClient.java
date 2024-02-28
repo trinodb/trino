@@ -17,7 +17,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient.Alternati
 import org.apache.thrift.TConfiguration;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransport;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
 

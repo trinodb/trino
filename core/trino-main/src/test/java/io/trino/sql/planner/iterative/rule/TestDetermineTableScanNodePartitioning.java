@@ -32,6 +32,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.BUCKET_COUNT;
@@ -50,8 +51,10 @@ import static io.trino.sql.planner.TestTableScanNodePartitioning.createMockFacto
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDetermineTableScanNodePartitioning
 {
     private RuleTester tester;
@@ -140,7 +143,8 @@ public class TestDetermineTableScanNodePartitioning
             boolean expectedEnabled)
     {
         TableHandle tableHandle = tester.getCurrentCatalogTableHandle(TEST_SCHEMA, tableName);
-        tester.assertThat(new DetermineTableScanNodePartitioning(tester.getMetadata(), tester.getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> numberOfTasks)))
+        tester.assertThat(new DetermineTableScanNodePartitioning(tester.getMetadata(), tester.getPlanTester().getNodePartitioningManager(), new TaskCountEstimator(() -> numberOfTasks)))
+                .withSession(session)
                 .on(p -> {
                     Symbol a = p.symbol(COLUMN_A);
                     Symbol b = p.symbol(COLUMN_B);
@@ -149,7 +153,6 @@ public class TestDetermineTableScanNodePartitioning
                             ImmutableList.of(a, b),
                             ImmutableMap.of(a, COLUMN_HANDLE_A, b, COLUMN_HANDLE_B));
                 })
-                .withSession(session)
                 .matches(
                         tableScan(
                                 tableHandle.getConnectorHandle()::equals,

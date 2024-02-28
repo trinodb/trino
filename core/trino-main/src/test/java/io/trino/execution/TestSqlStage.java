@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
+import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
@@ -37,9 +38,12 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.testing.TestingSplit;
 import io.trino.util.FinalizerService;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -65,25 +69,26 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestSqlStage
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         executor = newFixedThreadPool(100, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
@@ -92,7 +97,8 @@ public class TestSqlStage
         scheduledExecutor = null;
     }
 
-    @Test(timeOut = 2 * 60 * 1000)
+    @Test
+    @Timeout(2 * 60)
     public void testFinalStageInfo()
             throws Exception
     {
@@ -119,6 +125,7 @@ public class TestSqlStage
                 nodeTaskMap,
                 executor,
                 noopTracer(),
+                Span.getInvalid(),
                 new SplitSchedulerStats());
 
         // add listener that fetches stage info when the final status is available
@@ -176,7 +183,7 @@ public class TestSqlStage
         // wait for some tasks to be created, and then abort the stage
         countDownLatch.await();
         stage.finish();
-        assertTrue(createdTasks.size() >= 1000);
+        assertThat(createdTasks.size() >= 1000).isTrue();
 
         StageInfo stageInfo = stage.getStageInfo();
         // stage should not report final info because all tasks have a running driver, but
@@ -188,14 +195,18 @@ public class TestSqlStage
             TaskState taskState = info.getTaskStatus().getState();
             int runningSplits = info.getTaskStatus().getRunningPartitionedDrivers();
             if (runningSplits == 0) {
-                assertTrue(taskState == TaskState.CANCELING || taskState == TaskState.CANCELED, "unexpected task state: " + taskState);
+                assertThat(taskState == TaskState.CANCELING || taskState == TaskState.CANCELED)
+                        .describedAs("unexpected task state: " + taskState)
+                        .isTrue();
             }
             else {
-                assertEquals(taskState, TaskState.CANCELING);
-                assertTrue(runningSplits > 0, "must be running splits to not be already canceled");
+                assertThat(taskState).isEqualTo(TaskState.CANCELING);
+                assertThat(runningSplits > 0)
+                        .describedAs("must be running splits to not be already canceled")
+                        .isTrue();
             }
         }
-        assertFalse(finalStageInfo.isDone());
+        assertThat(finalStageInfo.isDone()).isFalse();
 
         // cancel the background thread adding tasks
         addTasksTask.cancel(true);
@@ -206,14 +217,14 @@ public class TestSqlStage
         // finishing all running splits on the task should trigger termination complete
         createdTasks.forEach(task -> {
             task.clearSplits();
-            assertEquals(task.getTaskStatus().getState(), TaskState.CANCELED);
+            assertThat(task.getTaskStatus().getState()).isEqualTo(TaskState.CANCELED);
         });
 
         // once the final stage info is available, verify that it is complete
         stageInfo = finalStageInfo.get(1, MINUTES);
-        assertFalse(stageInfo.getTasks().isEmpty());
-        assertTrue(stageInfo.isFinalStageInfo());
-        assertSame(stage.getStageInfo(), stageInfo);
+        assertThat(stageInfo.getTasks().isEmpty()).isFalse();
+        assertThat(stageInfo.isFinalStageInfo()).isTrue();
+        assertThat(stage.getStageInfo()).isSameAs(stageInfo);
     }
 
     private static PlanFragment createExchangePlanFragment()
@@ -239,6 +250,7 @@ public class TestSqlStage
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty());
     }

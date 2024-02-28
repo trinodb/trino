@@ -16,33 +16,34 @@ package io.trino.plugin.hive.metastore.cache;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Key;
 import io.trino.Session;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Lists.cartesianProduct;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.nio.file.Files.createTempDirectory;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestCachingHiveMetastoreWithQueryRunner
         extends AbstractTestQueryFramework
 {
@@ -54,27 +55,26 @@ public class TestCachingHiveMetastoreWithQueryRunner
     private static final String ALICE_NAME = "alice";
     private static final Session ALICE = getTestSession(new Identity.Builder(ALICE_NAME).build());
 
-    private FileHiveMetastore fileHiveMetastore;
+    private HiveMetastore rawMetastore;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Path temporaryMetastoreDirectory = createTempDirectory(null);
-        closeAfterClass(() -> deleteRecursively(temporaryMetastoreDirectory, ALLOW_INSECURE));
-
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder(ADMIN)
+        QueryRunner queryRunner = HiveQueryRunner.builder(ADMIN)
                 .setNodeCount(3)
                 // Required by testPartitionAppend test.
                 // Coordinator needs to be excluded from workers to deterministically reproduce the original problem
                 // https://github.com/trinodb/trino/pull/6853
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
-                .setMetastore(distributedQueryRunner -> fileHiveMetastore = createTestingFileHiveMetastore(temporaryMetastoreDirectory.toFile()))
                 .setHiveProperties(ImmutableMap.of(
                         "hive.security", "sql-standard",
                         "hive.metastore-cache-ttl", "60m",
                         "hive.metastore-refresh-interval", "10m"))
                 .build();
+
+        rawMetastore = getConnectorService(queryRunner, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
+                .createMetastore(Optional.empty());
 
         queryRunner.execute(ADMIN, "CREATE SCHEMA " + SCHEMA);
         queryRunner.execute("CREATE TABLE test (test INT)");
@@ -103,8 +103,27 @@ public class TestCachingHiveMetastoreWithQueryRunner
                 .hasMessageContaining("Access Denied");
     }
 
-    @Test(dataProvider = "testCacheRefreshOnRoleGrantAndRevokeParams")
-    public void testCacheRefreshOnRoleGrantAndRevoke(List<String> grantRoleStatements, String revokeRoleStatement)
+    @Test
+    public void testCacheRefreshOnRoleGrantAndRevoke()
+    {
+        String grantSelectStatement = "GRANT SELECT ON test TO ROLE test_role";
+        String grantRoleStatement = "GRANT test_role TO " + ALICE_NAME + " IN " + CATALOG;
+        List<List<String>> grantRoleStatements = ImmutableList.of(
+                ImmutableList.of(grantSelectStatement, grantRoleStatement),
+                ImmutableList.of(grantRoleStatement, grantSelectStatement));
+        List<String> revokeRoleStatements = ImmutableList.of(
+                "DROP ROLE test_role IN " + CATALOG,
+                "REVOKE SELECT ON test FROM ROLE test_role",
+                "REVOKE test_role FROM " + ALICE_NAME + " IN " + CATALOG);
+
+        for (String roleRevoke : revokeRoleStatements) {
+            for (List<String> roleGrant : grantRoleStatements) {
+                testCacheRefreshOnRoleGrantAndRevoke(roleGrant, roleRevoke);
+            }
+        }
+    }
+
+    private void testCacheRefreshOnRoleGrantAndRevoke(List<String> grantRoleStatements, String revokeRoleStatement)
     {
         assertThatThrownBy(() -> getQueryRunner().execute(ALICE, "SELECT * FROM test"))
                 .hasMessageContaining("Access Denied");
@@ -128,7 +147,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
         getQueryRunner().execute("SELECT initial FROM cached");
 
         // Rename column name in Metastore outside Trino
-        fileHiveMetastore.renameColumn("test", "cached", "initial", "renamed");
+        rawMetastore.renameColumn("test", "cached", "initial", "renamed");
 
         String renamedColumnQuery = "SELECT renamed FROM cached";
         // Should fail as Trino has old metadata cached
@@ -189,21 +208,5 @@ public class TestCachingHiveMetastoreWithQueryRunner
 
         String expected = Joiner.on(",").join(nCopies(nodeCount + 1, row));
         assertQuery("SELECT * FROM test_part_append", "VALUES " + expected);
-    }
-
-    @DataProvider
-    public Object[][] testCacheRefreshOnRoleGrantAndRevokeParams()
-    {
-        String grantSelectStatement = "GRANT SELECT ON test TO ROLE test_role";
-        String grantRoleStatement = "GRANT test_role TO " + ALICE_NAME + " IN " + CATALOG;
-        List<List<String>> grantRoleStatements = ImmutableList.of(
-                ImmutableList.of(grantSelectStatement, grantRoleStatement),
-                ImmutableList.of(grantRoleStatement, grantSelectStatement));
-        List<String> revokeRoleStatements = ImmutableList.of(
-                "DROP ROLE test_role IN " + CATALOG,
-                "REVOKE SELECT ON test FROM ROLE test_role",
-                "REVOKE test_role FROM " + ALICE_NAME + " IN " + CATALOG);
-        return cartesianProduct(grantRoleStatements, revokeRoleStatements).stream()
-                .map(a -> a.toArray(Object[]::new)).toArray(Object[][]::new);
     }
 }

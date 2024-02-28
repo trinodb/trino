@@ -16,17 +16,12 @@ package io.trino.spi.block;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.OptionalInt;
-import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
-import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
+import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static java.lang.Math.max;
+import static java.util.Objects.checkIndex;
 
 public class Int128ArrayBlockBuilder
         implements BlockBuilder
@@ -54,14 +49,12 @@ public class Int128ArrayBlockBuilder
         this.blockBuilderStatus = blockBuilderStatus;
         this.initialEntryCount = max(expectedEntries, 1);
 
-        updateDataSize();
+        updateRetainedSize();
     }
 
     public void writeInt128(long high, long low)
     {
-        if (valueIsNull.length <= positionCount) {
-            growCapacity();
-        }
+        ensureCapacity(positionCount + 1);
 
         int valueIndex = positionCount * 2;
         values[valueIndex] = high;
@@ -75,11 +68,167 @@ public class Int128ArrayBlockBuilder
     }
 
     @Override
+    public void append(ValueBlock block, int position)
+    {
+        ensureCapacity(positionCount + 1);
+
+        Int128ArrayBlock int128ArrayBlock = (Int128ArrayBlock) block;
+        if (int128ArrayBlock.isNull(position)) {
+            valueIsNull[positionCount] = true;
+            hasNullValue = true;
+        }
+        else {
+            long[] rawValues = int128ArrayBlock.getRawValues();
+            int rawValuePosition = (int128ArrayBlock.getRawOffset() + position) * 2;
+
+            int positionIndex = positionCount * 2;
+            values[positionIndex] = rawValues[rawValuePosition];
+            values[positionIndex + 1] = rawValues[rawValuePosition + 1];
+            hasNonNullValue = true;
+        }
+        positionCount++;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+        }
+    }
+
+    @Override
+    public void appendRepeated(ValueBlock block, int position, int count)
+    {
+        if (count == 0) {
+            return;
+        }
+        if (count == 1) {
+            append(block, position);
+            return;
+        }
+
+        ensureCapacity(positionCount + count);
+
+        Int128ArrayBlock int128ArrayBlock = (Int128ArrayBlock) block;
+        if (int128ArrayBlock.isNull(position)) {
+            Arrays.fill(valueIsNull, positionCount, positionCount + count, true);
+            hasNullValue = true;
+        }
+        else {
+            long[] rawValues = int128ArrayBlock.getRawValues();
+            int rawValuePosition = (int128ArrayBlock.getRawOffset() + position) * 2;
+            long valueHigh = rawValues[rawValuePosition];
+            long valueLow = rawValues[rawValuePosition + 1];
+
+            int positionIndex = positionCount * 2;
+            for (int i = 0; i < count; i++) {
+                values[positionIndex] = valueHigh;
+                values[positionIndex + 1] = valueLow;
+                positionIndex += 2;
+            }
+            hasNonNullValue = true;
+        }
+        positionCount += count;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(count * Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+        }
+    }
+
+    @Override
+    public void appendRange(ValueBlock block, int offset, int length)
+    {
+        if (length == 0) {
+            return;
+        }
+        if (length == 1) {
+            append(block, offset);
+            return;
+        }
+
+        ensureCapacity(positionCount + length);
+
+        Int128ArrayBlock int128ArrayBlock = (Int128ArrayBlock) block;
+        int rawOffset = int128ArrayBlock.getRawOffset();
+
+        long[] rawValues = int128ArrayBlock.getRawValues();
+        System.arraycopy(rawValues, (rawOffset + offset) * 2, values, positionCount * 2, length * 2);
+
+        boolean[] rawValueIsNull = int128ArrayBlock.getRawValueIsNull();
+        if (rawValueIsNull != null) {
+            for (int i = 0; i < length; i++) {
+                if (rawValueIsNull[rawOffset + offset + i]) {
+                    valueIsNull[positionCount + i] = true;
+                    hasNullValue = true;
+                }
+                else {
+                    hasNonNullValue = true;
+                }
+            }
+        }
+        else {
+            hasNonNullValue = true;
+        }
+        positionCount += length;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(length * LongArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+        }
+    }
+
+    @Override
+    public void appendPositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        if (length == 0) {
+            return;
+        }
+        if (length == 1) {
+            append(block, positions[offset]);
+            return;
+        }
+
+        ensureCapacity(positionCount + length);
+
+        Int128ArrayBlock int128ArrayBlock = (Int128ArrayBlock) block;
+        int rawOffset = int128ArrayBlock.getRawOffset();
+        long[] rawValues = int128ArrayBlock.getRawValues();
+        boolean[] rawValueIsNull = int128ArrayBlock.getRawValueIsNull();
+
+        int positionIndex = positionCount * 2;
+        if (rawValueIsNull != null) {
+            for (int i = 0; i < length; i++) {
+                int rawPosition = positions[offset + i] + rawOffset;
+                if (rawValueIsNull[rawPosition]) {
+                    valueIsNull[positionCount + i] = true;
+                    hasNullValue = true;
+                }
+                else {
+                    int rawValuePosition = rawPosition * 2;
+                    values[positionIndex] = rawValues[rawValuePosition];
+                    values[positionIndex + 1] = rawValues[rawValuePosition + 1];
+                    hasNonNullValue = true;
+                }
+                positionIndex += 2;
+            }
+        }
+        else {
+            for (int i = 0; i < length; i++) {
+                int rawPosition = positions[offset + i] + rawOffset;
+                int rawValuePosition = rawPosition * 2;
+                values[positionIndex] = rawValues[rawValuePosition];
+                values[positionIndex + 1] = rawValues[rawValuePosition + 1];
+                positionIndex += 2;
+            }
+            hasNonNullValue = true;
+        }
+        positionCount += length;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(length * Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+        }
+    }
+
+    @Override
     public BlockBuilder appendNull()
     {
-        if (valueIsNull.length <= positionCount) {
-            growCapacity();
-        }
+        ensureCapacity(positionCount + 1);
 
         valueIsNull[positionCount] = true;
 
@@ -92,11 +241,24 @@ public class Int128ArrayBlockBuilder
     }
 
     @Override
+    public void resetTo(int position)
+    {
+        checkIndex(position, positionCount + 1);
+        positionCount = position;
+    }
+
+    @Override
     public Block build()
     {
         if (!hasNonNullValue) {
             return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
+        return buildValueBlock();
+    }
+
+    @Override
+    public Int128ArrayBlock buildValueBlock()
+    {
         return new Int128ArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
@@ -106,34 +268,33 @@ public class Int128ArrayBlockBuilder
         return new Int128ArrayBlockBuilder(blockBuilderStatus, expectedEntries);
     }
 
-    private void growCapacity()
+    private void ensureCapacity(int capacity)
     {
+        if (valueIsNull.length >= capacity) {
+            return;
+        }
+
         int newSize;
         if (initialized) {
-            newSize = BlockUtil.calculateNewArraySize(valueIsNull.length);
+            newSize = calculateNewArraySize(capacity);
         }
         else {
             newSize = initialEntryCount;
             initialized = true;
         }
+        newSize = max(newSize, capacity);
 
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         values = Arrays.copyOf(values, newSize * 2);
-        updateDataSize();
+        updateRetainedSize();
     }
 
-    private void updateDataSize()
+    private void updateRetainedSize()
     {
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
         if (blockBuilderStatus != null) {
             retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
         }
-    }
-
-    @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.of(Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
     }
 
     @Override
@@ -143,35 +304,9 @@ public class Int128ArrayBlockBuilder
     }
 
     @Override
-    public long getRegionSizeInBytes(int position, int length)
-    {
-        return Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) length;
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        return Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) selectedPositionsCount;
-    }
-
-    @Override
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
-    }
-
-    @Override
-    public long getEstimatedDataSizeForStats(int position)
-    {
-        return isNull(position) ? 0 : INT128_BYTES;
-    }
-
-    @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
-    {
-        consumer.accept(values, sizeOf(values));
-        consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -181,113 +316,11 @@ public class Int128ArrayBlockBuilder
     }
 
     @Override
-    public long getLong(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset == 0) {
-            return values[position * 2];
-        }
-        if (offset == 8) {
-            return values[(position * 2) + 1];
-        }
-        throw new IllegalArgumentException("offset must be 0 or 8");
-    }
-
-    @Override
-    public boolean mayHaveNull()
-    {
-        return hasNullValue;
-    }
-
-    @Override
-    public boolean isNull(int position)
-    {
-        checkReadablePosition(this, position);
-        return valueIsNull[position];
-    }
-
-    @Override
-    public Block getSingleValueBlock(int position)
-    {
-        checkReadablePosition(this, position);
-        return new Int128ArrayBlock(
-                0,
-                1,
-                valueIsNull[position] ? new boolean[] {true} : null,
-                new long[] {
-                        values[position * 2],
-                        values[(position * 2) + 1]});
-    }
-
-    @Override
-    public Block copyPositions(int[] positions, int offset, int length)
-    {
-        checkArrayRange(positions, offset, length);
-
-        if (!hasNonNullValue) {
-            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
-        }
-        boolean[] newValueIsNull = null;
-        if (hasNullValue) {
-            newValueIsNull = new boolean[length];
-        }
-        long[] newValues = new long[length * 2];
-        for (int i = 0; i < length; i++) {
-            int position = positions[offset + i];
-            checkReadablePosition(this, position);
-            if (hasNullValue) {
-                newValueIsNull[i] = valueIsNull[position];
-            }
-            newValues[i * 2] = values[(position * 2)];
-            newValues[(i * 2) + 1] = values[(position * 2) + 1];
-        }
-        return new Int128ArrayBlock(0, length, newValueIsNull, newValues);
-    }
-
-    @Override
-    public Block getRegion(int positionOffset, int length)
-    {
-        checkValidRegion(getPositionCount(), positionOffset, length);
-
-        if (!hasNonNullValue) {
-            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
-        }
-        return new Int128ArrayBlock(positionOffset, length, hasNullValue ? valueIsNull : null, values);
-    }
-
-    @Override
-    public Block copyRegion(int positionOffset, int length)
-    {
-        checkValidRegion(getPositionCount(), positionOffset, length);
-
-        if (!hasNonNullValue) {
-            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
-        }
-        boolean[] newValueIsNull = null;
-        if (hasNullValue) {
-            newValueIsNull = compactArray(valueIsNull, positionOffset, length);
-        }
-        long[] newValues = compactArray(values, positionOffset * 2, length * 2);
-        return new Int128ArrayBlock(0, length, newValueIsNull, newValues);
-    }
-
-    @Override
-    public String getEncodingName()
-    {
-        return Int128ArrayBlockEncoding.NAME;
-    }
-
-    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("Int128ArrayBlockBuilder{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
-    }
-
-    long[] getRawValues()
-    {
-        return values;
     }
 }

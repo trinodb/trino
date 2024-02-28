@@ -26,13 +26,17 @@ import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.util.DefaultLocationProvider;
+import io.trino.plugin.iceberg.util.ObjectStoreLocationProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
@@ -112,7 +116,6 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterCo
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterFpp;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
-import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
@@ -149,17 +152,19 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.LocationProviders.locationsFor;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
+import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
+import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 
 public final class IcebergUtil
 {
@@ -169,8 +174,8 @@ public final class IcebergUtil
 
     public static final String METADATA_FOLDER_NAME = "metadata";
     public static final String METADATA_FILE_EXTENSION = ".metadata.json";
+    public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
-    static final String TRINO_QUERY_ID_NAME = "trino_query_id";
     // Metadata file name examples
     //  - 00001-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json
     //  - 00001-409702ba-4735-4645-8f14-09537cc0b2c8.gz.metadata.json (https://github.com/apache/iceberg/blob/ab398a0d5ff195f763f8c7a4358ac98fa38a8de7/core/src/main/java/org/apache/iceberg/TableMetadataParser.java#L141)
@@ -283,6 +288,7 @@ public final class IcebergUtil
                 type,
                 ImmutableList.of(),
                 type,
+                column.isOptional(),
                 Optional.ofNullable(column.doc()));
     }
 
@@ -585,13 +591,34 @@ public final class IcebergUtil
         return partitionKeys.buildOrThrow();
     }
 
+    public static Map<ColumnHandle, NullableValue> getPartitionValues(
+            Set<IcebergColumnHandle> identityPartitionColumns,
+            Map<Integer, Optional<String>> partitionKeys)
+    {
+        ImmutableMap.Builder<ColumnHandle, NullableValue> bindings = ImmutableMap.builder();
+        for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
+            Object partitionValue = deserializePartitionValue(
+                    partitionColumn.getType(),
+                    partitionKeys.get(partitionColumn.getId()).orElse(null),
+                    partitionColumn.getName());
+            NullableValue bindingValue = new NullableValue(partitionColumn.getType(), partitionValue);
+            bindings.put(partitionColumn, bindingValue);
+        }
+        return bindings.buildOrThrow();
+    }
+
     public static LocationProvider getLocationProvider(SchemaTableName schemaTableName, String tableLocation, Map<String, String> storageProperties)
     {
         if (storageProperties.containsKey(WRITE_LOCATION_PROVIDER_IMPL)) {
             throw new TrinoException(NOT_SUPPORTED, "Table " + schemaTableName + " specifies " + storageProperties.get(WRITE_LOCATION_PROVIDER_IMPL) +
                     " as a location provider. Writing to Iceberg tables with custom location provider is not supported.");
         }
-        return locationsFor(tableLocation, storageProperties);
+
+        if (propertyAsBoolean(storageProperties, OBJECT_STORE_ENABLED, OBJECT_STORE_ENABLED_DEFAULT)) {
+            return new ObjectStoreLocationProvider(tableLocation, storageProperties);
+        }
+
+        return new DefaultLocationProvider(tableLocation, storageProperties);
     }
 
     public static Schema schemaFromMetadata(List<ColumnMetadata> columns)
@@ -611,15 +638,21 @@ public final class IcebergUtil
         return new Schema(icebergSchema.asStructType().fields());
     }
 
-    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session)
+    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session, boolean replace, String tableLocation)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
-        String targetPath = getTableLocation(tableMetadata.getProperties())
-                .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
+        if (replace) {
+            return catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata));
+        }
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata));
+    }
+
+    public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata)
+    {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
@@ -637,8 +670,7 @@ public final class IcebergUtil
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
-
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, propertiesBuilder.buildOrThrow());
+        return propertiesBuilder.buildOrThrow();
     }
 
     /**

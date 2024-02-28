@@ -14,9 +14,9 @@
 package io.trino.plugin.google.sheets;
 
 import io.airlift.json.JsonCodec;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSheetsConnectorTableHandle
 {
@@ -31,7 +31,7 @@ public class TestSheetsConnectorTableHandle
         String json = namedCodec.toJson(expected);
         SheetsNamedTableHandle actual = namedCodec.fromJson(json);
 
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -42,6 +42,6 @@ public class TestSheetsConnectorTableHandle
         String json = sheetCodec.toJson(expected);
         SheetsSheetTableHandle actual = sheetCodec.fromJson(json);
 
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 }

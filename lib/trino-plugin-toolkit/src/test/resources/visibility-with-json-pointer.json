@@ -51,9 +51,6 @@
             {
                 "user": "alice",
                 "schema": "ptf_schema",
-                "function_kinds": [
-                    "TABLE"
-                ],
                 "function": "some_table_function",
                 "privileges": [
                     "EXECUTE",
@@ -62,15 +59,28 @@
             },
             {
                 "user": "bob",
-                "function_kinds": [
-                    "SCALAR",
-                    "AGGREGATE",
-                    "WINDOW"
-                ],
+                "schema": "specific-schema",
                 "function": "some_function",
                 "privileges": [
                     "EXECUTE",
                     "GRANT_EXECUTE"
+                ]
+            }
+        ],
+        "procedures": [
+            {
+                "user": "bob",
+                "schema": "procedure-schema",
+                "procedure": "some_procedure",
+                "privileges": [
+                    "EXECUTE"
+                ]
+            },
+            {
+                "user": "charlie",
+                "schema": "procedure-schema",
+                "procedure": "some_procedure",
+                "privileges": [
                 ]
             }
         ]

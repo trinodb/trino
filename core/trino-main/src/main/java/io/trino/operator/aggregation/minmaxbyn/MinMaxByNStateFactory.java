@@ -18,7 +18,8 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.type.ArrayType;
@@ -41,15 +42,21 @@ public final class MinMaxByNStateFactory
         @Override
         public final void merge(MinMaxByNState other)
         {
-            SingleRowBlock serializedState = ((SingleMinMaxByNState) other).removeTempSerializedState();
+            SqlRow sqlRow = ((SingleMinMaxByNState) other).removeTempSerializedState();
+            int rawIndex = sqlRow.getRawIndex();
 
-            int capacity = toIntExact(BIGINT.getLong(serializedState, 0));
+            int capacity = toIntExact(BIGINT.getLong(sqlRow.getRawFieldBlock(0), rawIndex));
             initialize(capacity);
             TypedKeyValueHeap typedKeyValueHeap = getTypedKeyValueHeap();
 
-            Block keys = new ArrayType(typedKeyValueHeap.getKeyType()).getObject(serializedState, 1);
-            Block values = new ArrayType(typedKeyValueHeap.getValueType()).getObject(serializedState, 2);
-            typedKeyValueHeap.addAll(keys, values);
+            Block keys = new ArrayType(typedKeyValueHeap.getKeyType()).getObject(sqlRow.getRawFieldBlock(1), rawIndex);
+            Block values = new ArrayType(typedKeyValueHeap.getValueType()).getObject(sqlRow.getRawFieldBlock(2), rawIndex);
+
+            ValueBlock rawKeyValues = keys.getUnderlyingValueBlock();
+            ValueBlock rawValueValues = values.getUnderlyingValueBlock();
+            for (int i = 0; i < keys.getPositionCount(); i++) {
+                typedKeyValueHeap.add(rawKeyValues, keys.getUnderlyingValuePosition(i), rawValueValues, values.getUnderlyingValuePosition(i));
+            }
         }
 
         @Override
@@ -117,12 +124,12 @@ public final class MinMaxByNStateFactory
         }
 
         @Override
-        public final void add(Block keyBlock, Block valueBlock, int position)
+        public final void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
         {
             TypedKeyValueHeap typedHeap = getTypedKeyValueHeap();
 
             size -= typedHeap.getEstimatedSize();
-            typedHeap.add(keyBlock, valueBlock, position);
+            typedHeap.add(keyBlock, keyPosition, valueBlock, valuePosition);
             size += typedHeap.getEstimatedSize();
         }
 
@@ -160,7 +167,7 @@ public final class MinMaxByNStateFactory
         private final LongFunction<TypedKeyValueHeap> heapFactory;
 
         private TypedKeyValueHeap typedHeap;
-        private SingleRowBlock tempSerializedState;
+        private SqlRow tempSerializedState;
 
         public SingleMinMaxByNState(LongFunction<TypedKeyValueHeap> heapFactory)
         {
@@ -202,9 +209,9 @@ public final class MinMaxByNStateFactory
         }
 
         @Override
-        public final void add(Block keyBlock, Block valueBlock, int position)
+        public final void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
         {
-            typedHeap.add(keyBlock, valueBlock, position);
+            typedHeap.add(keyBlock, keyPosition, valueBlock, valuePosition);
         }
 
         @Override
@@ -224,17 +231,17 @@ public final class MinMaxByNStateFactory
             return typedHeap;
         }
 
-        void setTempSerializedState(SingleRowBlock tempSerializedState)
+        void setTempSerializedState(SqlRow tempSerializedState)
         {
             this.tempSerializedState = tempSerializedState;
         }
 
-        SingleRowBlock removeTempSerializedState()
+        SqlRow removeTempSerializedState()
         {
-            SingleRowBlock block = tempSerializedState;
-            checkState(block != null, "tempDeserializeBlock is null");
+            SqlRow sqlRow = tempSerializedState;
+            checkState(sqlRow != null, "tempDeserializeBlock is null");
             tempSerializedState = null;
-            return block;
+            return sqlRow;
         }
     }
 }

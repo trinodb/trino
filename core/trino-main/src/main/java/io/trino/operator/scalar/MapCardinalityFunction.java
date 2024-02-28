@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -29,8 +29,8 @@ public final class MapCardinalityFunction
     @TypeParameter("K")
     @TypeParameter("V")
     @SqlType(StandardTypes.BIGINT)
-    public static long mapCardinality(@SqlType("map(K,V)") Block block)
+    public static long mapCardinality(@SqlType("map(K,V)") SqlMap sqlMap)
     {
-        return block.getPositionCount() / 2;
+        return sqlMap.getSize();
     }
 }

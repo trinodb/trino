@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.accumulo.core.client.lexicoder.BytesLexicoder;
@@ -244,15 +245,15 @@ public class LexicoderRowSerializer
     }
 
     @Override
-    public Block getMap(String name, Type type)
+    public SqlMap getMap(String name, Type type)
     {
-        return AccumuloRowSerializer.getBlockFromMap(type, decode(type, getFieldValue(name)));
+        return AccumuloRowSerializer.getSqlMapFromMap(type, decode(type, getFieldValue(name)));
     }
 
     @Override
-    public void setMap(Text text, Type type, Block block)
+    public void setMap(Text text, Type type, SqlMap map)
     {
-        text.set(encode(type, block));
+        text.set(encode(type, map));
     }
 
     @Override
@@ -328,7 +329,7 @@ public class LexicoderRowSerializer
             toEncode = AccumuloRowSerializer.getArrayFromBlock(Types.getElementType(type), (Block) value);
         }
         else if (Types.isMapType(type)) {
-            toEncode = AccumuloRowSerializer.getMapFromBlock(type, (Block) value);
+            toEncode = AccumuloRowSerializer.getMapFromSqlMap(type, (SqlMap) value);
         }
         else if (type.equals(BIGINT) && value instanceof Integer) {
             toEncode = ((Integer) value).longValue();

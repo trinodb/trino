@@ -14,30 +14,34 @@
 package io.trino.operator;
 
 import io.trino.memory.context.LocalMemoryContext;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestOperatorMemoryRevocation
 {
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         scheduledExecutor = newSingleThreadScheduledExecutor();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         scheduledExecutor.shutdownNow();
@@ -52,16 +56,16 @@ public class TestOperatorMemoryRevocation
         revocableMemoryContext.setBytes(1000);
         operatorContext.setMemoryRevocationRequestListener(counter::incrementAndGet);
         operatorContext.requestMemoryRevoking();
-        assertTrue(operatorContext.isMemoryRevokingRequested());
-        assertEquals(counter.get(), 1);
+        assertThat(operatorContext.isMemoryRevokingRequested()).isTrue();
+        assertThat(counter.get()).isEqualTo(1);
 
         // calling resetMemoryRevokingRequested() should clear the memory revoking requested flag
         operatorContext.resetMemoryRevokingRequested();
-        assertFalse(operatorContext.isMemoryRevokingRequested());
+        assertThat(operatorContext.isMemoryRevokingRequested()).isFalse();
 
         operatorContext.requestMemoryRevoking();
-        assertEquals(counter.get(), 2);
-        assertTrue(operatorContext.isMemoryRevokingRequested());
+        assertThat(counter.get()).isEqualTo(2);
+        assertThat(operatorContext.isMemoryRevokingRequested()).isTrue();
     }
 
     @Test
@@ -75,8 +79,8 @@ public class TestOperatorMemoryRevocation
         // when memory revocation is already requested setting a listener should immediately execute it
         operatorContext.requestMemoryRevoking();
         operatorContext.setMemoryRevocationRequestListener(counter::incrementAndGet);
-        assertTrue(operatorContext.isMemoryRevokingRequested());
-        assertEquals(counter.get(), 1);
+        assertThat(operatorContext.isMemoryRevokingRequested()).isTrue();
+        assertThat(counter.get()).isEqualTo(1);
     }
 
     @Test

@@ -27,6 +27,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -236,7 +238,7 @@ public class MongoPageSource
             else if (javaType == Slice.class) {
                 writeSlice(output, type, value);
             }
-            else if (javaType == Block.class) {
+            else if (javaType == Block.class || javaType == SqlMap.class || javaType == SqlRow.class) {
                 writeBlock(output, type, value);
             }
             else {
@@ -409,7 +411,7 @@ public class MongoPageSource
         if (columnHandle.getType() instanceof RowType) {
             return dbRefValue;
         }
-        checkArgument(columnHandle.isDbRefField(), "columnHandle is not a dbRef field: " + columnHandle);
+        checkArgument(columnHandle.isDbRefField(), "columnHandle is not a dbRef field: %s", columnHandle);
         List<String> dereferenceNames = columnHandle.getDereferenceNames();
         checkState(!dereferenceNames.isEmpty(), "dereferenceNames is empty");
         String leafColumnName = dereferenceNames.get(dereferenceNames.size() - 1);

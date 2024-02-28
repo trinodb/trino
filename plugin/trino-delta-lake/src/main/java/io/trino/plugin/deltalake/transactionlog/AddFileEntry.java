@@ -33,6 +33,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class AddFileEntry
 {
@@ -46,6 +47,7 @@ public class AddFileEntry
     private final long modificationTime;
     private final boolean dataChange;
     private final Map<String, String> tags;
+    private final Optional<DeletionVectorEntry> deletionVector;
     private final Optional<? extends DeltaLakeFileStatistics> parsedStats;
 
     @JsonCreator
@@ -57,15 +59,42 @@ public class AddFileEntry
             @JsonProperty("dataChange") boolean dataChange,
             @JsonProperty("stats") Optional<String> stats,
             @JsonProperty("parsedStats") Optional<DeltaLakeParquetFileStatistics> parsedStats,
-            @JsonProperty("tags") @Nullable Map<String, String> tags)
+            @JsonProperty("tags") @Nullable Map<String, String> tags,
+            @JsonProperty("deletionVector") Optional<DeletionVectorEntry> deletionVector)
+    {
+        this(
+                path,
+                partitionValues,
+                canonicalizePartitionValues(partitionValues),
+                size,
+                modificationTime,
+                dataChange,
+                stats,
+                parsedStats,
+                tags,
+                deletionVector);
+    }
+
+    public AddFileEntry(
+            String path,
+            Map<String, String> partitionValues,
+            Map<String, Optional<String>> canonicalPartitionValues,
+            long size,
+            long modificationTime,
+            boolean dataChange,
+            Optional<String> stats,
+            Optional<DeltaLakeParquetFileStatistics> parsedStats,
+            @Nullable Map<String, String> tags,
+            Optional<DeletionVectorEntry> deletionVector)
     {
         this.path = path;
-        this.partitionValues = partitionValues;
-        this.canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
+        this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
+        this.canonicalPartitionValues = requireNonNull(canonicalPartitionValues, "canonicalPartitionValues is null");
         this.size = size;
         this.modificationTime = modificationTime;
         this.dataChange = dataChange;
         this.tags = tags;
+        this.deletionVector = requireNonNull(deletionVector, "deletionVector is null");
 
         Optional<? extends DeltaLakeFileStatistics> resultParsedStats = Optional.empty();
         if (parsedStats.isPresent()) {
@@ -151,6 +180,12 @@ public class AddFileEntry
         return tags;
     }
 
+    @JsonProperty
+    public Optional<DeletionVectorEntry> getDeletionVector()
+    {
+        return deletionVector;
+    }
+
     @Override
     public String toString()
     {
@@ -175,6 +210,7 @@ public class AddFileEntry
                 Objects.equals(partitionValues, that.partitionValues) &&
                 Objects.equals(canonicalPartitionValues, that.canonicalPartitionValues) &&
                 Objects.equals(tags, that.tags) &&
+                Objects.equals(deletionVector, that.deletionVector) &&
                 Objects.equals(parsedStats, that.parsedStats);
     }
 
@@ -189,6 +225,7 @@ public class AddFileEntry
                 modificationTime,
                 dataChange,
                 tags,
+                deletionVector,
                 parsedStats);
     }
 

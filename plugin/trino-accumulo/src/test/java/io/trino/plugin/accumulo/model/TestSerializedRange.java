@@ -16,7 +16,7 @@ package io.trino.plugin.accumulo.model;
 import org.apache.accumulo.core.data.Range;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSerializedRange
 {
@@ -27,8 +27,8 @@ public class TestSerializedRange
         Range range = new Range("bar", "foo");
         Range exclusiveRange = new Range("asiago", false, "bagel", false);
 
-        assertEquals(SerializedRange.serialize(exact).deserialize(), exact);
-        assertEquals(SerializedRange.serialize(range).deserialize(), range);
-        assertEquals(SerializedRange.serialize(exclusiveRange).deserialize(), exclusiveRange);
+        assertThat(SerializedRange.serialize(exact).deserialize()).isEqualTo(exact);
+        assertThat(SerializedRange.serialize(range).deserialize()).isEqualTo(range);
+        assertThat(SerializedRange.serialize(exclusiveRange).deserialize()).isEqualTo(exclusiveRange);
     }
 }

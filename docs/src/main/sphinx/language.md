@@ -10,15 +10,22 @@ operations on the connected data source.
 This section provides a reference to the supported SQL data types and other
 general characteristics of the SQL support of Trino.
 
-A {doc}`full SQL statement and syntax reference<sql>` is
-available in a separate section.
+Refer to the following sections for further details:
 
-Trino also provides {doc}`numerous SQL functions and operators<functions>`.
+* [SQL statement and syntax reference](/sql)
+* [SQL functions and operators](/functions)
+
 
 ```{toctree}
 :maxdepth: 2
 
 language/sql-support
 language/types
+```
+
+```{toctree}
+:maxdepth: 1
+
 language/reserved
+language/comments
 ```

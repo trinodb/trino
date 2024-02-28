@@ -16,16 +16,17 @@ package io.trino.plugin.postgresql;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestRemoteQueryCommentLoggingDisabledByDefault
         extends AbstractTestQueryFramework
 {
@@ -36,13 +37,13 @@ public class TestRemoteQueryCommentLoggingDisabledByDefault
             throws Exception
     {
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
-        DistributedQueryRunner distributedQueryRunner = createPostgreSqlQueryRunner(
+        QueryRunner queryRunner = createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of(CUSTOMER, NATION));
 
-        return distributedQueryRunner;
+        return queryRunner;
     }
 
     @Test

@@ -28,9 +28,11 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
-import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -48,36 +50,39 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestMongoProjectionPushdownPlans
         extends BasePushdownPlanTest
 {
     private static final String CATALOG = "mongodb";
     private static final String SCHEMA = "test";
 
-    private Closer closer;
+    private final Closer closer = Closer.create();
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session session = testSessionBuilder()
                 .setCatalog(CATALOG)
                 .setSchema(SCHEMA)
                 .build();
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
+        PlanTester planTester = PlanTester.create(session);
 
-        closer = Closer.create();
         MongoServer server = closer.register(new MongoServer());
         MongoClient client = closer.register(createMongoClient(server));
 
         try {
-            queryRunner.installPlugin(new MongoPlugin());
-            queryRunner.createCatalog(
+            planTester.installPlugin(new MongoPlugin());
+            planTester.createCatalog(
                     CATALOG,
                     "mongodb",
                     ImmutableMap.of("mongodb.connection-url", server.getConnectionString().toString()));
@@ -85,18 +90,17 @@ public class TestMongoProjectionPushdownPlans
             client.getDatabase(SCHEMA).createCollection("dummy");
         }
         catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
+            closeAllSuppress(e, planTester);
             throw e;
         }
-        return queryRunner;
+        return planTester;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
             throws Exception
     {
         closer.close();
-        closer = null;
     }
 
     @Test
@@ -104,11 +108,11 @@ public class TestMongoProjectionPushdownPlans
     {
         String tableName = "test_pushdown_disabled_" + randomNameSuffix();
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setCatalogSessionProperty(CATALOG, "projection_pushdown_enabled", "false")
                 .build();
 
-        getQueryRunner().execute("CREATE TABLE " + tableName + " (col0) AS SELECT CAST(row(5, 6) AS row(a bigint, b bigint)) AS col0 WHERE false");
+        getPlanTester().executeStatement("CREATE TABLE " + tableName + " (col0) AS SELECT CAST(row(5, 6) AS row(a bigint, b bigint)) AS col0 WHERE false");
 
         assertPlan(
                 "SELECT col0.a expr_a, col0.b expr_b FROM " + tableName,
@@ -125,10 +129,10 @@ public class TestMongoProjectionPushdownPlans
         String tableName = "test_simple_projection_pushdown" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, tableName);
 
-        getQueryRunner().execute("CREATE TABLE " + tableName + " (col0, col1)" +
+        getPlanTester().executeStatement("CREATE TABLE " + tableName + " (col0, col1)" +
                 " AS SELECT CAST(row(5, 6) AS row(x BIGINT, y BIGINT)) AS col0, BIGINT '5' AS col1");
 
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
         assertThat(tableHandle).as("expected the table handle to be present").isPresent();
@@ -220,12 +224,12 @@ public class TestMongoProjectionPushdownPlans
         String tableName = "test_dereference_pushdown_with_dot_and_dollar_containing_field_" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, tableName);
 
-        getQueryRunner().execute(
+        getPlanTester().executeStatement(
                 "CREATE TABLE " + tableName + " (id, root1) AS" +
                         " SELECT BIGINT '1', CAST(ROW(11, ROW(111, ROW(1111, varchar 'foo', varchar 'bar'))) AS" +
                         " ROW(id BIGINT, root2 ROW(id BIGINT, root3 ROW(id BIGINT, \"dotted.field\" VARCHAR, \"$name\" VARCHAR))))");
 
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
         assertThat(tableHandle).as("expected the table handle to be present").isPresent();

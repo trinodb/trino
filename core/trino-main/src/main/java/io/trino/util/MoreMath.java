@@ -39,7 +39,7 @@ public final class MoreMath
             // relative error is less meaningful here
             return diff < (epsilon * Double.MIN_NORMAL);
         } // use relative error
-        return diff / Math.min((absA + absB), Double.MAX_VALUE) < epsilon;
+        return diff / Math.min(absA + absB, Double.MAX_VALUE) < epsilon;
     }
 
     /**
@@ -59,7 +59,7 @@ public final class MoreMath
             // relative error is less meaningful here
             return diff < (epsilon * Float.MIN_NORMAL);
         } // use relative error
-        return diff / Math.min((absA + absB), Float.MAX_VALUE) < epsilon;
+        return diff / Math.min(absA + absB, Float.MAX_VALUE) < epsilon;
     }
 
     public static double min(double... values)
@@ -139,5 +139,10 @@ public final class MoreMath
             return v1;
         }
         return max(v1, v2);
+    }
+
+    public static int previousPowerOfTwo(int x)
+    {
+        return Math.max(1, 1 << 31 - Integer.numberOfLeadingZeros(x));
     }
 }

@@ -14,15 +14,21 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tempto.ProductTest;
+import io.trino.tempto.hadoop.hdfs.HdfsClient;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
@@ -44,6 +50,9 @@ public class TestHiveSparkCompatibility
 {
     // see spark-defaults.conf
     private static final String TRINO_CATALOG = "hive";
+
+    @Inject
+    private HdfsClient hdfsClient;
 
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "testReadSparkCreatedTableDataProvider")
     public void testReadSparkCreatedTable(String sparkTableFormat, String expectedTrinoTableFormat)
@@ -353,7 +362,7 @@ public class TestHiveSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + hiveTableName);
     }
 
-    private static final String[] HIVE_TIMESTAMP_PRECISIONS = new String[]{"MILLISECONDS", "MICROSECONDS", "NANOSECONDS"};
+    private static final String[] HIVE_TIMESTAMP_PRECISIONS = new String[] {"MILLISECONDS", "MICROSECONDS", "NANOSECONDS"};
 
     @DataProvider
     public static Object[][] sparkParquetTimestampFormats()
@@ -364,10 +373,10 @@ public class TestHiveSparkCompatibility
 
         // Ordering of expected values matches the ordering in HIVE_TIMESTAMP_PRECISIONS
         return new Object[][] {
-                {"TIMESTAMP_MILLIS", millisTimestamp, new String[]{millisTimestamp, millisTimestamp, millisTimestamp}},
-                {"TIMESTAMP_MICROS", microsTimestamp, new String[]{millisTimestamp, microsTimestamp, microsTimestamp}},
+                {"TIMESTAMP_MILLIS", millisTimestamp, new String[] {millisTimestamp, millisTimestamp, millisTimestamp}},
+                {"TIMESTAMP_MICROS", microsTimestamp, new String[] {millisTimestamp, microsTimestamp, microsTimestamp}},
                 // note that Spark timestamp has microsecond precision
-                {"INT96", nanosTimestamp, new String[]{millisTimestamp, microsTimestamp, microsTimestamp}},
+                {"INT96", nanosTimestamp, new String[] {millisTimestamp, microsTimestamp, microsTimestamp}},
         };
     }
 
@@ -522,17 +531,18 @@ public class TestHiveSparkCompatibility
         onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='2022-04-13 00:00:00') VALUES (2)", sparkTableName));
         onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='2022-04-13 00:00') VALUES (3)", sparkTableName));
         onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='12345-06-07') VALUES (4)", sparkTableName));
-        onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='123-04-05') VALUES (5)", sparkTableName));
+        /// This INSERT statement was supported in older Spark version
+        assertQueryFailure(() -> onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='123-04-05') VALUES (5)", sparkTableName)))
+                .hasMessageContaining("cannot be cast to \"DATE\" because it is malformed");
         onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='-0001-01-01') VALUES (6)", sparkTableName));
 
-        assertThat(onTrino().executeQuery("SELECT \"$partition\" FROM " + trinoTableName))
+        assertThat(onTrino().executeQuery("SELECT value, \"$partition\" FROM " + trinoTableName))
                 .containsOnly(List.of(
-                        row("dt=2022-04-13 00%3A00%3A00.000000000"),
-                        row("dt=2022-04-13 00%3A00%3A00"),
-                        row("dt=2022-04-13 00%3A00"),
-                        row("dt=12345-06-07"),
-                        row("dt=123-04-05"),
-                        row("dt=-0001-01-01")));
+                        row(1, "dt=2022-04-13"),
+                        row(2, "dt=2022-04-13"),
+                        row(3, "dt=2022-04-13"),
+                        row(4, "dt=+12345-06-07"),
+                        row(6, "dt=-0001-01-01")));
 
         // Use date_format function to avoid exception due to java.sql.Date.valueOf() with 5 digit year
         assertThat(onSpark().executeQuery("SELECT value, date_format(dt, 'yyyy-MM-dd') FROM " + sparkTableName))
@@ -541,7 +551,6 @@ public class TestHiveSparkCompatibility
                         row(2, "2022-04-13"),
                         row(3, "2022-04-13"),
                         row(4, "+12345-06-07"),
-                        row(5, null),
                         row(6, "-0001-01-01")));
 
         // Use date_format function to avoid exception due to java.sql.Date.valueOf() with 5 digit year
@@ -550,8 +559,7 @@ public class TestHiveSparkCompatibility
                         row(1, "2022-04-13"),
                         row(2, "2022-04-13"),
                         row(3, "2022-04-13"),
-                        row(4, "12345-06-07"),
-                        row(5, "0123-04-06"),
+                        row(4, null),
                         row(6, "0002-01-03")));
 
         // Cast to varchar so that we can compare with Spark & Hive easily
@@ -561,10 +569,35 @@ public class TestHiveSparkCompatibility
                         row(2, "2022-04-13"),
                         row(3, "2022-04-13"),
                         row(4, "12345-06-07"),
-                        row(5, "0123-04-05"),
                         row(6, "-0001-01-01")));
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testTextInputFormatWithParquetHiveSerDe()
+            throws IOException
+    {
+        String tableName = "test_text_input_format_with_parquet_hive_ser_de" + randomNameSuffix();
+        onHive().executeQuery("" +
+                "CREATE EXTERNAL TABLE " + tableName +
+                "(col INT) " +
+                "ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe' " +
+                "STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
+                "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' " +
+                "LOCATION '/tmp/" + tableName + "'");
+        onSpark().executeQuery("INSERT INTO " + tableName + " VALUES(1)");
+        assertThat(onSpark().executeQuery("SELECT * FROM " + tableName)).containsOnly(row(1));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsOnly(row(1));
+        List<String> files = hdfsClient.listDirectory("/tmp/" + tableName + "/");
+        assertThat(files).hasSize(2);
+        assertThat(files.stream().filter(name -> !name.contains("SUCCESS")).collect(toImmutableList()).get(0)).endsWith("parquet");
+        List<Object> result = new ArrayList<>();
+        result.add(null);
+        assertThat(onHive().executeQuery("SELECT * FROM " + tableName)).containsOnly(new Row(result), new Row(result));
+        assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + tableName + " VALUES(2)")).hasMessageFindingMatch("Output format org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat with SerDe org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe is not supported");
+        assertQueryFailure(() -> onHive().executeQuery("INSERT INTO " + tableName + " VALUES(2)")).hasMessageFindingMatch(".*Error while processing statement.*");
+        onHive().executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "unsupportedPartitionDates")
@@ -575,17 +608,24 @@ public class TestHiveSparkCompatibility
 
         onSpark().executeQuery(format("CREATE TABLE default.%s (value integer) PARTITIONED BY (dt date)", sparkTableName));
 
-        // Spark allows creating partition with invalid date format
+        // The old Spark allowed creating partition with invalid date format
         // Hive denies creating such partitions, but allows reading
-        onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='%s') VALUES (1)", sparkTableName, inputDate));
+        if (inputDate.equals("2021-02-30") || inputDate.equals("invalid date")) {
+            assertQueryFailure(() -> onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='%s') VALUES (1)", sparkTableName, inputDate)))
+                    .hasMessageContaining("cannot be cast to \"DATE\" because it is malformed");
+            onSpark().executeQuery("DROP TABLE " + sparkTableName);
+            throw new SkipException("TODO");
+        }
+        else {
+            // Spark removes the following string after the date, e.g. 23:59:59 and invalid
+            onSpark().executeQuery(format("INSERT INTO %s PARTITION(dt='%s') VALUES (1)", sparkTableName, inputDate));
+        }
 
-        // Hive ignores time unit, and return null for invalid dates
+        Row expected = row(1, outputDate);
         assertThat(onHive().executeQuery("SELECT value, dt FROM " + sparkTableName))
-                .containsOnly(List.of(row(1, outputDate)));
-
-        // Trino throws an exception if the date is invalid format or not a whole round date
-        assertQueryFailure(() -> onTrino().executeQuery("SELECT value, dt FROM " + trinoTableName))
-                .hasMessageContaining("Invalid partition value");
+                .containsOnly(expected);
+        assertThat(onTrino().executeQuery("SELECT value, dt FROM " + trinoTableName))
+                .containsOnly(expected);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }

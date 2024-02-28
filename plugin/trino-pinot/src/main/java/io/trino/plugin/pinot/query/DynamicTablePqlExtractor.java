@@ -17,6 +17,7 @@ import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.pinot.query.PinotQueryBuilder.getFilterClause;
@@ -33,6 +34,14 @@ public final class DynamicTablePqlExtractor
     public static String extractPql(DynamicTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
         StringBuilder builder = new StringBuilder();
+        Map<String, String> queryOptions = table.getQueryOptions();
+        queryOptions.keySet().stream().sorted().forEach(
+                key -> builder
+                        .append("SET ")
+                        .append(key)
+                        .append(" = ")
+                        .append(format("'%s'", queryOptions.get(key)))
+                        .append(";\n"));
         builder.append("SELECT ");
         if (!table.getProjections().isEmpty()) {
             builder.append(table.getProjections().stream()

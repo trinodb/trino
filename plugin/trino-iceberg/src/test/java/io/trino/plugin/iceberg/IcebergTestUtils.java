@@ -19,7 +19,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.local.LocalInputFile;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
@@ -30,12 +29,11 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -113,11 +111,6 @@ public final class IcebergTestUtils
         }
     }
 
-    public static boolean checkParquetFileSorting(String path, String sortColumnName)
-    {
-        return checkParquetFileSorting(new LocalInputFile(new File(path)), sortColumnName);
-    }
-
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static boolean checkParquetFileSorting(TrinoInputFile inputFile, String sortColumnName)
     {
@@ -147,7 +140,7 @@ public final class IcebergTestUtils
         return true;
     }
 
-    public static TrinoFileSystemFactory getFileSystemFactory(DistributedQueryRunner queryRunner)
+    public static TrinoFileSystemFactory getFileSystemFactory(QueryRunner queryRunner)
     {
         return ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG))
                 .getInjector().getInstance(TrinoFileSystemFactory.class);

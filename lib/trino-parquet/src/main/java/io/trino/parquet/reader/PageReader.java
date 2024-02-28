@@ -21,6 +21,7 @@ import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
+import io.trino.parquet.ParquetDataSourceId;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
@@ -36,9 +37,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
+import static java.util.Objects.requireNonNull;
 
 public final class PageReader
 {
+    private final ParquetDataSourceId dataSourceId;
     private final CompressionCodec codec;
     private final boolean hasOnlyDictionaryEncodedPages;
     private final boolean hasNoNulls;
@@ -48,6 +51,7 @@ public final class PageReader
     private int dataPageReadCount;
 
     public static PageReader createPageReader(
+            ParquetDataSourceId dataSourceId,
             ChunkedInputStream columnChunk,
             ColumnChunkMetaData metadata,
             ColumnDescriptor columnDescriptor,
@@ -61,21 +65,30 @@ public final class PageReader
         boolean hasNoNulls = columnStatistics != null && columnStatistics.getNumNulls() == 0;
         boolean hasOnlyDictionaryEncodedPages = isOnlyDictionaryEncodingPages(metadata);
         ParquetColumnChunkIterator compressedPages = new ParquetColumnChunkIterator(
+                dataSourceId,
                 fileCreatedBy,
                 columnDescriptor,
                 metadata,
                 columnChunk,
                 offsetIndex);
-        return new PageReader(metadata.getCodec().getParquetCompressionCodec(), compressedPages, hasOnlyDictionaryEncodedPages, hasNoNulls);
+
+        return new PageReader(
+                dataSourceId,
+                metadata.getCodec().getParquetCompressionCodec(),
+                compressedPages,
+                hasOnlyDictionaryEncodedPages,
+                hasNoNulls);
     }
 
     @VisibleForTesting
     public PageReader(
+            ParquetDataSourceId dataSourceId,
             CompressionCodec codec,
             Iterator<? extends Page> compressedPages,
             boolean hasOnlyDictionaryEncodedPages,
             boolean hasNoNulls)
     {
+        this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
         this.codec = codec;
         this.compressedPages = Iterators.peekingIterator(compressedPages);
         this.hasOnlyDictionaryEncodedPages = hasOnlyDictionaryEncodedPages;
@@ -106,7 +119,7 @@ public final class PageReader
                     return dataPageV1;
                 }
                 return new DataPageV1(
-                        decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize()),
+                        decompress(dataSourceId, codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),
                         dataPageV1.getUncompressedSize(),
                         dataPageV1.getFirstRowIndex(),
@@ -128,7 +141,7 @@ public final class PageReader
                     dataPageV2.getRepetitionLevels(),
                     dataPageV2.getDefinitionLevels(),
                     dataPageV2.getDataEncoding(),
-                    decompress(codec, dataPageV2.getSlice(), uncompressedSize),
+                    decompress(dataSourceId, codec, dataPageV2.getSlice(), uncompressedSize),
                     dataPageV2.getUncompressedSize(),
                     dataPageV2.getFirstRowIndex(),
                     dataPageV2.getStatistics(),
@@ -150,7 +163,7 @@ public final class PageReader
         try {
             DictionaryPage compressedDictionaryPage = (DictionaryPage) compressedPages.next();
             return new DictionaryPage(
-                    decompress(codec, compressedDictionaryPage.getSlice(), compressedDictionaryPage.getUncompressedSize()),
+                    decompress(dataSourceId, codec, compressedDictionaryPage.getSlice(), compressedDictionaryPage.getUncompressedSize()),
                     compressedDictionaryPage.getDictionarySize(),
                     compressedDictionaryPage.getEncoding());
         }

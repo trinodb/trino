@@ -16,10 +16,10 @@ package io.trino.plugin.geospatial.aggregation;
 import com.google.common.base.Joiner;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.sql.query.QueryAssertions;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Arrays;
 import java.util.List;
@@ -29,20 +29,22 @@ import static java.lang.String.format;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestGeometryUnionGeoAggregation
         extends AbstractTestGeoAggregationFunctions
 {
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         assertions = new QueryAssertions();
         assertions.addPlugin(new GeoPlugin());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
@@ -51,321 +53,256 @@ public class TestGeometryUnionGeoAggregation
 
     private static final Joiner COMMA_JOINER = Joiner.on(",");
 
-    @DataProvider(name = "point")
-    public Object[][] point()
+    @Test
+    public void testPoint()
     {
-        return new Object[][] {
-                {
-                        "identity",
-                        "POINT (1 2)",
-                        new String[] {"POINT (1 2)", "POINT (1 2)", "POINT (1 2)"},
-                },
-                {
-                        "no input yields null",
-                        null,
-                        new String[] {},
-                },
-                {
-                        "empty with non-empty",
-                        "POINT (1 2)",
-                        new String[] {"POINT EMPTY", "POINT (1 2)"},
-                },
-                {
-                        "disjoint returns multipoint",
-                        "MULTIPOINT ((1 2), (3 4))",
-                        new String[] {"POINT (1 2)", "POINT (3 4)"},
-                },
-        };
+        test(
+                "identity",
+                "POINT (1 2)",
+                "POINT (1 2)", "POINT (1 2)", "POINT (1 2)");
+
+        test(
+                "no input yields null",
+                null);
+
+        test(
+                "empty with non-empty",
+                "POINT (1 2)",
+                "POINT EMPTY", "POINT (1 2)");
+
+        test(
+                "disjoint returns multipoint",
+                "MULTIPOINT ((1 2), (3 4))",
+                "POINT (1 2)", "POINT (3 4)");
     }
 
-    @DataProvider(name = "linestring")
-    public Object[][] linestring()
+    @Test
+    public void testLinestring()
     {
-        return new Object[][] {
-                {
-                        "identity",
-                        "LINESTRING (1 1, 2 2)",
-                        new String[] {"LINESTRING (1 1, 2 2)", "LINESTRING (1 1, 2 2)", "LINESTRING (1 1, 2 2)"},
-                },
-                {
-                        "empty with non-empty",
-                        "LINESTRING (1 1, 2 2)",
-                        new String[] {"LINESTRING EMPTY", "LINESTRING (1 1, 2 2)"},
-                },
-                {
-                        "overlap",
-                        "LINESTRING (1 1, 2 2, 3 3, 4 4)",
-                        new String[] {"LINESTRING (1 1, 2 2, 3 3)", "LINESTRING (2 2, 3 3, 4 4)"},
-                },
-                {
-                        "disjoint returns multistring",
-                        "MULTILINESTRING ((1 1, 2 2, 3 3), (1 2, 2 3, 3 4))",
-                        new String[] {"LINESTRING (1 1, 2 2, 3 3)", "LINESTRING (1 2, 2 3, 3 4)"},
-                },
-                {
-                        "cut through returns multistring",
-                        "MULTILINESTRING ((1 1, 2 2), (3 1, 2 2), (2 2, 3 3), (2 2, 1 3))",
-                        new String[] {"LINESTRING (1 1, 3 3)", "LINESTRING (3 1, 1 3)"},
-                },
-        };
+        test(
+                "identity",
+                "LINESTRING (1 1, 2 2)",
+                "LINESTRING (1 1, 2 2)", "LINESTRING (1 1, 2 2)", "LINESTRING (1 1, 2 2)");
+
+        test(
+                "empty with non-empty",
+                "LINESTRING (1 1, 2 2)",
+                "LINESTRING EMPTY", "LINESTRING (1 1, 2 2)");
+
+        test(
+                "overlap",
+                "LINESTRING (1 1, 2 2, 3 3, 4 4)",
+                "LINESTRING (1 1, 2 2, 3 3)", "LINESTRING (2 2, 3 3, 4 4)");
+
+        test(
+                "disjoint returns multistring",
+                "MULTILINESTRING ((1 1, 2 2, 3 3), (1 2, 2 3, 3 4))",
+                "LINESTRING (1 1, 2 2, 3 3)", "LINESTRING (1 2, 2 3, 3 4)");
+
+        test(
+                "cut through returns multistring",
+                "MULTILINESTRING ((1 1, 2 2), (3 1, 2 2), (2 2, 3 3), (2 2, 1 3))",
+                "LINESTRING (1 1, 3 3)", "LINESTRING (3 1, 1 3)");
     }
 
-    @DataProvider(name = "polygon")
-    public Object[][] polygon()
+    @Test
+    public void testPolygon()
     {
-        return new Object[][] {
-                {
-                        "identity",
-                        "POLYGON ((2 2, 1 1, 3 1, 2 2))",
-                        new String[] {"POLYGON ((2 2, 1 1, 3 1, 2 2))", "POLYGON ((2 2, 1 1, 3 1, 2 2))", "POLYGON ((2 2, 1 1, 3 1, 2 2))"},
-                },
-                {
-                        "empty with non-empty",
-                        "POLYGON ((2 2, 1 1, 3 1, 2 2))",
-                        new String[] {"POLYGON EMPTY)", "POLYGON ((2 2, 1 1, 3 1, 2 2))"},
-                },
-                {
-                        "three overlapping triangles",
-                        "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))",
-                        new String[] {"POLYGON ((2 2, 3 1, 1 1, 2 2))", "POLYGON ((3 2, 4 1, 2 1, 3 2))", "POLYGON ((4 2, 5 1, 3 1, 4 2))"},
-                },
-                {
-                        "two triangles touching at 3 1 returns multipolygon",
-                        "MULTIPOLYGON (((1 1, 3 1, 2 2, 1 1)), ((3 1, 5 1, 4 2, 3 1)))",
-                        new String[] {"POLYGON ((2 2, 3 1, 1 1, 2 2))", "POLYGON ((4 2, 5 1, 3 1, 4 2))"},
-                },
-                {
-                        "two disjoint triangles returns multipolygon",
-                        "MULTIPOLYGON (((1 1, 3 1, 2 2, 1 1)), ((4 1, 6 1, 5 2, 4 1)))",
-                        new String[] {"POLYGON ((2 2, 3 1, 1 1, 2 2))", "POLYGON ((5 2, 6 1, 4 1, 5 2))"},
-                },
-                {
-                        "polygon with hole that is filled is simplified",
-                        "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1))",
-                        new String[] {"POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))", "POLYGON ((3 3, 4 3, 4 4, 3 4, 3 3))"},
-                },
-                {
-                        "polygon with hole with shape larger than hole is simplified",
-                        "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1))",
-                        new String[] {"POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))", "POLYGON ((2 2, 5 2, 5 5, 2 5, 2 2))"},
-                },
-                {
-                        "polygon with hole with shape smaller than hole becomes multipolygon",
-                        "MULTIPOLYGON (((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 3 4, 4 4, 4 3, 3 3)), ((3.25 3.25, 3.75 3.25, 3.75 3.75, 3.25 3.75, 3.25 3.25)))",
-                        new String[] {"POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))", "POLYGON ((3.25 3.25, 3.75 3.25, 3.75 3.75, 3.25 3.75, 3.25 3.25))"},
-                },
-                {
-                        "polygon with hole with several smaller pieces which fill hole simplify into polygon",
-                        "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1))",
-                        new String[] {"POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))", "POLYGON ((3 3, 3 3.5, 3.5 3.5, 3.5 3, 3 3))",
-                                "POLYGON ((3.5 3.5, 3.5 4, 4 4, 4 3.5, 3.5 3.5))", "POLYGON ((3 3.5, 3 4, 3.5 4, 3.5 3.5, 3 3.5))",
-                                "POLYGON ((3.5 3, 3.5 3.5, 4 3.5, 4 3, 3.5 3))"},
-                },
-                {
-                        "two overlapping rectangles becomes cross",
-                        "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))",
-                        new String[] {"POLYGON ((1 3, 1 4, 6 4, 6 3, 1 3))", "POLYGON ((3 1, 4 1, 4 6, 3 6, 3 1))"},
-                },
-                {
-                        "touching squares become single cross",
-                        "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))",
-                        new String[] {"POLYGON ((1 3, 1 4, 3 4, 3 3, 1 3))", "POLYGON ((3 3, 3 4, 4 4, 4 3, 3 3))", "POLYGON ((4 3, 4 4, 6 4, 6 3, 4 3))",
-                                "POLYGON ((3 1, 4 1, 4 3, 3 3, 3 1))", "POLYGON ((3 4, 3 6, 4 6, 4 4, 3 4))"},
-                },
-                {
-                        "square with touching point becomes simplified polygon",
-                        "POLYGON ((1 1, 3 1, 3 2, 3 3, 1 3, 1 1))",
-                        new String[] {"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (3 2)"},
-                },
-        };
+        test(
+                "identity",
+                "POLYGON ((2 2, 1 1, 3 1, 2 2))",
+                "POLYGON ((2 2, 1 1, 3 1, 2 2))", "POLYGON ((2 2, 1 1, 3 1, 2 2))", "POLYGON ((2 2, 1 1, 3 1, 2 2))");
+
+        test(
+                "empty with non-empty",
+                "POLYGON ((2 2, 1 1, 3 1, 2 2))",
+                "POLYGON EMPTY)", "POLYGON ((2 2, 1 1, 3 1, 2 2))");
+
+        test(
+                "three overlapping triangles",
+                "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))",
+                "POLYGON ((2 2, 3 1, 1 1, 2 2))", "POLYGON ((3 2, 4 1, 2 1, 3 2))", "POLYGON ((4 2, 5 1, 3 1, 4 2))");
+
+        test(
+                "two triangles touching at 3 1 returns multipolygon",
+                "MULTIPOLYGON (((1 1, 3 1, 2 2, 1 1)), ((3 1, 5 1, 4 2, 3 1)))",
+                "POLYGON ((2 2, 3 1, 1 1, 2 2))", "POLYGON ((4 2, 5 1, 3 1, 4 2))");
+
+        test(
+                "two disjoint triangles returns multipolygon",
+                "MULTIPOLYGON (((1 1, 3 1, 2 2, 1 1)), ((4 1, 6 1, 5 2, 4 1)))",
+                "POLYGON ((2 2, 3 1, 1 1, 2 2))", "POLYGON ((5 2, 6 1, 4 1, 5 2))");
+
+        test(
+                "polygon with hole that is filled is simplified",
+                "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1))",
+                "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))", "POLYGON ((3 3, 4 3, 4 4, 3 4, 3 3))");
+
+        test(
+                "polygon with hole with shape larger than hole is simplified",
+                "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1))",
+                "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))", "POLYGON ((2 2, 5 2, 5 5, 2 5, 2 2))");
+
+        test(
+                "polygon with hole with shape smaller than hole becomes multipolygon",
+                "MULTIPOLYGON (((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 3 4, 4 4, 4 3, 3 3)), ((3.25 3.25, 3.75 3.25, 3.75 3.75, 3.25 3.75, 3.25 3.25)))",
+                "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))", "POLYGON ((3.25 3.25, 3.75 3.25, 3.75 3.75, 3.25 3.75, 3.25 3.25))");
+
+        test(
+                "polygon with hole with several smaller pieces which fill hole simplify into polygon",
+                "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1))",
+                "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))", "POLYGON ((3 3, 3 3.5, 3.5 3.5, 3.5 3, 3 3))",
+                "POLYGON ((3.5 3.5, 3.5 4, 4 4, 4 3.5, 3.5 3.5))", "POLYGON ((3 3.5, 3 4, 3.5 4, 3.5 3.5, 3 3.5))",
+                "POLYGON ((3.5 3, 3.5 3.5, 4 3.5, 4 3, 3.5 3))");
+
+        test(
+                "two overlapping rectangles becomes cross",
+                "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))",
+                "POLYGON ((1 3, 1 4, 6 4, 6 3, 1 3))", "POLYGON ((3 1, 4 1, 4 6, 3 6, 3 1))");
+
+        test(
+                "touching squares become single cross",
+                "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))",
+                "POLYGON ((1 3, 1 4, 3 4, 3 3, 1 3))", "POLYGON ((3 3, 3 4, 4 4, 4 3, 3 3))", "POLYGON ((4 3, 4 4, 6 4, 6 3, 4 3))",
+                "POLYGON ((3 1, 4 1, 4 3, 3 3, 3 1))", "POLYGON ((3 4, 3 6, 4 6, 4 4, 3 4))");
+
+        test(
+                "square with touching point becomes simplified polygon",
+                "POLYGON ((1 1, 3 1, 3 2, 3 3, 1 3, 1 1))",
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (3 2)");
     }
 
-    @DataProvider(name = "multipoint")
-    public Object[][] multipoint()
+    @Test
+    public void testMultipoint()
     {
-        return new Object[][] {
-                {
-                        "identity",
-                        "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))",
-                        new String[] {"MULTIPOINT ((1 2), (2 4), (3 6), (4 8))", "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))", "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))"},
-                },
-                {
-                        "empty with non-empty",
-                        "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))",
-                        new String[] {"MULTIPOINT EMPTY", "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))"},
-                },
-                {
-                        "disjoint",
-                        "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))",
-                        new String[] {"MULTIPOINT ((1 2), (2 4))", "MULTIPOINT ((3 6), (4 8))"},
-                },
-                {
-                        "overlap",
-                        "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))",
-                        new String[] {"MULTIPOINT ((1 2), (2 4))", "MULTIPOINT ((2 4), (3 6))", "MULTIPOINT ((3 6), (4 8))"},
-                },
-        };
+        test(
+                "identity",
+                "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))",
+                "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))", "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))", "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))");
+
+        test(
+                "empty with non-empty",
+                "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))",
+                "MULTIPOINT EMPTY", "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))");
+
+        test(
+                "disjoint",
+                "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))",
+                "MULTIPOINT ((1 2), (2 4))", "MULTIPOINT ((3 6), (4 8))");
+
+        test(
+                "overlap",
+                "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))",
+                "MULTIPOINT ((1 2), (2 4))", "MULTIPOINT ((2 4), (3 6))", "MULTIPOINT ((3 6), (4 8))");
     }
 
-    @DataProvider(name = "multilinestring")
-    public Object[][] multilinestring()
+    @Test
+    public void testMultilinestring()
     {
-        return new Object[][] {
-                {
-                        "identity",
-                        "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))",
-                        new String[] {"MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))", "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))", "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))"},
-                },
-                {
-                        "empty with non-empty",
-                        "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))",
-                        new String[] {"MULTILINESTRING EMPTY", "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))"},
-                },
-                {
-                        "disjoint",
-                        "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1), (3 5, 6 1), (4 5, 7 1))",
-                        new String[] {"MULTILINESTRING ((1 5, 4 1), (3 5, 6 1))", "MULTILINESTRING ((2 5, 5 1), (4 5, 7 1))"},
-                },
-                {
-                        "disjoint aggregates with cut through",
-                        "MULTILINESTRING ((2.5 3, 4 1), (3.5 3, 5 1), (4.5 3, 6 1), (5.5 3, 7 1), (1 3, 2.5 3), (2.5 3, 3.5 3), (1 5, 2.5 3), (3.5 3, 4.5 3), (2 5, 3.5 3), (4.5 3, 5.5 3), (3 5, 4.5 3), (5.5 3, 8 3), (4 5, 5.5 3))",
-                        new String[] {"MULTILINESTRING ((1 5, 4 1), (3 5, 6 1))", "MULTILINESTRING ((2 5, 5 1), (4 5, 7 1))", "LINESTRING (1 3, 8 3)"},
-                },
-        };
+        test(
+                "identity",
+                "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))",
+                "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))", "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))", "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))");
+
+        test(
+                "empty with non-empty",
+                "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))",
+                "MULTILINESTRING EMPTY", "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))");
+
+        test(
+                "disjoint",
+                "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1), (3 5, 6 1), (4 5, 7 1))",
+                "MULTILINESTRING ((1 5, 4 1), (3 5, 6 1))", "MULTILINESTRING ((2 5, 5 1), (4 5, 7 1))");
+
+        test(
+                "disjoint aggregates with cut through",
+                "MULTILINESTRING ((2.5 3, 4 1), (3.5 3, 5 1), (4.5 3, 6 1), (5.5 3, 7 1), (1 3, 2.5 3), (2.5 3, 3.5 3), (1 5, 2.5 3), (3.5 3, 4.5 3), (2 5, 3.5 3), (4.5 3, 5.5 3), (3 5, 4.5 3), (5.5 3, 8 3), (4 5, 5.5 3))",
+                "MULTILINESTRING ((1 5, 4 1), (3 5, 6 1))", "MULTILINESTRING ((2 5, 5 1), (4 5, 7 1))", "LINESTRING (1 3, 8 3)");
     }
 
-    @DataProvider(name = "multipolygon")
-    public Object[][] multipolygon()
+    @Test
+    public void testMultipolygon()
     {
-        return new Object[][] {
-                {
-                        "identity",
-                        "MULTIPOLYGON (((4 2, 3 1, 5 1, 4 2)), ((14 12, 13 11, 15 11, 14 12)))",
-                        new String[] {"MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))",
-                                "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))"},
-                },
-                {
-                        "empty with non-empty",
-                        "MULTIPOLYGON (((4 2, 3 1, 5 1, 4 2)), ((14 12, 13 11, 15 11, 14 12)))",
-                        new String[] {"MULTIPOLYGON EMPTY", "MULTIPOLYGON (((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))"},
-                },
-                {
-                        "disjoint",
-                        "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)), ((0 3, 2 3, 2 5, 0 5, 0 3)), ((3 3, 5 3, 5 5, 3 5, 3 3)))",
-                        new String[] {"MULTIPOLYGON ((( 0 0, 0 2, 2 2, 2 0, 0 0 )), (( 0 3, 0 5, 2 5, 2 3, 0 3 )))",
-                                "MULTIPOLYGON ((( 3 0, 3 2, 5 2, 5 0, 3 0 )), (( 3 3, 3 5, 5 5, 5 3, 3 3 )))"},
-                },
-                {
-                        "overlapping multipolygons are simplified",
-                        "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))",
-                        new String[] {"MULTIPOLYGON (((2 2, 3 1, 1 1, 2 2)), ((3 2, 4 1, 2 1, 3 2)))", "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))"},
-                },
-                {
-                        "overlapping multipolygons become single cross",
-                        "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))",
-                        new String[] {"MULTIPOLYGON (((1 3, 1 4, 3 4, 3 3, 1 3)), ((3 3, 3 4, 4 4, 4 3, 3 3)), ((4 3, 4 4, 6 4, 6 3, 4 3)))",
-                                "MULTIPOLYGON (((3 1, 4 1, 4 3, 3 3, 3 1)), ((3 4, 3 6, 4 6, 4 4, 3 4)))"},
-                },
-        };
+        test(
+                "identity",
+                "MULTIPOLYGON (((4 2, 3 1, 5 1, 4 2)), ((14 12, 13 11, 15 11, 14 12)))",
+                "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))",
+                "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))");
+
+        test(
+                "empty with non-empty",
+                "MULTIPOLYGON (((4 2, 3 1, 5 1, 4 2)), ((14 12, 13 11, 15 11, 14 12)))",
+                "MULTIPOLYGON EMPTY", "MULTIPOLYGON (((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))");
+
+        test(
+                "disjoint",
+                "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)), ((0 3, 2 3, 2 5, 0 5, 0 3)), ((3 3, 5 3, 5 5, 3 5, 3 3)))",
+                "MULTIPOLYGON ((( 0 0, 0 2, 2 2, 2 0, 0 0 )), (( 0 3, 0 5, 2 5, 2 3, 0 3 )))",
+                "MULTIPOLYGON ((( 3 0, 3 2, 5 2, 5 0, 3 0 )), (( 3 3, 3 5, 5 5, 5 3, 3 3 )))");
+
+        test(
+                "overlapping multipolygons are simplified",
+                "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))",
+                "MULTIPOLYGON (((2 2, 3 1, 1 1, 2 2)), ((3 2, 4 1, 2 1, 3 2)))", "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))");
+
+        test(
+                "overlapping multipolygons become single cross",
+                "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))",
+                "MULTIPOLYGON (((1 3, 1 4, 3 4, 3 3, 1 3)), ((3 3, 3 4, 4 4, 4 3, 3 3)), ((4 3, 4 4, 6 4, 6 3, 4 3)))",
+                "MULTIPOLYGON (((3 1, 4 1, 4 3, 3 3, 3 1)), ((3 4, 3 6, 4 6, 4 4, 3 4)))");
     }
 
-    @DataProvider(name = "geometrycollection")
-    public Object[][] geometryCollection()
+    @Test
+    public void testGeometryCollection()
     {
-        return new Object[][] {
-                {
-                        "identity",
-                        "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))",
-                        new String[] {"MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))",
-                                "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))",
-                                "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))"},
-                },
-                {
-                        "empty collection with empty collection",
-                        "GEOMETRYCOLLECTION EMPTY",
-                        new String[] {"GEOMETRYCOLLECTION EMPTY",
-                                "GEOMETRYCOLLECTION EMPTY"},
-                },
-                {
-                        "empty with non-empty",
-                        "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))",
-                        new String[] {"GEOMETRYCOLLECTION EMPTY",
-                                "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))"},
-                },
-                {
-                        "overlapping geometry collections are simplified",
-                        "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))",
-                        new String[] {"GEOMETRYCOLLECTION ( POLYGON ((2 2, 3 1, 1 1, 2 2)), POLYGON ((3 2, 4 1, 2 1, 3 2)) )",
-                                "GEOMETRYCOLLECTION ( POLYGON ((4 2, 5 1, 3 1, 4 2)) )"},
-                },
-                {
-                        "disjoint geometry collection of polygons becomes multipolygon",
-                        "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)), ((0 3, 2 3, 2 5, 0 5, 0 3)), ((3 3, 5 3, 5 5, 3 5, 3 3)))",
-                        new String[] {"GEOMETRYCOLLECTION ( POLYGON (( 0 0, 0 2, 2 2, 2 0, 0 0 )), POLYGON (( 0 3, 0 5, 2 5, 2 3, 0 3 )) )",
-                                "GEOMETRYCOLLECTION ( POLYGON (( 3 0, 3 2, 5 2, 5 0, 3 0 )), POLYGON (( 3 3, 3 5, 5 5, 5 3, 3 3 )) )"},
-                },
-                {
-                        "square with a line crossed becomes geometry collection",
-                        "GEOMETRYCOLLECTION (MULTILINESTRING ((0 2, 1 2), (3 2, 5 2)), POLYGON ((1 1, 3 1, 3 2, 3 3, 1 3, 1 2, 1 1)))",
-                        new String[] {"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 2, 5 2)"},
-                },
-                {
-                        "square with adjacent line becomes geometry collection",
-                        "GEOMETRYCOLLECTION (LINESTRING (0 5, 5 5), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)))",
-                        new String[] {"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 5, 5 5)"},
-                },
-                {
-                        "square with adjacent point becomes geometry collection",
-                        "GEOMETRYCOLLECTION (POINT (5 2), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)))",
-                        new String[] {"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (5 2)"},
-                },
-        };
+        test(
+                "identity",
+                "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))",
+                "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))",
+                "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))",
+                "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))");
+
+        test(
+                "empty collection with empty collection",
+                "GEOMETRYCOLLECTION EMPTY",
+                "GEOMETRYCOLLECTION EMPTY",
+                "GEOMETRYCOLLECTION EMPTY");
+
+        test(
+                "empty with non-empty",
+                "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))",
+                "GEOMETRYCOLLECTION EMPTY",
+                "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))");
+
+        test(
+                "overlapping geometry collections are simplified",
+                "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))",
+                "GEOMETRYCOLLECTION ( POLYGON ((2 2, 3 1, 1 1, 2 2)), POLYGON ((3 2, 4 1, 2 1, 3 2)) )",
+                "GEOMETRYCOLLECTION ( POLYGON ((4 2, 5 1, 3 1, 4 2)) )");
+
+        test(
+                "disjoint geometry collection of polygons becomes multipolygon",
+                "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)), ((0 3, 2 3, 2 5, 0 5, 0 3)), ((3 3, 5 3, 5 5, 3 5, 3 3)))",
+                "GEOMETRYCOLLECTION ( POLYGON (( 0 0, 0 2, 2 2, 2 0, 0 0 )), POLYGON (( 0 3, 0 5, 2 5, 2 3, 0 3 )) )",
+                "GEOMETRYCOLLECTION ( POLYGON (( 3 0, 3 2, 5 2, 5 0, 3 0 )), POLYGON (( 3 3, 3 5, 5 5, 5 3, 3 3 )) )");
+
+        test(
+                "square with a line crossed becomes geometry collection",
+                "GEOMETRYCOLLECTION (MULTILINESTRING ((0 2, 1 2), (3 2, 5 2)), POLYGON ((1 1, 3 1, 3 2, 3 3, 1 3, 1 2, 1 1)))",
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 2, 5 2)");
+
+        test(
+                "square with adjacent line becomes geometry collection",
+                "GEOMETRYCOLLECTION (LINESTRING (0 5, 5 5), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)))",
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 5, 5 5)");
+
+        test(
+                "square with adjacent point becomes geometry collection",
+                "GEOMETRYCOLLECTION (POINT (5 2), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)))",
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (5 2)");
     }
 
-    @Test(dataProvider = "point")
-    public void testPoint(String testDescription, String expectedWkt, String... wkts)
-    {
-        assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
-    }
-
-    @Test(dataProvider = "linestring")
-    public void testLineString(String testDescription, String expectedWkt, String... wkts)
-    {
-        assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
-    }
-
-    @Test(dataProvider = "polygon")
-    public void testPolygon(String testDescription, String expectedWkt, String... wkts)
-    {
-        assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
-    }
-
-    @Test(dataProvider = "multipoint")
-    public void testMultiPoint(String testDescription, String expectedWkt, String... wkts)
-    {
-        assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
-    }
-
-    @Test(dataProvider = "multilinestring")
-    public void testMultiLineString(String testDescription, String expectedWkt, String... wkts)
-    {
-        assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
-    }
-
-    @Test(dataProvider = "multipolygon")
-    public void testMultiPolygon(String testDescription, String expectedWkt, String... wkts)
-    {
-        assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
-    }
-
-    @Test(dataProvider = "geometrycollection")
-    public void testGeometryCollection(String testDescription, String expectedWkt, String... wkts)
+    private void test(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
         assertArrayAggAndGeometryUnion(expectedWkt, wkts);

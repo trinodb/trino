@@ -15,8 +15,7 @@ package io.trino.spi.security;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -48,26 +47,26 @@ public class TestIdentity
                 .isEqualTo(TEST_IDENTITY);
     }
 
-    @Test(dataProvider = "notEqualProvider")
-    public void testNotEquals(Identity otherIdentity)
+    @Test
+    public void testNotEquals()
     {
-        assertThat(otherIdentity)
+        assertThat(Identity.from(TEST_IDENTITY).withPrincipal(new BasicPrincipal("other principal")).build())
                 .isNotEqualTo(TEST_IDENTITY);
-    }
 
-    @DataProvider
-    public static Object[][] notEqualProvider()
-    {
-        return new Object[][]
-                {
-                        {Identity.from(TEST_IDENTITY).withPrincipal(new BasicPrincipal("other principal")).build()},
-                        {Identity.from(TEST_IDENTITY).withGroups(ImmutableSet.of("group2", "group3")).build()},
-                        {Identity.from(TEST_IDENTITY).withEnabledRoles(ImmutableSet.of("role2", "role3")).build()},
-                        {Identity.from(TEST_IDENTITY).withConnectorRoles(ImmutableMap.of(
-                                "connector2", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("connector2role")),
-                                "connector3", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("connector3role"))))
-                                .build()},
-                };
+        assertThat(Identity.from(TEST_IDENTITY).withPrincipal(new BasicPrincipal("other principal")).build())
+                .isNotEqualTo(TEST_IDENTITY);
+
+        assertThat(Identity.from(TEST_IDENTITY).withGroups(ImmutableSet.of("group2", "group3")).build())
+                .isNotEqualTo(TEST_IDENTITY);
+
+        assertThat(Identity.from(TEST_IDENTITY).withEnabledRoles(ImmutableSet.of("role2", "role3")).build())
+                .isNotEqualTo(TEST_IDENTITY);
+
+        assertThat(Identity.from(TEST_IDENTITY).withConnectorRoles(ImmutableMap.of(
+                        "connector2", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("connector2role")),
+                        "connector3", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("connector3role"))))
+                .build())
+                .isNotEqualTo(TEST_IDENTITY);
     }
 
     @Test

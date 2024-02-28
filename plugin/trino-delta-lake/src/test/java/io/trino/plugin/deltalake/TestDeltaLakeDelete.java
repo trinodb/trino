@@ -19,7 +19,8 @@ import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.Set;
 
@@ -29,6 +30,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Isolated
 public class TestDeltaLakeDelete
         extends AbstractTestQueryFramework
 {
@@ -67,9 +69,13 @@ public class TestDeltaLakeDelete
                 "AS VALUES " +
                 "(1, 'with-hyphen'), " +
                 "(2, 'with:colon'), " +
-                "(3, 'with?question')", 3);
+                "(3, 'with:colon'), " + // create two rows in a single file to trigger parquet file rewrite on delete
+                "(4, 'with?question')", 4);
+        assertQuery("SELECT count(*), count(DISTINCT \"$path\"), col_name FROM " + tableName + " GROUP BY 3", "VALUES (1, 1, 'with-hyphen'), (2, 1, 'with:colon'), (1, 1, 'with?question')");
         assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'with-hyphen'), (3, 'with?question')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'with-hyphen'), (3, 'with:colon'), (4, 'with?question')");
+        assertUpdate("DELETE FROM " + tableName, 3);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
     }
 
     @Test
@@ -86,7 +92,7 @@ public class TestDeltaLakeDelete
     {
         testDeleteMultiFile(
                 "multi_file_databricks" + randomNameSuffix(),
-                "io/trino/plugin/deltalake/testing/resources/databricks");
+                "io/trino/plugin/deltalake/testing/resources/databricks73");
     }
 
     @Test
@@ -168,7 +174,7 @@ public class TestDeltaLakeDelete
         String tableName = "test_delete_all_databricks" + randomNameSuffix();
         Set<String> originalFiles = testDeleteAllAndReturnInitialDataLakeFilesSet(
                 tableName,
-                "io/trino/plugin/deltalake/testing/resources/databricks");
+                "io/trino/plugin/deltalake/testing/resources/databricks73");
 
         Set<String> expected = ImmutableSet.<String>builder()
                 .addAll(originalFiles)

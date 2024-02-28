@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem.memory;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -22,12 +24,12 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.memory.MemoryOutputFile.OutputBlob;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -41,7 +43,8 @@ public class MemoryFileSystem
 {
     private final ConcurrentMap<String, MemoryBlob> blobs = new ConcurrentHashMap<>();
 
-    boolean isEmpty()
+    @VisibleForTesting
+    public boolean isEmpty()
     {
         return blobs.isEmpty();
     }
@@ -94,9 +97,7 @@ public class MemoryFileSystem
     public void deleteFile(Location location)
             throws IOException
     {
-        if (blobs.remove(toBlobKey(location)) == null) {
-            throw new FileNotFoundException(location.toString());
-        }
+        blobs.remove(toBlobKey(location));
     }
 
     @Override
@@ -178,6 +179,31 @@ public class MemoryFileSystem
             throws IOException
     {
         throw new IOException("Memory file system does not support directory renames");
+    }
+
+    @Override
+    public Set<Location> listDirectories(Location location)
+            throws IOException
+    {
+        String prefix = toBlobPrefix(location);
+        ImmutableSet.Builder<Location> directories = ImmutableSet.builder();
+        for (String key : blobs.keySet()) {
+            if (key.startsWith(prefix)) {
+                int index = key.indexOf('/', prefix.length() + 1);
+                if (index >= 0) {
+                    directories.add(Location.of("memory:///" + key.substring(0, index + 1)));
+                }
+            }
+        }
+        return directories.build();
+    }
+
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+    {
+        validateMemoryLocation(targetPath);
+        // memory file system does not have directories
+        return Optional.empty();
     }
 
     private static String toBlobKey(Location location)

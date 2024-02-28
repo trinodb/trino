@@ -15,8 +15,12 @@ package io.trino.execution.resourcegroups.db;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
+import io.trino.execution.ExecutionFailureInfo;
+import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
@@ -25,17 +29,20 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.testing.Assertions.assertContains;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static io.trino.execution.QueryRunnerUtil.cancelQuery;
 import static io.trino.execution.QueryRunnerUtil.createQuery;
@@ -60,21 +67,21 @@ import static io.trino.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static io.trino.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-// run single threaded to avoid creating multiple query runners at once
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD) // run single threaded to avoid creating multiple query runners at once
 public class TestQueuesDb
 {
     // Copy of TestQueues with tests for db reconfiguration of resource groups
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
-    private DistributedQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private H2ResourceGroupsDao dao;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws Exception
     {
@@ -83,14 +90,15 @@ public class TestQueuesDb
         queryRunner = createQueryRunner(dbConfigUrl, dao);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         queryRunner.close();
         queryRunner = null;
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testRunningQuery()
             throws Exception
     {
@@ -106,7 +114,8 @@ public class TestQueuesDb
         }
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testBasic()
             throws Exception
     {
@@ -146,7 +155,8 @@ public class TestQueuesDb
         waitForCompleteQueryCount(queryRunner, 1);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testTwoQueriesAtSameTime()
             throws Exception
     {
@@ -156,7 +166,8 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
     }
 
-    @Test(timeOut = 90_000)
+    @Test
+    @Timeout(90)
     public void testTooManyQueries()
             throws Exception
     {
@@ -193,7 +204,8 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testRejection()
             throws Exception
     {
@@ -203,11 +215,11 @@ public class TestQueuesDb
         QueryId queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, FAILED);
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-        assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
+        assertThat(dispatchManager.getQueryInfo(queryId).getErrorCode()).isEqualTo(QUERY_REJECTED.toErrorCode());
         int selectorCount = getSelectors(queryRunner).size();
         dao.insertSelector(4, 100_000, "user.*", null, "(?i).*reject.*", null, null, null);
         dbConfigurationManager.load();
-        assertEquals(getSelectors(queryRunner).size(), selectorCount + 1);
+        assertThat(getSelectors(queryRunner).size()).isEqualTo(selectorCount + 1);
         // Verify the query can be submitted
         queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, RUNNING);
@@ -218,17 +230,19 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, queryId, FAILED);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testQuerySystemTableResourceGroup()
             throws Exception
     {
         QueryId firstQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, RUNNING);
         MaterializedResult result = queryRunner.execute("SELECT resource_group_id FROM system.runtime.queries WHERE source = 'dashboard'");
-        assertEquals(result.getOnlyValue(), ImmutableList.of("global", "user-user", "dashboard-user"));
+        assertThat(result.getOnlyValue()).isEqualTo(ImmutableList.of("global", "user-user", "dashboard-user"));
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testSelectorPriority()
             throws Exception
     {
@@ -240,8 +254,8 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, firstQuery, RUNNING);
 
         Optional<ResourceGroupId> resourceGroup = queryManager.getFullQueryInfo(firstQuery).getResourceGroupId();
-        assertTrue(resourceGroup.isPresent());
-        assertEquals(resourceGroup.get().toString(), "global.user-user.dashboard-user");
+        assertThat(resourceGroup.isPresent()).isTrue();
+        assertThat(resourceGroup.get().toString()).isEqualTo("global.user-user.dashboard-user");
 
         // create a new resource group that rejects all queries submitted to it
         dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
@@ -257,10 +271,18 @@ public class TestQueuesDb
 
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         BasicQueryInfo basicQueryInfo = dispatchManager.getQueryInfo(secondQuery);
-        assertEquals(basicQueryInfo.getErrorCode(), QUERY_QUEUE_FULL.toErrorCode());
+        if (!QUERY_QUEUE_FULL.toErrorCode().equals(basicQueryInfo.getErrorCode())) {
+            AssertionError failure = new AssertionError("Expected query to fail with QUERY_QUEUE_FULL error code, but got: %s".formatted(basicQueryInfo.getErrorCode()));
+            dispatchManager.getFullQueryInfo(secondQuery)
+                    .map(QueryInfo::getFailureInfo) // nullable
+                    .map(ExecutionFailureInfo::toException)
+                    .ifPresent(failure::addSuppressed);
+            throw failure;
+        }
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testQueryExecutionTimeLimit()
             throws Exception
     {
@@ -277,7 +299,7 @@ public class TestQueuesDb
                         .build(),
                 LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, FAILED);
-        assertEquals(queryManager.getFullQueryInfo(firstQuery).getErrorCode(), EXCEEDED_TIME_LIMIT.toErrorCode());
+        assertThat(queryManager.getFullQueryInfo(firstQuery).getErrorCode()).isEqualTo(EXCEEDED_TIME_LIMIT.toErrorCode());
         assertContains(queryManager.getFullQueryInfo(firstQuery).getFailureInfo().getMessage(), "Query exceeded the maximum execution time limit of 1.00ms");
         // set max running queries to 0 for the dashboard resource group so that new queries get queued immediately
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
@@ -296,7 +318,7 @@ public class TestQueuesDb
         // after a 5s wait this query should still be QUEUED, not FAILED as the max execution time should be enforced after the query starts running
         Thread.sleep(5_000);
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-        assertEquals(dispatchManager.getQueryInfo(secondQuery).getState(), QUEUED);
+        assertThat(dispatchManager.getQueryInfo(secondQuery).getState()).isEqualTo(QUEUED);
         // reconfigure the resource group to run the second query
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
@@ -317,8 +339,10 @@ public class TestQueuesDb
         QueryId queryId = createQuery(queryRunner, session, "EXPLAIN " + LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
         Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
-        assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
-        assertEquals(resourceGroupId.get(), createResourceGroupId("explain"));
+        assertThat(resourceGroupId.isPresent())
+                .describedAs("Query should have a resource group")
+                .isTrue();
+        assertThat(resourceGroupId.get()).isEqualTo(createResourceGroupId("explain"));
     }
 
     @Test
@@ -355,7 +379,34 @@ public class TestQueuesDb
         // Submit a query to a non-leaf resource group
         QueryId invalidResourceGroupQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, invalidResourceGroupQuery, FAILED);
-        assertEquals(queryRunner.getCoordinator().getDispatchManager().getQueryInfo(invalidResourceGroupQuery).getErrorCode(), INVALID_RESOURCE_GROUP.toErrorCode());
+        assertThat(queryRunner.getCoordinator().getDispatchManager().getQueryInfo(invalidResourceGroupQuery).getErrorCode()).isEqualTo(INVALID_RESOURCE_GROUP.toErrorCode());
+    }
+
+    @Test
+    public void testUpdateSoftMemoryLimit()
+    {
+        // trigger resource group creation
+        queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+        dao.updateResourceGroup(2, "bi-${USER}", "100%", 3, 2, 2, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dbConfigurationManager.load();
+        assertThat(manager.tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
+                .orElseThrow(() -> new IllegalStateException("Resource group not found"))
+                .getSoftMemoryLimit()
+                .toBytes()).isEqualTo(queryRunner.getCoordinator().getClusterMemoryManager().getClusterMemoryBytes());
+
+        dao.updateResourceGroup(2, "bi-${USER}", "123MB", 3, 2, 2, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dbConfigurationManager.load();
+
+        // wait for SqlQueryManager which enforce memory limits per second
+        assertEventually(
+                new Duration(2, TimeUnit.SECONDS),
+                new Duration(100, TimeUnit.MILLISECONDS),
+                () -> assertThat(manager.tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
+                        .orElseThrow(() -> new IllegalStateException("Resource group not found"))
+                        .getSoftMemoryLimit()).isEqualTo(DataSize.of(123, MEGABYTE)));
     }
 
     private void assertResourceGroupWithClientTags(Set<String> clientTags, ResourceGroupId expectedResourceGroup)
@@ -370,7 +421,11 @@ public class TestQueuesDb
         QueryId queryId = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
         Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
-        assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
-        assertEquals(resourceGroupId.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()));
+        assertThat(resourceGroupId.isPresent())
+                .describedAs("Query should have a resource group")
+                .isTrue();
+        assertThat(resourceGroupId.get())
+                .describedAs(format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()))
+                .isEqualTo(expectedResourceGroup);
     }
 }

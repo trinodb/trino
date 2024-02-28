@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
@@ -32,8 +33,6 @@ import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Character.isSupplementaryCodePoint;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 
 public class TestCharType
         extends AbstractTestType
@@ -45,7 +44,7 @@ public class TestCharType
         super(CHAR_TYPE, String.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = CHAR_TYPE.createBlockBuilder(null, 15);
         CHAR_TYPE.writeString(blockBuilder, "apple");
@@ -59,7 +58,7 @@ public class TestCharType
         CHAR_TYPE.writeString(blockBuilder, "cherry");
         CHAR_TYPE.writeString(blockBuilder, "cherry");
         CHAR_TYPE.writeString(blockBuilder, "date");
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -81,11 +80,15 @@ public class TestCharType
             int codePointLengthInUtf16 = isSupplementaryCodePoint(codePoint) ? 2 : 1;
 
             String objectValue = (String) charType.getObjectValue(SESSION, block, 0);
-            assertNotNull(objectValue);
-            assertEquals(objectValue.codePointAt(0), codePoint, "first code point");
-            assertEquals(objectValue.length(), codePointLengthInUtf16 + 2, "size");
+            assertThat(objectValue).isNotNull();
+            assertThat(objectValue.codePointAt(0))
+                    .describedAs("first code point")
+                    .isEqualTo(codePoint);
+            assertThat(objectValue.length())
+                    .describedAs("size")
+                    .isEqualTo(codePointLengthInUtf16 + 2);
             for (int i = codePointLengthInUtf16; i < objectValue.length(); i++) {
-                assertEquals(objectValue.codePointAt(i), ' ');
+                assertThat(objectValue.codePointAt(i)).isEqualTo(' ');
             }
         }
     }
@@ -94,8 +97,8 @@ public class TestCharType
     public void testRange()
     {
         Type.Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), Slices.utf8Slice(Character.toString(MIN_CODE_POINT).repeat(((CharType) type).getLength())));
-        assertEquals(range.getMax(), Slices.utf8Slice(Character.toString(MAX_CODE_POINT).repeat(((CharType) type).getLength())));
+        assertThat(range.getMin()).isEqualTo(Slices.utf8Slice(Character.toString(MIN_CODE_POINT).repeat(((CharType) type).getLength())));
+        assertThat(range.getMax()).isEqualTo(Slices.utf8Slice(Character.toString(MAX_CODE_POINT).repeat(((CharType) type).getLength())));
     }
 
     @Test

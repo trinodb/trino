@@ -15,8 +15,8 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -36,7 +36,6 @@ import io.trino.spi.type.Type;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
@@ -80,7 +79,7 @@ public final class DecimalAverageAggregation
     @LiteralParameters({"p", "s"})
     public static void inputLongDecimal(
             @AggregationState LongDecimalWithOverflowAndLongState state,
-            @BlockPosition @SqlType(value = "decimal(p, s)", nativeContainerType = Int128.class) Block block,
+            @BlockPosition @SqlType(value = "decimal(p, s)", nativeContainerType = Int128.class) Int128ArrayBlock block,
             @BlockIndex int position)
     {
         state.addLong(1); // row counter
@@ -88,8 +87,8 @@ public final class DecimalAverageAggregation
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
 
-        long rightHigh = block.getLong(position, 0);
-        long rightLow = block.getLong(position, SIZE_OF_LONG);
+        long rightHigh = block.getInt128High(position);
+        long rightLow = block.getInt128Low(position);
 
         long overflow = addWithOverflow(
                 decimal[offset],

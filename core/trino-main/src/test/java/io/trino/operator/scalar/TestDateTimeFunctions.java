@@ -25,6 +25,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,6 +35,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.operator.scalar.DateTimeFunctions.currentDate;
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -45,9 +47,10 @@ import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDateTimeFunctions
 {
     private QueryAssertions assertions;
@@ -77,7 +80,7 @@ public class TestDateTimeFunctions
     public void testCurrentDate()
     {
         Session session = Session.builder(assertions.getDefaultSession())
-                .setStart(ZonedDateTime.of(2017, 4, 1, 12, 34, 56, 789, ZoneId.of("UTC")).toInstant())
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2017, 4, 1, 12, 34, 56, 789, ZoneId.of("UTC")).toInstant().toString())
                 .build();
 
         // current date is the time at midnight in the session time zone
@@ -112,7 +115,7 @@ public class TestDateTimeFunctions
                 .setTimeZoneKey(timeZoneKey)
                 .build();
         long dateTimeCalculation = currentDate(connectorSession);
-        assertEquals(dateTimeCalculation, expectedDays);
+        assertThat(dateTimeCalculation).isEqualTo(expectedDays);
     }
 
     private static long epochDaysInZone(TimeZoneKey timeZoneKey, Instant instant)
@@ -128,6 +131,10 @@ public class TestDateTimeFunctions
 
         assertThat(assertions.function("from_unixtime", "980172245.888"))
                 .matches("TIMESTAMP '2001-01-22 03:04:05.888 Pacific/Apia'");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "123456789123456789")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: 9223372036854775807");
     }
 
     @Test
@@ -195,6 +202,10 @@ public class TestDateTimeFunctions
 
         assertThat(assertions.function("from_unixtime_nanos", "DECIMAL '-12345678900123456789.500'"))
                 .matches("TIMESTAMP '1578-10-13 17:18:03.876543210 Pacific/Apia'");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime_nanos", "DECIMAL '123456789123456789000000000'")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("long overflow");
     }
 
     @Test
@@ -212,6 +223,11 @@ public class TestDateTimeFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "0", "-100", "100")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        // test millisecond overflow
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "123456789123456789", "1", "1")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: 9223372036854775807");
     }
 
     @Test
@@ -234,6 +250,10 @@ public class TestDateTimeFunctions
 
         assertThat(assertions.function("from_unixtime", "7200", "'America/Los_Angeles'"))
                 .matches("TIMESTAMP '1969-12-31 18:00:00.000 America/Los_Angeles'");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "123456789123456789", "'Asia/Kolkata'")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: 9223372036854775807");
     }
 
     @Test
@@ -260,6 +280,10 @@ public class TestDateTimeFunctions
 
         assertThat(assertions.function("from_iso8601_date", "'2001-08-22'"))
                 .matches("DATE '2001-08-22'");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_iso8601_timestamp", "'115023-03-21T10:45:30.00Z'")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: 3567614928330000");
     }
 
     @Test

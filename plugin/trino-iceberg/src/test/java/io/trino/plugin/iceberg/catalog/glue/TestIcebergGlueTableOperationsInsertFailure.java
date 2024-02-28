@@ -17,17 +17,18 @@ import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.metadata.InternalFunctionBundle;
+import io.trino.execution.Failure;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
-import io.trino.plugin.iceberg.IcebergPlugin;
-import io.trino.plugin.iceberg.TestingIcebergConnectorFactory;
+import io.trino.plugin.iceberg.TestingIcebergPlugin;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.LocalQueryRunner;
-import org.apache.iceberg.exceptions.CommitStateUnknownException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import io.trino.testing.QueryFailedException;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
@@ -35,18 +36,20 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 import static com.google.common.reflect.Reflection.newProxy;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /*
  * The test currently uses AWS Default Credential Provider Chain,
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  * on ways to set your AWS credentials which will be needed to run this test.
  */
+@TestInstance(PER_CLASS)
 public class TestIcebergGlueTableOperationsInsertFailure
         extends AbstractTestQueryFramework
 {
@@ -59,14 +62,14 @@ public class TestIcebergGlueTableOperationsInsertFailure
     private GlueHiveMetastore glueHiveMetastore;
 
     @Override
-    protected LocalQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema(schemaName)
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
+        QueryRunner queryRunner = new StandaloneQueryRunner(session);
 
         AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider = delegate -> newProxy(AWSGlueAsync.class, (proxy, method, methodArgs) -> {
             Object result;
@@ -82,17 +85,11 @@ public class TestIcebergGlueTableOperationsInsertFailure
             return result;
         });
 
-        InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
-        new IcebergPlugin().getFunctions().forEach(functions::functions);
-        queryRunner.addFunctions(functions.build());
-
-        queryRunner.createCatalog(
-                ICEBERG_CATALOG,
-                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider)), Optional.empty(), EMPTY_MODULE),
-                ImmutableMap.of());
-
         Path dataDirectory = Files.createTempDirectory("iceberg_data");
         dataDirectory.toFile().deleteOnExit();
+
+        queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider))));
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of());
 
         glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory);
 
@@ -107,7 +104,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
     {
         try {
@@ -128,8 +125,13 @@ public class TestIcebergGlueTableOperationsInsertFailure
 
         getQueryRunner().execute(format("CREATE TABLE %s (a_varchar) AS VALUES ('Trino')", tableName));
         assertThatThrownBy(() -> getQueryRunner().execute("INSERT INTO " + tableName + " VALUES 'rocks'"))
-                .isInstanceOf(CommitStateUnknownException.class)
-                .hasMessageContaining("Test-simulated Glue timeout exception");
+                .satisfies(throwable -> {
+                    assertThat(throwable).isInstanceOf(QueryFailedException.class);
+                    assertThat(throwable.getCause()).isInstanceOf(Failure.class);
+                    Failure failure = (Failure) throwable.getCause();
+                    assertThat(failure.getMessage()).contains("Test-simulated Glue timeout exception");
+                    assertThat(failure.getFailureInfo().getType()).isEqualTo("org.apache.iceberg.exceptions.CommitStateUnknownException");
+                });
         assertQuery("SELECT * FROM " + tableName, "VALUES 'Trino', 'rocks'");
     }
 }

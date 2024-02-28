@@ -16,8 +16,8 @@ package io.trino.operator.aggregation.minmaxbyn;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeUtils;
@@ -34,8 +34,8 @@ import java.util.stream.LongStream;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
@@ -151,32 +151,32 @@ public class TestTypedKeyValueHeap
     private static <K, V> void test(Type keyType, Type valueType, boolean min, List<Entry<K, V>> testData, Comparator<K> comparator, int capacity)
     {
         MethodHandle keyReadFlat = TYPE_OPERATORS.getReadValueOperator(keyType, simpleConvention(BLOCK_BUILDER, FLAT));
-        MethodHandle keyWriteFlat = TYPE_OPERATORS.getReadValueOperator(keyType, simpleConvention(FLAT_RETURN, BLOCK_POSITION_NOT_NULL));
+        MethodHandle keyWriteFlat = TYPE_OPERATORS.getReadValueOperator(keyType, simpleConvention(FLAT_RETURN, VALUE_BLOCK_POSITION_NOT_NULL));
         MethodHandle valueReadFlat = TYPE_OPERATORS.getReadValueOperator(valueType, simpleConvention(BLOCK_BUILDER, FLAT));
-        MethodHandle valueWriteFlat = TYPE_OPERATORS.getReadValueOperator(valueType, simpleConvention(FLAT_RETURN, BLOCK_POSITION_NOT_NULL));
+        MethodHandle valueWriteFlat = TYPE_OPERATORS.getReadValueOperator(valueType, simpleConvention(FLAT_RETURN, VALUE_BLOCK_POSITION_NOT_NULL));
         MethodHandle comparisonFlatFlat;
         MethodHandle comparisonFlatBlock;
         if (min) {
             comparisonFlatFlat = TYPE_OPERATORS.getComparisonUnorderedLastOperator(keyType, simpleConvention(FAIL_ON_NULL, FLAT, FLAT));
-            comparisonFlatBlock = TYPE_OPERATORS.getComparisonUnorderedLastOperator(keyType, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL));
+            comparisonFlatBlock = TYPE_OPERATORS.getComparisonUnorderedLastOperator(keyType, simpleConvention(FAIL_ON_NULL, FLAT, VALUE_BLOCK_POSITION_NOT_NULL));
         }
         else {
             comparisonFlatFlat = TYPE_OPERATORS.getComparisonUnorderedFirstOperator(keyType, simpleConvention(FAIL_ON_NULL, FLAT, FLAT));
-            comparisonFlatBlock = TYPE_OPERATORS.getComparisonUnorderedFirstOperator(keyType, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL));
+            comparisonFlatBlock = TYPE_OPERATORS.getComparisonUnorderedFirstOperator(keyType, simpleConvention(FAIL_ON_NULL, FLAT, VALUE_BLOCK_POSITION_NOT_NULL));
             comparator = comparator.reversed();
         }
 
-        Block expected = toBlock(valueType, testData.stream()
+        ValueBlock expected = toBlock(valueType, testData.stream()
                 .sorted(comparing(Entry::key, comparator))
                 .map(Entry::value)
                 .limit(capacity)
                 .toList());
-        Block inputKeys = toBlock(keyType, testData.stream().map(Entry::key).toList());
-        Block inputValues = toBlock(valueType, testData.stream().map(Entry::value).toList());
+        ValueBlock inputKeys = toBlock(keyType, testData.stream().map(Entry::key).toList());
+        ValueBlock inputValues = toBlock(valueType, testData.stream().map(Entry::value).toList());
 
         // verify basic build
         TypedKeyValueHeap heap = new TypedKeyValueHeap(min, keyReadFlat, keyWriteFlat, valueReadFlat, valueWriteFlat, comparisonFlatFlat, comparisonFlatBlock, keyType, valueType, capacity);
-        heap.addAll(inputKeys, inputValues);
+        getAddAll(heap, inputKeys, inputValues);
         assertEqual(heap, valueType, expected);
 
         // verify copy constructor
@@ -185,44 +185,47 @@ public class TestTypedKeyValueHeap
         // build in two parts and merge together
         TypedKeyValueHeap part1 = new TypedKeyValueHeap(min, keyReadFlat, keyWriteFlat, valueReadFlat, valueWriteFlat, comparisonFlatFlat, comparisonFlatBlock, keyType, valueType, capacity);
         int splitPoint = inputKeys.getPositionCount() / 2;
-        part1.addAll(
-                inputKeys.getRegion(0, splitPoint),
-                inputValues.getRegion(0, splitPoint));
+        getAddAll(part1, inputKeys.getRegion(0, splitPoint), inputValues.getRegion(0, splitPoint));
         BlockBuilder part1KeyBlockBuilder = keyType.createBlockBuilder(null, part1.getCapacity());
         BlockBuilder part1ValueBlockBuilder = valueType.createBlockBuilder(null, part1.getCapacity());
         part1.writeAllUnsorted(part1KeyBlockBuilder, part1ValueBlockBuilder);
-        Block part1KeyBlock = part1KeyBlockBuilder.build();
-        Block part1ValueBlock = part1ValueBlockBuilder.build();
+        ValueBlock part1KeyBlock = part1KeyBlockBuilder.buildValueBlock();
+        ValueBlock part1ValueBlock = part1ValueBlockBuilder.buildValueBlock();
 
         TypedKeyValueHeap part2 = new TypedKeyValueHeap(min, keyReadFlat, keyWriteFlat, valueReadFlat, valueWriteFlat, comparisonFlatFlat, comparisonFlatBlock, keyType, valueType, capacity);
-        part2.addAll(
-                inputKeys.getRegion(splitPoint, inputKeys.getPositionCount() - splitPoint),
-                inputValues.getRegion(splitPoint, inputValues.getPositionCount() - splitPoint));
+        getAddAll(part2, inputKeys.getRegion(splitPoint, inputKeys.getPositionCount() - splitPoint), inputValues.getRegion(splitPoint, inputValues.getPositionCount() - splitPoint));
         BlockBuilder part2KeyBlockBuilder = keyType.createBlockBuilder(null, part2.getCapacity());
         BlockBuilder part2ValueBlockBuilder = valueType.createBlockBuilder(null, part2.getCapacity());
         part2.writeAllUnsorted(part2KeyBlockBuilder, part2ValueBlockBuilder);
-        Block part2KeyBlock = part2KeyBlockBuilder.build();
-        Block part2ValueBlock = part2ValueBlockBuilder.build();
+        ValueBlock part2KeyBlock = part2KeyBlockBuilder.buildValueBlock();
+        ValueBlock part2ValueBlock = part2ValueBlockBuilder.buildValueBlock();
 
         TypedKeyValueHeap merged = new TypedKeyValueHeap(min, keyReadFlat, keyWriteFlat, valueReadFlat, valueWriteFlat, comparisonFlatFlat, comparisonFlatBlock, keyType, valueType, capacity);
-        merged.addAll(part1KeyBlock, part1ValueBlock);
-        merged.addAll(part2KeyBlock, part2ValueBlock);
+        getAddAll(merged, part1KeyBlock, part1ValueBlock);
+        getAddAll(merged, part2KeyBlock, part2ValueBlock);
         assertEqual(merged, valueType, expected);
     }
 
-    private static void assertEqual(TypedKeyValueHeap heap, Type valueType, Block expected)
+    private static void getAddAll(TypedKeyValueHeap heap, ValueBlock inputKeys, ValueBlock inputValues)
+    {
+        for (int i = 0; i < inputKeys.getPositionCount(); i++) {
+            heap.add(inputKeys, i, inputValues, i);
+        }
+    }
+
+    private static void assertEqual(TypedKeyValueHeap heap, Type valueType, ValueBlock expected)
     {
         BlockBuilder resultBlockBuilder = valueType.createBlockBuilder(null, OUTPUT_SIZE);
         heap.writeValuesSorted(resultBlockBuilder);
-        Block actual = resultBlockBuilder.build();
+        ValueBlock actual = resultBlockBuilder.buildValueBlock();
         assertBlockEquals(valueType, actual, expected);
     }
 
-    private static <T> Block toBlock(Type type, List<T> inputStream)
+    private static <T> ValueBlock toBlock(Type type, List<T> inputStream)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, INPUT_SIZE);
         inputStream.forEach(value -> TypeUtils.writeNativeValue(type, blockBuilder, value));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     // TODO remove this suppression when the error prone checker actually supports records correctly

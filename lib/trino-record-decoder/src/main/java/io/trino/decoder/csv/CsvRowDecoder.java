@@ -13,7 +13,7 @@
  */
 package io.trino.decoder.csv;
 
-import au.com.bytecode.opencsv.CSVParser;
+import com.opencsv.CSVParser;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 /**
- * Decode row as CSV. This is an extremely primitive CSV decoder using {@link au.com.bytecode.opencsv.CSVParser}.
+ * Decode row as CSV. This is an extremely primitive CSV decoder using {@link com.opencsv.CSVParser}.
  */
 public class CsvRowDecoder
         implements RowDecoder

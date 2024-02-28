@@ -91,6 +91,16 @@ public class Query
         return client.getSetPath();
     }
 
+    public Optional<String> getSetAuthorizationUser()
+    {
+        return client.getSetAuthorizationUser();
+    }
+
+    public boolean isResetAuthorizationUser()
+    {
+        return client.isResetAuthorizationUser();
+    }
+
     public Map<String, String> getSetSessionProperties()
     {
         return client.getSetSessionProperties();
