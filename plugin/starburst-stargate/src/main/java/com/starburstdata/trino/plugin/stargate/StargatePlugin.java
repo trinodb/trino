@@ -11,12 +11,15 @@ package com.starburstdata.trino.plugin.stargate;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Scopes;
 import com.starburstdata.trino.plugin.license.LicenseManager;
 import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
@@ -45,6 +48,8 @@ public class StargatePlugin
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                         binder -> binder.bind(Boolean.class).annotatedWith(EnableWrites.class).toInstance(enableWrites),
                         binder -> binder.install(new ExtraCredentialsBasedIdentityCacheMappingModule()),
+                        binder -> newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(StargateMetadataFactory.class).in(Scopes.SINGLETON),
+                        new StargateAuthenticationModule(),
                         new StargateModule()));
     }
 }

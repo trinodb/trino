@@ -21,13 +21,13 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class DefaultStargateCatalogIdentityFactory
+public class PasswordCatalogIdentityFactory
         implements StargateCatalogIdentityFactory
 {
     private final String catalogIdentity;
 
     @Inject
-    public DefaultStargateCatalogIdentityFactory(BaseJdbcConfig config, StargateCredentialConfig credentialConfig, StargateConfig stargateConfig)
+    public PasswordCatalogIdentityFactory(BaseJdbcConfig config, StargateCredentialConfig credentialConfig, StargateConfig stargateConfig)
     {
         // Use TrinoDriverUri to retrieve the catalog name
         TrinoDriverUri uri;

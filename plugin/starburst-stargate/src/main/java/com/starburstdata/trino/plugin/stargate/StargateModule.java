@@ -22,7 +22,6 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
-import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.ptf.Query;
@@ -60,14 +59,11 @@ public class StargateModule
                 new SslModule(),
                 new NoSslModule()));
 
-        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(StargateMetadataFactory.class).in(Scopes.SINGLETON);
-
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> {
             config.setDomainCompactionThreshold(STARGATE_DEFAULT_DOMAIN_COMPACTION_THRESHOLD);
         });
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(STARGATE_MAX_DOMAIN_COMPACTION_THRESHOLD);
 
-        install(new StargateAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
 
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
@@ -76,11 +72,6 @@ public class StargateModule
         newOptionalBinder(binder, Key.get(JdbcClient.class, ForBaseJdbc.class))
                 .setDefault()
                 .to(StargateClient.class)
-                .in(Scopes.SINGLETON);
-
-        newOptionalBinder(binder, StargateCatalogIdentityFactory.class)
-                .setDefault()
-                .to(DefaultStargateCatalogIdentityFactory.class)
                 .in(Scopes.SINGLETON);
 
         // Using optional binder for overriding ConnectionFactory in Galaxy

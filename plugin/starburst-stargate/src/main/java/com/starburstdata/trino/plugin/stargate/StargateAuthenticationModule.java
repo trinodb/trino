@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugin.stargate;
 
 import com.google.inject.Binder;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.jdbc.TrinoDriver;
@@ -48,6 +49,9 @@ public class StargateAuthenticationModule
         {
             install(new CredentialProviderModule());
             configBinder(binder).bindConfig(StargateCredentialConfig.class);
+            binder.bind(StargateCatalogIdentityFactory.class)
+                    .to(PasswordCatalogIdentityFactory.class)
+                    .in(Scopes.SINGLETON);
         }
 
         @Provides
