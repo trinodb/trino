@@ -127,6 +127,7 @@
         <module>plugin/trino-tpch</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
+        <module>testing/starburst-tests-odbc</module>
         <module>testing/starburst-trino-testing</module>
         <module>testing/trino-benchmark-queries</module>
         <module>testing/trino-benchto-benchmarks</module>
