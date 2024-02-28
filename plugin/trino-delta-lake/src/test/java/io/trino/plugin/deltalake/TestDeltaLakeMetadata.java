@@ -314,7 +314,7 @@ public class TestDeltaLakeMetadata
         Optional<ConnectorTableLayout> insertLayout = deltaLakeMetadata
                 .getInsertLayout(
                         SESSION,
-                        deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable()));
+                        deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable(), Optional.empty(), Optional.empty()));
 
         assertThat(insertLayout).isPresent();
 
@@ -352,7 +352,7 @@ public class TestDeltaLakeMetadata
         // should return empty insert layout since table exists but is unpartitioned
         assertThat(deltaLakeMetadata.getInsertLayout(
                 SESSION,
-                deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable())))
+                deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable(), Optional.empty(), Optional.empty())))
                 .isNotPresent();
 
         deltaLakeMetadata.cleanupQuery(SESSION);
@@ -477,7 +477,7 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
                 ImmutableList.of(BIGINT_COLUMN_1));
         deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
-        DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
+        DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable(), Optional.empty(), Optional.empty());
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(true, 0)));
         deltaLakeMetadata.cleanupQuery(SESSION);
     }
@@ -490,7 +490,7 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
                 ImmutableList.of());
         deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
-        DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
+        DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable(), Optional.empty(), Optional.empty());
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false, 0)));
         deltaLakeMetadata.cleanupQuery(SESSION);
     }
@@ -511,7 +511,8 @@ public class TestDeltaLakeMetadata
                 Optional.of(ImmutableList.of(BOOLEAN_COLUMN_HANDLE)),
                 Optional.of(ImmutableList.of(DOUBLE_COLUMN_HANDLE)),
                 Optional.empty(),
-                0);
+                0,
+                false);
     }
 
     private static TupleDomain<DeltaLakeColumnHandle> createConstrainedColumnsTuple(

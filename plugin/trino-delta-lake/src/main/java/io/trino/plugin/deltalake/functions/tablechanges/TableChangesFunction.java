@@ -108,7 +108,7 @@ public class TableChangesFunction
         deltaLakeMetadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> deltaLakeMetadata.cleanupQuery(session)) {
             SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
-            ConnectorTableHandle connectorTableHandle = deltaLakeMetadata.getTableHandle(session, schemaTableName);
+            ConnectorTableHandle connectorTableHandle = deltaLakeMetadata.getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
             if (connectorTableHandle == null) {
                 throw new TableNotFoundException(schemaTableName);
             }
