@@ -30,32 +30,13 @@ import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationMode.RUNNING;
 import static java.util.Objects.requireNonNull;
 
-public final class PatternRecognitionAnalysis
+public record PatternRecognitionAnalysis(Set<String> allLabels, Set<String> undefinedLabels, Map<NodeRef<RangeQuantifier>, Analysis.Range> ranges)
 {
-    private final Set<String> allLabels;
-    private final Set<String> undefinedLabels;
-    private final Map<NodeRef<RangeQuantifier>, Analysis.Range> ranges;
-
     public PatternRecognitionAnalysis(Set<String> allLabels, Set<String> undefinedLabels, Map<NodeRef<RangeQuantifier>, Analysis.Range> ranges)
     {
         this.allLabels = requireNonNull(allLabels, "allLabels is null");
-        this.undefinedLabels = ImmutableSet.copyOf(requireNonNull(undefinedLabels, "undefinedLabels is null"));
-        this.ranges = ImmutableMap.copyOf(requireNonNull(ranges, "ranges is null"));
-    }
-
-    public Set<String> getAllLabels()
-    {
-        return allLabels;
-    }
-
-    public Set<String> getUndefinedLabels()
-    {
-        return undefinedLabels;
-    }
-
-    public Map<NodeRef<RangeQuantifier>, Analysis.Range> getRanges()
-    {
-        return ranges;
+        this.undefinedLabels = ImmutableSet.copyOf(undefinedLabels);
+        this.ranges = ImmutableMap.copyOf(ranges);
     }
 
     public record PatternInputAnalysis(Expression expression, Descriptor descriptor)
