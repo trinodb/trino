@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -83,6 +84,11 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
+import org.apache.commons.pool2.BasePooledObjectFactory;
+import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.impl.DefaultPooledObject;
+import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.apache.thrift.TException;
 
 import java.io.IOException;
@@ -163,6 +169,7 @@ public final class ThriftHiveMetastore
     private final boolean useSparkTableStatisticsFallback;
     private final ThriftMetastoreStats stats;
     private final ExecutorService writeStatisticsExecutor;
+    private final Cache<ConnectorIdentity, GenericObjectPool<ThriftMetastoreClient>> metaStoreClientCache;
 
     public ThriftHiveMetastore(
             Optional<ConnectorIdentity> identity,
@@ -178,7 +185,8 @@ public final class ThriftHiveMetastore
             boolean assumeCanonicalPartitionKeys,
             boolean useSparkTableStatisticsFallback,
             ThriftMetastoreStats stats,
-            ExecutorService writeStatisticsExecutor)
+            ExecutorService writeStatisticsExecutor,
+            Cache<ConnectorIdentity, GenericObjectPool<ThriftMetastoreClient>> metaStoreClientCache)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -194,6 +202,7 @@ public final class ThriftHiveMetastore
         this.useSparkTableStatisticsFallback = useSparkTableStatisticsFallback;
         this.stats = requireNonNull(stats, "stats is null");
         this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
+        this.metaStoreClientCache = metaStoreClientCache;
     }
 
     @VisibleForTesting
@@ -208,11 +217,14 @@ public final class ThriftHiveMetastore
         try {
             return retry()
                     .stopOnIllegalExceptions()
-                    .run("getAllDatabases", stats.getGetAllDatabases().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                    .run("getAllDatabases", stats.getGetAllDatabases().wrap(() -> executeWithClient(client -> {
+                        try {
                             return client.getAllDatabases();
                         }
-                    }));
+                        catch (TException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })));
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -229,11 +241,14 @@ public final class ThriftHiveMetastore
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("getDatabase", stats.getGetDatabase().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                    .run("getDatabase", stats.getGetDatabase().wrap(() -> executeWithClient(client -> {
+                        try {
                             return Optional.of(client.getDatabase(databaseName));
                         }
-                    }));
+                        catch (TException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })));
         }
         catch (NoSuchObjectException e) {
             return Optional.empty();
@@ -277,11 +292,14 @@ public final class ThriftHiveMetastore
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("getTable", stats.getGetTable().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                    .run("getTable", stats.getGetTable().wrap(() -> executeWithClient(client -> {
+                        try {
                             return Optional.of(client.getTable(databaseName, tableName));
                         }
-                    }));
+                        catch (TException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })));
         }
         catch (NoSuchObjectException e) {
             return Optional.empty();
@@ -291,6 +309,26 @@ public final class ThriftHiveMetastore
         }
         catch (Exception e) {
             throw propagate(e);
+        }
+    }
+
+    public <T> T executeWithClient(java.util.function.Function<ThriftMetastoreClient, T> function)
+            throws Exception
+    {
+        GenericObjectPool<ThriftMetastoreClient> pool = null;
+        ThriftMetastoreClient client = null;
+        try {
+            pool = getMetastoreClientPool();
+            client = pool.borrowObject();
+            T result = function.apply(client);
+            pool.returnObject(client);
+            return result;
+        }
+        catch (Exception e) {
+            if (pool != null && client != null) {
+                pool.invalidateObject(client);
+            }
+            throw e;
         }
     }
 
@@ -341,11 +379,14 @@ public final class ThriftHiveMetastore
             return retry()
                     .stopOn(MetaException.class, UnknownTableException.class, UnknownDBException.class)
                     .stopOnIllegalExceptions()
-                    .run("getFields", stats.getGetFields().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                    .run("getFields", stats.getGetFields().wrap(() -> executeWithClient(client -> {
+                        try {
                             return Optional.of(ImmutableList.copyOf(client.getFields(databaseName, tableName)));
                         }
-                    }));
+                        catch (TException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })));
         }
         catch (NoSuchObjectException e) {
             return Optional.empty();
@@ -364,11 +405,14 @@ public final class ThriftHiveMetastore
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("getPartitionColumnStatistics", stats.getGetPartitionColumnStatistics().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                    .run("getPartitionColumnStatistics", stats.getGetPartitionColumnStatistics().wrap(() -> executeWithClient(client -> {
+                        try {
                             return client.getPartitionColumnStatistics(databaseName, tableName, ImmutableList.copyOf(partitionNames), columnNames);
                         }
-                    }));
+                        catch (TException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })));
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), e);
@@ -1016,11 +1060,14 @@ public final class ThriftHiveMetastore
                 return retry()
                         .stopOn(NoSuchObjectException.class)
                         .stopOnIllegalExceptions()
-                        .run("getPartitionNames", stats.getGetPartitionNames().wrap(() -> {
-                            try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        .run("getPartitionNames", stats.getGetPartitionNames().wrap(() -> executeWithClient(client -> {
+                            try {
                                 return Optional.of(client.getPartitionNames(databaseName, tableName));
                             }
-                        }));
+                            catch (TException e) {
+                                throw new RuntimeException(e);
+                            }
+                        })));
             }
             return retry()
                     .stopOn(NoSuchObjectException.class)
@@ -1233,11 +1280,14 @@ public final class ThriftHiveMetastore
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("getPartition", stats.getGetPartition().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                    .run("getPartition", stats.getGetPartition().wrap(() -> executeWithClient(client -> {
+                        try {
                             return Optional.of(client.getPartition(databaseName, tableName, partitionValues));
                         }
-                    }));
+                        catch (TException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })));
         }
         catch (NoSuchObjectException e) {
             return Optional.empty();
@@ -1260,11 +1310,14 @@ public final class ThriftHiveMetastore
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
-                    .run("getPartitionsByNames", stats.getGetPartitionsByNames().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                    .run("getPartitionsByNames", stats.getGetPartitionsByNames().wrap(() -> executeWithClient(client -> {
+                        try {
                             return client.getPartitionsByNames(databaseName, tableName, partitionNames);
                         }
-                    }));
+                        catch (TException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })));
         }
         catch (NoSuchObjectException e) {
             // assume none of the partitions in the batch are available
@@ -1957,6 +2010,47 @@ public final class ThriftHiveMetastore
             throws TException
     {
         return metastoreClientFactory.createMetastoreClientFor(identity);
+    }
+
+    private GenericObjectPool<ThriftMetastoreClient> getMetastoreClientPool()
+    {
+        ConnectorIdentity connectorIdentity = identity.orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
+        try {
+            return metaStoreClientCache.get(connectorIdentity, () -> {
+                log.debug("create metaStoreClientCache pool: %s", identity.get());
+                GenericObjectPoolConfig<ThriftMetastoreClient> config = new GenericObjectPoolConfig<>();
+                config.setMaxTotal(50);
+                config.setMaxIdle(10);
+                config.setMinIdle(1);
+                config.setSoftMinEvictableIdleDuration(java.time.Duration.ofMinutes(60));
+                config.setTimeBetweenEvictionRuns(java.time.Duration.ofMinutes(60));
+                config.setTestOnBorrow(true);
+                config.setTestOnReturn(true);
+
+                BasePooledObjectFactory<ThriftMetastoreClient> factory = new BasePooledObjectFactory<>() {
+                    @Override
+                    public ThriftMetastoreClient create()
+                    {
+                        try {
+                            return metastoreClientFactory.createMetastoreClientFor(identity);
+                        }
+                        catch (TException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    @Override
+                    public PooledObject<ThriftMetastoreClient> wrap(ThriftMetastoreClient obj)
+                    {
+                        return new DefaultPooledObject<>(obj);
+                    }
+                };
+                return new GenericObjectPool<>(factory, config);
+            });
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private RetryDriver retry()

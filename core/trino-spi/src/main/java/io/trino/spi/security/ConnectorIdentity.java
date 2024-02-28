@@ -17,6 +17,7 @@ import java.security.Principal;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -112,6 +113,25 @@ public class ConnectorIdentity
         sb.append(", extraCredentials=").append(extraCredentials.keySet());
         sb.append('}');
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ConnectorIdentity that = (ConnectorIdentity) o;
+        return Objects.equals(user, that.user) && Objects.equals(groups, that.groups) && Objects.equals(principal, that.principal);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(user, groups, principal);
     }
 
     public static ConnectorIdentity ofUser(String user)

@@ -13,11 +13,14 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -44,6 +47,8 @@ public class ThriftHiveMetastoreFactory
     private final boolean useSparkTableStatisticsFallback;
     private final ExecutorService writeStatisticsExecutor;
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
+    private final Cache<ConnectorIdentity, GenericObjectPool<ThriftMetastoreClient>> metaStoreClientCache = CacheBuilder.newBuilder()
+            .maximumSize(100).build();
 
     @Inject
     public ThriftHiveMetastoreFactory(
@@ -100,6 +105,7 @@ public class ThriftHiveMetastoreFactory
                 assumeCanonicalPartitionKeys,
                 useSparkTableStatisticsFallback,
                 stats,
-                writeStatisticsExecutor);
+                writeStatisticsExecutor,
+                metaStoreClientCache);
     }
 }

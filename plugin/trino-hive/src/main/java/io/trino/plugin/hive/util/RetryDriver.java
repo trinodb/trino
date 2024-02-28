@@ -16,6 +16,7 @@ package io.trino.plugin.hive.util;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.apache.thrift.TException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -116,6 +117,13 @@ public class RetryDriver
                 return callable.call();
             }
             catch (Exception e) {
+                if (e instanceof RuntimeException) {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof TException) {
+                        e = (TException) cause;
+                    }
+                }
+
                 // Immediately stop retry attempts once an interrupt has been received
                 if (e instanceof InterruptedException || Thread.currentThread().isInterrupted()) {
                     addSuppressed(e, suppressedExceptions);
