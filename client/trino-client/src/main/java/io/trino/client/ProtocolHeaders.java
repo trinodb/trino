@@ -43,7 +43,6 @@ public final class ProtocolHeaders
     private final String requestClientCapabilities;
     private final String requestResourceEstimate;
     private final String requestExtraCredential;
-    private final String requestQueryDataEncoding;
     private final String responseSetCatalog;
     private final String responseSetSchema;
     private final String responseSetPath;
@@ -90,7 +89,6 @@ public final class ProtocolHeaders
         requestClientCapabilities = prefix + "Client-Capabilities";
         requestResourceEstimate = prefix + "Resource-Estimate";
         requestExtraCredential = prefix + "Extra-Credential";
-        requestQueryDataEncoding = prefix + "Query-Data-Encoding";
         responseSetCatalog = prefix + "Set-Catalog";
         responseSetSchema = prefix + "Set-Schema";
         responseSetPath = prefix + "Set-Path";
@@ -198,11 +196,6 @@ public final class ProtocolHeaders
     public String requestExtraCredential()
     {
         return requestExtraCredential;
-    }
-
-    public String requestQueryDataEncoding()
-    {
-        return requestQueryDataEncoding;
     }
 
     public String responseSetCatalog()

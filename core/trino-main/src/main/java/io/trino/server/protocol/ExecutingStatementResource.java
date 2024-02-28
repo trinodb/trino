@@ -79,7 +79,6 @@ public class ExecutingStatementResource
     private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
 
     private final QueryManager queryManager;
-    private final QueryDataProducerFactory queryDataProducerFactory;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -95,7 +94,6 @@ public class ExecutingStatementResource
     @Inject
     public ExecutingStatementResource(
             QueryManager queryManager,
-            QueryDataProducerFactory queryDataProducerFactory,
             DirectExchangeClientSupplier directExchangeClientSupplier,
             ExchangeManagerRegistry exchangeManagerRegistry,
             BlockEncodingSerde blockEncodingSerde,
@@ -106,7 +104,6 @@ public class ExecutingStatementResource
             ServerConfig serverConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
-        this.queryDataProducerFactory = requireNonNull(queryDataProducerFactory, "queryDataProducerFactory is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -198,7 +195,6 @@ public class ExecutingStatementResource
                 session,
                 querySlug,
                 queryManager,
-                queryDataProducerFactory.create(session, queryId),
                 queryInfoUrlFactory.getQueryInfoUrl(queryId),
                 directExchangeClientSupplier,
                 exchangeManagerRegistry,

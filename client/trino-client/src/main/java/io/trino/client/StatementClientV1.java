@@ -70,6 +70,7 @@ class StatementClientV1
         implements StatementClient
 {
     private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private static final Splitter COLLECTION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
     private static final String USER_AGENT_VALUE = StatementClientV1.class.getSimpleName() +
@@ -98,17 +99,10 @@ class StatementClientV1
     private final Optional<String> originalUser;
     private final String clientCapabilities;
     private final boolean compressionDisabled;
-    private final JsonCodec<QueryResults> jsonCodec;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
-    private final QueryDataDecoder queryDataDeserializer;
 
     public StatementClientV1(Call.Factory httpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
-    {
-        this(httpCallFactory, new LegacyQueryDataDecoder(), session, query, clientCapabilities);
-    }
-
-    public StatementClientV1(Call.Factory httpCallFactory, QueryDataDecoder queryDataDecoder, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
         requireNonNull(httpCallFactory, "httpCallFactory is null");
         requireNonNull(session, "session is null");
@@ -130,16 +124,15 @@ class StatementClientV1
                 .map(Enum::name)
                 .collect(toImmutableSet())));
         this.compressionDisabled = session.isCompressionDisabled();
-        this.jsonCodec = jsonCodec(QueryResults.class, new QueryDataJsonModule());
-        this.queryDataDeserializer = requireNonNull(queryDataDecoder, "queryDataDecoder is null");
 
-        Request request = buildQueryRequest(session, query, Optional.ofNullable(queryDataDeserializer.consumes()));
+        Request request = buildQueryRequest(session, query);
+
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
         // to avoid losing the response body if the initial response parsing fails
         executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
     }
 
-    private Request buildQueryRequest(ClientSession session, String query, Optional<QueryDataEncodings> queryFormatSelector)
+    private Request buildQueryRequest(ClientSession session, String query)
     {
         HttpUrl url = HttpUrl.get(session.getServer());
         if (url == null) {
@@ -201,8 +194,6 @@ class StatementClientV1
 
         builder.addHeader(TRINO_HEADERS.requestClientCapabilities(), clientCapabilities);
 
-        queryFormatSelector.ifPresent(selector -> builder.addHeader(TRINO_HEADERS.requestQueryDataEncoding(), selector.toString()));
-
         return builder.build();
     }
 
@@ -258,8 +249,7 @@ class StatementClientV1
     public QueryData currentData()
     {
         checkState(isRunning(), "current position is not valid (cursor past end)");
-        QueryResults queryResults = currentResults.get();
-        return LegacyQueryData.create(queryDataDeserializer.decode(queryResults.getData(), queryResults.getColumns()));
+        return currentResults.get();
     }
 
     @Override
@@ -408,7 +398,7 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(jsonCodec, httpCallFactory, request, materializedJsonSizeLimit);
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, materializedJsonSizeLimit);
             }
             catch (RuntimeException e) {
                 if (!isRetryable.apply(e)) {

@@ -58,7 +58,7 @@ final class FixJsonDataUtils
 {
     private FixJsonDataUtils() {}
 
-    public static Iterable<List<Object>> fixData(List<Column> columns, Iterable<List<Object>> data)
+    public static Iterable<List<Object>> fixData(List<Column> columns, List<List<Object>> data)
     {
         if (data == null) {
             return null;

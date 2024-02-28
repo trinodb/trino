@@ -14,7 +14,6 @@
 package io.trino.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
@@ -26,18 +25,20 @@ import java.util.List;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.unmodifiableIterable;
+import static io.trino.client.FixJsonDataUtils.fixData;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QueryResults
-        implements QueryStatusInfo
+        implements QueryStatusInfo, QueryData
 {
     private final String id;
     private final URI infoUri;
     private final URI partialCancelUri;
     private final URI nextUri;
     private final List<Column> columns;
-    private final QueryData data;
+    private final Iterable<List<Object>> data;
     private final StatementStats stats;
     private final QueryError error;
     private final List<Warning> warnings;
@@ -51,25 +52,25 @@ public class QueryResults
             @JsonProperty("partialCancelUri") URI partialCancelUri,
             @JsonProperty("nextUri") URI nextUri,
             @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("data") QueryData data,
+            @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
             @JsonProperty("warnings") List<Warning> warnings,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("updateCount") Long updateCount)
     {
-        this.id = requireNonNull(id, "id is null");
-        this.infoUri = requireNonNull(infoUri, "infoUri is null");
-        this.partialCancelUri = partialCancelUri;
-        this.nextUri = nextUri;
-        this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
-        this.data = data;
-        checkArgument(isNoData(data) || columns != null, "data present without columns");
-        this.stats = requireNonNull(stats, "stats is null");
-        this.error = error;
-        this.warnings = ImmutableList.copyOf(firstNonNull(warnings, ImmutableList.of()));
-        this.updateType = updateType;
-        this.updateCount = updateCount;
+        this(
+                id,
+                infoUri,
+                partialCancelUri,
+                nextUri,
+                columns,
+                fixData(columns, data),
+                stats,
+                error,
+                firstNonNull(warnings, ImmutableList.of()),
+                updateType,
+                updateCount);
     }
 
     public QueryResults(
@@ -85,18 +86,18 @@ public class QueryResults
             String updateType,
             Long updateCount)
     {
-        this(
-                id,
-                infoUri,
-                partialCancelUri,
-                nextUri,
-                columns,
-                LegacyQueryData.create(data),
-                stats,
-                error,
-                firstNonNull(warnings, ImmutableList.of()),
-                updateType,
-                updateCount);
+        this.id = requireNonNull(id, "id is null");
+        this.infoUri = requireNonNull(infoUri, "infoUri is null");
+        this.partialCancelUri = partialCancelUri;
+        this.nextUri = nextUri;
+        this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
+        this.data = (data != null) ? unmodifiableIterable(data) : null;
+        checkArgument(data == null || columns != null, "data present without columns");
+        this.stats = requireNonNull(stats, "stats is null");
+        this.error = error;
+        this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
+        this.updateType = updateType;
+        this.updateCount = updateCount;
     }
 
     @JsonProperty
@@ -137,14 +138,10 @@ public class QueryResults
         return columns;
     }
 
-    @JsonIgnore
-    public QueryData getData()
-    {
-        return data;
-    }
-
-    @JsonProperty("data")
-    public QueryData getRawData()
+    @Nullable
+    @JsonProperty
+    @Override
+    public Iterable<List<Object>> getData()
     {
         return data;
     }
@@ -196,22 +193,11 @@ public class QueryResults
                 .add("partialCancelUri", partialCancelUri)
                 .add("nextUri", nextUri)
                 .add("columns", columns)
-                .add("hasData", !isNoData(data))
+                .add("hasData", data != null)
                 .add("stats", stats)
                 .add("error", error)
                 .add("updateType", updateType)
                 .add("updateCount", updateCount)
                 .toString();
-    }
-
-    private static boolean isNoData(QueryData data)
-    {
-        if (data == null) {
-            return true;
-        }
-        if (data instanceof LegacyQueryData) {
-            return data.getData() == null;
-        }
-        return false;
     }
 }

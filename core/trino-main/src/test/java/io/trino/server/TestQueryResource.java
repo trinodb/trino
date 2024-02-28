@@ -13,27 +13,19 @@
  */
 package io.trino.server;
 
-import com.google.common.collect.ImmutableList;
-import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
-import io.airlift.bootstrap.Bootstrap;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.JsonModule;
 import io.airlift.json.ObjectMapperProvider;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
-import io.trino.client.LegacyQueryData;
-import io.trino.client.LegacyQueryDataDecoder;
 import io.trino.client.QueryResults;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.server.protocol.QueryDataModule;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import org.junit.jupiter.api.AfterEach;
@@ -53,7 +45,7 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.airlift.tracing.SpanSerialization.SpanDeserializer;
 import static io.airlift.tracing.SpanSerialization.SpanSerializer;
@@ -77,7 +69,6 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 public class TestQueryResource
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = queryResultsCodec();
     static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = new JsonCodecFactory(
             new ObjectMapperProvider()
                     .withJsonSerializers(Map.of(Span.class, new SpanSerializer(OpenTelemetry.noop())))
@@ -116,7 +107,7 @@ public class TestQueryResource
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .build();
 
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         URI uri = queryResults.getNextUri();
         while (uri != null) {
             QueryResults attempt1 = client.execute(
@@ -124,24 +115,16 @@ public class TestQueryResource
                             .setHeader(TRINO_HEADERS.requestUser(), "user")
                             .setUri(uri)
                             .build(),
-                    createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+                    createJsonResponseHandler(jsonCodec(QueryResults.class)));
 
             QueryResults attempt2 = client.execute(
                     prepareGet()
                             .setHeader(TRINO_HEADERS.requestUser(), "user")
                             .setUri(uri)
                             .build(),
-                    createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+                    createJsonResponseHandler(jsonCodec(QueryResults.class)));
 
-            if (attempt1.getData() instanceof LegacyQueryData) {
-                LegacyQueryDataDecoder deserializer = new LegacyQueryDataDecoder();
-                // We need to materialize lazy iterables in order to compare these
-                assertThat(ImmutableList.copyOf(deserializer.decode(attempt2.getData(), attempt2.getColumns())))
-                        .isEqualTo(ImmutableList.copyOf(deserializer.decode(attempt1.getData(), attempt1.getColumns())));
-            }
-            else {
-                assertThat(attempt1.getData()).isEqualTo(attempt2.getData());
-            }
+            assertThat(attempt2.getData()).isEqualTo(attempt1.getData());
 
             uri = attempt1.getNextUri();
         }
@@ -276,13 +259,13 @@ public class TestQueryResource
                 .setUri(uri)
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .build();
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         while (queryResults.getNextUri() != null) {
             request = prepareGet()
                     .setHeader(TRINO_HEADERS.requestUser(), "user")
                     .setUri(queryResults.getNextUri())
                     .build();
-            queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+            queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         }
         return queryResults.getId();
     }
@@ -295,13 +278,13 @@ public class TestQueryResource
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .setHeader(TRINO_HEADERS.requestUser(), "user")
                 .build();
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         while (queryResults.getNextUri() != null && !queryResults.getStats().getState().equals(RUNNING.toString())) {
             request = prepareGet()
                     .setHeader(TRINO_HEADERS.requestUser(), "user")
                     .setUri(queryResults.getNextUri())
                     .build();
-            queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+            queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         }
         return queryResults.getId();
     }
@@ -380,15 +363,5 @@ public class TestQueryResource
                 .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                 .build();
         return client.execute(request, createStatusResponseHandler()).getStatusCode();
-    }
-
-    public static JsonCodec<QueryResults> queryResultsCodec()
-    {
-        Injector injector = new Bootstrap(
-                new JsonModule(),
-                new QueryDataModule(), binder -> jsonCodecBinder(binder).bindJsonCodec(QueryResults.class)
-        ).initialize();
-
-        return injector.getInstance(Key.get(new TypeLiteral<>(){}));
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.client;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
@@ -34,7 +35,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
-import static io.trino.client.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
@@ -48,7 +49,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 public class TestRetry
 {
     private MockWebServer server;
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class, new QueryDataJsonModule());
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     @BeforeEach
     public void setup()
@@ -138,9 +139,9 @@ public class TestRetry
                 Stream.of(new Column("id", INTEGER, new ClientTypeSignature("integer")),
                                 new Column("name", VARCHAR, new ClientTypeSignature("varchar")))
                         .collect(toList()),
-                LegacyQueryData.create(IntStream.range(0, numRecords)
+                IntStream.range(0, numRecords)
                         .mapToObj(index -> Stream.of((Object) index, "a").collect(toList()))
-                        .collect(toList())),
+                        .collect(toList()),
                 new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),

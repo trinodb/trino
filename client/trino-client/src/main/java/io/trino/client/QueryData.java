@@ -13,12 +13,9 @@
  */
 package io.trino.client;
 
-import jakarta.annotation.Nullable;
-
 import java.util.List;
 
 public interface QueryData
 {
-    @Nullable
     Iterable<List<Object>> getData();
 }

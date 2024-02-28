@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestQueryResults
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class, new QueryDataJsonModule());
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private static final String GOLDEN_VALUE = "{\n" +
             "  \"id\" : \"20160128_214710_00012_rk68b\",\n" +

@@ -14,11 +14,9 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
-import io.trino.client.JsonCodec;
-import io.trino.client.LegacyQueryData;
-import io.trino.client.QueryDataJsonModule;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
 import io.trino.spi.type.StandardTypes;
@@ -43,8 +41,8 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static io.trino.client.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -54,7 +52,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 public class TestProgressMonitor
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class, new QueryDataJsonModule());
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private MockWebServer server;
 
@@ -89,13 +87,14 @@ public class TestProgressMonitor
     private String newQueryResults(Integer partialCancelId, Integer nextUriId, List<Column> responseColumns, List<List<Object>> data, String state)
     {
         String queryId = "20160128_214710_00012_rk68b";
+
         QueryResults queryResults = new QueryResults(
                 queryId,
                 server.url("/query.html?" + queryId).uri(),
                 partialCancelId == null ? null : server.url(format("/v1/statement/partialCancel/%s.%s", queryId, partialCancelId)).uri(),
                 nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
                 responseColumns,
-                LegacyQueryData.create(data),
+                data,
                 new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),
