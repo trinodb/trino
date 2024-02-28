@@ -2049,10 +2049,10 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertUpdate("UPDATE " + table.getName() + " SET int_col = int_col * 2 WHERE int_col = 6", 1);
 
             assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\"",
-                    "VALUES (0, 'CREATE TABLE'), (1, 'WRITE'), (2, 'WRITE'), (3, 'MERGE'), (4, 'MERGE')");
-            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version = 3", "VALUES (3, 'MERGE')");
-            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version > 3", "VALUES (4, 'MERGE')");
-            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version >= 3 OR version = 1", "VALUES (1, 'WRITE'), (3, 'MERGE'), (4, 'MERGE')");
+                    "VALUES (0, 'CREATE TABLE'), (1, 'WRITE'), (2, 'WRITE'), (3, 'DELETE'), (4, 'UPDATE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version = 3", "VALUES (3, 'DELETE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version > 3", "VALUES (4, 'UPDATE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version >= 3 OR version = 1", "VALUES (1, 'WRITE'), (3, 'DELETE'), (4, 'UPDATE')");
             assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version >= 1 AND version < 3", "VALUES (1, 'WRITE'), (2, 'WRITE')");
             assertThat(query("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version > 1 AND version < 2")).returnsEmptyResult();
         }
@@ -2075,12 +2075,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             deleteFile("%s/_delta_log/%020d.json".formatted(tableLocation, 0));
             deleteFile("%s/_delta_log/%020d.json".formatted(tableLocation, 1));
 
-            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\"", "VALUES (2, 'WRITE'), (3, 'MERGE'), (4, 'MERGE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\"", "VALUES (2, 'WRITE'), (3, 'DELETE'), (4, 'UPDATE')");
             assertThat(query("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version = 1")).returnsEmptyResult();
-            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version = 3", "VALUES (3, 'MERGE')");
-            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version > 3", "VALUES (4, 'MERGE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version = 3", "VALUES (3, 'DELETE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version > 3", "VALUES (4, 'UPDATE')");
             assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version < 3", "VALUES (2, 'WRITE')");
-            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version >= 3 OR version = 1", "VALUES (3, 'MERGE'), (4, 'MERGE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version >= 3 OR version = 1", "VALUES (3, 'DELETE'), (4, 'UPDATE')");
             assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version >= 1 AND version < 3", "VALUES (2, 'WRITE')");
             assertThat(query("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version > 1 AND version < 2")).returnsEmptyResult();
         }

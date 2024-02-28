@@ -82,6 +82,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
+import io.trino.spi.UpdateType;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -333,8 +334,8 @@ public class DeltaLakeMetadata
     public static final String RENAME_COLUMN_OPERATION = "RENAME COLUMN";
     public static final String INSERT_OPERATION = "WRITE";
     public static final String MERGE_OPERATION = "MERGE";
-    public static final String UPDATE_OPERATION = "UPDATE"; // used by old Trino versions and Spark
-    public static final String DELETE_OPERATION = "DELETE"; // used Trino for whole table/partition deletes as well as Spark
+    public static final String UPDATE_OPERATION = "UPDATE";
+    public static final String DELETE_OPERATION = "DELETE";
     public static final String TRUNCATE_OPERATION = "TRUNCATE";
     public static final String OPTIMIZE_OPERATION = "OPTIMIZE";
     public static final String SET_TBLPROPERTIES_OPERATION = "SET TBLPROPERTIES";
@@ -1741,15 +1742,16 @@ public class DeltaLakeMetadata
         // This check acts as a safeguard in cases where the input columns may differ from the table metadata case-sensitively
         checkAllColumnsPassedOnInsert(tableMetadata, inputColumns);
 
-        return createInsertHandle(session, retryMode, table, inputColumns);
+        return createInsertHandle(session, retryMode, INSERT_OPERATION, table, inputColumns);
     }
 
-    private DeltaLakeInsertTableHandle createInsertHandle(ConnectorSession session, RetryMode retryMode, DeltaLakeTableHandle table, List<DeltaLakeColumnHandle> inputColumns)
+    private DeltaLakeInsertTableHandle createInsertHandle(ConnectorSession session, RetryMode retryMode, String operationName, DeltaLakeTableHandle table, List<DeltaLakeColumnHandle> inputColumns)
     {
         String tableLocation = table.getLocation();
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             return new DeltaLakeInsertTableHandle(
+                    operationName,
                     table.getSchemaTableName(),
                     tableLocation,
                     table.getMetadataEntry(),
@@ -1976,7 +1978,7 @@ public class DeltaLakeMetadata
     {
         // it is not obvious why we need to persist this readVersion
         TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, insertTableHandle.getLocation());
-        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, isolationLevel, commitVersion, Instant.now().toEpochMilli(), INSERT_OPERATION, currentVersion, isBlindAppend));
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, isolationLevel, commitVersion, Instant.now().toEpochMilli(), insertTableHandle.getOperationName(), currentVersion, isBlindAppend));
 
         ColumnMappingMode columnMappingMode = getColumnMappingMode(insertTableHandle.getMetadataEntry(), insertTableHandle.getProtocolEntry());
         List<String> partitionColumns = getPartitionColumns(
@@ -2033,7 +2035,7 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, UpdateType updateType)
     {
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         if (isAppendOnly(handle.getMetadataEntry(), handle.getProtocolEntry())) {
@@ -2046,9 +2048,18 @@ public class DeltaLakeMetadata
                 .filter(column -> column.getColumnType() != SYNTHESIZED)
                 .collect(toImmutableList());
 
-        DeltaLakeInsertTableHandle insertHandle = createInsertHandle(session, retryMode, handle, inputColumns);
+        DeltaLakeInsertTableHandle insertHandle = createInsertHandle(session, retryMode, toOperationName(updateType), handle, inputColumns);
 
         return new DeltaLakeMergeTableHandle(handle, insertHandle);
+    }
+
+    private static String toOperationName(UpdateType updateType)
+    {
+        return switch (updateType) {
+            case UPDATE -> UPDATE_OPERATION;
+            case DELETE -> DELETE_OPERATION;
+            case MERGE -> MERGE_OPERATION;
+        };
     }
 
     @Override
@@ -2056,6 +2067,7 @@ public class DeltaLakeMetadata
     {
         DeltaLakeMergeTableHandle mergeHandle = (DeltaLakeMergeTableHandle) mergeTableHandle;
         DeltaLakeTableHandle handle = mergeHandle.getTableHandle();
+        DeltaLakeInsertTableHandle insertHandle = mergeHandle.getInsertTableHandle();
 
         List<DeltaLakeMergeResult> mergeResults = fragments.stream()
                 .map(Slice::getBytes)
@@ -2073,7 +2085,7 @@ public class DeltaLakeMetadata
         List<DataFileInfo> newFiles = ImmutableList.copyOf(split.get(true));
         List<DataFileInfo> cdcFiles = ImmutableList.copyOf(split.get(false));
 
-        if (mergeHandle.getInsertTableHandle().isRetriesEnabled()) {
+        if (insertHandle.isRetriesEnabled()) {
             cleanExtraOutputFiles(session, Location.of(handle.getLocation()), allFiles);
         }
 
@@ -2093,7 +2105,7 @@ public class DeltaLakeMetadata
             }
             long commitVersion = currentVersion + 1;
 
-            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, IsolationLevel.WRITESERIALIZABLE, commitVersion, createdTime, MERGE_OPERATION, handle.getReadVersion(), false));
+            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, IsolationLevel.WRITESERIALIZABLE, commitVersion, createdTime, insertHandle.getOperationName(), handle.getReadVersion(), false));
             // TODO: Delta writes another field "operationMetrics" (https://github.com/trinodb/trino/issues/12005)
 
             long writeTimestamp = Instant.now().toEpochMilli();
@@ -2101,7 +2113,7 @@ public class DeltaLakeMetadata
             ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry(), handle.getProtocolEntry());
             List<String> partitionColumns = getPartitionColumns(
                     handle.getMetadataEntry().getOriginalPartitionColumns(),
-                    mergeHandle.getInsertTableHandle().getInputColumns(),
+                    insertHandle.getInputColumns(),
                     columnMappingMode);
 
             if (!cdcFiles.isEmpty()) {
