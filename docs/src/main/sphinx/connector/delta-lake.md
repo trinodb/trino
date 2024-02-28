@@ -326,6 +326,35 @@ this table:
 
 No other types are supported.
 
+## Delta Lake table features
+
+The connector supports the following [Delta Lake table 
+features](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#table-features):
+
+:::{list-table} Table features
+:widths: 70, 30
+:header-rows: 1
+
+* - Feature
+  - Description
+* - Append-only tables
+  - Writers only
+* - Column invariants
+  - Writers only
+* - CHECK constraints
+  - Writers only
+* - Change data feed
+  - Writers only
+* - Column mapping
+  - Readers and writers
+* - Deletion vectors
+  - Readers only
+* - Timestamp without time zone
+  - Readers and writers
+:::
+
+No other features are supported.
+
 ## Security
 
 The Delta Lake connector allows you to choose one of several means of providing
