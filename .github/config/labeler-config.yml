@@ -1,40 +1,44 @@
 # Pull Request Labeler Github Action Configuration: https://github.com/marketplace/actions/labeler
 "tests:hive":
-  - lib/trino-orc/**
-  - lib/trino-parquet/**
-  - lib/trino-hive-formats/**
-  - plugin/trino-hive/**
-  - testing/trino-product-tests/**
-  - lib/trino-filesystem/**
-  - lib/trino-filesystem-*/**
+  - changed-files:
+    - any-glob-to-any-file: ['lib/trino-orc/**', 'lib/trino-parquet/**', 'lib/trino-hive-formats/**', 'plugin/trino-hive/**', 'testing/trino-product-tests/**', 'lib/trino-filesystem/**', 'lib/trino-filesystem-*/**']
 
 jdbc:
-  - client/trino-jdbc/**
+  - changed-files:
+    - any-glob-to-any-file: 'client/trino-jdbc/**'
 
 bigquery:
-  - plugin/trino-bigquery/**
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-bigquery/**'
 
 delta-lake:
-  - plugin/trino-delta-lake/**
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-delta-lake/**'
 
 hive:
-  - plugin/trino-hive/**
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-hive/**'
 
 hudi:
-  - plugin/trino-hudi/**
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-hudi/**'
 
 iceberg:
-  - plugin/trino-iceberg/**
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-iceberg/**'
 
 mongodb:
-  - plugin/trino-mongodb/**
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-mongodb/**'
 
 docs:
-  - docs/**
+  - changed-files:
+    - any-glob-to-any-file: 'docs/**'
 
 release-notes:
-  - docs/src/main/sphinx/release/**
-  - docs/src/main/sphinx/release.rst
+  - changed-files:
+    - any-glob-to-any-file: ['docs/src/main/sphinx/release/**', 'docs/src/main/sphinx/release.rst']
 
 ui:
-  - core/trino-main/src/main/resources/webapp/**
+  - changed-files:
+    - any-glob-to-any-file: 'core/trino-main/src/main/resources/webapp/**'
