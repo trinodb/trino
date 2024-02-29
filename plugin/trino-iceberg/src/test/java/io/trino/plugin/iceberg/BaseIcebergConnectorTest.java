@@ -5162,7 +5162,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(allDataFilesAfterDelete).hasSize(6);
 
         // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 4");
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 3");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
 
@@ -5172,7 +5172,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> allDataFilesAfterOptimizeWithWhere = getAllDataFilesFromTableDirectory(tableName);
         assertThat(allDataFilesAfterOptimizeWithWhere)
                 .hasSize(6)
-                .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=4"))
+                .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=3"))
                         .toArray(String[]::new));
 
         assertThat(query("SELECT * FROM " + tableName))
