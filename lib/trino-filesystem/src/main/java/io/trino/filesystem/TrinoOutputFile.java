@@ -49,7 +49,7 @@ public interface TrinoOutputFile
     default void createExclusive(Slice content)
             throws IOException
     {
-        createExclusive(content, newSimpleAggregatedMemoryContext());
+        throw new UnsupportedOperationException("createExclusive not supported by " + getClass());
     }
 
     /**
@@ -63,15 +63,6 @@ public interface TrinoOutputFile
 
     OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
             throws IOException;
-
-    /**
-     * Create file exclusively and atomically with specified contents.
-     */
-    default void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
-            throws IOException
-    {
-        throw new UnsupportedOperationException("createExclusive not supported by " + getClass());
-    }
 
     Location location();
 }

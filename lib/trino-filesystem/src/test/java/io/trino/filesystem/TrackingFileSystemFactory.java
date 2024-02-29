@@ -307,11 +307,11 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
+        public void createExclusive(Slice content)
                 throws IOException
         {
             tracker.accept(OUTPUT_FILE_CREATE_EXCLUSIVE);
-            delegate.createExclusive(content, memoryContext);
+            delegate.createExclusive(content);
         }
 
         @Override
