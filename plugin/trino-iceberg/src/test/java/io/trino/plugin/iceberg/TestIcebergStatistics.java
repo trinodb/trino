@@ -983,6 +983,68 @@ public class TestIcebergStatistics
     }
 
     @Test
+    public void testShowStatsAfterOptimize()
+    {
+        String tableName = "show_stats_after_optimize_" + randomNameSuffix();
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session writeSession = withStatsOnWrite(getSession(), false);
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate(writeSession, "CREATE TABLE " + tableName + "(key integer)");
+        // create several snapshots
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " VALUES 1", 1);
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " VALUES 2", 1);
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " VALUES 3", 1);
+
+        assertUpdate("ANALYZE " + tableName);
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " VALUES 4", 1);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('key', null, 3, 0, null, '1', '4'), -- NDV present, stats "inherited" from previous snapshot
+                          (null,  null, null, null, 4, null, null)""");
+
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        // NDV is not present after expire_snapshot as last snapshot did not contained stats
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('key', null, null, 0, null, '1', '4'), -- NDV not present as expire_snapshot removed stats for previous snapshots
+                          (null,  null, null, null, 4, null, null)""");
+
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('key', null, 4, 0, null, '1', '4'), -- NDV present
+                          (null,  null, null, null, 4, null, null)""");
+
+        // Optimize should rewrite stats file
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('key', null, 4, 0, null, '1', '4'), -- NDV present
+                          (null,  null, null, null, 4, null, null)""");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testStatsAfterDeletingAllRows()
     {
         String tableName = "test_stats_after_deleting_all_rows_";
