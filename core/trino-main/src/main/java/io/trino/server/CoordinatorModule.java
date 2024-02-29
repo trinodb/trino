@@ -64,6 +64,7 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
+import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.TaskExecutionStats;
@@ -202,6 +203,7 @@ public class CoordinatorModule
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
         OptionalBinder.newOptionalBinder(binder, SessionSupplier.class).setDefault().to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
+        binder.bind(ResourceGroupInfoProvider.class).to(ResourceGroupManager.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
