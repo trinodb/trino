@@ -406,7 +406,6 @@ public class ServerIT
             public PathsAssert paths(String pattern, Consumer<PathInfoAssert> assertConsumer)
             {
                 for (String path : actual.keySet()) {
-                    System.out.println("Path is " + path);
                     if (path.matches(pattern)) {
                         assertConsumer.accept(path(path));
                     }
