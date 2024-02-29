@@ -111,6 +111,14 @@ public class TableStatisticsWriter
         return writeStatisticsFile(session, table, fileIO, snapshotId, ndvSketches);
     }
 
+    public StatisticsFile rewriteStatisticsFile(ConnectorSession session, Table table, long snapshotId)
+    {
+        TableOperations operations = ((HasTableOperations) table).operations();
+        FileIO fileIO = operations.io();
+        // This will rewrite old statistics file as ndvSketches map is empty
+        return writeStatisticsFile(session, table, fileIO, snapshotId, Map.of());
+    }
+
     private GenericStatisticsFile writeStatisticsFile(ConnectorSession session, Table table, FileIO fileIO, long snapshotId, Map<Integer, CompactSketch> ndvSketches)
     {
         Snapshot snapshot = table.snapshot(snapshotId);

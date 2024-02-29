@@ -1438,6 +1438,7 @@ public class IcebergMetadata
     {
         IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
         Table icebergTable = transaction.table();
+        Optional<Long> beforeWriteSnapshotId = getCurrentSnapshotId(icebergTable);
 
         // files to be deleted
         ImmutableSet.Builder<DataFile> scannedDataFilesBuilder = ImmutableSet.builder();
@@ -1498,6 +1499,30 @@ public class IcebergMetadata
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         commit(rewriteFiles, session);
         transaction.commitTransaction();
+
+        // TODO (https://github.com/trinodb/trino/issues/15439) this may not exactly be the snapshot we committed, if there is another writer
+        long newSnapshotId = transaction.table().currentSnapshot().snapshotId();
+        transaction = null;
+
+        // TODO (https://github.com/trinodb/trino/issues/15439): it would be good to publish data and stats atomically
+        beforeWriteSnapshotId.ifPresent(previous ->
+                verify(previous != newSnapshotId, "Failed to get new snapshot ID"));
+
+        try {
+            beginTransaction(catalog.loadTable(session, executeHandle.getSchemaTableName()));
+            Table reloadedTable = transaction.table();
+            StatisticsFile newStatsFile = tableStatisticsWriter.rewriteStatisticsFile(session, reloadedTable, newSnapshotId);
+
+            transaction.updateStatistics()
+                    .setStatistics(newSnapshotId, newStatsFile)
+                    .commit();
+            transaction.commitTransaction();
+        }
+        catch (Exception e) {
+            // Write was committed, so at this point we cannot fail the query
+            // TODO (https://github.com/trinodb/trino/issues/15439): it would be good to publish data and stats atomically
+            log.error(e, "Failed to save table statistics");
+        }
         transaction = null;
     }
 
