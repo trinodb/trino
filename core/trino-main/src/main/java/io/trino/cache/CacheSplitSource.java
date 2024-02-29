@@ -29,7 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.trino.plugin.memory.MemoryCacheManager.canonicalizePlanSignature;
+import static io.trino.spi.cache.PlanSignature.canonicalizePlanSignature;
 import static java.util.Objects.requireNonNull;
 
 /**

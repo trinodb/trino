@@ -55,6 +55,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.cache.PlanSignature.canonicalizePlanSignature;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -105,16 +106,6 @@ public class MemoryCacheManager
     {
         this.revocableMemoryAllocator = requireNonNull(memoryAllocator, "memoryAllocator is null");
         this.forceStore = forceStore;
-    }
-
-    public static PlanSignature canonicalizePlanSignature(PlanSignature signature)
-    {
-        return new PlanSignature(
-                signature.getKey(),
-                signature.getGroupByColumns(),
-                // columns are stored independently
-                ImmutableList.of(),
-                ImmutableList.of());
     }
 
     @Override

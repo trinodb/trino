@@ -38,7 +38,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.memory.MemoryCacheManager.canonicalizePlanSignature;
+import static io.trino.spi.cache.PlanSignature.canonicalizePlanSignature;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 

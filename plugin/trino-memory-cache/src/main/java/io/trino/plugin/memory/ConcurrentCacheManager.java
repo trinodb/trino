@@ -40,7 +40,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
-import static io.trino.plugin.memory.MemoryCacheManager.canonicalizePlanSignature;
+import static io.trino.spi.cache.PlanSignature.canonicalizePlanSignature;
 import static java.lang.Math.floorMod;
 import static java.util.Collections.shuffle;
 import static java.util.Objects.requireNonNull;

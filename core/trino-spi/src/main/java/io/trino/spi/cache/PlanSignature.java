@@ -141,4 +141,14 @@ public class PlanSignature
                 + sizeOf(groupByColumns, cols -> estimatedSizeOf(cols, CacheColumnId::getRetainedSizeInBytes))
                 + estimatedSizeOf(columns, CacheColumnId::getRetainedSizeInBytes);
     }
+
+    public static PlanSignature canonicalizePlanSignature(PlanSignature signature)
+    {
+        return new PlanSignature(
+                signature.getKey(),
+                signature.getGroupByColumns(),
+                // columns are stored independently
+                List.of(),
+                List.of());
+    }
 }
