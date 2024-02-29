@@ -14,7 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
+import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -40,11 +40,15 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.SIDECAR;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -199,22 +203,19 @@ public class TableSnapshot
 
         return getCheckpointPartPaths(checkpoint).stream()
                 .map(fileSystem::newInputFile)
-                .flatMap(checkpointFile -> {
-                    CheckpointEntryIterator checkpointEntryIterator = getCheckpointTransactionLogEntries(
-                            session,
-                            entryTypes,
-                            metadataAndProtocol.map(MetadataAndProtocolEntry::metadataEntry),
-                            metadataAndProtocol.map(MetadataAndProtocolEntry::protocolEntry),
-                            checkpointSchemaManager,
-                            typeManager,
-                            stats,
-                            checkpoint,
-                            checkpointFile,
-                            partitionConstraint,
-                            addStatsMinMaxColumnFilter);
-                    return Streams.stream(checkpointEntryIterator)
-                            .onClose(checkpointEntryIterator::close);
-                });
+                .flatMap(checkpointFile -> getCheckpointTransactionLogEntries(
+                        session,
+                        fileSystem,
+                        entryTypes,
+                        metadataAndProtocol.map(MetadataAndProtocolEntry::metadataEntry),
+                        metadataAndProtocol.map(MetadataAndProtocolEntry::protocolEntry),
+                        checkpointSchemaManager,
+                        typeManager,
+                        stats,
+                        checkpoint,
+                        checkpointFile,
+                        partitionConstraint,
+                        addStatsMinMaxColumnFilter));
     }
 
     public Optional<Long> getLastCheckpointVersion()
@@ -222,8 +223,9 @@ public class TableSnapshot
         return lastCheckpoint.map(LastCheckpoint::version);
     }
 
-    private CheckpointEntryIterator getCheckpointTransactionLogEntries(
+    private Stream<DeltaLakeTransactionLogEntry> getCheckpointTransactionLogEntries(
             ConnectorSession session,
+            TrinoFileSystem fileSystem,
             Set<CheckpointEntryIterator.EntryType> entryTypes,
             Optional<MetadataEntry> metadataEntry,
             Optional<ProtocolEntry> protocolEntry,
@@ -245,7 +247,23 @@ public class TableSnapshot
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Unexpected IO exception occurred while retrieving the length of the file: %s for the table %s", checkpoint, table), e);
         }
-        return new CheckpointEntryIterator(
+        if (checkpoint.v2Checkpoint().isPresent()) {
+            return getV2CheckpointTransactionLogEntriesFrom(
+                    session,
+                    entryTypes,
+                    metadataEntry,
+                    protocolEntry,
+                    checkpointSchemaManager,
+                    typeManager,
+                    stats,
+                    checkpoint,
+                    checkpointFile,
+                    partitionConstraint,
+                    addStatsMinMaxColumnFilter,
+                    fileSystem,
+                    fileSize);
+        }
+        CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
                 session,
                 fileSize,
@@ -260,6 +278,96 @@ public class TableSnapshot
                 domainCompactionThreshold,
                 partitionConstraint,
                 addStatsMinMaxColumnFilter);
+        return stream(checkpointEntryIterator).onClose(checkpointEntryIterator::close);
+    }
+
+    private Stream<DeltaLakeTransactionLogEntry> getV2CheckpointTransactionLogEntriesFrom(
+            ConnectorSession session,
+            Set<CheckpointEntryIterator.EntryType> entryTypes,
+            Optional<MetadataEntry> metadataEntry,
+            Optional<ProtocolEntry> protocolEntry,
+            CheckpointSchemaManager checkpointSchemaManager,
+            TypeManager typeManager,
+            FileFormatDataSourceStats stats,
+            LastCheckpoint checkpoint,
+            TrinoInputFile checkpointFile,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
+            TrinoFileSystem fileSystem,
+            long fileSize)
+    {
+        return getV2CheckpointEntries(session, entryTypes, metadataEntry, protocolEntry, checkpointSchemaManager, typeManager, stats, checkpoint, checkpointFile, partitionConstraint, addStatsMinMaxColumnFilter, fileSystem, fileSize)
+                .mapMulti((entry, builder) -> {
+                    if (entry.getSidecar() == null) {
+                        builder.accept(entry);
+                        return;
+                    }
+                    Location sidecar = checkpointFile.location().sibling("_sidecars").appendPath(entry.getSidecar().path());
+                    CheckpointEntryIterator iterator = new CheckpointEntryIterator(
+                            fileSystem.newInputFile(sidecar),
+                            session,
+                            fileSize,
+                            checkpointSchemaManager,
+                            typeManager,
+                            entryTypes,
+                            metadataEntry,
+                            protocolEntry,
+                            stats,
+                            parquetReaderOptions,
+                            checkpointRowStatisticsWritingEnabled,
+                            domainCompactionThreshold,
+                            partitionConstraint,
+                            addStatsMinMaxColumnFilter);
+                    stream(iterator).onClose(iterator::close).forEach(builder);
+                });
+    }
+
+    private Stream<DeltaLakeTransactionLogEntry> getV2CheckpointEntries(
+            ConnectorSession session,
+            Set<CheckpointEntryIterator.EntryType> entryTypes,
+            Optional<MetadataEntry> metadataEntry,
+            Optional<ProtocolEntry> protocolEntry,
+            CheckpointSchemaManager checkpointSchemaManager,
+            TypeManager typeManager,
+            FileFormatDataSourceStats stats,
+            LastCheckpoint checkpoint,
+            TrinoInputFile checkpointFile,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
+            TrinoFileSystem fileSystem,
+            long fileSize)
+    {
+        if (checkpointFile.location().fileName().endsWith(".json")) {
+            try {
+                return getEntriesFromJson(checkpoint.version(), checkpointFile).stream().flatMap(List::stream);
+            }
+            catch (IOException e) {
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Unexpected IO exception occurred while reading the entries of the file: %s for the table %s", checkpoint, table), e);
+            }
+        }
+        if (checkpointFile.location().fileName().endsWith(".parquet")) {
+            CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
+                    fileSystem.newInputFile(checkpointFile.location()),
+                    session,
+                    fileSize,
+                    checkpointSchemaManager,
+                    typeManager,
+                    ImmutableSet.<CheckpointEntryIterator.EntryType>builder()
+                            .addAll(entryTypes)
+                            .add(SIDECAR)
+                            .build(),
+                    metadataEntry,
+                    protocolEntry,
+                    stats,
+                    parquetReaderOptions,
+                    checkpointRowStatisticsWritingEnabled,
+                    domainCompactionThreshold,
+                    partitionConstraint,
+                    addStatsMinMaxColumnFilter);
+            return stream(checkpointEntryIterator)
+                    .onClose(checkpointEntryIterator::close);
+        }
+        throw new IllegalArgumentException("Unsupported v2 checkpoint file format: " + checkpointFile.location());
     }
 
     public record MetadataAndProtocolEntry(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
@@ -275,7 +383,11 @@ public class TableSnapshot
     {
         Location transactionLogDir = Location.of(getTransactionLogDir(tableLocation));
         ImmutableList.Builder<Location> paths = ImmutableList.builder();
-        if (checkpoint.parts().isEmpty()) {
+        if (checkpoint.v2Checkpoint().isPresent()) {
+            verify(checkpoint.parts().isEmpty(), "v2 checkpoint should not have multi-part checkpoints");
+            paths.add(transactionLogDir.appendPath(checkpoint.v2Checkpoint().get().path()));
+        }
+        else if (checkpoint.parts().isEmpty()) {
             paths.add(transactionLogDir.appendPath("%020d.checkpoint.parquet".formatted(checkpoint.version())));
         }
         else {

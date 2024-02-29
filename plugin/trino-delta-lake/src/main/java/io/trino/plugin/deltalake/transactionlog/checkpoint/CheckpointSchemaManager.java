@@ -64,6 +64,7 @@ public class CheckpointSchemaManager
     private final RowType metadataEntryType;
     private final RowType commitInfoEntryType;
     private final RowType removeEntryType;
+    private final RowType sidecarEntryType;
     private final ArrayType stringList;
 
     @Inject
@@ -111,6 +112,13 @@ public class CheckpointSchemaManager
                 RowType.field("partitionValues", stringMap),
                 RowType.field("deletionTimestamp", BIGINT),
                 RowType.field("dataChange", BOOLEAN)));
+
+        sidecarEntryType = RowType.from(ImmutableList.<RowType.Field>builder()
+                .add(RowType.field("path", VARCHAR))
+                .add(RowType.field("sizeInBytes", BIGINT))
+                .add(RowType.field("modificationTime", BIGINT))
+                .add(RowType.field("tags", stringMap))
+                .build());
     }
 
     public RowType getMetadataEntryType()
@@ -236,4 +244,10 @@ public class CheckpointSchemaManager
     public RowType getCommitInfoEntryType()
     {
         return commitInfoEntryType;
-    }}
+    }
+
+    public RowType getSidecarEntryType()
+    {
+        return sidecarEntryType;
+    }
+}
