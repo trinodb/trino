@@ -89,16 +89,6 @@ final class TracingOutputFile
     }
 
     @Override
-    public void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
-            throws IOException
-    {
-        Span span = tracer.spanBuilder("OutputFile.createExclusive")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
-                .startSpan();
-        withTracing(span, () -> delegate.createExclusive(content, memoryContext));
-    }
-
-    @Override
     public Location location()
     {
         return delegate.location();
