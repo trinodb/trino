@@ -39,6 +39,7 @@ import io.airlift.node.NodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.tracing.TracingModule;
+import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogManagerConfig;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
@@ -93,6 +94,7 @@ public class Server
 
     private void doStart(String trinoVersion)
     {
+        long startTime = System.nanoTime();
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
 
@@ -175,6 +177,7 @@ public class Server
 
             injector.getInstance(StartupStatus.class).startupComplete();
 
+            log.info("Server startup completed in %s", Duration.nanosSince(startTime).convertToMostSuccinctTimeUnit());
             log.info("======== SERVER STARTED ========");
         }
         catch (ApplicationConfigurationException e) {
