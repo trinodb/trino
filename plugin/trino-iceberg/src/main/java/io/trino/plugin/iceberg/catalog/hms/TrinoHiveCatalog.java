@@ -566,12 +566,28 @@ public class TrinoHiveCatalog
             io.trino.plugin.hive.metastore.Table table = tableBuilder.build();
             PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
 
-            if (existing.isPresent()) {
-                metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
+            try {
+                if (existing.isPresent()) {
+                    metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
+                }
+                else {
+                    metastore.createTable(table, principalPrivileges);
+                }
             }
-            else {
-                metastore.createTable(table, principalPrivileges);
+            catch (RuntimeException e) {
+                try {
+                    dropMaterializedViewStorage(fileSystemFactory.create(session), storageMetadataLocation.toString());
+                }
+                catch (Exception suppressed) {
+                    log.warn(suppressed, "Failed to clean up metadata '%s' for materialized view '%s'", storageMetadataLocation, viewName);
+                    if (e != suppressed) {
+                        e.addSuppressed(suppressed);
+                    }
+                }
+                throw e;
             }
+
+            existing.ifPresent(existingView -> dropMaterializedViewStorage(session, existingView));
         }
         else {
             createMaterializedViewWithStorageTable(session, viewName, definition, materializedViewProperties, existing);
@@ -673,6 +689,13 @@ public class TrinoHiveCatalog
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + viewName);
         }
 
+        dropMaterializedViewStorage(session, view);
+        metastore.dropTable(viewName.getSchemaName(), viewName.getTableName(), true);
+    }
+
+    private void dropMaterializedViewStorage(ConnectorSession session, io.trino.plugin.hive.metastore.Table view)
+    {
+        SchemaTableName viewName = view.getSchemaTableName();
         String storageTableName = view.getParameters().get(STORAGE_TABLE);
         if (storageTableName != null) {
             String storageSchema = Optional.ofNullable(view.getParameters().get(STORAGE_SCHEMA))
@@ -687,19 +710,13 @@ public class TrinoHiveCatalog
         else {
             String storageMetadataLocation = view.getParameters().get(METADATA_LOCATION_PROP);
             checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + viewName);
-
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            TableMetadata metadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), storageMetadataLocation);
-            String storageLocation = metadata.location();
             try {
-                fileSystem.deleteDirectory(Location.of(storageLocation));
+                dropMaterializedViewStorage(fileSystemFactory.create(session), storageMetadataLocation);
             }
             catch (IOException e) {
-                log.warn(e, "Failed to delete storage location '%s' for materialized view '%s'", storageLocation, viewName);
+                log.warn(e, "Failed to delete storage table metadata '%s' for materialized view '%s'", storageMetadataLocation, viewName);
             }
         }
-
-        metastore.dropTable(viewName.getSchemaName(), viewName.getTableName(), true);
     }
 
     @Override
