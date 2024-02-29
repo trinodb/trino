@@ -135,7 +135,7 @@ public class TestPreAggregateCaseAggregations
                                                         ImmutableMap.of(
                                                                 Optional.of("SUM_BIGINT"), functionCall("sum", ImmutableList.of("VALUE_BIGINT")),
                                                                 Optional.of("SUM_INT_CAST"), functionCall("sum", ImmutableList.of("VALUE_INT_CAST")),
-                                                                Optional.of("MIN_BIGINT"), functionCall("min", ImmutableList.of("VALUE_BIGINT")),
+                                                                Optional.of("MIN_BIGINT"), functionCall("min", ImmutableList.of("VALUE_2_BIGINT")),
                                                                 Optional.of("SUM_DECIMAL"), functionCall("sum", ImmutableList.of("COL_DECIMAL")),
                                                                 Optional.of("SUM_DECIMAL_CAST"), functionCall("sum", ImmutableList.of("VALUE_DECIMAL_CAST"))),
                                                         Optional.empty(),
@@ -143,9 +143,10 @@ public class TestPreAggregateCaseAggregations
                                                         exchange(
                                                                 project(ImmutableMap.of(
                                                                                 "KEY", expression("CONCAT(COL_VARCHAR, VARCHAR 'a')"),
-                                                                                "VALUE_BIGINT", expression("COL_BIGINT * BIGINT '2'"),
-                                                                                "VALUE_INT_CAST", expression("CAST(CAST(COL_BIGINT * BIGINT '2' AS INTEGER) AS BIGINT)"),
-                                                                                "VALUE_DECIMAL_CAST", expression("CAST(COL_DECIMAL * CAST(DECIMAL '2' AS DECIMAL(10, 0)) AS BIGINT)")),
+                                                                                "VALUE_BIGINT", expression("(CASE WHEN (COL_BIGINT IN (BIGINT '1', BIGINT '2')) THEN (COL_BIGINT * BIGINT '2') END)"),
+                                                                                "VALUE_INT_CAST", expression("(CASE WHEN (COL_BIGINT = BIGINT '1') THEN CAST(CAST((COL_BIGINT * BIGINT '2') AS INTEGER) AS bigint) END)"),
+                                                                                "VALUE_2_BIGINT", expression("(CASE WHEN ((COL_BIGINT % BIGINT '2') > BIGINT '1') THEN (COL_BIGINT * BIGINT '2') END)"),
+                                                                                "VALUE_DECIMAL_CAST", expression("(CASE WHEN (COL_BIGINT = BIGINT '4') THEN CAST((COL_DECIMAL * CAST(DECIMAL '2' AS decimal(10, 0))) AS bigint) END)")),
                                                                         tableScan(
                                                                                 "t",
                                                                                 ImmutableMap.of(
@@ -194,16 +195,17 @@ public class TestPreAggregateCaseAggregations
                                                         ImmutableMap.of(
                                                                 Optional.of("SUM_BIGINT"), functionCall("sum", ImmutableList.of("VALUE_BIGINT")),
                                                                 Optional.of("SUM_INT_CAST"), functionCall("sum", ImmutableList.of("VALUE_INT_CAST")),
-                                                                Optional.of("MIN_BIGINT"), functionCall("min", ImmutableList.of("VALUE_BIGINT")),
+                                                                Optional.of("MIN_BIGINT"), functionCall("min", ImmutableList.of("VALUE_2_INT_CAST")),
                                                                 Optional.of("SUM_DECIMAL"), functionCall("sum", ImmutableList.of("COL_DECIMAL")),
                                                                 Optional.of("SUM_DECIMAL_CAST"), functionCall("sum", ImmutableList.of("VALUE_DECIMAL_CAST"))),
                                                         Optional.empty(),
                                                         SINGLE,
                                                         exchange(
                                                                 project(ImmutableMap.of(
-                                                                                "VALUE_BIGINT", expression("COL_BIGINT * BIGINT '2'"),
-                                                                                "VALUE_INT_CAST", expression("CAST(CAST(COL_BIGINT * BIGINT '2' AS INTEGER) AS BIGINT)"),
-                                                                                "VALUE_DECIMAL_CAST", expression("CAST(COL_DECIMAL * CAST(DECIMAL '2' AS DECIMAL(10, 0)) AS BIGINT)")),
+                                                                                "VALUE_BIGINT", expression("(CASE WHEN (COL_BIGINT IN (BIGINT '1', BIGINT '2')) THEN (COL_BIGINT * BIGINT '2') END)"),
+                                                                                "VALUE_INT_CAST", expression("(CASE WHEN (COL_BIGINT = BIGINT '1') THEN CAST(CAST((COL_BIGINT * BIGINT '2') AS INTEGER) AS bigint) END)"),
+                                                                                "VALUE_2_INT_CAST", expression("(CASE WHEN ((COL_BIGINT % BIGINT '2') > BIGINT '1') THEN (COL_BIGINT * BIGINT '2') END)"),
+                                                                                "VALUE_DECIMAL_CAST", expression("(CASE WHEN (COL_BIGINT = BIGINT '4') THEN CAST((COL_DECIMAL * CAST(DECIMAL '2' AS decimal(10, 0))) AS bigint) END)")),
                                                                         tableScan(
                                                                                 "t",
                                                                                 ImmutableMap.of(
@@ -275,8 +277,8 @@ public class TestPreAggregateCaseAggregations
                                                 SINGLE,
                                                 exchange(
                                                         project(ImmutableMap.of(
-                                                                        "VALUE_INT_CAST", expression("CAST(CAST(COL_BIGINT AS INTEGER) AS BIGINT)"),
-                                                                        "VALUE_TINYINT_CAST", expression("CAST(COL_TINYINT AS BIGINT)")),
+                                                                        "VALUE_INT_CAST", expression("(CASE WHEN (COL_BIGINT = BIGINT '2') THEN CAST(CAST(COL_BIGINT AS INTEGER) AS bigint) END)"),
+                                                                        "VALUE_TINYINT_CAST", expression("(CASE WHEN (COL_BIGINT = BIGINT '3') THEN CAST(COL_TINYINT AS bigint) END)")),
                                                                 tableScan(
                                                                         "t",
                                                                         ImmutableMap.of(
