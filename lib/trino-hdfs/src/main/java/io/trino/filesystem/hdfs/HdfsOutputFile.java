@@ -70,7 +70,7 @@ class HdfsOutputFile
     }
 
     @Override
-    public void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
+    public void createExclusive(Slice content)
             throws IOException
     {
         Path file = hadoopPath(location);
