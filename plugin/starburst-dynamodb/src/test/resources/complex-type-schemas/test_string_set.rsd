@@ -1,6 +1,6 @@
 <api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
   <api:info title="test_string_set" other:catalog="CData" other:schema="AmazonDynamoDB" description="test_map" other:tableapiname="test_string_set" other:version="20">
-    <attr name="row_id" xs:type="varchar(2000)" other:relativepath="row_id" other:fullpath="row_id" other:dynamodatatype="S" key="true" other:keytype="HASH" />
-    <attr name="value"  xs:type="varchar(2000)" other:relativepath="value"  other:fullpath="value"  other:dynamodatatype="SS" />
+    <attr name="row_id" xs:type="varchar" other:relativepath="row_id" other:fullpath="row_id" other:dynamodatatype="S" key="true" other:keytype="HASH" />
+    <attr name="value"  xs:type="varchar" other:relativepath="value"  other:fullpath="value"  other:dynamodatatype="SS" />
   </api:info>
 </api:script>

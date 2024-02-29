@@ -1,9 +1,9 @@
 <api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
   <api:info title="test_flattened_map_flattened_string_set" other:catalog="CData" other:schema="AmazonDynamoDB" description="test_flattened_map_flattened_string_set" other:tableapiname="test_flattened_map_flattened_string_set" other:version="20">
-    <attr name="row_id"    xs:type="varchar(2000)" other:relativepath="row_id" other:fullpath="row_id"     other:dynamodatatype="S" key="true" other:keytype="HASH" />
-    <attr name="value.a"   xs:type="varchar(2000)" other:relativepath="a"      other:fullpath="value.a"    other:dynamodatatype="S" />
+    <attr name="row_id"    xs:type="varchar" other:relativepath="row_id" other:fullpath="row_id"     other:dynamodatatype="S" key="true" other:keytype="HASH" />
+    <attr name="value.a"   xs:type="varchar" other:relativepath="a"      other:fullpath="value.a"    other:dynamodatatype="S" />
     <attr name="value.b"   xs:type="bigint"        other:relativepath="b"      other:fullpath="value.b"    other:dynamodatatype="N" />
-    <attr name="value.c.0" xs:type="varchar(2000)" other:relativepath="c[0]"   other:fullpath="value.c[0]" other:dynamodatatype="S" />
-    <attr name="value.c.1" xs:type="varchar(2000)" other:relativepath="c[1]"   other:fullpath="value.c[1]" other:dynamodatatype="S" />
+    <attr name="value.c.0" xs:type="varchar" other:relativepath="c[0]"   other:fullpath="value.c[0]" other:dynamodatatype="S" />
+    <attr name="value.c.1" xs:type="varchar" other:relativepath="c[1]"   other:fullpath="value.c[1]" other:dynamodatatype="S" />
   </api:info>
 </api:script>

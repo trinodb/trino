@@ -21,6 +21,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -38,7 +39,7 @@ import static io.trino.spi.predicate.Domain.DEFAULT_COMPACTION_THRESHOLD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -92,7 +93,7 @@ public class TestDynamoDbPredicatePushdown
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo("""
                         CREATE TABLE dynamodb.amazondynamodb.%s (
-                           row_id varchar(255) NOT NULL COMMENT 'Dynamic Column.',
+                           row_id varchar NOT NULL COMMENT 'Dynamic Column.',
                            col1 boolean COMMENT 'Dynamic Column.',
                            col2 boolean COMMENT 'Dynamic Column.'
                         )""".formatted(tableName));
@@ -181,7 +182,7 @@ public class TestDynamoDbPredicatePushdown
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo("""
                             CREATE TABLE dynamodb.amazondynamodb.%s (
-                               %s varchar(255) NOT NULL COMMENT 'Dynamic Column.',
+                               %s varchar NOT NULL COMMENT 'Dynamic Column.',
                                %s integer COMMENT 'Dynamic Column.',
                                %s integer COMMENT 'Dynamic Column.'
                             )""".formatted(tableName, primaryKey, col1, col2));
@@ -400,7 +401,7 @@ public class TestDynamoDbPredicatePushdown
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo("""
                             CREATE TABLE dynamodb.amazondynamodb.%s (
-                               %s varchar(255) NOT NULL COMMENT 'Dynamic Column.',
+                               %s varchar NOT NULL COMMENT 'Dynamic Column.',
                                %s bigint COMMENT 'Dynamic Column.',
                                %s bigint COMMENT 'Dynamic Column.'
                             )""".formatted(tableName, primaryKey, col1, col2));
@@ -628,23 +629,26 @@ public class TestDynamoDbPredicatePushdown
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                 .isEqualTo("""
                         CREATE TABLE dynamodb.amazondynamodb.%s (
-                           %s varchar(255) NOT NULL COMMENT 'Dynamic Column.',
-                           %s varchar(255) NOT NULL COMMENT 'Dynamic Column.',
-                           %s varchar(2000) COMMENT 'Dynamic Column.',
-                           %s varchar(2000) COMMENT 'Dynamic Column.'
+                           %s varchar NOT NULL COMMENT 'Dynamic Column.',
+                           %s varchar NOT NULL COMMENT 'Dynamic Column.',
+                           %s varchar COMMENT 'Dynamic Column.',
+                           %s varchar COMMENT 'Dynamic Column.'
                         )""".formatted(tableName, sortKey, primaryKey, col1, col2));
             assertQuery(
                 "SELECT row_id, sort_key, col1, col2 FROM " + tableName,
                 "VALUES ('a', 'aaa', 'value1', null), ('b', 'bbb', 'value2', null), ('c', 'ccc', null, 'value3')");
 
-            testVarcharPushdown(tableName, primaryKey, 255, "VARCHAR", "a", "b");
-            testVarcharPushdown(tableName, sortKey, 255, "VARCHAR", "aaa", "bbb");
-            testVarcharPushdown(tableName, col1, 2000, "VARCHAR(2000)", "value1", "value2");
+            testVarcharPushdown(tableName, primaryKey, "a", "b");
+            testVarcharPushdown(tableName, sortKey, "aaa", "bbb");
+            testVarcharPushdown(tableName, col1, "value1", "value2");
         }
     }
 
-    private void testVarcharPushdown(String tableName, String columnName, int columnPrecision, String jdbcTypeName, String value1, String value2)
+    private void testVarcharPushdown(String tableName, String columnName, String value1, String value2)
     {
+        VarcharType varcharType = createUnboundedVarcharType();
+        String jdbcTypeName = "VARCHAR";
+
         assertThat(query("SELECT * FROM " + tableName + " WHERE " + columnName + " IN ('" + value1 + "', '" + value2 + "')"))
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM " + tableName + " WHERE " + columnName + " IN (null, '" + value1 + "')"))
@@ -665,8 +669,8 @@ public class TestDynamoDbPredicatePushdown
                             TupleDomain<?> expectedPredicate =
                                     TupleDomain.withColumnDomains(
                                             Map.of(
-                                                    createColumnHandle(columnName, createVarcharType(columnPrecision), 12, jdbcTypeName, Optional.empty(), Optional.empty()),
-                                                    Domain.create(ValueSet.ofRanges(Range.greaterThan(createVarcharType(columnPrecision), value1)), false))); // Shows what predicate is pushed down for the above query
+                                                    createColumnHandle(columnName, varcharType, 12, jdbcTypeName, Optional.empty(), Optional.empty()),
+                                                    Domain.create(ValueSet.ofRanges(Range.greaterThan(varcharType, value1)), false))); // Shows what predicate is pushed down for the above query
                             assertThat(effectivePredicate).isEqualTo(expectedPredicate);
                             return true;
                         }));
@@ -697,8 +701,8 @@ public class TestDynamoDbPredicatePushdown
                             TupleDomain<?> expectedPredicate =
                                     TupleDomain.withColumnDomains(
                                             Map.of(
-                                                    createColumnHandle(columnName, createVarcharType(columnPrecision), 12, jdbcTypeName, Optional.empty(), Optional.empty()),
-                                                    Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(createVarcharType(columnPrecision), value1)), false))); // Shows what predicate is pushed down for the above query
+                                                    createColumnHandle(columnName, varcharType, 12, jdbcTypeName, Optional.empty(), Optional.empty()),
+                                                    Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(varcharType, value1)), false))); // Shows what predicate is pushed down for the above query
                             assertThat(effectivePredicate).isEqualTo(expectedPredicate);
                             return true;
                         }));
@@ -711,8 +715,8 @@ public class TestDynamoDbPredicatePushdown
                             TupleDomain<?> expectedPredicate =
                                     TupleDomain.withColumnDomains(
                                             Map.of(
-                                                    createColumnHandle(columnName, createVarcharType(columnPrecision), 12, jdbcTypeName, Optional.empty(), Optional.empty()),
-                                                    Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(createVarcharType(columnPrecision), value1)), false))); // Shows what predicate is pushed down for the above query
+                                                    createColumnHandle(columnName, varcharType, 12, jdbcTypeName, Optional.empty(), Optional.empty()),
+                                                    Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(varcharType, value1)), false))); // Shows what predicate is pushed down for the above query
                             assertThat(effectivePredicate).isEqualTo(expectedPredicate);
                             return true;
                         }));
@@ -725,8 +729,8 @@ public class TestDynamoDbPredicatePushdown
                             TupleDomain<?> expectedPredicate =
                                     TupleDomain.withColumnDomains(
                                             Map.of(
-                                                    createColumnHandle(columnName, createVarcharType(columnPrecision), 12, jdbcTypeName, Optional.empty(), Optional.empty()),
-                                                    Domain.create(ValueSet.ofRanges(Range.greaterThan(createVarcharType(columnPrecision), value1)), false))); // Shows what predicate is pushed down for the above query
+                                                    createColumnHandle(columnName, varcharType, 12, jdbcTypeName, Optional.empty(), Optional.empty()),
+                                                    Domain.create(ValueSet.ofRanges(Range.greaterThan(varcharType, value1)), false))); // Shows what predicate is pushed down for the above query
                             assertThat(effectivePredicate).isEqualTo(expectedPredicate);
                             return true;
                         }));
@@ -739,8 +743,8 @@ public class TestDynamoDbPredicatePushdown
                             TupleDomain<?> expectedPredicate =
                                     TupleDomain.withColumnDomains(
                                             Map.of(
-                                                    createColumnHandle(columnName, createVarcharType(columnPrecision), 12, jdbcTypeName, Optional.empty(), Optional.empty()),
-                                                    Domain.create(ValueSet.ofRanges(Range.lessThan(createVarcharType(columnPrecision), value1)), false))); // Shows what predicate is pushed down for the above query
+                                                    createColumnHandle(columnName, varcharType, 12, jdbcTypeName, Optional.empty(), Optional.empty()),
+                                                    Domain.create(ValueSet.ofRanges(Range.lessThan(varcharType, value1)), false))); // Shows what predicate is pushed down for the above query
                             assertThat(effectivePredicate).isEqualTo(expectedPredicate);
                             return true;
                         }));
@@ -770,8 +774,8 @@ public class TestDynamoDbPredicatePushdown
                             TupleDomain<?> expectedPredicate =
                                     TupleDomain.withColumnDomains(
                                             Map.of(
-                                                    createColumnHandle(columnName, createVarcharType(columnPrecision), 12, jdbcTypeName, Optional.empty(), Optional.empty()),
-                                                    Domain.create(ValueSet.ofRanges(Range.lessThan(createVarcharType(columnPrecision), Slices.utf8Slice(value1)), Range.greaterThan(createVarcharType(columnPrecision), Slices.utf8Slice(value1))), false))); // Shows what predicate is pushed down for the above query
+                                                    createColumnHandle(columnName, varcharType, 12, jdbcTypeName, Optional.empty(), Optional.empty()),
+                                                    Domain.create(ValueSet.ofRanges(Range.lessThan(varcharType, Slices.utf8Slice(value1)), Range.greaterThan(varcharType, Slices.utf8Slice(value1))), false))); // Shows what predicate is pushed down for the above query
                             assertThat(effectivePredicate).isEqualTo(expectedPredicate);
                             return true;
                         }));

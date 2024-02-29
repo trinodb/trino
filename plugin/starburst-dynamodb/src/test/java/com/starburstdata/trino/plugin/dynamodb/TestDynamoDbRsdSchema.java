@@ -26,7 +26,6 @@ import static com.starburstdata.trino.plugin.dynamodb.DynamoDbJdbcClient.getRsdS
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestDynamoDbRsdSchema
@@ -99,7 +98,6 @@ public class TestDynamoDbRsdSchema
         ImmutableSet.of("boolean", "varbinary", "tinyint", "smallint", "bigint", "integer", "real", "double")
                 .forEach(type -> assertThat(getRsdSupportedOperators(type)).isEqualTo(allOperators));
 
-        assertThrows(TrinoException.class, () -> getRsdSupportedOperators("varchar"));
         ImmutableSet.of("varchar(25)", "string").forEach(type -> assertThat(getRsdSupportedOperators(type)).isEqualTo(allOperators));
 
         assertThat(getRsdSupportedOperators("char(2)")).isEqualTo(allOperators);

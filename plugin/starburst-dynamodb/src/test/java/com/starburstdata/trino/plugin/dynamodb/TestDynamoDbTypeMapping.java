@@ -95,7 +95,7 @@ public class TestDynamoDbTypeMapping
     {
         // First type here used as Dynamo primary key, cannot use boolean as primary key
         SqlDataTypeTest.create()
-                .addRoundTrip("varchar(255)", "'id'", createVarcharType(255), "CAST('id' AS VARCHAR(255))")
+                .addRoundTrip("varchar", "'id'", createUnboundedVarcharType(), "CAST('id' AS VARCHAR)")
                 .addRoundTrip("boolean", "true", BOOLEAN, "true")
                 .addRoundTrip("boolean", "false", BOOLEAN, "false")
                 .addRoundTrip("boolean", "null", BOOLEAN, "CAST(NULL as BOOLEAN)")
@@ -177,7 +177,7 @@ public class TestDynamoDbTypeMapping
                 "decimal(3, 0)",
                 "CAST('193' AS decimal)",
                 createDecimalType(3, 0),
-                "expected: decimal(3,0)\n but was: varchar(2000)",
+                "expected: decimal(3,0)\n but was: varchar",
                 "Unsupported column type: decimal");
     }
 
@@ -206,17 +206,10 @@ public class TestDynamoDbTypeMapping
                 .addRoundTrip("varchar(1)", "'" + sampleFourByteUnicodeCharacter + "'", createVarcharType(1), "CAST('" + sampleFourByteUnicodeCharacter + "' AS varchar(1))")
                 .addRoundTrip("varchar(77)", "'" + nuPogodi + "'", createVarcharType(77), "CAST('" + nuPogodi + "' AS varchar(77))")
                 .addRoundTrip("varchar(10485760)", "'text_f'", createVarcharType(10485760), "CAST('text_f' AS varchar(10485760))") // too long for a char in Trino
+                .addRoundTrip("varchar", "'a'", createUnboundedVarcharType(), "CAST('a' AS varchar)")
                 .execute(getQueryRunner(), dynamoDbCreateAndInsert("test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
-
-        // Unbounded varchars get reported as varchar(2000) by CData driver
-        testUnsupportedValue(
-                "varchar",
-                "'a'",
-                createUnboundedVarcharType(),
-                "expected: varchar\n but was: varchar(2000)",
-                "Unsupported column type: varchar. Only bounded varchars are supported");
     }
 
     @Test
@@ -238,12 +231,12 @@ public class TestDynamoDbTypeMapping
     @Test
     public void testJson()
     {
-        // Driver converts JSON types to VARCHAR(2000), so flag as unsupported
+        // Driver converts JSON types to VARCHAR, so flag as unsupported
         testUnsupportedValue(
                 "json",
                 "'a'",
                 JSON,
-                "expected: json\n but was: varchar(2000)",
+                "expected: json\n but was: varchar",
                 "Unsupported column type: json");
     }
 
@@ -337,12 +330,12 @@ public class TestDynamoDbTypeMapping
     @Test
     public void testTimeWithTimeZone()
     {
-        // Driver converts TIME WITH TIME ZONE types to VARCHAR(2000), so flag as unsupported
+        // Driver converts TIME WITH TIME ZONE types to VARCHAR, so flag as unsupported
         testUnsupportedValue(
                 "time(3) with time zone",
                 "TIME '00:00:00.000 +00:00'",
                 createTimeWithTimeZoneType(3),
-                "expected: time(3) with time zone\n but was: varchar(2000)",
+                "expected: time(3) with time zone\n but was: varchar",
                 "Unsupported column type: time(3) with time zone");
     }
 
@@ -366,7 +359,7 @@ public class TestDynamoDbTypeMapping
                 "timestamp(3) with time zone",
                 "TIMESTAMP '1970-01-01 00:00:00.000 UTC'",
                 createTimestampWithTimeZoneType(3),
-                "expected: timestamp(3) with time zone\n but was: varchar(2000)",
+                "expected: timestamp(3) with time zone\n but was: varchar",
                 "Unsupported column type: timestamp(3) with time zone");
     }
 

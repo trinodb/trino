@@ -1,8 +1,8 @@
 <api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
   <api:info title="test_flattened_map" other:catalog="CData" other:schema="AmazonDynamoDB" description="test_flattened_map" other:tableapiname="test_flattened_map" other:version="20">
-    <attr name="row_id"  xs:type="varchar(2000)" other:relativepath="row_id" other:fullpath="row_id"  other:dynamodatatype="S" key="true" other:keytype="HASH" />
-    <attr name="value.a" xs:type="varchar(2000)" other:relativepath="a"      other:fullpath="value.a" other:dynamodatatype="S"  />
+    <attr name="row_id"  xs:type="varchar" other:relativepath="row_id" other:fullpath="row_id"  other:dynamodatatype="S" key="true" other:keytype="HASH" />
+    <attr name="value.a" xs:type="varchar" other:relativepath="a"      other:fullpath="value.a" other:dynamodatatype="S"  />
     <attr name="value.b" xs:type="bigint"        other:relativepath="b"      other:fullpath="value.b" other:dynamodatatype="N"  />
-    <attr name="value.c" xs:type="varchar(2000)" other:relativepath="c"      other:fullpath="value.c" other:dynamodatatype="SS" />
+    <attr name="value.c" xs:type="varchar" other:relativepath="c"      other:fullpath="value.c" other:dynamodatatype="SS" />
   </api:info>
 </api:script>

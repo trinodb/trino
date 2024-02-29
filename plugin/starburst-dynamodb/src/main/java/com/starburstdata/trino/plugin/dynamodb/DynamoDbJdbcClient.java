@@ -112,6 +112,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
@@ -535,14 +536,11 @@ public class DynamoDbJdbcClient
             return WriteMapping.doubleMapping("double", doubleWriteFunction());
         }
 
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
-            // The CData driver returns varchar(2000) for unbounded varchar types, so refuse to create it
-            if (varcharType.isUnbounded()) {
-                throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName() + ". Only bounded varchars are supported");
-            }
-
-            return sliceMapping(format("varchar(%s)", varcharType.getBoundedLength()), varcharWriteFunction());
+        if (type instanceof VarcharType varcharType) {
+            String dataType = varcharType.isUnbounded()
+                    ? "varchar"
+                    : format("varchar(%s)", varcharType.getBoundedLength());
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
 
         if (type instanceof VarbinaryType) {
@@ -583,10 +581,6 @@ public class DynamoDbJdbcClient
         // Map numeric types
         if (ImmutableSet.of("tinyint", "smallint", "bigint", "integer", "real", "double").contains(type)) {
             return "N";
-        }
-
-        if (type.equals("varchar")) {
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type + ". Only bounded varchars are supported");
         }
 
         if (type.contains("varchar") || type.equals("date")) {
@@ -676,11 +670,11 @@ public class DynamoDbJdbcClient
 
     private static String getColumnSize(ColumnMetadata columnMetadata)
     {
-        if (columnMetadata.getType() instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) columnMetadata.getType();
+        if (columnMetadata.getType() instanceof VarcharType varcharType) {
             if (!varcharType.isUnbounded()) {
                 return Integer.toString(varcharType.getBoundedLength());
             }
+            return Integer.toString(UNBOUNDED_LENGTH);
         }
         return null;
     }
@@ -795,10 +789,6 @@ public class DynamoDbJdbcClient
 
         if (ImmutableSet.of("boolean", "varbinary", "tinyint", "smallint", "bigint", "integer", "real", "double").contains(sqlType)) {
             return allOperators;
-        }
-
-        if (sqlType.equals("varchar")) {
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + sqlType + ". Only bounded varchars are supported");
         }
 
         if (sqlType.contains("varchar") || sqlType.equals("string")) {

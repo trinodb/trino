@@ -29,6 +29,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.starburstdata.trino.plugin.dynamodb.DynamoDbSessionProperties.getFlattenArrayElementCount;
 import static com.starburstdata.trino.plugin.dynamodb.DynamoDbSessionProperties.getGenerateSchemaFiles;
 import static com.starburstdata.trino.plugin.dynamodb.DynamoDbSessionProperties.isFlattenObjectsEnabled;
+import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 
 /**
  * We implement our own ConnectionFactory in order to add our OEM key to the connection URL but prevent it from being logged
@@ -109,7 +110,13 @@ public class DynamoDbConnectionFactory
         }
 
         Optional.ofNullable(dynamoDbConfig.getSchemaDirectory()).ifPresent(directory -> builder.append("Location=\"").append(directory).append("\";"));
-        dynamoDbConfig.getExtraJdbcProperties().ifPresent(extraProperties -> builder.append("Other=\"").append(extraProperties).append("\";"));
+
+        builder
+                .append("Other=\"")
+                .append("MaxKeyColumnSize=%s;".formatted(UNBOUNDED_LENGTH)) // Set the precision for partition/sort key string columns
+                .append("DefaultColumnSize=%s;".formatted(UNBOUNDED_LENGTH)) // Set the precision for non-key string columns
+                .append(dynamoDbConfig.getExtraJdbcProperties().map("%s"::formatted).orElse(""))
+                .append("\";");
 
         return builder.toString();
     }
