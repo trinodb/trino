@@ -82,8 +82,11 @@ public record ColumnStatistics(
     public HiveColumnStatistics toHiveColumnStatistics(HiveBasicStatistics basicStatistics)
     {
         OptionalDouble averageColumnLength = this.averageColumnLength;
-        if (totalSizeInBytes.isPresent() && basicStatistics.getRowCount().orElse(0) > 0) {
-            averageColumnLength = OptionalDouble.of(totalSizeInBytes.getAsLong() / (double) basicStatistics.getRowCount().getAsLong());
+        if (totalSizeInBytes.isPresent() && basicStatistics.getRowCount().orElse(0) > 0 && nullsCount().isPresent()) {
+            long nonNullCount = basicStatistics.getRowCount().getAsLong() - nullsCount().orElseThrow();
+            if (nonNullCount > 0) {
+                averageColumnLength = OptionalDouble.of(totalSizeInBytes.getAsLong() / (double) nonNullCount);
+            }
         }
         return new HiveColumnStatistics(
                 integerStatistics.map(stat -> new io.trino.plugin.hive.metastore.IntegerStatistics(stat.min(), stat.max())),
