@@ -99,6 +99,7 @@ public class HivePageSink
     private long writtenBytes;
     private long memoryUsage;
     private long validationCpuNanos;
+    private long currentOpenWriters;
 
     public HivePageSink(
             HiveWriterFactory writerFactory,
@@ -349,6 +350,7 @@ public class HivePageSink
         validationCpuNanos += writer.getValidationCpuNanos();
 
         writers.set(writerIndex, null);
+        currentOpenWriters--;
 
         PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
         partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
@@ -379,9 +381,6 @@ public class HivePageSink
         Page partitionColumns = extractColumns(page, partitionColumnsInputIndex);
         Block bucketBlock = buildBucketBlock(page);
         int[] writerIndexes = pagePartitioner.partitionPage(partitionColumns, bucketBlock);
-        if (pagePartitioner.getMaxIndex() >= maxOpenWriters) {
-            throw new TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions/buckets", maxOpenWriters));
-        }
 
         // expand writers list to new size
         while (writers.size() <= pagePartitioner.getMaxIndex()) {
@@ -412,9 +411,14 @@ public class HivePageSink
             writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
 
             writers.set(writerIndex, writer);
+            currentOpenWriters++;
             memoryUsage += writer.getMemoryUsage();
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
+
+        if (currentOpenWriters > maxOpenWriters) {
+            throw new TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions/buckets", maxOpenWriters));
+        }
 
         return writerIndexes;
     }
