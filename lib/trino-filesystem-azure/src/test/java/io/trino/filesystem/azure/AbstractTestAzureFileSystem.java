@@ -53,7 +53,7 @@ public abstract class AbstractTestAzureFileSystem
 
     enum AccountKind
     {
-        HIERARCHICAL, FLAT, BLOB
+        HIERARCHICAL, FLAT
     }
 
     private String account;
@@ -102,9 +102,6 @@ public abstract class AbstractTestAzureFileSystem
                 return AccountKind.HIERARCHICAL;
             }
             return AccountKind.FLAT;
-        }
-        if (accountInfo.getAccountKind() == com.azure.storage.blob.models.AccountKind.BLOB_STORAGE) {
-            return AccountKind.BLOB;
         }
         throw new IOException("Unsupported account kind '%s'".formatted(accountInfo.getAccountKind()));
     }
