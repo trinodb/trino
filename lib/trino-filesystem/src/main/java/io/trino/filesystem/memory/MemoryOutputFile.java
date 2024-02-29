@@ -64,7 +64,7 @@ class MemoryOutputFile
     }
 
     @Override
-    public void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
+    public void createExclusive(Slice content)
             throws IOException
     {
         outputBlob.createBlob(content);

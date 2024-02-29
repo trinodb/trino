@@ -69,7 +69,7 @@ public class GcsOutputFile
     }
 
     @Override
-    public void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
+    public void createExclusive(Slice content)
             throws IOException
     {
         try {
