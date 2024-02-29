@@ -1,4 +1,4 @@
-# BigQuery Connector Developer Notes
+# BigQuery Connector Developer Notes2
 
 The BigQuery connector module has both unit tests and integration tests.
 The integration tests require access to a BigQuery instance in Google Cloud.
