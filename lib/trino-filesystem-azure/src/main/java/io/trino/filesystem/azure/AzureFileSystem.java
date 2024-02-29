@@ -459,9 +459,6 @@ public class AzureFileSystem
         StorageAccountInfo accountInfo = createBlobContainerClient(location).getServiceClient().getAccountInfo();
 
         AccountKind accountKind = accountInfo.getAccountKind();
-        if (accountKind == AccountKind.BLOB_STORAGE) {
-            return false;
-        }
         if (accountKind != AccountKind.STORAGE_V2) {
             throw new IOException("Unsupported account kind '%s': %s".formatted(accountKind, location));
         }
