@@ -539,7 +539,21 @@ public final class SortedRangeSet
         if (that.isNone()) {
             return that;
         }
+        int thisRangeCount = this.getRangeCount();
+        int thatRangeCount = that.getRangeCount();
 
+        if (max(thisRangeCount, thatRangeCount) * 0.02 < min(thisRangeCount, thatRangeCount)) {
+            return linearSearchIntersect(that);
+        }
+        else {
+            // Binary search is better than linear search for sets with large size difference
+            return binarySearchIntersect(that);
+        }
+    }
+
+    // visible for testing
+    SortedRangeSet linearSearchIntersect(SortedRangeSet that)
+    {
         int thisRangeCount = this.getRangeCount();
         int thatRangeCount = that.getRangeCount();
 
@@ -577,6 +591,128 @@ public final class SortedRangeSet
         }
 
         return new SortedRangeSet(type, inclusive, blockBuilder.build());
+    }
+
+    // visible for testing
+    SortedRangeSet binarySearchIntersect(SortedRangeSet that)
+    {
+        SortedRangeSet testRangeSet;
+        SortedRangeSet probeRangeSet;
+        if (this.getRangeCount() > that.getRangeCount()) {
+            testRangeSet = that;
+            probeRangeSet = this;
+        }
+        else {
+            testRangeSet = this;
+            probeRangeSet = that;
+        }
+        int testEnd = testRangeSet.getRangeCount();
+        int probeEnd = probeRangeSet.getRangeCount();
+        int resultIndex = 0;
+
+        // postponed allocation
+        boolean[] inclusive = null;
+        BlockBuilder blockBuilder = null;
+
+        for (int testIndex = 0; testIndex < testEnd; testIndex++) {
+            RangeView current = testRangeSet.getRangeView(testIndex);
+            int insertionStartIndex = 0;
+            if (!current.isLowUnbounded()) {
+                insertionStartIndex = findRangeInsertionPoint(probeRangeSet, 0, probeEnd, current.lowBound());
+                if (insertionStartIndex < 0) {
+                    insertionStartIndex = ~insertionStartIndex;
+                }
+            }
+            int intersectionEndIndex = probeEnd;
+            if (!current.isHighUnbounded()) {
+                intersectionEndIndex = findRangeInsertionPoint(probeRangeSet, 0, probeEnd, current.highBound());
+                if (intersectionEndIndex < 0) {
+                    intersectionEndIndex = ~intersectionEndIndex;
+                }
+                else {
+                    // The intersectionEndIndex is an exclusive index that needs to be increased when an overlapping RangeSet was found
+                    intersectionEndIndex++;
+                }
+            }
+            // test if testRange covers whole probeSet
+            if (insertionStartIndex == 0 && intersectionEndIndex >= probeEnd) {
+                RangeView startRange = probeRangeSet.getRangeView(0);
+                RangeView endRange = probeRangeSet.getRangeView(probeEnd - 1);
+
+                Optional<RangeView> startRangeIntersection = startRange.tryIntersect(current);
+                Optional<RangeView> endRangeIntersection = endRange.tryIntersect(current);
+                if (startRangeIntersection.isPresent() && endRangeIntersection.isPresent() &&
+                        startRangeIntersection.get().compareTo(startRange) == 0 && endRangeIntersection.get().compareTo(endRange) == 0) {
+                    return probeRangeSet;
+                }
+            }
+            if (blockBuilder == null) {
+                blockBuilder = type.createBlockBuilder(null, 2 * (testEnd + probeEnd));
+                inclusive = new boolean[2 * (testEnd + probeEnd)];
+            }
+            int probeIndex = insertionStartIndex;
+            while (probeIndex < intersectionEndIndex) {
+                RangeView probeRange = probeRangeSet.getRangeView(probeIndex);
+                // intersection at edges as [1, 9], [12, 18] intersected with [7, 15], [17, 21] should end up as [7, 9], [12, 15], [17, 18]
+                if (probeIndex == insertionStartIndex || probeIndex + 1 >= intersectionEndIndex) {
+                    Optional<RangeView> intersect = probeRange.tryIntersect(current);
+                    if (intersect.isPresent()) {
+                        writeRange(type, blockBuilder, inclusive, resultIndex, intersect.get());
+                        resultIndex++;
+                    }
+                    probeIndex++;
+                }
+                else {
+                    Block block = probeRangeSet.getSortedRanges();
+                    if (block instanceof DictionaryBlock || block instanceof ValueBlock) {
+                        int size = intersectionEndIndex - probeIndex - 1;
+                        int offset = probeIndex * 2;
+                        if (block instanceof DictionaryBlock) {
+                            copyDictionaryBlock(blockBuilder, inclusive, probeRangeSet, offset, resultIndex, size);
+                        }
+                        else if (block instanceof ValueBlock) {
+                            copyValueBlock(blockBuilder, inclusive, probeRangeSet, offset, resultIndex, size);
+                        }
+                        probeIndex += size;
+                        resultIndex += size;
+                    }
+                    else {
+                        // RLE
+                        writeRange(type, blockBuilder, inclusive, resultIndex, probeRange);
+                        resultIndex++;
+                        probeIndex++;
+                    }
+                }
+            }
+        }
+
+        if (blockBuilder == null) {
+            blockBuilder = type.createBlockBuilder(null, 0);
+            inclusive = new boolean[0];
+        }
+        if (resultIndex * 2 < inclusive.length) {
+            inclusive = Arrays.copyOf(inclusive, resultIndex * 2);
+        }
+
+        return new SortedRangeSet(type, inclusive, blockBuilder.build());
+    }
+
+    private static void copyValueBlock(BlockBuilder blockBuilder, boolean[] inclusive, SortedRangeSet source, int sourceOffset, int destinationOffset, int size)
+    {
+        ValueBlock valueBlock = (ValueBlock) source.getSortedRanges();
+        System.arraycopy(source.getInclusive(), sourceOffset, inclusive, destinationOffset * 2, size * 2);
+        blockBuilder.appendRange(valueBlock.getUnderlyingValueBlock(), sourceOffset, size * 2);
+    }
+
+    private static void copyDictionaryBlock(BlockBuilder blockBuilder, boolean[] inclusive, SortedRangeSet source, int sourceOffset, int destinationOffset, int size)
+    {
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) source.getSortedRanges();
+        int[] positions = new int[size * 2];
+        for (int position = 0; position < size * 2; position++) {
+            positions[position] = dictionaryBlock.getUnderlyingValuePosition(position + sourceOffset);
+        }
+        System.arraycopy(source.getInclusive(), sourceOffset, inclusive, destinationOffset * 2, positions.length);
+        blockBuilder.appendPositions(dictionaryBlock.getUnderlyingValueBlock(), positions, 0, positions.length);
     }
 
     @Override
@@ -1459,6 +1595,34 @@ public final class SortedRangeSet
                     lowValue,
                     highValue,
                     highInclusive ? "]" : ")");
+        }
+
+        public RangeView highBound()
+        {
+            return new RangeView(
+                    type,
+                    comparisonOperator,
+                    rangeComparisonOperator,
+                    true,
+                    this.highValueBlock,
+                    this.highValuePosition,
+                    true,
+                    this.highValueBlock,
+                    this.highValuePosition);
+        }
+
+        public RangeView lowBound()
+        {
+            return new RangeView(
+                    type,
+                    comparisonOperator,
+                    rangeComparisonOperator,
+                    true,
+                    this.lowValueBlock,
+                    this.lowValuePosition,
+                    true,
+                    this.lowValueBlock,
+                    this.lowValuePosition);
         }
     }
 }

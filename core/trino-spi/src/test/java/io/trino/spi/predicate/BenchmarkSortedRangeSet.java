@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
+import java.util.stream.LongStream;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.predicate.Range.range;
@@ -131,22 +133,80 @@ public class BenchmarkSortedRangeSet
     }
 
     @Benchmark
-    public List<ValueSet> intersectSmall(Data data)
+    public List<ValueSet> linearIntersectSmall(Data data)
     {
-        return benchmarkIntersect(data.smallRanges);
+        return benchmarkIntersect(data.smallRanges, data.smallRanges, SortedRangeSet::linearSearchIntersect);
     }
 
     @Benchmark
-    public List<ValueSet> intersectLarge(Data data)
+    public List<ValueSet> binaryIntersectSmall(Data data)
     {
-        return benchmarkIntersect(data.largeRanges);
+        return benchmarkIntersect(data.smallRanges, data.smallRanges, SortedRangeSet::binarySearchIntersect);
     }
 
-    private List<ValueSet> benchmarkIntersect(List<SortedRangeSet> dataRanges)
+    @Benchmark
+    public List<ValueSet> linearIntersectLarge(Data data)
+    {
+        return benchmarkIntersect(data.largeRanges, data.largeRanges, SortedRangeSet::linearSearchIntersect);
+    }
+
+    @Benchmark
+    public List<ValueSet> binaryIntersectLarge(Data data)
+    {
+        return benchmarkIntersect(data.largeRanges, data.largeRanges, SortedRangeSet::binarySearchIntersect);
+    }
+
+    @Benchmark
+    public List<ValueSet> linearIntersectSmallOnVeryLarge(Data data)
+    {
+        return benchmarkIntersect(data.largeRanges, data.smallRanges, SortedRangeSet::linearSearchIntersect);
+    }
+
+    @Benchmark
+    public List<ValueSet> binaryIntersectSmallOnVeryLarge(Data data)
+    {
+        return benchmarkIntersect(data.largeRanges, data.smallRanges, SortedRangeSet::binarySearchIntersect);
+    }
+
+    @Benchmark
+    public List<ValueSet> linearIntersectDiscreteOnLarge(Data data)
+    {
+        return benchmarkIntersectionSingle(data.largeDiscreteSortedRangeSet, SortedRangeSet::linearSearchIntersect);
+    }
+
+    @Benchmark
+    public List<ValueSet> binaryIntersectRangeOnLarge(Data data)
+    {
+        return benchmarkIntersectionSingle(data.largeRangeSortedRangeSet, SortedRangeSet::binarySearchIntersect);
+    }
+
+    @Benchmark
+    public List<ValueSet> linearIntersectRangeOnLarge(Data data)
+    {
+        return benchmarkIntersectionSingle(data.largeRangeSortedRangeSet, SortedRangeSet::linearSearchIntersect);
+    }
+
+    @Benchmark
+    public List<ValueSet> binaryIntersectDiscreteOnLarge(Data data)
+    {
+        return benchmarkIntersectionSingle(data.largeDiscreteSortedRangeSet, SortedRangeSet::binarySearchIntersect);
+    }
+
+    public List<ValueSet> benchmarkIntersectionSingle(SortedRangeSet target, BiFunction<SortedRangeSet, SortedRangeSet, SortedRangeSet> intersection)
+    {
+        List<ValueSet> result = new ArrayList<>(10);
+        for (int i = 0; i < 10; i++) {
+            SortedRangeSet test = SortedRangeSet.of(range(BIGINT, ThreadLocalRandom.current().nextLong(0, 100), i % 2 == 0, ThreadLocalRandom.current().nextLong(99950, 100_000), i % 2 == 1));
+            result.add(intersection.apply(target, test));
+        }
+        return result;
+    }
+
+    private List<ValueSet> benchmarkIntersect(List<SortedRangeSet> dataRanges, List<SortedRangeSet> testRanges, BiFunction<SortedRangeSet, SortedRangeSet, SortedRangeSet> intersection)
     {
         List<ValueSet> result = new ArrayList<>(dataRanges.size() - 1);
         for (int index = 0; index < dataRanges.size() - 1; index++) {
-            result.add(dataRanges.get(index).intersect(dataRanges.get(index + 1)));
+            result.add(intersection.apply(dataRanges.get(index), testRanges.get(index + 1 % testRanges.size())));
         }
         return result;
     }
@@ -240,6 +300,9 @@ public class BenchmarkSortedRangeSet
         public List<SortedRangeSet> smallRanges;
         public List<SortedRangeSet> largeRanges;
         private List<SortedRangeSet> veryLargeRanges;
+        public SortedRangeSet largeDiscreteSortedRangeSet = SortedRangeSet.of(BIGINT, 0L, LongStream.range(1, 100_000).boxed().toList().toArray());
+        public SortedRangeSet largeRangeSortedRangeSet = SortedRangeSet.of(Range.range(BIGINT, 0L, true, 9L, true),
+                LongStream.rangeClosed(1L, 100_000L).mapToObj(l -> Range.range(BIGINT, l * 10, l % 2 == 1, (l + 1) * 10 - 1, l % 2 == 0)).toList().toArray(Range[]::new));
 
         @Setup(Level.Iteration)
         public void init()
@@ -255,7 +318,7 @@ public class BenchmarkSortedRangeSet
                 ranges.add(range(BIGINT, from, false, to, false));
             }
 
-            smallRanges = generateRangeSets(500_000, 2);
+            smallRanges = generateRangeSets(50_000, 2);
             largeRanges = generateRangeSets(5_000, 300);
             veryLargeRanges = generateRangeSets(5_000, 30_000);
         }
@@ -299,8 +362,16 @@ public class BenchmarkSortedRangeSet
         overlapsLarge(data);
         overlapsSmallOnVeryLarge(data);
 
-        intersectSmall(data);
-        intersectLarge(data);
+        linearIntersectSmall(data);
+        linearIntersectLarge(data);
+        linearIntersectLarge(data);
+        linearIntersectRangeOnLarge(data);
+        linearIntersectDiscreteOnLarge(data);
+        binaryIntersectSmall(data);
+        binaryIntersectLarge(data);
+        binaryIntersectLarge(data);
+        binaryIntersectRangeOnLarge(data);
+        binaryIntersectDiscreteOnLarge(data);
 
         containsValueSmall(data);
         containsValueLarge(data);
