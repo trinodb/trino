@@ -54,13 +54,14 @@ per-connector basis.
 You can use the `=>` operator for passing named parameter values.
 The left side is the name of the parameter, the right side is the value being passed.
 
-Collapse files in a table that are over 128 megabytes in size with the `optimize`
-procedure from the [Hive](hive-alter-table-execute), [Delta
-Lake](delta-lake-alter-table-execute) , and
-[Iceberg](iceberg-alter-table-execute) connectors:
+Executable commands are contributed by connectors, for example, to merge files
+in a table called `test_table` that is over 128 megabytes in size within the
+`example.test` schema, use the `optimize` command from the
+[Hive](hive-alter-table-execute), [Delta Lake](delta-lake-alter-table-execute) ,
+and [Iceberg](iceberg-alter-table-execute) connectors:
 
 ```
-ALTER TABLE hive.schema.test_table EXECUTE optimize(file_size_threshold => '128MB')
+ALTER TABLE example.test.test_table EXECUTE optimize(file_size_threshold => '128MB')
 ```
 
 ## Examples
