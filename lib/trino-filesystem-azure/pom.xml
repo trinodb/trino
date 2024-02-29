@@ -187,7 +187,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestAzureFileSystemBlob.java</exclude>
                                 <exclude>**/TestAzureFileSystemGen2Flat.java</exclude>
                                 <exclude>**/TestAzureFileSystemGen2Hierarchical.java</exclude>
                                 <exclude>**/TestAzureFileSystemOAuthGen2Flat.java</exclude>
@@ -208,11 +207,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <!--
-                                     Avoid running TestAzureFileSystemBlob.java because
-                                     Azure Data Lake Storage Gen1 will be retired on Feb 29, 2024.
-                                -->
-                                <!-- <include>**/TestAzureFileSystemBlob.java</include> -->
                                 <include>**/TestAzureFileSystemGen2Flat.java</include>
                                 <include>**/TestAzureFileSystemGen2Hierarchical.java</include>
                                 <include>**/TestAzureFileSystemOAuthGen2Flat.java</include>

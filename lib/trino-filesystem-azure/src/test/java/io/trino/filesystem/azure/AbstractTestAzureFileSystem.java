@@ -49,7 +49,7 @@ public abstract class AbstractTestAzureFileSystem
 
     protected enum AccountKind
     {
-        HIERARCHICAL, FLAT, BLOB
+        HIERARCHICAL, FLAT
     }
 
     private String account;
