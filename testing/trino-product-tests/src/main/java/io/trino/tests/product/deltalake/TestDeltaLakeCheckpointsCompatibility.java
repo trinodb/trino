@@ -679,6 +679,43 @@ public class TestDeltaLakeCheckpointsCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testV2CheckpointMultipleSidecars()
+    {
+        testV2CheckpointMultipleSidecars("json");
+        testV2CheckpointMultipleSidecars("parquet");
+    }
+
+    private void testV2CheckpointMultipleSidecars(String format)
+    {
+        String tableName = "test_dl_v2_checkpoint_multiple_sidecars_" + randomNameSuffix();
+        String tableDirectory = "delta-compatibility-test-" + tableName;
+
+        onDelta().executeQuery("SET spark.databricks.delta.checkpointV2.topLevelFileFormat = " + format);
+        onDelta().executeQuery("SET spark.databricks.delta.checkpoint.partSize = 1");
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(id INT, part STRING)" +
+                "USING delta " +
+                "PARTITIONED BY (part)" +
+                "LOCATION 's3://" + bucketName + "/" + tableDirectory + "'" +
+                "TBLPROPERTIES ('delta.checkpointPolicy' = 'v2', 'delta.checkpointInterval' = '1')");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'part1'), (2, 'part2')");
+
+            List<Row> expectedRows = ImmutableList.of(row(1, "part1"), row(2, "part2"));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(expectedRows);
+
+            assertThat(listSidecarFiles(bucketName, tableDirectory)).hasSize(2);
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
     private void fillWithInserts(String tableName, String values, int toCreate)
     {
         for (int i = 0; i < toCreate; i++) {
@@ -692,6 +729,11 @@ public class TestDeltaLakeCheckpointsCompatibility
         return allFiles.stream()
                 .filter(path -> path.contains("checkpoint.parquet"))
                 .collect(toImmutableList());
+    }
+
+    private List<String> listSidecarFiles(String bucketName, String tableDirectory)
+    {
+        return listS3Directory(bucketName, tableDirectory + "/_delta_log/_sidecars");
     }
 
     private List<String> listS3Directory(String bucketName, String directory)
