@@ -180,7 +180,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestAzureFileSystemBlob.java</exclude>
                                 <exclude>**/TestAzureFileSystemGen2Flat.java</exclude>
                                 <exclude>**/TestAzureFileSystemGen2Hierarchical.java</exclude>
                             </excludes>
@@ -199,7 +198,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestAzureFileSystemBlob.java</include>
                                 <include>**/TestAzureFileSystemGen2Flat.java</include>
                                 <include>**/TestAzureFileSystemGen2Hierarchical.java</include>
                             </includes>
