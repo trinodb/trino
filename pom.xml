@@ -185,7 +185,6 @@
             -XX:+UnlockDiagnosticVMOptions
             <!-- bump from default of 2 -->
             -XX:GCLockerRetryAllocationCount=10
-            ${extraJavaVectorArgs}
         </air.test.jvm.additional-arguments>
         <starburst-license.header-file>${air.main.basedir}/.mvn/license/starburst-header.txt</starburst-license.header-file>
 
