@@ -77,7 +77,8 @@ class `io.trino.client.QueryResults` in module `trino-client` in the
 * - `data`
   - The `data` attribute contains a list of the rows returned by the query
     request. Each row is itself a list that holds values of the columns in the
-    row, in the order specified by the `columns` attribute.
+    row, in the order specified by the `columns` attribute. If there is no data,
+    attribute is omitted.
 * - `updateType`
   - A human-readable string representing the operation. For a `CREATE TABLE`
     request, the `updateType` is "CREATE TABLE"; for `SET SESSION` it is "SET

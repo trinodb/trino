@@ -14,6 +14,7 @@
 package io.trino.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
@@ -141,6 +142,7 @@ public class QueryResults
     @Nullable
     @JsonProperty
     @Override
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public Iterable<List<Object>> getData()
     {
         return data;

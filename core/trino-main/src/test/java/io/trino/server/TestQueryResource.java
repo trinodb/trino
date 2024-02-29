@@ -16,6 +16,7 @@ package io.trino.server;
 import com.google.inject.Key;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.StringResponseHandler;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
@@ -45,6 +46,7 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.airlift.tracing.SpanSerialization.SpanDeserializer;
@@ -193,6 +195,24 @@ public class TestQueryResource
         assertThat(info.isScheduled()).isTrue();
         assertThat(info.getFailureInfo()).isNotNull();
         assertThat(info.getFailureInfo().getErrorCode()).isEqualTo(DIVISION_BY_ZERO.toErrorCode());
+    }
+
+    @Test
+    public void testQueuedQueryMissingData()
+    {
+        String sql = "SELECT * FROM tpch.tiny.lineitem";
+
+        Request request = preparePost()
+                .setHeader(TRINO_HEADERS.requestUser(), "user")
+                .setUri(uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build())
+                .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
+                .build();
+
+        StringResponseHandler.StringResponse stringResponse = client.execute(request, createStringResponseHandler());
+        QueryResults results = jsonCodec(QueryResults.class).fromJson(stringResponse.getBody());
+        assertThat(results.getStats().isQueued()).isTrue();
+        assertThat(stringResponse.getBody()).doesNotContain("data");
+        assertThat(cancelQueryInfo(results.getId())).isEqualTo(204);
     }
 
     @Test

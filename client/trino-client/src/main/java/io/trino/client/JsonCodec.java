@@ -106,4 +106,14 @@ public class JsonCodec<T>
             return value;
         }
     }
+
+    public String toJson(T instance)
+    {
+        try {
+            return mapper.writerFor(javaType).writeValueAsString(instance);
+        }
+        catch (IOException exception) {
+            throw new IllegalArgumentException(String.format("%s could not be converted to JSON", instance.getClass().getName()), exception);
+        }
+    }
 }
