@@ -351,6 +351,8 @@ features](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#table-featur
   - Readers only
 * - Timestamp without time zone
   - Readers and writers
+* - V2 checkpoint
+  - Readers only
 :::
 
 No other features are supported.

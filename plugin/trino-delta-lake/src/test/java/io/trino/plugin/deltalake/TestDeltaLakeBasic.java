@@ -1323,6 +1323,53 @@ public class TestDeltaLakeBasic
                 .matches("VALUES " + id);
     }
 
+    @Test
+    public void testReadV2Checkpoint()
+            throws Exception
+    {
+        testReadV2Checkpoint("deltalake/v2_checkpoint_json");
+        testReadV2Checkpoint("deltalake/v2_checkpoint_parquet");
+        testReadV2Checkpoint("databricks133/v2_checkpoint_json");
+        testReadV2Checkpoint("databricks133/v2_checkpoint_parquet");
+    }
+
+    private void testReadV2Checkpoint(String resourceName)
+            throws Exception
+    {
+        String tableName = "test_v2_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        Path source = new File(Resources.getResource(resourceName).toURI()).toPath();
+        copyDirectoryContents(source, tableLocation);
+        assertThat(source.resolve("_delta_log/_last_checkpoint"))
+                .content().contains("v2Checkpoint").contains("sidecar");
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertThat(query("DESCRIBE " + tableName))
+                .result()
+                .projected("Column", "Type")
+                .skippingTypesCheck()
+                .matches("VALUES ('a', 'integer'), ('b', 'integer')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 2)");
+
+        // Write-operations should fail
+        assertQueryFails(
+                "INSERT INTO " + tableName + " VALUES (3, 4)",
+                "\\QUnsupported writer features: [v2Checkpoint]");
+        assertQueryFails(
+                "UPDATE " + tableName + " SET a = 10",
+                "\\QUnsupported writer features: [v2Checkpoint]");
+        assertQueryFails(
+                "DELETE FROM " + tableName,
+                "\\QUnsupported writer features: [v2Checkpoint]");
+        assertQueryFails(
+                "TRUNCATE TABLE " + tableName,
+                "\\QUnsupported writer features: [v2Checkpoint]");
+        assertQueryFails(
+                "MERGE INTO " + tableName + " USING (VALUES 42) t(dummy) ON false WHEN NOT MATCHED THEN INSERT VALUES (3, 4)",
+                "\\QUnsupported writer features: [v2Checkpoint]");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 2)");
+    }
+
     private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)
             throws IOException
     {

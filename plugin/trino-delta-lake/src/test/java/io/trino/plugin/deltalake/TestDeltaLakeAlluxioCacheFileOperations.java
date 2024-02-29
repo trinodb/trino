@@ -266,6 +266,72 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .build());
     }
 
+    @Test
+    public void testReadV2CheckpointJson()
+    {
+        registerTable("v2_checkpoint_json", "deltalake/v2_checkpoint_json");
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'v2_checkpoint_json')");
+        assertFileSystemAccesses(
+                "SELECT * FROM v2_checkpoint_json",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json", 0, 765), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 0, 9176), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 1224, 143))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 4, 727))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 1994, 188))
+                        .add(new CacheOperation("Alluxio.writeCache", "data", 0, 666))
+                        .add(new CacheOperation("Alluxio.readCached", "data", 0, 666))
+                        .add(new CacheOperation("Alluxio.readExternal", "data", 0, 666))
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM v2_checkpoint_json",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json", 0, 765), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 0, 9176), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 1224, 143))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 4, 727))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 1994, 188))
+                        .add(new CacheOperation("Alluxio.readCached", "data", 0, 666))
+                        .build());
+    }
+
+    @Test
+    public void testReadV2CheckpointParquet()
+    {
+        registerTable("v2_checkpoint_parquet", "deltalake/v2_checkpoint_parquet");
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'v2_checkpoint_parquet')");
+        assertFileSystemAccesses(
+                "SELECT * FROM v2_checkpoint_parquet",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 0, 19019), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 100, 2470))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 1304, 1266))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 3155, 87))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 3829, 143))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 0, 9415), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 4, 758))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 1255, 143))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 2040, 199))
+                        .add(new CacheOperation("Alluxio.writeCache", "data", 0, 666))
+                        .add(new CacheOperation("Alluxio.readCached", "data", 0, 666))
+                        .add(new CacheOperation("Alluxio.readExternal", "data", 0, 666))
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM v2_checkpoint_parquet",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 0, 19019), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 100, 2470))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 1304, 1266))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 3155, 87))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 3829, 143))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 0, 9415), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 4, 758))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 1255, 143))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 2040, 199))
+                        .add(new CacheOperation("Alluxio.readCached", "data", 0, 666))
+                        .build());
+    }
+
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<CacheOperation> expectedCacheAccesses)
     {
         assertUpdate("CALL system.flush_metadata_cache()");
