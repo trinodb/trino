@@ -11,19 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.transactionlog.checkpoint;
-
-import io.trino.plugin.deltalake.transactionlog.V2Checkpoint;
-
-import java.util.Optional;
+package io.trino.plugin.deltalake.transactionlog;
 
 import static java.util.Objects.requireNonNull;
 
-public record LastCheckpoint(long version, long size, Optional<Integer> parts, Optional<V2Checkpoint> v2Checkpoint)
+public record V2Checkpoint(String path)
 {
-    public LastCheckpoint
+    public V2Checkpoint
     {
-        requireNonNull(parts, "parts is null");
-        requireNonNull(v2Checkpoint, "v2Checkpoint is null");
+        requireNonNull(path, "path is null");
     }
 }

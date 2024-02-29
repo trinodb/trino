@@ -33,6 +33,7 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
+import io.trino.plugin.deltalake.transactionlog.SidecarEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -92,6 +93,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.SIDECAR;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -117,7 +119,9 @@ public class CheckpointEntryIterator
         REMOVE("remove"),
         METADATA("metadata"),
         PROTOCOL("protocol"),
-        COMMIT("commitinfo");
+        COMMIT("commitinfo"),
+        SIDECAR("sidecar"),
+        /**/;
 
         private final String columnName;
 
@@ -152,6 +156,7 @@ public class CheckpointEntryIterator
     private final Optional<RowType> metadataType;
     private final Optional<RowType> protocolType;
     private final Optional<RowType> commitType;
+    private final Optional<RowType> sidecarType;
 
     private MetadataEntry metadataEntry;
     private ProtocolEntry protocolEntry;
@@ -244,6 +249,7 @@ public class CheckpointEntryIterator
             metadataType = getParquetType(fields, METADATA);
             protocolType = getParquetType(fields, PROTOCOL);
             commitType = getParquetType(fields, COMMIT);
+            sidecarType = getParquetType(fields, SIDECAR);
         }
         catch (Exception e) {
             try {
@@ -303,6 +309,7 @@ public class CheckpointEntryIterator
             case METADATA -> (session, pagePosition, blocks) -> buildMetadataEntry(session, pagePosition, blocks[0]);
             case PROTOCOL -> (session, pagePosition, blocks) -> buildProtocolEntry(session, pagePosition, blocks[0]);
             case COMMIT -> (session, pagePosition, blocks) -> buildCommitInfoEntry(session, pagePosition, blocks[0]);
+            case SIDECAR -> (session, pagePosition, blocks) -> buildSidecarEntry(session, pagePosition, blocks[0]);
         };
     }
 
@@ -320,6 +327,7 @@ public class CheckpointEntryIterator
             case METADATA -> schemaManager.getMetadataEntryType();
             case PROTOCOL -> schemaManager.getProtocolEntryType(true, true);
             case COMMIT -> schemaManager.getCommitInfoEntryType();
+            case SIDECAR -> schemaManager.getSidecarEntryType();
         };
         return new DeltaLakeColumnHandle(entryType.getColumnName(), type, OptionalInt.empty(), entryType.getColumnName(), type, REGULAR, Optional.empty());
     }
@@ -340,7 +348,7 @@ public class CheckpointEntryIterator
                 field = "version";
                 type = BIGINT;
             }
-            case ADD, REMOVE -> {
+            case ADD, REMOVE, SIDECAR -> {
                 field = "path";
                 type = VARCHAR;
             }
@@ -536,6 +544,29 @@ public class CheckpointEntryIterator
                 remove.getBoolean("dataChange"));
         log.debug("Result: %s", result);
         return DeltaLakeTransactionLogEntry.removeFileEntry(result);
+    }
+
+    private DeltaLakeTransactionLogEntry buildSidecarEntry(ConnectorSession session, int pagePosition, Block block)
+    {
+        log.debug("Building sidecar entry from %s pagePosition %d", block, pagePosition);
+        if (block.isNull(pagePosition)) {
+            return null;
+        }
+        int sidecarFields = 4;
+        SqlRow sidecarEntryRow = getRow(block, pagePosition);
+        if (sidecarEntryRow.getFieldCount() != sidecarFields) {
+            throw new TrinoException(
+                    DELTA_LAKE_INVALID_SCHEMA,
+                    format("Expected block %s to have %d children, but found %s", block, sidecarFields, sidecarEntryRow.getFieldCount()));
+        }
+        RowType type = sidecarType.orElseThrow();
+        CheckpointFieldReader sidecar = new CheckpointFieldReader(session, sidecarEntryRow, type);
+        SidecarEntry result = new SidecarEntry(
+                sidecar.getString("path"),
+                sidecar.getLong("sizeInBytes"),
+                sidecar.getLong("modificationTime"),
+                Optional.ofNullable(sidecar.getMap(stringMap, "tags")));
+        return DeltaLakeTransactionLogEntry.sidecarEntry(result);
     }
 
     private class AddFileEntryExtractor

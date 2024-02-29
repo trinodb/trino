@@ -158,7 +158,7 @@ public class CheckpointWriterManager
             checkpointWriter.write(checkpointEntries, checkpointFile);
 
             // update last checkpoint file
-            LastCheckpoint newLastCheckpoint = new LastCheckpoint(newCheckpointVersion, checkpointEntries.size(), Optional.empty());
+            LastCheckpoint newLastCheckpoint = new LastCheckpoint(newCheckpointVersion, checkpointEntries.size(), Optional.empty(), Optional.empty());
             Location checkpointPath = transactionLogDir.appendPath(LAST_CHECKPOINT_FILENAME);
             TrinoOutputFile outputFile = fileSystem.newOutputFile(checkpointPath);
             outputFile.createOrOverwrite(lastCheckpointCodec.toJsonBytes(newLastCheckpoint));
