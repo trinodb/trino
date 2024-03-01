@@ -94,7 +94,7 @@ public class TestPinotConnectorTest
     @Override // Override because updated_at_seconds column exists
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
     }
 
     @Test

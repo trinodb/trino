@@ -355,17 +355,6 @@ public class QueryAssertions
             return this;
         }
 
-        /**
-         * @deprecated use {@code result().matches(...)} instead.
-         */
-        @Deprecated
-        @CanIgnoreReturnValue
-        public QueryAssert matches(MaterializedResult expected)
-        {
-            result().matches(expected);
-            return this;
-        }
-
         @CanIgnoreReturnValue
         public QueryAssert matches(PlanMatchPattern expectedPlan)
         {

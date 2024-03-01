@@ -133,7 +133,7 @@ public class TestDruidConnectorTest
     @Override
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
     }
 
     @Test
@@ -242,7 +242,7 @@ public class TestDruidConnectorTest
                 .row("shippriority", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice", "double", "", "")
                 .build();
-        assertThat(query("DESCRIBE " + datasourceA)).matches(expectedColumns);
+        assertThat(query("DESCRIBE " + datasourceA)).result().matches(expectedColumns);
 
         // Assert that only columns from datsourceB are returned
         expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -257,7 +257,7 @@ public class TestDruidConnectorTest
                 .row("shippriority_x", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice_x", "double", "", "")
                 .build();
-        assertThat(query("DESCRIBE " + datasourceB)).matches(expectedColumns);
+        assertThat(query("DESCRIBE " + datasourceB)).result().matches(expectedColumns);
     }
 
     @Test
