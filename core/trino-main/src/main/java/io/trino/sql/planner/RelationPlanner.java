@@ -1028,8 +1028,6 @@ class RelationPlanner
                 .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
 
         if (type != INNER && !complexJoinExpressions.isEmpty()) {
-            Expression joinedFilterCondition = ExpressionUtils.and(complexJoinExpressions);
-            Expression rewrittenFilterCondition = translationMap.rewrite(joinedFilterCondition);
             root = new JoinNode(idAllocator.getNextId(),
                     mapJoinType(type),
                     leftPlanBuilder.getRoot(),
@@ -1038,7 +1036,9 @@ class RelationPlanner
                     leftPlanBuilder.getRoot().getOutputSymbols(),
                     rightPlanBuilder.getRoot().getOutputSymbols(),
                     false,
-                    Optional.of(rewrittenFilterCondition),
+                    Optional.of(ExpressionUtils.and(complexJoinExpressions.stream()
+                            .map(translationMap::rewrite)
+                            .collect(Collectors.toList()))),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
@@ -1227,18 +1227,6 @@ class RelationPlanner
 
         PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
-        Expression filterExpression;
-        if (join.getCriteria().isEmpty()) {
-            filterExpression = TRUE_LITERAL;
-        }
-        else {
-            JoinCriteria criteria = join.getCriteria().get();
-            if (criteria instanceof JoinUsing || criteria instanceof NaturalJoin) {
-                throw semanticException(NOT_SUPPORTED, join, "Correlated join with criteria other than ON is not supported");
-            }
-            filterExpression = (Expression) getOnlyElement(criteria.getNodes());
-        }
-
         List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(leftPlan.getFieldMappings())
                 .addAll(rightPlan.getFieldMappings())
@@ -1247,7 +1235,19 @@ class RelationPlanner
                 .withAdditionalMappings(leftPlanBuilder.getTranslations().getMappings())
                 .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
 
-        Expression rewrittenFilterCondition = coerceIfNecessary(analysis, filterExpression, translationMap.rewrite(filterExpression));
+        Expression rewrittenFilterCondition;
+        if (join.getCriteria().isEmpty()) {
+            rewrittenFilterCondition = TRUE_LITERAL;
+        }
+        else {
+            JoinCriteria criteria = join.getCriteria().get();
+            if (criteria instanceof JoinUsing || criteria instanceof NaturalJoin) {
+                throw semanticException(NOT_SUPPORTED, join, "Correlated join with criteria other than ON is not supported");
+            }
+
+            Expression filterExpression = (Expression) getOnlyElement(criteria.getNodes());
+            rewrittenFilterCondition = coerceIfNecessary(analysis, filterExpression, translationMap.rewrite(filterExpression));
+        }
 
         PlanBuilder planBuilder = subqueryPlanner.appendCorrelatedJoin(
                 leftPlanBuilder,

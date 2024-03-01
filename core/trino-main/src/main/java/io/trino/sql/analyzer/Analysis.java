@@ -59,6 +59,7 @@ import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.AllColumns;
+import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FieldReference;
@@ -354,6 +355,11 @@ public class Analysis
         return unmodifiableMap(types);
     }
 
+    public boolean isAnalyzed(Expression expression)
+    {
+        return expression instanceof DataType || types.containsKey(NodeRef.of(expression));
+    }
+
     public Type getType(Expression expression)
     {
         Type type = types.get(NodeRef.of(expression));
@@ -378,6 +384,7 @@ public class Analysis
 
     public Type getCoercion(Expression expression)
     {
+        checkArgument(isAnalyzed(expression), "Expression has not been analyzed (%s): %s", expression.getClass().getName(), expression);
         return coercions.get(NodeRef.of(expression));
     }
 
