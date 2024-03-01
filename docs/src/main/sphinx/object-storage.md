@@ -81,10 +81,11 @@ the Hive connector and relevant dedicated pages:
 (object-storage-other)=
 ## Other object storage support
 
-Trino also provides the following additional support for object storage:
+Trino also provides the following additional support and features for object
+storage:
 
 * [](/object-storage/file-system-cache)
-
+* [](/object-storage/metastores)
 
 ```{toctree}
 :maxdepth: 1
@@ -94,4 +95,5 @@ Trino also provides the following additional support for object storage:
 /object-storage/file-system-gcs
 /object-storage/file-system-s3
 /object-storage/file-system-cache
+/object-storage/metastores
 ```
