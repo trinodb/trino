@@ -151,6 +151,7 @@ public class IcebergSplitManager
                 icebergSplit.getDeletes(),
                 // weight does not impact split rows
                 SplitWeight.standard(),
+                icebergSplit.getFileStatisticsDomain(),
                 icebergSplit.getFileIoProperties());
 
         return Optional.of(new CacheSplitId(splitIdCodec.toJson(new IcebergCacheSplitId(

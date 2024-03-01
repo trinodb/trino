@@ -125,7 +125,7 @@ public class TestIcebergCacheSubqueriesTest
             assertUpdate("ALTER TABLE %s SET PROPERTIES partitioning = ARRAY['name']".formatted(testTable.getName()));
             MaterializedResultWithPlan result = executeWithPlan(withCacheEnabled(), "select name from %s where year=2000".formatted(testTable.getName()));
             assertThat(result.result().getRowCount()).isEqualTo(2);
-            assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isZero();
+            assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isEqualTo(1);
             assertThat(getScanOperatorInputPositions(result.queryId())).isPositive();
 
             result = executeWithPlan(withCacheEnabled(), selectQuery);
