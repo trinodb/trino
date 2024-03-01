@@ -1,2 +1,3 @@
 connector/memsql.rst connector/singlestore.rst
 connector/metastores.md object-storage/metastores.md
+connector/object-storage-file-formats.md object-storage/file-formats.md
