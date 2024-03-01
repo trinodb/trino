@@ -136,6 +136,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 writer.write(new Page(keyBuilder.build(), dataBuilder.build()));
             }
 
+            // Pruning due to IcebergTableHandle#unenforcedPredicate
             IcebergSplit split = new IcebergSplit(
                     inputFile.toString(),
                     0,
@@ -147,6 +148,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     PartitionData.toJson(new PartitionData(new Object[] {})),
                     ImmutableList.of(),
                     SplitWeight.standard(),
+                    TupleDomain.all(),
                     ImmutableMap.of());
 
             String tablePath = inputFile.location().fileName();
@@ -186,6 +188,57 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     ImmutableMap.of(
                             keyColumnHandle,
                             Domain.singleValue(INTEGER, (long) keyColumnValue)));
+            try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(nonSelectivePredicate))) {
+                Page page = nonEmptyPageSource.getNextPage();
+                assertThat(page).isNotNull();
+                assertThat(page.getPositionCount()).isEqualTo(1);
+                assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(keyColumnValue);
+                assertThat(VARCHAR.getSlice(page.getBlock(1), 0).toStringUtf8()).isEqualTo(dataColumnValue);
+            }
+
+            // Pruning due to IcebergSplit#fileStatisticsDomain
+            split = new IcebergSplit(
+                    inputFile.toString(),
+                    0,
+                    inputFile.length(),
+                    inputFile.length(),
+                    -1, // invalid; normally known
+                    ORC,
+                    PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
+                    PartitionData.toJson(new PartitionData(new Object[] {})),
+                    ImmutableList.of(),
+                    SplitWeight.standard(),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
+                    ImmutableMap.of());
+
+            tableHandle = new TableHandle(
+                    TEST_CATALOG_HANDLE,
+                    new IcebergTableHandle(
+                            CatalogHandle.fromId("iceberg:NORMAL:v12345"),
+                            "test_schema",
+                            tableName,
+                            TableType.DATA,
+                            Optional.empty(),
+                            SchemaParser.toJson(tableSchema),
+                            Optional.of(PartitionSpecParser.toJson(PartitionSpec.unpartitioned())),
+                            2,
+                            TupleDomain.all(),
+                            TupleDomain.all(),
+                            OptionalLong.empty(),
+                            ImmutableSet.of(keyColumnHandle),
+                            Optional.empty(),
+                            tablePath,
+                            ImmutableMap.of(),
+                            false,
+                            Optional.empty(),
+                            ImmutableSet.of(),
+                            Optional.of(false)),
+                    transaction);
+
+            try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
+                assertThat(emptyPageSource.getNextPage()).isNull();
+            }
+
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(nonSelectivePredicate))) {
                 Page page = nonEmptyPageSource.getNextPage();
                 assertThat(page).isNotNull();
@@ -263,6 +316,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     PartitionData.toJson(new PartitionData(new Object[] {dateColumnValue})),
                     ImmutableList.of(),
                     SplitWeight.standard(),
+                    TupleDomain.all(),
                     ImmutableMap.of());
 
             String tablePath = inputFile.location().fileName();
@@ -413,6 +467,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     PartitionData.toJson(new PartitionData(new Object[] {yearColumnValue})),
                     ImmutableList.of(),
                     SplitWeight.standard(),
+                    TupleDomain.all(),
                     ImmutableMap.of());
 
             String tablePath = inputFile.location().fileName();

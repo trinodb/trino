@@ -120,6 +120,7 @@ public class TableChangesFunctionProcessor
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
                 TupleDomain.all(),
+                TupleDomain.all(),
                 split.path(),
                 split.start(),
                 split.length(),
