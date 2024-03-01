@@ -431,28 +431,6 @@ public class QueryAssertions
         }
 
         /**
-         * @deprecated use {@code result().hasType(...)} instead.
-         */
-        @Deprecated
-        @CanIgnoreReturnValue
-        public QueryAssert hasOutputTypes(List<Type> expectedTypes)
-        {
-            result().hasTypes(expectedTypes);
-            return this;
-        }
-
-        /**
-         * @deprecated use {@code result().hasType(...)} instead.
-         */
-        @Deprecated
-        @CanIgnoreReturnValue
-        public QueryAssert outputHasType(int index, Type expectedType)
-        {
-            result().hasType(index, expectedType);
-            return this;
-        }
-
-        /**
          * @deprecated use {@code result().isEmpty()} instead.
          */
         @Deprecated
