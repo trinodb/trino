@@ -245,6 +245,7 @@ public class TranslationMap
     public Expression rewrite(Expression expression)
     {
         verifyAstExpression(expression);
+        verify(analysis.isAnalyzed(expression), "Expression is not analyzed (%s): %s", expression.getClass().getName(), expression);
 
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
