@@ -271,6 +271,7 @@ public class IcebergPageSourceProvider
                 split.getDeletes(),
                 dynamicFilter,
                 tableHandle.getUnenforcedPredicate(),
+                split.getFileStatisticsDomain(),
                 split.getPath(),
                 split.getStart(),
                 split.getLength(),
@@ -291,6 +292,7 @@ public class IcebergPageSourceProvider
             List<DeleteFile> deletes,
             DynamicFilter dynamicFilter,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
+            TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
             String path,
             long start,
             long length,
@@ -342,7 +344,8 @@ public class IcebergPageSourceProvider
                 tableSchema,
                 partitionKeys,
                 dynamicFilter,
-                unenforcedPredicate);
+                unenforcedPredicate,
+                fileStatisticsDomain);
         if (effectivePredicate.isNone()) {
             return new EmptyPageSource();
         }
@@ -421,21 +424,31 @@ public class IcebergPageSourceProvider
             Schema tableSchema,
             Map<Integer, Optional<String>> partitionKeys,
             DynamicFilter dynamicFilter,
-            TupleDomain<IcebergColumnHandle> unenforcedPredicate)
+            TupleDomain<IcebergColumnHandle> unenforcedPredicate,
+            TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
     {
         return prunePredicate(
                 tableSchema,
                 partitionKeys,
-                unenforcedPredicate.intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast)))
+                // We reach here when we could not prune the split using file level stats, table predicate
+                // and the dynamic filter in the coordinator during split generation. The file level stats
+                // in IcebergSplit#fileStatisticsDomain could help to prune this split when a more selective dynamic filter
+                // is available now, without having to access parquet/orc file footer for row-group/stripe stats.
+                TupleDomain.intersect(ImmutableList.of(
+                        unenforcedPredicate,
+                        fileStatisticsDomain,
+                        dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))),
+                fileStatisticsDomain)
                 .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
     }
 
     private TupleDomain<IcebergColumnHandle> prunePredicate(
             Schema tableSchema,
             Map<Integer, Optional<String>> partitionKeys,
-            TupleDomain<IcebergColumnHandle> unenforcedPredicate)
+            TupleDomain<IcebergColumnHandle> unenforcedPredicate,
+            TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
     {
-        if (unenforcedPredicate.isAll() || unenforcedPredicate.isNone() || partitionKeys.isEmpty()) {
+        if (unenforcedPredicate.isAll() || unenforcedPredicate.isNone()) {
             return unenforcedPredicate;
         }
 
@@ -449,7 +462,9 @@ public class IcebergPageSourceProvider
 
         return unenforcedPredicate
                 // Filter out partition columns domains from the dynamic filter because they should be irrelevant at data file level
-                .filter((columnHandle, domain) -> !partitionKeys.containsKey(columnHandle.getId()));
+                .filter((columnHandle, domain) -> !partitionKeys.containsKey(columnHandle.getId()))
+                // remove domains from predicate that fully contain split data because they are irrelevant for filtering
+                .filter((handle, domain) -> !domain.contains(fileStatisticsDomain.getDomain(handle, domain.getType())));
     }
 
     private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
