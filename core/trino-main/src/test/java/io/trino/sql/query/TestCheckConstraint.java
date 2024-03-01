@@ -65,6 +65,9 @@ public class TestCheckConstraint
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_SCHEMA;
                     }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_null_check"))) {
+                        return TPCH_NATION_SCHEMA;
+                    }
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_multiple_column_constraint"))) {
                         return TPCH_NATION_SCHEMA;
                     }
@@ -101,6 +104,9 @@ public class TestCheckConstraint
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return ImmutableList.of("regionkey < 10");
                     }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_null_check"))) {
+                        return ImmutableList.of("null");
+                    }
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_multiple_column_constraint"))) {
                         return ImmutableList.of("nationkey < 100 AND regionkey < 50");
                     }
@@ -135,6 +141,9 @@ public class TestCheckConstraint
                 })
                 .withData(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
+                        return TPCH_NATION_DATA;
+                    }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_null_check"))) {
                         return TPCH_NATION_DATA;
                     }
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_multiple_column_constraint"))) {
@@ -224,6 +233,34 @@ public class TestCheckConstraint
                 .matches("SELECT BIGINT '1'");
         assertThat(assertions.query("INSERT INTO mock.tiny.nation(regionkey) VALUES (0)"))
                 .matches("SELECT BIGINT '1'");
+    }
+
+    @Test
+    void testNullConstraint()
+    {
+        assertThat(assertions.query("""
+                MERGE INTO mock.tiny.nation_with_null_check USING (VALUES 1,2) t(x) ON nationkey = x
+                WHEN MATCHED THEN DELETE
+                """))
+                .matches("SELECT BIGINT '2'");
+
+        assertThat(assertions.query("""
+                MERGE INTO mock.tiny.nation_with_null_check USING (VALUES 5) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2
+                """))
+                .matches("SELECT BIGINT '1'");
+
+        assertThat(assertions.query("""
+                MERGE INTO mock.tiny.nation_with_null_check USING (VALUES 42) t(dummy) ON false
+                WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 0, 'No comment')
+                """))
+                .matches("SELECT BIGINT '1'");
+
+        assertThat(assertions.query("INSERT INTO mock.tiny.nation_with_null_check VALUES (99, 'POLAND', 49, 'No comment')"))
+                .matches("SELECT BIGINT '1'");
+
+        assertThat(assertions.query("DELETE FROM mock.tiny.nation_with_null_check WHERE nationkey < 3"))
+                .matches("SELECT BIGINT '3'");
     }
 
     @Test
