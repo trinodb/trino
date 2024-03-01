@@ -425,8 +425,7 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert containsAll(@Language("SQL") String query)
         {
-            MaterializedResult expected = runner.execute(session, query);
-            result().containsAll(expected);
+            result().containsAll(query);
             return this;
         }
 
@@ -768,6 +767,13 @@ public class QueryAssertions
         {
             MaterializedResult expected = runner.execute(session, query);
             return matches(expected);
+        }
+
+        @CanIgnoreReturnValue
+        public ResultAssert containsAll(@Language("SQL") String query)
+        {
+            MaterializedResult expected = runner.execute(session, query);
+            return containsAll(expected);
         }
 
         @CanIgnoreReturnValue
