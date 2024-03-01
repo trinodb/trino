@@ -55,24 +55,6 @@
                 <artifactId>schema-discovery-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
-
-            <dependency>
-                <groupId>org.glassfish.jersey.core</groupId>
-                <artifactId>jersey-server</artifactId>
-                <version>${dep.jersey.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.glassfish.hk2.external</groupId>
-                        <artifactId>javax.inject</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.weakref</groupId>
-                <artifactId>jmxutils</artifactId>
-                <version>${dep.jmxutils.version}</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
