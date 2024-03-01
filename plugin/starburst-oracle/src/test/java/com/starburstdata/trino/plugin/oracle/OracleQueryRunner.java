@@ -76,7 +76,7 @@ public final class OracleQueryRunner
             createUsers.run();
 
             if (unlockEnterpriseFeatures) {
-                queryRunner.installPlugin(new TestingStarburstOraclePlugin(NOOP_LICENSE_MANAGER));
+                queryRunner.installPlugin(new StarburstOraclePlugin());
             }
             else {
                 queryRunner.installPlugin(licensedPlugin);
@@ -137,7 +137,7 @@ public final class OracleQueryRunner
     {
         private String catalogName = "oracle";
         private boolean unlockEnterpriseFeatures;
-        private Plugin licensedPlugin = new StarburstOraclePlugin(NOOP_LICENSE_MANAGER);
+        private Plugin licensedPlugin = new StarburstOraclePlugin();
         private Map<String, String> connectorProperties;
         private Function<Session, Session> sessionModifier = Function.identity();
         private Iterable<TpchTable<?>> tables = ImmutableList.of();

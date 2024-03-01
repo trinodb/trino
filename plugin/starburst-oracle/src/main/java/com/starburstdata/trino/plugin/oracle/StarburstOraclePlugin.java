@@ -15,6 +15,11 @@ import io.trino.plugin.jdbc.JdbcPlugin;
 public class StarburstOraclePlugin
         extends JdbcPlugin
 {
+    public StarburstOraclePlugin()
+    {
+        this(() -> true);
+    }
+
     public StarburstOraclePlugin(LicenseManager licenseManager)
     {
         super("oracle", new StarburstOracleClientModule(licenseManager));

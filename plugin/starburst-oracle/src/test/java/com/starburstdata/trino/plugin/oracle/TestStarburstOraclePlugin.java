@@ -16,14 +16,13 @@ import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.starburstdata.trino.plugin.oracle.OracleQueryRunner.NOOP_LICENSE_MANAGER;
 
 public class TestStarburstOraclePlugin
 {
     @Test
     public void testCreateConnector()
     {
-        Plugin plugin = new StarburstOraclePlugin(NOOP_LICENSE_MANAGER);
+        Plugin plugin = new StarburstOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of(
                 "connection-url", "jdbc:oracle:thin:@test",
@@ -36,7 +35,7 @@ public class TestStarburstOraclePlugin
     @Test
     public void testLicenseProtectionOfAggregationPushdown()
     {
-        Plugin plugin = new StarburstOraclePlugin(NOOP_LICENSE_MANAGER);
+        Plugin plugin = new StarburstOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
         // aggregation pushdown works without license
@@ -55,7 +54,7 @@ public class TestStarburstOraclePlugin
     @Test
     public void testLicenseProtectionOfParallelism()
     {
-        Plugin plugin = new StarburstOraclePlugin(NOOP_LICENSE_MANAGER);
+        Plugin plugin = new StarburstOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
         // default configuration (no paralellism) works without license
