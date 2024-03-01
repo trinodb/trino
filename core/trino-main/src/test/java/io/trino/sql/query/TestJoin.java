@@ -126,8 +126,9 @@ public class TestJoin
                 SELECT * FROM t
                 WHERE CAST(x AS bigint) IS NOT NULL AND y = 'hello'
                 """))
-                .hasOutputTypes(List.of(VARCHAR, VARCHAR))
-                .returnsEmptyResult();
+                .result()
+                .hasTypes(List.of(VARCHAR, VARCHAR))
+                .isEmpty();
     }
 
     @Test

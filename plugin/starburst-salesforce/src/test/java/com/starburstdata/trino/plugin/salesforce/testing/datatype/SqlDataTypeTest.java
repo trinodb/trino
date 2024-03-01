@@ -12,7 +12,7 @@ package com.starburstdata.trino.plugin.salesforce.testing.datatype;
 import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.sql.query.QueryAssertions.QueryAssert;
+import io.trino.sql.query.QueryAssertions.ResultAssert;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.ColumnSetup;
@@ -75,7 +75,8 @@ public final class SqlDataTypeTest
                 .mapToObj(column -> format("col_%d__c", column))
                 .collect(joining(", "));
 
-        QueryAssert assertion = assertThat(queryAssertions.query(session, "SELECT " + columns + " FROM " + testTable.getName() + "__c"));
+        ResultAssert assertion = assertThat(queryAssertions.query(session, "SELECT " + columns + " FROM " + testTable.getName() + "__c"))
+                .result();
         MaterializedResult expected = queryRunner.execute(session, testCases.stream()
                 .map(TestCase::getExpectedLiteral)
                 .collect(joining(",", "VALUES (", ")")));
@@ -85,7 +86,7 @@ public final class SqlDataTypeTest
             TestCase testCase = testCases.get(column);
             if (testCase.getExpectedType().isPresent()) {
                 Type expectedType = testCase.getExpectedType().get();
-                assertion.outputHasType(column, expectedType);
+                assertion.hasType(column, expectedType);
                 assertThat(expected.getTypes())
                         .as("Expected literal type (check consistency of expected type and expected literal)")
                         .element(column).isEqualTo(expectedType);

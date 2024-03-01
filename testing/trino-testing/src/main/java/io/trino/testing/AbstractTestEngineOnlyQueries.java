@@ -1365,8 +1365,9 @@ public abstract class AbstractTestEngineOnlyQueries
                 .addPreparedStatement("my_query", "SELECT * FROM nation")
                 .build();
         assertThat(query(session, "DESCRIBE INPUT my_query"))
-                .hasOutputTypes(List.of(BIGINT, VARCHAR))
-                .returnsEmptyResult();
+                .result()
+                .hasTypes(List.of(BIGINT, VARCHAR))
+                .isEmpty();
     }
 
     @Test
