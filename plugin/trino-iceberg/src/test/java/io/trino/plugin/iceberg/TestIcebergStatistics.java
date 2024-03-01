@@ -989,6 +989,7 @@ public class TestIcebergStatistics
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
                 .projected("column_name", "distinct_values_count", "row_count")
                 .skippingTypesCheck()
                 .containsAll("VALUES " +
@@ -999,6 +1000,7 @@ public class TestIcebergStatistics
                         "(null, null, DOUBLE '25')");
         assertUpdate("DELETE FROM " + tableName + " WHERE nationkey < 50", 25);
         assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
                 .projected("column_name", "distinct_values_count", "row_count")
                 .skippingTypesCheck()
                 .containsAll("VALUES " +

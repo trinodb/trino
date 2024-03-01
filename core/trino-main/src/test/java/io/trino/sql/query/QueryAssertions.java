@@ -324,44 +324,6 @@ public class QueryAssertions
             return this;
         }
 
-        /**
-         * @deprecated use {@code result().exceptColumns(...)} instead.
-         */
-        @Deprecated
-        @CheckReturnValue
-        // TODO when exceptColumns(), projected() are removed, simplify constructor
-        public QueryAssert exceptColumns(String... columnNamesToExclude)
-        {
-            return new QueryAssert(
-                    runner,
-                    session,
-                    Optional.empty(), // original query would not produce projected result
-                    new TextDescription("%s except columns %s", description, Arrays.toString(columnNamesToExclude)),
-                    Optional.of(result.get().exceptColumns(columnNamesToExclude)),
-                    ordered,
-                    skipTypesCheck,
-                    skipResultsCorrectnessCheckForPushdown);
-        }
-
-        /**
-         * @deprecated use {@code result().projected(...)} instead.
-         */
-        @Deprecated
-        @CheckReturnValue
-        // TODO when exceptColumns(), projected() are removed, simplify constructor
-        public QueryAssert projected(String... columnNamesToInclude)
-        {
-            return new QueryAssert(
-                    runner,
-                    session,
-                    Optional.empty(), // original query would not produce projected result
-                    new TextDescription("%s projected with %s", description, Arrays.toString(columnNamesToInclude)),
-                    Optional.of(result.get().project(columnNamesToInclude)),
-                    ordered,
-                    skipTypesCheck,
-                    skipResultsCorrectnessCheckForPushdown);
-        }
-
         public QueryAssert succeeds()
         {
             MaterializedResult ignored = result.get();
