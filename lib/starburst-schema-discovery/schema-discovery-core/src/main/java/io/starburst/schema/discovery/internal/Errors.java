@@ -13,7 +13,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
-import io.starburst.schema.discovery.models.SlashEndedPath;
+import io.starburst.schema.discovery.models.TablePath;
 
 import java.util.Comparator;
 import java.util.List;
@@ -39,7 +39,7 @@ public class Errors
     }
 
     @FormatMethod
-    public void addTableError(SlashEndedPath withinTablePath, @FormatString String error, Object... args)
+    public void addTableError(TablePath withinTablePath, @FormatString String error, Object... args)
     {
         tablePathToTableErrors.computeIfAbsent(withinTablePath.toString(), __ -> Sets.newConcurrentHashSet())
                 .add(String.format(error, args));

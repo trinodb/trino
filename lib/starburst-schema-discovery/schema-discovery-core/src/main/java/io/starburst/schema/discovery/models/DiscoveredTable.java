@@ -28,7 +28,7 @@ import static io.starburst.schema.discovery.models.TableFormat.ERROR;
 import static java.util.Objects.requireNonNull;
 
 @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-public record DiscoveredTable(boolean valid, SlashEndedPath path, TableName tableName, TableFormat format,
+public record DiscoveredTable(boolean valid, TablePath path, TableName tableName, TableFormat format,
                               Map<String, String> options, DiscoveredColumns columns,
                               DiscoveredPartitions discoveredPartitions, Collection<LowerCaseString> buckets,
                               List<String> errors)
@@ -83,7 +83,21 @@ public record DiscoveredTable(boolean valid, SlashEndedPath path, TableName tabl
         return new DiscoveredTable(valid, path, tableName, format, options, columns, discoveredPartitions, buckets, ImmutableList.of());
     }
 
-    public static DiscoveredTable emptyWithPathAndErrors(SlashEndedPath path, List<String> errors)
+    public DiscoveredTable withPath(TablePath path)
+    {
+        return new DiscoveredTable(
+                valid,
+                path,
+                tableName,
+                format,
+                options,
+                columns,
+                discoveredPartitions,
+                buckets,
+                errors);
+    }
+
+    public static DiscoveredTable emptyWithPathAndErrors(TablePath path, List<String> errors)
     {
         return new DiscoveredTable(
                 EMPTY_DISCOVERED_TABLE.valid(),

@@ -105,7 +105,7 @@ public sealed interface Operation
         }
     }
 
-    record RegisterTable(SlashEndedPath path, TableName tableName)
+    record RegisterTable(TablePath path, TableName tableName)
             implements Operation, TableOperation
     {
         public RegisterTable

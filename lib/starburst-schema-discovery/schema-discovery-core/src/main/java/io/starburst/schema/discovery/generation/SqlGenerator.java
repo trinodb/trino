@@ -22,6 +22,7 @@ import io.starburst.schema.discovery.models.LowerCaseString;
 import io.starburst.schema.discovery.models.Operation;
 import io.starburst.schema.discovery.models.SlashEndedPath;
 import io.starburst.schema.discovery.models.TableFormat;
+import io.starburst.schema.discovery.models.TablePath;
 import io.starburst.schema.discovery.options.OptionsMap;
 import io.starburst.schema.discovery.request.GenerateOptions;
 import io.trino.plugin.hive.procedure.SyncPartitionMetadataProcedure;
@@ -159,7 +160,7 @@ class SqlGenerator
 
     private void addProjectionLocationTemplate(DiscoveredTable table, DiscoveredPartitions tablePartitions)
     {
-        SlashEndedPath projectionTemplate = table.path();
+        TablePath projectionTemplate = table.path();
         for (Column column : tablePartitions.columns()) {
             InferredPartitionProjection partitionProjection = tablePartitions.columnProjections().getOrDefault(column.name(), InferredPartitionProjection.NON_PROJECTED_PARTITION);
             String partitionPathPart = partitionProjection.isEqualSignSeparatedPartition() ?

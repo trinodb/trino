@@ -29,6 +29,7 @@ import io.starburst.schema.discovery.models.DiscoveredTable;
 import io.starburst.schema.discovery.models.LowerCaseString;
 import io.starburst.schema.discovery.models.SlashEndedPath;
 import io.starburst.schema.discovery.models.TableFormat;
+import io.starburst.schema.discovery.models.TablePath;
 
 import java.util.HashSet;
 import java.util.List;
@@ -65,7 +66,7 @@ public class DiscoveredTablesDiffGenerator
         TableName tableName();
 
         @JsonProperty("path")
-        SlashEndedPath path();
+        TablePath path();
 
         @JsonProperty("format")
         TableFormat format();
@@ -86,7 +87,7 @@ public class DiscoveredTablesDiffGenerator
         List<ColumnPartitionProjection> partitionProjections();
     }
 
-    public record NewTable(TableName tableName, SlashEndedPath path, TableFormat format, List<NewColumn> columns, List<NewColumn> partitionColumns,
+    public record NewTable(TableName tableName, TablePath path, TableFormat format, List<NewColumn> columns, List<NewColumn> partitionColumns,
                            List<NewPartitionValue> partitionValues, List<ColumnPartitionProjection> partitionProjections)
             implements DiffTable
     {
@@ -97,7 +98,7 @@ public class DiscoveredTablesDiffGenerator
         }
     }
 
-    public record UpdatedTable(TableName tableName, SlashEndedPath path, TableFormat format, List<DiffColumn> columns, List<DiffColumn> partitionColumns,
+    public record UpdatedTable(TableName tableName, TablePath path, TableFormat format, List<DiffColumn> columns, List<DiffColumn> partitionColumns,
                                List<DiffPartitionValue> partitionValues, List<ColumnPartitionProjection> partitionProjections)
             implements DiffTable
     {
@@ -108,7 +109,7 @@ public class DiscoveredTablesDiffGenerator
         }
     }
 
-    public record DroppedTable(TableName tableName, SlashEndedPath path, TableFormat format, List<DroppedColumn> columns, List<DroppedColumn> partitionColumns,
+    public record DroppedTable(TableName tableName, TablePath path, TableFormat format, List<DroppedColumn> columns, List<DroppedColumn> partitionColumns,
                                List<DroppedPartitionValue> partitionValues, List<ColumnPartitionProjection> partitionProjections)
             implements DiffTable
     {
@@ -119,7 +120,7 @@ public class DiscoveredTablesDiffGenerator
         }
     }
 
-    public record RecreatedTable(TableName tableName, SlashEndedPath path, TableFormat format, List<DiffColumn> columns, List<DiffColumn> partitionColumns,
+    public record RecreatedTable(TableName tableName, TablePath path, TableFormat format, List<DiffColumn> columns, List<DiffColumn> partitionColumns,
                                  List<DiffPartitionValue> partitionValues, List<ColumnPartitionProjection> partitionProjections)
             implements DiffTable
     {
@@ -130,7 +131,7 @@ public class DiscoveredTablesDiffGenerator
         }
     }
 
-    public record UnchangedTable(TableName tableName, SlashEndedPath path, TableFormat format, List<UnchangedColumn> columns, List<UnchangedColumn> partitionColumns,
+    public record UnchangedTable(TableName tableName, TablePath path, TableFormat format, List<UnchangedColumn> columns, List<UnchangedColumn> partitionColumns,
                                  List<UnchangedPartitionValue> partitionValues, List<ColumnPartitionProjection> partitionProjections)
             implements DiffTable
     {

@@ -40,8 +40,8 @@ import io.starburst.schema.discovery.models.DiscoveredPartitions.ValidatedPartit
 import io.starburst.schema.discovery.models.DiscoveredSchema;
 import io.starburst.schema.discovery.models.DiscoveredTable;
 import io.starburst.schema.discovery.models.LowerCaseString;
-import io.starburst.schema.discovery.models.SlashEndedPath;
 import io.starburst.schema.discovery.models.TableFormat;
+import io.starburst.schema.discovery.models.TablePath;
 import io.starburst.schema.discovery.options.DiscoveryMode;
 import io.starburst.schema.discovery.options.GeneralOptions;
 import io.starburst.schema.discovery.options.OptionsMap;
@@ -282,7 +282,7 @@ public class Processor
                 .collect(toImmutableList());
     }
 
-    private DiscoveredTable reduceRecursiveTable(Map.Entry<SlashEndedPath, List<DiscoveredTable>> entry)
+    private DiscoveredTable reduceRecursiveTable(Map.Entry<TablePath, List<DiscoveredTable>> entry)
     {
         return entry.getValue().stream()
                 .reduce((table1, table2) -> mergeTables(entry.getKey().toString(), table1, table2))
@@ -297,7 +297,7 @@ public class Processor
                 new TableName(Optional.empty(), toLowerCase(directoryOrFileName(rootDirectChildPath))));
     }
 
-    private Location findRootDirectChildPath(SlashEndedPath startFrom)
+    private Location findRootDirectChildPath(TablePath startFrom)
     {
         Location currentDirectory = Location.of(startFrom.path());
         while (!rootPath.equals(currentDirectory) && !rootPath.equals(parentOf(currentDirectory))) {

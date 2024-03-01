@@ -16,7 +16,7 @@ import com.google.common.collect.ImmutableList;
 import io.starburst.schema.discovery.SchemaDiscoveryErrorCode;
 import io.starburst.schema.discovery.models.DiscoveredSchema;
 import io.starburst.schema.discovery.models.DiscoveredTable;
-import io.starburst.schema.discovery.models.SlashEndedPath;
+import io.starburst.schema.discovery.models.TablePath;
 import io.trino.spi.TrinoException;
 
 import java.util.HashMap;
@@ -41,7 +41,7 @@ public class RescanMerger
             throw new TrinoException(SchemaDiscoveryErrorCode.INVALID_METADATA, "Invalid rescan metadata", e);
         }
 
-        Map<SlashEndedPath, DiscoveredTable> discoveredTablesMap = new HashMap<>(discoveredSchema.tables().stream().collect(toImmutableMap(DiscoveredTable::path, Function.identity())));
+        Map<TablePath, DiscoveredTable> discoveredTablesMap = new HashMap<>(discoveredSchema.tables().stream().collect(toImmutableMap(DiscoveredTable::path, Function.identity())));
 
         List<DiscoveredTable> updatedTables = previousTables.stream()
                 .map(previousTable -> {

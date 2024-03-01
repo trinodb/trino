@@ -9,7 +9,6 @@
  */
 package io.starburst.schema.discovery.models;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.filesystem.Location;
 
@@ -19,7 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public record SlashEndedPath(String path)
-        implements Comparable<SlashEndedPath>
+        implements TablePath
 {
     public static final SlashEndedPath SINGLE_SLASH_EMPTY = new SlashEndedPath("/");
 
@@ -36,7 +35,6 @@ public record SlashEndedPath(String path)
         return path;
     }
 
-    @JsonCreator
     public static SlashEndedPath ensureEndsWithSlash(String string)
     {
         return new SlashEndedPath(string.endsWith("/") ? string : string + "/");
@@ -58,14 +56,9 @@ public record SlashEndedPath(String path)
         return this.path;
     }
 
+    @Override
     public boolean isEmpty()
     {
         return SINGLE_SLASH_EMPTY.equals(this);
-    }
-
-    @Override
-    public int compareTo(SlashEndedPath o)
-    {
-        return this.path.compareTo(o.path());
     }
 }
