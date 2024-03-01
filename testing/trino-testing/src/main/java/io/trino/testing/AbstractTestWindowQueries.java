@@ -172,7 +172,7 @@ public abstract class AbstractTestWindowQueries
                 FROM lineitem
                 ORDER BY 1
                 LIMIT 10"""))
-                .matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
+                .result().matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
                         .row(1.0, 0.0)
                         .row(2.0, 0.0)
                         .row(2.0, 0.0)
@@ -196,7 +196,7 @@ public abstract class AbstractTestWindowQueries
                 FROM lineitem
                 ORDER BY 2, 1
                 LIMIT 10"""))
-                .matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
+                .result().matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
                         .row(0.06, 1.0)
                         .row(0.02, 2.0)
                         .row(0.06, 2.0)
@@ -222,7 +222,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY 1, 2
                 LIMIT 10
                 """))
-                .matches(resultBuilder(getSession(), DOUBLE, BIGINT, DOUBLE)
+                .result().matches(resultBuilder(getSession(), DOUBLE, BIGINT, DOUBLE)
                         .row(1.0, 10L, 0.06)
                         .row(2.0, 4L, 0.06)
                         .row(2.0, 16L, 0.02)
@@ -322,7 +322,7 @@ public abstract class AbstractTestWindowQueries
                 WHERE rnk <= 2
                 ORDER BY orderstatus, rnk
                 """))
-                .matches(resultBuilder(getSession(), createVarcharType(1), createVarcharType(15), DOUBLE, BIGINT)
+                .result().matches(resultBuilder(getSession(), createVarcharType(1), createVarcharType(15), DOUBLE, BIGINT)
                         .row("F", "Clerk#000000090", 2784836.61, 1L)
                         .row("F", "Clerk#000000084", 2674447.15, 2L)
                         .row("O", "Clerk#000000500", 2569878.29, 1L)
@@ -358,7 +358,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY 2 DESC
                 LIMIT 5
                 """))
-                .matches(resultBuilder(getSession(), DOUBLE, BIGINT)
+                .result().matches(resultBuilder(getSession(), DOUBLE, BIGINT)
                         .row(12.0, 10L)
                         .row(12.0, 9L)
                         .row(12.0, 8L)
@@ -574,7 +574,7 @@ public abstract class AbstractTestWindowQueries
                 ORDER BY orderkey
                 LIMIT 5
                 """))
-                .matches(resultBuilder(getSession(), BIGINT, createVarcharType(1), BIGINT)
+                .result().matches(resultBuilder(getSession(), BIGINT, createVarcharType(1), BIGINT)
                         .row(1L, "O", 1001L)
                         .row(2L, "O", 3007L)
                         .row(3L, "F", 3014L)

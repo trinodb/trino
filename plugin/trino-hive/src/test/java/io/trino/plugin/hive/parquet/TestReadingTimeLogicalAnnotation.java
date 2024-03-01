@@ -61,7 +61,7 @@ public class TestReadingTimeLogicalAnnotation
                             """.formatted(dataFile.parentDirectory()));
 
             assertThat(assertions.query("SELECT opens.member0 FROM table_with_time_logical_annotation GROUP BY 1 ORDER BY 1 LIMIT 5"))
-                    .matches(resultBuilder(queryRunner.getDefaultSession(), BIGINT)
+                    .result().matches(resultBuilder(queryRunner.getDefaultSession(), BIGINT)
                             .row(0L)
                             .row(21600000000L)
                             .row(25200000000L)
