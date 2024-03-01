@@ -448,7 +448,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, tableHandle.getSchemaTableName(), tableHandle.getLocation());
+            tableSnapshot = transactionLogAccess.loadSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
