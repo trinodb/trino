@@ -8,7 +8,6 @@
 :hidden: true
 :maxdepth: 1
 
-Metastores <metastores>
 Security <hive-security>
 Amazon S3 <hive-s3>
 Azure Storage <hive-azure>
