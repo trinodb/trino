@@ -137,6 +137,14 @@ public class BlockSet
     }
 
     /**
+     * Returns whether this set contains a NULL element
+     */
+    public boolean containsNullElement()
+    {
+        return containsNullElement;
+    }
+
+    /**
      * Return the position of the value within this set, or -1 if the value is not in this set.
      * This method can not get the position of a null value, and an exception will be thrown in that case.
      *
