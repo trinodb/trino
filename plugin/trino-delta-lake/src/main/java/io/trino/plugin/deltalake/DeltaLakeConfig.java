@@ -64,7 +64,7 @@ public class DeltaLakeConfig
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
     private long defaultCheckpointWritingInterval = 10;
-    private boolean checkpointFilteringEnabled;
+    private boolean checkpointFilteringEnabled = true;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
     private Optional<String> hiveCatalogName = Optional.empty();
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
