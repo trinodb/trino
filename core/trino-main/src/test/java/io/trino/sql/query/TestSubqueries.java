@@ -1700,12 +1700,14 @@ public class TestSubqueries
 
         assertThat(assertions.query(
                 "SELECT (SELECT 'a', 1)"))
-                .hasOutputTypes(List.of(rowType(field(createVarcharType(1)), field(INTEGER))))
+                .result()
+                .hasTypes(List.of(rowType(field(createVarcharType(1)), field(INTEGER))))
                 .matches("SELECT ROW('a', 1)");
 
         assertThat(assertions.query(
                 "SELECT (SELECT 'a' AS x, 1 AS y)"))
-                .hasOutputTypes(List.of(rowType(field("x", createVarcharType(1)), field("y", INTEGER))))
+                .result()
+                .hasTypes(List.of(rowType(field("x", createVarcharType(1)), field("y", INTEGER))))
                 .matches("SELECT CAST(ROW('a', 1) AS row(x varchar(1), y integer))");
 
         assertThat(assertions.query(
