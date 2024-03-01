@@ -193,8 +193,8 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "EXPLAIN ANALYZE SELECT * FROM checkpoint_and_extended_stats",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 0, 7077), 2)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 706, 972), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 0, 7077), 3)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 706, 972), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 4, 624), 1)
                         .addAll(Stream.of("int_part=10/string_part=part1/", "int_part=20/string_part=part2/", "int_part=__HIVE_DEFAULT_PARTITION__/string_part=__HIVE_DEFAULT_PARTITION__/")
                                 .flatMap(fileId -> Stream.of(new CacheOperation("Alluxio.readCached", fileId, 0, 199)))

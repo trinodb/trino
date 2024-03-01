@@ -214,14 +214,7 @@ public class TestTransactionLogAccess
                 .collect(Collectors.toSet());
         assertThat(paths).isEqualTo(EXPECTED_ADD_FILE_PATHS);
 
-        ConnectorSession checkpointFilteringSession = TestingConnectorSession.builder()
-                .setPropertyMetadata(new DeltaLakeSessionProperties(
-                        new DeltaLakeConfig().setCheckpointFilteringEnabled(true),
-                        new ParquetReaderConfig(),
-                        new ParquetWriterConfig())
-                        .getSessionProperties())
-                .build();
-        try (Stream<AddFileEntry> checkpointFilteredAddFileEntriesStream = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, checkpointFilteringSession)) {
+        try (Stream<AddFileEntry> checkpointFilteredAddFileEntriesStream = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION)) {
             assertThat(checkpointFilteredAddFileEntriesStream.collect(toImmutableList())).isEqualTo(addFileEntries);
         }
 
@@ -590,8 +583,15 @@ public class TestTransactionLogAccess
         File resourceDir = new File(getClass().getClassLoader().getResource("databricks73/person/_delta_log").toURI());
         copyTransactionLogEntry(0, 12, resourceDir, transactionLogDir);
         Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME).toPath(), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
+        ConnectorSession activeDataFileCacheSession = TestingConnectorSession.builder()
+                .setPropertyMetadata(new DeltaLakeSessionProperties(
+                        new DeltaLakeConfig().setCheckpointFilteringEnabled(false),
+                        new ParquetReaderConfig(),
+                        new ParquetWriterConfig())
+                        .getSessionProperties())
+                .build();
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, activeDataFileCacheSession);
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(activeDataFileCacheSession, tableSnapshot);
 
         Set<String> originalDataFiles = ImmutableSet.of(
                 "age=42/part-00000-b26c891a-7288-4d96-9d3b-bef648f12a34.c000.snappy.parquet",
@@ -608,7 +608,7 @@ public class TestTransactionLogAccess
         assertFileSystemAccesses(
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir.toURI().toString());
-                    try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION)) {
+                    try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, activeDataFileCacheSession)) {
                         assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), originalDataFiles);
                     }
                 },
@@ -626,8 +626,8 @@ public class TestTransactionLogAccess
                 "age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet");
         assertFileSystemAccesses(
                 () -> {
-                    TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString());
-                    try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(updatedTableSnapshot, metadataEntry, protocolEntry, SESSION)) {
+                    TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(activeDataFileCacheSession, new SchemaTableName("schema", tableName), tableDir.toURI().toString());
+                    try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(updatedTableSnapshot, metadataEntry, protocolEntry, activeDataFileCacheSession)) {
                         assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), union(originalDataFiles, newDataFiles));
                     }
                 },
@@ -827,10 +827,17 @@ public class TestTransactionLogAccess
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
 
+        ConnectorSession activeDataFileCacheSession = TestingConnectorSession.builder()
+                .setPropertyMetadata(new DeltaLakeSessionProperties(
+                        new DeltaLakeConfig().setCheckpointFilteringEnabled(false),
+                        new ParquetReaderConfig(),
+                        new ParquetWriterConfig())
+                        .getSessionProperties())
+                .build();
         assertFileSystemAccesses(
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION)) {
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, activeDataFileCacheSession)) {
                         assertThat(addFileEntries.count()).isEqualTo(12L);
                     }
                 },
@@ -847,7 +854,7 @@ public class TestTransactionLogAccess
         // The internal data cache should still contain the data files for the table
         assertFileSystemAccesses(
                 () -> {
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION)) {
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, activeDataFileCacheSession)) {
                         assertThat(addFileEntries.count()).isEqualTo(12L);
                     }
                 },
