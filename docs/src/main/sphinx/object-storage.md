@@ -86,6 +86,7 @@ storage:
 
 * [](/object-storage/file-system-cache)
 * [](/object-storage/metastores)
+* [](/object-storage/file-formats)
 
 ```{toctree}
 :maxdepth: 1
@@ -96,4 +97,5 @@ storage:
 /object-storage/file-system-s3
 /object-storage/file-system-cache
 /object-storage/metastores
+/object-storage/file-formats
 ```
