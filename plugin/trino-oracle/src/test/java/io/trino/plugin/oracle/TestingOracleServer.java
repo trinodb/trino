@@ -80,8 +80,15 @@ public class TestingOracleServer
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
                 .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
                 .usingSid();
-        this.cleanup = startOrReuse(container);
-        this.container = container;
+        try {
+            this.cleanup = startOrReuse(container);
+            this.container = container;
+        }
+        catch (Throwable e) {
+            try (container) {
+                throw e;
+            }
+        }
     }
 
     private Path createConfigureScript()
