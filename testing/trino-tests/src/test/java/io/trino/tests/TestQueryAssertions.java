@@ -437,38 +437,40 @@ public class TestQueryAssertions
     public void testProjectedColumns()
     {
         assertThat(query("SHOW COLUMNS FROM nation"))
+                .result()
                 .projected("Column")
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
         assertThat(query("SHOW COLUMNS FROM nation"))
+                .result()
                 .exceptColumns("Type", "Extra", "Comment")
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
         assertThatThrownBy(
                 () -> assertThat(query("SHOW COLUMNS FROM nation"))
-                        .projected("Column", "Non_Existent"))
+                        .result().projected("Column", "Non_Existent"))
                 .hasMessageContaining("[Non_Existent] column is not present in [Column, Type, Extra, Comment]");
 
         assertThatThrownBy(
                 () -> assertThat(query("SHOW COLUMNS FROM nation"))
-                        .exceptColumns("Type", "Extra", "Comment", "Non_Existent"))
+                        .result().exceptColumns("Type", "Extra", "Comment", "Non_Existent"))
                 .hasMessageContaining("[Non_Existent] column is not present in [Column, Type, Extra, Comment]");
 
         assertThatThrownBy(
                 () -> assertThat(query("SHOW COLUMNS FROM nation"))
-                        .projected()) // project no columns
+                        .result().projected()) // project no columns
                 .hasMessageContaining("At least one column must be projected");
 
         assertThatThrownBy(
                 () -> assertThat(query("SHOW COLUMNS FROM nation"))
-                        .exceptColumns()) // exclude no columns
+                        .result().exceptColumns()) // exclude no columns
                 .hasMessageContaining("At least one column must be excluded");
 
         assertThatThrownBy(
                 () -> assertThat(query("SHOW COLUMNS FROM nation"))
-                        .exceptColumns("Column", "Type", "Extra", "Comment")) // exclude all columns
+                        .result().exceptColumns("Column", "Type", "Extra", "Comment")) // exclude all columns
                 .hasMessageContaining("All columns cannot be excluded");
     }
 }
