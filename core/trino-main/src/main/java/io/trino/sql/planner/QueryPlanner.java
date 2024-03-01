@@ -642,9 +642,8 @@ class QueryPlanner
             if (index >= 0) {
                 // This column is updated...
                 Expression original = orderedColumnValues.get(index);
-                Expression setExpression = coerceIfNecessary(analysis, original, original);
-                subPlanBuilder = subqueryPlanner.handleSubqueries(subPlanBuilder, setExpression, analysis.getSubqueries(node));
-                Expression rewritten = subPlanBuilder.rewrite(setExpression);
+                subPlanBuilder = subqueryPlanner.handleSubqueries(subPlanBuilder, original, analysis.getSubqueries(node));
+                Expression rewritten = coerceIfNecessary(analysis, original, subPlanBuilder.rewrite(original));
 
                 // If the updated column is non-null, check that the value is not null
                 if (mergeAnalysis.getNonNullableColumnHandles().contains(dataColumnHandle)) {
