@@ -430,10 +430,6 @@ public class QueryAssertions
             return this;
         }
 
-        /**
-         * @deprecated use {@code result().isEmpty()} instead.
-         */
-        @Deprecated
         @CanIgnoreReturnValue
         public QueryAssert returnsEmptyResult()
         {
