@@ -3468,4 +3468,27 @@ public class TestDeltaLakeConnectorTest
 
         assertUpdate("DROP TABLE " + tableName);
     }
+
+    @Test
+    public void testQueriesWithoutCheckpointFiltering()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
+                .build();
+
+        String tableName = "test_without_checkpoint_filtering_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (col INT) " +
+                "WITH (checkpoint_interval=3)");
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2, 3", 2);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 4, 5", 2);
+
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES 1, 2, 3, 4, 5");
+        assertUpdate(session, "UPDATE " + tableName + " SET col = 44 WHERE col = 4", 1);
+        assertUpdate(session, "DELETE FROM " + tableName + " WHERE col = 3", 1);
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES 1, 2, 44, 5");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
 }

@@ -136,7 +136,7 @@ values. Typical usage does not require you to configure them.
     columns which are irrelevant for the query when reading Delta Lake
     checkpoint files.
     The equivalent catalog session property is ``checkpoint_filtering_enabled``.
-  - ``false``
+  - ``true``
 * - `delta.dynamic-filtering.wait-timeout`
   - Duration to wait for completion of [dynamic
     filtering](/admin/dynamic-filtering) during split generation. The equivalent
