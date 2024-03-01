@@ -184,7 +184,7 @@ public class SampleFilesCrawler
 
     private void throwIfInvalidFileStatus(Location root)
     {
-        if (!fileSystem.directoryExists(root)) {
+        if (!fileSystem.doesDirectoryExists(root)) {
             throw new TrinoException(LOCATION_DOES_NOT_EXISTS, "Root directory is empty or isn't a directory: " + root);
         }
     }

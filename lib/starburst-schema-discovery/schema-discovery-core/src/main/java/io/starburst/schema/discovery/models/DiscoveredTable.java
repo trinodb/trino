@@ -97,6 +97,20 @@ public record DiscoveredTable(boolean valid, TablePath path, TableName tableName
                 errors);
     }
 
+    public DiscoveredTable withErrors(List<String> errors)
+    {
+        return new DiscoveredTable(
+                false,
+                path,
+                tableName,
+                ERROR,
+                options,
+                columns,
+                discoveredPartitions,
+                buckets,
+                errors);
+    }
+
     public static DiscoveredTable emptyWithPathAndErrors(TablePath path, List<String> errors)
     {
         return new DiscoveredTable(

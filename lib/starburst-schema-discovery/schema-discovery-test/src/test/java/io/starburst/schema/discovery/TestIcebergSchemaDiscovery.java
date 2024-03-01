@@ -43,7 +43,24 @@ public class TestIcebergSchemaDiscovery
                                        && discovered.errors().isEmpty()
                                        && discovered.tables().size() == 1)
                 .extracting(discovered -> getOnlyElement(discovered.tables()))
-                .matches(table -> table.valid() && table.path().path().endsWith("iceberg/table1/") && table.format() == TableFormat.ICEBERG);
+                .matches(table -> table.valid() && table.path().path().equals("s3://starburst-benchmarks-data/iceberg-tpcds-sf1-orc-part/catalog_page") && table.format() == TableFormat.ICEBERG);
+    }
+
+    @Test
+    public void testIcebergTableWithoutLocationInMetadata()
+    {
+        Location directory = Util.testFilePath("iceberg/table_invalid");
+        Processor processor = new Processor(schemaDiscoveryInstances, Util.fileSystem(), directory, OPTIONS, Executors.newCachedThreadPool());
+        processor.startRootProcessing();
+        assertThat(processor)
+                .succeedsWithin(Duration.ofSeconds(1))
+                .matches(discovered -> discovered.rootPath().path().endsWith("iceberg/table_invalid/")
+                                       && discovered.errors().isEmpty()
+                                       && discovered.tables().size() == 1)
+                .extracting(discovered -> getOnlyElement(discovered.tables()))
+                .matches(table -> !table.valid(), "Table must be invalid")
+                .matches(table -> !table.errors().isEmpty() && table.errors().getFirst().equals("Failed to read location from iceberg table's latest metadata file - [Cannot parse missing string: location]"), "Table must have invalid metadata error")
+                .matches(table -> table.format() == TableFormat.ERROR, "Table must have error format");
     }
 
     @Test
@@ -55,14 +72,14 @@ public class TestIcebergSchemaDiscovery
         assertThat(processor)
                 .succeedsWithin(Duration.ofSeconds(1))
                 .matches(discovered -> discovered.rootPath().path().endsWith("iceberg/")
-                                       && discovered.errors().isEmpty()
-                                       && discovered.tables().size() == 2)
+                                       && discovered.tables().size() == 3)
                 .extracting(discoveredSchema -> discoveredSchema.tables().stream()
                         .sorted(Comparator.comparing(DiscoveredTable::path))
                         .collect(toImmutableList()))
                 .matches(tables ->
-                        tables.get(0).valid() && tables.get(0).path().path().endsWith("iceberg/table1/") && tables.get(0).format() == TableFormat.ICEBERG &&
-                        tables.get(1).valid() && tables.get(1).path().path().endsWith("iceberg/table2/") && tables.get(1).format() == TableFormat.ICEBERG);
+                        !tables.get(0).valid() && !tables.get(0).errors().isEmpty() && tables.get(0).format() == TableFormat.ERROR &&
+                        tables.get(1).valid() && tables.get(1).path().path().equals("s3://starburst-benchmarks-data/iceberg-tpcds-sf1-orc-part/catalog_page") && tables.get(1).format() == TableFormat.ICEBERG &&
+                        tables.get(2).valid() && tables.get(2).path().path().equals("s3://starburst-benchmarks-data/iceberg-tpcds-sf10-orc-part/catalog_page") && tables.get(2).format() == TableFormat.ICEBERG);
     }
 
     @Test
@@ -75,13 +92,13 @@ public class TestIcebergSchemaDiscovery
         assertThat(processor)
                 .succeedsWithin(Duration.ofSeconds(1))
                 .matches(discovered -> discovered.rootPath().path().endsWith("iceberg/")
-                                       && discovered.errors().isEmpty()
-                                       && discovered.tables().size() == 2)
+                                       && discovered.tables().size() == 3)
                 .extracting(discoveredSchema -> discoveredSchema.tables().stream()
                         .sorted(Comparator.comparing(DiscoveredTable::path))
                         .collect(toImmutableList()))
                 .matches(tables ->
-                        tables.get(0).valid() && tables.get(0).path().path().endsWith("iceberg/table1/") && tables.get(0).format() == TableFormat.ICEBERG &&
-                        tables.get(1).valid() && tables.get(1).path().path().endsWith("iceberg/table2/") && tables.get(1).format() == TableFormat.ICEBERG);
+                        !tables.get(0).valid() && !tables.get(0).errors().isEmpty() && tables.get(0).format() == TableFormat.ERROR &&
+                        tables.get(1).valid() && tables.get(1).path().path().equals("s3://starburst-benchmarks-data/iceberg-tpcds-sf1-orc-part/catalog_page") && tables.get(1).format() == TableFormat.ICEBERG &&
+                        tables.get(2).valid() && tables.get(2).path().path().equals("s3://starburst-benchmarks-data/iceberg-tpcds-sf10-orc-part/catalog_page") && tables.get(2).format() == TableFormat.ICEBERG);
     }
 }

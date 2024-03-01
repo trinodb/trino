@@ -95,7 +95,7 @@ public class ErroringTrinoFileSystem
     @Override
     public Optional<Boolean> directoryExists(Location location)
     {
-        return Optional.of(fileSystem.directoryExists(location));
+        return Optional.of(fileSystem.doesDirectoryExists(location));
     }
 
     @Override

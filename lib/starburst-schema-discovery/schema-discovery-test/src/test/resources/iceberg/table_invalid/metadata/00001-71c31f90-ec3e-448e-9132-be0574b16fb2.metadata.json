@@ -1,7 +1,6 @@
 {
   "format-version" : 1,
   "table-uuid" : "27ab5766-a49e-4f0e-ac5a-5a5ba3f825f8",
-  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf10-orc-part/catalog_page",
   "last-updated-ms" : 1663716739382,
   "last-column-id" : 9,
   "schema" : {

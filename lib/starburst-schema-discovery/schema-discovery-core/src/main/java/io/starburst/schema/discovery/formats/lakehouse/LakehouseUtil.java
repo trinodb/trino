@@ -9,9 +9,14 @@
  */
 package io.starburst.schema.discovery.formats.lakehouse;
 
+import io.starburst.schema.discovery.io.DiscoveryTrinoFileSystem;
 import io.starburst.schema.discovery.models.TableFormat;
+import io.starburst.schema.discovery.models.TablePath;
 import io.starburst.schema.discovery.processor.Processor.ProcessorPath;
 import io.trino.filesystem.Location;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 
 import java.util.List;
 import java.util.Map;
@@ -24,11 +29,21 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.starburst.schema.discovery.infer.InferPartitions.isPartitionName;
 import static io.starburst.schema.discovery.io.LocationUtils.directoryOrFileName;
 import static io.starburst.schema.discovery.io.LocationUtils.parentOf;
+import static io.starburst.schema.discovery.models.TablePath.asTablePath;
+import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
+import static io.trino.plugin.iceberg.procedure.RegisterTableProcedure.getLatestMetadataLocation;
 import static java.util.stream.Collectors.toMap;
 
 public class LakehouseUtil
 {
     private LakehouseUtil() {}
+
+    public static TablePath enhanceIcebergTableLocationFromMetadata(DiscoveryTrinoFileSystem fileSystem, TablePath rootTablePath)
+    {
+        String latestMetadataLocation = getLatestMetadataLocation(fileSystem, rootTablePath.path());
+        TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), latestMetadataLocation);
+        return asTablePath(tableMetadata.location());
+    }
 
     public static Optional<LakehouseFormat> checkIcebergFormatMatch(Location path)
     {
@@ -37,7 +52,7 @@ public class LakehouseUtil
         if (isPartitionName(name)) {
             parent = parentOf(parent);
         }
-        if (name.equals("data") || name.equals("metadata")) {
+        if ("data".equals(name) || METADATA_FOLDER_NAME.equals(name)) {
             return Optional.of(new LakehouseFormat(TableFormat.ICEBERG, parent));
         }
         return Optional.empty();

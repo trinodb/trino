@@ -72,6 +72,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.starburst.schema.discovery.formats.lakehouse.LakehouseUtil.enhanceIcebergTableLocationFromMetadata;
 import static io.starburst.schema.discovery.infer.InferPartitions.PARTITION_SEPARATOR;
 import static io.starburst.schema.discovery.internal.HiveTypes.STRING_TYPE;
 import static io.starburst.schema.discovery.io.LocationUtils.directoryOrFileName;
@@ -260,10 +261,25 @@ public class Processor
                 .map(entry -> reduceGuessedSchemasAndPartitions(entry.getKey(), entry.getValue()))
                 .collect(toImmutableList());
         tables = reduceRecursiveTables(tables);
+        tables = tables.stream().map(this::enhanceIcebergTableLocation).collect(toImmutableList());
 
         DiscoveredSchema discoveredSchema = new DiscoveredSchema(ensureEndsWithSlash(rootPath), tables, errors.build());
         result.set(discoveredSchema);
         return null;
+    }
+
+    private DiscoveredTable enhanceIcebergTableLocation(DiscoveredTable table)
+    {
+        if (table.format() != TableFormat.ICEBERG) {
+            return table;
+        }
+        try {
+            return table.withPath(enhanceIcebergTableLocationFromMetadata(fileSystem, table.path()));
+        }
+        catch (Exception e) {
+            errors.addTableError(table.path(), "Failed to read location from iceberg table's latest metadata file - [%s]", extractTrinoOrRootCauseMessage(e));
+            return table.withErrors(errors.buildForPathAndChildren(table.path().path()));
+        }
     }
 
     private List<DiscoveredTable> reduceRecursiveTables(List<DiscoveredTable> tables)
@@ -357,10 +373,15 @@ public class Processor
 
     private void handleFileError(Location file, Exception e)
     {
-        String trinoOrRootCauseMessage = Throwables.getCausalChain(e).stream().filter(ex -> ex instanceof TrinoException).findFirst().map(Throwable::getMessage)
-                .orElseGet(() -> Throwables.getRootCause(e).getMessage());
+        String trinoOrRootCauseMessage = extractTrinoOrRootCauseMessage(e);
         String discoverColumnsErrorMessage = "File error: [%s] - %s".formatted(file.toString(), trinoOrRootCauseMessage);
         errors.addTableError(file.toString(), discoverColumnsErrorMessage);
+    }
+
+    private static String extractTrinoOrRootCauseMessage(Exception e)
+    {
+        return Throwables.getCausalChain(e).stream().filter(ex -> ex instanceof TrinoException).findFirst().map(Throwable::getMessage)
+                .orElseGet(() -> Throwables.getRootCause(e).getMessage());
     }
 
     private SchemaDiscovery discoveryInstanceFromFormat(TableFormat format)
