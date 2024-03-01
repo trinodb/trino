@@ -22,8 +22,8 @@
     </licenses>
 
     <modules>
-        <module>schema-discovery-cli</module>
         <module>schema-discovery-core</module>
+        <module>schema-discovery-internal-cli</module>
         <module>schema-discovery-test</module>
         <module>schema-discovery-trino-system-table</module>
     </modules>
@@ -46,13 +46,13 @@
 
             <dependency>
                 <groupId>io.starburst.schema-discovery</groupId>
-                <artifactId>schema-discovery-cli</artifactId>
+                <artifactId>schema-discovery-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.starburst.schema-discovery</groupId>
-                <artifactId>schema-discovery-core</artifactId>
+                <artifactId>schema-discovery-internal-cli</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>
