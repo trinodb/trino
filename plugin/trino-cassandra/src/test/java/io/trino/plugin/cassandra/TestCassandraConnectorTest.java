@@ -176,7 +176,7 @@ public class TestCassandraConnectorTest
     @Override
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
     }
 
     @Override
