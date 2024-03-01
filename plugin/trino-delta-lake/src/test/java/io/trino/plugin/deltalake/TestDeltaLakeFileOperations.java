@@ -246,21 +246,14 @@ public class TestDeltaLakeFileOperations
     @Test
     public void testReadPartitionTableWithCheckpointFiltering()
     {
-        String catalog = getSession().getCatalog().orElseThrow();
-
         assertUpdate("DROP TABLE IF EXISTS test_checkpoint_filtering");
 
         assertUpdate("CREATE TABLE test_checkpoint_filtering(key varchar, data varchar) WITH (partitioned_by = ARRAY['key'], checkpoint_interval = 2)");
         assertUpdate("INSERT INTO test_checkpoint_filtering(key, data) VALUES ('p1', '1-abc'), ('p1', '1-def'), ('p2', '2-abc'), ('p2', '2-def')", 4);
         assertUpdate("INSERT INTO test_checkpoint_filtering(key, data) VALUES ('p1', '1-baz'), ('p2', '2-baz')", 2);
 
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty(catalog, "checkpoint_filtering_enabled", "true")
-                .build();
-
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_checkpoint_filtering')");
         assertFileSystemAccesses(
-                session,
                 "TABLE test_checkpoint_filtering",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))

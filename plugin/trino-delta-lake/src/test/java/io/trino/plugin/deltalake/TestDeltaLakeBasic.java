@@ -1091,27 +1091,27 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
                 .build();
 
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'part1'"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'part1'"))
                 .matches("VALUES 1");
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part != 10"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part != 10"))
                 .matches("VALUES 2");
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part > 10"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part > 10"))
                 .matches("VALUES 2");
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part >= 10"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part >= 10"))
                 .matches("VALUES 1, 2");
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IN (10, 20)"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IN (10, 20)"))
                 .matches("VALUES 1, 2");
-        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NULL"))
+        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NULL"))
                 .matches("VALUES 3");
-        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IS NOT NULL AND string_part IS NOT NULL"))
+        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IS NOT NULL AND string_part IS NOT NULL"))
                 .matches("VALUES 1, 2");
 
-        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'unmatched partition condition'"))
+        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'unmatched partition condition'"))
                 .returnsEmptyResult();
-        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NOT NULL"))
+        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NOT NULL"))
                 .returnsEmptyResult();
     }
 
@@ -1136,15 +1136,12 @@ public class TestDeltaLakeBasic
                         (300, 3, row(3, 'osla')),
                         (400, 4, row(4, 'zulu'))""");
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
-                .build();
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE part BETWEEN 100 AND 300")).matches("VALUES 1, 2, 3");
-        assertThat(query(session, "SELECT root.entry_two FROM " + tableName + " WHERE part BETWEEN 100 AND 300"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part BETWEEN 100 AND 300")).matches("VALUES 1, 2, 3");
+        assertThat(query("SELECT root.entry_two FROM " + tableName + " WHERE part BETWEEN 100 AND 300"))
                 .skippingTypesCheck()
                 .matches("VALUES 'ala', 'kota', 'osla'");
         // show stats with predicate
-        assertThat(query(session, "SHOW STATS FOR (SELECT id FROM " + tableName + " WHERE part = 100)"))
+        assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " WHERE part = 100)"))
                 .skippingTypesCheck()
                 .matches("""
                         VALUES
@@ -1173,15 +1170,12 @@ public class TestDeltaLakeBasic
                         (300, 3, 'osla'),
                         (400, 4, 'zulu')""");
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
-                .build();
-        assertThat(query(session, "SELECT a_NuMbEr FROM " + tableName + " WHERE part BETWEEN 100 AND 300")).matches("VALUES 1, 2, 3");
-        assertThat(query(session, "SELECT a_StRiNg FROM " + tableName + " WHERE part BETWEEN 100 AND 300"))
+        assertThat(query("SELECT a_NuMbEr FROM " + tableName + " WHERE part BETWEEN 100 AND 300")).matches("VALUES 1, 2, 3");
+        assertThat(query("SELECT a_StRiNg FROM " + tableName + " WHERE part BETWEEN 100 AND 300"))
                 .skippingTypesCheck()
                 .matches("VALUES 'ala', 'kota', 'osla'");
         // show stats with predicate
-        assertThat(query(session, "SHOW STATS FOR (SELECT a_NuMbEr FROM " + tableName + " WHERE part BETWEEN 100 AND 300)"))
+        assertThat(query("SHOW STATS FOR (SELECT a_NuMbEr FROM " + tableName + " WHERE part BETWEEN 100 AND 300)"))
                 .skippingTypesCheck()
                 .matches("""
                         VALUES
@@ -1266,10 +1260,7 @@ public class TestDeltaLakeBasic
                             (5, false, TINYINT '5', SMALLINT '50', 500, BIGINT '5000', CAST('555.5' AS DECIMAL(5,2)), CAST('55555.55' AS DECIMAL(21,3)), DOUBLE '5.55', REAL '5.5555', 'd', DATE '2020-08-25', TIMESTAMP '2020-10-25 01:00:00.123 UTC', TIMESTAMP '2023-01-05 01:02:03.456'),
                             (6, null, null, null, null, null, null, null, null, null, null, null, null, null)""");
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
-                .build();
-        assertThat(query(session, """
+        assertThat(query("""
                 SELECT id
                 FROM %s
                 WHERE
@@ -1301,7 +1292,10 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("databricks133/partition_values_parsed_case_sensitive").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
 
-        assertThat(query("SELECT * FROM " + tableName))
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
+                .build();
+        assertThat(query(session,"SELECT * FROM " + tableName))
                 .skippingTypesCheck()
                 .matches("""
                         VALUES
@@ -1311,7 +1305,7 @@ public class TestDeltaLakeBasic
 
         // Create a new checkpoint
         assertUpdate("INSERT INTO " + tableName + " VALUES (400, 4, 'kon')", 1);
-        assertThat(query("SELECT * FROM " + tableName))
+        assertThat(query(session, "SELECT * FROM " + tableName))
                 .skippingTypesCheck()
                 .matches("""
                         VALUES
@@ -1319,20 +1313,13 @@ public class TestDeltaLakeBasic
                             (200, 2,'kota'),
                             (300, 3, 'osla'),
                             (400, 4, 'kon')""");
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
-                .build();
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE part_NuMbEr = 1 AND part_StRiNg = 'ala'"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part_NuMbEr = 1 AND part_StRiNg = 'ala'"))
                 .matches("VALUES 100");
     }
 
     private void assertPartitionValuesParsedCondition(String tableName, int id, @Language("SQL") String condition)
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
-                .build();
-
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE " + condition))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE " + condition))
                 .matches("VALUES " + id);
     }
 
