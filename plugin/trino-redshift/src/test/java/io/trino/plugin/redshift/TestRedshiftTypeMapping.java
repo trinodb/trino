@@ -199,7 +199,7 @@ public class TestRedshiftTypeMapping
 
             // Test the type of an internal table
             assertThat(query(format("SELECT * FROM %s LIMIT 1", view2.name)))
-                    .hasOutputTypes(List.of(createUnboundedVarcharType()));
+                    .result().hasTypes(List.of(createUnboundedVarcharType()));
         }
     }
 
