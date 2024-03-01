@@ -420,6 +420,7 @@ public class TestStargateTableStatisticsWithPostgreSql
     {
         // Predicate on a varchar column. May or may not be pushed down, may or may not be subsumed.
         assertThat(query("SHOW STATS FOR (SELECT * FROM nation WHERE name = 'PERU')"))
+                .result()
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
                 .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
@@ -438,6 +439,7 @@ public class TestStargateTableStatisticsWithPostgreSql
             gatherStats(table.getName());
 
             assertThat(query("SHOW STATS FOR (SELECT * FROM " + table.getName() + " WHERE fl = 'B')"))
+                    .result()
                     .exceptColumns("data_size", "low_value", "high_value")
                     .skippingTypesCheck()
                     .matches("VALUES " +

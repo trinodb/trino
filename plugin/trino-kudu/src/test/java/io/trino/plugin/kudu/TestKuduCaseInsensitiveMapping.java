@@ -105,6 +105,7 @@ public class TestKuduCaseInsensitiveMapping
                 format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", tableNameLowerCase),
                 "VALUES 'id', 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
         assertThat(query(format("SHOW COLUMNS FROM %s.%s", schemaName, tableNameLowerCase)))
+                .result()
                 .projected("Column")
                 .skippingTypesCheck()
                 .matches("VALUES 'id', 'lower_case_name', 'mixed_case_name', 'upper_case_name'");

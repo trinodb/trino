@@ -26,6 +26,7 @@ public abstract class BaseStargateTableStatisticsTest
         // test overridden because Stargate connector does not leverage statistics precalculation
 
         assertThat(query("SHOW STATS FOR nation"))
+                .result()
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
                 .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
@@ -46,6 +47,7 @@ public abstract class BaseStargateTableStatisticsTest
         assertThat(query(session, query)).isFullyPushedDown();
 
         assertThat(query(session, "SHOW STATS FOR (" + query + ")"))
+                .result()
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
                 .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()

@@ -128,6 +128,7 @@ public abstract class BaseCacheSubqueriesTest
     public void testShowStats()
     {
         assertThat(query("SHOW STATS FOR nation"))
+                .result()
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
                 .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()

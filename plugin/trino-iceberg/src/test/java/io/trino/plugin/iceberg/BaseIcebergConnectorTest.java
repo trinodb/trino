@@ -3249,8 +3249,9 @@ public abstract class BaseIcebergConnectorTest
         }
 
         assertThat(query("SHOW STATS FOR " + tableName))
-                .skippingTypesCheck()
+                .result()
                 .exceptColumns("data_size", "low_value", "high_value") // these may vary between types
+                .skippingTypesCheck()
                 .matches("VALUES " +
                         "  ('d', 3e0, " + (format == AVRO ? "0.1e0" : "0.25e0") + ", NULL), " +
                         "  (NULL, NULL, NULL, 4e0)");
