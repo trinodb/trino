@@ -64,24 +64,24 @@ public class TestingOracleServer
     public static final String TEST_SCHEMA = TEST_USER; // schema and user is the same thing in Oracle
     public static final String TEST_PASS = "trino_test_password";
 
-    private final OracleContainer container;
+    private OracleContainer container;
 
     private Closeable cleanup = () -> {};
 
     public TestingOracleServer()
     {
-        container = Failsafe.with(CONTAINER_RETRY_POLICY).get(this::createContainer);
+        Failsafe.with(CONTAINER_RETRY_POLICY).run(this::createContainer);
     }
 
-    private OracleContainer createContainer()
+    private void createContainer()
     {
         OracleContainer container = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/01-init.sql")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
                 .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
                 .usingSid();
-        cleanup = startOrReuse(container);
-        return container;
+        this.cleanup = startOrReuse(container);
+        this.container = container;
     }
 
     private Path createConfigureScript()
