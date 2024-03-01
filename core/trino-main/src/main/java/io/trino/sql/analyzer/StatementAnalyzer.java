@@ -390,7 +390,7 @@ import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareK
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeJsonQueryExpression;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeJsonValueExpression;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstant;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
@@ -2076,7 +2076,7 @@ class StatementAnalyzer
                 }
             }, expression);
             // currently, only constant arguments are supported
-            Object constantValue = evaluateConstantExpression(inlined, type, plannerContext, session, accessControl, analysis.getParameters());
+            Object constantValue = evaluateConstant(inlined, type, plannerContext, session, accessControl);
             return new ArgumentAnalysis(
                     ScalarArgument.builder()
                             .type(type)
@@ -3029,7 +3029,7 @@ class StatementAnalyzer
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
 
-            Object samplePercentageObject = evaluateConstantExpression(samplePercentage, samplePercentageType, plannerContext, session, accessControl, analysis.getParameters());
+            Object samplePercentageObject = evaluateConstant(samplePercentage, samplePercentageType, plannerContext, session, accessControl);
             if (samplePercentageObject == null) {
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
@@ -5758,13 +5758,12 @@ class StatementAnalyzer
             Expression providedValue = analysis.getParameters().get(NodeRef.of(parameter));
             Object value;
             try {
-                value = evaluateConstantExpression(
+                value = evaluateConstant(
                         providedValue,
                         BIGINT,
                         plannerContext,
                         session,
-                        accessControl,
-                        analysis.getParameters());
+                        accessControl);
             }
             catch (VerifyException e) {
                 throw semanticException(INVALID_ARGUMENTS, parameter, "Non constant parameter value for %s: %s", context, providedValue);
@@ -5858,7 +5857,7 @@ class StatementAnalyzer
             if (versionType == UNKNOWN) {
                 throw semanticException(INVALID_ARGUMENTS, table.getQueryPeriod().get(), "Pointer value cannot be NULL");
             }
-            Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, plannerContext, session, accessControl, ImmutableMap.of());
+            Object evaluatedVersion = evaluateConstant(version.get(), versionType, plannerContext, session, accessControl);
             TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
             validateVersionPointer(table.getQueryPeriod().get(), extractedVersion);
             return Optional.of(extractedVersion);
