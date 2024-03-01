@@ -56,7 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstant;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -217,7 +217,7 @@ public final class SessionPropertyManager
     public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, PlannerContext plannerContext, AccessControl accessControl, Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-        Object value = evaluateConstantExpression(rewritten, expectedType, plannerContext, session, accessControl, parameters);
+        Object value = evaluateConstant(rewritten, expectedType, plannerContext, session, accessControl);
 
         // convert to object value type of SQL type
         Block block = writeNativeValue(expectedType, value);
