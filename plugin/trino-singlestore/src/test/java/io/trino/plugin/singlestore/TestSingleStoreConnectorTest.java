@@ -197,7 +197,7 @@ public class TestSingleStoreConnectorTest
         onRemoteDatabase().execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
         assertThat(query("SHOW COLUMNS FROM mysql_test_tinyint1"))
-                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .result().matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                         .row("c_tinyint", "tinyint", "", "")
                         .build());
 
