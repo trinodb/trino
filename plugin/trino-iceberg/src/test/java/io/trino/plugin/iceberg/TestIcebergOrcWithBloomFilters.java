@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.testing.BaseOrcWithBloomFiltersTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -63,9 +62,7 @@ public class TestIcebergOrcWithBloomFilters
                 .row("write.orc.bloom.filter.fpp", "0.1").build();
         assertContains(actualProperties, expectedProperties);
 
-        MaterializedResult actualCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
-        assertThat(actualCreateTable).isNotNull();
-        assertThat(actualCreateTable.getMaterializedRows().getFirst().toString())
-                .contains(ImmutableList.of("orc_bloom_filter_columns", "orc_bloom_filter_fpp"));
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("orc_bloom_filter_columns", "orc_bloom_filter_fpp");
     }
 }
