@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstant;
+import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
