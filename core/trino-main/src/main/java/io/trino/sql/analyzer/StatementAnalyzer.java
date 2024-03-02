@@ -387,10 +387,10 @@ import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregation
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
+import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeJsonQueryExpression;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeJsonValueExpression;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstant;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;

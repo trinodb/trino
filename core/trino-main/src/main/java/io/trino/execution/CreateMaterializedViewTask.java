@@ -56,7 +56,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
-import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstant;
+import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.util.Locale.ENGLISH;
