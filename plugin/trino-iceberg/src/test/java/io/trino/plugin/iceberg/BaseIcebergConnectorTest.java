@@ -4742,10 +4742,8 @@ public abstract class BaseIcebergConnectorTest
         byte[] metadataJson = TableMetadataParser.toJson(newTableMetadata).getBytes(UTF_8);
         fileSystem.newOutputFile(Location.of(metadataLocation)).createOrOverwrite(metadataJson);
 
-        MaterializedResult actualCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
-        assertThat(actualCreateTable).isNotNull();
-        assertThat(actualCreateTable.getMaterializedRows().getFirst().toString())
-                .contains(ImmutableList.of("orc_bloom_filter_columns", "orc_bloom_filter_fpp"));
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("orc_bloom_filter_columns", "orc_bloom_filter_fpp");
     }
 
     protected abstract boolean supportsIcebergFileStatistics(String typeName);
