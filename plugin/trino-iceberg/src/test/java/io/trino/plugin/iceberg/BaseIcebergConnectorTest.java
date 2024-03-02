@@ -4719,7 +4719,6 @@ public abstract class BaseIcebergConnectorTest
 
     @Test
     public void testGetIcebergTableWithLegacyOrcBloomFilterProperties()
-            throws Exception
     {
         String tableName = "test_get_table_with_legacy_orc_bloom_filter_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
@@ -4741,10 +4740,8 @@ public abstract class BaseIcebergConnectorTest
                 newProperties);
         TableMetadataParser.overwrite(newTableMetadata, new ForwardingOutputFile(fileSystem, Location.of(metadataLocation)));
 
-        MaterializedResult actualCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
-        assertThat(actualCreateTable).isNotNull();
-        assertThat(actualCreateTable.getMaterializedRows().getFirst().toString())
-                .contains(ImmutableList.of("orc_bloom_filter_columns", "orc_bloom_filter_fpp"));
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("orc_bloom_filter_columns", "orc_bloom_filter_fpp");
     }
 
     protected abstract boolean supportsIcebergFileStatistics(String typeName);
