@@ -734,11 +734,11 @@ public class TranslationMap
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
                 checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
-                Trim rewritten = treeRewriter.defaultRewrite(node, context);
-
                 ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
-                arguments.add(rewritten.getTrimSource());
-                rewritten.getTrimCharacter().ifPresent(arguments::add);
+                arguments.add(treeRewriter.rewrite(node.getTrimSource(), context));
+                node.getTrimCharacter()
+                        .map(argument -> treeRewriter.rewrite(argument, context))
+                        .ifPresent(arguments::add);
 
                 FunctionCall functionCall = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
                 return coerceIfNecessary(node, functionCall);
@@ -814,20 +814,20 @@ public class TranslationMap
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
                 checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
-                // rewrite the input expression and JSON path parameters
-                // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
-                JsonExists rewritten = treeRewriter.defaultRewrite(node, context);
-
                 // apply the input function to the input expression
                 BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonExists.ErrorBehavior.ERROR ? "true" : "false");
                 ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
-                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
+                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(
+                        treeRewriter.rewrite(node.getJsonPathInvocation().getInputExpression(), context),
+                        failOnError));
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
                 ParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
-                        rewritten.getJsonPathInvocation().getPathParameters(),
+                        node.getJsonPathInvocation().getPathParameters().stream()
+                                .map(parameter -> treeRewriter.rewrite(parameter.getParameter(), context))
+                                .toList(),
                         resolvedFunction.getSignature().getArgumentType(2),
                         failOnError);
 
@@ -838,7 +838,7 @@ public class TranslationMap
                         .add(input)
                         .add(pathExpression)
                         .add(orderedParameters.getParametersRow())
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
+                        .add(new GenericLiteral("tinyint", String.valueOf(node.getErrorBehavior().ordinal())));
 
                 Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 
@@ -856,20 +856,20 @@ public class TranslationMap
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
                 checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
-                // rewrite the input expression, default expressions, and JSON path parameters
-                // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
-                JsonValue rewritten = treeRewriter.defaultRewrite(node, context);
-
                 // apply the input function to the input expression
                 BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonValue.EmptyOrErrorBehavior.ERROR ? "true" : "false");
                 ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
-                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
+                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(
+                        treeRewriter.rewrite(node.getJsonPathInvocation().getInputExpression(), context),
+                        failOnError));
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
                 ParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
-                        rewritten.getJsonPathInvocation().getPathParameters(),
+                        node.getJsonPathInvocation().getPathParameters().stream()
+                                .map(parameter -> treeRewriter.rewrite(parameter.getParameter(), context))
+                                .toList(),
                         resolvedFunction.getSignature().getArgumentType(2),
                         failOnError);
 
@@ -880,10 +880,14 @@ public class TranslationMap
                         .add(input)
                         .add(pathExpression)
                         .add(orderedParameters.getParametersRow())
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
-                        .add(rewritten.getEmptyDefault().orElseGet(() -> new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())))
-                        .add(rewritten.getErrorDefault().orElseGet(() -> new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))));
+                        .add(new GenericLiteral("tinyint", String.valueOf(node.getEmptyBehavior().ordinal())))
+                        .add(node.getEmptyDefault()
+                                .map(expression -> treeRewriter.rewrite(expression, context))
+                                .orElseGet(() -> new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
+                        .add(new GenericLiteral("tinyint", String.valueOf(node.getErrorBehavior().ordinal())))
+                        .add(node.getErrorDefault()
+                                .map(expression -> treeRewriter.rewrite(expression, context))
+                                .orElseGet(() -> new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))));
 
                 Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 
@@ -901,20 +905,20 @@ public class TranslationMap
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
                 checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
-                // rewrite the input expression and JSON path parameters
-                // the rewrite also applies any coercions necessary for the input functions, which are applied in the next step
-                JsonQuery rewritten = treeRewriter.defaultRewrite(node, context);
-
                 // apply the input function to the input expression
                 BooleanLiteral failOnError = new BooleanLiteral(node.getErrorBehavior() == JsonQuery.EmptyOrErrorBehavior.ERROR ? "true" : "false");
                 ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
-                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(rewritten.getJsonPathInvocation().getInputExpression(), failOnError));
+                Expression input = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(
+                        treeRewriter.rewrite(node.getJsonPathInvocation().getInputExpression(), context),
+                        failOnError));
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
                 ParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
-                        rewritten.getJsonPathInvocation().getPathParameters(),
+                        node.getJsonPathInvocation().getPathParameters().stream()
+                                .map(parameter -> treeRewriter.rewrite(parameter.getParameter(), context))
+                                .toList(),
                         resolvedFunction.getSignature().getArgumentType(2),
                         failOnError);
 
@@ -925,14 +929,14 @@ public class TranslationMap
                         .add(input)
                         .add(pathExpression)
                         .add(orderedParameters.getParametersRow())
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getWrapperBehavior().ordinal())))
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
-                        .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
+                        .add(new GenericLiteral("tinyint", String.valueOf(node.getWrapperBehavior().ordinal())))
+                        .add(new GenericLiteral("tinyint", String.valueOf(node.getEmptyBehavior().ordinal())))
+                        .add(new GenericLiteral("tinyint", String.valueOf(node.getErrorBehavior().ordinal())));
 
                 Expression function = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 
                 // apply function to format output
-                GenericLiteral errorBehavior = new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal()));
+                GenericLiteral errorBehavior = new GenericLiteral("tinyint", String.valueOf(node.getErrorBehavior().ordinal()));
                 BooleanLiteral omitQuotes = new BooleanLiteral(node.getQuotesBehavior().orElse(KEEP) == OMIT ? "true" : "false");
                 ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
                 Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(function, errorBehavior, omitQuotes));
@@ -1143,7 +1147,7 @@ public class TranslationMap
 
     public ParametersRow getParametersRow(
             List<JsonPathParameter> pathParameters,
-            List<JsonPathParameter> rewrittenPathParameters,
+            List<Expression> rewrittenPathParameters,
             Type parameterRowType,
             BooleanLiteral failOnError)
     {
@@ -1153,7 +1157,7 @@ public class TranslationMap
             ImmutableList.Builder<Expression> parameters = ImmutableList.builder();
             for (int i = 0; i < pathParameters.size(); i++) {
                 ResolvedFunction parameterToJson = analysis.getJsonInputFunction(pathParameters.get(i).getParameter());
-                Expression rewrittenParameter = rewrittenPathParameters.get(i).getParameter();
+                Expression rewrittenParameter = rewrittenPathParameters.get(i);
                 if (parameterToJson != null) {
                     parameters.add(new FunctionCall(parameterToJson.toQualifiedName(), ImmutableList.of(rewrittenParameter, failOnError)));
                 }
