@@ -37,9 +37,9 @@ import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 
-public class ExpressionInterpreter
+public class ConstantEvaluator
 {
-    private ExpressionInterpreter() {}
+    private ConstantEvaluator() {}
 
     public static Object evaluateConstant(
             Expression expression,
