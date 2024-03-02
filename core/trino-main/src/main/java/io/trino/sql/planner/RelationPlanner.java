@@ -1353,12 +1353,8 @@ class RelationPlanner
 
         // apply the input functions to the JSON path parameters having FORMAT,
         // and collect all JSON path parameters in a Row
-        List<JsonPathParameter> coercedParameters = pathParameters.stream()
-                .map(parameter -> new JsonPathParameter(
-                        parameter.getLocation(),
-                        parameter.getName(),
-                        coerced.get(parameter.getParameter()).toSymbolReference(),
-                        parameter.getFormat()))
+        List<Expression> coercedParameters = pathParameters.stream()
+                .map(parameter -> coerced.get(parameter.getParameter()).toSymbolReference())
                 .collect(toImmutableList());
         JsonTableAnalysis jsonTableAnalysis = analysis.getJsonTableAnalysis(jsonTable);
         RowType parametersType = jsonTableAnalysis.parametersType();
