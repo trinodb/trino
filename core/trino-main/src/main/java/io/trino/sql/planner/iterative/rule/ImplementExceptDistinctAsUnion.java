@@ -26,7 +26,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 
-import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.plan.Patterns.Except.distinct;
 import static io.trino.sql.planner.plan.Patterns.except;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;

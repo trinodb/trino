@@ -35,8 +35,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static io.trino.cost.SemiJoinStatsCalculator.computeSemiJoin;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static java.util.Objects.requireNonNull;
 

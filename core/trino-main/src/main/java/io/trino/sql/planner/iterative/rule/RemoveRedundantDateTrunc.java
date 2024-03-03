@@ -36,7 +36,7 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static java.util.Objects.requireNonNull;
 
 public class RemoveRedundantDateTrunc

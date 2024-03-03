@@ -45,7 +45,7 @@ import java.util.Map;
 import java.util.OptionalDouble;
 
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NaN;

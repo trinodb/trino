@@ -18,7 +18,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.ir.IrUtils.rewriteIdentifiersToSymbolReferences;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

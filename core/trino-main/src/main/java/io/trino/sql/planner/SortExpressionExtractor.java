@@ -16,7 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.operator.join.SortedPositionLinks;
-import io.trino.sql.ExpressionUtils;
+import io.trino.sql.ir.IrUtils;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.ComparisonExpression;
@@ -62,7 +62,7 @@ public final class SortExpressionExtractor
 
     public static Optional<SortExpressionContext> extractSortExpression(Metadata metadata, Set<Symbol> buildSymbols, Expression filter)
     {
-        List<Expression> filterConjuncts = ExpressionUtils.extractConjuncts(filter);
+        List<Expression> filterConjuncts = IrUtils.extractConjuncts(filter);
         SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
 
         List<SortExpressionContext> sortExpressionCandidates = ImmutableList.copyOf(filterConjuncts.stream()

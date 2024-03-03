@@ -136,7 +136,6 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.aliasedName;
 import static io.trino.sql.QueryUtil.aliasedNullToEmpty;
@@ -335,8 +334,7 @@ public final class ShowQueriesRewrite
                         session.toSecurityContext(),
                         new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
 
-                predicate = Optional.of(combineConjuncts(
-                        metadata,
+                predicate = Optional.of(and(
                         equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
                         equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName()))));
             }

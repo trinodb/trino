@@ -37,7 +37,7 @@ import static io.trino.SystemSessionProperties.getJoinMultiClauseIndependenceFac
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
 import static io.trino.cost.SymbolStatsEstimate.buildFrom;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.util.MoreMath.firstNonNaN;

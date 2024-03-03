@@ -44,7 +44,7 @@ import static io.trino.matching.Pattern.empty;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.isDistinctOperator;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.restoreDistinctAggregation;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.rewriteWithMasks;

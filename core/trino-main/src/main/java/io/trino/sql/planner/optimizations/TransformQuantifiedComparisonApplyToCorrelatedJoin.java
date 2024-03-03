@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -49,9 +48,10 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.combineDisjuncts;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.ApplyNode.Quantifier.ALL;
@@ -185,11 +185,11 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             Function<List<Expression>, Expression> quantifier;
             if (quantifiedComparison.quantifier() == ALL) {
                 emptySetResult = TRUE_LITERAL;
-                quantifier = expressions -> ExpressionUtils.combineConjuncts(metadata, expressions);
+                quantifier = expressions -> combineConjuncts(metadata, expressions);
             }
             else {
                 emptySetResult = FALSE_LITERAL;
-                quantifier = expressions -> ExpressionUtils.combineDisjuncts(metadata, expressions);
+                quantifier = expressions -> combineDisjuncts(metadata, expressions);
             }
             Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 

@@ -31,8 +31,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.or;
+import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 
