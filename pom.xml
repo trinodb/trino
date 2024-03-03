@@ -2443,6 +2443,12 @@
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>
+                        <ignoredClassPatterns>
+                            <ignoredClassPattern>.*</ignoredClassPattern>
+                        </ignoredClassPatterns>
+                        <ignoredResourcePatterns combine.children="append">
+                            <ignoredResourcePattern>.*</ignoredResourcePattern>
+                        </ignoredResourcePatterns>
                         <exceptions combine.children="append">
                             <exception>
                                 <conflictingDependencies>

@@ -1,4 +1,7 @@
 # PoC only. Use at your own risk.
+```
+./mvnw --quiet clean install -T 1C -nsu -DskipTests -pl '!:trino-server-rpm,!:trino-docs' -Dair.check.fail-dependency=falsev
+```
 
 # Overall
 Existing:

@@ -57,6 +57,12 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-configuration2</artifactId>
             <version>2.8.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!--        <dependency>-->
@@ -76,6 +82,14 @@
             <artifactId>hdds-common</artifactId>
             <version>1.4.0</version>
             <exclusions>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>javax.annotation</groupId>
                     <artifactId>javax.annotation-api</artifactId>
@@ -104,6 +118,18 @@
             <artifactId>hdds-interface-client</artifactId>
             <version>1.4.0</version>
             <exclusions>
+                <exclusion>
+                    <groupId />
+                    <artifactId />
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.annotation</groupId>
+                    <artifactId>javax.annotation-api</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>javax.annotation</groupId>
                     <artifactId>javax.annotation-api</artifactId>
@@ -188,24 +214,24 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>android.annotation.*</ignoredClassPattern>
+                    </ignoredClassPatterns>
+                    <ignoredResourcePatterns combine.children="append">
+                        <ignoredResourcePattern>.*</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredDependencies>
                         <ignoredDependency>org.apache.commons:commons-configuration2</ignoredDependency>
                     </ignoredDependencies>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.basepom.maven</groupId>
-                <artifactId>duplicate-finder-maven-plugin</artifactId>
-                <configuration>
-                    <ignoredClassPatterns>
-                        <ignoredClassPattern>^.*$</ignoredClassPattern>
-                    </ignoredClassPatterns>
-                    <ignoredResourcePatterns>
-                        <ignoredResourcePattern>.*</ignoredResourcePattern>
-                    </ignoredResourcePatterns>
                 </configuration>
             </plugin>
             <plugin>
@@ -219,9 +245,9 @@
                         </goals>
                         <phase>package</phase>
                         <configuration>
-                            <!--<createSourcesJar>true</createSourcesJar>-->
-                            <!--<shadeSourcesContent>true</shadeSourcesContent>-->
-                            <createDependencyReducedPom>true</createDependencyReducedPom>
+                            <createSourcesJar>true</createSourcesJar>
+                            <shadeSourcesContent>true</shadeSourcesContent>
+                            <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
@@ -286,7 +312,6 @@
             </plugin>
         </plugins>
     </build>
-
     <profiles>
         <profile>
             <id>default</id>
