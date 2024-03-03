@@ -15,6 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <shadeBase>io.trino.ozone.hadoop.\$internal</shadeBase>
     </properties>
 
     <dependencies>
@@ -49,11 +50,6 @@
             <artifactId>trino-filesystem</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-memory-context</artifactId>
-        </dependency>
-
         <!-- Caused by: java.lang.NoClassDefFoundError: Could not initialize class org.apache.commons.configuration2.interpol
         .ConfigurationInterpolator$DefaultPrefixLookupsHolder-->
         <!-- Caused by: java.lang.ExceptionInInitializerError: Exception java.lang.NoClassDefFoundError: org/apache/commons/text/lookup/StringLookupFactory-->
@@ -83,6 +79,10 @@
                 <exclusion>
                     <groupId>javax.annotation</groupId>
                     <artifactId>javax.annotation-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.reflections</groupId>
+                    <artifactId>reflections</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -133,6 +133,12 @@
                     <artifactId>javax.annotation-api</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-memory-context</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!--        <dependency>-->
@@ -201,6 +207,82 @@
                         <ignoredResourcePattern>.*</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <!--<createSourcesJar>true</createSourcesJar>-->
+                            <!--<shadeSourcesContent>true</shadeSourcesContent>-->
+                            <createDependencyReducedPom>true</createDependencyReducedPom>
+                            <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                            </transformers>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.apache.commons</pattern>
+                                    <shadedPattern>${shadeBase}.org.apache.commons</shadedPattern>
+                                </relocation>
+                                <!-- this comes from jakarta.activation -->
+                                <relocation>
+                                    <pattern>javax.activation</pattern>
+                                    <shadedPattern>${shadeBase}.javax.activation</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.kerby</pattern>
+                                    <shadedPattern>${shadeBase}.org.apache.kerby</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>jakarta.annotation</pattern>
+                                    <shadedPattern>jakarta.annotation-api</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.hadoop.thirdparty</pattern>
+                                    <shadedPattern>${shadeBase}.org.apache.hadoop.thirdparty</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.thrift</pattern>
+                                    <shadedPattern>${shadeBase}.org.apache.libthrift</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>jakarta.validation</pattern>
+                                    <shadedPattern>${shadeBase}.jakarta.validation</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>jakarta.validation</pattern>
+                                    <shadedPattern>${shadeBase}.jakarta.validation</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/maven/**</exclude>
+                                        <exclude>META-INF/versions/**</exclude>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>module-info.java</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>${project.groupId}:${project.artifactId}</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

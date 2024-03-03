@@ -95,21 +95,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.basepom.maven</groupId>
-                <artifactId>duplicate-finder-maven-plugin</artifactId>
-                <configuration>
-                    <ignoredClassPatterns>
-                        <ignoredClassPattern>^.*$</ignoredClassPattern>
-                    </ignoredClassPatterns>
-                    <ignoredResourcePatterns>
-                        <ignoredResourcePattern>.*</ignoredResourcePattern>
-                    </ignoredResourcePatterns>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>
