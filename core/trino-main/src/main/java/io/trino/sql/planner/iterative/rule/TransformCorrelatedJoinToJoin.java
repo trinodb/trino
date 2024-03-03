@@ -30,7 +30,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Pattern.nonEmpty;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;

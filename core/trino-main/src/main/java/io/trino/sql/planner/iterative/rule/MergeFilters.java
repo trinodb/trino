@@ -21,7 +21,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static java.util.Objects.requireNonNull;

@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.Cast;
@@ -55,6 +54,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -155,7 +155,7 @@ public class TestEqualityInference
     {
         EqualityInference inference = new EqualityInference(
                 metadata,
-                ExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")));
+                and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")));
 
         // Able to rewrite to c1 due to equalities
         assertThat(nameReference("c1")).isEqualTo(inference.rewrite(nameReference("a1"), symbols("c1")));

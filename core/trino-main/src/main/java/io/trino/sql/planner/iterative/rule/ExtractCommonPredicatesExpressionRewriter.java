@@ -27,8 +27,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ExpressionUtils.combinePredicates;
-import static io.trino.sql.ExpressionUtils.extractPredicates;
+import static io.trino.sql.ir.IrUtils.combinePredicates;
+import static io.trino.sql.ir.IrUtils.extractPredicates;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static java.util.Collections.emptySet;

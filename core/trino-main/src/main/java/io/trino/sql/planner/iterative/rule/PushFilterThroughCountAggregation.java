@@ -46,7 +46,7 @@ import java.util.Set;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.DomainTranslator.getExtractionResult;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.Patterns.aggregation;

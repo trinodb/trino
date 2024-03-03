@@ -37,7 +37,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.function.table.TableArgument;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analysis.JsonTableAnalysis;
@@ -53,6 +52,7 @@ import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.ScalarInputDescriptor;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.ir.IrUtils;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.TranslationMap.ParametersRow;
 import io.trino.sql.planner.plan.Assignments;
@@ -149,6 +149,7 @@ import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDefinition;
+import io.trino.sql.util.AstUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -911,7 +912,7 @@ class RelationPlanner
             List<Expression> rightComparisonExpressions = new ArrayList<>();
             List<ComparisonExpression.Operator> joinConditionComparisonOperators = new ArrayList<>();
 
-            for (Expression conjunct : ExpressionUtils.extractConjuncts(criteria)) {
+            for (Expression conjunct : AstUtils.extractConjuncts(criteria)) {
                 if (!isEqualComparisonExpression(conjunct) && type != INNER) {
                     complexJoinExpressions.add(conjunct);
                     continue;
@@ -1027,7 +1028,7 @@ class RelationPlanner
                     leftPlanBuilder.getRoot().getOutputSymbols(),
                     rightPlanBuilder.getRoot().getOutputSymbols(),
                     false,
-                    Optional.of(ExpressionUtils.and(complexJoinExpressions.stream()
+                    Optional.of(IrUtils.and(complexJoinExpressions.stream()
                             .map(translationMap::rewrite)
                             .collect(Collectors.toList()))),
                     Optional.empty(),
@@ -1050,7 +1051,7 @@ class RelationPlanner
 
             Expression postInnerJoinCriteria;
             if (!postInnerJoinConditions.isEmpty()) {
-                postInnerJoinCriteria = ExpressionUtils.and(postInnerJoinConditions);
+                postInnerJoinCriteria = IrUtils.and(postInnerJoinConditions);
                 root = new FilterNode(idAllocator.getNextId(), root, postInnerJoinCriteria);
             }
         }

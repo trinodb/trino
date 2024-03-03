@@ -18,8 +18,8 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.LogicalExpression;
 
-import static io.trino.sql.ExpressionUtils.combinePredicates;
-import static io.trino.sql.ExpressionUtils.extractPredicates;
+import static io.trino.sql.ir.IrUtils.combinePredicates;
+import static io.trino.sql.ir.IrUtils.extractPredicates;
 
 /**
  * Flattens and removes duplicate conjuncts or disjuncts. E.g.,

@@ -21,6 +21,8 @@ import io.trino.sql.tree.LogicalExpression;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,9 +39,9 @@ public class TestExpressionUtils
         Expression d = name("d");
         Expression e = name("e");
 
-        assertThat(ExpressionUtils.and(a, b, c, d, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
+        assertThat(and(a, b, c, d, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
 
-        assertThat(ExpressionUtils.combineConjuncts(metadata, a, b, a, c, d, c, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
+        assertThat(combineConjuncts(metadata, a, b, a, c, d, c, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
     }
 
     private static Identifier name(String name)

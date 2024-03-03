@@ -167,7 +167,7 @@ import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ExpressionUtils.combineConjunctsWithDuplicates;
+import static io.trino.sql.ir.IrUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
