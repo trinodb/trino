@@ -99,7 +99,7 @@ import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.predicate.Domain.union;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.DynamicFilters.extractSourceSymbols;
-import static io.trino.sql.ExpressionUtils.extractDisjuncts;
+import static io.trino.sql.ir.IrUtils.extractDisjuncts;
 import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;

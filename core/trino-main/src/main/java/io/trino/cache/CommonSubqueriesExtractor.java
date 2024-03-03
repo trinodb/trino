@@ -41,8 +41,8 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.IrUtils;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -90,11 +90,11 @@ import static io.trino.cache.CanonicalSubplanExtractor.canonicalSymbolToColumnId
 import static io.trino.cache.CanonicalSubplanExtractor.columnIdToSymbol;
 import static io.trino.cache.CanonicalSubplanExtractor.extractCanonicalSubplans;
 import static io.trino.sql.ExpressionFormatter.formatExpression;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.combineDisjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
-import static io.trino.sql.ExpressionUtils.or;
+import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.combineDisjuncts;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
 import static io.trino.sql.planner.iterative.rule.NormalizeOrExpressionRewriter.normalizeOrExpression;
 import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.pushFilterIntoTableScan;
@@ -615,7 +615,7 @@ public final class CommonSubqueriesExtractor
                             plannerContext.getMetadata(),
                             // Order remaining expressions alphabetically to improve signature generalisation
                             Stream.of(remainingDomainExpression, extractionResult.getRemainingExpression())
-                                    .map(ExpressionUtils::extractConjuncts)
+                                    .map(IrUtils::extractConjuncts)
                                     .flatMap(Collection::stream)
                                     .sorted(comparing(Expression::toString))
                                     .collect(toImmutableList()))));

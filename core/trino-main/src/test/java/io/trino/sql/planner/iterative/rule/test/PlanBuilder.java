@@ -38,7 +38,6 @@ import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.parser.SqlParser;
@@ -142,6 +141,7 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.sql.ir.IrUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -1465,7 +1465,7 @@ public class PlanBuilder
 
     public static Expression expression(@Language("SQL") String sql)
     {
-        return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
+        return rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
     }
 
     public static List<Expression> expressions(@Language("SQL") String... expressions)

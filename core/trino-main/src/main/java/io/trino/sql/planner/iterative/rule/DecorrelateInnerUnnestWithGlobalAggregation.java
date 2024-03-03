@@ -49,7 +49,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.rewriteWithMasks;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;

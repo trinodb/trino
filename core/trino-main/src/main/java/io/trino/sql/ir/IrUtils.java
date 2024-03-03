@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql;
+package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -38,7 +39,6 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LogicalExpression.Operator;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RowDataType;
@@ -62,9 +62,9 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-public final class ExpressionUtils
+public final class IrUtils
 {
-    private ExpressionUtils() {}
+    private IrUtils() {}
 
     public static List<Expression> extractConjuncts(Expression expression)
     {
@@ -142,12 +142,12 @@ public final class ExpressionUtils
         return new LogicalExpression(operator, ImmutableList.copyOf(expressions));
     }
 
-    public static Expression combinePredicates(Metadata metadata, Operator operator, Expression... expressions)
+    public static Expression combinePredicates(Metadata metadata, LogicalExpression.Operator operator, Expression... expressions)
     {
         return combinePredicates(metadata, operator, Arrays.asList(expressions));
     }
 
-    public static Expression combinePredicates(Metadata metadata, Operator operator, Collection<Expression> expressions)
+    public static Expression combinePredicates(Metadata metadata, LogicalExpression.Operator operator, Collection<Expression> expressions)
     {
         if (operator == LogicalExpression.Operator.AND) {
             return combineConjuncts(metadata, expressions);
@@ -166,7 +166,7 @@ public final class ExpressionUtils
         requireNonNull(expressions, "expressions is null");
 
         List<Expression> conjuncts = expressions.stream()
-                .flatMap(e -> ExpressionUtils.extractConjuncts(e).stream())
+                .flatMap(e -> extractConjuncts(e).stream())
                 .filter(e -> !e.equals(TRUE_LITERAL))
                 .collect(toList());
 
@@ -184,7 +184,7 @@ public final class ExpressionUtils
         requireNonNull(expressions, "expressions is null");
 
         List<Expression> conjuncts = expressions.stream()
-                .flatMap(e -> ExpressionUtils.extractConjuncts(e).stream())
+                .flatMap(e -> extractConjuncts(e).stream())
                 .filter(e -> !e.equals(TRUE_LITERAL))
                 .collect(toList());
 
@@ -210,7 +210,7 @@ public final class ExpressionUtils
         requireNonNull(expressions, "expressions is null");
 
         List<Expression> disjuncts = expressions.stream()
-                .flatMap(e -> ExpressionUtils.extractDisjuncts(e).stream())
+                .flatMap(e -> extractDisjuncts(e).stream())
                 .filter(e -> !e.equals(FALSE_LITERAL))
                 .collect(toList());
 

@@ -26,7 +26,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static java.util.Objects.requireNonNull;
 
 final class FilterMatcher

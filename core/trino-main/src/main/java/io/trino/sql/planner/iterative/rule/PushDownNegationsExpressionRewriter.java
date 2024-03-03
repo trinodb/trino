@@ -32,8 +32,8 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ExpressionUtils.combinePredicates;
-import static io.trino.sql.ExpressionUtils.extractPredicates;
+import static io.trino.sql.ir.IrUtils.combinePredicates;
+import static io.trino.sql.ir.IrUtils.extractPredicates;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;

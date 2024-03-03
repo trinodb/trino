@@ -26,7 +26,7 @@ import io.trino.sql.tree.Expression;
 
 import java.io.IOException;
 
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.ir.IrUtils.rewriteIdentifiersToSymbolReferences;
 
 public final class ExpressionSerialization
 {

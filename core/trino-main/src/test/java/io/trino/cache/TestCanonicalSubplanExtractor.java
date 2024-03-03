@@ -77,7 +77,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ExpressionFormatter.formatExpression;
-import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;

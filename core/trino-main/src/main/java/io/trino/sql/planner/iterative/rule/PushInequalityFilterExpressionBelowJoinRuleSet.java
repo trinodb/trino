@@ -39,8 +39,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.Rule.Context;

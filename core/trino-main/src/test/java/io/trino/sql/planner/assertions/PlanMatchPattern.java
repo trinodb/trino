@@ -104,7 +104,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ExpressionUtils.extractDisjuncts;
+import static io.trino.sql.ir.IrUtils.extractDisjuncts;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;

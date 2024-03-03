@@ -31,8 +31,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.combineDisjunctsWithDefault;
+import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.combineDisjunctsWithDefault;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
