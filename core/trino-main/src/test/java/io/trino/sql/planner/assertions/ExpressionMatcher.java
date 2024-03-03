@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.ir.IrUtils.rewriteIdentifiersToSymbolReferences;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionMatcher

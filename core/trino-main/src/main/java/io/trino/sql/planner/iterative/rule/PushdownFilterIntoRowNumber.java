@@ -22,7 +22,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
@@ -41,6 +40,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.rowNumber;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -101,7 +101,7 @@ public class PushdownFilterIntoRowNumber
         }
 
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
-        Expression newPredicate = ExpressionUtils.combineConjuncts(
+        Expression newPredicate = combineConjuncts(
                 plannerContext.getMetadata(),
                 extractionResult.getRemainingExpression(),
                 new DomainTranslator(plannerContext).toPredicate(newTupleDomain));
