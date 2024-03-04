@@ -25,8 +25,8 @@ import org.junit.jupiter.api.Test;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -61,7 +61,7 @@ public class TestRewriteSpatialPartitioningAggregation
                                 .source(p.values(p.symbol("geometry")))))
                 .matches(
                         aggregation(
-                                ImmutableMap.of("sp", functionCall("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
+                                ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
                                         ImmutableMap.of("partition_count", expression("100"),
                                                 "envelope", expression("ST_Envelope(geometry)")),
@@ -75,7 +75,7 @@ public class TestRewriteSpatialPartitioningAggregation
                                 .source(p.values(p.symbol("envelope")))))
                 .matches(
                         aggregation(
-                                ImmutableMap.of("sp", functionCall("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
+                                ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
                                         ImmutableMap.of("partition_count", expression("100"),
                                                 "envelope", expression("ST_Envelope(geometry)")),

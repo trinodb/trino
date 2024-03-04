@@ -24,10 +24,10 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
@@ -113,7 +113,7 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                                 .globalGrouping())))
                 .matches(
                         project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
-                                aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
+                                aggregation(ImmutableMap.of("sum_1", aggregationFunction("sum", ImmutableList.of("a"))),
                                         join(LEFT, builder -> builder
                                                 .left(assignUniqueId("unique",
                                                         values(ImmutableMap.of("corr", 0))))
@@ -151,8 +151,8 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                 .matches(
                         project(
                                 aggregation(ImmutableMap.of(
-                                        "count_rows", functionCall("count", ImmutableList.of()),
-                                        "count_non_null_values", functionCall("count", ImmutableList.of("a"))),
+                                        "count_rows", aggregationFunction("count", ImmutableList.of()),
+                                        "count_non_null_values", aggregationFunction("count", ImmutableList.of("a"))),
                                         join(LEFT, builder -> builder
                                                 .left(assignUniqueId("unique",
                                                         values(ImmutableMap.of("corr", 0))))
@@ -180,7 +180,7 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                         project(ImmutableMap.of("corr", expression("corr"), "sum_agg", expression("sum_agg"), "count_agg", expression("count_agg")),
                                 aggregation(
                                         singleGroupingSet("corr", "unique"),
-                                        ImmutableMap.of(Optional.of("sum_agg"), functionCall("sum", ImmutableList.of("a")), Optional.of("count_agg"), functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),
                                         ImmutableList.of(),
                                         ImmutableList.of("non_null"),
                                         Optional.empty(),
@@ -226,7 +226,7 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                         project(ImmutableMap.of("corr", expression("corr"), "sum_agg", expression("sum_agg"), "count_agg", expression("count_agg")),
                                 aggregation(
                                         singleGroupingSet("corr", "unique"),
-                                        ImmutableMap.of(Optional.of("sum_agg"), functionCall("sum", ImmutableList.of("a")), Optional.of("count_agg"), functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),
                                         ImmutableList.of(),
                                         ImmutableList.of("non_null"),
                                         Optional.empty(),
@@ -265,7 +265,7 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                         project(
                                 aggregation(
                                         singleGroupingSet("corr", "unique"),
-                                        ImmutableMap.of(Optional.of("count_non_null_values"), functionCall("count", ImmutableList.of("a"))),
+                                        ImmutableMap.of(Optional.of("count_non_null_values"), aggregationFunction("count", ImmutableList.of("a"))),
                                         ImmutableList.of(),
                                         ImmutableList.of("new_mask"),
                                         Optional.empty(),

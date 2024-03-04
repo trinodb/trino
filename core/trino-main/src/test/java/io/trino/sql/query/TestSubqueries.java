@@ -35,10 +35,10 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -92,7 +92,7 @@ public class TestSubqueries
                 "VALUES true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
@@ -106,7 +106,7 @@ public class TestSubqueries
                 "VALUES false",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
@@ -501,7 +501,7 @@ public class TestSubqueries
                 "VALUES false, true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
@@ -526,7 +526,7 @@ public class TestSubqueries
                 "VALUES false, true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(

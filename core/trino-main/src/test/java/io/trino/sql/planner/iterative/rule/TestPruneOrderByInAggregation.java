@@ -29,7 +29,7 @@ import java.util.Optional;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -50,11 +50,11 @@ public class TestPruneOrderByInAggregation
                         aggregation(
                                 singleGroupingSet("key"),
                                 ImmutableMap.of(
-                                        Optional.of("avg"), functionCall("avg", ImmutableList.of("input")),
-                                        Optional.of("array_agg"), functionCall(
+                                        Optional.of("avg"), aggregationFunction("avg", ImmutableList.of("input")),
+                                        Optional.of("array_agg"), aggregationFunction(
                                                 "array_agg",
                                                 ImmutableList.of("input"),
-                                                ImmutableList.of(sort("input", SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)))),
+                                                ImmutableList.of(sort("input", SortItem.Ordering.ASCENDING, SortItem.NullOrdering.LAST)))),
                                 ImmutableList.of(),
                                 ImmutableList.of("mask"),
                                 Optional.empty(),

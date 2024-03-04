@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -65,7 +65,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
                         values(ImmutableMap.of()),
                         project(
                                 ImmutableMap.of("b", PlanMatchPattern.expression("(\"count_expr\" > CAST(0 AS bigint))")),
-                                aggregation(ImmutableMap.of("count_expr", functionCall("count", ImmutableList.of())),
+                                aggregation(ImmutableMap.of("count_expr", aggregationFunction("count", ImmutableList.of())),
                                         values()))));
     }
 
