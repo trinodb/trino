@@ -249,6 +249,7 @@ public class Analysis
     private final Map<NodeRef<TableFunctionInvocation>, TableFunctionInvocationAnalysis> tableFunctionAnalyses = new LinkedHashMap<>();
     private final Set<NodeRef<Relation>> aliasedRelations = new LinkedHashSet<>();
     private final Set<NodeRef<TableFunctionInvocation>> polymorphicTableFunctions = new LinkedHashSet<>();
+    private final Map<NodeRef<Table>, List<Field>> materializedViewStorageTableFields = new LinkedHashMap<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
@@ -1316,6 +1317,16 @@ public class Analysis
                 .map(Insert::getTable)
                 .map(tableReference -> tableReference == table) // intentional comparison by reference
                 .orElse(FALSE);
+    }
+
+    public List<Field> getMaterializedViewStorageTableFields(Table node)
+    {
+        return materializedViewStorageTableFields.get(NodeRef.of(node));
+    }
+
+    public void setMaterializedViewStorageTableFields(Table node, List<Field> fields)
+    {
+        materializedViewStorageTableFields.put(NodeRef.of(node), fields);
     }
 
     @Immutable
