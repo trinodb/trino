@@ -103,6 +103,7 @@ import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aliasToIndex;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -226,12 +227,12 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                ImmutableMap.of("final_sum", aggregationFunction("sum", ImmutableList.of("partial_sum"))),
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
                                                 aggregation(
-                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                        ImmutableMap.of("partial_sum", aggregationFunction("sum", ImmutableList.of("totalprice"))),
                                                         PARTIAL,
                                                         tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))));
 
@@ -239,12 +240,12 @@ public class TestLogicalPlanner
         assertDistributedPlan("SELECT orderstatus, sum(totalprice) FROM orders WHERE orderstatus='O' GROUP BY orderstatus",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                ImmutableMap.of("final_sum", aggregationFunction("sum", ImmutableList.of("partial_sum"))),
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
                                                 aggregation(
-                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                        ImmutableMap.of("partial_sum", aggregationFunction("sum", ImmutableList.of("totalprice"))),
                                                         PARTIAL,
                                                         tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))));
     }
@@ -262,14 +263,14 @@ public class TestLogicalPlanner
                                         ImmutableMap.of("row", expression("ROW(min, max)")),
                                         aggregation(
                                                 ImmutableMap.of(
-                                                        "min", functionCall("min", ImmutableList.of("min_regionkey")),
-                                                        "max", functionCall("max", ImmutableList.of("max_name"))),
+                                                        "min", aggregationFunction("min", ImmutableList.of("min_regionkey")),
+                                                        "max", aggregationFunction("max", ImmutableList.of("max_name"))),
                                                 FINAL,
                                                 any(
                                                         aggregation(
                                                                 ImmutableMap.of(
-                                                                        "min_regionkey", functionCall("min", ImmutableList.of("REGIONKEY")),
-                                                                        "max_name", functionCall("max", ImmutableList.of("NAME"))),
+                                                                        "min_regionkey", aggregationFunction("min", ImmutableList.of("REGIONKEY")),
+                                                                        "max_name", aggregationFunction("max", ImmutableList.of("NAME"))),
                                                                 PARTIAL,
                                                                 tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey")))))))));
     }
@@ -863,7 +864,7 @@ public class TestLogicalPlanner
                 anyTree(
                         aggregation(
                                 singleGroupingSet("n_name", "n_regionkey", "unique"),
-                                ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
+                                ImmutableMap.of(Optional.of("max"), aggregationFunction("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
                                 ImmutableList.of("non_null"),
                                 Optional.empty(),
@@ -883,7 +884,7 @@ public class TestLogicalPlanner
                 anyTree(
                         aggregation(
                                 singleGroupingSet("n_name", "n_regionkey", "unique"),
-                                ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
+                                ImmutableMap.of(Optional.of("max"), aggregationFunction("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
                                 ImmutableList.of("non_null"),
                                 Optional.empty(),
@@ -909,7 +910,7 @@ public class TestLogicalPlanner
                 anyTree(
                         aggregation(
                                 singleGroupingSet("l_orderkey"),
-                                ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of(Optional.empty(), aggregationFunction("count", ImmutableList.of())),
                                 ImmutableList.of("l_orderkey"), // streaming
                                 Optional.empty(),
                                 SINGLE,
@@ -927,7 +928,7 @@ public class TestLogicalPlanner
                 anyTree(
                         aggregation(
                                 singleGroupingSet("o_orderkey"),
-                                ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of(Optional.empty(), aggregationFunction("count", ImmutableList.of())),
                                 ImmutableList.of("o_orderkey"), // streaming
                                 Optional.empty(),
                                 SINGLE,
@@ -944,7 +945,7 @@ public class TestLogicalPlanner
                 anyTree(
                         aggregation(
                                 singleGroupingSet("orderkey"),
-                                ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of(Optional.empty(), aggregationFunction("count", ImmutableList.of())),
                                 ImmutableList.of(), // not streaming
                                 Optional.empty(),
                                 SINGLE,
@@ -1041,7 +1042,7 @@ public class TestLogicalPlanner
                                         "exists", expression("FINAL_COUNT > BIGINT '0'")),
                                 aggregation(
                                         singleGroupingSet("ORDERKEY", "UNIQUE"),
-                                        ImmutableMap.of(Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of(Optional.of("FINAL_COUNT"), aggregationFunction("count", ImmutableList.of())),
                                         ImmutableList.of("ORDERKEY", "UNIQUE"),
                                         ImmutableList.of("NON_NULL"),
                                         Optional.empty(),
@@ -1071,7 +1072,7 @@ public class TestLogicalPlanner
                                                         .left(tableScan("customer", ImmutableMap.of("c_custkey", "custkey")))
                                                         .right(aggregation(
                                                                 singleGroupingSet("o_custkey"),
-                                                                ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
+                                                                ImmutableMap.of(Optional.of("count"), aggregationFunction("count", ImmutableList.of("o_orderkey"))),
                                                                 ImmutableList.of(),
                                                                 ImmutableList.of("non_null"),
                                                                 Optional.empty(),
@@ -1106,7 +1107,7 @@ public class TestLogicalPlanner
                                                 .right(
                                                         project(aggregation(
                                                                 singleGroupingSet("o_orderstatus", "o_custkey"),
-                                                                ImmutableMap.of(Optional.of("count"), functionCall("count", ImmutableList.of("o_orderkey"))),
+                                                                ImmutableMap.of(Optional.of("count"), aggregationFunction("count", ImmutableList.of("o_orderkey"))),
                                                                 Optional.empty(),
                                                                 SINGLE,
                                                                 aggregation(
@@ -1209,7 +1210,7 @@ public class TestLogicalPlanner
                 "SELECT regionkey, count(1) FROM nation GROUP BY regionkey",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("count_0", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("count_0", aggregationFunction("count", ImmutableList.of())),
                                 PARTIAL,
                                 tableScan("nation", ImmutableMap.of("regionkey", "regionkey")))));
     }
@@ -1221,7 +1222,7 @@ public class TestLogicalPlanner
                 "SELECT regionkey, count(CAST(DECIMAL '1' AS decimal(8,4))) FROM nation GROUP BY regionkey",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("count_0", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("count_0", aggregationFunction("count", ImmutableList.of())),
                                 PARTIAL,
                                 tableScan("nation", ImmutableMap.of("regionkey", "regionkey")))));
     }
@@ -2029,7 +2030,7 @@ public class TestLogicalPlanner
                 output(
                         anyTree(
                                 aggregation(
-                                        ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count"))),
+                                        ImmutableMap.of("final_count", aggregationFunction("count", ImmutableList.of("partial_count"))),
                                         FINAL,
                                         exchange(
                                                 LOCAL,
@@ -2038,7 +2039,7 @@ public class TestLogicalPlanner
                                                         REMOTE,
                                                         REPARTITION,
                                                         aggregation(
-                                                                ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("CONSTANT"))),
+                                                                ImmutableMap.of("partial_count", aggregationFunction("count", ImmutableList.of("CONSTANT"))),
                                                                 PARTIAL,
                                                                 anyTree(
                                                                         project(

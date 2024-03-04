@@ -31,9 +31,9 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -119,7 +119,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         project(
                                 aggregation(
                                         singleGroupingSet("unique", "corr"),
-                                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("unnested_corr"))),
+                                        ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         SINGLE,
@@ -155,7 +155,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         project(
                                 aggregation(
                                         singleGroupingSet("corr", "masks", "unique"),
-                                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("unnested_corr"))),
+                                        ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
                                         ImmutableList.of(),
                                         ImmutableList.of("mask"),
                                         Optional.empty(),
@@ -192,7 +192,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         project(
                                 aggregation(
                                         singleGroupingSet("unique", "corr"),
-                                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("unnested_corr"))),
+                                        ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         SINGLE,
@@ -230,13 +230,13 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         project(
                                 aggregation(
                                         singleGroupingSet("unique", "corr"),
-                                        ImmutableMap.of(Optional.of("any_value"), functionCall("any_value", ImmutableList.of("sum"))),
+                                        ImmutableMap.of(Optional.of("any_value"), aggregationFunction("any_value", ImmutableList.of("sum"))),
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         SINGLE,
                                         aggregation(
                                                 singleGroupingSet("unique", "corr"),
-                                                ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("unnested_corr"))),
+                                                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
                                                 ImmutableList.of(),
                                                 Optional.empty(),
                                                 SINGLE,
@@ -274,7 +274,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                         ImmutableMap.of("corr", expression("corr"), "unique", expression("unique"), "sum_1", expression("sum + 1")),
                                         aggregation(
                                                 singleGroupingSet("unique", "corr"),
-                                                ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("unnested_corr"))),
+                                                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
                                                 ImmutableList.of(),
                                                 Optional.empty(),
                                                 SINGLE,
@@ -317,7 +317,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         project(
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "char_array"),
-                                        ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("unnested_char"))),
+                                        ImmutableMap.of(Optional.of("max"), aggregationFunction("max", ImmutableList.of("unnested_char"))),
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         SINGLE,
@@ -374,7 +374,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                         ImmutableMap.of("sum_1", expression("sum + 1")),
                                         aggregation(
                                                 singleGroupingSet("groups", "numbers", "unique"),
-                                                ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("negated"))),
+                                                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("negated"))),
                                                 ImmutableList.of(),
                                                 Optional.empty(),
                                                 SINGLE,
@@ -382,7 +382,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                                         ImmutableMap.of("negated", expression("-max")),
                                                         aggregation(
                                                                 singleGroupingSet("groups", "numbers", "unique", "group"),
-                                                                ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("modulo"))),
+                                                                ImmutableMap.of(Optional.of("max"), aggregationFunction("max", ImmutableList.of("modulo"))),
                                                                 ImmutableList.of(),
                                                                 ImmutableList.of(),
                                                                 Optional.empty(),

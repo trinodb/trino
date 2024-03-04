@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.columnReference;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -178,7 +178,7 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT COUNT(nationkey) FROM nation",
                 output(ImmutableList.of("COUNT"),
-                        aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("NATIONKEY"))),
+                        aggregation(ImmutableMap.of("COUNT", PlanMatchPattern.aggregationFunction("count", ImmutableList.of("NATIONKEY"))),
                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey")))));
     }
 
