@@ -3929,6 +3929,40 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreateExternalTableWithNonExistingSchemaLocation()
+            throws Exception
+    {
+        String schemaName = "test_schema_without_location" + randomNameSuffix();
+        String schemaLocation = "/tmp/" + schemaName;
+
+        fileSystem.createDirectory(Location.of(schemaLocation));
+        assertUpdate("CREATE SCHEMA iceberg." + schemaName + " WITH (location = '" + schemaLocation + "')");
+        fileSystem.deleteDirectory(Location.of(schemaLocation));
+
+        String tableName = "test_create_external" + randomNameSuffix();
+        String tableLocation = "/tmp/" + tableName;
+
+        String schemaAndTableName = format("%s.%s", schemaName, tableName);
+        assertUpdate("CREATE TABLE " + schemaAndTableName + " (a bigint, b varchar) WITH (location = '" + tableLocation + "')");
+
+        assertUpdate(
+                "INSERT INTO " + schemaAndTableName + "(a, b) VALUES" +
+                        "(NULL, NULL)," +
+                        "(-42, 'abc')," +
+                        "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')",
+                3);
+        assertThat(query("SELECT * FROM " + schemaAndTableName))
+                .skippingTypesCheck()
+                .matches("VALUES" +
+                        "(NULL, NULL)," +
+                        "(-42, 'abc')," +
+                        "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')");
+
+        assertUpdate("DROP TABLE " + schemaAndTableName);
+        assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
     public void testCreateNestedPartitionedTable()
     {
         assertUpdate("CREATE TABLE test_nested_table_1 (" +
