@@ -41,4 +41,13 @@ public enum IcebergFileFormat
             case METADATA -> throw new IllegalArgumentException("Unexpected METADATA file format");
         };
     }
+
+    public String humanName()
+    {
+        return switch (this) {
+            case AVRO -> "Avro";
+            case ORC -> "ORC";
+            case PARQUET -> "Parquet";
+        };
+    }
 }
