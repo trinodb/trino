@@ -44,6 +44,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -956,12 +957,12 @@ public final class MetadataManager
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
+    public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column, ColumnPosition position)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle.getCatalogName().toString());
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
-        metadata.addColumn(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column);
+        metadata.addColumn(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column, position);
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
             systemSecurityMetadata.columnCreated(session, table, column.getName());
         }

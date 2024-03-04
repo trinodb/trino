@@ -24,6 +24,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -296,10 +297,16 @@ public class KuduMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
-        KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
-        clientSession.addColumn(kuduTableHandle.getSchemaTableName(), column);
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> {
+                KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
+                clientSession.addColumn(kuduTableHandle.getSchemaTableName(), column);
+            }
+        }
     }
 
     @Override
