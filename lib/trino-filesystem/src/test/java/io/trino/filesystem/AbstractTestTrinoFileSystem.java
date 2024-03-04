@@ -41,11 +41,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.min;
@@ -53,6 +53,7 @@ import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -576,7 +577,7 @@ public abstract class AbstractTestTrinoFileSystem
         }
 
         int timeoutSeconds = 20;
-        ExecutorService executor = Executors.newCachedThreadPool(io.airlift.concurrent.Threads.daemonThreadsNamed("testCreateExclusiveIsAtomic-%s"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("testCreateExclusiveIsAtomic-%s"));
         AtomicBoolean finishing = new AtomicBoolean(false);
         try (TempBlob tempBlob = randomBlobLocation("outputFile")) {
             TrinoFileSystem fileSystem = getFileSystem();
@@ -1286,7 +1287,6 @@ public abstract class AbstractTestTrinoFileSystem
         }
         TrinoInputFile inputFile = getFileSystem().newInputFile(location);
         int fileSize = toIntExact(inputFile.length());
-        @SuppressWarnings("NumericCastThatLosesPrecision")
         byte[] fileBytes = new byte[fileSize];
         assertEquals(fileSize, readFile(inputFile, fileBytes));
         assertEquals("test", new String(fileBytes, UTF_8));
@@ -1309,9 +1309,9 @@ public abstract class AbstractTestTrinoFileSystem
         getFileSystem().deleteFile(location);
     }
 
+    @SuppressWarnings("ConstantValue")
     private static byte[] getBytes()
     {
-        @SuppressWarnings("NumericCastThatLosesPrecision")
         byte[] bytes = new byte[8192];
         for (int i = 0; i < bytes.length; i++) {
             bytes[i] = (byte) i;
@@ -1339,7 +1339,7 @@ public abstract class AbstractTestTrinoFileSystem
         return getFileSystem().newInputFile(location).exists();
     }
 
-    private int readFile(TrinoInputFile inputFile, byte[] destination)
+    private static int readFile(TrinoInputFile inputFile, byte[] destination)
             throws IOException
     {
         try (InputStream inputStream = inputFile.newStream()) {
