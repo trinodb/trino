@@ -184,30 +184,19 @@ public final class SqlRoutinePlanner
         @Override
         protected IrStatement visitIfStatement(IfStatement node, Context context)
         {
-            IrStatement statement = null;
+            Optional<IrStatement> ifFalse = node.getElseClause().map(clause -> block(statements(clause.getStatements(), context)));
 
-            List<ElseIfClause> elseIfList = Lists.reverse(node.getElseIfClauses());
-            for (int i = 0; i < elseIfList.size(); i++) {
-                ElseIfClause elseIf = elseIfList.get(i);
-                RowExpression condition = toRowExpression(context, elseIf.getExpression());
-                IrStatement ifTrue = block(statements(elseIf.getStatements(), context));
-
-                Optional<IrStatement> ifFalse = Optional.empty();
-                if ((i == 0) && node.getElseClause().isPresent()) {
-                    List<ControlStatement> elseList = node.getElseClause().get().getStatements();
-                    ifFalse = Optional.of(block(statements(elseList, context)));
-                }
-                else if (statement != null) {
-                    ifFalse = Optional.of(statement);
-                }
-
-                statement = new IrIf(condition, ifTrue, ifFalse);
+            for (ElseIfClause elseIf : node.getElseIfClauses().reversed()) {
+                ifFalse = Optional.of(new IrIf(
+                        toRowExpression(context, elseIf.getExpression()),
+                        block(statements(elseIf.getStatements(), context)),
+                        ifFalse));
             }
 
             return new IrIf(
                     toRowExpression(context, node.getExpression()),
                     block(statements(node.getStatements(), context)),
-                    Optional.ofNullable(statement));
+                    ifFalse);
         }
 
         @Override
