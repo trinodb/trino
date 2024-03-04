@@ -1428,12 +1428,31 @@ public class DeltaLakeMetadata
                     ADD_COLUMN_OPERATION,
                     session,
                     Optional.ofNullable(handle.getMetadataEntry().getDescription()),
-                    protocolEntry);
+                    buildProtocolEntryForNewColumn(protocolEntry, newColumnMetadata.getType()));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add '%s' column for: %s.%s", newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName()), e);
         }
+    }
+
+    private ProtocolEntry buildProtocolEntryForNewColumn(ProtocolEntry protocolEntry, Type type)
+    {
+        if (!containsTimestampType(type)) {
+            return protocolEntry;
+        }
+
+        return new ProtocolEntry(
+                max(protocolEntry.getMinReaderVersion(), TIMESTAMP_NTZ_SUPPORTED_READER_VERSION),
+                max(protocolEntry.getMinWriterVersion(), TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION),
+                Optional.of(ImmutableSet.<String>builder()
+                        .addAll(protocolEntry.getReaderFeatures().orElse(ImmutableSet.of()))
+                        .add(TIMESTAMP_NTZ_FEATURE_NAME)
+                        .build()),
+                Optional.of(ImmutableSet.<String>builder()
+                        .addAll(protocolEntry.getWriterFeatures().orElse(ImmutableSet.of()))
+                        .add(TIMESTAMP_NTZ_FEATURE_NAME)
+                        .build()));
     }
 
     @Override
