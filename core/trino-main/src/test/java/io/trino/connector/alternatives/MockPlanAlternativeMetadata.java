@@ -52,7 +52,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.ConstraintApplicationResult.Alternative;
 import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -70,13 +69,11 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
-import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.expression.Constant;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -136,12 +133,6 @@ public class MockPlanAlternativeMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return delegate.listSchemaNames(session);
-    }
-
-    @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
-    {
-        return delegate.getTableHandle(session, tableName);
     }
 
     @Override
@@ -251,19 +242,6 @@ public class MockPlanAlternativeMetadata
     }
 
     @Override
-    @Deprecated
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        return delegate.listTableColumns(session, prefix);
-    }
-
-    @Override
-    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        return delegate.streamTableColumns(session, prefix);
-    }
-
-    @Override
     public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
         return delegate.streamRelationColumns(session, schemaName, relationFilter);
@@ -303,12 +281,6 @@ public class MockPlanAlternativeMetadata
     public void setSchemaAuthorization(ConnectorSession session, String schemaName, TrinoPrincipal principal)
     {
         delegate.setSchemaAuthorization(session, schemaName, principal);
-    }
-
-    @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
-    {
-        delegate.createTable(session, tableMetadata, ignoreExisting);
     }
 
     @Override
@@ -485,12 +457,6 @@ public class MockPlanAlternativeMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
-    {
-        return delegate.beginCreateTable(session, tableMetadata, layout, retryMode);
-    }
-
-    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
     {
         return delegate.beginCreateTable(session, tableMetadata, layout, retryMode, replace);
@@ -638,19 +604,6 @@ public class MockPlanAlternativeMetadata
     public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
     {
         return delegate.getSchemaOwner(session, schemaName);
-    }
-
-    @Override
-    public Optional<ConnectorTableHandle> applyUpdate(ConnectorSession session, ConnectorTableHandle handle, Map<ColumnHandle, Constant> assignments)
-    {
-        Optional<ConnectorTableHandle> delegateResult = delegate.applyUpdate(session, getDelegate(handle), assignments);
-        return delegateResult.map(delegateHandle -> withDelegate(handle, delegateHandle));
-    }
-
-    @Override
-    public OptionalLong executeUpdate(ConnectorSession session, ConnectorTableHandle handle)
-    {
-        return delegate.executeUpdate(session, getDelegate(handle));
     }
 
     @Override
@@ -955,13 +908,6 @@ public class MockPlanAlternativeMetadata
     public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(ConnectorSession session, JoinType joinType, ConnectorTableHandle left, ConnectorTableHandle right, ConnectorExpression joinCondition, Map<String, ColumnHandle> leftAssignments, Map<String, ColumnHandle> rightAssignments, JoinStatistics statistics)
     {
         return delegate.applyJoin(session, joinType, getDelegate(left), getDelegate(right), joinCondition, leftAssignments, rightAssignments, statistics);
-    }
-
-    @Override
-    @Deprecated
-    public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(ConnectorSession session, JoinType joinType, ConnectorTableHandle left, ConnectorTableHandle right, List<JoinCondition> joinConditions, Map<String, ColumnHandle> leftAssignments, Map<String, ColumnHandle> rightAssignments, JoinStatistics statistics)
-    {
-        return delegate.applyJoin(session, joinType, getDelegate(left), getDelegate(right), joinConditions, leftAssignments, rightAssignments, statistics);
     }
 
     @Override
