@@ -338,12 +338,11 @@ public class IcebergPageSourceProvider
                     }
                 });
 
-        TupleDomain<IcebergColumnHandle> effectivePredicate = getEffectivePredicate(
+        TupleDomain<IcebergColumnHandle> effectivePredicate = getUnenforcedPredicate(
                 tableSchema,
                 partitionKeys,
-                dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast),
-                unenforcedPredicate)
-                .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+                dynamicFilter,
+                unenforcedPredicate);
         if (effectivePredicate.isNone()) {
             return new EmptyPageSource();
         }
@@ -418,25 +417,38 @@ public class IcebergPageSourceProvider
                 deletePredicate);
     }
 
-    private TupleDomain<IcebergColumnHandle> getEffectivePredicate(
+    private TupleDomain<IcebergColumnHandle> getUnenforcedPredicate(
             Schema tableSchema,
             Map<Integer, Optional<String>> partitionKeys,
-            TupleDomain<IcebergColumnHandle> dynamicFilterPredicate,
+            DynamicFilter dynamicFilter,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate)
     {
-        TupleDomain<IcebergColumnHandle> effectivePredicate = unenforcedPredicate.intersect(dynamicFilterPredicate);
-        if (dynamicFilterPredicate.isAll() || dynamicFilterPredicate.isNone() || partitionKeys.isEmpty()) {
-            return effectivePredicate;
+        return prunePredicate(
+                tableSchema,
+                partitionKeys,
+                unenforcedPredicate.intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast)))
+                .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+    }
+
+    private TupleDomain<IcebergColumnHandle> prunePredicate(
+            Schema tableSchema,
+            Map<Integer, Optional<String>> partitionKeys,
+            TupleDomain<IcebergColumnHandle> unenforcedPredicate)
+    {
+        if (unenforcedPredicate.isAll() || unenforcedPredicate.isNone() || partitionKeys.isEmpty()) {
+            return unenforcedPredicate;
         }
+
         Set<IcebergColumnHandle> partitionColumns = partitionKeys.keySet().stream()
                 .map(fieldId -> getColumnHandle(tableSchema.findField(fieldId), typeManager))
                 .collect(toImmutableSet());
         Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(partitionColumns, partitionKeys));
-        if (!partitionMatchesPredicate(partitionColumns, partitionValues, effectivePredicate)) {
+        if (!partitionMatchesPredicate(partitionColumns, partitionValues, unenforcedPredicate)) {
             return TupleDomain.none();
         }
-        // Filter out partition columns domains from the dynamic filter because they should be irrelevant at data file level
-        return effectivePredicate
+
+        return unenforcedPredicate
+                // Filter out partition columns domains from the dynamic filter because they should be irrelevant at data file level
                 .filter((columnHandle, domain) -> !partitionKeys.containsKey(columnHandle.getId()));
     }
 
