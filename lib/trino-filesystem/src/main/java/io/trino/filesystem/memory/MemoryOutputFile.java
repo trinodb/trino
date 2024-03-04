@@ -58,10 +58,10 @@ class MemoryOutputFile
     }
 
     @Override
-    public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
+    public void createOrOverwrite(byte[] data)
             throws IOException
     {
-        return new MemoryOutputStream(location, outputBlob::overwriteBlob);
+        outputBlob.overwriteBlob(wrappedBuffer(data));
     }
 
     @Override

@@ -26,7 +26,6 @@ import io.trino.spi.connector.SchemaTableName;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Optional;
 
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
@@ -95,9 +94,7 @@ public class MetaDirStatisticsAccess
             Location statisticsPath = Location.of(tableLocation).appendPath(STATISTICS_META_DIR).appendPath(STATISTICS_FILE);
 
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            try (OutputStream outputStream = fileSystem.newOutputFile(statisticsPath).createOrOverwrite()) {
-                outputStream.write(statisticsCodec.toJsonBytes(statistics));
-            }
+            fileSystem.newOutputFile(statisticsPath).createOrOverwrite(statisticsCodec.toJsonBytes(statistics));
 
             // Remove outdated Starburst stats file, if it exists.
             Location starburstStatisticsPath = Location.of(tableLocation).appendPath(STARBURST_META_DIR).appendPath(STARBURST_STATISTICS_FILE);

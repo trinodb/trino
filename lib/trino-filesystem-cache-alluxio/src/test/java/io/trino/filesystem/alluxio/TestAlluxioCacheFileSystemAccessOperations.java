@@ -122,9 +122,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
                         .build());
 
         byte[] modifiedContent = "modified content".getBytes(StandardCharsets.UTF_8);
-        try (OutputStream output = fileSystem.newOutputFile(location).createOrOverwrite()) {
-            output.write(modifiedContent);
-        }
+        fileSystem.newOutputFile(location).createOrOverwrite(modifiedContent);
 
         // Clear the cache, as lastModified time might be unchanged
         cacheKeyProvider.increaseCacheVersion();
