@@ -44,11 +44,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -56,7 +54,6 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -558,9 +555,7 @@ public abstract class AbstractTestTrinoFileSystem
             }
 
             // overwrite file
-            try (OutputStream outputStream = outputFile.createOrOverwrite()) {
-                outputStream.write("overwrite".getBytes(UTF_8));
-            }
+            outputFile.createOrOverwrite("overwrite".getBytes(UTF_8));
 
             // verify file is different
             assertThat(tempBlob.read()).isEqualTo("overwrite");
@@ -695,7 +690,7 @@ public abstract class AbstractTestTrinoFileSystem
     {
         // file outside of root is not allowed
         // the check is over the entire statement, because some file system delay path checks until the data is uploaded
-        assertThatThrownBy(() -> getFileSystem().newOutputFile(createLocation("../file")).createOrOverwrite().close())
+        assertThatThrownBy(() -> getFileSystem().newOutputFile(createLocation("../file")).createOrOverwrite("test".getBytes(UTF_8)))
                 .isInstanceOfAny(IOException.class, IllegalArgumentException.class)
                 .hasMessageContaining(createLocation("../file").toString());
 
@@ -1019,10 +1014,12 @@ public abstract class AbstractTestTrinoFileSystem
 
             // Verify writing
             byte[] newContents = "bar bar baz new content".getBytes(UTF_8);
-            try (OutputStream outputStream = getFileSystem().newOutputFile(location).createOrOverwrite()) {
-                outputStream.write(newContents.clone());
-            }
-            try (TrinoInputStream inputStream = inputFile.newStream()) {
+            getFileSystem().newOutputFile(location).createOrOverwrite(newContents);
+
+            // Open a new input file with an updated file length. If we read with the old inputFile the cached (wrong) file length would be used.
+            // This can break some file system read operations (e.g., TrinoInput.readTail for most filesystems, newStream for caching file systems).
+            TrinoInputFile newInputFile = getFileSystem().newInputFile(location);
+            try (TrinoInputStream inputStream = newInputFile.newStream()) {
                 byte[] bytes = ByteStreams.toByteArray(inputStream);
                 assertThat(bytes).isEqualTo(newContents);
             }
@@ -1273,41 +1270,6 @@ public abstract class AbstractTestTrinoFileSystem
         getFileSystem().deleteFile(location);
     }
 
-    @Test
-    public void testLargeFileIsNotOverwrittenUntilClosed()
-            throws IOException
-    {
-        if (!supportsIncompleteWriteNoClobber()) {
-            abort("skipped");
-        }
-        Location location = getRootLocation().appendPath("testLargeFileIsNotOverwrittenUntilClosed-%s".formatted(UUID.randomUUID()));
-        try (OutputStream outputStream = getFileSystem().newOutputFile(location).createOrOverwrite()) {
-            outputStream.write("test".getBytes(UTF_8));
-        }
-        TrinoInputFile inputFile = getFileSystem().newInputFile(location);
-        int fileSize = toIntExact(inputFile.length());
-        byte[] fileBytes = new byte[fileSize];
-        assertEquals(fileSize, readFile(inputFile, fileBytes));
-        assertEquals("test", new String(fileBytes, UTF_8));
-        try (OutputStream outputStream = getFileSystem().newOutputFile(location).createOrOverwrite()) {
-            // Write a 17 MB file to ensure data is flushed to storage by exceeding the buffer size
-            byte[] bytes = getBytes();
-            int target = 17 * MEGABYTE;
-            int count = 0;
-            while (count < target) {
-                outputStream.write(bytes);
-                count += bytes.length;
-                if (count + bytes.length >= target) {
-                    assertEquals(fileSize, readFile(inputFile, fileBytes));
-                    assertEquals("test", new String(fileBytes, UTF_8));
-                }
-            }
-        }
-        assertTrue(fileExistsInListing(location));
-        assertTrue(fileExists(location));
-        getFileSystem().deleteFile(location);
-    }
-
     @SuppressWarnings("ConstantValue")
     private static byte[] getBytes()
     {
@@ -1336,15 +1298,6 @@ public abstract class AbstractTestTrinoFileSystem
             throws IOException
     {
         return getFileSystem().newInputFile(location).exists();
-    }
-
-    private static int readFile(TrinoInputFile inputFile, byte[] destination)
-            throws IOException
-    {
-        try (InputStream inputStream = inputFile.newStream()) {
-            checkState(destination.length >= inputFile.length(), "destination is smaller than file");
-            return inputStream.readNBytes(destination, 0, toIntExact(inputFile.length()));
-        }
     }
 
     private String readLocation(Location path)
@@ -1434,8 +1387,8 @@ public abstract class AbstractTestTrinoFileSystem
 
         public void createOrOverwrite(String data)
         {
-            try (OutputStream outputStream = outputFile().createOrOverwrite()) {
-                outputStream.write(data.getBytes(UTF_8));
+            try {
+                outputFile().createOrOverwrite(data.getBytes(UTF_8));
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);

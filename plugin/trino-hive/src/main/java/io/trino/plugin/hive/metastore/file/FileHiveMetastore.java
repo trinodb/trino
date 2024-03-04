@@ -1331,9 +1331,7 @@ public class FileHiveMetastore
         byte[] json = functionCodec.toJsonBytes(function);
 
         try {
-            try (OutputStream outputStream = fileSystem.newOutputFile(file).createOrOverwrite()) {
-                outputStream.write(json);
-            }
+            fileSystem.newOutputFile(file).createOrOverwrite(json);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write function", e);
@@ -1492,16 +1490,24 @@ public class FileHiveMetastore
         try {
             byte[] json = codec.toJsonBytes(value);
 
-            if (!overwrite) {
+            TrinoOutputFile output = fileSystem.newOutputFile(location);
+            if (overwrite) {
+                output.createOrOverwrite(json);
+            }
+            else {
+                // best-effort exclusive and atomic creation
                 if (fileSystem.newInputFile(location).exists()) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, type + " file already exists");
                 }
-            }
-
-            // todo implement safer overwrite code
-            TrinoOutputFile output = fileSystem.newOutputFile(location);
-            try (OutputStream outputStream = overwrite ? output.createOrOverwrite() : output.create()) {
-                outputStream.write(json);
+                try {
+                    output.createExclusive(json);
+                }
+                catch (UnsupportedOperationException ignored) {
+                    // fall back to non-exclusive creation, relying on synchronization and above exists check
+                    try (OutputStream out = output.create()) {
+                        out.write(json);
+                    }
+                }
             }
         }
         catch (Exception e) {

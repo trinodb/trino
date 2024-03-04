@@ -399,7 +399,7 @@ public abstract class TestAvroBase
             throws IOException
     {
         try (DataFileWriter<GenericRecord> fileWriter = new DataFileWriter<>(new GenericDatumWriter<>())) {
-            fileWriter.create(schema, trinoLocalFilesystem.newOutputFile(location).createOrOverwrite());
+            fileWriter.create(schema, trinoLocalFilesystem.newOutputFile(location).create());
             for (GenericRecord genericRecord : records) {
                 fileWriter.append(genericRecord);
             }
@@ -413,7 +413,7 @@ public abstract class TestAvroBase
         Iterator<Object> randomData = new RandomData(schema, count).iterator();
         Location tempFile = createLocalTempLocation();
         try (DataFileWriter<GenericRecord> fileWriter = new DataFileWriter<>(new GenericDatumWriter<>())) {
-            fileWriter.create(schema, trinoLocalFilesystem.newOutputFile(tempFile).createOrOverwrite());
+            fileWriter.create(schema, trinoLocalFilesystem.newOutputFile(tempFile).create());
             while (randomData.hasNext()) {
                 fileWriter.append((GenericRecord) randomData.next());
             }

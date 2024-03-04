@@ -298,11 +298,11 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
+        public void createOrOverwrite(byte[] data)
                 throws IOException
         {
             tracker.accept(OUTPUT_FILE_CREATE_OR_OVERWRITE);
-            return delegate.createOrOverwrite(memoryContext);
+            delegate.createOrOverwrite(data);
         }
 
         @Override

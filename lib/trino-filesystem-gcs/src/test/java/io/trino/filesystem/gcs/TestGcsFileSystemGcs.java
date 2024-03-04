@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
-import java.io.OutputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatNoException;
@@ -45,9 +44,7 @@ public class TestGcsFileSystemGcs
         assertThatNoException().isThrownBy(() -> {
             for (int i = 1; i <= 30; i++) {
                 TrinoOutputFile outputFile = getFileSystem().newOutputFile(getRootLocation().appendPath("testFile"));
-                try (OutputStream out = outputFile.createOrOverwrite()) {
-                    out.write("test".getBytes(UTF_8));
-                }
+                outputFile.createOrOverwrite("test".getBytes(UTF_8));
             }});
     }
 }
