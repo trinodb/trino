@@ -66,8 +66,7 @@ public class OptimizerConfig
     private boolean optimizeHashGeneration;
     private boolean pushTableWriteThroughUnion = true;
     private boolean dictionaryAggregation;
-    private MarkDistinctStrategy markDistinctStrategy;
-    private DistinctAggregationsStrategy distinctAggregationsStrategy;
+    private DistinctAggregationsStrategy distinctAggregationsStrategy = DistinctAggregationsStrategy.AUTOMATIC;
     private boolean preferPartialAggregation = true;
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
@@ -119,13 +118,6 @@ public class OptimizerConfig
         {
             return this == BROADCAST || this == AUTOMATIC;
         }
-    }
-
-    public enum MarkDistinctStrategy
-    {
-        NONE,
-        ALWAYS,
-        AUTOMATIC,
     }
 
     public enum DistinctAggregationsStrategy
@@ -494,22 +486,6 @@ public class OptimizerConfig
     public OptimizerConfig setOptimizeMetadataQueries(boolean optimizeMetadataQueries)
     {
         this.optimizeMetadataQueries = optimizeMetadataQueries;
-        return this;
-    }
-
-    @Deprecated
-    @Nullable
-    public MarkDistinctStrategy getMarkDistinctStrategy()
-    {
-        return markDistinctStrategy;
-    }
-
-    @Deprecated
-    @LegacyConfig(value = "optimizer.mark-distinct-strategy", replacedBy = "optimizer.distinct-aggregations-strategy")
-    @ConfigDescription("Strategy to use for distinct aggregations")
-    public OptimizerConfig setMarkDistinctStrategy(MarkDistinctStrategy markDistinctStrategy)
-    {
-        this.markDistinctStrategy = markDistinctStrategy;
         return this;
     }
 
