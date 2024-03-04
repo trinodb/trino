@@ -44,7 +44,7 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("fault-tolerant-execution-task-memory", "1GB")
 
                 // enable exchange compression to follow production deployment recommendations
-                .put("exchange.compression-enabled", "true")
+                .put("exchange.compression-codec", "LZ4")
                 .put("max-tasks-waiting-for-execution-per-query", "2")
                 .put("max-tasks-waiting-for-node-per-stage", "2")
                 .put("query.schedule-split-batch-size", "2")
