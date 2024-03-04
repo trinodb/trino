@@ -36,8 +36,6 @@ the Hadoop cluster:
 Access to these services by the Hive connector is configured in the properties
 file that contains the general Hive connector configuration.
 
-Kerberos authentication by ticket cache is not yet supported.
-
 :::{note}
 If your `krb5.conf` location is different from `/etc/krb5.conf` you
 must set it explicitly using the `java.security.krb5.conf` JVM property
