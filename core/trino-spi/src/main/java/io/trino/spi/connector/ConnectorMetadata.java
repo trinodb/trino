@@ -586,6 +586,7 @@ public interface ConnectorMetadata
     /**
      * @deprecated Use {{@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata, ColumnPosition, Optional)}}
      */
+    @Deprecated
     default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
@@ -608,6 +609,7 @@ public interface ConnectorMetadata
     /**
      * @deprecated Use {{@link #addField(ConnectorSession, ConnectorTableHandle, List, String, Type, ColumnPosition, Optional, boolean)}}
      */
+    @Deprecated
     default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields");

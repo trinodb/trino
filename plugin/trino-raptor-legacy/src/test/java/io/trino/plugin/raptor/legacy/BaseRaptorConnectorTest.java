@@ -67,6 +67,7 @@ public abstract class BaseRaptorConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
