@@ -221,7 +221,7 @@
         <dep.wire.version>4.8.1</dep.wire.version>
 
         <!-- released from https://github.com/starburstdata/starburst-dataframe -->
-        <dep.starburst-dataframe.version>0.5.0.20240201-b4f4176</dep.starburst-dataframe.version>
+        <dep.starburst-dataframe.version>0.8.0.20240301-3689fe1</dep.starburst-dataframe.version>
 
         <air.repository.snapshot.id>starburstdata-sep.snapshots</air.repository.snapshot.id>
         <air.repository.snapshot.name>Starburstdata Snapshots</air.repository.snapshot.name>

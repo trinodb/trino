@@ -24,6 +24,7 @@ import com.starburstdata.dataframe.analyzer.AnalyzerFactory;
 import com.starburstdata.dataframe.analyzer.TrinoMetadata;
 import com.starburstdata.dataframe.plan.LogicalPlan;
 import com.starburstdata.dataframe.plan.TrinoPlan;
+import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -54,6 +55,7 @@ import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,6 +70,8 @@ import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.G
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class AnalyzeLogicalPlan
@@ -96,6 +100,7 @@ public class AnalyzeLogicalPlan
             extends AbstractConnectorTableFunction
     {
         private static final String LOGICAL_PLAN_INPUT_NAME = "LOGICAL_PLAN";
+        private static final String PREFIX = "$zstd:";
         private final TestingTrinoMetadataFactory testingTrinoMetadataFactory;
         private final AnalyzerFactory analyzerFactory;
 
@@ -122,6 +127,13 @@ public class AnalyzeLogicalPlan
         {
             ScalarArgument argument = (ScalarArgument) getOnlyElement(arguments.values());
             String logicalPlan = ((Slice) argument.getValue()).toStringUtf8();
+            if (logicalPlan.startsWith(PREFIX)) {
+                String encoded = logicalPlan.substring(PREFIX.length());
+                byte[] compressed = Base64.getDecoder().decode(encoded);
+                byte[] logicalPlanBytes = new byte[toIntExact(ZstdDecompressor.getDecompressedSize(compressed, 0, compressed.length))];
+                new ZstdDecompressor().decompress(compressed, 0, compressed.length, logicalPlanBytes, 0, logicalPlanBytes.length);
+                logicalPlan = new String(logicalPlanBytes, UTF_8);
+            }
             Session session = ((FullConnectorSession) connectorSession).getSession();
             TrinoMetadata trinoMetadata = testingTrinoMetadataFactory.create(session);
             Analyzer analyzer = analyzerFactory.create(trinoMetadata);
