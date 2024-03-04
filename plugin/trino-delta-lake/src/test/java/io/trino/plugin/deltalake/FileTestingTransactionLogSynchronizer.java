@@ -22,7 +22,6 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronize
 import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 
 import static java.util.Objects.requireNonNull;
@@ -50,9 +49,7 @@ public class FileTestingTransactionLogSynchronizer
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             TrinoOutputFile outputFile = fileSystem.newOutputFile(newLogEntryPath);
-            try (OutputStream outputStream = outputFile.createOrOverwrite()) {
-                outputStream.write(entryContents);
-            }
+            outputFile.createOrOverwrite(entryContents);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

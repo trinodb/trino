@@ -32,7 +32,6 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -153,9 +152,7 @@ public abstract class AbstractTestS3FileSystem
 
                 // Verify writing
                 byte[] newContents = "bar bar baz new content".getBytes(UTF_8);
-                try (OutputStream outputStream = fileSystem.newOutputFile(fileEntry.location()).createOrOverwrite()) {
-                    outputStream.write(newContents.clone());
-                }
+                fileSystem.newOutputFile(fileEntry.location()).createOrOverwrite(newContents);
                 assertThat(s3Client.getObjectAsBytes(request -> request.bucket(bucket()).key(key)).asByteArray())
                         .isEqualTo(newContents);
 
