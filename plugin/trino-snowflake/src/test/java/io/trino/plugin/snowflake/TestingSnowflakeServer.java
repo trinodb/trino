@@ -23,8 +23,7 @@ import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
 
-public class TestingSnowflakeServer
-        implements AutoCloseable
+public final class TestingSnowflakeServer
 {
     public static final String TEST_URL = requireNonNull(System.getProperty("snowflake.test.server.url"), "snowflake.test.server.url is not set");
     public static final String TEST_USER = requireNonNull(System.getProperty("snowflake.test.server.user"), "snowflake.test.server.user is not set");
@@ -32,15 +31,11 @@ public class TestingSnowflakeServer
     public static final String TEST_DATABASE = requireNonNull(System.getProperty("snowflake.test.server.database"), "snowflake.test.server.database is not set");
     public static final String TEST_WAREHOUSE = requireNonNull(System.getProperty("snowflake.test.server.warehouse"), "snowflake.test.server.warehouse is not set");
     public static final String TEST_ROLE = requireNonNull(System.getProperty("snowflake.test.server.role"), "snowflake.test.server.role is not set");
-    public static final String TEST_PROXY = System.getProperty("snowflake.test.http_proxy");
     public static final String TEST_SCHEMA = "tpch";
 
-    public TestingSnowflakeServer()
-    {
-        execute("CREATE SCHEMA IF NOT EXISTS tpch");
-    }
+    private TestingSnowflakeServer() {}
 
-    public void execute(@Language("SQL") String sql)
+    public static void execute(@Language("SQL") String sql)
     {
         execute(TEST_URL, getProperties(), sql);
     }
@@ -56,7 +51,7 @@ public class TestingSnowflakeServer
         }
     }
 
-    public Properties getProperties()
+    private static Properties getProperties()
     {
         Properties properties = new Properties();
         properties.setProperty("user", TEST_USER);
@@ -66,11 +61,5 @@ public class TestingSnowflakeServer
         properties.setProperty("warehouse", TEST_WAREHOUSE);
         properties.setProperty("role", TEST_ROLE);
         return properties;
-    }
-
-    @Override
-    public void close()
-            throws Exception
-    {
     }
 }

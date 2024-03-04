@@ -54,8 +54,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestSnowflakeTypeMapping
         extends AbstractTestQueryFramework
 {
-    protected TestingSnowflakeServer snowflakeServer;
-
     private final ZoneId jvmZone = ZoneId.systemDefault();
     // no DST in 1970, but has DST in later years (e.g. 2018)
     private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
@@ -372,7 +370,7 @@ public class TestSnowflakeTypeMapping
 
     private DataSetup snowflakeCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(snowflakeServer::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(TestingSnowflakeServer::execute, tableNamePrefix);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDate date)

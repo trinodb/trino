@@ -20,14 +20,8 @@ import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermissions;
-
-import static java.nio.file.attribute.PosixFilePermissions.fromString;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_JVM_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -47,27 +41,21 @@ public class EnvMultinodeSnowflake
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addConnector("snowflake", forHostPath(getEnvProperties()));
-    }
+        builder.configureContainers(container -> {
+            if (isTrinoContainer(container.getLogicalName())) {
+                container
+                        .withEnv("SNOWFLAKE_URL", requireEnv("SNOWFLAKE_URL"))
+                        .withEnv("SNOWFLAKE_USER", requireEnv("SNOWFLAKE_USER"))
+                        .withEnv("SNOWFLAKE_PASSWORD", requireEnv("SNOWFLAKE_PASSWORD"))
+                        .withEnv("SNOWFLAKE_DATABASE", requireEnv("SNOWFLAKE_DATABASE"))
+                        .withEnv("SNOWFLAKE_ROLE", requireEnv("SNOWFLAKE_ROLE"))
+                        .withEnv("SNOWFLAKE_WAREHOUSE", requireEnv("SNOWFLAKE_WAREHOUSE"));
 
-    private Path getEnvProperties()
-    {
-        try {
-            String properties = Files.readString(configDir.getPath("snowflake.properties"))
-                    .replace("${ENV:SNOWFLAKE_URL}", requireEnv("SNOWFLAKE_URL"))
-                    .replace("${ENV:SNOWFLAKE_USER}", requireEnv("SNOWFLAKE_USER"))
-                    .replace("${ENV:SNOWFLAKE_PASSWORD}", requireEnv("SNOWFLAKE_PASSWORD"))
-                    .replace("${ENV:SNOWFLAKE_DATABASE}", requireEnv("SNOWFLAKE_DATABASE"))
-                    .replace("${ENV:SNOWFLAKE_ROLE}", requireEnv("SNOWFLAKE_ROLE"))
-                    .replace("${ENV:SNOWFLAKE_WAREHOUSE}", requireEnv("SNOWFLAKE_WAREHOUSE"));
-            File newProperties = Files.createTempFile("snowflake-replaced", ".properties", PosixFilePermissions.asFileAttribute(fromString("rwxrwxrwx"))).toFile();
-            newProperties.deleteOnExit();
-            Files.writeString(newProperties.toPath(), properties);
-            return newProperties.toPath();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+                container.withCopyFileToContainer(forHostPath(configDir.getPath("jvm.config")), CONTAINER_TRINO_JVM_CONFIG);
+            }
+        });
+
+        builder.addConnector("snowflake", forHostPath(configDir.getPath("snowflake.properties")));
     }
 
     private static String requireEnv(String variable)
