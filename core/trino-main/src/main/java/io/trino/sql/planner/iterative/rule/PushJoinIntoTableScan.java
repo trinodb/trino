@@ -238,9 +238,8 @@ public class PushJoinIntoTableScan
         };
     }
 
-    private TupleDomain<ColumnHandle> deriveConstraint(TupleDomain<ColumnHandle> sourceConstraint, Map<ColumnHandle, ColumnHandle> columnMapping, boolean nullable)
+    private TupleDomain<ColumnHandle> deriveConstraint(TupleDomain<ColumnHandle> constraint, Map<ColumnHandle, ColumnHandle> columnMapping, boolean nullable)
     {
-        TupleDomain<ColumnHandle> constraint = sourceConstraint;
         if (nullable) {
             constraint = constraint.transformDomains((columnHandle, domain) -> domain.union(onlyNull(domain.getType())));
         }
