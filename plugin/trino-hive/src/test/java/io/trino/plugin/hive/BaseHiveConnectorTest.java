@@ -8172,7 +8172,7 @@ public abstract class BaseHiveConnectorTest
         // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
         boolean unsupported = (storageFormat == HiveStorageFormat.PARQUET || storageFormat == HiveStorageFormat.AVRO) && compressionCodec == HiveCompressionCodec.LZ4;
         if (unsupported) {
-            assertQueryFails(session, createTableSql, "Compression codec " + compressionCodec + " not supported for " + storageFormat);
+            assertQueryFails(session, createTableSql, "Compression codec " + compressionCodec + " not supported for " + storageFormat.humanName());
             return;
         }
         assertUpdate(session, createTableSql, 25);
@@ -8202,7 +8202,7 @@ public abstract class BaseHiveConnectorTest
         // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
         boolean unsupported = (storageFormat == HiveStorageFormat.PARQUET || storageFormat == HiveStorageFormat.AVRO) && compressionCodec == HiveCompressionCodec.LZ4;
         if (unsupported) {
-            assertQueryFails(session, createTableSql, "Compression codec " + compressionCodec + " not supported for " + storageFormat);
+            assertQueryFails(session, createTableSql, "Compression codec " + compressionCodec + " not supported for " + storageFormat.humanName());
             return;
         }
         assertUpdate(session, createTableSql, 25);
