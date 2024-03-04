@@ -88,12 +88,6 @@ public class TestAlluxioCacheFileSystem
     }
 
     @Override
-    protected boolean isFileContentCaching()
-    {
-        return true;
-    }
-
-    @Override
     protected boolean supportsCreateExclusive()
     {
         return true;

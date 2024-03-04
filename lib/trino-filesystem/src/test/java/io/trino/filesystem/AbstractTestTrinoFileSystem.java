@@ -110,11 +110,6 @@ public abstract class AbstractTestTrinoFileSystem
         return true;
     }
 
-    protected boolean isFileContentCaching()
-    {
-        return false;
-    }
-
     protected Location createLocation(String path)
     {
         if (path.isEmpty()) {
