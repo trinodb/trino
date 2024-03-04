@@ -26,6 +26,7 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.CommentCharacteristic;
 import io.trino.sql.tree.Commit;
@@ -1825,6 +1826,14 @@ public final class SqlFormatter
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatColumnDefinition(node.getColumn()));
+
+            node.getPosition().ifPresent(position -> {
+                switch (position) {
+                    case ColumnPosition.First _ -> builder.append(" FIRST");
+                    case ColumnPosition.After after -> builder.append(" AFTER ").append(formatName(after.column()));
+                    case ColumnPosition.Last _ -> builder.append(" LAST");
+                }
+            });
 
             return null;
         }

@@ -34,6 +34,7 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
@@ -3443,35 +3444,65 @@ public class TestSqlParser
                 .isEqualTo(new AddColumn(
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()), false, false));
+                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()), Optional.empty(), false, false));
 
         assertThat(statement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL"))
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), false, false));
+                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), Optional.empty(), false, false));
 
         assertThat(statement("ALTER TABLE IF EXISTS foo.t ADD COLUMN d double NOT NULL"))
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), true, false));
+                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), Optional.empty(), true, false));
 
         assertThat(statement("ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL"))
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), false, true));
+                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), Optional.empty(), false, true));
 
         assertThat(statement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL"))
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
                         location(1, 1),
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), true, true));
+                        new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), Optional.empty(), true, true));
+
+        assertThat(statement("ALTER TABLE foo.t ADD COLUMN c bigint FIRST"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        location(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()),
+                        Optional.of(new ColumnPosition.First()),
+                        false,
+                        false));
+
+        assertThat(statement("ALTER TABLE foo.t ADD COLUMN c bigint LAST"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        location(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()),
+                        Optional.of(new ColumnPosition.Last()),
+                        false,
+                        false));
+
+        assertThat(statement("ALTER TABLE foo.t ADD COLUMN c bigint AFTER b"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        location(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()),
+                        Optional.of(new ColumnPosition.After(identifier("b"))),
+                        false,
+                        false));
 
         // Add a field
         assertThat(statement("ALTER TABLE foo.t ADD COLUMN c.d double"))
@@ -3485,6 +3516,7 @@ public class TestSqlParser
                                 true,
                                 ImmutableList.of(),
                                 Optional.empty()),
+                        Optional.empty(),
                         false,
                         false));
 
@@ -3499,6 +3531,7 @@ public class TestSqlParser
                                 true,
                                 ImmutableList.of(),
                                 Optional.empty()),
+                        Optional.empty(),
                         false,
                         true));
 
@@ -3513,6 +3546,7 @@ public class TestSqlParser
                                 true,
                                 ImmutableList.of(),
                                 Optional.empty()),
+                        Optional.empty(),
                         true,
                         false));
 
@@ -3527,6 +3561,7 @@ public class TestSqlParser
                                 true,
                                 ImmutableList.of(),
                                 Optional.empty()),
+                        Optional.empty(),
                         true,
                         false));
 
@@ -3541,6 +3576,7 @@ public class TestSqlParser
                                 true,
                                 ImmutableList.of(),
                                 Optional.empty()),
+                        Optional.empty(),
                         true,
                         false));
 
@@ -3555,6 +3591,7 @@ public class TestSqlParser
                                 true,
                                 ImmutableList.of(),
                                 Optional.empty()),
+                        Optional.empty(),
                         true,
                         true));
     }
