@@ -737,6 +737,43 @@ public abstract class BaseIcebergMaterializedViewTest
         }
     }
 
+    @Test
+    public void testMaterializedViewStorageTypeCoercions()
+    {
+        String materializedViewName = "test_materialized_view_storage_type_coercion" + randomNameSuffix();
+        String sourceTableName = "test_materialized_view_storage" + randomNameSuffix();
+
+        assertUpdate(format("""
+                CREATE TABLE %s (
+                    t_3 time(3),
+                    t_9 time(9),
+                    ts_3 timestamp(3),
+                    ts_9 timestamp(9),
+                    tswtz_3 timestamp(3) with time zone,
+                    tswtz_9 timestamp(9) with time zone
+                )
+                """, sourceTableName));
+        assertUpdate(format("INSERT INTO %s VALUES (localtime, localtime, localtimestamp, localtimestamp, current_timestamp, current_timestamp)", sourceTableName), 1);
+
+        assertUpdate(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM %s", materializedViewName, sourceTableName));
+
+        assertThat(query(format("SELECT * FROM %s WHERE t_3 < localtime", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE t_9 < localtime", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE ts_3 < localtimestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE ts_9 < localtimestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE tswtz_3 < current_timestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE tswtz_9 < current_timestamp", materializedViewName))).succeeds();
+
+        assertUpdate(format("REFRESH MATERIALIZED VIEW %s", materializedViewName), 1);
+
+        assertThat(query(format("SELECT * FROM %s WHERE t_3 < localtime", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE t_9 < localtime", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE ts_3 < localtimestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE ts_9 < localtimestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE tswtz_3 < current_timestamp", materializedViewName))).succeeds();
+        assertThat(query(format("SELECT * FROM %s WHERE tswtz_9 < current_timestamp", materializedViewName))).succeeds();
+    }
+
     protected String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
