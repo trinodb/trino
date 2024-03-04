@@ -580,11 +580,24 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Add the specified column
+     * @deprecated Use {@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata, ColumnPosition)}
      */
+    @Deprecated
     default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
+    }
+
+    /**
+     * Add the specified column
+     */
+    default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
+    {
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> addColumn(session, tableHandle, column);
+        }
     }
 
     /**
