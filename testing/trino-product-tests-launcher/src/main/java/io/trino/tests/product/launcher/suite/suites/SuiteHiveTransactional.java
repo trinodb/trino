@@ -37,7 +37,6 @@ public class SuiteHiveTransactional
 
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeHiveAcid.class)
-                        .withGroups("configured_features", "hive_transactional")
                         .withGroups(CONFIGURED_FEATURES, HIVE_TRANSACTIONAL)
                         .build());
     }
