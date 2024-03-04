@@ -861,6 +861,37 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testAddTimestampNtzColumn()
+            throws Exception
+    {
+        String tableName = "test_add_timestamp_ntz_column" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(id INT)");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN ts timestamp(6)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, TIMESTAMP '2023-01-02 03:04:05.123456')", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, TIMESTAMP '2023-01-02 03:04:05.123456')");
+
+        String tableLocation = getTableLocation(tableName);
+        List<DeltaLakeTransactionLogEntry> transactionLogsByCreateTable = getEntriesFromJson(0, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow();
+        ProtocolEntry protocolEntryByCreateTable = transactionLogsByCreateTable.get(1).getProtocol();
+        assertThat(protocolEntryByCreateTable).isNotNull();
+        assertThat(protocolEntryByCreateTable.getMinReaderVersion()).isEqualTo(1);
+        assertThat(protocolEntryByCreateTable.getMinWriterVersion()).isEqualTo(2);
+        assertThat(protocolEntryByCreateTable.getReaderFeatures()).isEmpty();
+        assertThat(protocolEntryByCreateTable.getWriterFeatures()).isEmpty();
+
+        List<DeltaLakeTransactionLogEntry> transactionLogsByAddColumn = getEntriesFromJson(1, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow();
+        ProtocolEntry protocolEntryByAddColumn = transactionLogsByAddColumn.get(1).getProtocol();
+        assertThat(protocolEntryByAddColumn).isNotNull();
+        assertThat(protocolEntryByAddColumn.getMinReaderVersion()).isEqualTo(3);
+        assertThat(protocolEntryByAddColumn.getMinWriterVersion()).isEqualTo(7);
+        assertThat(protocolEntryByAddColumn.getReaderFeatures()).isEqualTo(Optional.of(ImmutableSet.of("timestampNtz")));
+        assertThat(protocolEntryByAddColumn.getWriterFeatures()).isEqualTo(Optional.of(ImmutableSet.of("timestampNtz")));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     /**
      * @see databricks122.identity_columns
      */
