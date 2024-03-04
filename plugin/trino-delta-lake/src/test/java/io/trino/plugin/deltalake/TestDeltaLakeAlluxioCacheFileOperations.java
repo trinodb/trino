@@ -68,6 +68,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 .put("fs.cache.enabled", "true")
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
+                .put("fs.cache.denylist", "uncacheable")
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())
                 .put("delta.enable-non-concurrent-writes", "true")
@@ -168,6 +169,74 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .addCopies(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 218), 1)
                         .addCopies(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 218), 1)
                         .addCopies(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 218), 1)
+                        .build());
+    }
+
+    @Test
+    public void testCacheFileOperationsWithDenylist()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_cache_file_operations_with_denylist");
+        assertUpdate("CREATE TABLE test_cache_file_operations_with_denylist(key varchar, data varchar) with (partitioned_by=ARRAY['key'])");
+        assertUpdate("INSERT INTO test_cache_file_operations_with_denylist VALUES ('p1', '1-abc')", 1);
+        assertUpdate("INSERT INTO test_cache_file_operations_with_denylist VALUES ('p2', '2-xyz')", 1);
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_cache_file_operations_with_denylist')");
+        assertFileSystemAccesses(
+                "SELECT * FROM test_cache_file_operations_with_denylist",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 757))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000002.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000002.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p1/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p2/", 0, 218))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 218))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 218))
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM test_cache_file_operations_with_denylist",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 757))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
+                        .build());
+        assertUpdate("INSERT INTO test_cache_file_operations_with_denylist VALUES ('uncacheable-p3', '3-xyz')", 1);
+        assertUpdate("INSERT INTO test_cache_file_operations_with_denylist VALUES ('uncacheable-p4', '4-xyz')", 1);
+        assertUpdate("INSERT INTO test_cache_file_operations_with_denylist VALUES ('p5', '5-xyz')", 1);
+        assertFileSystemAccesses(
+                "SELECT * FROM test_cache_file_operations_with_denylist",
+                ImmutableMultiset.<CacheOperation>builder()
+                        // Uncacheable keys won't show up in here at all, as they bypass Alluxio entirely
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 757))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000003.json", 0, 660))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000004.json", 0, 660))
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000005.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000005.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000005.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p5/", 0, 218))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 218))
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM test_cache_file_operations_with_denylist",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 757))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000003.json", 0, 660))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000004.json", 0, 660))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000005.json", 0, 636))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 218))
                         .build());
     }
 
