@@ -137,6 +137,75 @@ class TestSqlFunctions
     }
 
     @Test
+    void testSingleIf()
+    {
+        @Language("SQL") String sql = """
+                FUNCTION test_if(a bigint)
+                  RETURNS varchar
+                  BEGIN
+                    IF a = 0 THEN
+                      RETURN 'zero';
+                    END IF;
+                    RETURN 'other';
+                  END
+                  """;
+        assertFunction(sql, handle -> {
+            assertThat(handle.invoke(0L)).isEqualTo(utf8Slice("zero"));
+            assertThat(handle.invoke(1L)).isEqualTo(utf8Slice("other"));
+            assertThat(handle.invoke(10L)).isEqualTo(utf8Slice("other"));
+        });
+    }
+
+    @Test
+    void testSingleBranchIfElse()
+    {
+        @Language("SQL") String sql = """
+                FUNCTION if_else(a bigint)
+                  RETURNS varchar
+                  BEGIN
+                    IF a = 0 THEN
+                      RETURN 'zero';
+                    ELSE
+                      RETURN 'other';
+                    END IF;
+                    RETURN NULL;
+                  END
+                  """;
+        assertFunction(sql, handle -> {
+            assertThat(handle.invoke(0L)).isEqualTo(utf8Slice("zero"));
+            assertThat(handle.invoke(1L)).isEqualTo(utf8Slice("other"));
+            assertThat(handle.invoke(10L)).isEqualTo(utf8Slice("other"));
+        });
+    }
+
+    @Test
+    void testMultiBranchIfElse()
+    {
+        @Language("SQL") String sql = """
+                FUNCTION multi_if_else(a bigint)
+                  RETURNS varchar
+                  BEGIN
+                    IF a = 0 THEN
+                      RETURN 'zero';
+                    ELSEIF a = 1 THEN
+                      RETURN 'one';
+                    ELSEIF a = 2 THEN
+                      RETURN 'two';
+                    ELSE
+                      RETURN 'other';
+                    END IF;
+                    RETURN NULL;
+                  END
+                  """;
+        assertFunction(sql, handle -> {
+            assertThat(handle.invoke(0L)).isEqualTo(utf8Slice("zero"));
+            assertThat(handle.invoke(1L)).isEqualTo(utf8Slice("one"));
+            assertThat(handle.invoke(2L)).isEqualTo(utf8Slice("two"));
+            assertThat(handle.invoke(10L)).isEqualTo(utf8Slice("other"));
+        });
+    }
+
+    @Test
     void testSearchCase()
     {
         @Language("SQL") String sql = """
