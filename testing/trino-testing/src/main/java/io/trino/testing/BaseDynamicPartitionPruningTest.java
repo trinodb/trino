@@ -143,6 +143,29 @@ public abstract class BaseDynamicPartitionPruningTest
 
     @Test
     @Timeout(30)
+    public void testJoinWithComparingSameColumnUnderDifferentConditions()
+    {
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey >= supplier.suppkey " +
+                "AND partitioned_lineitem.suppkey <= supplier.suppkey " +
+                "AND supplier.name = 'Supplier#000000001'";
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
+                getSession(),
+                selectQuery);
+        MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(result.result(), expected);
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
+
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+    }
+
+    @Test
+    @Timeout(30)
     public void testJoinWithNonSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey";
