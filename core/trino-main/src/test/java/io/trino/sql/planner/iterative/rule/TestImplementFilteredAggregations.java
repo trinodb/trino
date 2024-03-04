@@ -27,9 +27,9 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
@@ -57,7 +57,7 @@ public class TestImplementFilteredAggregations
                 .matches(
                         aggregation(
                                 singleGroupingSet("g"),
-                                ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("a"))),
+                                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("a"))),
                                 ImmutableList.of(),
                                 ImmutableList.of("filter"),
                                 Optional.empty(),
@@ -90,7 +90,7 @@ public class TestImplementFilteredAggregations
                 .matches(
                         aggregation(
                                 singleGroupingSet("g"),
-                                ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("a"))),
+                                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("a"))),
                                 ImmutableList.of(),
                                 ImmutableList.of("new_mask"),
                                 Optional.empty(),
@@ -121,7 +121,7 @@ public class TestImplementFilteredAggregations
                 .matches(
                         aggregation(
                                 globalAggregation(),
-                                ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("a"))),
+                                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("a"))),
                                 ImmutableList.of(),
                                 ImmutableList.of("filter"),
                                 Optional.empty(),
@@ -156,7 +156,7 @@ public class TestImplementFilteredAggregations
                 .matches(
                         aggregation(
                                 globalAggregation(),
-                                ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("a")), Optional.of("avg"), functionCall("avg", ImmutableList.of("a"))),
+                                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("avg"), aggregationFunction("avg", ImmutableList.of("a"))),
                                 ImmutableList.of(),
                                 ImmutableList.of("filter"),
                                 Optional.empty(),

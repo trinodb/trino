@@ -23,12 +23,12 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.assertions.AggregationFunction;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -43,10 +43,10 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
@@ -112,13 +112,13 @@ public class TestPreAggregateCaseAggregations
                                 ImmutableMap.of("SUM_2_CAST", expression("CAST(SUM_2 AS VARCHAR(10))")),
                                 aggregation(
                                         singleGroupingSet("KEY"),
-                                        ImmutableMap.<Optional<String>, ExpectedValueProvider<FunctionCall>>builder()
-                                                .put(Optional.of("SUM_1"), functionCall("sum", ImmutableList.of("SUM_1_INPUT")))
-                                                .put(Optional.of("SUM_2"), functionCall("sum", ImmutableList.of("SUM_2_INPUT")))
-                                                .put(Optional.of("SUM_3"), functionCall("sum", ImmutableList.of("SUM_3_INPUT")))
-                                                .put(Optional.of("MIN_1"), functionCall("min", ImmutableList.of("MIN_1_INPUT")))
-                                                .put(Optional.of("SUM_4"), functionCall("sum", ImmutableList.of("SUM_4_INPUT")))
-                                                .put(Optional.of("SUM_5"), functionCall("sum", ImmutableList.of("SUM_5_INPUT")))
+                                        ImmutableMap.<Optional<String>, ExpectedValueProvider<AggregationFunction>>builder()
+                                                .put(Optional.of("SUM_1"), aggregationFunction("sum", ImmutableList.of("SUM_1_INPUT")))
+                                                .put(Optional.of("SUM_2"), aggregationFunction("sum", ImmutableList.of("SUM_2_INPUT")))
+                                                .put(Optional.of("SUM_3"), aggregationFunction("sum", ImmutableList.of("SUM_3_INPUT")))
+                                                .put(Optional.of("MIN_1"), aggregationFunction("min", ImmutableList.of("MIN_1_INPUT")))
+                                                .put(Optional.of("SUM_4"), aggregationFunction("sum", ImmutableList.of("SUM_4_INPUT")))
+                                                .put(Optional.of("SUM_5"), aggregationFunction("sum", ImmutableList.of("SUM_5_INPUT")))
                                                 .buildOrThrow(),
                                         Optional.empty(),
                                         SINGLE,
@@ -133,11 +133,11 @@ public class TestPreAggregateCaseAggregations
                                                 aggregation(
                                                         singleGroupingSet("KEY", "COL_BIGINT"),
                                                         ImmutableMap.of(
-                                                                Optional.of("SUM_BIGINT"), functionCall("sum", ImmutableList.of("VALUE_BIGINT")),
-                                                                Optional.of("SUM_INT_CAST"), functionCall("sum", ImmutableList.of("VALUE_INT_CAST")),
-                                                                Optional.of("MIN_BIGINT"), functionCall("min", ImmutableList.of("VALUE_2_BIGINT")),
-                                                                Optional.of("SUM_DECIMAL"), functionCall("sum", ImmutableList.of("COL_DECIMAL")),
-                                                                Optional.of("SUM_DECIMAL_CAST"), functionCall("sum", ImmutableList.of("VALUE_DECIMAL_CAST"))),
+                                                                Optional.of("SUM_BIGINT"), aggregationFunction("sum", ImmutableList.of("VALUE_BIGINT")),
+                                                                Optional.of("SUM_INT_CAST"), aggregationFunction("sum", ImmutableList.of("VALUE_INT_CAST")),
+                                                                Optional.of("MIN_BIGINT"), aggregationFunction("min", ImmutableList.of("VALUE_2_BIGINT")),
+                                                                Optional.of("SUM_DECIMAL"), aggregationFunction("sum", ImmutableList.of("COL_DECIMAL")),
+                                                                Optional.of("SUM_DECIMAL_CAST"), aggregationFunction("sum", ImmutableList.of("VALUE_DECIMAL_CAST"))),
                                                         Optional.empty(),
                                                         SINGLE,
                                                         exchange(
@@ -172,13 +172,13 @@ public class TestPreAggregateCaseAggregations
                                 ImmutableMap.of("SUM_2_CAST", expression("CAST(SUM_2 AS VARCHAR(10))")),
                                 aggregation(
                                         globalAggregation(),
-                                        ImmutableMap.<Optional<String>, ExpectedValueProvider<FunctionCall>>builder()
-                                                .put(Optional.of("SUM_1"), functionCall("sum", ImmutableList.of("SUM_1_INPUT")))
-                                                .put(Optional.of("SUM_2"), functionCall("sum", ImmutableList.of("SUM_2_INPUT")))
-                                                .put(Optional.of("SUM_3"), functionCall("sum", ImmutableList.of("SUM_3_INPUT")))
-                                                .put(Optional.of("MIN_1"), functionCall("min", ImmutableList.of("MIN_1_INPUT")))
-                                                .put(Optional.of("SUM_4"), functionCall("sum", ImmutableList.of("SUM_4_INPUT")))
-                                                .put(Optional.of("SUM_5"), functionCall("sum", ImmutableList.of("SUM_5_INPUT")))
+                                        ImmutableMap.<Optional<String>, ExpectedValueProvider<AggregationFunction>>builder()
+                                                .put(Optional.of("SUM_1"), aggregationFunction("sum", ImmutableList.of("SUM_1_INPUT")))
+                                                .put(Optional.of("SUM_2"), aggregationFunction("sum", ImmutableList.of("SUM_2_INPUT")))
+                                                .put(Optional.of("SUM_3"), aggregationFunction("sum", ImmutableList.of("SUM_3_INPUT")))
+                                                .put(Optional.of("MIN_1"), aggregationFunction("min", ImmutableList.of("MIN_1_INPUT")))
+                                                .put(Optional.of("SUM_4"), aggregationFunction("sum", ImmutableList.of("SUM_4_INPUT")))
+                                                .put(Optional.of("SUM_5"), aggregationFunction("sum", ImmutableList.of("SUM_5_INPUT")))
                                                 .buildOrThrow(),
                                         Optional.empty(),
                                         SINGLE,
@@ -193,11 +193,11 @@ public class TestPreAggregateCaseAggregations
                                                 aggregation(
                                                         singleGroupingSet("COL_BIGINT"),
                                                         ImmutableMap.of(
-                                                                Optional.of("SUM_BIGINT"), functionCall("sum", ImmutableList.of("VALUE_BIGINT")),
-                                                                Optional.of("SUM_INT_CAST"), functionCall("sum", ImmutableList.of("VALUE_INT_CAST")),
-                                                                Optional.of("MIN_BIGINT"), functionCall("min", ImmutableList.of("VALUE_2_INT_CAST")),
-                                                                Optional.of("SUM_DECIMAL"), functionCall("sum", ImmutableList.of("COL_DECIMAL")),
-                                                                Optional.of("SUM_DECIMAL_CAST"), functionCall("sum", ImmutableList.of("VALUE_DECIMAL_CAST"))),
+                                                                Optional.of("SUM_BIGINT"), aggregationFunction("sum", ImmutableList.of("VALUE_BIGINT")),
+                                                                Optional.of("SUM_INT_CAST"), aggregationFunction("sum", ImmutableList.of("VALUE_INT_CAST")),
+                                                                Optional.of("MIN_BIGINT"), aggregationFunction("min", ImmutableList.of("VALUE_2_INT_CAST")),
+                                                                Optional.of("SUM_DECIMAL"), aggregationFunction("sum", ImmutableList.of("COL_DECIMAL")),
+                                                                Optional.of("SUM_DECIMAL_CAST"), aggregationFunction("sum", ImmutableList.of("VALUE_DECIMAL_CAST"))),
                                                         Optional.empty(),
                                                         SINGLE,
                                                         exchange(
@@ -234,19 +234,19 @@ public class TestPreAggregateCaseAggregations
                 anyTree(
                         aggregation(
                                 globalAggregation(),
-                                ImmutableMap.<Optional<String>, ExpectedValueProvider<FunctionCall>>builder()
-                                        .put(Optional.of("SUM_1"), functionCall("sum", ImmutableList.of("SUM_BIGINT_FINAL")))
-                                        .put(Optional.of("SUM_1_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_BIGINT_FINAL_DEFAULT")))
-                                        .put(Optional.of("SUM_2"), functionCall("sum", ImmutableList.of("SUM_INT_CAST_FINAL")))
-                                        .put(Optional.of("SUM_2_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_INT_CAST_FINAL_DEFAULT")))
-                                        .put(Optional.of("SUM_3"), functionCall("sum", ImmutableList.of("SUM_TINYINT_FINAL")))
-                                        .put(Optional.of("SUM_3_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_TINYINT_FINAL_DEFAULT")))
-                                        .put(Optional.of("SUM_4"), functionCall("sum", ImmutableList.of("SUM_DECIMAL_FINAL")))
-                                        .put(Optional.of("SUM_4_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_DECIMAL_FINAL_DEFAULT")))
-                                        .put(Optional.of("SUM_5"), functionCall("sum", ImmutableList.of("SUM_LONG_DECIMAL_FINAL")))
-                                        .put(Optional.of("SUM_5_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_LONG_DECIMAL_FINAL_DEFAULT")))
-                                        .put(Optional.of("SUM_6"), functionCall("sum", ImmutableList.of("SUM_DOUBLE_FINAL")))
-                                        .put(Optional.of("SUM_6_DEFAULT"), functionCall("sum", ImmutableList.of("SUM_DOUBLE_FINAL_DEFAULT")))
+                                ImmutableMap.<Optional<String>, ExpectedValueProvider<AggregationFunction>>builder()
+                                        .put(Optional.of("SUM_1"), aggregationFunction("sum", ImmutableList.of("SUM_BIGINT_FINAL")))
+                                        .put(Optional.of("SUM_1_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_BIGINT_FINAL_DEFAULT")))
+                                        .put(Optional.of("SUM_2"), aggregationFunction("sum", ImmutableList.of("SUM_INT_CAST_FINAL")))
+                                        .put(Optional.of("SUM_2_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_INT_CAST_FINAL_DEFAULT")))
+                                        .put(Optional.of("SUM_3"), aggregationFunction("sum", ImmutableList.of("SUM_TINYINT_FINAL")))
+                                        .put(Optional.of("SUM_3_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_TINYINT_FINAL_DEFAULT")))
+                                        .put(Optional.of("SUM_4"), aggregationFunction("sum", ImmutableList.of("SUM_DECIMAL_FINAL")))
+                                        .put(Optional.of("SUM_4_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_DECIMAL_FINAL_DEFAULT")))
+                                        .put(Optional.of("SUM_5"), aggregationFunction("sum", ImmutableList.of("SUM_LONG_DECIMAL_FINAL")))
+                                        .put(Optional.of("SUM_5_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_LONG_DECIMAL_FINAL_DEFAULT")))
+                                        .put(Optional.of("SUM_6"), aggregationFunction("sum", ImmutableList.of("SUM_DOUBLE_FINAL")))
+                                        .put(Optional.of("SUM_6_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_DOUBLE_FINAL_DEFAULT")))
                                         .buildOrThrow(),
                                 Optional.empty(),
                                 SINGLE,
@@ -267,12 +267,12 @@ public class TestPreAggregateCaseAggregations
                                         aggregation(
                                                 singleGroupingSet("COL_BIGINT"),
                                                 ImmutableMap.of(
-                                                        Optional.of("SUM_BIGINT"), functionCall("sum", ImmutableList.of("COL_BIGINT")),
-                                                        Optional.of("SUM_INT_CAST"), functionCall("sum", ImmutableList.of("VALUE_INT_CAST")),
-                                                        Optional.of("SUM_TINYINT"), functionCall("sum", ImmutableList.of("VALUE_TINYINT_CAST")),
-                                                        Optional.of("SUM_DECIMAL"), functionCall("sum", ImmutableList.of("COL_DECIMAL")),
-                                                        Optional.of("SUM_LONG_DECIMAL"), functionCall("sum", ImmutableList.of("COL_LONG_DECIMAL")),
-                                                        Optional.of("SUM_DOUBLE"), functionCall("sum", ImmutableList.of("COL_DOUBLE"))),
+                                                        Optional.of("SUM_BIGINT"), aggregationFunction("sum", ImmutableList.of("COL_BIGINT")),
+                                                        Optional.of("SUM_INT_CAST"), aggregationFunction("sum", ImmutableList.of("VALUE_INT_CAST")),
+                                                        Optional.of("SUM_TINYINT"), aggregationFunction("sum", ImmutableList.of("VALUE_TINYINT_CAST")),
+                                                        Optional.of("SUM_DECIMAL"), aggregationFunction("sum", ImmutableList.of("COL_DECIMAL")),
+                                                        Optional.of("SUM_LONG_DECIMAL"), aggregationFunction("sum", ImmutableList.of("COL_LONG_DECIMAL")),
+                                                        Optional.of("SUM_DOUBLE"), aggregationFunction("sum", ImmutableList.of("COL_DOUBLE"))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 exchange(

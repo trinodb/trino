@@ -33,7 +33,7 @@ import static io.trino.SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
@@ -142,8 +142,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                 .matches(aggregation(
                         globalAggregation(),
                         ImmutableMap.of(
-                                Optional.of("output1"), functionCall("count", ImmutableList.of("input1")),
-                                Optional.of("output2"), functionCall("count", ImmutableList.of("input2"))),
+                                Optional.of("output1"), aggregationFunction("count", ImmutableList.of("input1")),
+                                Optional.of("output2"), aggregationFunction("count", ImmutableList.of("input2"))),
                         ImmutableList.of(),
                         ImmutableList.of("mark_input1", "mark_input2"),
                         Optional.empty(),
@@ -171,8 +171,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         PlanMatchPattern expectedMarkDistinct = aggregation(
                 singleGroupingSet("key"),
                 ImmutableMap.of(
-                        Optional.of("output1"), functionCall("count", ImmutableList.of("input")),
-                        Optional.of("output2"), functionCall("sum", ImmutableList.of("input"))),
+                        Optional.of("output1"), aggregationFunction("count", ImmutableList.of("input")),
+                        Optional.of("output2"), aggregationFunction("sum", ImmutableList.of("input"))),
                 ImmutableList.of(),
                 ImmutableList.of("mark_input"),
                 Optional.empty(),
@@ -255,8 +255,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                 .matches(aggregation(
                         singleGroupingSet("key1", "key2"),
                         ImmutableMap.of(
-                                Optional.of("output1"), functionCall("count", ImmutableList.of("input")),
-                                Optional.of("output2"), functionCall("sum", ImmutableList.of("input"))),
+                                Optional.of("output1"), aggregationFunction("count", ImmutableList.of("input")),
+                                Optional.of("output2"), aggregationFunction("sum", ImmutableList.of("input"))),
                         ImmutableList.of(),
                         ImmutableList.of("mark_input"),
                         Optional.empty(),

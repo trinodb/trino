@@ -102,7 +102,7 @@ public class TestExpressionRewriteRuleSet
                                 p.values(p.symbol("x"), p.symbol("y")))))
                 .matches(
                         PlanMatchPattern.aggregation(
-                                ImmutableMap.of("count_1", PlanMatchPattern.functionCall("count", ImmutableList.of("y"))),
+                                ImmutableMap.of("count_1", PlanMatchPattern.aggregationFunction("count", ImmutableList.of("y"))),
                                 values("x", "y")));
     }
 

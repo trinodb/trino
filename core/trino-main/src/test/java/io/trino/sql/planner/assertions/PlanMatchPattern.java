@@ -251,7 +251,7 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            Map<String, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<String, ExpectedValueProvider<AggregationFunction>> aggregations,
             PlanMatchPattern source)
     {
         PlanMatchPattern result = node(AggregationNode.class, source);
@@ -261,7 +261,7 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            Map<String, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<String, ExpectedValueProvider<AggregationFunction>> aggregations,
             Step step,
             PlanMatchPattern source)
     {
@@ -272,7 +272,7 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            Map<String, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<String, ExpectedValueProvider<AggregationFunction>> aggregations,
             Predicate<AggregationNode> predicate,
             PlanMatchPattern source)
     {
@@ -285,7 +285,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern aggregation(
             GroupingSetDescriptor groupingSets,
-            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<Optional<String>, ExpectedValueProvider<AggregationFunction>> aggregations,
             Optional<Symbol> groupId,
             Step step,
             PlanMatchPattern source)
@@ -295,7 +295,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern aggregation(
             GroupingSetDescriptor groupingSets,
-            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<Optional<String>, ExpectedValueProvider<AggregationFunction>> aggregations,
             List<String> preGroupedSymbols,
             Optional<Symbol> groupId,
             Step step,
@@ -306,7 +306,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern aggregation(
             GroupingSetDescriptor groupingSets,
-            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<Optional<String>, ExpectedValueProvider<AggregationFunction>> aggregations,
             List<String> preGroupedSymbols,
             List<String> masks,
             Optional<Symbol> groupId,
@@ -1096,6 +1096,36 @@ public final class PlanMatchPattern
     public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args)
     {
         return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args));
+    }
+
+    public static ExpectedValueProvider<AggregationFunction> aggregationFunction(String name, List<String> args)
+    {
+        return new AggregationFunctionProvider(
+                name,
+                false,
+                toSymbolAliases(args),
+                ImmutableList.of(),
+                Optional.empty());
+    }
+
+    public static ExpectedValueProvider<AggregationFunction> aggregationFunction(String name, List<String> args, List<PlanMatchPattern.Ordering> orderBy)
+    {
+        return new AggregationFunctionProvider(
+                name,
+                false,
+                toSymbolAliases(args),
+                orderBy,
+                Optional.empty());
+    }
+
+    public static ExpectedValueProvider<AggregationFunction> aggregationFunction(String name, boolean distinct, List<PlanTestSymbol> args)
+    {
+        return new AggregationFunctionProvider(
+                name,
+                distinct,
+                args,
+                ImmutableList.of(),
+                Optional.empty());
     }
 
     public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args, List<Ordering> orderBy)

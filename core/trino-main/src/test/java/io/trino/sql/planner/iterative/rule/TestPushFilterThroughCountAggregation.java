@@ -25,9 +25,9 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -209,7 +209,7 @@ public class TestPushFilterThroughCountAggregation
                 })
                 .matches(
                         aggregation(
-                                ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                 filter(
                                         "mask",
                                         values("g", "mask"))));
@@ -234,7 +234,7 @@ public class TestPushFilterThroughCountAggregation
                         filter(
                                 "g > BIGINT '5'",
                                 aggregation(
-                                        ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
                                                 "mask",
                                                 values("g", "mask")))));
@@ -255,7 +255,7 @@ public class TestPushFilterThroughCountAggregation
                         filter(
                                 "count % 2 = BIGINT '0'",
                                 aggregation(
-                                        ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
                                                 "mask",
                                                 values("g", "mask")))));
@@ -280,7 +280,7 @@ public class TestPushFilterThroughCountAggregation
                         filter(
                                 "count > BIGINT '5'",
                                 aggregation(
-                                        ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
                                                 "mask",
                                                 values("g", "mask")))));
@@ -307,7 +307,7 @@ public class TestPushFilterThroughCountAggregation
                         project(
                                 ImmutableMap.of("count", expression("count")),
                                 aggregation(
-                                        ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                        ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
                                                 "mask",
                                                 values("g", "mask")))));
@@ -332,7 +332,7 @@ public class TestPushFilterThroughCountAggregation
                                 project(
                                         ImmutableMap.of("count", expression("count"), "g", expression("g")),
                                         aggregation(
-                                                ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                                 filter(
                                                         "mask",
                                                         values("g", "mask"))))));
@@ -357,7 +357,7 @@ public class TestPushFilterThroughCountAggregation
                                 project(
                                         ImmutableMap.of("count", expression("count")),
                                         aggregation(
-                                                ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                                 filter(
                                                         "mask",
                                                         values("g", "mask"))))));
