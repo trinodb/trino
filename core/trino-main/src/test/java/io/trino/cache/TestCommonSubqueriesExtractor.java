@@ -120,8 +120,8 @@ import static io.trino.sql.ir.IrUtils.extractDisjuncts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.identityProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -757,7 +757,7 @@ public class TestCommonSubqueriesExtractor
         PlanMatchPattern commonSubplan = aggregation(
                 singleGroupingSet("NAME"),
                 ImmutableMap.of(
-                        Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY")))),
+                        Optional.of("SUM"), aggregationFunction("sum", false, ImmutableList.of(symbol("NATIONKEY")))),
                 Optional.empty(),
                 AggregationNode.Step.PARTIAL,
                 identityProject(
@@ -844,7 +844,7 @@ public class TestCommonSubqueriesExtractor
 
         PlanMatchPattern commonSubplan = aggregation(
                 globalAggregation(),
-                ImmutableMap.of(Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY")))),
+                ImmutableMap.of(Optional.of("SUM"), aggregationFunction("sum", false, ImmutableList.of(symbol("NATIONKEY")))),
                 Optional.empty(),
                 AggregationNode.Step.PARTIAL,
                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey")));
@@ -894,9 +894,9 @@ public class TestCommonSubqueriesExtractor
         PlanMatchPattern commonSubplan = aggregation(
                 globalAggregation(),
                 ImmutableMap.of(
-                        Optional.of("MAX_FILTERED"), functionCall("max", false, ImmutableList.of(symbol("REGIONKEY"))),
-                        Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY"))),
-                        Optional.of("AVG_FILTERED"), functionCall("avg", false, ImmutableList.of(symbol("MULTIPLICATION")))),
+                        Optional.of("MAX_FILTERED"), aggregationFunction("max", false, ImmutableList.of(symbol("REGIONKEY"))),
+                        Optional.of("SUM"), aggregationFunction("sum", false, ImmutableList.of(symbol("NATIONKEY"))),
+                        Optional.of("AVG_FILTERED"), aggregationFunction("avg", false, ImmutableList.of(symbol("MULTIPLICATION")))),
                 ImmutableList.of(),
                 ImmutableList.of("MASK"),
                 Optional.empty(),
@@ -968,7 +968,7 @@ public class TestCommonSubqueriesExtractor
 
         PlanMatchPattern commonSubplan = aggregation(
                 singleGroupingSet("MULTIPLICATION"),
-                ImmutableMap.of(Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY")))),
+                ImmutableMap.of(Optional.of("SUM"), aggregationFunction("sum", false, ImmutableList.of(symbol("NATIONKEY")))),
                 Optional.empty(),
                 AggregationNode.Step.PARTIAL,
                 project(ImmutableMap.of(
@@ -1027,8 +1027,8 @@ public class TestCommonSubqueriesExtractor
         PlanMatchPattern commonSubplan = aggregation(
                 singleGroupingSet("REGIONKEY", "NAME"),
                 ImmutableMap.of(
-                        Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY"))),
-                        Optional.of("MAX"), functionCall("max", false, ImmutableList.of(symbol("NATIONKEY")))),
+                        Optional.of("SUM"), aggregationFunction("sum", false, ImmutableList.of(symbol("NATIONKEY"))),
+                        Optional.of("MAX"), aggregationFunction("max", false, ImmutableList.of(symbol("NATIONKEY")))),
                 Optional.empty(),
                 AggregationNode.Step.PARTIAL,
                 filter("(NATIONKEY > BIGINT '10') AND ((REGIONKEY > BIGINT '10') OR (REGIONKEY < BIGINT '5'))",
@@ -1089,7 +1089,7 @@ public class TestCommonSubqueriesExtractor
         PlanMatchPattern commonSubplan = aggregation(
                 singleGroupingSet("NAME", "REGIONKEY"),
                 ImmutableMap.of(
-                        Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("EXPR")))),
+                        Optional.of("SUM"), aggregationFunction("sum", false, ImmutableList.of(symbol("EXPR")))),
                 Optional.empty(),
                 AggregationNode.Step.PARTIAL,
                 strictProject(ImmutableMap.of(

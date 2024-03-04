@@ -15,10 +15,10 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.planner.assertions.AggregationFunction;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.FunctionCall;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -26,7 +26,7 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -114,7 +114,7 @@ public class TestSingleDistinctAggregationToGroupBy
                                 globalAggregation(),
                                 ImmutableMap.of(
                                         Optional.of("output"),
-                                        functionCall("count", ImmutableList.of("input"))),
+                                        aggregationFunction("count", ImmutableList.of("input"))),
                                 Optional.empty(),
                                 SINGLE,
                                 aggregation(
@@ -138,9 +138,9 @@ public class TestSingleDistinctAggregationToGroupBy
                 .matches(
                         aggregation(
                                 globalAggregation(),
-                                ImmutableMap.<Optional<String>, ExpectedValueProvider<FunctionCall>>builder()
-                                        .put(Optional.of("output1"), functionCall("count", ImmutableList.of("input")))
-                                        .put(Optional.of("output2"), functionCall("sum", ImmutableList.of("input")))
+                                ImmutableMap.<Optional<String>, ExpectedValueProvider<AggregationFunction>>builder()
+                                        .put(Optional.of("output1"), aggregationFunction("count", ImmutableList.of("input")))
+                                        .put(Optional.of("output2"), aggregationFunction("sum", ImmutableList.of("input")))
                                         .buildOrThrow(),
                                 Optional.empty(),
                                 SINGLE,
@@ -165,9 +165,9 @@ public class TestSingleDistinctAggregationToGroupBy
                 .matches(
                         aggregation(
                                 globalAggregation(),
-                                ImmutableMap.<Optional<String>, ExpectedValueProvider<FunctionCall>>builder()
-                                        .put(Optional.of("output1"), functionCall("corr", ImmutableList.of("x", "y")))
-                                        .put(Optional.of("output2"), functionCall("corr", ImmutableList.of("y", "x")))
+                                ImmutableMap.<Optional<String>, ExpectedValueProvider<AggregationFunction>>builder()
+                                        .put(Optional.of("output1"), aggregationFunction("corr", ImmutableList.of("x", "y")))
+                                        .put(Optional.of("output2"), aggregationFunction("corr", ImmutableList.of("y", "x")))
                                         .buildOrThrow(),
                                 Optional.empty(),
                                 SINGLE,

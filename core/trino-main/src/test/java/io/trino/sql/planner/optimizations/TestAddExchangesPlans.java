@@ -64,13 +64,13 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -433,7 +433,7 @@ public class TestAddExchangesPlans
                 "SELECT count(name) FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 5)",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("count", functionCall("count", ImmutableList.of("name"))),
+                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("name"))),
                                 PARTIAL,
                                 project(
                                         ImmutableMap.of("name", expression("name")),
@@ -454,7 +454,7 @@ public class TestAddExchangesPlans
                 "SELECT count(b) FROM (VALUES (1, 2)) t(a,b) WHERE a < 10",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("count", functionCall("count", ImmutableList.of("b"))),
+                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("b"))),
                                 PARTIAL,
                                 project(
                                         ImmutableMap.of("b", expression("b")),
@@ -608,18 +608,18 @@ public class TestAddExchangesPlans
                 singleColumnParentGroupBy,
                 anyTree(aggregation(
                         singleGroupingSet("partkey"),
-                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                        ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", false, ImmutableList.of(symbol("count")))),
                         Optional.empty(),
                         SINGLE, // no need for partial aggregation since data are already partitioned
                         project(aggregation(
-                                ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
                                 Step.FINAL,
                                 exchange(LOCAL,
                                         // we only partition by partkey but aggregate by partkey and suppkey
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey"),
                                                 aggregation(
                                                         singleGroupingSet("partkey", "suppkey"),
-                                                        ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                        ImmutableMap.of(Optional.of("count_partial"), aggregationFunction("count", false, ImmutableList.of())),
                                                         Optional.empty(),
                                                         Step.PARTIAL,
                                                         tableScan("lineitem", ImmutableMap.of(
@@ -628,7 +628,7 @@ public class TestAddExchangesPlans
 
         PlanMatchPattern exactPartitioningPlan = anyTree(aggregation(
                 singleGroupingSet("partkey"),
-                ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("sum_partial")))),
+                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", false, ImmutableList.of(symbol("sum_partial")))),
                 Optional.empty(),
                 Step.FINAL,
                 exchange(LOCAL,
@@ -636,18 +636,18 @@ public class TestAddExchangesPlans
                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey"),
                                 aggregation(
                                         singleGroupingSet("partkey"),
-                                        ImmutableMap.of(Optional.of("sum_partial"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                                        ImmutableMap.of(Optional.of("sum_partial"), aggregationFunction("sum", false, ImmutableList.of(symbol("count")))),
                                         Optional.empty(),
                                         PARTIAL,
                                         project(aggregation(
-                                                ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                                ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
                                                 Step.FINAL,
                                                 exchange(LOCAL,
                                                         // forced exact partitioning
                                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey", "suppkey"),
                                                                 aggregation(
                                                                         singleGroupingSet("partkey", "suppkey"),
-                                                                        ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                                        ImmutableMap.of(Optional.of("count_partial"), aggregationFunction("count", false, ImmutableList.of())),
                                                                         Optional.empty(),
                                                                         PARTIAL,
                                                                         tableScan("lineitem", ImmutableMap.of(
@@ -669,7 +669,7 @@ public class TestAddExchangesPlans
                         GROUP BY partkey_expr""",
                 anyTree(aggregation(
                         singleGroupingSet("partkey_expr"),
-                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("sum_partial")))),
+                        ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", false, ImmutableList.of(symbol("sum_partial")))),
                         Optional.empty(),
                         Step.FINAL,
                         exchange(LOCAL,
@@ -677,18 +677,18 @@ public class TestAddExchangesPlans
                                 exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey_expr"),
                                         aggregation(
                                                 singleGroupingSet("partkey_expr"),
-                                                ImmutableMap.of(Optional.of("sum_partial"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                                                ImmutableMap.of(Optional.of("sum_partial"), aggregationFunction("sum", false, ImmutableList.of(symbol("count")))),
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 project(aggregation(
-                                                        ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                                        ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
                                                         Step.FINAL,
                                                         exchange(LOCAL,
                                                                 // forced exact partitioning
                                                                 exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey_expr", "suppkey"),
                                                                         aggregation(
                                                                                 singleGroupingSet("partkey_expr", "suppkey"),
-                                                                                ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                                                ImmutableMap.of(Optional.of("count_partial"), aggregationFunction("count", false, ImmutableList.of())),
                                                                                 Optional.empty(),
                                                                                 PARTIAL,
                                                                                 project(
@@ -707,18 +707,18 @@ public class TestAddExchangesPlans
                         GROUP BY orderkey, partkey""",
                 anyTree(aggregation(
                         singleGroupingSet("orderkey_expr", "partkey"),
-                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                        ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", false, ImmutableList.of(symbol("count")))),
                         Optional.empty(),
                         SINGLE, // no need for partial aggregation since data are already partitioned
                         project(aggregation(
-                                ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
                                 Step.FINAL,
                                 exchange(LOCAL,
                                         // we don't partition by suppkey because it's not needed by the parent aggregation
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("orderkey_expr", "partkey"),
                                                 aggregation(
                                                         singleGroupingSet("orderkey_expr", "partkey", "suppkey"),
-                                                        ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                        ImmutableMap.of(Optional.of("count_partial"), aggregationFunction("count", false, ImmutableList.of())),
                                                         Optional.empty(),
                                                         Step.PARTIAL,
                                                         project(
@@ -846,7 +846,7 @@ public class TestAddExchangesPlans
                                 anyTree(
                                         aggregation(
                                                 singleGroupingSet("orderkey"),
-                                                ImmutableMap.of(Optional.of("any_value"), PlanMatchPattern.functionCall("any_value", false, ImmutableList.of(anySymbol()))),
+                                                ImmutableMap.of(Optional.of("any_value"), PlanMatchPattern.aggregationFunction("any_value", false, ImmutableList.of(anySymbol()))),
                                                 ImmutableList.of("orderkey"),
                                                 ImmutableList.of(),
                                                 Optional.empty(),
@@ -1052,12 +1052,12 @@ public class TestAddExchangesPlans
                         exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
                                 project(
                                         exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                aggregation(ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("nationkey"))),
+                                                aggregation(ImmutableMap.of("partial_sum", aggregationFunction("sum", ImmutableList.of("nationkey"))),
                                                         PARTIAL,
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))),
                                 project(
                                         exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                aggregation(ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("nationkey"))),
+                                                aggregation(ImmutableMap.of("partial_sum", aggregationFunction("sum", ImmutableList.of("nationkey"))),
                                                         PARTIAL,
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))))));
     }
@@ -1107,7 +1107,7 @@ public class TestAddExchangesPlans
                                 project(
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        aggregation(ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("nationkey"))),
+                                                        aggregation(ImmutableMap.of("partial_sum", aggregationFunction("sum", ImmutableList.of("nationkey"))),
                                                                 PARTIAL,
                                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))))));
     }

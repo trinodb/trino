@@ -30,7 +30,7 @@ import java.util.Optional;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
@@ -76,7 +76,7 @@ public class TestPushPartialAggregationThroughJoin
                                 .left(
                                         aggregation(
                                                 singleGroupingSet("LEFT_GROUP_BY", "LEFT_EQUI", "LEFT_NON_EQUI"),
-                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("LEFT_AGGR"))),
+                                                ImmutableMap.of(Optional.of("AVG"), aggregationFunction("avg", ImmutableList.of("LEFT_AGGR"))),
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 values("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_AGGR")))
@@ -111,7 +111,7 @@ public class TestPushPartialAggregationThroughJoin
                                 .right(
                                         aggregation(
                                                 singleGroupingSet("RIGHT_GROUP_BY", "RIGHT_EQUI", "RIGHT_NON_EQUI"),
-                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("RIGHT_AGGR"))),
+                                                ImmutableMap.of(Optional.of("AVG"), aggregationFunction("avg", ImmutableList.of("RIGHT_AGGR"))),
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 values("RIGHT_EQUI", "RIGHT_NON_EQUI", "RIGHT_GROUP_BY", "RIGHT_AGGR"))))));
@@ -213,7 +213,7 @@ public class TestPushPartialAggregationThroughJoin
                                 .left(
                                         aggregation(
                                                 singleGroupingSet("FACT_DATE_ID"),
-                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("AMOUNT"))),
+                                                ImmutableMap.of(Optional.of("AVG"), aggregationFunction("avg", ImmutableList.of("AMOUNT"))),
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 values("FACT_DATE_ID", "AMOUNT")))
@@ -266,7 +266,7 @@ public class TestPushPartialAggregationThroughJoin
                 .matches(
                         aggregation(
                                 singleGroupingSet("DATE_DIM_YEAR"),
-                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("AVG"))),
+                                ImmutableMap.of(Optional.of("AVG"), aggregationFunction("avg", ImmutableList.of("AVG"))),
                                 Optional.empty(),
                                 INTERMEDIATE,
                                 project(ImmutableMap.of(
@@ -277,7 +277,7 @@ public class TestPushPartialAggregationThroughJoin
                                                 .left(
                                                         aggregation(
                                                                 singleGroupingSet("FACT_DATE_ID"),
-                                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("AMOUNT"))),
+                                                                ImmutableMap.of(Optional.of("AVG"), aggregationFunction("avg", ImmutableList.of("AMOUNT"))),
                                                                 Optional.empty(),
                                                                 PARTIAL,
                                                                 values("FACT_DATE_ID", "AMOUNT")))
@@ -308,7 +308,7 @@ public class TestPushPartialAggregationThroughJoin
                                 .left(
                                         aggregation(
                                                 singleGroupingSet("FACT_DATE_ID"),
-                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("AMOUNT"))),
+                                                ImmutableMap.of(Optional.of("AVG"), aggregationFunction("avg", ImmutableList.of("AMOUNT"))),
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 values("FACT_DATE_ID", "AMOUNT")))
@@ -351,7 +351,7 @@ public class TestPushPartialAggregationThroughJoin
                                 .left(
                                         aggregation(
                                                 singleGroupingSet("LEFT_GROUP_BY", "LEFT_EQUI", "LEFT_NON_EQUI"),
-                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("LEFT_AGGR_PRJ"))),
+                                                ImmutableMap.of(Optional.of("AVG"), aggregationFunction("avg", ImmutableList.of("LEFT_AGGR_PRJ"))),
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 project(

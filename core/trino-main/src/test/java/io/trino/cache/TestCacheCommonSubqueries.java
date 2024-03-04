@@ -56,13 +56,13 @@ import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.cacheDataPlanNode;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.chooseAlternativeNode;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.loadCachedDataPlanNode;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
@@ -278,8 +278,8 @@ public class TestCacheCommonSubqueries
                 anyTree(anyTree(aggregation(
                                 singleGroupingSet("REGIONKEY_A"),
                                 ImmutableMap.of(
-                                        Optional.of("MAX_A"), functionCall("max", false, ImmutableList.of(symbol("MAX_PARTIAL_A"))),
-                                        Optional.of("SUM_A"), functionCall("sum", false, ImmutableList.of(symbol("SUM_PARTIAL_A")))),
+                                        Optional.of("MAX_A"), aggregationFunction("max", false, ImmutableList.of(symbol("MAX_PARTIAL_A"))),
+                                        Optional.of("SUM_A"), aggregationFunction("sum", false, ImmutableList.of(symbol("SUM_PARTIAL_A")))),
                                 Optional.empty(),
                                 FINAL,
                                 anyTree(
@@ -288,8 +288,8 @@ public class TestCacheCommonSubqueries
                                                 aggregation(
                                                         singleGroupingSet("REGIONKEY_A"),
                                                         ImmutableMap.of(
-                                                                Optional.of("MAX_PARTIAL_A"), functionCall("max", false, ImmutableList.of(symbol("NATIONKEY_A"))),
-                                                                Optional.of("SUM_PARTIAL_A"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY_A")))),
+                                                                Optional.of("MAX_PARTIAL_A"), aggregationFunction("max", false, ImmutableList.of(symbol("NATIONKEY_A"))),
+                                                                Optional.of("SUM_PARTIAL_A"), aggregationFunction("sum", false, ImmutableList.of(symbol("NATIONKEY_A")))),
                                                         Optional.empty(),
                                                         PARTIAL,
                                                         tableScan("nation", ImmutableMap.of("NATIONKEY_A", "nationkey", "REGIONKEY_A", "regionkey"))),
@@ -302,9 +302,9 @@ public class TestCacheCommonSubqueries
                                                                 aggregation(
                                                                         singleGroupingSet("REGIONKEY_A"),
                                                                         ImmutableMap.of(
-                                                                                Optional.of("MAX_PARTIAL_A"), functionCall("max", false, ImmutableList.of(symbol("NATIONKEY_A"))),
-                                                                                Optional.of("SUM_PARTIAL_A"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY_A"))),
-                                                                                Optional.of("AVG_PARTIAL_A"), functionCall("avg", false, ImmutableList.of(symbol("NATIONKEY_A")))),
+                                                                                Optional.of("MAX_PARTIAL_A"), aggregationFunction("max", false, ImmutableList.of(symbol("NATIONKEY_A"))),
+                                                                                Optional.of("SUM_PARTIAL_A"), aggregationFunction("sum", false, ImmutableList.of(symbol("NATIONKEY_A"))),
+                                                                                Optional.of("AVG_PARTIAL_A"), aggregationFunction("avg", false, ImmutableList.of(symbol("NATIONKEY_A")))),
                                                                         Optional.empty(),
                                                                         PARTIAL,
                                                                         tableScan("nation", ImmutableMap.of("NATIONKEY_A", "nationkey", "REGIONKEY_A", "regionkey"))))),
@@ -317,8 +317,8 @@ public class TestCacheCommonSubqueries
                         anyTree(aggregation(
                                 singleGroupingSet("REGIONKEY_B"),
                                 ImmutableMap.of(
-                                        Optional.of("AVG_B"), functionCall("avg", false, ImmutableList.of(symbol("AVG_PARTIAL_B"))),
-                                        Optional.of("SUM_B"), functionCall("sum", false, ImmutableList.of(symbol("SUM_PARTIAL_B")))),
+                                        Optional.of("AVG_B"), aggregationFunction("avg", false, ImmutableList.of(symbol("AVG_PARTIAL_B"))),
+                                        Optional.of("SUM_B"), aggregationFunction("sum", false, ImmutableList.of(symbol("SUM_PARTIAL_B")))),
                                 Optional.empty(),
                                 FINAL,
                                 anyTree(
@@ -327,8 +327,8 @@ public class TestCacheCommonSubqueries
                                                 aggregation(
                                                         singleGroupingSet("REGIONKEY_B"),
                                                         ImmutableMap.of(
-                                                                Optional.of("SUM_PARTIAL_B"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY_B"))),
-                                                                Optional.of("AVG_PARTIAL_B"), functionCall("avg", false, ImmutableList.of(symbol("NATIONKEY_B")))),
+                                                                Optional.of("SUM_PARTIAL_B"), aggregationFunction("sum", false, ImmutableList.of(symbol("NATIONKEY_B"))),
+                                                                Optional.of("AVG_PARTIAL_B"), aggregationFunction("avg", false, ImmutableList.of(symbol("NATIONKEY_B")))),
                                                         Optional.empty(),
                                                         PARTIAL,
                                                         tableScan("nation", ImmutableMap.of("NATIONKEY_B", "nationkey", "REGIONKEY_B", "regionkey"))),
@@ -341,9 +341,9 @@ public class TestCacheCommonSubqueries
                                                                 aggregation(
                                                                         singleGroupingSet("REGIONKEY_B"),
                                                                         ImmutableMap.of(
-                                                                                Optional.of("MAX_PARTIAL_B"), functionCall("max", false, ImmutableList.of(symbol("NATIONKEY_B"))),
-                                                                                Optional.of("SUM_PARTIAL_B"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY_B"))),
-                                                                                Optional.of("AVG_PARTIAL_B"), functionCall("avg", false, ImmutableList.of(symbol("NATIONKEY_B")))),
+                                                                                Optional.of("MAX_PARTIAL_B"), aggregationFunction("max", false, ImmutableList.of(symbol("NATIONKEY_B"))),
+                                                                                Optional.of("SUM_PARTIAL_B"), aggregationFunction("sum", false, ImmutableList.of(symbol("NATIONKEY_B"))),
+                                                                                Optional.of("AVG_PARTIAL_B"), aggregationFunction("avg", false, ImmutableList.of(symbol("NATIONKEY_B")))),
                                                                         Optional.empty(),
                                                                         PARTIAL,
                                                                         tableScan("nation", ImmutableMap.of("NATIONKEY_B", "nationkey", "REGIONKEY_B", "regionkey"))))),

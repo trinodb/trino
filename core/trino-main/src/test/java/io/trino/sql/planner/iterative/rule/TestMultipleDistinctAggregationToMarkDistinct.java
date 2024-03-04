@@ -26,7 +26,7 @@ import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -141,8 +141,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                 .matches(aggregation(
                         globalAggregation(),
                         ImmutableMap.of(
-                                Optional.of("output1"), functionCall("count", ImmutableList.of("input1")),
-                                Optional.of("output2"), functionCall("count", ImmutableList.of("input2"))),
+                                Optional.of("output1"), aggregationFunction("count", ImmutableList.of("input1")),
+                                Optional.of("output2"), aggregationFunction("count", ImmutableList.of("input2"))),
                         ImmutableList.of(),
                         ImmutableList.of("mark_input1", "mark_input2"),
                         Optional.empty(),

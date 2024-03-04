@@ -134,8 +134,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
@@ -474,7 +474,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                         .equiCriteria("left_groupingKey", "right_groupingKey")
                                         .left(aggregation(
                                                 singleGroupingSet("left_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output1"), functionCall("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                                ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 tableScan(
@@ -484,7 +484,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                 "left_groupingKey", GROUPING_KEY_COLUMN))))
                                         .right(aggregation(
                                                 singleGroupingSet("right_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output2"), functionCall("sum", true, ImmutableList.of(symbol("input2Symbol")))),
+                                                ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 tableScan(
@@ -698,7 +698,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                         .equiCriteria("left_groupingKey", "right_groupingKey")
                                         .left(aggregation(
                                                 singleGroupingSet("left_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output1"), functionCall("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                                ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
@@ -711,7 +711,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                         "left_filterInput", GROUPING_KEY2_COLUMN)))))
                                         .right(aggregation(
                                                 singleGroupingSet("right_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output2"), functionCall("sum", true, ImmutableList.of(symbol("input2Symbol")))),
+                                                ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
@@ -816,10 +816,10 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                 INNER,
                                 builder -> builder
                                         .left(aggregation(
-                                                ImmutableMap.of("output1", functionCall("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                                ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
                                                 tableScan(TABLE_NAME, ImmutableMap.of("input1Symbol", COLUMN_1))))
                                         .right(aggregation(
-                                                ImmutableMap.of("output2", functionCall("sum", true, ImmutableList.of(symbol("input2Symbol")))),
+                                                ImmutableMap.of("output2", aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
                                                 tableScan(TABLE_NAME, ImmutableMap.of("input2Symbol", COLUMN_2)))))));
     }
 
@@ -855,16 +855,16 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                 INNER,
                                 join -> join
                                         .left(aggregation(
-                                                ImmutableMap.of("output1", functionCall("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                                ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
                                                 tableScan(TABLE_NAME, ImmutableMap.of("input1Symbol", COLUMN_1))))
                                         .right(join(
                                                 INNER,
                                                 subJoin -> subJoin
                                                         .left(aggregation(
-                                                                ImmutableMap.of("output2", functionCall("sum", true, ImmutableList.of(symbol("input2Symbol")))),
+                                                                ImmutableMap.of("output2", aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
                                                                 tableScan(TABLE_NAME, ImmutableMap.of("input2Symbol", COLUMN_2))))
                                                         .right(aggregation(
-                                                                ImmutableMap.of("output3", functionCall("count", true, ImmutableList.of(symbol("input3Symbol")))),
+                                                                ImmutableMap.of("output3", aggregationFunction("count", true, ImmutableList.of(symbol("input3Symbol")))),
                                                                 tableScan(TABLE_NAME, ImmutableMap.of("input3Symbol", COLUMN_3)))))))));
     }
 
@@ -905,22 +905,22 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                 INNER,
                                 join -> join
                                         .left(aggregation(
-                                                ImmutableMap.of("output1", functionCall("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                                ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
                                                 tableScan(TABLE_NAME, ImmutableMap.of("input1Symbol", COLUMN_1))))
                                         .right(join(
                                                 INNER,
                                                 subJoin -> subJoin
                                                         .left(aggregation(
-                                                                ImmutableMap.of("output2", functionCall("count", true, ImmutableList.of(symbol("input2Symbol")))),
+                                                                ImmutableMap.of("output2", aggregationFunction("count", true, ImmutableList.of(symbol("input2Symbol")))),
                                                                 tableScan(TABLE_NAME, ImmutableMap.of("input2Symbol", COLUMN_2))))
                                                         .right(join(
                                                                 INNER,
                                                                 subJoin2 -> subJoin2
                                                                         .left(aggregation(
-                                                                                ImmutableMap.of("output3", functionCall("count", true, ImmutableList.of(symbol("input3Symbol")))),
+                                                                                ImmutableMap.of("output3", aggregationFunction("count", true, ImmutableList.of(symbol("input3Symbol")))),
                                                                                 tableScan(TABLE_NAME, ImmutableMap.of("input3Symbol", COLUMN_3))))
                                                                         .right(aggregation(
-                                                                                ImmutableMap.of("output4", functionCall("count", true, ImmutableList.of(symbol("input4Symbol")))),
+                                                                                ImmutableMap.of("output4", aggregationFunction("count", true, ImmutableList.of(symbol("input4Symbol")))),
                                                                                 tableScan(TABLE_NAME, ImmutableMap.of("input4Symbol", COLUMN_4)))))))))));
     }
 
@@ -954,12 +954,12 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                 INNER,
                                 builder -> builder
                                         .left(aggregation(
-                                                ImmutableMap.of("output1", functionCall("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                                ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
                                                 tableScan(TABLE_NAME, ImmutableMap.of("input1Symbol", COLUMN_1))))
                                         .right(aggregation(
                                                 ImmutableMap.of(
-                                                        "output2", functionCall("sum", true, ImmutableList.of(symbol("input2Symbol"))),
-                                                        "output3", functionCall("count", true, ImmutableList.of(symbol("input2Symbol")))),
+                                                        "output2", aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol"))),
+                                                        "output3", aggregationFunction("count", true, ImmutableList.of(symbol("input2Symbol")))),
                                                 tableScan(TABLE_NAME, ImmutableMap.of("input2Symbol", COLUMN_2)))))));
     }
 
@@ -999,7 +999,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                         .equiCriteria("left_groupingKey", "right_groupingKey")
                                         .left(aggregation(
                                                 singleGroupingSet("left_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output1"), functionCall("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                                ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 tableScan(
@@ -1009,7 +1009,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                 "left_groupingKey", GROUPING_KEY_COLUMN))))
                                         .right(aggregation(
                                                 singleGroupingSet("right_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output2"), functionCall("sum", true, ImmutableList.of(symbol("input2Symbol")))),
+                                                ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 tableScan(
@@ -1083,7 +1083,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                         .equiCriteria("left_groupingKey", "right_groupingKey")
                                         .left(aggregation(
                                                 singleGroupingSet("left_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output1"), functionCall("count", true, ImmutableList.of(symbol("input1Symbol1")))),
+                                                ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol1")))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 union(
@@ -1108,7 +1108,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                         .withAlias("left_groupingKey", new SetOperationOutputMatcher(2))))
                                         .right(aggregation(
                                                 singleGroupingSet("right_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output2"), functionCall("sum", true, ImmutableList.of(symbol("input2Symbol2")))),
+                                                ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol2")))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 union(
