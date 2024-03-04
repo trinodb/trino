@@ -511,7 +511,8 @@ public class DynamicFilterService
                                 return applySaturatedCasts(metadata, functionManager, typeOperators, session, updatedSummary, targetType);
                             }
                             return updatedSummary;
-                        })));
+                        },
+                        Domain::intersect)));
     }
 
     private static Set<DynamicFilterId> getLazyDynamicFilters(PlanFragment plan)
