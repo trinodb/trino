@@ -42,6 +42,7 @@ import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.CommentCharacteristic;
 import io.trino.sql.tree.Commit;
@@ -326,6 +327,9 @@ import static io.trino.grammar.sql.SqlBaseParser.TIME;
 import static io.trino.grammar.sql.SqlBaseParser.TIMESTAMP;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_END;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_START;
+import static io.trino.sql.tree.ColumnPosition.AFTER;
+import static io.trino.sql.tree.ColumnPosition.FIRST;
+import static io.trino.sql.tree.ColumnPosition.LAST;
 import static io.trino.sql.tree.GroupingSets.Type.CUBE;
 import static io.trino.sql.tree.GroupingSets.Type.EXPLICIT;
 import static io.trino.sql.tree.GroupingSets.Type.ROLLUP;
@@ -820,8 +824,27 @@ class AstBuilder
         return new AddColumn(getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (ColumnDefinition) visit(context.columnDefinition()),
+                toColumnPosition(context.FIRST(), context.AFTER()),
+                getIdentifierIfPresent(context.after),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
+    }
+
+    private static ColumnPosition toColumnPosition(TerminalNode first, TerminalNode exists)
+    {
+        boolean isFirst = first != null;
+        boolean isAfter = exists != null;
+        checkArgument(!(isFirst && isAfter), "'FIRST' and 'AFTER' clauses can not be used together");
+
+        if (isFirst) {
+            return FIRST;
+        }
+
+        if (isAfter) {
+            return AFTER;
+        }
+
+        return LAST;
     }
 
     @Override
