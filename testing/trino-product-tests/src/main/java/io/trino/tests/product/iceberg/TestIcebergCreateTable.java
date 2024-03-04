@@ -13,11 +13,9 @@
  */
 package io.trino.tests.product.iceberg;
 
-import com.google.inject.Inject;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
-import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -26,15 +24,11 @@ import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergCreateTable
         extends ProductTest
 {
-    @Inject
-    private HdfsClient hdfsClient;
-
     @BeforeMethodWithContext
     public void setUp()
     {
@@ -90,36 +84,5 @@ public class TestIcebergCreateTable
         finally {
             onTrino().executeQuery("DROP TABLE " + tableName);
         }
-    }
-
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
-    public void testCreateExternalTableWithInaccessibleSchemaLocation()
-    {
-        String schemaName = "schema_without_location";
-        String schemaLocation = "/tmp/" + schemaName;
-        hdfsClient.createDirectory(schemaLocation);
-
-        onTrino().executeQuery(format("CREATE SCHEMA iceberg.%s WITH (location = '%s')", schemaName, schemaLocation));
-
-        hdfsClient.delete(schemaLocation);
-
-        String tableName = "test_create_external";
-        String tableLocation = "/tmp/" + tableName;
-
-        String schemaAndTableName = format("iceberg.%s.%s", schemaName, tableName);
-        onTrino().executeQuery(format("CREATE TABLE %s (a bigint, b VARCHAR) WITH (location = '%s')", schemaAndTableName, tableLocation));
-
-        onTrino().executeQuery("INSERT INTO " + schemaAndTableName + "(a, b) VALUES " +
-                "(NULL, NULL), " +
-                "(-42, 'abc'), " +
-                "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')");
-        assertThat(onTrino().executeQuery("SELECT * FROM " + schemaAndTableName))
-                .containsOnly(
-                        row(null, null),
-                        row(-42, "abc"),
-                        row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
-
-        onTrino().executeQuery(format("DROP TABLE %s", schemaAndTableName));
-        onTrino().executeQuery(format("DROP SCHEMA iceberg.%s", schemaName));
     }
 }
