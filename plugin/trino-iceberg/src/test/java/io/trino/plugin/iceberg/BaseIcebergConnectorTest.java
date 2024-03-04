@@ -7504,7 +7504,7 @@ public abstract class BaseIcebergConnectorTest
         // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
         if ((format == IcebergFileFormat.PARQUET || format == AVRO) && compressionCodec == HiveCompressionCodec.LZ4) {
             assertTrinoExceptionThrownBy(() -> computeActual(session, createTableSql))
-                    .hasMessage("Compression codec LZ4 not supported for " + capitalize(format.name().toLowerCase(ENGLISH)));
+                    .hasMessage("Compression codec LZ4 not supported for " + format.humanName());
             return;
         }
         assertUpdate(session, createTableSql, 25);
@@ -7912,10 +7912,5 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_QUERY_ID_NAME))
                 .isEqualTo(queryId.toString());
-    }
-
-    private static String capitalize(String value)
-    {
-        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
     }
 }
