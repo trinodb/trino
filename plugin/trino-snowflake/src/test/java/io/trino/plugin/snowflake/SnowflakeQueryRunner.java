@@ -55,13 +55,11 @@ public final class SnowflakeQueryRunner
             connectorProperties.putIfAbsent("snowflake.database", TestingSnowflakeServer.TEST_DATABASE);
             connectorProperties.putIfAbsent("snowflake.role", TestingSnowflakeServer.TEST_ROLE);
             connectorProperties.putIfAbsent("snowflake.warehouse", TestingSnowflakeServer.TEST_WAREHOUSE);
-            if (TestingSnowflakeServer.TEST_PROXY != null) {
-                connectorProperties.putIfAbsent("snowflake.httpProxy", TestingSnowflakeServer.TEST_PROXY);
-            }
 
             queryRunner.installPlugin(new SnowflakePlugin());
             queryRunner.createCatalog("snowflake", "snowflake", connectorProperties);
 
+            queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
             return queryRunner;

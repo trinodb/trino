@@ -14,6 +14,7 @@
 package io.trino.plugin.snowflake;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
 
 import java.util.Optional;
 
@@ -23,7 +24,6 @@ public class SnowflakeConfig
     private String database;
     private String role;
     private String warehouse;
-    private Boolean timestampNoTimezoneAsUTC;
     private String httpProxy;
 
     public Optional<String> getAccount()
@@ -74,18 +74,14 @@ public class SnowflakeConfig
         return this;
     }
 
-    public Optional<Boolean> getTimestampNoTimezoneAsUTC()
-    {
-        return Optional.ofNullable(timestampNoTimezoneAsUTC);
-    }
-
-    public Optional<String> getHTTPProxy()
+    public Optional<String> getHttpProxy()
     {
         return Optional.ofNullable(httpProxy);
     }
 
     @Config("snowflake.http-proxy")
-    public SnowflakeConfig setHTTPProxy(String httpProxy)
+    @ConfigSecuritySensitive
+    public SnowflakeConfig setHttpProxy(String httpProxy)
     {
         this.httpProxy = httpProxy;
         return this;
