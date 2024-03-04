@@ -71,6 +71,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveCompressionOption.LZ4;
 import static io.trino.plugin.hive.HiveCompressionOption.NONE;
+import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
@@ -132,15 +133,12 @@ public class TestHivePageSink
                 if (codec == NONE) {
                     continue;
                 }
-                if ((format == PARQUET) && (codec == LZ4)) {
-                    // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
-                    continue;
-                }
                 config.setHiveCompressionCodec(codec);
 
+                // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
                 if (!isSupportedCodec(format, codec)) {
                     assertThatThrownBy(() -> writeTestFile(fileSystemFactory, config, sortingFileWriterConfig, metastore, makeFileName(config)))
-                            .hasMessage("Compression codec " + codec + " not supported for " + format);
+                            .hasMessage("Compression codec " + codec + " not supported for " + format.humanName());
                     continue;
                 }
 
@@ -220,7 +218,7 @@ public class TestHivePageSink
 
     private static boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionOption compressionOption)
     {
-        if (storageFormat == HiveStorageFormat.AVRO && compressionOption == LZ4) {
+        if ((storageFormat == AVRO || storageFormat == PARQUET) && compressionOption == LZ4) {
             return false;
         }
         return true;

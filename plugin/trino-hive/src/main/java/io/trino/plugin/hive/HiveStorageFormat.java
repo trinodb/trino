@@ -195,4 +195,13 @@ public enum HiveStorageFormat
         return Optional.ofNullable(HIVE_STORAGE_FORMATS.get(
                 new SerdeAndInputFormat(storageFormat.getSerde(), storageFormat.getInputFormat())));
     }
+
+    public String humanName()
+    {
+        return switch (this) {
+            case AVRO -> "Avro";
+            case PARQUET -> "Parquet";
+            default -> toString();
+        };
+    }
 }
