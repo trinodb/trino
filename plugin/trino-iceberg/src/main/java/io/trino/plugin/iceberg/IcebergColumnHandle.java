@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
@@ -26,6 +27,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static java.util.Objects.requireNonNull;
@@ -35,6 +39,8 @@ import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 public class IcebergColumnHandle
         implements ColumnHandle
 {
+    private static final int INSTANCE_SIZE = instanceSize(IcebergColumnHandle.class);
+
     // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
     public static final int TRINO_UPDATE_ROW_ID = Integer.MIN_VALUE;
     public static final int TRINO_MERGE_ROW_ID = Integer.MIN_VALUE + 1;
@@ -231,6 +237,17 @@ public class IcebergColumnHandle
     public String toString()
     {
         return getId() + ":" + getName() + ":" + type.getDisplayName();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // type is not accounted for as the instances are cached (by TypeRegistry) and shared
+        return INSTANCE_SIZE
+                + baseColumnIdentity.getRetainedSizeInBytes()
+                + estimatedSizeOf(path, SizeOf::sizeOf)
+                + sizeOf(nullable)
+                + sizeOf(comment, SizeOf::estimatedSizeOf)
+                + sizeOf(id);
     }
 
     public static IcebergColumnHandle pathColumnHandle()
