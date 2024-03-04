@@ -57,6 +57,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -1878,7 +1879,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position, Optional<String> afterColumnName)
     {
         // Spark doesn't support adding a NOT NULL column to Iceberg tables
         // Also, Spark throws an exception when reading the table if we add such columns and execute a rollback procedure
@@ -1892,9 +1893,14 @@ public class IcebergMetadata
         // added - instead of relying on addColumn in iceberg library to assign Ids
         AtomicInteger nextFieldId = new AtomicInteger(icebergTable.schema().highestFieldId() + 2);
         try {
-            icebergTable.updateSchema()
-                    .addColumn(column.getName(), toIcebergTypeForNewColumn(column.getType(), nextFieldId), column.getComment())
-                    .commit();
+            UpdateSchema updateSchema = icebergTable.updateSchema();
+            updateSchema.addColumn(column.getName(), toIcebergTypeForNewColumn(column.getType(), nextFieldId), column.getComment());
+            switch (position) {
+                case FIRST -> updateSchema.moveFirst(column.getName());
+                case AFTER -> updateSchema.moveAfter(column.getName(), afterColumnName.orElseThrow());
+                case LAST -> {}
+            }
+            updateSchema.commit();
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add column: " + firstNonNull(e.getMessage(), e), e);
@@ -1902,7 +1908,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, io.trino.spi.type.Type type, boolean ignoreExisting)
+    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, io.trino.spi.type.Type type, ColumnPosition position, Optional<String> afterFieldName, boolean ignoreExisting)
     {
         // Iceberg disallows ambiguous field names in a table. e.g. (a row(b int), "a.b" int)
         String parentName = String.join(".", parentPath);
@@ -1920,9 +1926,14 @@ public class IcebergMetadata
         }
 
         try {
-            icebergTable.updateSchema()
-                    .addColumn(caseSensitiveParentName, fieldName, toIcebergTypeForNewColumn(type, new AtomicInteger())) // Iceberg library assigns fresh id internally
-                    .commit();
+            UpdateSchema updateSchema = icebergTable.updateSchema();
+            updateSchema.addColumn(caseSensitiveParentName, fieldName, toIcebergTypeForNewColumn(type, new AtomicInteger())); // Iceberg library assigns fresh id internally;
+            switch (position) {
+                case FIRST -> updateSchema.moveFirst(caseSensitiveParentName + "." + fieldName);
+                case AFTER -> updateSchema.moveAfter(caseSensitiveParentName + "." + fieldName, caseSensitiveParentName + "." + afterFieldName.orElseThrow());
+                case LAST -> {}
+            }
+            updateSchema.commit();
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add field: " + firstNonNull(e.getMessage(), e), e);
