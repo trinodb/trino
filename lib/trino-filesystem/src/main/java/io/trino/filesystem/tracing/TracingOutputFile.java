@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.tracing;
 
-import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
@@ -59,13 +58,13 @@ final class TracingOutputFile
     }
 
     @Override
-    public void createExclusive(Slice content)
+    public void createExclusive(byte[] data)
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.createExclusive")
                 .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .startSpan();
-        withTracing(span, () -> delegate.createExclusive(content));
+        withTracing(span, () -> delegate.createExclusive(data));
     }
 
     @Override
