@@ -2562,14 +2562,10 @@ class StatementAnalyzer
 
             if (storageTable.isPresent()) {
                 List<Field> storageTableFields = analyzeStorageTable(table, viewFields, storageTable.get());
-                Scope accessControlScope = Scope.builder()
-                        .withRelationType(RelationId.anonymous(), new RelationType(viewFields))
-                        .build();
-                analyzeFiltersAndMasks(table, name, new RelationType(viewFields), accessControlScope);
-                analysis.registerTable(table, storageTable, name, session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
-                analysis.addRelationCoercion(table, viewFields.stream().map(Field::getType).toArray(Type[]::new));
-                // use storage table output fields as they contain ColumnHandles
-                return createAndAssignScope(table, scope, storageTableFields);
+                analysis.setMaterializedViewStorageTableFields(table, storageTableFields);
+            }
+            else {
+                analysis.registerNamedQuery(table, query);
             }
 
             Scope accessControlScope = Scope.builder()
@@ -2578,7 +2574,6 @@ class StatementAnalyzer
             analyzeFiltersAndMasks(table, name, new RelationType(viewFields), accessControlScope);
             analysis.registerTable(table, storageTable, name, session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
             viewFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
-            analysis.registerNamedQuery(table, query);
             return createAndAssignScope(table, scope, viewFields);
         }
 
