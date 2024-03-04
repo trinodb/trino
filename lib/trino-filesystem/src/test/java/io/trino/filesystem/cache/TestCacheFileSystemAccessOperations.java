@@ -86,9 +86,7 @@ public class TestCacheFileSystemAccessOperations
                         .build());
 
         byte[] modifiedContent = "modified content".getBytes(StandardCharsets.UTF_8);
-        try (OutputStream output = fileSystem.newOutputFile(location).createOrOverwrite()) {
-            output.write(modifiedContent);
-        }
+        fileSystem.newOutputFile(location).createOrOverwrite(modifiedContent);
 
         assertReadOperations(location, modifiedContent,
                 ImmutableMultiset.<FileOperation>builder()

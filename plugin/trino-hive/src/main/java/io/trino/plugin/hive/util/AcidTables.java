@@ -86,9 +86,7 @@ public final class AcidTables
             throws IOException
     {
         TrinoOutputFile file = fileSystem.newOutputFile(versionFilePath(deltaOrBaseDir));
-        try (var out = file.createOrOverwrite()) {
-            out.write('2');
-        }
+        file.createOrOverwrite(new byte[] {'2'});
     }
 
     public static int readAcidVersionFile(TrinoFileSystem fileSystem, Location deltaOrBaseDir)

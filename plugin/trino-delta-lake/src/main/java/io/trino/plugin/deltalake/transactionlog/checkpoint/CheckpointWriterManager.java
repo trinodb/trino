@@ -33,7 +33,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
@@ -162,9 +161,7 @@ public class CheckpointWriterManager
             LastCheckpoint newLastCheckpoint = new LastCheckpoint(newCheckpointVersion, checkpointEntries.size(), Optional.empty());
             Location checkpointPath = transactionLogDir.appendPath(LAST_CHECKPOINT_FILENAME);
             TrinoOutputFile outputFile = fileSystem.newOutputFile(checkpointPath);
-            try (OutputStream outputStream = outputFile.createOrOverwrite()) {
-                outputStream.write(lastCheckpointCodec.toJsonBytes(newLastCheckpoint));
-            }
+            outputFile.createOrOverwrite(lastCheckpointCodec.toJsonBytes(newLastCheckpoint));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

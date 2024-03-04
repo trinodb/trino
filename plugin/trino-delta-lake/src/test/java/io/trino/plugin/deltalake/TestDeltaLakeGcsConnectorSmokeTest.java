@@ -15,8 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteSource;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
@@ -37,7 +35,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -177,11 +174,9 @@ public class TestDeltaLakeGcsConnectorSmokeTest
                     .collect(toImmutableList());
             for (ClassPath.ResourceInfo resourceInfo : resources) {
                 String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(targetDirectory));
-                ByteSource byteSource = resourceInfo.asByteSource();
+                byte[] bytes = resourceInfo.asByteSource().read();
                 TrinoOutputFile trinoOutputFile = fileSystem.newOutputFile(Location.of(fileName));
-                try (OutputStream fileStream = trinoOutputFile.createOrOverwrite()) {
-                    ByteStreams.copy(byteSource.openBufferedStream(), fileStream);
-                }
+                trinoOutputFile.createOrOverwrite(bytes);
             }
         }
         catch (IOException e) {

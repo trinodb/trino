@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
-import java.io.OutputStream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -44,9 +43,7 @@ public class TestGcsFileSystemGcs
         // In practice this may happen between 7 and 20 retries.
         for (int i = 1; i <= 30; i++) {
             TrinoOutputFile outputFile = getFileSystem().newOutputFile(getRootLocation().appendPath("testFile"));
-            try (OutputStream out = outputFile.createOrOverwrite()) {
-                out.write("test".getBytes(UTF_8));
-            }
+            outputFile.createOrOverwrite("test".getBytes(UTF_8));
         }
     }
 }
