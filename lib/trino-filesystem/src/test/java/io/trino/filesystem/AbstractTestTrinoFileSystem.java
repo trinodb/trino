@@ -46,7 +46,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -87,7 +86,7 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     /**
-     * Specifies whether implementation supports {@link TrinoOutputFile#createExclusive(Slice)}.
+     * Specifies whether implementation supports {@link TrinoOutputFile#createExclusive(byte[])}.
      */
     protected boolean supportsCreateExclusive()
     {
@@ -523,12 +522,12 @@ public abstract class AbstractTestTrinoFileSystem
 
                 // re-create exclusive is an error
                 if (supportsCreateExclusive()) {
-                    assertThatThrownBy(() -> outputFile.createExclusive(EMPTY_SLICE))
+                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
                             .isInstanceOf(FileAlreadyExistsException.class)
                             .hasMessageContaining(tempBlob.location().toString());
                 }
                 else {
-                    assertThatThrownBy(() -> outputFile.createExclusive(EMPTY_SLICE))
+                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
                             .isInstanceOf(UnsupportedOperationException.class)
                             .hasMessageStartingWith("createExclusive not supported");
                 }
@@ -547,12 +546,12 @@ public abstract class AbstractTestTrinoFileSystem
 
                 // create exclusive is an error
                 if (supportsCreateExclusive()) {
-                    assertThatThrownBy(() -> outputFile.createExclusive(EMPTY_SLICE))
+                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
                             .isInstanceOf(FileAlreadyExistsException.class)
                             .hasMessageContaining(tempBlob.location().toString());
                 }
                 else {
-                    assertThatThrownBy(() -> outputFile.createExclusive(EMPTY_SLICE))
+                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
                             .isInstanceOf(UnsupportedOperationException.class)
                             .hasMessageStartingWith("createExclusive not supported");
                 }
@@ -581,7 +580,7 @@ public abstract class AbstractTestTrinoFileSystem
         AtomicBoolean finishing = new AtomicBoolean(false);
         try (TempBlob tempBlob = randomBlobLocation("outputFile")) {
             TrinoFileSystem fileSystem = getFileSystem();
-            Slice content = wrappedBuffer("a".repeat(MEGABYTE).getBytes(US_ASCII));
+            byte[] content = "a".repeat(MEGABYTE).getBytes(US_ASCII);
 
             fileSystem.deleteFile(tempBlob.location());
             CyclicBarrier barrier = new CyclicBarrier(2);
@@ -597,7 +596,7 @@ public abstract class AbstractTestTrinoFileSystem
 
                 while (!finishing.get()) {
                     try (TrinoInput input = inputFile.newInput()) {
-                        return input.readFully(0, content.length());
+                        return input.readFully(0, content.length);
                     }
                     catch (FileNotFoundException expected) {
                     }
@@ -605,7 +604,7 @@ public abstract class AbstractTestTrinoFileSystem
                 throw new RuntimeException("File not created");
             });
 
-            assertThat(read.get(timeoutSeconds, SECONDS)).as("read content").isEqualTo(content);
+            assertThat(read.get(timeoutSeconds, SECONDS).getBytes()).as("read content").isEqualTo(content);
             write.get(timeoutSeconds, SECONDS);
         }
         finally {
