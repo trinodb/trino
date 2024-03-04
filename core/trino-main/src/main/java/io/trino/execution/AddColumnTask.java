@@ -32,12 +32,15 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -54,6 +57,7 @@ import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.tree.ColumnPosition.AFTER;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -104,12 +108,17 @@ public class AddColumnTask
 
         ColumnDefinition element = statement.getColumn();
         Identifier columnName = element.getName().getOriginalParts().get(0);
+        ColumnPosition position = statement.getPosition();
+        Optional<Identifier> afterColumnName = statement.getAfter();
         Type type;
         try {
             type = plannerContext.getTypeManager().getType(toTypeSignature(element.getType()));
         }
         catch (TypeNotFoundException e) {
             throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", element.getType(), columnName);
+        }
+        if (afterColumnName.isPresent()) {
+            verify(position == AFTER, "afterColumnName should be empty when position is not AFTER");
         }
 
         if (element.getName().getParts().size() == 1) {
@@ -126,6 +135,9 @@ public class AddColumnTask
             }
             if (!element.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
                 throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogHandle, columnName);
+            }
+            if (position == AFTER && !columnHandles.containsKey(afterColumnName.orElseThrow().getValue().toLowerCase(ENGLISH))) {
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not", afterColumnName.orElseThrow().getValue());
             }
 
             Map<String, Object> columnProperties = columnPropertyManager.getProperties(
@@ -146,7 +158,13 @@ public class AddColumnTask
                     .setProperties(columnProperties)
                     .build();
 
-            plannerContext.getMetadata().addColumn(session, tableHandle, qualifiedTableName.asCatalogSchemaTableName(), column);
+            plannerContext.getMetadata().addColumn(
+                    session,
+                    tableHandle,
+                    qualifiedTableName.asCatalogSchemaTableName(),
+                    column,
+                    toConnectorColumnPosition(position),
+                    afterColumnName.map(identifier -> identifier.getValue().toLowerCase(ENGLISH)));
         }
         else {
             accessControl.checkCanAlterColumn(session.toSecurityContext(), qualifiedTableName);
@@ -186,7 +204,17 @@ public class AddColumnTask
                 }
                 throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Field '%s' already exists", fieldName);
             }
-            plannerContext.getMetadata().addField(session, tableHandle, parentPath, fieldName, type, statement.isColumnNotExists());
+            if (position == AFTER && getCandidates(currentType, afterColumnName.orElseThrow().getValue()).isEmpty()) {
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Field '%s' does not exist within %s", afterColumnName.orElseThrow().getValue().toLowerCase(ENGLISH), currentType);
+            }
+            plannerContext.getMetadata().addField(
+                    session,
+                    tableHandle,
+                    parentPath,
+                    fieldName,
+                    type,
+                    toConnectorColumnPosition(position),
+                    afterColumnName.map(identifier -> identifier.getValue().toLowerCase(ENGLISH)), statement.isColumnNotExists());
         }
 
         return immediateVoidFuture();
@@ -203,5 +231,14 @@ public class AddColumnTask
                 .collect(toImmutableList());
 
         return candidates;
+    }
+
+    private static io.trino.spi.connector.ColumnPosition toConnectorColumnPosition(ColumnPosition columnPosition)
+    {
+        return switch (columnPosition) {
+            case FIRST -> io.trino.spi.connector.ColumnPosition.FIRST;
+            case AFTER -> io.trino.spi.connector.ColumnPosition.AFTER;
+            case LAST -> io.trino.spi.connector.ColumnPosition.LAST;
+        };
     }
 }
