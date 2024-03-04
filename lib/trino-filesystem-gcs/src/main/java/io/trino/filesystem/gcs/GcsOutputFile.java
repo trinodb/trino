@@ -20,7 +20,6 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobTargetOption;
 import com.google.cloud.storage.Storage.BlobWriteOption;
 import com.google.cloud.storage.StorageException;
-import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -69,7 +68,7 @@ public class GcsOutputFile
     }
 
     @Override
-    public void createExclusive(Slice content)
+    public void createExclusive(byte[] data)
             throws IOException
     {
         try {
@@ -78,7 +77,7 @@ public class GcsOutputFile
             }
             storage.create(
                     BlobInfo.newBuilder(BlobId.of(location.bucket(), location.path())).build(),
-                    content.getBytes(),
+                    data,
                     DOES_NOT_EXIST_TARGET_OPTION);
         }
         catch (FileAlreadyExistsException e) {

@@ -14,7 +14,6 @@
 package io.trino.filesystem.hdfs;
 
 import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
-import io.airlift.slice.Slice;
 import io.airlift.stats.TimeStat;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
@@ -70,14 +69,14 @@ class HdfsOutputFile
     }
 
     @Override
-    public void createExclusive(Slice content)
+    public void createExclusive(byte[] data)
             throws IOException
     {
         Path file = hadoopPath(location);
         FileSystem fileSystem = getRawFileSystem(environment.getFileSystem(context, file));
         if (fileSystem instanceof GoogleHadoopFileSystem) {
             GcsAtomicOutputStream atomicOutputStream = new GcsAtomicOutputStream(environment, context, file);
-            atomicOutputStream.write(content.getBytes());
+            atomicOutputStream.write(data);
             atomicOutputStream.close();
             return;
         }
