@@ -71,6 +71,15 @@ class AzureOutputFile
         return createOutputStream(memoryContext, true);
     }
 
+    @Override
+    public void createExclusive(byte[] data)
+            throws IOException
+    {
+        try (OutputStream outputStream = create()) {
+            outputStream.write(data);
+        }
+    }
+
     private AzureOutputStream createOutputStream(AggregatedMemoryContext memoryContext, boolean overwrite)
             throws IOException
     {
