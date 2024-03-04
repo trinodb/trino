@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
@@ -457,8 +459,9 @@ public class TestSqlFormatter
                                 true,
                                 emptyList(),
                                 Optional.empty()),
+                        new ColumnPosition.Last(),
                         false, false)))
-                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR");
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR LAST");
         assertThat(formatSql(
                 new AddColumn(
                         new NodeLocation(1, 1),
@@ -468,8 +471,48 @@ public class TestSqlFormatter
                                 true,
                                 emptyList(),
                                 Optional.of("攻殻機動隊")),
+                        new ColumnPosition.Last(),
                         false, false)))
-                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR COMMENT '攻殻機動隊'");
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR COMMENT '攻殻機動隊' LAST");
+        assertThat(formatSql(
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        new ColumnPosition.First(),
+                        false,
+                        false)))
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR FIRST");
+        assertThat(formatSql(
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        new ColumnPosition.Last(),
+                        false,
+                        false)))
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR LAST");
+        assertThat(formatSql(
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        new ColumnPosition.After(identifier("b")),
+                        false,
+                        false)))
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR AFTER b");
     }
 
     @Test

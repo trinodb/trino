@@ -80,7 +80,8 @@ statement
     | ALTER TABLE (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameTable
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
+        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition
+        (FIRST | LAST | AFTER after=identifier)?                       #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         RENAME COLUMN (IF EXISTS)? from=qualifiedName TO to=identifier #renameColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
