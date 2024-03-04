@@ -22,6 +22,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.SAP_HANA;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteSapHana
@@ -32,7 +34,7 @@ public class SuiteSapHana
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeSapHana.class)
-                        .withGroups("configured_features", "sap-hana")
+                        .withGroups(CONFIGURED_FEATURES, SAP_HANA)
                         .build());
     }
 }

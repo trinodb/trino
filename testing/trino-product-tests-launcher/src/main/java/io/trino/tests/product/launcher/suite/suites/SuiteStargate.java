@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.STARGATE;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteStargate
@@ -31,7 +33,7 @@ public class SuiteStargate
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeStargateWithRemoteSinglenodeStarburst.class)
-                        .withGroups("configured_features", "stargate")
+                        .withGroups(CONFIGURED_FEATURES, STARGATE)
                         .build());
     }
 }

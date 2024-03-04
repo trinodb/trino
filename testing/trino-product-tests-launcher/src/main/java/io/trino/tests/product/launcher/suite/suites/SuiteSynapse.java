@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.SYNAPSE;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteSynapse
@@ -31,7 +33,7 @@ public class SuiteSynapse
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeSynapse.class)
-                        .withGroups("configured_features", "synapse")
+                        .withGroups(CONFIGURED_FEATURES, SYNAPSE)
                         .build());
     }
 }

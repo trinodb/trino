@@ -21,6 +21,7 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.HIVE_CACHE_SUBQUERIES;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteSubqueryCache
@@ -31,7 +32,7 @@ public class SuiteSubqueryCache
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvHiveMultinodeSubqueryCache.class)
-                        .withGroups("hive-cache-subqueries")
+                        .withGroups(HIVE_CACHE_SUBQUERIES)
                         .build());
     }
 }
