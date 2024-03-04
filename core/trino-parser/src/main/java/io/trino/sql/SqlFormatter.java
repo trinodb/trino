@@ -1829,6 +1829,12 @@ public final class SqlFormatter
             }
             builder.append(formatColumnDefinition(node.getColumn()));
 
+            switch (node.getPosition()) {
+                case FIRST -> builder.append(" FIRST");
+                case AFTER -> builder.append(" AFTER ").append(formatName(node.getAfter().orElseThrow()));
+                case LAST -> {}
+            }
+
             return null;
         }
 

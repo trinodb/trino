@@ -55,6 +55,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -484,20 +485,20 @@ public class TracingMetadata
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
+    public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column, ColumnPosition position, Optional<String> afterColumnName)
     {
         Span span = startSpan("addColumn", table);
         try (var _ = scopedSpan(span)) {
-            delegate.addColumn(session, tableHandle, table, column);
+            delegate.addColumn(session, tableHandle, table, column, position, afterColumnName);
         }
     }
 
     @Override
-    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, ColumnPosition position, Optional<String> afterFieldName, boolean ignoreExisting)
     {
         Span span = startSpan("addField", tableHandle);
         try (var _ = scopedSpan(span)) {
-            delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+            delegate.addField(session, tableHandle, parentPath, fieldName, type, position, afterFieldName, ignoreExisting);
         }
     }
 
