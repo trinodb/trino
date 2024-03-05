@@ -20,6 +20,7 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.VarcharType;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -115,8 +116,8 @@ public class TestOpaAccessControlDataFilteringSystem
                         .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
                         .setOpaRowFiltersUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ROW_LEVEL_FILTERING_POLICY_NAME)));
         OPA_CONTAINER.submitPolicy(SAMPLE_ROW_LEVEL_FILTERING_POLICY);
-        String restrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";
-        String unrestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.unrestricted_table";
+        @Language("SQL") String restrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";
+        @Language("SQL") String unrestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.unrestricted_table";
         assertResultsForUser("admin", restrictedTableQuery, ALL_DUMMY_USERS_IN_TABLE);
         assertResultsForUser("admin", unrestrictedTableQuery, ALL_DUMMY_USERS_IN_TABLE);
 
@@ -132,8 +133,8 @@ public class TestOpaAccessControlDataFilteringSystem
                 new OpaConfig()
                         .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME)));
         OPA_CONTAINER.submitPolicy(SAMPLE_ROW_LEVEL_FILTERING_POLICY);
-        String restrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";
-        String unrestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.unrestricted_table";
+        @Language("SQL") String restrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";
+        @Language("SQL") String unrestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.unrestricted_table";
         assertResultsForUser("admin", restrictedTableQuery, ALL_DUMMY_USERS_IN_TABLE);
         assertResultsForUser("admin", unrestrictedTableQuery, ALL_DUMMY_USERS_IN_TABLE);
 
@@ -151,8 +152,8 @@ public class TestOpaAccessControlDataFilteringSystem
                         .setOpaColumnMaskingUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_COLUMN_MASKING_POLICY_NAME)));
         OPA_CONTAINER.submitPolicy(SAMPLE_COLUMN_MASKING_POLICY);
 
-        String userNamesInUnrestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.unrestricted_table";
-        String userNamesInRestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";
+        @Language("SQL") String userNamesInUnrestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.unrestricted_table";
+        @Language("SQL") String userNamesInRestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";
         // No masking is applied to the unrestricted table
         assertResultsForUser("admin", userNamesInUnrestrictedTableQuery, ALL_DUMMY_USERS_IN_TABLE);
         assertResultsForUser("bob", userNamesInUnrestrictedTableQuery, ALL_DUMMY_USERS_IN_TABLE);
@@ -164,8 +165,8 @@ public class TestOpaAccessControlDataFilteringSystem
         Set<String> expectedMaskedUserNames = ALL_DUMMY_USERS_IN_TABLE.stream().map(userName -> "****" + userName.substring(userName.length() - 3)).collect(toImmutableSet());
         assertResultsForUser("bob", userNamesInRestrictedTableQuery, expectedMaskedUserNames);
 
-        String phoneNumbersInUnrestrictedTableQuery = "SELECT user_phone FROM sample_catalog.sample_schema.unrestricted_table";
-        String phoneNumbersInRestrictedTableQuery = "SELECT user_phone FROM sample_catalog.sample_schema.restricted_table";
+        @Language("SQL") String phoneNumbersInUnrestrictedTableQuery = "SELECT user_phone FROM sample_catalog.sample_schema.unrestricted_table";
+        @Language("SQL") String phoneNumbersInRestrictedTableQuery = "SELECT user_phone FROM sample_catalog.sample_schema.restricted_table";
 
         // Phone numbers are derived by hashing the name of the user
         Set<String> allExpectedPhoneNumbers = ALL_DUMMY_USERS_IN_TABLE.stream().map(userName -> String.valueOf(userName.hashCode())).collect(toImmutableSet());
@@ -186,8 +187,8 @@ public class TestOpaAccessControlDataFilteringSystem
     {
         setupTrinoWithOpa(new OpaConfig().setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME)));
         OPA_CONTAINER.submitPolicy(SAMPLE_COLUMN_MASKING_POLICY);
-        String restrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";
-        String unrestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.unrestricted_table";
+        @Language("SQL") String restrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";
+        @Language("SQL") String unrestrictedTableQuery = "SELECT user_name FROM sample_catalog.sample_schema.unrestricted_table";
         assertResultsForUser("admin", restrictedTableQuery, ALL_DUMMY_USERS_IN_TABLE);
         assertResultsForUser("admin", unrestrictedTableQuery, ALL_DUMMY_USERS_IN_TABLE);
 
@@ -232,8 +233,8 @@ public class TestOpaAccessControlDataFilteringSystem
                 }""";
         OPA_CONTAINER.submitPolicy(policy);
 
-        String selectUserNameData = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";
-        String selectUserTypeData = "SELECT user_type FROM sample_catalog.sample_schema.restricted_table";
+        @Language("SQL") String selectUserNameData = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";
+        @Language("SQL") String selectUserTypeData = "SELECT user_type FROM sample_catalog.sample_schema.restricted_table";
         Set<String> expectedUserTypes = ImmutableSet.of("internal_user", "customer");
 
         assertResultsForUser("admin", selectUserNameData, ALL_DUMMY_USERS_IN_TABLE);
@@ -243,7 +244,7 @@ public class TestOpaAccessControlDataFilteringSystem
         assertResultsForUser("bob", selectUserTypeData, ImmutableSet.of("internal_user"));
     }
 
-    private void assertResultsForUser(String asUser, String query, Set<String> expectedResults)
+    private void assertResultsForUser(String asUser, @Language("SQL") String query, Set<String> expectedResults)
     {
         assertThat(runner.querySetOfStrings(asUser, query)).containsExactlyInAnyOrderElementsOf(expectedResults);
     }
