@@ -49,6 +49,7 @@ import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.spi.connector.TableProcedureExecutionMode.distributedWithFilteringAndRepartitioning;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -373,7 +374,7 @@ public class TestLimitMaxWriterNodesCount
                         node(TableExecuteNode.class,
                                 exchange(LOCAL,
                                         // partitionCount for writing stage should be set to because session variable MAX_WRITER_TASK_COUNT is set to 2
-                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(2),
+                                        exchange(REMOTE, FIXED_HASH_DISTRIBUTION, Optional.of(2),
                                                 node(TableScanNode.class))))));
     }
 
@@ -395,7 +396,7 @@ public class TestLimitMaxWriterNodesCount
                         node(TableExecuteNode.class,
                                 exchange(LOCAL,
                                         // partitionCount for writing stage should be set to 4 because it was specified by connector
-                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.of(1),
+                                        exchange(REMOTE, FIXED_HASH_DISTRIBUTION, Optional.of(1),
                                                 node(TableScanNode.class))))));
     }
 
@@ -418,7 +419,7 @@ public class TestLimitMaxWriterNodesCount
                         node(TableExecuteNode.class,
                                 exchange(LOCAL,
                                         // partitionCount for writing stage is empty because it is FTE mode
-                                        exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.empty(),
+                                        exchange(REMOTE, FIXED_HASH_DISTRIBUTION, Optional.empty(),
                                                 node(TableScanNode.class))))));
     }
 }
