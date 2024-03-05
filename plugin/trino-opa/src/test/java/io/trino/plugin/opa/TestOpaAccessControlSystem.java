@@ -125,8 +125,8 @@ public class TestOpaAccessControlSystem
                 throws Exception
         {
             setupTrinoWithOpa(new OpaConfig()
-                                      .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
-                                      .setOpaBatchUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_BATCH_ALLOW_POLICY_NAME)));
+                    .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
+                    .setOpaBatchUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_BATCH_ALLOW_POLICY_NAME)));
         }
 
         @AfterAll
