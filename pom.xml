@@ -186,6 +186,8 @@
             <!-- bump from default of 2 -->
             -XX:GCLockerRetryAllocationCount=10
             ${extraJavaVectorArgs}
+            <!-- # Allow loading dynamic agent used by JOL -->
+            -XX:+EnableDynamicAgentLoading
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
         <starburst-license.header-file>${air.main.basedir}/.mvn/license/starburst-header.txt</starburst-license.header-file>
