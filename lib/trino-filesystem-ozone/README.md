@@ -1,6 +1,6 @@
 # PoC only. Use at your own risk.
 ```
-./mvnw --quiet clean install -T 1C -nsu -DskipTests -pl '!:trino-server-rpm,!:trino-docs' -Dair.check.fail-dependency=falsev
+./mvnw --quiet clean install -T 1C -nsu -DskipTests -pl '!:trino-server-rpm,!:trino-docs' -Dair.check.fail-dependency=false
 ```
 
 # Overall
@@ -65,6 +65,8 @@ aws s3api --endpoint http://localhost:9878/ list-objects --bucket bucket1
     "RequestCharged": null
 }
 ```
+## Start Trino
+Add `-ea --add-opens java.base/java.nio=ALL-UNNAMED` to JVM config.
 
 # Memo
 

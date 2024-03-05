@@ -45,10 +45,12 @@ class OzoneOutputFile
     }
 
     @Override
-    public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
+    public void createOrOverwrite(byte[] data)
             throws IOException
     {
-        return createOutputStream(memoryContext);
+        try (OutputStream out = create()) {
+            out.write(data);
+        }
     }
 
     private OzoneTrinoOutputStream createOutputStream(AggregatedMemoryContext memoryContext)
