@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.opa.schema;
 
-import jakarta.validation.constraints.NotNull;
-
 import static java.util.Objects.requireNonNull;
 
-public record TrinoCatalogSessionProperty(@NotNull String catalogName, @NotNull String propertyName)
+public record TrinoCatalogSessionProperty(String catalogName, String propertyName)
 {
     public TrinoCatalogSessionProperty
     {

@@ -15,15 +15,14 @@ package io.trino.plugin.opa.schema;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.security.Identity;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
 public record TrinoIdentity(
-        @NotNull String user,
-        @NotNull Set<String> groups)
+        String user,
+        Set<String> groups)
 {
     public static TrinoIdentity fromTrinoIdentity(Identity identity)
     {
