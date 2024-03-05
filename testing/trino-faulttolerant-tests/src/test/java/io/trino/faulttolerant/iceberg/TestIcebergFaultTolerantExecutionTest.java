@@ -19,11 +19,9 @@ import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
-import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergFaultTolerantExecutionTest
         extends BaseFaultTolerantExecutionTest
@@ -47,13 +45,5 @@ public class TestIcebergFaultTolerantExecutionTest
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
                 .build();
-    }
-
-    @Test
-    @Override
-    public void testExecutePreferredWritePartitioningSkewMitigation()
-    {
-        assertThatThrownBy(super::testExecutePreferredWritePartitioningSkewMitigation)
-                .hasMessage("optimize is expected to generate more than a single file per partition");
     }
 }
