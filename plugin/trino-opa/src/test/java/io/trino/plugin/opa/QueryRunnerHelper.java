@@ -43,7 +43,7 @@ public final class QueryRunnerHelper
                         builder -> builder.setSystemAccessControl(new OpaAccessControlFactory().create(opaConfigToDict(opaConfig)))));
     }
 
-    public Set<String> querySetOfStrings(String user, String query)
+    public Set<String> querySetOfStrings(String user, @Language("SQL") String query)
     {
         return querySetOfStrings(userSession(user), query);
     }
