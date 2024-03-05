@@ -65,6 +65,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertContainsEventually;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
@@ -823,6 +824,54 @@ public class TestCassandraConnectorTest
             sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two = 2";
             assertThat(execute(sql).getRowCount()).isEqualTo(1);
         }
+    }
+
+    @Test
+    public void testSelectWithSecondaryIndex()
+    {
+        testSelectWithSecondaryIndex(true);
+        testSelectWithSecondaryIndex(false);
+    }
+
+    private void testSelectWithSecondaryIndex(boolean withClusteringKey)
+    {
+        String table = "test_cluster_key_" + randomNameSuffix();
+
+        if (withClusteringKey) {
+            onCassandra("CREATE TABLE tpch." + table + "(pk1_col text, pk2_col text, idx1_col text, idx2_col text, cluster_col tinyint, PRIMARY KEY ((pk1_col, pk2_col), cluster_col)) WITH CLUSTERING ORDER BY (cluster_col ASC)");
+        }
+        else {
+            onCassandra("CREATE TABLE tpch." + table + "(pk1_col text, pk2_col text, idx1_col text, idx2_col text, cluster_col tinyint, PRIMARY KEY ((pk1_col, pk2_col)))");
+        }
+
+        onCassandra("CREATE INDEX ON tpch." + table + " (idx1_col)");
+        onCassandra("CREATE INDEX ON tpch." + table + " (idx2_col)");
+
+        onCassandra("INSERT INTO tpch." + table + "(pk1_col, pk2_col, cluster_col, idx1_col, idx2_col) VALUES('v11', 'v21', 1, 'value1', 'value21')");
+        onCassandra("INSERT INTO tpch." + table + "(pk1_col, pk2_col, cluster_col, idx1_col, idx2_col) VALUES('v11', 'v22', 2, 'value1', 'value22')");
+        onCassandra("INSERT INTO tpch." + table + "(pk1_col, pk2_col, cluster_col, idx1_col, idx2_col) VALUES('v12', 'v23', 1, 'value2', 'value23')");
+
+        assertQuery("SELECT * FROM tpch." + table, "VALUES ('v11', 'v21', 1, 'value1', 'value21'), ('v11', 'v22', 2, 'value1', 'value22'), ('v12', 'v23', 1, 'value2', 'value23')");
+
+        assertEventually(() -> {
+            // Wait for indexes to be created successfully.
+            assertThat(query("SELECT * FROM tpch." + table + " WHERE idx2_col = 'value1'")).isFullyPushedDown(); // Verify single indexed column predicate is pushed down.
+        });
+
+        // Execute a query on Trino with where clause having all the secondary key columns and another column (potentially a cluster key column)
+        assertQuery("SELECT * FROM tpch." + table + " WHERE idx1_col = 'value1' AND idx2_col = 'value21' AND cluster_col = 1", "VALUES ('v11', 'v21', 1, 'value1', 'value21')");
+        // Execute a query on Trino with where clause not having all the secondary key columns and another column (potentially a cluster key column)
+        if (withClusteringKey) {
+            assertQuery("SELECT * FROM tpch." + table + " WHERE idx1_col = 'value1' AND cluster_col = 1", "VALUES ('v11', 'v21', 1, 'value1', 'value21'), ('v11', 'v22', 2, 'value1', 'value22')");
+        }
+        else {
+            assertQuery("SELECT * FROM tpch." + table + " WHERE idx1_col = 'value1' AND cluster_col = 1", "VALUES ('v11', 'v21', 1, 'value1', 'value21')");
+        }
+
+        onCassandra("DROP INDEX tpch." + table + "_idx1_col_idx");
+        onCassandra("DROP INDEX tpch." + table + "_idx2_col_idx");
+
+        onCassandra("DROP TABLE tpch." + table);
     }
 
     @Test
