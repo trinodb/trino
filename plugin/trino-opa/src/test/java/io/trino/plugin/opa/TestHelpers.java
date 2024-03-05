@@ -15,11 +15,9 @@ package io.trino.plugin.opa;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.ConfigurationMetadata;
 import io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
 import io.trino.plugin.opa.HttpClientUtils.MockResponse;
 
-import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
@@ -71,26 +69,15 @@ public final class TestHelpers
 
     public static Map<String, String> opaConfigToDict(OpaConfig config)
     {
-        ConfigurationMetadata<OpaConfig> metadata = ConfigurationMetadata.getValidConfigurationMetadata(OpaConfig.class);
-        ImmutableMap.Builder<String, String> opaConfigBuilder = ImmutableMap.builder();
-        try {
-            for (ConfigurationMetadata.AttributeMetadata attribute : metadata.getAttributes().values()) {
-                convertPropertyToString(attribute.getGetter().invoke(config)).ifPresent(
-                        propertyValue -> opaConfigBuilder.put(attribute.getInjectionPoint().getProperty(), propertyValue));
-            }
-        }
-        catch (InvocationTargetException | IllegalAccessException e) {
-            throw new AssertionError("Failed to build config map", e);
-        }
-        return opaConfigBuilder.buildOrThrow();
-    }
-
-    private static Optional<String> convertPropertyToString(Object value)
-    {
-        if (value instanceof Optional<?> optionalValue) {
-            return optionalValue.map(Object::toString);
-        }
-        return Optional.ofNullable(value).map(Object::toString);
+        ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.<String, String>builder()
+                .put("opa.policy.uri", config.getOpaUri().toString())
+                .put("opa.log-requests", String.valueOf(config.getLogRequests()))
+                .put("opa.log-responses", String.valueOf(config.getLogResponses()))
+                .put("opa.allow-permission-management-operations", String.valueOf(config.getAllowPermissionManagementOperations()));
+        config.getOpaBatchUri().ifPresent(batchUri -> configBuilder.put("opa.policy.batched-uri", batchUri.toString()));
+        config.getOpaRowFiltersUri().ifPresent(rowFiltersUri -> configBuilder.put("opa.policy.row-filters-uri", rowFiltersUri.toString()));
+        config.getOpaColumnMaskingUri().ifPresent(columnMaskingUri -> configBuilder.put("opa.policy.column-masking-uri", columnMaskingUri.toString()));
+        return configBuilder.buildOrThrow();
     }
 
     private static void runIllegalResponseTestCases(Consumer<OpaAccessControl> methodToTest, OpaConfig opaConfig, URI expectedUri)
