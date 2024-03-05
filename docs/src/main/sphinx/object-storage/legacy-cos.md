@@ -1,6 +1,6 @@
-# Hive connector with IBM Cloud Object Storage
+# Legacy IBM COS support
 
-Configure the {doc}`hive` to support [IBM Cloud Object Storage COS](https://www.ibm.com/cloud/object-storage) access.
+Configure the {doc}`/connector/hive` to support [IBM Cloud Object Storage COS](https://www.ibm.com/cloud/object-storage) access.
 
 ## Configuration
 
