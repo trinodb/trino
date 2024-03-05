@@ -1,6 +1,6 @@
-# Hive connector with Amazon S3
+# Legacy S3 support
 
-The {doc}`hive` can read and write tables that are stored in
+The {doc}`/connector/hive` can read and write tables that are stored in
 [Amazon S3](https://aws.amazon.com/s3/) or S3-compatible systems.
 This is accomplished by having a table or database location that
 uses an S3 prefix, rather than an HDFS prefix.

@@ -9,10 +9,6 @@
 :maxdepth: 1
 
 Security <hive-security>
-Amazon S3 <hive-s3>
-Azure Storage <hive-azure>
-Google Cloud Storage <hive-gcs-tutorial>
-IBM Cloud Object Storage <hive-cos>
 ```
 
 The Hive connector allows querying data stored in an
@@ -40,12 +36,8 @@ implementation of the Hive metastore, such as
 
 Apache Hadoop HDFS 2.x and 3.x are supported.
 
-Many distributed storage systems including HDFS,
-{doc}`Amazon S3 <hive-s3>` or S3-compatible systems,
-[Google Cloud Storage](hive-gcs-tutorial),
-{doc}`Azure Storage <hive-azure>`, and
-{doc}`IBM Cloud Object Storage<hive-cos>` can be queried with the Hive
-connector.
+Many [distributed storage systems](hive-file-system-configuration) can be
+queried with the Hive connector.
 
 The coordinator and all workers must have network access to the Hive metastore
 and the storage system. Hive metastore access with the Thrift protocol defaults
