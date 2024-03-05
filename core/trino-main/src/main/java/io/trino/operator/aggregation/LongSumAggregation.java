@@ -38,10 +38,11 @@ public final class LongSumAggregation
     }
 
     @RemoveInputFunction
-    public static void removeInput(@AggregationState LongLongState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static boolean removeInput(@AggregationState LongLongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         state.setFirst(state.getFirst() - 1);
         state.setSecond(BigintOperators.subtract(state.getSecond(), value));
+        return true;
     }
 
     @CombineFunction

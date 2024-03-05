@@ -40,11 +40,12 @@ public final class CountIfAggregation
     }
 
     @RemoveInputFunction
-    public static void removeInput(@AggregationState LongState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    public static boolean removeInput(@AggregationState LongState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         if (value) {
             state.setValue(state.getValue() - 1);
         }
+        return true;
     }
 
     @CombineFunction
