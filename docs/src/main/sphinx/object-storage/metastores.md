@@ -213,6 +213,115 @@ when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
     header values for Unity catalog.
 :::
 
+### Thrift metastore authentication
+
+In a Kerberized Hadoop cluster, Trino connects to the Hive metastore Thrift
+service using {abbr}`SASL (Simple Authentication and Security Layer)` and
+authenticates using Kerberos. Kerberos authentication for the metastore is
+configured in the connector's properties file using the following optional
+properties:
+
+:::{list-table} Hive metastore Thrift service authentication properties
+:widths: 30, 55, 15
+:header-rows: 1
+
+* - Property value
+  - Description
+  - Default
+* - `hive.metastore.authentication.type`
+  - Hive metastore authentication type. One of `NONE` or `KERBEROS`. When using
+    the default value of `NONE`, Kerberos authentication is disabled, and no
+    other properties must be configured.
+
+    When set to `KERBEROS` the Hive connector connects to the Hive metastore
+    Thrift service using SASL and authenticate using Kerberos.
+  - `NONE`
+* - `hive.metastore.thrift.impersonation.enabled`
+  - Enable Hive metastore end user impersonation. See
+    [](hive-security-metastore-impersonation) for more information.
+  - `false`
+* - `hive.metastore.service.principal`
+  - The Kerberos principal of the Hive metastore service. The coordinator uses
+    this to authenticate the Hive metastore.
+
+    The `_HOST` placeholder can be used in this property value. When connecting
+    to the Hive metastore, the Hive connector substitutes in the hostname of the
+    **metastore** server it is connecting to. This is useful if the metastore
+    runs on multiple hosts.
+
+    Example: `hive/hive-server-host@EXAMPLE.COM` or `hive/_HOST@EXAMPLE.COM`.
+  -
+* - `hive.metastore.client.principal`
+  - The Kerberos principal that Trino uses when connecting to the Hive metastore
+    service.
+
+    Example: `trino/trino-server-node@EXAMPLE.COM` or `trino/_HOST@EXAMPLE.COM`.
+
+    The `_HOST` placeholder can be used in this property value. When connecting
+    to the Hive metastore, the Hive connector substitutes in the hostname of the
+    **worker** node Trino is running on. This is useful if each worker node has
+    its own Kerberos principal.
+
+    Unless [](hive-security-metastore-impersonation) is enabled, the principal
+    specified by `hive.metastore.client.principal` must have sufficient
+    privileges to remove files and directories within the `hive/warehouse`
+    directory.
+
+    **Warning:** If the principal does have sufficient permissions, only the
+    metadata is removed, and the data continues to consume disk space. This
+    occurs because the Hive metastore is responsible for deleting the internal
+    table data. When the metastore is configured to use Kerberos authentication,
+    all of the HDFS operations performed by the metastore are impersonated.
+    Errors deleting data are silently ignored.
+  -
+* - `hive.metastore.client.keytab`
+  - The path to the keytab file that contains a key for the principal
+      specified by `hive.metastore.client.principal`. This file must be
+      readable by the operating system user running Trino.
+  -
+:::
+
+The following sections describe the configuration properties and values needed
+for the various authentication configurations needed to use the Hive metastore
+Thrift service with the Hive connector.
+
+#### Default `NONE` authentication without impersonation
+
+```text
+hive.metastore.authentication.type=NONE
+```
+
+The default authentication type for the Hive metastore is `NONE`. When the
+authentication type is `NONE`, Trino connects to an unsecured Hive
+metastore. Kerberos is not used.
+
+(hive-security-metastore-impersonation)=
+#### `KERBEROS` authentication with impersonation
+
+```text
+hive.metastore.authentication.type=KERBEROS
+hive.metastore.thrift.impersonation.enabled=true
+hive.metastore.service.principal=hive/hive-metastore-host.example.com@EXAMPLE.COM
+hive.metastore.client.principal=trino@EXAMPLE.COM
+hive.metastore.client.keytab=/etc/trino/hive.keytab
+```
+
+When the authentication type for the Hive metastore Thrift service is
+`KERBEROS`, Trino connects as the Kerberos principal specified by the
+property `hive.metastore.client.principal`. Trino authenticates this
+principal using the keytab specified by the `hive.metastore.client.keytab`
+property, and verifies that the identity of the metastore matches
+`hive.metastore.service.principal`.
+
+When using `KERBEROS` Metastore authentication with impersonation, the
+principal specified by the `hive.metastore.client.principal` property must be
+allowed to impersonate the current Trino user, as discussed in the section
+{ref}`configuring-hadoop-impersonation`.
+
+Keytab files must be distributed to every node in the Trino cluster.
+
+{ref}`Additional information about Keytab Files.<hive-security-additional-keytab>`
+
 (hive-glue-metastore)=
 
 ## AWS Glue catalog configuration properties
