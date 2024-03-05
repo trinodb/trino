@@ -87,7 +87,7 @@ public class CassandraPartitionManager
             }
         }
 
-        // push down indexed column fixed value predicates only for unpartitioned partition which uses token range query
+        // Cassandra allows pushing down indexed column fixed value predicates along with token range SELECT
         if ((partitions.size() == 1) && partitions.get(0).isUnpartitioned()) {
             Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().get();
             List<ColumnHandle> indexedColumns = new ArrayList<>();
@@ -108,9 +108,9 @@ public class CassandraPartitionManager
             if (sb.length() > 0) {
                 CassandraPartition partition = partitions.get(0);
                 TupleDomain<ColumnHandle> filterIndexedColumn = TupleDomain.withColumnDomains(Maps.filterKeys(remainingTupleDomain.getDomains().get(), not(in(indexedColumns))));
-                partitions = new ArrayList<>();
-                partitions.add(new CassandraPartition(partition.getKey(), sb.toString(), filterIndexedColumn, true));
-                return new CassandraPartitionResult(partitions, filterIndexedColumn);
+                return new CassandraPartitionResult(
+                        ImmutableList.of(new CassandraPartition(partition.getKey(), sb.toString(), filterIndexedColumn, true)),
+                        filterIndexedColumn);
             }
         }
         return new CassandraPartitionResult(partitions, remainingTupleDomain);
