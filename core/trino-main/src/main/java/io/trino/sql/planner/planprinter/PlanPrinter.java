@@ -1667,6 +1667,7 @@ public class PlanPrinter
                         format("%sExchange", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
                         ImmutableMap.of(
                                 "partitionCount", node.getPartitioningScheme().getPartitionCount().map(String::valueOf).orElse(""),
+                                "scaleWriters", formatBoolean(node.getPartitioningScheme().getPartitioning().getHandle().isScaleWriters()),
                                 "type", node.getType().name(),
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())),
