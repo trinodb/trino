@@ -15,7 +15,6 @@ package io.trino.plugin.opa.schema;
 
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.type.Type;
-import jakarta.validation.constraints.NotNull;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,11 +36,11 @@ import static java.util.Objects.requireNonNull;
  * @param columnType String representation of the column type
  */
 public record TrinoColumn(
-        @NotNull String catalogName,
-        @NotNull String schemaName,
-        @NotNull String tableName,
-        @NotNull String columnName,
-        @NotNull String columnType)
+        String catalogName,
+        String schemaName,
+        String tableName,
+        String columnName,
+        String columnType)
 {
     public TrinoColumn
     {

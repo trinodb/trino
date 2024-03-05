@@ -14,13 +14,12 @@
 package io.trino.plugin.opa.schema;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record OpaColumnMaskQueryResult(@JsonProperty("decision_id") String decisionId, @NotNull Optional<OpaViewExpression> result)
+public record OpaColumnMaskQueryResult(@JsonProperty("decision_id") String decisionId, Optional<OpaViewExpression> result)
 {
     public OpaColumnMaskQueryResult
     {

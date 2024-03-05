@@ -15,7 +15,6 @@ package io.trino.plugin.opa.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.collect.ImmutableList;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.Collection;
 import java.util.List;
@@ -25,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
 public record OpaQueryInputAction(
-        @NotNull String operation,
+        String operation,
         OpaQueryInputResource resource,
         List<OpaQueryInputResource> filterResources,
         OpaQueryInputResource targetResource,

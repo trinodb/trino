@@ -14,7 +14,6 @@
 package io.trino.plugin.opa.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import jakarta.validation.constraints.NotNull;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
@@ -30,7 +29,7 @@ public record OpaQueryInputResource(
         TrinoTable table,
         TrinoColumn column)
 {
-    public record NamedEntity(@NotNull String name)
+    public record NamedEntity(String name)
     {
         public NamedEntity
         {

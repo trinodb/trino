@@ -14,13 +14,12 @@
 package io.trino.plugin.opa.schema;
 
 import io.trino.spi.security.ViewExpression;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record OpaViewExpression(@NotNull String expression, @NotNull Optional<String> identity)
+public record OpaViewExpression(String expression, Optional<String> identity)
 {
     public OpaViewExpression
     {
