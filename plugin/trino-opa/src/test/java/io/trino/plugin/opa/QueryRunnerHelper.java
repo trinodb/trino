@@ -15,32 +15,32 @@ package io.trino.plugin.opa;
 
 import io.trino.Session;
 import io.trino.spi.security.Identity;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.intellij.lang.annotations.Language;
 
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.opa.TestHelpers.opaConfigToDict;
+import static io.trino.testing.TestingSession.testSession;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public final class DistributedQueryRunnerHelper
+public final class QueryRunnerHelper
 {
-    private final DistributedQueryRunner runner;
+    private final QueryRunner runner;
 
-    private DistributedQueryRunnerHelper(DistributedQueryRunner runner)
+    private QueryRunnerHelper(QueryRunner runner)
     {
         this.runner = runner;
     }
 
-    public static DistributedQueryRunnerHelper withOpaConfig(OpaConfig opaConfig)
-            throws Exception
+    public static QueryRunnerHelper withOpaConfig(OpaConfig opaConfig)
     {
-        return new DistributedQueryRunnerHelper(
-                DistributedQueryRunner.builder(testSessionBuilder().build())
-                        .setSystemAccessControl(new OpaAccessControlFactory().create(opaConfigToDict(opaConfig)))
-                        .setNodeCount(1)
-                        .build());
+        return new QueryRunnerHelper(
+                new StandaloneQueryRunner(
+                        testSession(),
+                        builder -> builder.setSystemAccessControl(new OpaAccessControlFactory().create(opaConfigToDict(opaConfig)))));
     }
 
     public Set<String> querySetOfStrings(String user, String query)
@@ -53,7 +53,7 @@ public final class DistributedQueryRunnerHelper
         return runner.execute(session, query).getMaterializedRows().stream().map(row -> row.getField(0) == null ? "<NULL>" : row.getField(0).toString()).collect(toImmutableSet());
     }
 
-    public DistributedQueryRunner getBaseQueryRunner()
+    public QueryRunner getBaseQueryRunner()
     {
         return runner;
     }
@@ -65,6 +65,6 @@ public final class DistributedQueryRunnerHelper
 
     private static Session userSession(String user)
     {
-        return testSessionBuilder().setIdentity(Identity.ofUser(user)).build();
+        return testSessionBuilder().setOriginalIdentity(Identity.ofUser(user)).setIdentity(Identity.ofUser(user)).build();
     }
 }

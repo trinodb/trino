@@ -98,7 +98,7 @@ public class TestOpaAccessControlDataFilteringSystem
             .addAll(DUMMY_CUSTOMERS_IN_TABLE)
             .build();
 
-    private DistributedQueryRunnerHelper runner;
+    private QueryRunnerHelper runner;
 
     @AfterEach
     public void teardown()
@@ -249,9 +249,8 @@ public class TestOpaAccessControlDataFilteringSystem
     }
 
     private void setupTrinoWithOpa(OpaConfig opaConfig)
-            throws Exception
     {
-        this.runner = DistributedQueryRunnerHelper.withOpaConfig(opaConfig);
+        this.runner = QueryRunnerHelper.withOpaConfig(opaConfig);
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("sample_schema"))
                 .withListTables((session, schema) -> ImmutableList.<String>builder()
