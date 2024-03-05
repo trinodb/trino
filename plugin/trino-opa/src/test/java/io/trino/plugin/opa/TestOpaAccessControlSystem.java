@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @TestInstance(PER_CLASS)
 public class TestOpaAccessControlSystem
 {
-    private DistributedQueryRunnerHelper runner;
+    private QueryRunnerHelper runner;
     private static final String OPA_ALLOW_POLICY_NAME = "allow";
     private static final String OPA_BATCH_ALLOW_POLICY_NAME = "batchAllow";
     @Container
@@ -47,7 +47,6 @@ public class TestOpaAccessControlSystem
     {
         @BeforeAll
         public void setupTrino()
-                throws Exception
         {
             setupTrinoWithOpa(new OpaConfig().setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME)));
         }
@@ -122,7 +121,6 @@ public class TestOpaAccessControlSystem
     {
         @BeforeAll
         public void setupTrino()
-                throws Exception
         {
             setupTrinoWithOpa(new OpaConfig()
                     .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
@@ -214,9 +212,8 @@ public class TestOpaAccessControlSystem
     }
 
     private void setupTrinoWithOpa(OpaConfig opaConfig)
-            throws Exception
     {
-        this.runner = DistributedQueryRunnerHelper.withOpaConfig(opaConfig);
+        this.runner = QueryRunnerHelper.withOpaConfig(opaConfig);
         runner.getBaseQueryRunner().installPlugin(new BlackHolePlugin());
         runner.getBaseQueryRunner().createCatalog("catalog_one", "blackhole");
         runner.getBaseQueryRunner().createCatalog("catalog_two", "blackhole");
