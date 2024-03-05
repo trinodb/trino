@@ -46,4 +46,9 @@ public class CassandraPartitionResult
     {
         return partitions.size() == 1 && getOnlyElement(partitions).isUnpartitioned();
     }
+
+    public boolean isIndexedColumnPredicatePushdown()
+    {
+        return partitions.size() == 1 && getOnlyElement(partitions).isIndexedColumnPredicatePushdown();
+    }
 }
