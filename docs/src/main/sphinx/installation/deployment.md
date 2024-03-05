@@ -145,6 +145,8 @@ The following provides a good starting point for creating `etc/jvm.config`:
 # Reduce starvation of threads by GClocker, recommend to set about the number of cpu cores (JDK-8192647)
 -XX:+UnlockDiagnosticVMOptions
 -XX:GCLockerRetryAllocationCount=32
+# Allow loading dynamic agent used by JOL
+-XX:+EnableDynamicAgentLoading
 ```
 
 You must adjust the value for the memory used by Trino, specified with `-Xmx`
