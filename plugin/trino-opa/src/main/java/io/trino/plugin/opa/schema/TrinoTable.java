@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.CatalogSchemaTableName;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.Map;
 import java.util.Optional;
@@ -28,9 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
 public record TrinoTable(
-        @NotNull String catalogName,
-        @NotNull String schemaName,
-        @NotNull String tableName,
+        String catalogName,
+        String schemaName,
+        String tableName,
         Set<String> columns,
         Map<String, Optional<Object>> properties)
 {

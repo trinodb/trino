@@ -16,7 +16,6 @@ package io.trino.plugin.opa.schema;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.CatalogSchemaName;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.Map;
 import java.util.Optional;
@@ -26,8 +25,8 @@ import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
 public record TrinoSchema(
-        @NotNull String catalogName,
-        @NotNull String schemaName,
+        String catalogName,
+        String schemaName,
         Map<String, Optional<Object>> properties)
 {
     public TrinoSchema

@@ -15,13 +15,12 @@ package io.trino.plugin.opa.schema;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNullElse;
 
-public record OpaRowFiltersQueryResult(@JsonProperty("decision_id") String decisionId, @NotNull List<OpaViewExpression> result)
+public record OpaRowFiltersQueryResult(@JsonProperty("decision_id") String decisionId, List<OpaViewExpression> result)
 {
     public OpaRowFiltersQueryResult
     {
