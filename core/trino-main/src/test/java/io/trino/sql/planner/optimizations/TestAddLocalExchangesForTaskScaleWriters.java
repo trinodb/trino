@@ -413,7 +413,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                 anyTree(
                         node(TableExecuteNode.class,
                                 exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                        exchange(REMOTE, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
                                                 node(TableScanNode.class))))));
     }
 
