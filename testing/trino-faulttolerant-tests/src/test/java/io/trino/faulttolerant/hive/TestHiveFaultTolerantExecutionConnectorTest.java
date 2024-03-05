@@ -23,6 +23,7 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT;
@@ -32,6 +33,7 @@ import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtr
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@Isolated
 @TestInstance(PER_CLASS)
 public class TestHiveFaultTolerantExecutionConnectorTest
         extends BaseHiveConnectorTest
