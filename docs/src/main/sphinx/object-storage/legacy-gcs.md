@@ -1,4 +1,4 @@
-# Google Cloud Storage
+# Legacy Google Cloud Storage support
 
 Object storage connectors can access
 [Google Cloud Storage](https://cloud.google.com/storage/) data using the
