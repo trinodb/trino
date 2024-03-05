@@ -170,6 +170,8 @@
             -XX:+UnlockDiagnosticVMOptions
             <!-- bump from default of 2 -->
             -XX:GCLockerRetryAllocationCount=10
+            <!-- # Allow loading dynamic agent used by JOL -->
+            -XX:+EnableDynamicAgentLoading
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
