@@ -31,6 +31,9 @@ import io.trino.operator.DevNullOperator;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
+import io.trino.operator.dynamicfiltering.DynamicPageFilterCache;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSource;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheManager;
@@ -61,6 +64,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,6 +80,7 @@ import java.util.stream.LongStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
@@ -86,6 +91,7 @@ import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilterSuppli
 import static io.trino.plugin.base.cache.CacheUtils.normalizeTupleDomain;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.PlanTester.getTupleDomainJsonCodec;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -177,6 +183,151 @@ public class TestCacheDriverFactory
     }
 
     @Test
+    public void testCreateDriverWithSmallerDynamicFilter()
+    {
+        CacheColumnId cacheColumnId = new CacheColumnId("cacheColumn");
+        ColumnHandle columnHandle = new TestingColumnHandle("column");
+
+        PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
+                new PlanSignature(SIGNATURE_KEY, Optional.empty(), ImmutableList.of(cacheColumnId), ImmutableList.of(BIGINT)),
+                TupleDomain.withColumnDomains(
+                        ImmutableMap.of(cacheColumnId, Domain.multipleValues(BIGINT, LongStream.range(0L, 100L).boxed().toList()))));
+        DriverFactory driverFactory = createDriverFactory(new AtomicInteger());
+        Map<ColumnHandle, CacheColumnId> columnHandles = ImmutableMap.of(columnHandle, cacheColumnId);
+
+        // use original dynamic filter
+        CacheDriverFactory cacheDriverFactory = new CacheDriverFactory(
+                TEST_SESSION,
+                new TestPageSourceProvider(),
+                registry,
+                tupleDomainCodec,
+                new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
+                TEST_TABLE_HANDLE,
+                columnHandles.keySet().stream().collect(toImmutableList()),
+                signature,
+                columnHandles.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)),
+                createStaticDynamicFilterSupplier(ImmutableList.of(new TestDynamicFilter(TupleDomain.withColumnDomains(
+                                ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, LongStream.range(0L, 5000L).boxed().toList()))), true))),
+                createStaticDynamicFilterSupplier(ImmutableList.of(new TestDynamicFilter(TupleDomain.withColumnDomains(
+                        ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, LongStream.range(0L, 100L).boxed().toList()))), true))),
+                ImmutableList.of(driverFactory, driverFactory, driverFactory),
+                new CacheStats());
+
+        Optional<ConnectorPageSource> pageSource = Optional.of(new EmptyPageSource());
+        splitCache.addExpectedCacheLookup(
+                Optional.of(SPLIT_ID),
+                Optional.of(TupleDomain.withColumnDomains(
+                        ImmutableMap.of(cacheColumnId, Domain.multipleValues(BIGINT, LongStream.range(0L, 100L).boxed().toList())))),
+                Optional.of(TupleDomain.withColumnDomains(
+                        ImmutableMap.of(cacheColumnId, Domain.multipleValues(BIGINT, LongStream.range(0L, 100L).boxed().toList())))),
+                pageSource);
+        Driver driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
+        assertThat(driver.getDriverContext().getCacheDriverContext().get().pageSource()).isEqualTo(pageSource);
+
+        // use common dynamic filter
+        cacheDriverFactory = new CacheDriverFactory(
+                TEST_SESSION,
+                new TestPageSourceProvider(),
+                registry,
+                tupleDomainCodec,
+                new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
+                TEST_TABLE_HANDLE,
+                columnHandles.keySet().stream().collect(toImmutableList()),
+                signature,
+                columnHandles.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)),
+                createStaticDynamicFilterSupplier(ImmutableList.of(new TestDynamicFilter(TupleDomain.withColumnDomains(
+                        ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, LongStream.range(0L, 150L).boxed().toList()))), true))),
+                createStaticDynamicFilterSupplier(ImmutableList.of(new TestDynamicFilter(TupleDomain.withColumnDomains(
+                        ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, LongStream.range(0L, 100L).boxed().toList()))), true))),
+                ImmutableList.of(driverFactory, driverFactory, driverFactory),
+                new CacheStats());
+
+        splitCache.addExpectedCacheLookup(
+                Optional.of(SPLIT_ID),
+                Optional.of(TupleDomain.withColumnDomains(
+                        ImmutableMap.of(cacheColumnId, Domain.multipleValues(BIGINT, LongStream.range(0L, 100L).boxed().toList())))),
+                Optional.of(TupleDomain.withColumnDomains(
+                        ImmutableMap.of(cacheColumnId, Domain.multipleValues(BIGINT, LongStream.range(0L, 150L).boxed().toList())))),
+                pageSource);
+        driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
+        assertThat(driver.getDriverContext().getCacheDriverContext().get().pageSource()).isEqualTo(pageSource);
+    }
+
+    @Test
+    public void testCreateDriverWithUnenforcedDynamicFilterFallback()
+    {
+        CacheColumnId cacheColumnId1 = new CacheColumnId("cacheColumnId1");
+        CacheColumnId cacheColumnId2 = new CacheColumnId("cacheColumnId2");
+        ColumnHandle columnHandle1 = new TestingColumnHandle("column1");
+        ColumnHandle columnHandle2 = new TestingColumnHandle("column2");
+        TupleDomain<ColumnHandle> unenforcedDynamicPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle2, Domain.multipleValues(BIGINT, LongStream.range(0L, 5001L).boxed().toList())));
+        TupleDomain<ColumnHandle> enforcedDynamicPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle1, Domain.singleValue(BIGINT, 100L)));
+        PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
+                new PlanSignature(SIGNATURE_KEY, Optional.empty(), ImmutableList.of(cacheColumnId1, cacheColumnId2), ImmutableList.of(BIGINT, BIGINT)),
+                TupleDomain.withColumnDomains(
+                        ImmutableMap.of(cacheColumnId1, Domain.singleValue(BIGINT, 100L))));
+        DriverFactory driverFactory = createDriverFactory(new AtomicInteger());
+        Map<ColumnHandle, CacheColumnId> columnHandles = ImmutableMap.of(columnHandle1, cacheColumnId1, columnHandle2, cacheColumnId2);
+        CacheDriverFactory cacheDriverFactory = new CacheDriverFactory(
+                TEST_SESSION,
+                new TestPageSourceProvider((input) -> unenforcedDynamicPredicate, (input) -> enforcedDynamicPredicate),
+                registry,
+                tupleDomainCodec,
+                new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
+                TEST_TABLE_HANDLE,
+                columnHandles.keySet().stream().collect(toImmutableList()),
+                signature,
+                columnHandles.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)),
+                createStaticDynamicFilterSupplier(ImmutableList.of(new TestDynamicFilter(TupleDomain.all(), true))),
+                createStaticDynamicFilterSupplier(ImmutableList.of(new TestDynamicFilter(TupleDomain.withColumnDomains(
+                        ImmutableMap.of(columnHandle1, Domain.multipleValues(BIGINT, LongStream.range(0L, 5001L).boxed().toList()))), true))),
+                ImmutableList.of(driverFactory, driverFactory, driverFactory),
+                new CacheStats());
+
+        // fallback hit
+        // load page
+        splitCache.addExpectedCacheLookup(
+                Optional.of(SPLIT_ID),
+                Optional.of(enforcedDynamicPredicate.transformKeys(columnHandles::get)),
+                Optional.of(unenforcedDynamicPredicate.transformKeys(columnHandles::get)),
+                Optional.empty());
+        Optional<ConnectorPageSource> pageSource = Optional.of(new EmptyPageSource());
+        // load page with unenforced predicate fallback
+        splitCache.addExpectedCacheLookup(
+                Optional.of(SPLIT_ID),
+                Optional.of(enforcedDynamicPredicate.transformKeys(columnHandles::get)),
+                Optional.of(TupleDomain.all()),
+                pageSource);
+        Driver driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
+        assertThat(driver.getDriverContext().getCacheDriverContext().get().pageSource().get()).isInstanceOf(DynamicRowFilteringPageSource.class);
+
+        // fallback miss
+        // load page
+        splitCache.addExpectedCacheLookup(
+                Optional.of(SPLIT_ID),
+                Optional.of(enforcedDynamicPredicate.transformKeys(columnHandles::get)),
+                Optional.of(unenforcedDynamicPredicate.transformKeys(columnHandles::get)),
+                Optional.empty());
+        // load page with fallback unenforced predicate
+        splitCache.addExpectedCacheLookup(
+                Optional.of(SPLIT_ID),
+                Optional.of(enforcedDynamicPredicate.transformKeys(columnHandles::get)),
+                Optional.of(TupleDomain.all()),
+                Optional.empty());
+        // store page with unchanged unenforced predicate
+        splitCache.addExpectedCacheLookup(
+                Optional.of(SPLIT_ID),
+                Optional.of(enforcedDynamicPredicate.transformKeys(columnHandles::get)),
+                Optional.of(unenforcedDynamicPredicate.transformKeys(columnHandles::get)),
+                Optional.empty());
+        driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
+        assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
+    }
+
+    @Test
     public void testCreateDriverWhenDynamicFilterWasChanged()
     {
         CacheColumnId columnId = new CacheColumnId("cacheColumnId");
@@ -194,7 +345,9 @@ public class TestCacheDriverFactory
                 new TestPageSourceProvider(),
                 registry,
                 tupleDomainCodec,
+                new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
+                columnHandles.keySet().stream().collect(toImmutableList()),
                 signature,
                 ImmutableMap.of(columnId, columnHandle),
                 createStaticDynamicFilterSupplier(ImmutableList.of(commonDynamicFilter)),
@@ -203,7 +356,7 @@ public class TestCacheDriverFactory
                 new CacheStats());
 
         // baseSignature should use original dynamic filter because it contains more domains
-        splitCache.setExpectedPredicates(TupleDomain.all(), originalDynamicPredicate.transformKeys(columnHandles::get));
+        splitCache.addExpectedCacheLookup(TupleDomain.all(), originalDynamicPredicate.transformKeys(columnHandles::get));
         Driver driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
         assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
 
@@ -211,7 +364,7 @@ public class TestCacheDriverFactory
         commonDynamicFilter.setDynamicPredicate(
                 TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L)))),
                 true);
-        splitCache.setExpectedPredicates(TupleDomain.all(), commonDynamicFilter.getCurrentPredicate().transformKeys(columnHandles::get));
+        splitCache.addExpectedCacheLookup(TupleDomain.all(), commonDynamicFilter.getCurrentPredicate().transformKeys(columnHandles::get));
         cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
         assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
     }
@@ -255,7 +408,9 @@ public class TestCacheDriverFactory
                 pageSourceProvider,
                 registry,
                 tupleDomainCodec,
+                new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
+                columnHandles.values().stream().collect(toImmutableList()),
                 signature,
                 columnHandles,
                 createStaticDynamicFilterSupplier(ImmutableList.of(dynamicFilter)),
@@ -263,17 +418,18 @@ public class TestCacheDriverFactory
                 ImmutableList.of(driverFactory, driverFactory, driverFactory),
                 new CacheStats());
 
-        splitCache.setExpectedPredicates(
+        splitCache.addExpectedCacheLookup(
+                // cacheId
+                appendRemainingPredicates(
+                        SPLIT_ID,
+                        Optional.of(tupleDomainCodec.toJson(normalizeTupleDomain(TupleDomain.withColumnDomains(ImmutableMap.of(nonProjectedScanColumnId, Domain.singleValue(BIGINT, 410L)))))),
+                        Optional.of(tupleDomainCodec.toJson(normalizeTupleDomain(TupleDomain.withColumnDomains(ImmutableMap.of(nonProjectedScanColumnId, Domain.singleValue(BIGINT, 310L))))))),
                 // predicate
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         projectedColumnId, Domain.singleValue(BIGINT, 110L),
                         projectedScanColumnId, Domain.singleValue(BIGINT, 400L))),
                 // unenforcedPredicate
                 TupleDomain.withColumnDomains(ImmutableMap.of(projectedScanColumnId, Domain.singleValue(BIGINT, 300L))));
-        splitCache.setExpectedCacheSplitId(appendRemainingPredicates(
-                SPLIT_ID,
-                Optional.of(tupleDomainCodec.toJson(normalizeTupleDomain(TupleDomain.withColumnDomains(ImmutableMap.of(nonProjectedScanColumnId, Domain.singleValue(BIGINT, 410L)))))),
-                Optional.of(tupleDomainCodec.toJson(normalizeTupleDomain(TupleDomain.withColumnDomains(ImmutableMap.of(nonProjectedScanColumnId, Domain.singleValue(BIGINT, 310L))))))));
         Driver driver = cacheDriverFactory.createDriver(createDriverContext(), SPLIT, Optional.of(SPLIT_ID));
         assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
     }
@@ -338,7 +494,9 @@ public class TestCacheDriverFactory
                 pageSourceProvider,
                 registry,
                 tupleDomainCodec,
+                new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
+                ImmutableList.of(new TestingColumnHandle("column")),
                 signature,
                 ImmutableMap.of(new CacheColumnId("column"), new TestingColumnHandle("column")),
                 createStaticDynamicFilterSupplier(ImmutableList.of(EMPTY)),
@@ -477,40 +635,56 @@ public class TestCacheDriverFactory
     private static class TestSplitCache
             implements SplitCache
     {
-        private Optional<TupleDomain<CacheColumnId>> expectedPredicate = Optional.empty();
-        private Optional<TupleDomain<CacheColumnId>> expectedUnenforcedPredicate = Optional.empty();
-        private Optional<CacheSplitId> expectedCacheSplitId = Optional.empty();
+        private final LinkedList<CacheLookup> expectedCacheLookups = new LinkedList<>();
 
-        public void setExpectedPredicates(TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
+        public void addExpectedCacheLookup(TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
-            this.expectedPredicate = Optional.of(predicate);
-            this.expectedUnenforcedPredicate = Optional.of(unenforcedPredicate);
+            addExpectedCacheLookup(Optional.empty(), Optional.of(predicate), Optional.of(unenforcedPredicate), Optional.of(new EmptyPageSource()));
         }
 
-        public void setExpectedCacheSplitId(CacheSplitId expectedCacheSplitId)
+        public void addExpectedCacheLookup(CacheSplitId cacheSplitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
-            this.expectedCacheSplitId = Optional.of(expectedCacheSplitId);
+            addExpectedCacheLookup(Optional.of(cacheSplitId), Optional.of(predicate), Optional.of(unenforcedPredicate), Optional.of(new EmptyPageSource()));
+        }
+
+        public void addExpectedCacheLookup(
+                Optional<CacheSplitId> expectedCacheSplitId,
+                Optional<TupleDomain<CacheColumnId>> expectedPredicate,
+                Optional<TupleDomain<CacheColumnId>> expectedUnenforcedPredicate,
+                Optional<ConnectorPageSource> pageSource)
+        {
+            expectedCacheLookups.add(new CacheLookup(expectedCacheSplitId, expectedPredicate, expectedUnenforcedPredicate, pageSource));
         }
 
         @Override
         public Optional<ConnectorPageSource> loadPages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
-            this.expectedPredicate.ifPresent(expected -> assertThat(predicate).isEqualTo(expected));
-            this.expectedUnenforcedPredicate.ifPresent(expected -> assertThat(unenforcedPredicate).isEqualTo(expected));
-            this.expectedCacheSplitId.ifPresent(expected -> assertThat(splitId).isEqualTo(expected));
-            return Optional.of(new EmptyPageSource());
+            assertThat(expectedCacheLookups.size()).isGreaterThan(0);
+            CacheLookup cacheLookup = expectedCacheLookups.pollFirst();
+            cacheLookup.expectedPredicate.ifPresent(expected -> assertThat(predicate).isEqualTo(expected));
+            cacheLookup.expectedUnenforcedPredicate.ifPresent(expected -> assertThat(unenforcedPredicate).isEqualTo(expected));
+            cacheLookup.expectedCacheSplitId.ifPresent(expected -> assertThat(splitId).isEqualTo(expected));
+            return cacheLookup.pageSource;
         }
 
         @Override
         public Optional<ConnectorPageSink> storePages(CacheSplitId splitId, TupleDomain<CacheColumnId> predicate, TupleDomain<CacheColumnId> unenforcedPredicate)
         {
-            this.expectedPredicate.ifPresent(expected -> assertThat(predicate).isEqualTo(expected));
-            this.expectedUnenforcedPredicate.ifPresent(expected -> assertThat(unenforcedPredicate).isEqualTo(expected));
-            this.expectedCacheSplitId.ifPresent(expected -> assertThat(splitId).isEqualTo(expected));
+            assertThat(expectedCacheLookups.size()).isGreaterThan(0);
+            CacheLookup cacheLookup = expectedCacheLookups.pollFirst();
+            cacheLookup.expectedPredicate.ifPresent(expected -> assertThat(predicate).isEqualTo(expected));
+            cacheLookup.expectedUnenforcedPredicate.ifPresent(expected -> assertThat(unenforcedPredicate).isEqualTo(expected));
+            cacheLookup.expectedCacheSplitId.ifPresent(expected -> assertThat(splitId).isEqualTo(expected));
             return Optional.empty();
         }
 
         @Override
         public void close() {}
+
+        record CacheLookup(
+                Optional<CacheSplitId> expectedCacheSplitId,
+                Optional<TupleDomain<CacheColumnId>> expectedPredicate,
+                Optional<TupleDomain<CacheColumnId>> expectedUnenforcedPredicate,
+                Optional<ConnectorPageSource> pageSource) {}
     }
 }

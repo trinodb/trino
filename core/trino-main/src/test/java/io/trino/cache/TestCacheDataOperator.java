@@ -33,6 +33,8 @@ import io.trino.operator.DriverFactory;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.dynamicfiltering.DynamicPageFilterCache;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.spi.Page;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.cache.CacheColumnId;
@@ -75,6 +77,7 @@ import static io.trino.operator.PageTestUtils.createPage;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.PlanTester.getTupleDomainJsonCodec;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -186,7 +189,9 @@ public class TestCacheDataOperator
                 new TestPageSourceProvider(),
                 registry,
                 tupleDomainCodec,
+                new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
+                ImmutableList.of(),
                 new PlanSignatureWithPredicate(signature, TupleDomain.all()),
                 ImmutableMap.of(),
                 createStaticDynamicFilterSupplier(ImmutableList.of(EMPTY)),

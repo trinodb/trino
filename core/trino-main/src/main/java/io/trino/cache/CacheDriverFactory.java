@@ -30,6 +30,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.plugin.base.cache.CacheUtils;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.cache.CacheColumnId;
@@ -64,6 +65,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class CacheDriverFactory
 {
     static final int MAX_UNENFORCED_PREDICATE_VALUE_COUNT = 1_000_000;
+    static final double DYNAMIC_FILTER_VALUES_HEURISTIC = 0.05;
     private static final Logger LOG = Logger.get(CacheDriverFactory.class);
 
     public static final float THRASHING_CACHE_THRESHOLD = 0.7f;
@@ -77,19 +79,23 @@ public class CacheDriverFactory
     private final Set<CacheColumnId> projectedColumns;
     private final TupleDomain<CacheColumnId> enforcedPredicate;
     private final BiMap<ColumnHandle, CacheColumnId> commonColumnHandles;
+    private final List<ColumnHandle> commonColumnHandleList;
     private final Supplier<StaticDynamicFilter> commonDynamicFilterSupplier;
     private final Supplier<StaticDynamicFilter> originalDynamicFilterSupplier;
     private final List<DriverFactory> alternatives;
     private final CacheMetrics cacheMetrics = new CacheMetrics();
     private final CacheStats cacheStats;
     private final Ticker ticker = Ticker.systemTicker();
+    private final DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider;
 
     public CacheDriverFactory(
             Session session,
             PageSourceProvider pageSourceProvider,
             CacheManagerRegistry cacheManagerRegistry,
             JsonCodec<TupleDomain> tupleDomainCodec,
+            DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider,
             TableHandle originalTableHandle,
+            List<ColumnHandle> commonColumnHandleList,
             PlanSignatureWithPredicate planSignature,
             Map<CacheColumnId, ColumnHandle> commonColumnHandles,
             Supplier<StaticDynamicFilter> commonDynamicFilterSupplier,
@@ -102,10 +108,12 @@ public class CacheDriverFactory
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.splitCache = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null").getCacheManager().getSplitCache(planSignature.signature());
         this.tupleDomainCodec = requireNonNull(tupleDomainCodec, "tupleDomainCodec is null");
+        this.dynamicRowFilteringPageSourceProvider = requireNonNull(dynamicRowFilteringPageSourceProvider, "dynamicRowFilteringPageSourceProvider is null");
         this.originalTableHandle = requireNonNull(originalTableHandle, "originalTableHandle is null");
         this.projectedColumns = ImmutableSet.copyOf(planSignature.signature().getColumns());
         this.enforcedPredicate = planSignature.predicate();
         this.commonColumnHandles = ImmutableBiMap.copyOf(requireNonNull(commonColumnHandles, "commonColumnHandles is null")).inverse();
+        this.commonColumnHandleList = ImmutableList.copyOf(requireNonNull(commonColumnHandleList, "outputColumnsHandles is null"));
         this.commonDynamicFilterSupplier = requireNonNull(commonDynamicFilterSupplier, "commonDynamicFilterSupplier is null");
         this.originalDynamicFilterSupplier = requireNonNull(originalDynamicFilterSupplier, "originalDynamicFilterSupplier is null");
         this.alternatives = requireNonNull(alternatives, "alternatives is null");
@@ -177,6 +185,20 @@ public class CacheDriverFactory
 
         // load data from cache
         Optional<ConnectorPageSource> pageSource = splitCache.loadPages(splitIdWithPredicates, projectedEnforcedPredicate.predicate(), projectedUnenforcedPredicate.predicate());
+        if (pageSource.isEmpty()
+                && (!projectedUnenforcedPredicate.predicate().isAll() || projectedUnenforcedPredicate.remainingPredicate.isPresent())) {
+            // load page source as fallback with no unenforced predicate
+            CacheSplitId fallbackSplitId = splitId;
+            if (projectedUnenforcedPredicate.remainingPredicate().isPresent()) {
+                fallbackSplitId = appendRemainingPredicates(splitId, projectedEnforcedPredicate, new ProjectPredicate(TupleDomain.all(), Optional.empty()));
+            }
+            pageSource = splitCache.loadPages(fallbackSplitId, projectedEnforcedPredicate.predicate(), TupleDomain.all());
+            if (pageSource.isPresent()) {
+                // apply dynamic row filtering
+                pageSource = Optional.of(dynamicRowFilteringPageSourceProvider.createPageSource(pageSource.get(), session, commonColumnHandleList, dynamicFilter));
+            }
+        }
+
         if (pageSource.isPresent()) {
             cacheStats.recordCacheHit();
             return new DriverFactoryWithCacheContext(
@@ -277,8 +299,9 @@ public class CacheDriverFactory
             return originalDynamicFilter;
         }
 
-        if (originalPredicate.getDomains().get().size() > commonPredicate.getDomains().get().size()) {
-            // prefer original DF when it contains more domains
+        if (originalPredicate.getDomains().get().size() > commonPredicate.getDomains().get().size() ||
+                        getTupleDomainValueCount(originalPredicate) < getTupleDomainValueCount(commonPredicate) * DYNAMIC_FILTER_VALUES_HEURISTIC) {
+            // prefer original DF when it contains more domains or original DF size is much smaller
             return originalDynamicFilter;
         }
 
