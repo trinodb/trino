@@ -47,7 +47,7 @@ public class EnvMultinodeSnowflake
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addConnector("snowflake")
+        builder.addConnector("snowflake_jdbc")
                 .configureContainer(COORDINATOR, this::configureTrinoContainer)
                 .configureContainer(WORKER, this::configureTrinoContainer);
     }
