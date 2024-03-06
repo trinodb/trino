@@ -924,4 +924,6 @@ public interface SystemAccessControl
     {
         return emptySet();
     }
+
+    default void shutdown() {}
 }

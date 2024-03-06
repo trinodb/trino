@@ -57,6 +57,8 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
+import io.trino.util.AutoCloseableCloser;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -81,6 +83,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
@@ -174,6 +177,20 @@ public class AccessControlManager
                 .forEach(eventListenerManager::addEventListener);
 
         setSystemAccessControls(systemAccessControls);
+    }
+
+    @PreDestroy
+    public void destroy()
+    {
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+                closer.register(systemAccessControl::shutdown);
+            }
+        }
+        catch (Exception e) {
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
     }
 
     private SystemAccessControl createSystemAccessControl(File configFile)
