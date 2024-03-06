@@ -31,7 +31,7 @@ import io.trino.testing.PlanTester;
 import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -46,8 +46,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@ResourceLock("TestPushDistinctLimitIntoTableScan")
+@Execution(SAME_THREAD) // testApplyAggregation is shared mutable state
 public class TestPushDistinctLimitIntoTableScan
         extends BaseRuleTest
 {
