@@ -770,7 +770,7 @@ class QueryPlanner
                 .process(merge.getSource());
 
         RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
-                .planJoin(coerceIfNecessary(analysis, merge.getPredicate(), merge.getPredicate()), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, source, analysis.getSubqueries(merge));
+                .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, source, analysis.getSubqueries(merge));
 
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
@@ -788,9 +788,8 @@ class QueryPlanner
             Optional<Expression> casePredicate = Optional.empty();
             if (mergeCase.getExpression().isPresent()) {
                 Expression original = mergeCase.getExpression().get();
-                Expression predicate = coerceIfNecessary(analysis, original, original);
-                casePredicate = Optional.of(predicate);
-                subPlan = subqueryPlanner.handleSubqueries(subPlan, predicate, analysis.getSubqueries(merge));
+                casePredicate = Optional.of(original);
+                subPlan = subqueryPlanner.handleSubqueries(subPlan, original, analysis.getSubqueries(merge));
             }
 
             ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
@@ -830,14 +829,15 @@ class QueryPlanner
             // Add the merge case number, needed by MarkDistinct
             rowBuilder.add(new GenericLiteral("INTEGER", String.valueOf(caseNumber)));
 
-            Optional<Expression> rewritten = casePredicate.map(subPlan::rewrite);
             Expression condition = presentColumn.toSymbolReference();
             if (mergeCase instanceof MergeInsert) {
                 condition = new IsNullPredicate(presentColumn.toSymbolReference());
             }
 
-            if (rewritten.isPresent()) {
-                condition = and(condition, rewritten.get());
+            if (casePredicate.isPresent()) {
+                condition = and(
+                        condition,
+                        coerceIfNecessary(analysis, casePredicate.get(), subPlan.rewrite(casePredicate.get())));
             }
 
             whenClauses.add(new WhenClause(condition, new Row(rowBuilder.build())));
