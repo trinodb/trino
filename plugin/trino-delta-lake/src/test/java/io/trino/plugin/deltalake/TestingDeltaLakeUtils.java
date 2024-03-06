@@ -56,9 +56,9 @@ public final class TestingDeltaLakeUtils
         transactionLogAccess.flushCache();
 
         TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, dummyTable, tableLocation);
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(snapshot, SESSION);
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, snapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, snapshot);
-        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(snapshot, metadataEntry, protocolEntry, SESSION)) {
+        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, snapshot, metadataEntry, protocolEntry)) {
             return addFileEntries.collect(toImmutableList());
         }
     }

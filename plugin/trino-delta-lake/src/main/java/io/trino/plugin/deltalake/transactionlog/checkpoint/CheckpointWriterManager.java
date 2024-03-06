@@ -117,7 +117,7 @@ public class CheckpointWriterManager
                 // so we can read add entries below this should be reworked so we pass metadata entry explicitly to getCheckpointTransactionLogEntries,
                 // and we should get rid of `setCachedMetadata` in TableSnapshot to make it immutable.
                 // Also more proper would be to use metadata entry obtained above in snapshot.getCheckpointTransactionLogEntries to read other checkpoint entries, but using newer one should not do harm.
-                transactionLogAccess.getMetadataEntry(snapshot, session);
+                transactionLogAccess.getMetadataEntry(session, snapshot);
 
                 // register metadata entry in writer
                 DeltaLakeTransactionLogEntry metadataLogEntry = checkpointLogEntries.stream()

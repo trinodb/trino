@@ -113,12 +113,12 @@ public class FileBasedTableStatisticsProvider
                 .collect(toImmutableList());
 
         try (Stream<AddFileEntry> addEntries = transactionLogAccess.getActiveFiles(
+                session,
                 tableSnapshot,
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
                 tableHandle.getEnforcedPartitionConstraint(),
-                tableHandle.getProjectedColumns(),
-                session)) {
+                tableHandle.getProjectedColumns())) {
             Iterator<AddFileEntry> addEntryIterator = addEntries.iterator();
             while (addEntryIterator.hasNext()) {
                 AddFileEntry addEntry = addEntryIterator.next();

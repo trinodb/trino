@@ -200,7 +200,7 @@ public class VacuumProcedure
             List<Long> recentVersions = transactionLogAccess.getPastTableVersions(fileSystem, transactionLogDir, threshold, tableSnapshot.getVersion());
             Set<String> retainedPaths;
             try (Stream<AddFileEntry> activeAddEntries = transactionLogAccess.getActiveFiles(
-                    tableSnapshot, handle.getMetadataEntry(), handle.getProtocolEntry(), session)) {
+                    session, tableSnapshot, handle.getMetadataEntry(), handle.getProtocolEntry())) {
                 retainedPaths = Stream.concat(
                                 activeAddEntries
                                         .map(AddFileEntry::getPath),
