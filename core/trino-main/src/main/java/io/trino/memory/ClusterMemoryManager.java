@@ -44,7 +44,6 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.ServerConfig;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.memory.MemoryPoolInfo;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.JmxException;
@@ -89,7 +88,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ClusterMemoryManager
-        implements ClusterMemoryPoolManager
 {
     private static final Logger log = Logger.get(ClusterMemoryManager.class);
     private static final String EXPORTED_POOL_NAME = "general";
@@ -171,7 +169,6 @@ public class ClusterMemoryManager
         }
     }
 
-    @Override
     public synchronized void addChangeListener(Consumer<MemoryPoolInfo> listener)
     {
         changeListeners.add(listener);
