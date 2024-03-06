@@ -771,7 +771,7 @@ public class DeltaLakeMetadata
                         }
                         String tableLocation = metastoreTable.get().location();
                         TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, table, tableLocation);
-                        MetadataEntry metadata = transactionLogAccess.getMetadataEntry(snapshot, session);
+                        MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, snapshot);
                         ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
                         List<ColumnMetadata> columnMetadata = getTableColumnMetadata(metadata, protocol);
                         return Stream.of(TableColumnsMetadata.forTable(table, columnMetadata));
@@ -1379,7 +1379,7 @@ public class DeltaLakeMetadata
 
         if (!newColumnMetadata.isNullable()) {
             boolean tableHasDataFiles;
-            try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(getSnapshot(session, handle), handle.getMetadataEntry(), handle.getProtocolEntry(), session)) {
+            try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(session, getSnapshot(session, handle), handle.getMetadataEntry(), handle.getProtocolEntry())) {
                 tableHasDataFiles = addFileEntries.findAny().isPresent();
             }
             if (tableHasDataFiles) {
@@ -3200,7 +3200,7 @@ public class DeltaLakeMetadata
     {
         Map<String, AddFileEntry> addFileEntriesWithNoStats;
         try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(
-                getSnapshot(session, tableHandle), tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), session)) {
+                session, getSnapshot(session, tableHandle), tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry())) {
             addFileEntriesWithNoStats = activeFiles.filter(addFileEntry -> addFileEntry.getStats().isEmpty()
                             || addFileEntry.getStats().get().getNumRecords().isEmpty()
                             || addFileEntry.getStats().get().getMaxValues().isEmpty()
@@ -3563,12 +3563,12 @@ public class DeltaLakeMetadata
     {
         TableSnapshot tableSnapshot = getSnapshot(session, tableHandle);
         Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
+                session,
                 tableSnapshot,
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
                 tableHandle.getEnforcedPartitionConstraint(),
-                tableHandle.getProjectedColumns(),
-                session);
+                tableHandle.getProjectedColumns());
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         if (enforcedPartitionConstraint.isAll()) {
             return validDataFiles;
