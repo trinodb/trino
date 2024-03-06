@@ -51,4 +51,6 @@ public interface ResourceGroupConfigurationManager<C>
      * @return a selection context suitable for {@link #configure(ResourceGroup, SelectionContext)} for the parent group
      */
     SelectionContext<C> parentGroupContext(SelectionContext<C> context);
+
+    void shutdown();
 }
