@@ -279,7 +279,7 @@ jobs:
       - name: Run Hive AWS Tests
         id: tests
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
@@ -534,7 +534,7 @@ jobs:
       - name: Hadoop FileSystem Cloud Tests
         id: tests-hdfs
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
@@ -547,7 +547,7 @@ jobs:
       - name: S3 FileSystem Cloud Tests
         id: tests-s3
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
         if: >-
@@ -562,7 +562,7 @@ jobs:
       - name: Cleanup ephemeral S3 buckets
         env:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
         # Cancelled workflows may not have cleaned up the ephemeral bucket
         if: always()
@@ -598,10 +598,10 @@ jobs:
         id: tests-delta
       # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
         env:
-          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
-          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_CONTAINER: ${{ vars.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_ACCOUNT }}
           ABFS_ACCESSKEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
@@ -656,14 +656,14 @@ jobs:
       - name: Iceberg Cloud Tests
         id: tests-iceberg
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
-          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
-          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_CONTAINER: ${{ vars.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
         if: >-
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
@@ -679,7 +679,7 @@ jobs:
         id: tests-redshift
         env:
           AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.REDSHIFT_AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.REDSHIFT_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
           REDSHIFT_SUBNET_GROUP_NAME: ${{ vars.REDSHIFT_SUBNET_GROUP_NAME }}
           REDSHIFT_IAM_ROLES: ${{ vars.REDSHIFT_IAM_ROLES }}
@@ -704,7 +704,7 @@ jobs:
       - name: Cleanup ephemeral Redshift Cluster
         env:
           AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.REDSHIFT_AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.REDSHIFT_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
         # Cancelled workflows may have left the ephemeral cluster running
         if: always()
@@ -851,8 +851,8 @@ jobs:
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' ||
                     secrets.AZURE_ABFS_CONTAINER != '' ||
-                    secrets.AZURE_ABFS_ACCOUNT != '' ||
-                    secrets.AZURE_ABFS_ACCESSKEY != '' }}
+                    vars.AZURE_ABFS_ACCOUNT != '' ||
+                    vars.AZURE_ABFS_ACCESSKEY != '' }}
 
             - suite: suite-gcs
               ignore exclusion if: >-
@@ -979,19 +979,19 @@ jobs:
         run: echo "PTL_OPTS=--impacted-features impacted-features.log" >> $GITHUB_ENV
       - name: Product Tests
         env:
-          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
-          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_CONTAINER: ${{ vars.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
-          TRINO_AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          TRINO_AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           TRINO_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          DATABRICKS_91_JDBC_URL: ${{ secrets.DATABRICKS_91_JDBC_URL }}
-          DATABRICKS_104_JDBC_URL: ${{ secrets.DATABRICKS_104_JDBC_URL }}
-          DATABRICKS_113_JDBC_URL: ${{ secrets.DATABRICKS_113_JDBC_URL }}
-          DATABRICKS_122_JDBC_URL: ${{ secrets.DATABRICKS_122_JDBC_URL }}
-          DATABRICKS_133_JDBC_URL: ${{ secrets.DATABRICKS_133_JDBC_URL }}
-          DATABRICKS_UNITY_JDBC_URL: ${{ secrets.DATABRICKS_UNITY_JDBC_URL }}
+          DATABRICKS_91_JDBC_URL: ${{ vars.DATABRICKS_91_JDBC_URL }}
+          DATABRICKS_104_JDBC_URL: ${{ vars.DATABRICKS_104_JDBC_URL }}
+          DATABRICKS_113_JDBC_URL: ${{ vars.DATABRICKS_113_JDBC_URL }}
+          DATABRICKS_122_JDBC_URL: ${{ vars.DATABRICKS_122_JDBC_URL }}
+          DATABRICKS_133_JDBC_URL: ${{ vars.DATABRICKS_133_JDBC_URL }}
+          DATABRICKS_UNITY_JDBC_URL: ${{ vars.DATABRICKS_UNITY_JDBC_URL }}
           DATABRICKS_UNITY_CATALOG_NAME: ${{ vars.DATABRICKS_UNITY_CATALOG_NAME }}
           DATABRICKS_UNITY_EXTERNAL_LOCATION: ${{ vars.DATABRICKS_UNITY_EXTERNAL_LOCATION }}
           DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
