@@ -148,12 +148,6 @@ public class TestIcebergCacheSubqueriesTest
     }
 
     @Override
-    protected boolean supportsDataColumnPruning()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean effectivePredicateReturnedPerSplit()
     {
         return false;
