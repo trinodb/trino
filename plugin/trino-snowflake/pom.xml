@@ -15,7 +15,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <air.test.jvm.additional-arguments>--add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>
@@ -35,11 +34,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
         </dependency>
@@ -52,7 +46,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
-            <version>3.13.32</version>
+            <version>3.15.0</version>
         </dependency>
 
         <!-- Trino SPI -->
@@ -90,6 +84,12 @@
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- for testing -->
@@ -201,7 +201,6 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestSnowflakeConnectorTest.java</exclude>
-                                <exclude>**/TestSnowflakePlugin.java</exclude>
                                 <exclude>**/TestSnowflakeTypeMapping.java</exclude>
                             </excludes>
                         </configuration>
@@ -216,6 +215,9 @@
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
+            <properties>
+                <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -223,10 +225,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestSnowflakeClient.java</include>
-                                <include>**/TestSnowflakeConfig.java</include>
                                 <include>**/TestSnowflakeConnectorTest.java</include>
-                                <include>**/TestSnowflakePlugin.java</include>
                                 <include>**/TestSnowflakeTypeMapping.java</include>
                             </includes>
                         </configuration>

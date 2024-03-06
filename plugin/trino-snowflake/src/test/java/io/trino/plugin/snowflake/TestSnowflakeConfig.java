@@ -32,7 +32,7 @@ public class TestSnowflakeConfig
                 .setDatabase(null)
                 .setRole(null)
                 .setWarehouse(null)
-                .setHTTPProxy(null));
+                .setHttpProxy(null));
     }
 
     @Test
@@ -44,7 +44,6 @@ public class TestSnowflakeConfig
                 .put("snowflake.role", "MYROLE")
                 .put("snowflake.warehouse", "MYWAREHOUSE")
                 .put("snowflake.http-proxy", "MYPROXY")
-                .put("snowflake.timestamp-no-timezone-as-utc", "true")
                 .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
@@ -52,7 +51,7 @@ public class TestSnowflakeConfig
                 .setDatabase("MYDATABASE")
                 .setRole("MYROLE")
                 .setWarehouse("MYWAREHOUSE")
-                .setHTTPProxy("MYPROXY");
+                .setHttpProxy("MYPROXY");
 
         assertFullMapping(properties, expected);
     }

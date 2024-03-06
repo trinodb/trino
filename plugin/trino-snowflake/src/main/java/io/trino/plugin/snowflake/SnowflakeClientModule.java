@@ -65,11 +65,10 @@ public class SnowflakeClientModule
         properties.setProperty("TIMESTAMP_TZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
         properties.setProperty("TIMESTAMP_LTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
         properties.setProperty("TIME_OUTPUT_FORMAT", "HH24:MI:SS.FF9");
-        snowflakeConfig.getTimestampNoTimezoneAsUTC().ifPresent(as_utc -> properties.setProperty("JDBC_TREAT_TIMESTAMP_NTZ_AS_UTC", as_utc ? "true" : "false"));
 
         // Support for Corporate proxies
-        if (snowflakeConfig.getHTTPProxy().isPresent()) {
-            String proxy = snowflakeConfig.getHTTPProxy().get();
+        if (snowflakeConfig.getHttpProxy().isPresent()) {
+            String proxy = snowflakeConfig.getHttpProxy().get();
 
             URL url = new URL(proxy);
 
