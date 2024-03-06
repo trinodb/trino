@@ -18,7 +18,6 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
@@ -108,19 +107,19 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public void createTable(ConnectorSession session, Table table, PrincipalPrivileges principalPrivileges)
+    public void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
         delegate.createTable(table, principalPrivileges);
     }
 
     @Override
-    public void dropTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, boolean deleteData)
+    public void dropTable(SchemaTableName schemaTableName, String tableLocation, boolean deleteData)
     {
         delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), deleteData);
     }
 
     @Override
-    public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
+    public void renameTable(SchemaTableName from, SchemaTableName to)
     {
         delegate.renameTable(from.getSchemaName(), from.getTableName(), to.getSchemaName(), to.getTableName());
     }

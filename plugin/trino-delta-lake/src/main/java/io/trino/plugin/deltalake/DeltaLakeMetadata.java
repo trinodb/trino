@@ -966,7 +966,7 @@ public class DeltaLakeMetadata
         // As a precaution, clear the caches
         statisticsAccess.invalidateCache(schemaTableName, Optional.of(location));
         transactionLogAccess.invalidateCache(schemaTableName, Optional.of(location));
-        metastore.createTable(session, table, principalPrivileges);
+        metastore.createTable(table, principalPrivileges);
     }
 
     public static Table buildTable(ConnectorSession session, SchemaTableName schemaTableName, String location, boolean isExternal)
@@ -1261,7 +1261,7 @@ public class DeltaLakeMetadata
             // As a precaution, clear the caches
             statisticsAccess.invalidateCache(schemaTableName, Optional.of(location));
             transactionLogAccess.invalidateCache(schemaTableName, Optional.of(location));
-            metastore.createTable(session, table, principalPrivileges);
+            metastore.createTable(table, principalPrivileges);
         }
         catch (Exception e) {
             // Remove the transaction log entry if the table creation fails
@@ -2427,7 +2427,7 @@ public class DeltaLakeMetadata
     {
         LocatedTableHandle handle = (LocatedTableHandle) tableHandle;
         boolean deleteData = handle.managed();
-        metastore.dropTable(session, handle.schemaTableName(), handle.location(), deleteData);
+        metastore.dropTable(handle.schemaTableName(), handle.location(), deleteData);
         if (deleteData) {
             try {
                 fileSystemFactory.create(session).deleteDirectory(Location.of(handle.location()));
@@ -2450,7 +2450,7 @@ public class DeltaLakeMetadata
         if (table.managed() && !allowManagedTableRename) {
             throw new TrinoException(NOT_SUPPORTED, "Renaming managed tables is not allowed with current metastore configuration");
         }
-        metastore.renameTable(session, handle.getSchemaTableName(), newTableName);
+        metastore.renameTable(handle.getSchemaTableName(), newTableName);
     }
 
     private CommitInfoEntry getCommitInfoEntry(
@@ -3807,10 +3807,5 @@ public class DeltaLakeMetadata
     private static Optional<String> getQueryId(Database database)
     {
         return Optional.ofNullable(database.getParameters().get(TRINO_QUERY_ID_NAME));
-    }
-
-    public static Optional<String> getQueryId(Table table)
-    {
-        return Optional.ofNullable(table.getParameters().get(TRINO_QUERY_ID_NAME));
     }
 }
