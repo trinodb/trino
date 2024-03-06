@@ -613,9 +613,9 @@ jobs:
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} ${{ format('-P {0}', matrix.profile) }} -pl :trino-delta-lake \
-            -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
-            -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
-            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}" \
+            -Dtesting.azure-abfs-container="${ABFS_CONTAINER}" \
+            -Dtesting.azure-abfs-account="${ABFS_ACCOUNT}" \
+            -Dtesting.azure-abfs-access-key="${ABFS_ACCESSKEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
       - name: Memsql Tests
@@ -672,9 +672,9 @@ jobs:
           $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg ${{ format('-P {0}', matrix.profile) }} \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}" \
-            -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
-            -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
-            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESS_KEY}"
+            -Dtesting.azure-abfs-container="${ABFS_CONTAINER}" \
+            -Dtesting.azure-abfs-account="${ABFS_ACCOUNT}" \
+            -Dtesting.azure-abfs-access-key="${ABFS_ACCESS_KEY}"
       - name: Cloud Redshift Tests ${{ matrix.profile }}
         id: tests-redshift
         env:
