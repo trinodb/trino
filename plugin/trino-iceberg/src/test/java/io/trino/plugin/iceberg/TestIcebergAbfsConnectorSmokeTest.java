@@ -53,9 +53,9 @@ public class TestIcebergAbfsConnectorSmokeTest
     public TestIcebergAbfsConnectorSmokeTest()
     {
         super(ORC);
-        this.container = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-container"), "container is null");
-        this.account = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-account"), "account is null");
-        this.accessKey = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-access-key"), "accessKey is null");
+        this.container = requireNonNull(System.getProperty("testing.azure-abfs-container"), "container is null");
+        this.account = requireNonNull(System.getProperty("testing.azure-abfs-account"), "account is null");
+        this.accessKey = requireNonNull(System.getProperty("testing.azure-abfs-access-key"), "accessKey is null");
         this.schemaName = "tpch_" + format.name().toLowerCase(ENGLISH);
         this.bucketName = "test-iceberg-smoke-test-" + randomNameSuffix();
     }

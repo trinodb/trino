@@ -301,14 +301,14 @@ public final class IcebergQueryRunner
                 throws Exception
         {
             String azureContainer = requireNonNull(
-                    System.getProperty("hive.hadoop2.azure-abfs-container"),
-                    "System property hive.hadoop2.azure-abfs-container must be provided");
+                    System.getProperty("testing.azure-abfs-container"),
+                    "System property testing.azure-abfs-container must be provided");
             String azureAccount = requireNonNull(
-                    System.getProperty("hive.hadoop2.azure-abfs-account"),
-                    "System property hive.hadoop2.azure-abfs-account must be provided");
+                    System.getProperty("testing.azure-abfs-account"),
+                    "System property testing.azure-abfs-account must be provided");
             String azureAccessKey = requireNonNull(
-                    System.getProperty("hive.hadoop2.azure-abfs-access-key"),
-                    "System property hive.hadoop2.azure-abfs-access-key must be provided");
+                    System.getProperty("testing.azure-abfs-access-key"),
+                    "System property testing.azure-abfs-access-key must be provided");
 
             String abfsSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("hdp3.1-core-site.xml.abfs-template"), UTF_8)
                     .replace("%ABFS_ACCESS_KEY%", azureAccessKey)
