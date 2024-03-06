@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.opa.schema.OpaPluginContext;
 import io.trino.plugin.opa.schema.OpaQueryContext;
 import io.trino.plugin.opa.schema.OpaQueryInput;
@@ -85,13 +86,15 @@ public sealed class OpaAccessControl
         implements SystemAccessControl
         permits OpaBatchAccessControl
 {
+    private final LifeCycleManager lifeCycleManager;
     private final OpaHighLevelClient opaHighLevelClient;
     private final boolean allowPermissionManagementOperations;
     private final OpaPluginContext pluginContext;
 
     @Inject
-    public OpaAccessControl(OpaHighLevelClient opaHighLevelClient, OpaConfig config, OpaPluginContext pluginContext)
+    public OpaAccessControl(LifeCycleManager lifeCycleManager, OpaHighLevelClient opaHighLevelClient, OpaConfig config, OpaPluginContext pluginContext)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.opaHighLevelClient = requireNonNull(opaHighLevelClient, "opaHighLevelClient is null");
         this.allowPermissionManagementOperations = config.getAllowPermissionManagementOperations();
         this.pluginContext = requireNonNull(pluginContext, "pluginContext is null");
@@ -729,6 +732,12 @@ public sealed class OpaAccessControl
         return opaHighLevelClient
                 .getColumnMaskFromOpa(buildQueryContext(context), tableName, columnName, type)
                 .map(expression -> expression.toTrinoViewExpression(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName()));
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.stop();
     }
 
     private void checkTableOperation(SystemSecurityContext context, String actionName, CatalogSchemaTableName table, Consumer<String> deny)

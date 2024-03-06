@@ -20,6 +20,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -60,6 +61,7 @@ public class FileBasedSystemAccessControlModule
     @Provides
     @Singleton
     public SystemAccessControl getSystemAccessControl(
+            LifeCycleManager lifeCycleManager,
             FileBasedAccessControlConfig config,
             Supplier<FileBasedSystemAccessControlRules> rulesProvider)
     {
@@ -68,15 +70,15 @@ public class FileBasedSystemAccessControlModule
             return ForwardingSystemAccessControl.of(memoizeWithExpiration(
                     () -> {
                         log.info("Refreshing system access control from %s", config.getConfigFile());
-                        return create(rulesProvider.get());
+                        return create(lifeCycleManager, rulesProvider.get());
                     },
                     refreshPeriod.toMillis(),
                     MILLISECONDS));
         }
-        return create(rulesProvider.get());
+        return create(lifeCycleManager, rulesProvider.get());
     }
 
-    private SystemAccessControl create(FileBasedSystemAccessControlRules rules)
+    private SystemAccessControl create(LifeCycleManager lifeCycleManager, FileBasedSystemAccessControlRules rules)
     {
         List<CatalogAccessControlRule> catalogAccessControlRules;
         if (rules.getCatalogRules().isPresent()) {
@@ -98,6 +100,7 @@ public class FileBasedSystemAccessControlModule
             catalogAccessControlRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
         }
         return FileBasedSystemAccessControl.builder()
+                .setLifeCycleManager(lifeCycleManager)
                 .setCatalogRules(catalogAccessControlRules)
                 .setQueryAccessRules(rules.getQueryAccessRules())
                 .setImpersonationRules(rules.getImpersonationRules())
