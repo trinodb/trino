@@ -31,7 +31,7 @@ import static io.starburst.schema.discovery.io.LocationUtils.directoryOrFileName
 import static io.starburst.schema.discovery.io.LocationUtils.parentOf;
 import static io.starburst.schema.discovery.models.TablePath.asTablePath;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
-import static io.trino.plugin.iceberg.procedure.RegisterTableProcedure.getLatestMetadataLocation;
+import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
 import static java.util.stream.Collectors.toMap;
 
 public class LakehouseUtil
