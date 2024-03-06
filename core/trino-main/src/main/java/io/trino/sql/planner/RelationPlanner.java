@@ -1038,7 +1038,7 @@ class RelationPlanner
                     rightPlanBuilder.getRoot().getOutputSymbols(),
                     false,
                     Optional.of(IrUtils.and(complexJoinExpressions.stream()
-                            .map(translationMap::rewrite)
+                            .map(e -> coerceIfNecessary(analysis, e, translationMap.rewrite(e)))
                             .collect(Collectors.toList()))),
                     Optional.empty(),
                     Optional.empty(),
