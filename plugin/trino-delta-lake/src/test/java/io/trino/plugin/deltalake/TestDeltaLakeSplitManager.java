@@ -194,12 +194,12 @@ public class TestDeltaLakeSplitManager
         {
             @Override
             public Stream<AddFileEntry> getActiveFiles(
+                    ConnectorSession session,
                     TableSnapshot tableSnapshot,
                     MetadataEntry metadataEntry,
                     ProtocolEntry protocolEntry,
                     TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-                    Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
-                    ConnectorSession session)
+                    Optional<Set<DeltaLakeColumnHandle>> projectedColumns)
             {
                 return addFileEntries.stream();
             }
