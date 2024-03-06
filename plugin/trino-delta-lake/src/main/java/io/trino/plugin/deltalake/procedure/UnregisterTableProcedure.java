@@ -103,7 +103,7 @@ public class UnregisterTableProcedure
             if (tableHandle == null) {
                 throw new TableNotFoundException(schemaTableName);
             }
-            metadata.getMetastore().dropTable(session, schemaTableName, tableHandle.location(), false);
+            metadata.getMetastore().dropTable(schemaTableName, tableHandle.location(), false);
             // As a precaution, clear the caches
             statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
             transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
