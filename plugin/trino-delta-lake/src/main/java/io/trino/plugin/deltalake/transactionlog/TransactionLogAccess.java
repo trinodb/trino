@@ -619,21 +619,4 @@ public class TransactionLogAccess
                     tableLocation.getRetainedSizeInBytes();
         }
     }
-
-    private record QueriedLocation(String queryId, String tableLocation)
-    {
-        QueriedLocation
-        {
-            requireNonNull(queryId, "queryId is null");
-            requireNonNull(tableLocation, "tableLocation is null");
-        }
-    }
-
-    private record QueriedTable(QueriedLocation queriedLocation, long version)
-    {
-        QueriedTable
-        {
-            requireNonNull(queriedLocation, "queriedLocation is null");
-        }
-    }
 }
