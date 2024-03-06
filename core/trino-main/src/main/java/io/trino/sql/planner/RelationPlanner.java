@@ -1268,7 +1268,6 @@ class RelationPlanner
 
     private RelationPlan planJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
     {
-        Optional<Expression> filterExpression = Optional.empty();
         if (joinNode.getCriteria().isPresent()) {
             JoinCriteria criteria = joinNode.getCriteria().get();
             if (criteria instanceof NaturalJoin) {
@@ -1278,10 +1277,7 @@ class RelationPlanner
                 throw semanticException(NOT_SUPPORTED, joinNode, "USING for join involving UNNEST is not supported");
             }
             Expression filter = (Expression) getOnlyElement(criteria.getNodes());
-            if (filter.equals(TRUE_LITERAL)) {
-                filterExpression = Optional.of(filter);
-            }
-            else { //TODO rewrite filter to support non-trivial join criteria
+            if (!filter.equals(TRUE_LITERAL)) {
                 throw semanticException(NOT_SUPPORTED, joinNode, "JOIN involving UNNEST on condition other than TRUE is not supported");
             }
         }
@@ -1290,12 +1286,11 @@ class RelationPlanner
                 newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext),
                 node,
                 leftPlan.getFieldMappings(),
-                filterExpression,
                 joinNode.getType(),
                 analysis.getScope(joinNode));
     }
 
-    private RelationPlan planUnnest(PlanBuilder subPlan, Unnest node, List<Symbol> replicatedColumns, Optional<Expression> filter, Join.Type type, Scope outputScope)
+    private RelationPlan planUnnest(PlanBuilder subPlan, Unnest node, List<Symbol> replicatedColumns, Join.Type type, Scope outputScope)
     {
         subPlan = subqueryPlanner.handleSubqueries(subPlan, node.getExpressions(), analysis.getSubqueries(node));
         subPlan = subPlan.appendProjections(node.getExpressions(), symbolAllocator, idAllocator);
@@ -1322,8 +1317,7 @@ class RelationPlanner
                 replicatedColumns,
                 mappings.build(),
                 unnestAnalysis.getOrdinalityField().map(allocations::get),
-                mapJoinType(type),
-                filter);
+                mapJoinType(type));
 
         // TODO: Technically, we should derive the field mappings from the layout of fields and how they relate to the output symbols of the Unnest node.
         //       That's tricky to do for a Join+Unnest because the allocations come from the Unnest, but the mappings need to be done based on the Join output fields.
@@ -1781,7 +1775,6 @@ class RelationPlanner
                 planSingleEmptyRow(scope.getOuterQueryParent()),
                 node,
                 ImmutableList.of(),
-                Optional.empty(),
                 INNER,
                 scope);
     }

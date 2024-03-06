@@ -85,7 +85,6 @@ public class PushDownDereferenceThroughUnnest
         // Extract dereferences from project node's assignments and unnest node's filter
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
         expressionsBuilder.addAll(projectNode.getAssignments().getExpressions());
-        unnestNode.getFilter().ifPresent(expressionsBuilder::add);
 
         // Extract dereferences for pushdown
         Set<SubscriptExpression> dereferences = extractRowSubscripts(expressionsBuilder.build(), false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
@@ -131,8 +130,7 @@ public class PushDownDereferenceThroughUnnest
                                         .build(),
                                 unnestNode.getMappings(),
                                 unnestNode.getOrdinalitySymbol(),
-                                unnestNode.getJoinType(),
-                                unnestNode.getFilter().map(filter -> replaceExpression(filter, mappings))),
+                                unnestNode.getJoinType()),
                         newAssignments));
     }
 }

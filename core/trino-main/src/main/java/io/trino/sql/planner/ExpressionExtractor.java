@@ -22,7 +22,6 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
 
@@ -122,13 +121,6 @@ public final class ExpressionExtractor
         {
             node.getFilter().ifPresent(consumer);
             return super.visitJoin(node, context);
-        }
-
-        @Override
-        public Void visitUnnest(UnnestNode node, Void context)
-        {
-            node.getFilter().ifPresent(consumer);
-            return super.visitUnnest(node, context);
         }
 
         @Override

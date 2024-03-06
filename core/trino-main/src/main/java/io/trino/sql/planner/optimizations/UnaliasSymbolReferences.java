@@ -275,7 +275,6 @@ public class UnaliasSymbolReferences
             }
 
             Optional<Symbol> newOrdinalitySymbol = node.getOrdinalitySymbol().map(mapper::map);
-            Optional<Expression> newFilter = node.getFilter().map(mapper::map);
 
             return new PlanAndMappings(
                     new UnnestNode(
@@ -284,8 +283,7 @@ public class UnaliasSymbolReferences
                             newReplicateSymbols,
                             newMappings.build(),
                             newOrdinalitySymbol,
-                            node.getJoinType(),
-                            newFilter),
+                            node.getJoinType()),
                     mapping);
         }
 

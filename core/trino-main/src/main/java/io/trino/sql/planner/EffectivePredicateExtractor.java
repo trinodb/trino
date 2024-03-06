@@ -292,14 +292,7 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitUnnest(UnnestNode node, Void context)
         {
-            Expression sourcePredicate = node.getSource().accept(this, context);
-
-            return switch (node.getJoinType()) {
-                case INNER, LEFT -> pullExpressionThroughSymbols(
-                        combineConjuncts(metadata, node.getFilter().orElse(TRUE_LITERAL), sourcePredicate),
-                        node.getOutputSymbols());
-                case RIGHT, FULL -> TRUE_LITERAL;
-            };
+            return TRUE_LITERAL;
         }
 
         @Override

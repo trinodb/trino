@@ -666,8 +666,7 @@ public class HashGenerationOptimizer
                                     .build(),
                             node.getMappings(),
                             node.getOrdinalitySymbol(),
-                            node.getJoinType(),
-                            node.getFilter()),
+                            node.getJoinType()),
                     hashSymbols);
         }
 
