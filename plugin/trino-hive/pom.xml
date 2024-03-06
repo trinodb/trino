@@ -124,6 +124,11 @@
 
         <dependency>
             <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-apache-httpclient-5.2</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
             <artifactId>opentelemetry-aws-sdk-1.11</artifactId>
         </dependency>
 

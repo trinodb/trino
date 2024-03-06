@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.NoSuchObjectException;
 import io.trino.testing.TestingNodeManager;
@@ -79,7 +80,7 @@ public class TestThriftHttpMetastoreClient
         config.setAdditionalHeaders("key1:value1, key2:value2");
 
         try (TestingThriftHttpMetastoreServer metastoreServer = new TestingThriftHttpMetastoreServer(delegate, new TestRequestHeaderInterceptor())) {
-            ThriftMetastoreClientFactory factory = new HttpThriftMetastoreClientFactory(config, new TestingNodeManager());
+            ThriftMetastoreClientFactory factory = new HttpThriftMetastoreClientFactory(config, new TestingNodeManager(), OpenTelemetry.noop());
             URI metastoreUri = URI.create("http://localhost:" + metastoreServer.getPort());
             ThriftMetastoreClient client = factory.create(
                     metastoreUri, Optional.empty());
