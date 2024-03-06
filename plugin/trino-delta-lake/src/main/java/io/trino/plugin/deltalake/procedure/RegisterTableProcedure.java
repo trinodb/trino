@@ -175,7 +175,7 @@ public class RegisterTableProcedure
                 throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
             }
 
-            metastore.createTable(session, table, principalPrivileges);
+            metastore.createTable(table, principalPrivileges);
         }
     }
 }
