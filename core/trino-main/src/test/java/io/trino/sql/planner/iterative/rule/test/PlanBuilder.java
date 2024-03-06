@@ -1366,10 +1366,10 @@ public class PlanBuilder
 
     public UnnestNode unnest(List<Symbol> replicateSymbols, List<UnnestNode.Mapping> mappings, PlanNode source)
     {
-        return unnest(replicateSymbols, mappings, Optional.empty(), INNER, Optional.empty(), source);
+        return unnest(replicateSymbols, mappings, Optional.empty(), INNER, source);
     }
 
-    public UnnestNode unnest(List<Symbol> replicateSymbols, List<UnnestNode.Mapping> mappings, Optional<Symbol> ordinalitySymbol, JoinType type, Optional<Expression> filter, PlanNode source)
+    public UnnestNode unnest(List<Symbol> replicateSymbols, List<UnnestNode.Mapping> mappings, Optional<Symbol> ordinalitySymbol, JoinType type, PlanNode source)
     {
         return new UnnestNode(
                 idAllocator.getNextId(),
@@ -1377,8 +1377,7 @@ public class PlanBuilder
                 replicateSymbols,
                 mappings,
                 ordinalitySymbol,
-                type,
-                filter);
+                type);
     }
 
     public WindowNode window(DataOrganizationSpecification specification, Map<Symbol, WindowNode.Function> functions, PlanNode source)

@@ -406,11 +406,7 @@ public final class GraphvizPrinter
         public Void visitUnnest(UnnestNode node, Void context)
         {
             StringBuilder label = new StringBuilder();
-            if (node.getFilter().isPresent()) {
-                label.append(node.getJoinType().getJoinLabel())
-                        .append(" Unnest");
-            }
-            else if (!node.getReplicateSymbols().isEmpty()) {
+            if (!node.getReplicateSymbols().isEmpty()) {
                 label.append("CrossJoin Unnest");
             }
             else {
@@ -424,9 +420,7 @@ public final class GraphvizPrinter
             label.append(format(" [%s", unnestInputs))
                     .append(node.getOrdinalitySymbol().isPresent() ? " (ordinality)]" : "]");
 
-            String details = node.getFilter().isPresent() ? " filter " + node.getFilter().get().toString() : "";
-
-            printNode(node, label.toString(), details, NODE_COLORS.get(NodeType.UNNEST));
+            printNode(node, label.toString(), "", NODE_COLORS.get(NodeType.UNNEST));
             return node.getSource().accept(this, context);
         }
 

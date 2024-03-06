@@ -1438,19 +1438,11 @@ public class PlanPrinter
         public Void visitUnnest(UnnestNode node, Context context)
         {
             String name;
-            if (node.getFilter().isPresent()) {
-                name = node.getJoinType().getJoinLabel() + " Unnest";
-            }
-            else if (!node.getReplicateSymbols().isEmpty()) {
-                if (node.getJoinType() == INNER) {
-                    name = "CrossJoin Unnest";
-                }
-                else {
-                    name = node.getJoinType().getJoinLabel() + " Unnest";
-                }
+            if (node.getJoinType() == INNER) {
+                name = "CrossJoin Unnest";
             }
             else {
-                name = "Unnest";
+                name = node.getJoinType().getJoinLabel() + " Unnest";
             }
 
             List<Symbol> unnestInputs = node.getMappings().stream()
@@ -1462,7 +1454,6 @@ public class PlanPrinter
                 descriptor.put("replicate", formatOutputs(getTypes(context), node.getReplicateSymbols()));
             }
             descriptor.put("unnest", formatOutputs(getTypes(context), unnestInputs));
-            node.getFilter().ifPresent(filter -> descriptor.put("filter", formatFilter(filter)));
             addNode(node, name, descriptor.buildOrThrow(), context);
             return processChildren(node, new Context(context.types()));
         }

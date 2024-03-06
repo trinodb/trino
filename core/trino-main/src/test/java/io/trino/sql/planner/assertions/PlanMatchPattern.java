@@ -612,7 +612,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern unnest(List<String> replicateSymbols, List<UnnestMapping> mappings, PlanMatchPattern source)
     {
-        return unnest(replicateSymbols, mappings, Optional.empty(), INNER, Optional.empty(), source);
+        return unnest(replicateSymbols, mappings, Optional.empty(), INNER, source);
     }
 
     public static PlanMatchPattern unnest(
@@ -620,7 +620,6 @@ public final class PlanMatchPattern
             List<UnnestMapping> mappings,
             Optional<String> ordinalitySymbol,
             JoinType type,
-            Optional<String> filter,
             PlanMatchPattern source)
     {
         PlanMatchPattern result = node(UnnestNode.class, source)
@@ -628,8 +627,7 @@ public final class PlanMatchPattern
                         replicateSymbols,
                         mappings,
                         ordinalitySymbol,
-                        type,
-                        filter.map(predicate -> PlanBuilder.expression(predicate))));
+                        type));
 
         mappings.forEach(mapping -> {
             for (int i = 0; i < mapping.getOutputs().size(); i++) {
