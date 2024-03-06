@@ -111,7 +111,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         return new DeltaLakeTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),

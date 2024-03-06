@@ -117,7 +117,7 @@ public class DeltaLakeHistoryTable
             SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
             TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, baseTableName, tableLocation);
             snapshotVersion = tableSnapshot.getVersion();
-            transactionLogAccess.getMetadataEntry(tableSnapshot, session);
+            transactionLogAccess.getMetadataEntry(session, tableSnapshot);
         }
         catch (IOException e) {
             throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + tableLocation, e);
