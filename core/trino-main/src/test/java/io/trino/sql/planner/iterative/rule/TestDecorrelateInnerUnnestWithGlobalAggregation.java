@@ -60,7 +60,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested")))),
                                         Optional.empty(),
                                         INNER,
-                                        Optional.empty(),
                                         p.values())))))
                 .doesNotFire();
     }
@@ -94,7 +93,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                 new UnnestNode.Mapping(p.symbol("a"), ImmutableList.of(p.symbol("unnested_a")))),
                                         Optional.empty(),
                                         INNER,
-                                        Optional.empty(),
                                         p.values(p.symbol("a"), p.symbol("b")))))))
                 .doesNotFire();
     }
@@ -114,7 +112,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested_corr")))),
                                         Optional.empty(),
                                         INNER,
-                                        Optional.empty(),
                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))))
                 .matches(
                         project(
@@ -132,7 +129,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
                                                         Optional.of("ordinality"),
                                                         LEFT,
-                                                        Optional.empty(),
                                                         assignUniqueId("unique", values("corr")))))));
     }
 
@@ -153,7 +149,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                 new UnnestNode.Mapping(p.symbol("old_masks"), ImmutableList.of(p.symbol("old_mask")))),
                                         Optional.empty(),
                                         INNER,
-                                        Optional.empty(),
                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))))
                 .matches(
                         project(
@@ -175,7 +170,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                         unnestMapping("old_masks", ImmutableList.of("old_mask"))),
                                                                 Optional.of("ordinality"),
                                                                 LEFT,
-                                                                Optional.empty(),
                                                                 assignUniqueId("unique", values("corr", "old_masks"))))))));
     }
 
@@ -194,7 +188,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested_corr")))),
                                         Optional.of(p.symbol("ordinality")),
                                         INNER,
-                                        Optional.empty(),
                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))))
                 .matches(
                         project(
@@ -212,7 +205,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
                                                         Optional.of("ordinality"),
                                                         LEFT,
-                                                        Optional.empty(),
                                                         assignUniqueId("unique", values("corr")))))));
     }
 
@@ -236,7 +228,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested_corr")))),
                                                         Optional.empty(),
                                                         INNER,
-                                                        Optional.empty(),
                                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))))))
                 .matches(
                         project(
@@ -261,7 +252,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                 ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
                                                                 Optional.of("ordinality"),
                                                                 LEFT,
-                                                                Optional.empty(),
                                                                 assignUniqueId("unique", values("corr"))))))));
     }
 
@@ -282,7 +272,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                 ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested_corr")))),
                                                 Optional.empty(),
                                                 INNER,
-                                                Optional.empty(),
                                                 p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))))))
                 .matches(
                         project(
@@ -302,7 +291,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                 ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
                                                                 Optional.of("ordinality"),
                                                                 LEFT,
-                                                                Optional.empty(),
                                                                 assignUniqueId("unique", values("corr"))))))));
     }
 
@@ -327,7 +315,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                             ImmutableList.of(new UnnestNode.Mapping(p.symbol("char_array"), ImmutableList.of(p.symbol("unnested_corr")))),
                                             Optional.empty(),
                                             INNER,
-                                            Optional.empty(),
                                             p.project(
                                                     Assignments.of(p.symbol("char_array"), regexpExtractAll),
                                                     p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))));
@@ -348,7 +335,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                         ImmutableList.of(unnestMapping("char_array", ImmutableList.of("unnested_corr"))),
                                                         Optional.of("ordinality"),
                                                         LEFT,
-                                                        Optional.empty(),
                                                         project(
                                                                 ImmutableMap.of("char_array", expression("regexp_extract_all(corr, '.')")),
                                                                 assignUniqueId("unique", values("corr"))))))));
@@ -388,7 +374,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                                         new UnnestNode.Mapping(p.symbol("numbers"), ImmutableList.of(p.symbol("number")))),
                                                                                 Optional.empty(),
                                                                                 INNER,
-                                                                                Optional.empty(),
                                                                                 p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))))))))))
                 .matches(
                         project(
@@ -421,7 +406,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                                                 unnestMapping("numbers", ImmutableList.of("number"))),
                                                                                         Optional.of("ordinality"),
                                                                                         LEFT,
-                                                                                        Optional.empty(),
                                                                                         assignUniqueId("unique", values("groups", "numbers")))))))))));
     }
 }

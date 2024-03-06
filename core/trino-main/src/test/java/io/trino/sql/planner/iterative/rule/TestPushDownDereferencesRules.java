@@ -251,7 +251,6 @@ public class TestPushDownDereferencesRules
                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("arr", arrayType), ImmutableList.of(p.symbol("field")))),
                                         Optional.empty(),
                                         INNER,
-                                        Optional.empty(),
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("arr", arrayType)))))
                 .matches(
                         strictProject(
