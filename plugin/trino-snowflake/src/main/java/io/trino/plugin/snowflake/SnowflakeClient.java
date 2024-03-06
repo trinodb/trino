@@ -181,6 +181,7 @@ public class SnowflakeClient
         final Map<String, ColumnMappingFunction> snowflakeColumnMappings = ImmutableMap.<String, ColumnMappingFunction>builder()
                 .put("time", handle -> Optional.of(timeColumnMapping(handle.getRequiredDecimalDigits())))
                 .put("timestampntz", handle -> Optional.of(timestampColumnMapping(handle.getRequiredDecimalDigits())))
+                .put("timestamptz", handle -> Optional.of(timestampTZColumnMapping(handle.getRequiredDecimalDigits())))
                 .put("date", handle -> Optional.of(ColumnMapping.longMapping(DateType.DATE, (resultSet, columnIndex) -> LocalDate.ofEpochDay(resultSet.getLong(columnIndex)).toEpochDay(), snowFlakeDateWriter())))
                 .put("varchar", handle -> Optional.of(varcharColumnMapping(handle.getRequiredColumnSize())))
                 .put("number", handle -> {
@@ -229,38 +230,14 @@ public class SnowflakeClient
 
         final Map<String, WriteMappingFunction> snowflakeWriteMappings = ImmutableMap.<String, WriteMappingFunction>builder()
                 .put("TimeType", writeType -> WriteMapping.longMapping("time", timeWriteFunction(((TimeType) writeType).getPrecision())))
-                .put("ShortTimestampType", writeType -> {
-                    WriteMapping myMap = SnowflakeClient.snowFlakeTimestampWriter(writeType);
-                    return myMap;
-                })
-                .put("ShortTimestampWithTimeZoneType", writeType -> {
-                    WriteMapping myMap = SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType);
-                    return myMap;
-                })
-                .put("LongTimestampType", writeType -> {
-                    WriteMapping myMap = SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType);
-                    return myMap;
-                })
-                .put("LongTimestampWithTimeZoneType", writeType -> {
-                    WriteMapping myMap = SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType);
-                    return myMap;
-                })
-                .put("VarcharType", writeType -> {
-                    WriteMapping myMap = SnowflakeClient.snowFlakeVarCharWriter(writeType);
-                    return myMap;
-                })
-                .put("CharType", writeType -> {
-                    WriteMapping myMap = SnowflakeClient.snowFlakeCharWriter(writeType);
-                    return myMap;
-                })
-                .put("LongDecimalType", writeType -> {
-                    WriteMapping myMap = SnowflakeClient.snowFlakeDecimalWriter(writeType);
-                    return myMap;
-                })
-                .put("ShortDecimalType", writeType -> {
-                    WriteMapping myMap = SnowflakeClient.snowFlakeDecimalWriter(writeType);
-                    return myMap;
-                })
+                .put("ShortTimestampType", writeType -> SnowflakeClient.snowFlakeTimestampWriter(writeType))
+                .put("ShortTimestampWithTimeZoneType", writeType -> SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType))
+                .put("LongTimestampType", writeType -> SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType))
+                .put("LongTimestampWithTimeZoneType", writeType -> SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType))
+                .put("VarcharType", writeType -> SnowflakeClient.snowFlakeVarCharWriter(writeType))
+                .put("CharType", writeType -> SnowflakeClient.snowFlakeCharWriter(writeType))
+                .put("LongDecimalType", writeType -> SnowflakeClient.snowFlakeDecimalWriter(writeType))
+                .put("ShortDecimalType", writeType -> SnowflakeClient.snowFlakeDecimalWriter(writeType))
                 .buildOrThrow();
 
         WriteMappingFunction writeMappingFunction = snowflakeWriteMappings.get(simple);
@@ -321,6 +298,52 @@ public class SnowflakeClient
                 },
                 timeWriteFunction(precision),
                 PredicatePushdownController.FULL_PUSHDOWN);
+    }
+
+    private static ColumnMapping timestampTZColumnMapping(int precision)
+    {
+        if (precision <= 3) {
+            return ColumnMapping.longMapping(TimestampWithTimeZoneType.createTimestampWithTimeZoneType(precision),
+                    (resultSet, columnIndex) -> {
+                        ZonedDateTime timestamp = SNOWFLAKE_DATETIME_FORMATTER.parse(resultSet.getString(columnIndex), ZonedDateTime::from);
+                        return DateTimeEncoding.packDateTimeWithZone(timestamp.toInstant().toEpochMilli(), timestamp.getZone().getId());
+                    },
+                    timestampWithTZWriter(), PredicatePushdownController.FULL_PUSHDOWN);
+        }
+        else {
+            return ColumnMapping.objectMapping(TimestampWithTimeZoneType.createTimestampWithTimeZoneType(precision), longTimestampWithTimezoneReadFunction(), longTimestampWithTZWriteFunction());
+        }
+    }
+
+    private static LongWriteFunction timestampWithTZWriter()
+    {
+        return (statement, index, encodedTimeWithZone) -> {
+            Instant timeI = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc(encodedTimeWithZone));
+            ZoneId zone = ZoneId.of(DateTimeEncoding.unpackZoneKey(encodedTimeWithZone).getId());
+            statement.setString(index, SNOWFLAKE_DATETIME_FORMATTER.format(timeI.atZone(zone)));
+        };
+    }
+
+    private static ObjectReadFunction longTimestampWithTimezoneReadFunction()
+    {
+        return ObjectReadFunction.of(LongTimestampWithTimeZone.class, (resultSet, columnIndex) -> {
+            ZonedDateTime timestamp = SNOWFLAKE_DATETIME_FORMATTER.parse(resultSet.getString(columnIndex), ZonedDateTime::from);
+            return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(timestamp.toEpochSecond(),
+                    (long) timestamp.getNano() * Timestamps.PICOSECONDS_PER_NANOSECOND,
+                    TimeZoneKey.getTimeZoneKey(timestamp.getZone().getId()));
+        });
+    }
+
+    private static ObjectWriteFunction longTimestampWithTZWriteFunction()
+    {
+        return ObjectWriteFunction.of(LongTimestampWithTimeZone.class, (statement, index, value) -> {
+            long epoMilli = value.getEpochMillis();
+            long epoSeconds = Math.floorDiv(epoMilli, Timestamps.MILLISECONDS_PER_SECOND);
+            long adjNano = (long) Math.floorMod(epoMilli, Timestamps.MILLISECONDS_PER_SECOND) * Timestamps.NANOSECONDS_PER_MILLISECOND + value.getPicosOfMilli() / Timestamps.PICOSECONDS_PER_NANOSECOND;
+            ZoneId zone = TimeZoneKey.getTimeZoneKey(value.getTimeZoneKey()).getZoneId();
+            Instant timeI = Instant.ofEpochSecond(epoSeconds, adjNano);
+            statement.setString(index, SNOWFLAKE_DATETIME_FORMATTER.format(ZonedDateTime.ofInstant(timeI, zone)));
+        });
     }
 
     private static ColumnMapping timestampColumnMapping(int precision)

@@ -21,7 +21,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -73,6 +72,7 @@ public class TestSnowflakeConnectorTest
                     SUPPORTS_AGGREGATION_PUSHDOWN,
                     SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_COLUMN,
+                    SUPPORTS_COMMENT_ON_TABLE,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                     SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                     SUPPORTS_LIMIT_PUSHDOWN,
@@ -246,31 +246,6 @@ public class TestSnowflakeConnectorTest
     public void testLimitPushdown()
     {
         abort("TODO");
-    }
-
-    @Test
-    @Disabled
-    @Override
-    public void testCommentTable()
-    {
-        // This connector does not support setting table comments
-    }
-
-    @Test
-    @Override
-    public void testCommentTableSpecialCharacter()
-    {
-        assertThatThrownBy(super::testCommentTableSpecialCharacter)
-                .hasStackTraceContaining("This connector does not support setting table comments");
-    }
-
-    @Test
-    @Override
-    public void testDataMappingSmokeTest()
-    {
-        // TODO: Connector does not support type timestamptz for the first commit
-        assertThatThrownBy(super::testDataMappingSmokeTest)
-                .hasStackTraceContaining("Unsupported column type(2014):timestamptz");
     }
 
     @Test
