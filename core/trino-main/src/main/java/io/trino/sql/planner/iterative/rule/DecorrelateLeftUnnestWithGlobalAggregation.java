@@ -163,8 +163,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
                 input.getOutputSymbols(),
                 unnestNode.getMappings(),
                 unnestNode.getOrdinalitySymbol(),
-                LEFT,
-                Optional.empty());
+                LEFT);
 
         // restore all projections, grouped aggregations and global aggregations from the subquery
         PlanNode result = rewriteNodeSequence(
@@ -223,8 +222,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&
                 basedOnCorrelation &&
-                unnestNode.getJoinType() == LEFT &&
-                (unnestNode.getFilter().isEmpty() || unnestNode.getFilter().get().equals(TRUE_LITERAL));
+                unnestNode.getJoinType() == LEFT;
     }
 
     private static PlanNode rewriteNodeSequence(PlanNode root, List<Symbol> leftOutputs, PlanNode sequenceSource, PlanNodeId correlatedUnnestId, Lookup lookup)

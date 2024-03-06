@@ -232,8 +232,7 @@ public class DecorrelateUnnest
                 input.getOutputSymbols(),
                 unnestNode.getMappings(),
                 Optional.of(ordinalitySymbol),
-                unnestJoinType,
-                Optional.empty());
+                unnestJoinType);
 
         // restore all nodes from the subquery
         PlanNode rewrittenPlan = Rewriter.rewriteNodeSequence(
@@ -301,8 +300,7 @@ public class DecorrelateUnnest
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&
                 basedOnCorrelation &&
-                (unnestNode.getJoinType() == INNER || unnestNode.getJoinType() == LEFT) &&
-                (unnestNode.getFilter().isEmpty() || unnestNode.getFilter().get().equals(TRUE_LITERAL));
+                (unnestNode.getJoinType() == INNER || unnestNode.getJoinType() == LEFT);
     }
 
     private static class Rewriter

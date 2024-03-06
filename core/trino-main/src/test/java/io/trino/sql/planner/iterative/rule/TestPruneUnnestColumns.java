@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.UnnestNode.Mapping;
 import org.junit.jupiter.api.Test;
@@ -50,7 +49,6 @@ public class TestPruneUnnestColumns
                                     ImmutableList.of(new Mapping(unnestSymbol, ImmutableList.of(unnestedSymbol))),
                                     Optional.of(ordinalitySymbol),
                                     INNER,
-                                    Optional.empty(),
                                     p.values(replicateSymbol, unnestSymbol)));
                 })
                 .matches(
@@ -61,7 +59,6 @@ public class TestPruneUnnestColumns
                                         ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),
                                         Optional.empty(),
                                         INNER,
-                                        Optional.empty(),
                                         values("replicate_symbol", "unnest_symbol"))));
     }
 
@@ -81,7 +78,6 @@ public class TestPruneUnnestColumns
                                     ImmutableList.of(new Mapping(unnestSymbol, ImmutableList.of(unnestedSymbol))),
                                     Optional.of(ordinalitySymbol),
                                     INNER,
-                                    Optional.empty(),
                                     p.values(replicateSymbol, unnestSymbol)));
                 })
                 .matches(
@@ -92,52 +88,7 @@ public class TestPruneUnnestColumns
                                         ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),
                                         Optional.of("ordinality_symbol"),
                                         INNER,
-                                        Optional.empty(),
                                         values("replicate_symbol", "unnest_symbol"))));
-    }
-
-    @Test
-    public void testDoNotPruneOrdinalitySymbolUsedInFilter()
-    {
-        tester().assertThat(new PruneUnnestColumns())
-                .on(p -> {
-                    Symbol replicateSymbol = p.symbol("replicate_symbol");
-                    Symbol unnestSymbol = p.symbol("unnest_symbol");
-                    Symbol unnestedSymbol = p.symbol("unnested_symbol");
-                    Symbol ordinalitySymbol = p.symbol("ordinality_symbol");
-                    return p.project(
-                            Assignments.identity(replicateSymbol, unnestedSymbol),
-                            p.unnest(
-                                    ImmutableList.of(replicateSymbol),
-                                    ImmutableList.of(new Mapping(unnestSymbol, ImmutableList.of(unnestedSymbol))),
-                                    Optional.of(ordinalitySymbol),
-                                    INNER,
-                                    Optional.of(PlanBuilder.expression("ordinality_symbol < BIGINT '5'")),
-                                    p.values(replicateSymbol, unnestSymbol)));
-                })
-                .doesNotFire();
-    }
-
-    @Test
-    public void testDoNotPruneReplicateSymbolUsedInFilter()
-    {
-        tester().assertThat(new PruneUnnestColumns())
-                .on(p -> {
-                    Symbol replicateSymbol = p.symbol("replicate_symbol");
-                    Symbol unnestSymbol = p.symbol("unnest_symbol");
-                    Symbol unnestedSymbol = p.symbol("unnested_symbol");
-                    Symbol ordinalitySymbol = p.symbol("ordinality_symbol");
-                    return p.project(
-                            Assignments.identity(unnestedSymbol, ordinalitySymbol),
-                            p.unnest(
-                                    ImmutableList.of(replicateSymbol),
-                                    ImmutableList.of(new Mapping(unnestSymbol, ImmutableList.of(unnestedSymbol))),
-                                    Optional.of(ordinalitySymbol),
-                                    INNER,
-                                    Optional.of(PlanBuilder.expression("replicate_symbol < BIGINT '5'")),
-                                    p.values(replicateSymbol, unnestSymbol)));
-                })
-                .doesNotFire();
     }
 
     @Test
@@ -156,7 +107,6 @@ public class TestPruneUnnestColumns
                                     ImmutableList.of(new Mapping(unnestSymbol, ImmutableList.of(unnestedSymbol))),
                                     Optional.of(ordinalitySymbol),
                                     INNER,
-                                    Optional.empty(),
                                     p.values(replicateSymbol, unnestSymbol)));
                 })
                 .doesNotFire();
@@ -178,7 +128,6 @@ public class TestPruneUnnestColumns
                                     ImmutableList.of(new Mapping(unnestSymbol, ImmutableList.of(unnestedSymbol))),
                                     Optional.of(ordinalitySymbol),
                                     INNER,
-                                    Optional.empty(),
                                     p.values(replicateSymbol, unnestSymbol)));
                 })
                 .doesNotFire();

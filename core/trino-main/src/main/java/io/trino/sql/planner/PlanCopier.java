@@ -232,7 +232,7 @@ public final class PlanCopier
         @Override
         public PlanNode visitUnnest(UnnestNode node, RewriteContext<Void> context)
         {
-            return new UnnestNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getReplicateSymbols(), node.getMappings(), node.getOrdinalitySymbol(), node.getJoinType(), node.getFilter());
+            return new UnnestNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getReplicateSymbols(), node.getMappings(), node.getOrdinalitySymbol(), node.getJoinType());
         }
 
         @Override
