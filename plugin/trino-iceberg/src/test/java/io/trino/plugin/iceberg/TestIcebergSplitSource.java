@@ -70,6 +70,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -167,6 +168,7 @@ public class TestIcebergSplitSource
                 ImmutableSet.of(),
                 Optional.of(false));
 
+        IcebergConfig icebergConfig = new IcebergConfig();
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 new DefaultIcebergFileSystemFactory(fileSystemFactory),
                 SESSION,
@@ -218,7 +220,9 @@ public class TestIcebergSplitSource
                 new TestingTypeManager(),
                 false,
                 new IcebergConfig().getMinimumAssignedSplitWeight(),
-                new DefaultCachingHostAddressProvider())) {
+                new DefaultCachingHostAddressProvider(),
+                icebergConfig.getMaxSplitsPerSecond(),
+                directExecutor())) {
             ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
             while (!splitSource.isFinished()) {
                 splitSource.getNextBatch(100).get()
