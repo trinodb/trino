@@ -203,7 +203,7 @@ public class TestMemoryManager
     private void testNoLeak(@Language("SQL") String query)
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.of("task.verbose-stats", "true");
+        Map<String, String> properties = ImmutableMap.of("task.per-operator-cpu-timer-enabled", "true");
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             executor.submit(() -> queryRunner.execute(query)).get();
@@ -225,7 +225,7 @@ public class TestMemoryManager
     public void testClusterPools()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.of("task.verbose-stats", "true");
+        Map<String, String> properties = ImmutableMap.of("task.per-operator-cpu-timer-enabled", "true");
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory
