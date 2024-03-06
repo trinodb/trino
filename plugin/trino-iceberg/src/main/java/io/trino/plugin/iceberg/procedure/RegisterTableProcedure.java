@@ -16,8 +16,6 @@ package io.trino.plugin.iceberg.procedure;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
-import io.trino.filesystem.FileEntry;
-import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -35,17 +33,13 @@ import org.apache.iceberg.TableMetadataParser;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
-import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FILE_EXTENSION;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
-import static io.trino.plugin.iceberg.IcebergUtil.parseVersion;
+import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
@@ -178,45 +172,6 @@ public class RegisterTableProcedure
         return metadataFileName
                 .map(fileName -> format("%s/%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME, fileName))
                 .orElseGet(() -> getLatestMetadataLocation(fileSystem, location));
-    }
-
-    public static String getLatestMetadataLocation(TrinoFileSystem fileSystem, String location)
-    {
-        List<Location> latestMetadataLocations = new ArrayList<>();
-        String metadataDirectoryLocation = format("%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME);
-        try {
-            int latestMetadataVersion = -1;
-            FileIterator fileIterator = fileSystem.listFiles(Location.of(metadataDirectoryLocation));
-            while (fileIterator.hasNext()) {
-                FileEntry fileEntry = fileIterator.next();
-                Location fileLocation = fileEntry.location();
-                String fileName = fileLocation.fileName();
-                if (fileName.endsWith(METADATA_FILE_EXTENSION)) {
-                    int versionNumber = parseVersion(fileName);
-                    if (versionNumber > latestMetadataVersion) {
-                        latestMetadataVersion = versionNumber;
-                        latestMetadataLocations.clear();
-                        latestMetadataLocations.add(fileLocation);
-                    }
-                    else if (versionNumber == latestMetadataVersion) {
-                        latestMetadataLocations.add(fileLocation);
-                    }
-                }
-            }
-            if (latestMetadataLocations.isEmpty()) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, "No versioned metadata file exists at location: " + metadataDirectoryLocation);
-            }
-            if (latestMetadataLocations.size() > 1) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, format(
-                        "More than one latest metadata file found at location: %s, latest metadata files are %s",
-                        metadataDirectoryLocation,
-                        latestMetadataLocations));
-            }
-        }
-        catch (IOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking table location: " + location, e);
-        }
-        return getOnlyElement(latestMetadataLocations).toString();
     }
 
     private static void validateMetadataLocation(TrinoFileSystem fileSystem, Location location)
