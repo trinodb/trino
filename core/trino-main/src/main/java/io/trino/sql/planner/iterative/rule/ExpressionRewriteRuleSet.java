@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.sql.planner.OrderingTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -40,28 +38,19 @@ import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.SortItem.NullOrdering;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.patternRecognition;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.values;
-import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
-import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -176,33 +165,14 @@ public class ExpressionRewriteRuleSet
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
-                CatalogSchemaFunctionName name = aggregation.getResolvedFunction().getSignature().getName();
-                FunctionCall call = (FunctionCall) rewriter.rewrite(
-                        new FunctionCall(
-                                Optional.empty(),
-                                aggregation.getResolvedFunction().toQualifiedName(),
-                                Optional.empty(),
-                                aggregation.getFilter().map(symbol -> new SymbolReference(symbol.getName())),
-                                aggregation.getOrderingScheme().map(orderBy -> new OrderBy(orderBy.getOrderBy().stream()
-                                        .map(symbol -> new SortItem(
-                                                new SymbolReference(symbol.getName()),
-                                                orderBy.getOrdering(symbol).isAscending() ? ASCENDING : DESCENDING,
-                                                orderBy.getOrdering(symbol).isNullsFirst() ? NullOrdering.FIRST : NullOrdering.LAST))
-                                        .collect(toImmutableList()))),
-                                aggregation.isDistinct(),
-                                Optional.empty(),
-                                Optional.empty(),
-                                aggregation.getArguments()),
-                        context);
-                verify(
-                        extractFunctionName(call.getName()).equals(name),
-                        "Aggregation function name changed");
                 Aggregation newAggregation = new Aggregation(
                         aggregation.getResolvedFunction(),
-                        call.getArguments(),
-                        call.isDistinct(),
-                        call.getFilter().map(Symbol::from),
-                        call.getOrderBy().map(OrderingTranslator::fromOrderBy),
+                        aggregation.getArguments().stream()
+                                .map(argument -> rewriter.rewrite(argument, context))
+                                .collect(toImmutableList()),
+                        aggregation.isDistinct(),
+                        aggregation.getFilter(),
+                        aggregation.getOrderingScheme(),
                         aggregation.getMask());
                 aggregations.put(entry.getKey(), newAggregation);
                 if (!aggregation.equals(newAggregation)) {
