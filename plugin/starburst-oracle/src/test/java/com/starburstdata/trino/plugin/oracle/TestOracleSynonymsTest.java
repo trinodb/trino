@@ -52,9 +52,9 @@ public class TestOracleSynonymsTest
     @Test
     public void testGetColumns()
     {
-        // OracleClient.getColumns is using wildcard at the end of table name.
+        // StarburstOracleClient.getColumns is using wildcard at the end of table name.
         // Here we test that columns do not leak between tables.
-        // See OracleClient#getColumns for more details.
+        // See StarburstOracleClient#getColumns for more details.
         oracleServer.get().executeInOracle("CREATE TABLE ordersx AS SELECT 'a' some_additional_column FROM dual");
         assertQuery(
                 format("SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND table_schema = '%s'", OracleTestUsers.USER),
