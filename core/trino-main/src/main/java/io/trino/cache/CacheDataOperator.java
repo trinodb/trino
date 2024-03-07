@@ -124,7 +124,7 @@ public class CacheDataOperator
         }
 
         checkState(pageSink.appendPage(page).isDone(), "appendPage future must be done");
-        cachedDataSize += page.getRetainedSizeInBytes();
+        cachedDataSize += page.getSizeInBytes();
         memoryContext.setBytes(pageSink.getMemoryUsage());
 
         // If there is no space for a page in a cache, stop caching this split and abort pageSink
