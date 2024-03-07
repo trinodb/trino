@@ -19,6 +19,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -82,7 +83,7 @@ public class TestPruneAggregationSourceColumns
         List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask, unused);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
-                .addAggregation(avg, PlanBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), mask)
+                .addAggregation(avg, PlanBuilder.aggregation("avg", ImmutableList.of(new SymbolReference("input"))), ImmutableList.of(BIGINT), mask)
                 .hashSymbol(keyHash)
                 .source(
                         planBuilder.values(

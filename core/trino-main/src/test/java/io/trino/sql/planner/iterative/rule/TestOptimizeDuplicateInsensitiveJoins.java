@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.tree.ComparisonExpression;
@@ -60,7 +61,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                     Symbol output = p.symbol("out");
                     return p.aggregation(a -> a
                             .singleGroupingSet(symbolA)
-                            .addAggregation(output, expression("count()"), ImmutableList.of())
+                            .addAggregation(output, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
                             .source(p.join(
                                     INNER,
                                     p.values(symbolA),

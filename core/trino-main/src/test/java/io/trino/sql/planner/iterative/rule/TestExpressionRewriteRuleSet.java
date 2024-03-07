@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.BigintType;
-import io.trino.spi.type.DateType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -25,7 +24,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SymbolReference;
@@ -34,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.QueryUtil.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
@@ -96,7 +93,7 @@ public class TestExpressionRewriteRuleSet
                         .globalGrouping()
                         .addAggregation(
                                 p.symbol("count_1", BigintType.BIGINT),
-                                functionCall("count", new SymbolReference("x")),
+                                PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("x"))),
                                 ImmutableList.of(BigintType.BIGINT))
                         .source(
                                 p.values(p.symbol("x"), p.symbol("y")))))
@@ -104,26 +101,6 @@ public class TestExpressionRewriteRuleSet
                         PlanMatchPattern.aggregation(
                                 ImmutableMap.of("count_1", PlanMatchPattern.aggregationFunction("count", ImmutableList.of("y"))),
                                 values("x", "y")));
-    }
-
-    @Test
-    public void testAggregationExpressionNotRewritten()
-    {
-        FunctionCall nowCall = functionResolution
-                .functionCallBuilder("now")
-                .build();
-        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> nowCall);
-
-        tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
-                .on(p -> p.aggregation(a -> a
-                        .globalGrouping()
-                        .addAggregation(
-                                p.symbol("count_1", DateType.DATE),
-                                nowCall,
-                                ImmutableList.of())
-                        .source(
-                                p.values())))
-                .doesNotFire();
     }
 
     @Test

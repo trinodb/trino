@@ -42,7 +42,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OrderingScheme;
-import io.trino.sql.planner.OrderingTranslator;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -51,6 +50,7 @@ import io.trino.sql.planner.TestingConnectorIndexHandle;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.planner.TestingWriterTarget;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.assertions.AggregationFunction;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AggregationNode.Step;
@@ -110,8 +110,8 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.testing.TestingHandle;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
@@ -132,7 +132,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -432,27 +431,25 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes)
+        public AggregationBuilder addAggregation(Symbol output, AggregationFunction aggregation, List<Type> inputTypes)
         {
-            return addAggregation(output, expression, inputTypes, Optional.empty());
+            return addAggregation(output, aggregation, inputTypes, Optional.empty());
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Symbol mask)
+        public AggregationBuilder addAggregation(Symbol output, AggregationFunction aggregation, List<Type> inputTypes, Symbol mask)
         {
-            return addAggregation(output, expression, inputTypes, Optional.of(mask));
+            return addAggregation(output, aggregation, inputTypes, Optional.of(mask));
         }
 
-        private AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
+        private AggregationBuilder addAggregation(Symbol output, AggregationFunction aggregation, List<Type> inputTypes, Optional<Symbol> mask)
         {
-            checkArgument(expression instanceof FunctionCall);
-            FunctionCall aggregation = (FunctionCall) expression;
-            ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
+            ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
             return addAggregation(output, new Aggregation(
                     resolvedFunction,
-                    aggregation.getArguments(),
-                    aggregation.isDistinct(),
-                    aggregation.getFilter().map(Symbol::from),
-                    aggregation.getOrderBy().map(OrderingTranslator::fromOrderBy),
+                    aggregation.arguments(),
+                    aggregation.distinct(),
+                    aggregation.filter(),
+                    aggregation.orderBy(),
                     mask));
         }
 
@@ -1291,17 +1288,15 @@ public class PlanBuilder
         return new StatisticAggregations(aggregations, groupingSymbols);
     }
 
-    public Aggregation aggregation(Expression expression, List<Type> inputTypes)
+    public Aggregation aggregation(AggregationFunction aggregation, List<Type> inputTypes)
     {
-        checkArgument(expression instanceof FunctionCall);
-        FunctionCall aggregation = (FunctionCall) expression;
-        ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
+        ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, QualifiedName.of(aggregation.name()), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
         return new Aggregation(
                 resolvedFunction,
-                aggregation.getArguments(),
-                aggregation.isDistinct(),
-                aggregation.getFilter().map(Symbol::from),
-                aggregation.getOrderBy().map(OrderingTranslator::fromOrderBy),
+                aggregation.arguments(),
+                aggregation.distinct(),
+                aggregation.filter(),
+                aggregation.orderBy(),
                 Optional.empty());
     }
 
@@ -1412,6 +1407,31 @@ public class PlanBuilder
             RetryPolicy retryPolicy)
     {
         return new RemoteSourceNode(idAllocator.getNextId(), sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
+    }
+
+    public static AggregationFunction aggregation(String name, List<Expression> arguments)
+    {
+        return new AggregationFunction(name, Optional.empty(), Optional.empty(), false, arguments);
+    }
+
+    public static AggregationFunction aggregation(String name, boolean distinct, List<Expression> arguments)
+    {
+        return new AggregationFunction(name, Optional.empty(), Optional.empty(), distinct, arguments);
+    }
+
+    public static AggregationFunction aggregation(String name, boolean distinct, List<Expression> arguments, Symbol filter)
+    {
+        return new AggregationFunction(name, Optional.of(filter), Optional.empty(), distinct, arguments);
+    }
+
+    public static AggregationFunction aggregation(String name, List<Expression> arguments, Symbol filter)
+    {
+        return new AggregationFunction(name, Optional.of(filter), Optional.empty(), false, arguments);
+    }
+
+    public static AggregationFunction aggregation(String name, List<Expression> arguments, OrderingScheme orderBy)
+    {
+        return new AggregationFunction(name, Optional.empty(), Optional.of(orderBy), false, arguments);
     }
 
     public static Expression expression(@Language("SQL") String sql)

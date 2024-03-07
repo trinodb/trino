@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -77,7 +78,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.values(p.symbol("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                 .singleGroupingSet(p.symbol("b")))))
                 .doesNotFire();
     }
@@ -95,7 +96,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         Assignments.of(p.symbol("expr"), PlanBuilder.expression("sum + 1")),
                                         p.aggregation(ab -> ab
                                                 .source(p.values(p.symbol("a"), p.symbol("b")))
-                                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                                 .globalGrouping())))))
                 .doesNotFire();
     }
@@ -109,7 +110,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.values(p.symbol("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                 .globalGrouping())))
                 .doesNotFire();
     }
@@ -124,7 +125,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.project(Assignments.of(p.symbol("expr"), PlanBuilder.expression("sum + 1")),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.symbol("a"), p.symbol("b")))
-                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                         .globalGrouping()))))
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
@@ -146,8 +147,8 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.project(
                                 Assignments.of(p.symbol("expr_sum"), PlanBuilder.expression("sum + 1"), p.symbol("expr_count"), PlanBuilder.expression("count - 1")),
                                 p.aggregation(outerBuilder -> outerBuilder
-                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                                        .addAggregation(p.symbol("count"), PlanBuilder.expression("count()"), ImmutableList.of())
+                                        .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("count"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
                                         .globalGrouping()
                                         .source(p.aggregation(innerBuilder -> innerBuilder
                                                 .singleGroupingSet(p.symbol("a"))
@@ -194,8 +195,8 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.project(
                                 Assignments.of(p.symbol("expr_sum"), PlanBuilder.expression("sum + 1"), p.symbol("expr_count"), PlanBuilder.expression("count - 1")),
                                 p.aggregation(outerBuilder -> outerBuilder
-                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                                        .addAggregation(p.symbol("count"), PlanBuilder.expression("count()"), ImmutableList.of())
+                                        .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("count"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
                                         .globalGrouping()
                                         .source(p.aggregation(innerBuilder -> innerBuilder
                                                 .singleGroupingSet(p.symbol("a"))
@@ -240,7 +241,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.project(Assignments.of(p.symbol("expr"), PlanBuilder.expression("sum + 1")),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.symbol("a"), p.symbol("mask")))
-                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT), p.symbol("mask"))
+                                        .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT), p.symbol("mask"))
                                         .globalGrouping()))))
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("sum_1 + 1")),
