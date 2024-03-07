@@ -272,6 +272,8 @@ public class TestTupleDomainParquetPredicate
         assertThat(getDomain(columnDescriptor, type, 10, binaryColumnStats(maximum, maximum), ID, UTC)).isEqualTo(singleValue(type, max));
 
         assertThat(getDomain(columnDescriptor, type, 10, binaryColumnStats(0L, 100L), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(type, zero, true, hundred, true)), false));
+        assertThat(getDomain(columnDescriptor, type, 10, intColumnStats(0, 100), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(type, zero, true, hundred, true)), false));
+
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, binaryColumnStats(100L, 10L), ID, UTC))
