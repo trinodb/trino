@@ -38,6 +38,12 @@ public class OpenSearchConfig
         PASSWORD,
     }
 
+    public enum SearchType
+    {
+        SCROLL,
+        PIT,
+    }
+
     private List<String> hosts;
     private int port = 9200;
     private String defaultSchema = "default";
@@ -61,6 +67,8 @@ public class OpenSearchConfig
     private boolean verifyHostnames = true;
 
     private Security security;
+
+    private SearchType searchType;
 
     @NotNull
     public List<String> getHosts()
@@ -339,6 +347,19 @@ public class OpenSearchConfig
     public OpenSearchConfig setSecurity(Security security)
     {
         this.security = security;
+        return this;
+    }
+
+    public SearchType getSearchType()
+    {
+        return searchType;
+    }
+
+    @Config("opensearch.search-type")
+    public OpenSearchConfig setSearchType(SearchType searchType)
+    {
+        System.out.println("setting search Type: " + searchType);
+        this.searchType = searchType;
         return this;
     }
 }

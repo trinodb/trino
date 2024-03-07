@@ -56,6 +56,9 @@ import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.ClearScrollRequest;
+import org.opensearch.action.search.CreatePitRequest;
+import org.opensearch.action.search.CreatePitResponse;
+import org.opensearch.action.search.DeletePitRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
@@ -65,7 +68,9 @@ import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.search.builder.PointInTimeBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.slice.SliceBuilder;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -153,6 +158,14 @@ public class OpenSearchClient
             executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), MILLISECONDS);
         }
     }
+
+//    static {
+//        try {
+//            XContentBuilder.builder(new JsonXContent)
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 
     @PreDestroy
     public void close()
@@ -560,6 +573,102 @@ public class OpenSearchClient
         return body;
     }
 
+    public CreatePitResponse createPITRequest(String index)
+    {
+        //System.out.println("scrollTimeout in pitReq" + scrollTimeout.toMillis());
+        TimeValue timeValue = new TimeValue(scrollTimeout.toMillis());
+        CreatePitRequest pitRequest = new CreatePitRequest(timeValue, true, index);
+        //System.out.println(" PIT request: " + pitRequest.getKeepAlive() + " " + pitRequest.getIndices());
+        try {
+            //client.getLowLevelClient().performRequest("POST", "/" + index + "/_search/point_in_time", ImmutableMap.of(), new StringEntity(OBJECT_MAPPER.writeValueAsString(pitRequest), UTF_8));
+
+            Response response = client.getLowLevelClient()
+                    .performRequest(
+                            "POST",
+                            format("/%s/_search/point_in_time?keep_alive=5m", index),
+                            ImmutableMap.of(),
+                            null,
+                            new BasicHeader("Content-Type", "application/json"));
+            //System.out.println("PIT response : " + response);
+            String body;
+            try {
+                body = EntityUtils.toString(response.getEntity());
+                //System.out.println("PIT response body: " + body);
+                ObjectMapper mapper = new ObjectMapper();
+                Map<String, String> map = mapper.readValue(body, Map.class);
+                String pitId = map.get("pit_id");
+                return new CreatePitResponse(pitId, System.currentTimeMillis(), 0, 0, 0, 0, null);
+            }
+            catch (IOException e) {
+                throw new TrinoException(OpenSearchErrorCode.OPENSEARCH_INVALID_RESPONSE, e);
+            }
+            //CreatePitResponse createPitResponse = client.createPointInTime(pitRequest);
+            //return new CreatePitResponse("", 0, 0, 0, 0, 0, null);
+        }
+        catch (IOException e) {
+            throw new TrinoException(OpenSearchErrorCode.OPENSEARCH_CONNECTION_ERROR, e);
+        }
+    }
+
+    public SearchResponse pitSearch(String index, int shard, String pitId, int shardCount, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit, Object[] searchAfter)
+    {
+        SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
+                .query(query);
+
+        if (limit.isPresent() && limit.getAsLong() < scrollSize) {
+            // Safe to cast it to int because scrollSize is int.
+            sourceBuilder.size(toIntExact(limit.getAsLong()));
+        }
+        else {
+            sourceBuilder.size(scrollSize);
+        }
+
+        sort.ifPresent(sourceBuilder::sort);
+
+        fields.ifPresent(values -> {
+            if (values.isEmpty()) {
+                sourceBuilder.fetchSource(false);
+            }
+            else {
+                sourceBuilder.fetchSource(values.toArray(new String[0]), null);
+            }
+        });
+        sourceBuilder.slice(new SliceBuilder(shard, shardCount));
+        documentFields.forEach(sourceBuilder::docValueField);
+        PointInTimeBuilder pitBuilder = new PointInTimeBuilder(pitId);
+        sourceBuilder.pointInTimeBuilder(pitBuilder);
+        if (searchAfter != null) {
+            sourceBuilder.searchAfter(searchAfter);
+        }
+        LOG.debug("Begin PIT search: %s:%s, query: %s", index, shard, sourceBuilder);
+
+        SearchRequest request = new SearchRequest()
+                .searchType(QUERY_THEN_FETCH)
+                .source(sourceBuilder);
+
+        long start = System.nanoTime();
+        try {
+            return client.search(request);
+        }
+        catch (IOException e) {
+            throw new TrinoException(OpenSearchErrorCode.OPENSEARCH_CONNECTION_ERROR, e);
+        }
+        catch (OpenSearchStatusException e) {
+            Throwable[] suppressed = e.getSuppressed();
+            if (suppressed.length > 0) {
+                Throwable cause = suppressed[0];
+                if (cause instanceof ResponseException) {
+                    throw propagate((ResponseException) cause);
+                }
+            }
+
+            throw new TrinoException(OpenSearchErrorCode.OPENSEARCH_CONNECTION_ERROR, e);
+        }
+        finally {
+            searchStats.add(Duration.nanosSince(start));
+        }
+    }
+
     public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
     {
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
@@ -635,6 +744,25 @@ public class OpenSearchClient
         }
     }
 
+    public SearchResponse nextPITPage(String pitId, int slice, int maxSlice)
+    {
+        LOG.debug("Next page: %s", pitId);
+
+        SearchScrollRequest request = new SearchScrollRequest(pitId)
+                .scroll(new TimeValue(scrollTimeout.toMillis()));
+
+        long start = System.nanoTime();
+        try {
+            return client.searchScroll(request);
+        }
+        catch (IOException e) {
+            throw new TrinoException(OpenSearchErrorCode.OPENSEARCH_CONNECTION_ERROR, e);
+        }
+        finally {
+            nextPageStats.add(Duration.nanosSince(start));
+        }
+    }
+
     public long count(String index, int shard, QueryBuilder query)
     {
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
@@ -680,6 +808,17 @@ public class OpenSearchClient
         request.addScrollId(scrollId);
         try {
             client.clearScroll(request);
+        }
+        catch (IOException e) {
+            throw new TrinoException(OpenSearchErrorCode.OPENSEARCH_CONNECTION_ERROR, e);
+        }
+    }
+
+    public void deletePit(String pitId)
+    {
+        DeletePitRequest request = new DeletePitRequest(pitId);
+        try {
+            client.deletePointInTime(request);
         }
         catch (IOException e) {
             throw new TrinoException(OpenSearchErrorCode.OPENSEARCH_CONNECTION_ERROR, e);

@@ -14,6 +14,7 @@
 package io.trino.plugin.opensearch;
 
 import com.google.inject.Inject;
+import io.trino.plugin.opensearch.OpenSearchConfig.SearchType;
 import io.trino.plugin.opensearch.client.OpenSearchClient;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -37,11 +38,14 @@ public class OpenSearchPageSourceProvider
     private final OpenSearchClient client;
     private final TypeManager typeManager;
 
+    private final OpenSearchConfig config;
+
     @Inject
-    public OpenSearchPageSourceProvider(OpenSearchClient client, TypeManager typeManager)
+    public OpenSearchPageSourceProvider(OpenSearchClient client, TypeManager typeManager, OpenSearchConfig config)
     {
         this.client = requireNonNull(client, "client is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.config = config;
     }
 
     @Override
@@ -66,14 +70,30 @@ public class OpenSearchPageSourceProvider
         if (columns.isEmpty()) {
             return new CountQueryPageSource(client, opensearchTable, opensearchSplit);
         }
+        System.out.println("search Type: " + config.getSearchType());
 
-        return new ScanQueryPageSource(
-                client,
-                typeManager,
-                opensearchTable,
-                opensearchSplit,
-                columns.stream()
-                        .map(OpenSearchColumnHandle.class::cast)
-                        .collect(toImmutableList()));
+        if (config.getSearchType() == SearchType.SCROLL) {
+            return new ScanQueryPageSource(
+                    client,
+                    typeManager,
+                    opensearchTable,
+                    opensearchSplit,
+                    columns.stream()
+                            .map(OpenSearchColumnHandle.class::cast)
+                            .collect(toImmutableList()));
+        }
+        else if (config.getSearchType() == SearchType.PIT) {
+            return new PITScanQueryPageSource(
+                    client,
+                    typeManager,
+                    opensearchTable,
+                    opensearchSplit,
+                    columns.stream()
+                            .map(OpenSearchColumnHandle.class::cast)
+                            .collect(toImmutableList()));
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported search type: " + config.getSearchType());
+        }
     }
 }
