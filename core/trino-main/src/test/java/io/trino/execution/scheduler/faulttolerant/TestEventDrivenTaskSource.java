@@ -324,9 +324,10 @@ public class TestEventDrivenTaskSource
                 partitioningScheme,
                 getSplitDuration -> getSplitInvocations.incrementAndGet())) {
             while (tester.getTaskDescriptors().isEmpty()) {
-                AssignmentResult result = taskSource.process().get(10, SECONDS);
+                AssignmentResult result = taskSource.process().orElseThrow().get(10, SECONDS);
                 tester.update(result);
             }
+            assertThat(taskSource.process()).as("Expected taskSource to be finished").isEmpty();
             taskDescriptors = tester.getTaskDescriptors().get();
         }
 
