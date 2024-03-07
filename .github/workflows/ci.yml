@@ -653,10 +653,10 @@ jobs:
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
             - { modules: core/trino-main }
-            - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
-            - { modules: lib/trino-hdfs, profile: cloud-tests }
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
+            - { modules: lib/trino-hdfs, profile: cloud-tests }
             - { modules: plugin/starburst-dynamodb }
             - { modules: plugin/starburst-oracle }
             - { modules: plugin/starburst-sap-hana }
@@ -761,16 +761,16 @@ jobs:
           && matrix.modules != 'plugin/starburst-snowflake'
           && matrix.modules != 'plugin/starburst-synapse'
           && ! (contains(matrix.modules, 'trino-mongodb') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
           && ! (contains(matrix.modules, 'trino-snowflake') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Run Snowflake AWS tests
