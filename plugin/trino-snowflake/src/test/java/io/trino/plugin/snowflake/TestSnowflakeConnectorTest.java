@@ -608,11 +608,4 @@ public class TestSnowflakeConnectorTest
                 .hasMessageContaining("Actual rows")
                 .hasMessageContaining("Expected rows");
     }
-
-    @Test
-    @Override
-    public void testDescribeTable()
-    {
-        assertThat(query("DESCRIBE orders")).result().matches(getDescribeOrdersResult());
-    }
 }
