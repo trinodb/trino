@@ -29,7 +29,6 @@ import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers.Assignment;
-import io.trino.sql.planner.rowpattern.ExpressionAndValuePointersEquivalence;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
@@ -141,12 +140,8 @@ public class PatternRecognitionMatcher
             if (actual == null) {
                 return NO_MATCH;
             }
-            ExpressionAndValuePointers expected = entry.getValue();
-            ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-            if (!ExpressionAndValuePointersEquivalence.equivalent(
-                    actual,
-                    expected,
-                    (actualSymbol, expectedSymbol) -> verifier.process(actualSymbol.toSymbolReference(), expectedSymbol.toSymbolReference()))) {
+
+            if (!ExpressionAndValuePointersMatcher.matches(entry.getValue(), actual, symbolAliases)) {
                 return NO_MATCH;
             }
         }
