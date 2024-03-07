@@ -21,8 +21,8 @@ import io.trino.cost.TaskCountEstimator;
 import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
@@ -38,6 +38,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.symbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
 
 public class TestDistinctAggregationToGroupBy
         extends BaseRuleTest
@@ -55,7 +56,7 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();
 
@@ -64,8 +65,8 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(aggregation(
                         globalAggregation(),
@@ -90,9 +91,9 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c")))))
                 .matches(aggregation(
                         globalAggregation(),
@@ -120,10 +121,10 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct3"), PlanBuilder.expression("sum(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct3"), aggregation("sum", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c")))))
                 .matches(aggregation(
                         globalAggregation(),
@@ -152,10 +153,10 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct1"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("non-distinct2"), PlanBuilder.expression("avg(d)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct1"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct2"), aggregation("avg", ImmutableList.of(new SymbolReference("d"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"), p.symbol("d")))))
                 .matches(aggregation(
                         globalAggregation(),
@@ -186,10 +187,10 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct1"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("non-distinct2"), PlanBuilder.expression("avg(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct1"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct2"), aggregation("avg", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c")))))
                 .matches(aggregation(
                         globalAggregation(),
@@ -224,10 +225,10 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct1"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("non-distinct2"), PlanBuilder.expression("avg(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct1"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct2"), aggregation("avg", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a")))))
                 .matches(aggregation(
                         globalAggregation(),
@@ -263,8 +264,8 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("count(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(project(
                         ImmutableMap.of("non-distinct-final", expression("COALESCE(\"non-distinct-expression\", CAST(0 AS bigint))")),
@@ -291,8 +292,8 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("count(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("groupingKey")))))
                 .matches(project(
                         ImmutableMap.of("non-distinct-final", expression("COALESCE(\"non-distinct-expression\", CAST(0 AS bigint))")),
@@ -323,7 +324,7 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("b")))))
                 .doesNotFire();
 
@@ -332,8 +333,8 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("b"), p.symbol("c")))))
                 .matches(aggregation(
                         globalAggregation(),
@@ -358,9 +359,9 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct3"), PlanBuilder.expression("sum(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct3"), aggregation("sum", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("b"), p.symbol("c")))))
                 .matches(aggregation(
                         globalAggregation(),
@@ -389,8 +390,8 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("count(distinct nested)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("count", true, ImmutableList.of(new SymbolReference("nested"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("nested", RowType.anonymousRow(BIGINT, BIGINT))))))
                 .matches(aggregation(
                         globalAggregation(),
@@ -419,8 +420,8 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("count(*)"), ImmutableList.of())
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("count(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("count", ImmutableList.of()), ImmutableList.of())
+                        .addAggregation(p.symbol("distinct"), aggregation("count", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("b")))))
                 .matches(project(
                         ImmutableMap.of("non-distinct-final", expression("COALESCE(\"non-distinct-expression\", CAST(0 AS bigint))")),
@@ -446,9 +447,9 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("count"), PlanBuilder.expression("count(*)"), ImmutableList.of())
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("count(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("count(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("count"), aggregation("count", ImmutableList.of()), ImmutableList.of())
+                        .addAggregation(p.symbol("non-distinct"), aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("count", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(project(
                         ImmutableMap.of(
@@ -484,7 +485,7 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("groupingKey")))))
                 .doesNotFire();
 
@@ -493,8 +494,8 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("groupingKey")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey"),
@@ -519,9 +520,9 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"), p.symbol("groupingKey")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey"),
@@ -549,10 +550,10 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct3"), PlanBuilder.expression("sum(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct3"), aggregation("sum", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"), p.symbol("groupingKey")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey"),
@@ -581,10 +582,10 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
-                        .addAggregation(p.symbol("non-distinct1"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("non-distinct2"), PlanBuilder.expression("avg(d)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct1"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct2"), aggregation("avg", ImmutableList.of(new SymbolReference("d"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"), p.symbol("d"), p.symbol("groupingKey")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey"),
@@ -615,10 +616,10 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
-                        .addAggregation(p.symbol("non-distinct1"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("non-distinct2"), PlanBuilder.expression("avg(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct1"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct2"), aggregation("avg", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"), p.symbol("groupingKey")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey"),
@@ -653,7 +654,7 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("b"), p.symbol("groupingKey")))))
                 .doesNotFire();
 
@@ -662,8 +663,8 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("b"), p.symbol("c"), p.symbol("groupingKey")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey"),
@@ -688,9 +689,9 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct3"), PlanBuilder.expression("sum(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct3"), aggregation("sum", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("b"), p.symbol("c"), p.symbol("groupingKey")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey"),
@@ -720,7 +721,7 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("groupingKey1"), p.symbol("groupingKey2")))))
                 .doesNotFire();
 
@@ -729,8 +730,8 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("groupingKey1"), p.symbol("groupingKey2")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey1", "groupingKey2"),
@@ -755,9 +756,9 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"), p.symbol("groupingKey1"), p.symbol("groupingKey2")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey1", "groupingKey2"),
@@ -785,10 +786,10 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct3"), PlanBuilder.expression("sum(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct3"), aggregation("sum", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"), p.symbol("groupingKey1"), p.symbol("groupingKey2")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey1", "groupingKey2"),
@@ -817,10 +818,10 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
-                        .addAggregation(p.symbol("non-distinct1"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("non-distinct2"), PlanBuilder.expression("avg(d)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct1"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct2"), aggregation("avg", ImmutableList.of(new SymbolReference("d"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"), p.symbol("d"), p.symbol("groupingKey1"), p.symbol("groupingKey2")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey1", "groupingKey2"),
@@ -851,10 +852,10 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
-                        .addAggregation(p.symbol("non-distinct1"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("non-distinct2"), PlanBuilder.expression("avg(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct1"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct2"), PlanBuilder.expression("count(distinct c)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct1"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct2"), aggregation("avg", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct1"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct2"), aggregation("count", true, ImmutableList.of(new SymbolReference("c"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"), p.symbol("groupingKey1"), p.symbol("groupingKey2")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey1", "groupingKey2"),
@@ -889,8 +890,8 @@ public class TestDistinctAggregationToGroupBy
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(aggregation(
                         globalAggregation(),
@@ -924,8 +925,8 @@ public class TestDistinctAggregationToGroupBy
                         .addSymbolStatistics(groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(2 * clusterThreadCount).build()).build())
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(groupingKey)
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(aggregationSourceId, p.symbol("a"), p.symbol("b"), p.symbol("groupingKey")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey"),
@@ -958,8 +959,8 @@ public class TestDistinctAggregationToGroupBy
                         .addSymbolStatistics(groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(Double.NaN).build()).build())
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(groupingKey)
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(aggregationSourceId, p.symbol("a"), p.symbol("b"), p.symbol("groupingKey")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey"),
@@ -993,8 +994,8 @@ public class TestDistinctAggregationToGroupBy
                         .addSymbolStatistics(groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(1000 * clusterThreadCount).build()).build())
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(groupingKey)
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(aggregationSourceId, p.symbol("a"), p.symbol("b"), p.symbol("groupingKey")))))
                 .doesNotFire();
     }
@@ -1013,8 +1014,8 @@ public class TestDistinctAggregationToGroupBy
                         .addSymbolStatistics(groupingKey2, SymbolStatsEstimate.builder().setDistinctValuesCount(2 * clusterThreadCount).build()).build())
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(groupingKey1, groupingKey2)
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("groupingKey1"), p.symbol("groupingKey2")))))
                 .matches(aggregation(
                         singleGroupingSet("groupingKey1", "groupingKey2"),
@@ -1051,8 +1052,8 @@ public class TestDistinctAggregationToGroupBy
                         .addSymbolStatistics(groupingKey3, SymbolStatsEstimate.builder().setDistinctValuesCount(clusterThreadCount).build()).build())
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(groupingKey1, groupingKey2, groupingKey3)
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("groupingKey1"), p.symbol("groupingKey2"), p.symbol("groupingKey3")))))
                 .doesNotFire();
 
@@ -1065,8 +1066,8 @@ public class TestDistinctAggregationToGroupBy
                         .addSymbolStatistics(groupingKey3, SymbolStatsEstimate.builder().setDistinctValuesCount(Double.NaN).build()).build())
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(groupingKey1, groupingKey2, groupingKey3)
-                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("non-distinct"), aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("groupingKey1"), p.symbol("groupingKey2"), p.symbol("groupingKey3")))))
                 .doesNotFire();
     }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
@@ -50,7 +51,7 @@ public class TestImplementFilteredAggregations
                             .singleGroupingSet(g)
                             .addAggregation(
                                     p.symbol("sum"),
-                                    functionWithFilter("sum", a, Optional.of(filter)),
+                                    PlanBuilder.aggregation("sum", ImmutableList.of(a.toSymbolReference()), filter),
                                     ImmutableList.of(BIGINT))
                             .source(p.values(a, g, filter)));
                 })
@@ -82,7 +83,7 @@ public class TestImplementFilteredAggregations
                             .singleGroupingSet(g)
                             .addAggregation(
                                     p.symbol("sum"),
-                                    functionWithFilter("sum", a, Optional.of(filter)),
+                                    PlanBuilder.aggregation("sum", ImmutableList.of(a.toSymbolReference()), filter),
                                     ImmutableList.of(BIGINT),
                                     mask)
                             .source(p.values(a, g, mask, filter)));
@@ -114,7 +115,7 @@ public class TestImplementFilteredAggregations
                             .globalGrouping()
                             .addAggregation(
                                     p.symbol("sum"),
-                                    functionWithFilter("sum", a, Optional.of(filter)),
+                                    PlanBuilder.aggregation("sum", ImmutableList.of(a.toSymbolReference()), filter),
                                     ImmutableList.of(BIGINT))
                             .source(p.values(a, g, filter)));
                 })
@@ -145,11 +146,11 @@ public class TestImplementFilteredAggregations
                             .globalGrouping()
                             .addAggregation(
                                     p.symbol("sum"),
-                                    functionWithFilter("sum", a, Optional.of(filter)),
+                                    PlanBuilder.aggregation("sum", ImmutableList.of(a.toSymbolReference()), filter),
                                     ImmutableList.of(BIGINT))
                             .addAggregation(
                                     p.symbol("avg"),
-                                    functionWithFilter("avg", a, Optional.empty()),
+                                    PlanBuilder.aggregation("avg", ImmutableList.of(a.toSymbolReference())),
                                     ImmutableList.of(BIGINT))
                             .source(p.values(a, g, filter)));
                 })
