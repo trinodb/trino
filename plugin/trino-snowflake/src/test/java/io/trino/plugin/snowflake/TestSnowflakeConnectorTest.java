@@ -282,12 +282,28 @@ public class TestSnowflakeConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
-    @Test
     @Override
-    public void testCreateTableWithLongTableName()
+    protected OptionalInt maxSchemaNameLength()
     {
-        // TODO: Find the maximum table name length in Snowflake and enable this test.
-        abort("TODO");
+        return OptionalInt.of(255);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("exceeds maximum length limit of 255 characters");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(255);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("exceeds maximum length limit of 255 characters");
     }
 
     @Override
@@ -349,14 +365,6 @@ public class TestSnowflakeConnectorTest
 
     @Test
     @Override
-    public void testCreateSchemaWithLongName()
-    {
-        // TODO: Find the maximum table schema length in Snowflake and enable this test.
-        abort("TODO");
-    }
-
-    @Test
-    @Override
     public void testInsertArray()
     {
         // Snowflake does not support this feature.
@@ -389,22 +397,6 @@ public class TestSnowflakeConnectorTest
                     .failure().hasMessageContaining("syntax error");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
-    }
-
-    @Test
-    @Override
-    public void testRenameSchemaToLongName()
-    {
-        // TODO: Find the maximum table schema length in Snowflake and enable this test.
-        abort("TODO");
-    }
-
-    @Test
-    @Override
-    public void testRenameTableToLongTableName()
-    {
-        // TODO: Find the maximum table length in Snowflake and enable this test.
-        abort("TODO");
     }
 
     @Test
