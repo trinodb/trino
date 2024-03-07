@@ -318,7 +318,14 @@ public class HudiPageSourceProvider
                 case VARBINARY:
                     return Optional.of(utf8Slice(partitionValue));
                 case DATE:
-                    return Optional.of(LocalDate.parse(partitionValue, DateTimeFormatter.ISO_LOCAL_DATE).toEpochDay());
+                    LocalDate localDate;
+                    try {
+                        localDate = LocalDate.parse(partitionValue, DateTimeFormatter.ISO_LOCAL_DATE);
+                    }
+                    catch (DateTimeParseException e) {
+                        localDate = LocalDate.parse(partitionValue, DateTimeFormatter.BASIC_ISO_DATE);
+                    }
+                    return Optional.of(localDate.toEpochDay());
                 case TIMESTAMP:
                     return Optional.of(Timestamp.valueOf(partitionValue).toLocalDateTime().toEpochSecond(ZoneOffset.UTC) * 1_000);
                 case BOOLEAN:
