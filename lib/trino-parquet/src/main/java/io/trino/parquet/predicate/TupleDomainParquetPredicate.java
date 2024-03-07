@@ -392,10 +392,13 @@ public class TupleDomainParquetPredicate
             }
             else {
                 for (int i = 0; i < minimums.size(); i++) {
-                    Int128 min = Int128.fromBigEndian(((Slice) minimums.get(i)).getBytes());
-                    Int128 max = Int128.fromBigEndian(((Slice) maximums.get(i)).getBytes());
+                    Object min = minimums.get(i);
+                    Object max = maximums.get(i);
 
-                    rangesBuilder.addRangeInclusive(min, max);
+                    Int128 minValue = min instanceof Slice ? Int128.fromBigEndian(((Slice) min).getBytes()) : Int128.valueOf(asLong(min));
+                    Int128 maxValue = max instanceof Slice ? Int128.fromBigEndian(((Slice) max).getBytes()) : Int128.valueOf(asLong(max));
+
+                    rangesBuilder.addRangeInclusive(minValue, maxValue);
                 }
             }
 
