@@ -37,6 +37,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -398,27 +399,6 @@ public class TestSnowflakeConnectorTest
 
     @Test
     @Override
-    public void testNativeQueryCreateStatement()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
-    public void testNativeQueryInsertStatementTableExists()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
-    public void testNativeQuerySelectUnsupportedType()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
     public void testCreateTableWithLongColumnName()
     {
         String tableName = "test_long_column" + randomNameSuffix();
@@ -528,59 +508,24 @@ public class TestSnowflakeConnectorTest
     }
 
     @Test
-    @Override
-    public void testNativeQueryColumnAlias()
+    @Override // Override because the failure message is different
+    public void testNativeQueryCreateStatement()
     {
-        abort("TODO: Table function system.query not registered");
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE tpch.numbers(n INTEGER)'))"))
+                .failure().hasMessageContaining("syntax error");
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
     @Test
-    @Override
-    public void testNativeQueryColumnAliasNotFound()
+    @Override // Override because the failure message is different
+    public void testNativeQueryInsertStatementTableExists()
     {
-        abort("TODO: Table function system.query not registered");
-    }
-
-    @Test
-    @Override
-    public void testNativeQueryIncorrectSyntax()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
-    public void testNativeQueryInsertStatementTableDoesNotExist()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
-    public void testNativeQueryParameters()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
-    public void testNativeQuerySelectFromNation()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
-    public void testNativeQuerySelectFromTestTable()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
-    public void testNativeQuerySimple()
-    {
-        abort("TODO");
+        try (TestTable testTable = simpleTable()) {
+            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .failure().hasMessageContaining("syntax error");
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
+        }
     }
 
     @Test
