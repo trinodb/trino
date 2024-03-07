@@ -20,6 +20,7 @@ import io.trino.testing.containers.junit.ReportLeakedContainers;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -133,7 +134,7 @@ public class TestingStarburstOracleServer
                 .buildOrThrow();
     }
 
-    public void executeInOracle(String sql)
+    public void executeInOracle(@Language("SQL") String sql)
     {
         executeInOracle(connection -> {
             try (Statement statement = connection.createStatement()) {
