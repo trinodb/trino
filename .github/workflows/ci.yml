@@ -64,22 +64,20 @@ jobs:
     if: ${{ always() }} # if `failure()` would not work for cancellations, `!success()` would not work for skipped jobs
     runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     needs:
-      [
-        artifact-checks,
-        build-pt,
-        build-test-matrix,
-        check-commit,
-        check-commits-dispatcher,
-        error-prone-checks,
-        hive-tests,
-        maven-checks,
-        pt,
-        salesforce-tests,
-        test,
-        test-jdbc-compatibility,
-        test-other-modules,
-        web-ui-checks,
-      ]
+      - artifact-checks
+      - build-pt
+      - build-test-matrix
+      - check-commit
+      - check-commits-dispatcher
+      - error-prone-checks
+      - hive-tests
+      - maven-checks
+      - pt
+      - salesforce-tests
+      - test
+      - test-jdbc-compatibility
+      - test-other-modules
+      - web-ui-checks
     steps:
       - name: "Check results"
         run: |
