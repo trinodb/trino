@@ -26,13 +26,16 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Properties;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
@@ -45,6 +48,7 @@ public class SnowflakeClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(SnowflakeConfig.class);
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Singleton
