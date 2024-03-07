@@ -21,7 +21,6 @@ import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
-import io.trino.sql.planner.rowpattern.ExpressionAndValuePointersEquivalence;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 
 import java.util.Map;
@@ -73,11 +72,10 @@ public class MeasureMatcher
             return false;
         }
 
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-        return ExpressionAndValuePointersEquivalence.equivalent(
-                actual.getExpressionAndValuePointers(),
+        return ExpressionAndValuePointersMatcher.matches(
                 expected.getExpressionAndValuePointers(),
-                (actualSymbol, expectedSymbol) -> verifier.process(actualSymbol.toSymbolReference(), expectedSymbol.toSymbolReference()));
+                actual.getExpressionAndValuePointers(),
+                symbolAliases);
     }
 
     @Override
