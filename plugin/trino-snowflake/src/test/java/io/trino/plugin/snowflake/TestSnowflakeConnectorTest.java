@@ -14,7 +14,6 @@
 package io.trino.plugin.snowflake;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -34,13 +33,10 @@ import static io.trino.plugin.snowflake.TestingSnowflakeServer.TEST_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -184,8 +180,7 @@ public class TestSnowflakeConnectorTest
                         "   clerk varchar(15),\n" +
                         "   shippriority bigint,\n" +
                         "   comment varchar(79)\n" +
-                        ")\n" +
-                        "COMMENT ''");
+                        ")");
     }
 
     @Test
@@ -263,138 +258,6 @@ public class TestSnowflakeConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithLike)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testCreateTableAsSelect()
-    {
-        String tableName = "test_ctas" + randomNameSuffix();
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
-            assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "This connector does not support creating tables with data");
-            return;
-        }
-        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
-        assertTableColumnNames(tableName, "name", "regionkey");
-
-        assertEquals(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName), "");
-        assertUpdate("DROP TABLE " + tableName);
-
-        // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
-        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT nationkey, regionkey FROM nation", 0);
-        assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
-
-        assertCreateTableAsSelect(
-                "SELECT nationkey, name, regionkey FROM nation",
-                "SELECT count(*) FROM nation");
-
-        assertCreateTableAsSelect(
-                "SELECT mktsegment, sum(acctbal) x FROM customer GROUP BY mktsegment",
-                "SELECT count(DISTINCT mktsegment) FROM customer");
-
-        assertCreateTableAsSelect(
-                "SELECT count(*) x FROM nation JOIN region ON nation.regionkey = region.regionkey",
-                "SELECT 1");
-
-        assertCreateTableAsSelect(
-                "SELECT nationkey FROM nation ORDER BY nationkey LIMIT 10",
-                "SELECT 10");
-
-        assertCreateTableAsSelect(
-                "SELECT * FROM nation WITH DATA",
-                "SELECT * FROM nation",
-                "SELECT count(*) FROM nation");
-
-        assertCreateTableAsSelect(
-                "SELECT * FROM nation WITH NO DATA",
-                "SELECT * FROM nation LIMIT 0",
-                "SELECT 0");
-
-        // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
-
-        assertCreateTableAsSelect(
-                "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 0 UNION ALL " +
-                        "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 1",
-                "SELECT name, nationkey, regionkey FROM nation",
-                "SELECT count(*) FROM nation");
-
-        assertCreateTableAsSelect(
-                Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
-                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
-                        "SELECT 1234567890, 123",
-                "SELECT nationkey, regionkey FROM nation UNION ALL " +
-                        "SELECT 1234567890, 123",
-                "SELECT count(*) + 1 FROM nation");
-
-        assertCreateTableAsSelect(
-                Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
-                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
-                        "SELECT 1234567890, 123",
-                "SELECT nationkey, regionkey FROM nation UNION ALL " +
-                        "SELECT 1234567890, 123",
-                "SELECT count(*) + 1 FROM nation");
-
-        tableName = "test_ctas" + randomNameSuffix();
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT name FROM nation");
-        assertQuery("SELECT * from " + tableName, "SELECT name FROM nation");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    @Override
-    public void testCreateTable()
-    {
-        String tableName = "test_create_" + randomNameSuffix();
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
-            assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b double, c varchar(50))", "This connector does not support creating tables");
-            return;
-        }
-
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()) // prime the cache, if any
-                .doesNotContain(tableName);
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar(50))");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
-                .contains(tableName);
-        assertTableColumnNames(tableName, "a", "b", "c");
-        assertEquals(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName), "");
-
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
-                .doesNotContain(tableName);
-
-        assertQueryFails("CREATE TABLE " + tableName + " (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-
-        tableName = "test_cr_not_exists_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar(50), c double)");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-        assertTableColumnNames(tableName, "a", "b", "c");
-
-        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " (d bigint, e varchar(50))");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-        assertTableColumnNames(tableName, "a", "b", "c");
-
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-
-        // Test CREATE TABLE LIKE
-        tableName = "test_create_orig_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar(50))");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-        assertTableColumnNames(tableName, "a", "b", "c");
-
-        String tableNameLike = "test_create_like_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableNameLike + " (LIKE " + tableName + ", d bigint, e varchar(50))");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableNameLike));
-        assertTableColumnNames(tableNameLike, "a", "b", "c", "d", "e");
-
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-
-        assertUpdate("DROP TABLE " + tableNameLike);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
     }
 
     @Test
