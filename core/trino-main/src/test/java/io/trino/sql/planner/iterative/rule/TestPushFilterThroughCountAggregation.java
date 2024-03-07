@@ -21,6 +21,7 @@ import io.trino.sql.planner.iterative.rule.PushFilterThroughCountAggregation.Pus
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -46,7 +47,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("count > 0"),
                             p.aggregation(builder -> builder
                                     .globalGrouping()
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -65,8 +66,8 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("count > 0"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
-                                    .addAggregation(avg, PlanBuilder.expression("avg(g)"), ImmutableList.of(BIGINT), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
+                                    .addAggregation(avg, PlanBuilder.aggregation("avg", ImmutableList.of(new SymbolReference("g"))), ImmutableList.of(BIGINT), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -99,7 +100,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("count > 0"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of())
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
                                     .source(p.values(g))));
                 })
                 .doesNotFire();
@@ -117,7 +118,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("count > 0"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count(g)"), ImmutableList.of(BIGINT), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("g"))), ImmutableList.of(BIGINT), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -131,7 +132,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("avg > 0"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(avg, PlanBuilder.expression("avg(g)"), ImmutableList.of(BIGINT), mask)
+                                    .addAggregation(avg, PlanBuilder.aggregation("avg", ImmutableList.of(new SymbolReference("g"))), ImmutableList.of(BIGINT), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -149,7 +150,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("count < BIGINT '0' AND count > BIGINT '0'"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .matches(
@@ -168,7 +169,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("true"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -186,7 +187,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("(count < BIGINT '0' OR count >= BIGINT '0') AND g = BIGINT '5'"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .doesNotFire();
@@ -204,7 +205,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("count > BIGINT '0'"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .matches(
@@ -227,7 +228,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("count > BIGINT '0' AND g > BIGINT '5'"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .matches(
@@ -248,7 +249,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("count > BIGINT '0' AND count % 2 = BIGINT '0'"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .matches(
@@ -273,7 +274,7 @@ public class TestPushFilterThroughCountAggregation
                             PlanBuilder.expression("count > BIGINT '5'"),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
-                                    .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                    .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                     .source(p.values(g, mask))));
                 })
                 .matches(
@@ -300,7 +301,7 @@ public class TestPushFilterThroughCountAggregation
                                     Assignments.identity(count),
                                     p.aggregation(builder -> builder
                                             .singleGroupingSet(g)
-                                            .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                            .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                             .source(p.values(g, mask)))));
                 })
                 .matches(
@@ -323,7 +324,7 @@ public class TestPushFilterThroughCountAggregation
                                     Assignments.identity(count, g),
                                     p.aggregation(builder -> builder
                                             .singleGroupingSet(g)
-                                            .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                            .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                             .source(p.values(g, mask)))));
                 })
                 .matches(
@@ -348,7 +349,7 @@ public class TestPushFilterThroughCountAggregation
                                     Assignments.identity(count),
                                     p.aggregation(builder -> builder
                                             .singleGroupingSet(g)
-                                            .addAggregation(count, PlanBuilder.expression("count()"), ImmutableList.of(), mask)
+                                            .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
                                             .source(p.values(g, mask)))));
                 })
                 .matches(

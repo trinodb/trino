@@ -16,11 +16,14 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.Metadata;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.tree.SortItem;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -33,7 +36,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFuncti
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class TestPruneOrderByInAggregation
@@ -73,8 +75,22 @@ public class TestPruneOrderByInAggregation
         List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
-                .addAggregation(avg, expression("avg(input order by input)"), ImmutableList.of(BIGINT), mask)
-                .addAggregation(arrayAgg, expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), mask)
+                .addAggregation(avg, PlanBuilder.aggregation(
+                        "avg",
+                        ImmutableList.of(new SymbolReference("input")),
+                        new OrderingScheme(
+                                ImmutableList.of(new Symbol("input")),
+                                ImmutableMap.of(new Symbol("input"), SortOrder.ASC_NULLS_LAST))),
+                        ImmutableList.of(BIGINT),
+                        mask)
+                .addAggregation(arrayAgg, PlanBuilder.aggregation(
+                        "array_agg",
+                        ImmutableList.of(new SymbolReference("input")),
+                        new OrderingScheme(
+                                ImmutableList.of(new Symbol("input")),
+                                ImmutableMap.of(new Symbol("input"), SortOrder.ASC_NULLS_LAST))),
+                        ImmutableList.of(BIGINT),
+                        mask)
                 .hashSymbol(keyHash)
                 .source(planBuilder.values(sourceSymbols, ImmutableList.of())));
     }

@@ -74,7 +74,7 @@ public class TestPruneAggregationColumns
                 planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                         .source(planBuilder.values(key))
                         .singleGroupingSet(key)
-                        .addAggregation(a, PlanBuilder.expression("count()"), ImmutableList.of())
-                        .addAggregation(b, PlanBuilder.expression("count()"), ImmutableList.of())));
+                        .addAggregation(a, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
+                        .addAggregation(b, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())));
     }
 }

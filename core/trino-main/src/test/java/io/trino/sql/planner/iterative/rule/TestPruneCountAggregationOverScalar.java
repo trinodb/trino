@@ -16,13 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.SymbolReference;
@@ -39,8 +39,6 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 public class TestPruneCountAggregationOverScalar
         extends BaseRuleTest
 {
-    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-
     @Test
     public void testDoesNotFireOnNonNestedAggregate()
     {
@@ -50,9 +48,7 @@ public class TestPruneCountAggregationOverScalar
                                 .globalGrouping()
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
-                                        functionResolution
-                                                .functionCallBuilder("count")
-                                                .build(),
+                                        PlanBuilder.aggregation("count", ImmutableList.of()),
                                         ImmutableList.of())
                                 .source(
                                         p.tableScan(ImmutableList.of(), ImmutableMap.of())))
@@ -67,9 +63,7 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
-                                        functionResolution
-                                                .functionCallBuilder("count")
-                                                .build(),
+                                        PlanBuilder.aggregation("count", ImmutableList.of()),
                                         ImmutableList.of())
                                 .globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
@@ -89,9 +83,7 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
-                                        functionResolution
-                                                .functionCallBuilder("count")
-                                                .build(),
+                                        PlanBuilder.aggregation("count", ImmutableList.of()),
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
@@ -107,9 +99,7 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
-                                        functionResolution
-                                                .functionCallBuilder("count")
-                                                .build(),
+                                        PlanBuilder.aggregation("count", ImmutableList.of()),
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
@@ -125,9 +115,7 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
-                                        functionResolution
-                                                .functionCallBuilder("count")
-                                                .build(),
+                                        PlanBuilder.aggregation("count", ImmutableList.of()),
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
@@ -147,11 +135,9 @@ public class TestPruneCountAggregationOverScalar
                 .on(p -> {
                     Symbol totalPrice = p.symbol("total_price", DOUBLE);
                     AggregationNode inner = p.aggregation((a) -> a
-                            .addAggregation(totalPrice,
-                                    functionResolution
-                                            .functionCallBuilder("sum")
-                                            .addArgument(DOUBLE, new SymbolReference("totalprice"))
-                                            .build(),
+                            .addAggregation(
+                                    totalPrice,
+                                    PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("totalprice"))),
                                     ImmutableList.of(DOUBLE))
                             .globalGrouping()
                             .source(
@@ -168,10 +154,7 @@ public class TestPruneCountAggregationOverScalar
                     return p.aggregation((a) -> a
                             .addAggregation(
                                     p.symbol("sum_outer", DOUBLE),
-                                    functionResolution
-                                            .functionCallBuilder("sum")
-                                            .addArgument(DOUBLE, new SymbolReference("sum_inner"))
-                                            .build(),
+                                    PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("sum_inner"))),
                                     ImmutableList.of(DOUBLE))
                             .globalGrouping()
                             .source(inner));
