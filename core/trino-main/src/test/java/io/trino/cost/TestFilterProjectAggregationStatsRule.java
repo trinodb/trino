@@ -20,6 +20,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.function.Function;
@@ -27,6 +28,7 @@ import java.util.function.Function;
 import static io.trino.SystemSessionProperties.NON_ESTIMATABLE_PREDICATE_APPROXIMATION_ENABLED;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -61,7 +63,7 @@ public class TestFilterProjectAggregationStatsRule
         Function<PlanBuilder, PlanNode> planProvider = pb -> pb.filter(
                 expression("count_on_x > 0"),
                 pb.aggregation(ab -> ab
-                        .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
                         .singleGroupingSet(pb.symbol("y", BIGINT))
                         .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)))));
 
@@ -90,7 +92,7 @@ public class TestFilterProjectAggregationStatsRule
         tester().assertStatsFor(APPROXIMATION_ENABLED, pb -> pb.filter(
                         expression("y = 1"),
                         pb.aggregation(ab -> ab
-                                .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
                                 .singleGroupingSet(pb.symbol("y", BIGINT))
                                 .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))))
                 .withSourceStats(sourceStats)
@@ -115,7 +117,7 @@ public class TestFilterProjectAggregationStatsRule
                                     // Narrowing identity projection
                                     pb.project(Assignments.identity(aggregatedOutput),
                                             pb.aggregation(ab -> ab
-                                                    .addAggregation(aggregatedOutput, expression("count(x)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(aggregatedOutput, aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
                                                     .singleGroupingSet(pb.symbol("y", BIGINT))
                                                     .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)))
                                                     .nodeId(aggregationId))));
@@ -133,7 +135,7 @@ public class TestFilterProjectAggregationStatsRule
                                     // Non-narrowing projection
                                     pb.project(Assignments.of(pb.symbol("x_1"), PlanBuilder.expression("x + 1"), aggregatedOutput, aggregatedOutput.toSymbolReference()),
                                             pb.aggregation(ab -> ab
-                                                    .addAggregation(aggregatedOutput, expression("count(x)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(aggregatedOutput, aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
                                                     .singleGroupingSet(pb.symbol("y", BIGINT))
                                                     .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)))
                                                     .nodeId(aggregationId))));

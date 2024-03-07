@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.JoinType;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -58,7 +59,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
                         p.values(p.symbol("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                 .globalGrouping())))
                 .doesNotFire();
     }
@@ -74,8 +75,8 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
                         PlanBuilder.expression("true"),
                         p.aggregation(outerBuilder -> outerBuilder
                                 .singleGroupingSet(p.symbol("a"))
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                                .addAggregation(p.symbol("count"), PlanBuilder.expression("count()"), ImmutableList.of())
+                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("count"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
                                 .source(p.filter(
                                         PlanBuilder.expression("b > corr"),
                                         p.values(p.symbol("a"), p.symbol("b")))))))
@@ -109,8 +110,8 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
                         PlanBuilder.expression("true"),
                         p.aggregation(outerBuilder -> outerBuilder
                                 .singleGroupingSet(p.symbol("a"))
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                                .addAggregation(p.symbol("count"), PlanBuilder.expression("count()"), ImmutableList.of())
+                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("count"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
                                 .source(p.aggregation(innerBuilder -> innerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .source(p.filter(
@@ -153,8 +154,8 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
                         PlanBuilder.expression("true"),
                         p.aggregation(outerBuilder -> outerBuilder
                                 .singleGroupingSet(p.symbol("a"))
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                                .addAggregation(p.symbol("count"), PlanBuilder.expression("count()"), ImmutableList.of())
+                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("count"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
                                 .source(p.aggregation(innerBuilder -> innerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .source(p.filter(

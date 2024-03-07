@@ -20,6 +20,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
@@ -45,7 +46,7 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(geometry, n)"), ImmutableList.of(GEOMETRY, INTEGER))
+                                .addAggregation(p.symbol("sp"), PlanBuilder.aggregation("spatial_partitioning", ImmutableList.of(new SymbolReference("geometry"), new SymbolReference("n"))), ImmutableList.of(GEOMETRY, INTEGER))
                                 .source(p.values(p.symbol("geometry"), p.symbol("n")))))
                 .doesNotFire();
     }
@@ -57,7 +58,7 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(geometry)"), ImmutableList.of(GEOMETRY))
+                                .addAggregation(p.symbol("sp"), PlanBuilder.aggregation("spatial_partitioning", ImmutableList.of(new SymbolReference("geometry"))), ImmutableList.of(GEOMETRY))
                                 .source(p.values(p.symbol("geometry")))))
                 .matches(
                         aggregation(
@@ -71,7 +72,7 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(envelope)"), ImmutableList.of(GEOMETRY))
+                                .addAggregation(p.symbol("sp"), PlanBuilder.aggregation("spatial_partitioning", ImmutableList.of(new SymbolReference("envelope"))), ImmutableList.of(GEOMETRY))
                                 .source(p.values(p.symbol("envelope")))))
                 .matches(
                         aggregation(
