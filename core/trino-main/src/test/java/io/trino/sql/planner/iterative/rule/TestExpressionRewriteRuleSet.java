@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -31,7 +30,6 @@ import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
@@ -42,7 +40,6 @@ import static io.trino.sql.planner.rowpattern.Patterns.label;
 public class TestExpressionRewriteRuleSet
         extends BaseRuleTest
 {
-    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
     private final ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
             (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.trino.sql.tree.ExpressionRewriter<>()
             {
@@ -84,10 +81,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testAggregationExpressionRewrite()
     {
-        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> functionResolution
-                .functionCallBuilder("count")
-                .addArgument(VARCHAR, new SymbolReference("y"))
-                .build());
+        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> new SymbolReference("y"));
         tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
