@@ -2293,8 +2293,13 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (getState().isDone() || taskDescriptorLoadingActive) {
                 return Optional.empty();
             }
+            Optional<ListenableFuture<AssignmentResult>> loadingFuture = taskSource.process();
+            if (loadingFuture.isEmpty()) {
+                // taskSource finished
+                return Optional.empty();
+            }
             taskDescriptorLoadingActive = true;
-            return Optional.of(taskSource.process());
+            return loadingFuture;
         }
 
         public void taskDescriptorLoadingComplete()
