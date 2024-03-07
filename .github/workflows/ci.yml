@@ -584,6 +584,7 @@ jobs:
             !:trino-server,
             !:trino-server-rpm,
             !:trino-singlestore,
+            !:trino-snowflake,
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
@@ -708,6 +709,8 @@ jobs:
             - { modules: plugin/trino-redshift, profile: fte-tests }
             - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
+            - { modules: plugin/trino-snowflake }
+            - { modules: plugin/trino-snowflake, profile: cloud-tests }
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
@@ -763,6 +766,7 @@ jobs:
           && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
+          && ! (contains(matrix.modules, 'trino-snowflake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests'))
@@ -959,6 +963,24 @@ jobs:
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
+      - name: Cloud Snowflake Tests
+        id: tests-snowflake
+        env:
+          SNOWFLAKE_URL: ${{ vars.SNOWFLAKE_URL }}
+          SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
+        if: matrix.modules == 'plugin/trino-snowflake' && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SNOWFLAKE_URL != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-snowflake -Pcloud-tests \
+            -Dsnowflake.test.server.url="${SNOWFLAKE_URL}" \
+            -Dsnowflake.test.server.user="${SNOWFLAKE_USER}" \
+            -Dsnowflake.test.server.password="${SNOWFLAKE_PASSWORD}" \
+            -Dsnowflake.test.server.database="${SNOWFLAKE_DATABASE}" \
+            -Dsnowflake.test.server.role="${SNOWFLAKE_ROLE}" \
+            -Dsnowflake.test.server.warehouse="${SNOWFLAKE_WAREHOUSE}"
       - name: Iceberg Cloud Tests
         id: tests-iceberg
         env:
@@ -1166,6 +1188,7 @@ jobs:
             - suite-clickhouse
             - suite-mysql
             - suite-iceberg
+            - suite-snowflake
             - suite-hudi
             - suite-ignite
           exclude:
@@ -1200,6 +1223,9 @@ jobs:
             - suite: suite-databricks-unity-http-hms
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-snowflake
+              ignore exclusion if: >-
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.SNOWFLAKE_PASSWORD != '' }}
 
           ignore exclusion if:
             # Do not use this property outside of the matrix configuration.
@@ -1259,7 +1285,12 @@ jobs:
           SYNAPSE_USER:
           SYNAPSE_PASSWORD:
           SNOWFLAKE_ACCOUNT_NAME:
+          SNOWFLAKE_URL:
+          SNOWFLAKE_USER:
           SNOWFLAKE_PASSWORD:
+          SNOWFLAKE_DATABASE:
+          SNOWFLAKE_ROLE:
+          SNOWFLAKE_WAREHOUSE:
           TESTCONTAINERS_NEVER_PULL: true
         run: |
           # converts filtered YAML file into JSON
@@ -1337,9 +1368,14 @@ jobs:
           SYNAPSE_USER: ${{ secrets.SYNAPSE_USER }}
           SYNAPSE_PASSWORD: ${{ secrets.SYNAPSE_PASSWORD }}
           SNOWFLAKE_ACCOUNT_NAME: ${{ secrets.SNOWFLAKE_ACCOUNT_NAME }}
-          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
+          SNOWFLAKE_URL: ${{ vars.SNOWFLAKE_URL }}
+          SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
         run: |
           exec testing/trino-product-tests-launcher/target/trino-product-tests-launcher-*-executable.jar suite run \
             --suite ${{ matrix.suite }} \
