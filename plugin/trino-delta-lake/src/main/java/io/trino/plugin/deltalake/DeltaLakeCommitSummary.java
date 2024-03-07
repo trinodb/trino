@@ -14,29 +14,37 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeCommitSummary
 {
+    private final long version;
     private final List<MetadataEntry> metadataUpdates;
     private final Optional<ProtocolEntry> protocol;
+    private final boolean containingRemovedFiles;
+    private final Set<Map<String, Optional<String>>> addedFilesCanonicalPartitionValues;
     private final Optional<Boolean> isBlindAppend;
 
-    public DeltaLakeCommitSummary(List<DeltaLakeTransactionLogEntry> transactionLogEntries)
+    public DeltaLakeCommitSummary(long version, List<DeltaLakeTransactionLogEntry> transactionLogEntries)
     {
         requireNonNull(transactionLogEntries, "transactionLogEntries is null");
         ImmutableList.Builder<MetadataEntry> metadataUpdatesBuilder = ImmutableList.builder();
         Optional<ProtocolEntry> optionalProtocol = Optional.empty();
         Optional<CommitInfoEntry> optionalCommitInfo = Optional.empty();
+        ImmutableSet.Builder<Map<String, Optional<String>>> addedFilesCanonicalPartitionValuesBuilder = ImmutableSet.builder();
 
+        boolean removedFilesFound = false;
         for (DeltaLakeTransactionLogEntry transactionLogEntry : transactionLogEntries) {
             if (transactionLogEntry.getMetaData() != null) {
                 metadataUpdatesBuilder.add(transactionLogEntry.getMetaData());
@@ -47,11 +55,25 @@ public class DeltaLakeCommitSummary
             else if (transactionLogEntry.getCommitInfo() != null) {
                 optionalCommitInfo = Optional.of(transactionLogEntry.getCommitInfo());
             }
+            else if (transactionLogEntry.getAdd() != null) {
+                addedFilesCanonicalPartitionValuesBuilder.add(transactionLogEntry.getAdd().getCanonicalPartitionValues());
+            }
+            else if (transactionLogEntry.getRemove() != null) {
+                removedFilesFound = true;
+            }
         }
 
+        this.version = version;
         metadataUpdates = metadataUpdatesBuilder.build();
         protocol = optionalProtocol;
+        addedFilesCanonicalPartitionValues = addedFilesCanonicalPartitionValuesBuilder.build();
+        containingRemovedFiles = removedFilesFound;
         isBlindAppend = optionalCommitInfo.flatMap(CommitInfoEntry::isBlindAppend);
+    }
+
+    public long getVersion()
+    {
+        return version;
     }
 
     public List<MetadataEntry> getMetadataUpdates()
@@ -62,6 +84,16 @@ public class DeltaLakeCommitSummary
     public Optional<ProtocolEntry> getProtocol()
     {
         return protocol;
+    }
+
+    public boolean isContainingRemovedFiles()
+    {
+        return containingRemovedFiles;
+    }
+
+    public Set<Map<String, Optional<String>>> getAddedFilesCanonicalPartitionValues()
+    {
+        return addedFilesCanonicalPartitionValues;
     }
 
     public Optional<Boolean> getIsBlindAppend()
