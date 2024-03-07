@@ -154,7 +154,7 @@ public class CacheManagerRegistry
                     // do not allocate more memory if it would exceed revoking threshold
                     if (memoryRevokingNeeded(bytes)) {
                         // schedule memory revoke to free up some space for new splits to be cached
-                        scheduleMemoryRevoke(true);
+                        scheduleMemoryRevoke();
                         return false;
                     }
 
@@ -184,7 +184,7 @@ public class CacheManagerRegistry
         // revoke cache memory when revoking target is reached
         memoryPool.addListener(pool -> {
             if (memoryRevokingNeeded(0)) {
-                scheduleMemoryRevoke(false);
+                scheduleMemoryRevoke();
             }
         });
 
@@ -242,7 +242,7 @@ public class CacheManagerRegistry
         }
     }
 
-    private void scheduleMemoryRevoke(boolean onAllocation)
+    private void scheduleMemoryRevoke()
     {
         // allow at most one revoke request to be scheduled
         if (revokeRequested.getAndSet(true)) {
@@ -256,10 +256,8 @@ public class CacheManagerRegistry
                 try (TimeStat.BlockTimer ignore = cacheStats.recordRevokeMemoryTime()) {
                     revokedBytes = cacheManager.revokeMemory(bytesToRevoke);
                 }
-                if (onAllocation) {
-                    sizeOfRevokedMemoryDistribution.add(revokedBytes);
-                }
                 if (revokedBytes > 0) {
+                    sizeOfRevokedMemoryDistribution.add(revokedBytes);
                     nonEmptyRevokeCount.incrementAndGet();
                 }
             }
