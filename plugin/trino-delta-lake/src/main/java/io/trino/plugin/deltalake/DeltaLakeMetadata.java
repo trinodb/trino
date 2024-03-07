@@ -234,7 +234,6 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.Co
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.IsolationLevel;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.IsolationLevel.SERIALIZABLE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MAX_COLUMN_ID_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.TIMESTAMP_NTZ_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
@@ -1850,14 +1849,13 @@ public class DeltaLakeMetadata
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         long currentVersion = getMandatoryCurrentVersion(fileSystem, handle.getLocation(), handle.getReadVersion());
 
-        boolean isBlindAppend = sourceTableHandles.stream()
+        List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles = sourceTableHandles.stream()
                 .filter(sourceTableHandle -> sourceTableHandle instanceof DeltaLakeTableHandle)
                 .map(DeltaLakeTableHandle.class::cast)
                 .filter(tableHandle -> handle.getTableName().equals(tableHandle.getSchemaTableName())
                         // disregard time travel table handles
                         && tableHandle.getReadVersion() >= handle.getReadVersion())
-                .findAny()
-                .isEmpty();
+                .collect(toImmutableList());
         long readVersionValue = readVersion.get();
         if (currentVersion > readVersionValue) {
             String transactionLogDirectory = getTransactionLogDir(handle.getLocation());
@@ -1871,37 +1869,43 @@ public class DeltaLakeMetadata
                 catch (IOException e) {
                     throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to access table metadata", e);
                 }
-                checkForInsertTransactionConflicts(session.getQueryId(), isBlindAppend, isolationLevel, new DeltaLakeCommitSummary(transactionLogEntries), version, attemptCount);
+                checkForInsertTransactionConflicts(session.getQueryId(), sameAsTargetSourceTableHandles, isolationLevel, new DeltaLakeCommitSummary(version, transactionLogEntries), attemptCount);
             }
 
             // Avoid re-reading already processed transaction log entries in case of retries
             readVersion.set(currentVersion);
         }
         long commitVersion = currentVersion + 1;
-        writeTransactionLogForInsertOperation(session, handle, isBlindAppend, isolationLevel, dataFileInfos, commitVersion, currentVersion);
+        writeTransactionLogForInsertOperation(session, handle, sameAsTargetSourceTableHandles.isEmpty(), isolationLevel, dataFileInfos, commitVersion, currentVersion);
         return commitVersion;
     }
 
     private void checkForInsertTransactionConflicts(
             String queryId,
-            boolean isBlindAppend,
+            List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles,
             IsolationLevel isolationLevel,
             DeltaLakeCommitSummary commitSummary,
-            long version,
             int attemptCount)
     {
         checkNoMetadataUpdates(commitSummary);
         checkNoProtocolUpdates(commitSummary);
 
-        if (!isBlindAppend) {
-            throw new TransactionFailedException("Conflicting concurrent writes with the current non blind append INSERT operation");
+        switch (isolationLevel) {
+            case WRITESERIALIZABLE -> {
+                if (!sameAsTargetSourceTableHandles.isEmpty()) {
+                    // INSERT operations that contain sub-queries reading the same table support the same concurrency as MERGE.
+                    List<TupleDomain<DeltaLakeColumnHandle>> enforcedSourcePartitionConstraints = sameAsTargetSourceTableHandles.stream()
+                            .map(DeltaLakeTableHandle::getEnforcedPartitionConstraint)
+                            .collect(toImmutableList());
+
+                    checkIfCommittedAddedFilesConflictWithCurrentOperation(TupleDomain.columnWiseUnion(enforcedSourcePartitionConstraints), commitSummary);
+                    checkIfCommittedRemovedFilesConflictWithCurrentOperation(commitSummary);
+                }
+            }
+            case SERIALIZABLE -> throw new TransactionFailedException("Conflicting concurrent writes with the current INSERT operation on Serializable isolation level");
         }
 
-        if (isolationLevel == SERIALIZABLE) {
-            throw new TransactionFailedException("Conflicting concurrent writes with the current blind append INSERT operation on Serializable isolation level");
-        }
-
-        LOG.debug("Completed checking for conflicts in the query %s for target table version: %s Attempt: %s ", queryId, version, attemptCount);
+        LOG.debug("Completed checking for conflicts in the query %s for target table version: %s Attempt: %s ", queryId, commitSummary.getVersion(), attemptCount);
     }
 
     private static void checkNoProtocolUpdates(DeltaLakeCommitSummary commitSummary)
@@ -1916,6 +1920,48 @@ public class DeltaLakeMetadata
         if (!commitSummary.getMetadataUpdates().isEmpty()) {
             throw new TransactionFailedException("Conflicting concurrent writes found. Metadata changed by concurrent write operation");
         }
+    }
+
+    private static void checkIfCommittedAddedFilesConflictWithCurrentOperation(TupleDomain<DeltaLakeColumnHandle> enforcedSourcePartitionConstraints, DeltaLakeCommitSummary commitSummary)
+    {
+        Set<Map<String, Optional<String>>> addedFilesCanonicalPartitionValues = commitSummary.getIsBlindAppend().orElse(false)
+                // Do not conflict with blind appends. Blind appends can be placed before or after the current operation
+                // when backtracking which serializable sequence of operations led to the current state of the table.
+                ? Set.of()
+                : commitSummary.getAddedFilesCanonicalPartitionValues();
+
+        if (addedFilesCanonicalPartitionValues.isEmpty()) {
+            return;
+        }
+
+        boolean readWholeTable = enforcedSourcePartitionConstraints.isAll();
+        if (readWholeTable) {
+            throw new TransactionFailedException("Conflicting concurrent writes found. Data files added in the modified table by concurrent write operation.");
+        }
+
+        Map<DeltaLakeColumnHandle, Domain> enforcedDomains = enforcedSourcePartitionConstraints.getDomains().orElseThrow();
+        boolean conflictingAddFilesFound = addedFilesCanonicalPartitionValues.stream()
+                .anyMatch(canonicalPartitionValues -> partitionMatchesPredicate(canonicalPartitionValues, enforcedDomains));
+        if (conflictingAddFilesFound) {
+            throw new TransactionFailedException("Conflicting concurrent writes found. Data files were added in the modified table by another concurrent write operation.");
+        }
+    }
+
+    private static void checkIfCommittedRemovedFilesConflictWithCurrentOperation(DeltaLakeCommitSummary commitSummary)
+    {
+        if (commitSummary.getIsBlindAppend().orElse(false)) {
+            // Do not conflict with blind appends. Blind appends can be placed before or after the current operation
+            // when backtracking which serializable sequence of operations led to the current state of the table.
+            checkState(!commitSummary.isContainingRemovedFiles(), "Blind append transaction %s cannot contain removed files", commitSummary.getVersion());
+            return;
+        }
+
+        if (!commitSummary.isContainingRemovedFiles()) {
+            return;
+        }
+
+        // TODO Pass active files of the target table read in DeltaLakeSplitSource to figure out whether the removed files do actually conflict with the read table partitions
+        throw new TransactionFailedException("Conflicting concurrent writes found. Data files were removed from the modified table by another concurrent write operation.");
     }
 
     private void writeTransactionLogForInsertOperation(

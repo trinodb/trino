@@ -253,6 +253,22 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
         // testConcurrentInsertsReconciliation requires safe writes capability to avoid test flakiness
     }
 
+    @Override
+    @Test
+    @Disabled
+    public void testConcurrentInsertsSelectingFromTheSameTable()
+    {
+        // testConcurrentInsertsSelectingFromTheSameTable requires safe writes capability to avoid test flakiness
+    }
+
+    @Override
+    @Test
+    @Disabled
+    public void testConcurrentInsertsReconciliationForMixedInserts()
+    {
+        // testConcurrentInsertsReconciliationForMixedInserts requires safe writes capability to avoid test flakiness
+    }
+
     private String lockTable(String tableName, java.time.Duration lockDuration)
             throws Exception
     {
