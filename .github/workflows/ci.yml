@@ -869,13 +869,13 @@ jobs:
       - name: Azure FileSystem Cloud Tests
         id: tests-azure
         env:
-          ABFS_FLAT_ACCOUNT: ${{ vars.ABFS_TRINO_FS_FLAT_ACCOUNT }}
-          ABFS_FLAT_ACCESS_KEY: ${{ secrets.ABFS_TRINO_FS_FLAT_ACCOUNT_ACCESS_KEY }}
-          ABFS_HIERARCHICAL_ACCOUNT: ${{ vars.ABFS_TRINO_FS_HIERARCHICAL_ACCOUNT }}
-          ABFS_HIERARCHICAL_ACCESS_KEY: ${{ secrets.ABFS_TRINO_FS_HIERARCHICAL_ACCOUNT_ACCESS_KEY }}
-          ABFS_OAUTH_TENANT_ID: ${{ vars.ABFS_TRINO_FS_ABFS_OAUTH_TENANT_ID }}
-          ABFS_OAUTH_CLIENT_ID: ${{ vars.ABFS_TRINO_FS_ABFS_OAUTH_CLIENT_ID }}
-          ABFS_OAUTH_CLIENT_SECRET: ${{ secrets.ABFS_TRINO_FS_OAUTH_CLIENT_SECRET }}
+          ABFS_FLAT_ACCOUNT: ${{ vars.ABFS_TRINO_FS_FLAT_ACCOUNT }} # TODO (https://github.com/starburstdata/cork/issues/446) OSS has AZURE_ABFS_FLAT_ACCOUNT
+          ABFS_FLAT_ACCESS_KEY: ${{ secrets.ABFS_TRINO_FS_FLAT_ACCOUNT_ACCESS_KEY }} # TODO (https://github.com/starburstdata/cork/issues/446) OSS has AZURE_ABFS_FLAT_ACCESS_KEY
+          ABFS_HIERARCHICAL_ACCOUNT: ${{ vars.ABFS_TRINO_FS_HIERARCHICAL_ACCOUNT }} # TODO (https://github.com/starburstdata/cork/issues/446) OSS has AZURE_ABFS_HIERARCHICAL_ACCOUNT
+          ABFS_HIERARCHICAL_ACCESS_KEY: ${{ secrets.ABFS_TRINO_FS_HIERARCHICAL_ACCOUNT_ACCESS_KEY }} # TODO (https://github.com/starburstdata/cork/issues/446) OSS has AZURE_ABFS_HIERARCHICAL_ACCESS_KEY
+          ABFS_OAUTH_TENANT_ID: ${{ vars.ABFS_TRINO_FS_ABFS_OAUTH_TENANT_ID }} # TODO (https://github.com/starburstdata/cork/issues/446) OSS has AZURE_ABFS_OAUTH_TENANT_ID
+          ABFS_OAUTH_CLIENT_ID: ${{ vars.ABFS_TRINO_FS_ABFS_OAUTH_CLIENT_ID }} # TODO (https://github.com/starburstdata/cork/issues/446) OSS has AZURE_ABFS_OAUTH_CLIENT_ID
+          ABFS_OAUTH_CLIENT_SECRET: ${{ secrets.ABFS_TRINO_FS_OAUTH_CLIENT_SECRET }} # TODO (https://github.com/starburstdata/cork/issues/446) OSS has AZURE_ABFS_OAUTH_CLIENT_SECRET
         # Run tests if any of the secrets are present
         if: >-
           contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests') &&
@@ -895,9 +895,9 @@ jobs:
         id: tests-delta
       # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
         env:
-          ABFS_CONTAINER: ${{ vars.AZURE_ABFS_CONTAINER }}
-          ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_ACCOUNT }}
-          ABFS_ACCESSKEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+          ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
+          ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT }}
+          ABFS_ACCESSKEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY }}
           AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
@@ -990,9 +990,9 @@ jobs:
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
-          ABFS_CONTAINER: ${{ vars.AZURE_ABFS_CONTAINER }}
-          ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_ACCOUNT }}
-          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+          ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
+          ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT }}
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY }}
         if: >-
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
@@ -1195,9 +1195,9 @@ jobs:
             - suite: suite-azure
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' ||
-                    secrets.AZURE_ABFS_CONTAINER != '' ||
-                    vars.AZURE_ABFS_ACCOUNT != '' ||
-                    vars.AZURE_ABFS_ACCESSKEY != '' }}
+                    vars.AZURE_ABFS_HIERARCHICAL_CONTAINER != '' ||
+                    vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT != '' ||
+                    secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY != '' }}
 
             - suite: suite-gcs
               ignore exclusion if: >-
@@ -1345,9 +1345,9 @@ jobs:
         run: echo "PTL_OPTS=--impacted-features impacted-features.log" >> $GITHUB_ENV
       - name: Product Tests
         env:
-          ABFS_CONTAINER: ${{ vars.AZURE_ABFS_CONTAINER }}
-          ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_ACCOUNT }}
-          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+          ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
+          ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT }}
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           TRINO_AWS_ACCESS_KEY_ID: ${{ vars.GALAXY_TRINO_DATABRICKS_AWS_ACCESS_KEY_ID }}
