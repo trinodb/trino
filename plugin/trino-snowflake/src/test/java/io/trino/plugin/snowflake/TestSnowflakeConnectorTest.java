@@ -98,8 +98,8 @@ public class TestSnowflakeConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                TEST_SCHEMA,
-                "(one bigint, two decimal(38,0), three varchar(10))");
+                "tpch.test_unsupported_col",
+                "(one bigint, two geography, three varchar(10))");
     }
 
     @Override
@@ -205,13 +205,6 @@ public class TestSnowflakeConnectorTest
     @Test
     @Override
     public void testCountDistinctWithStringTypes()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
-    public void testInsertInPresenceOfNotSupportedColumn()
     {
         abort("TODO");
     }

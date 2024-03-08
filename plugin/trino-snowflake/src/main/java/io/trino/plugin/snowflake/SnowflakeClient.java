@@ -200,8 +200,7 @@ public class SnowflakeClient
             return columnMappingFunction.convert(typeHandle);
         }
 
-        // Code should never reach here so throw an error.
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type(" + type + "):" + jdbcTypeName);
+        return Optional.empty();
     }
 
     @Override
