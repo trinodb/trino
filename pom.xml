@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>440</version>
+    <version>441-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -136,7 +136,7 @@
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
         <developerConnection>scm:git:git@github.com:trinodb/trino.git</developerConnection>
-        <tag>440</tag>
+        <tag>HEAD</tag>
         <url>https://github.com/trinodb/trino</url>
     </scm>
 
