@@ -36,13 +36,13 @@ import java.time.ZoneId;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.snowflake.SnowflakeQueryRunner.createSnowflakeQueryRunner;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
+    import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.time.ZoneOffset.UTC;
@@ -107,10 +107,12 @@ public class TestSnowflakeTypeMapping
     private void testInteger(String inputType)
     {
         SqlDataTypeTest.create()
-                .addRoundTrip(inputType, "-9223372036854775808", BIGINT, "-9223372036854775808")
-                .addRoundTrip(inputType, "9223372036854775807", BIGINT, "9223372036854775807")
-                .addRoundTrip(inputType, "0", BIGINT, "CAST(0 AS BIGINT)")
-                .addRoundTrip(inputType, "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip(inputType, "'-9223372036854775808'", createDecimalType(38, 0), "CAST('-9223372036854775808' AS decimal(38, 0))")
+                .addRoundTrip(inputType, "'9223372036854775807'", createDecimalType(38, 0), "CAST('9223372036854775807' AS decimal(38, 0))")
+                .addRoundTrip(inputType, "'-99999999999999999999999999999999999999'", createDecimalType(38, 0), "CAST('-99999999999999999999999999999999999999' AS decimal(38, 0))")
+                .addRoundTrip(inputType, "'99999999999999999999999999999999999999'", createDecimalType(38, 0), "CAST('99999999999999999999999999999999999999' AS decimal(38, 0))")
+                .addRoundTrip(inputType, "0", createDecimalType(38, 0), "CAST(0 AS decimal(38, 0))")
+                .addRoundTrip(inputType, "NULL", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
                 .execute(getQueryRunner(), snowflakeCreateAndInsert("tpch.integer"));
     }
 
@@ -118,10 +120,10 @@ public class TestSnowflakeTypeMapping
     public void testDecimal()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("decimal(3, 0)", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
-                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", BIGINT, "CAST('193' AS BIGINT)")
-                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", BIGINT, "CAST('19' AS BIGINT)")
-                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", BIGINT, "CAST('-193' AS BIGINT)")
+                .addRoundTrip("decimal(3, 0)", "NULL", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
                 .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.0' AS decimal(3, 1))")
                 .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.1' AS decimal(3, 1))")
                 .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('-10.1' AS decimal(3, 1))")
@@ -133,7 +135,7 @@ public class TestSnowflakeTypeMapping
                 .addRoundTrip("decimal(24, 4)", "CAST('12345678901234567890.31' AS decimal(24, 4))", createDecimalType(24, 4), "CAST('12345678901234567890.31' AS decimal(24, 4))")
                 .addRoundTrip("decimal(30, 5)", "CAST('3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
                 .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
-                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
                 .execute(getQueryRunner(), snowflakeCreateAndInsert("tpch.test_decimal"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
@@ -346,6 +348,34 @@ public class TestSnowflakeTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
+    }
+
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        testTimestampWithTimeZone(UTC);
+        testTimestampWithTimeZone(jvmZone);
+        testTimestampWithTimeZone(vilnius);
+        testTimestampWithTimeZone(kathmandu);
+        testTimestampWithTimeZone(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampWithTimeZone(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+        SqlDataTypeTest.create()
+                .addRoundTrip("TIMESTAMP_TZ(0)", "'2020-09-27 12:34:56 -08:00'::TIMESTAMP_TZ", createTimestampWithTimeZoneType(0), "TIMESTAMP '2020-09-27 12:34:56 -08:00'")
+                .addRoundTrip("TIMESTAMP_TZ(3)", "'2020-09-27 12:34:56.333 -08:00'::TIMESTAMP_TZ", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.333 -08:00'")
+                .addRoundTrip("TIMESTAMP_TZ(9)", "'2020-09-27 12:34:56.999999999 -08:00'::TIMESTAMP_TZ", createTimestampWithTimeZoneType(9), "TIMESTAMP '2020-09-27 12:34:56.999999999 -08:00'")
+                .execute(getQueryRunner(), session, snowflakeCreateAndInsert("tpch.test_timestamptz_sf_insert"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("TIMESTAMP(0) WITH TIME ZONE", "TIMESTAMP '2020-09-27 12:34:56 -08:00'", createTimestampWithTimeZoneType(0), "TIMESTAMP '2020-09-27 12:34:56 -08:00'")
+                .addRoundTrip("TIMESTAMP(3) WITH TIME ZONE", "TIMESTAMP '2020-09-27 12:34:56.333 -08:00'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.333 -08:00'")
+                .addRoundTrip("TIMESTAMP(9) WITH TIME ZONE", "TIMESTAMP '2020-09-27 12:34:56.999999999 -08:00'", createTimestampWithTimeZoneType(9), "TIMESTAMP '2020-09-27 12:34:56.999999999 -08:00'")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_timestamptz_trino_insert"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("tpch.test_timestamptz_trino_insert"));
     }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)

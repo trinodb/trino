@@ -60,6 +60,12 @@ public final class TestingSnowflakeServer
         properties.setProperty("schema", TEST_SCHEMA);
         properties.setProperty("warehouse", TEST_WAREHOUSE);
         properties.setProperty("role", TEST_ROLE);
+        properties.setProperty("TIMESTAMP_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIMESTAMP_NTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIMESTAMP_TZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIMESTAMP_LTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIME_OUTPUT_FORMAT", "HH24:MI:SS.FF9");
+        properties.setProperty("JDBC_TREAT_DECIMAL_AS_INT", "FALSE");
         return properties;
     }
 }
