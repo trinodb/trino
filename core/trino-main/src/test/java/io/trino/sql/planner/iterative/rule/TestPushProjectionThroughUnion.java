@@ -19,10 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -88,7 +89,7 @@ public class TestPushProjectionThroughUnion
                     return p.project(
                             Assignments.of(
                                     cTimes3, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3")),
-                                    dX, PlanBuilder.expression("d.x")),
+                                    dX, new SubscriptExpression(new SymbolReference("d"), new LongLiteral("1"))),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)
@@ -103,10 +104,10 @@ public class TestPushProjectionThroughUnion
                 .matches(
                         union(
                                 project(
-                                        ImmutableMap.of("a_times_3", expression("a * 3"), "z_x", expression("z.x")),
+                                        ImmutableMap.of("a_times_3", expression("a * 3"), "z_x", expression(new SubscriptExpression(new SymbolReference("z"), new LongLiteral("1")))),
                                         values(ImmutableList.of("a", "z"))),
                                 project(
-                                        ImmutableMap.of("b_times_3", expression("b * 3"), "w_x", expression("w.x")),
+                                        ImmutableMap.of("b_times_3", expression("b * 3"), "w_x", expression(new SubscriptExpression(new SymbolReference("w"), new LongLiteral("1")))),
                                         values(ImmutableList.of("b", "w"))))
                                 .withNumberOfOutputColumns(2)
                                 .withAlias("a_times_3")
