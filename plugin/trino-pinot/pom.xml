@@ -53,18 +53,6 @@
             <artifactId>protobuf-java</artifactId>
         </dependency>
 
-        <!-- Used for basic authentication only -->
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
