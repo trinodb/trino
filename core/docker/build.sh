@@ -23,6 +23,7 @@ SOURCE_DIR="${SCRIPT_DIR}/../.."
 ARCHITECTURES=(amd64 arm64 ppc64le)
 TRINO_VERSION=
 JDK_VERSION=$(cat "${SOURCE_DIR}/.java-version")
+JDK_RELEASE=ga
 
 while getopts ":a:h:r:j:" o; do
     case "${o}" in
@@ -54,11 +55,17 @@ function check_environment() {
     fi
 }
 
+if [[ "${JDK_VERSION}" == *-ea ]]; then
+  JDK_VERSION=${JDK_VERSION/-ea/}
+  JDK_RELEASE="ea"
+fi
+
 function temurin_jdk_link() {
   local JDK_VERSION="${1}"
-  local ARCH="${2}"
+  local JDK_RELEASE="${2}"
+  local ARCH="${3}"
 
-  versionsUrl="https://api.adoptium.net/v3/info/release_names?heap_size=normal&image_type=jdk&os=linux&page=0&page_size=20&project=jdk&release_type=ga&semver=false&sort_method=DEFAULT&sort_order=DESC&vendor=eclipse&version=%28${JDK_VERSION}%2C%5D"
+  versionsUrl="https://api.adoptium.net/v3/info/release_names?heap_size=normal&image_type=jdk&os=linux&page=0&page_size=20&project=jdk&release_type=${JDK_RELEASE}&semver=false&sort_method=DEFAULT&sort_order=DESC&vendor=eclipse&version=%28${JDK_VERSION}%2C%5D"
   if ! result=$(curl -fLs "$versionsUrl" -H 'accept: application/json'); then
     echo >&2 "Failed to fetch release names for JDK version [${JDK_VERSION}, ) from Temurin API : $result"
     exit 1
@@ -116,13 +123,13 @@ cp -R default "${WORK_DIR}/"
 TAG_PREFIX="trino:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
-    echo "🫙  Building the image for $arch with JDK ${JDK_VERSION}"
+    echo "🫙  Building the image for $arch with JDK ${JDK_VERSION} ${JDK_RELEASE}"
     docker build \
         "${WORK_DIR}" \
         --progress=plain \
         --pull \
         --build-arg JDK_VERSION="${JDK_VERSION}" \
-        --build-arg JDK_DOWNLOAD_LINK="$(temurin_jdk_link "${JDK_VERSION}" "${arch}")" \
+        --build-arg JDK_DOWNLOAD_LINK="$(temurin_jdk_link "${JDK_VERSION}" "${JDK_RELEASE}" "${arch}")" \
         --platform "linux/$arch" \
         -f Dockerfile \
         -t "${TAG_PREFIX}-$arch" \
