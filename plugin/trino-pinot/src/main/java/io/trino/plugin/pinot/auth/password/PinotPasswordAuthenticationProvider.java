@@ -14,11 +14,11 @@
 package io.trino.plugin.pinot.auth.password;
 
 import io.trino.plugin.pinot.auth.PinotAuthenticationProvider;
-import okhttp3.Credentials;
 
-import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Optional;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Objects.requireNonNull;
 
 public class PinotPasswordAuthenticationProvider
@@ -39,8 +39,8 @@ public class PinotPasswordAuthenticationProvider
         return authToken;
     }
 
-    private String encode(String username, String password)
+    public static String encode(String username, String password)
     {
-        return Credentials.basic(username, password, StandardCharsets.ISO_8859_1);
+        return "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes(ISO_8859_1));
     }
 }

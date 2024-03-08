@@ -25,7 +25,7 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.StaticBodyGenerator;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
-import okhttp3.Credentials;
+import io.trino.plugin.pinot.auth.password.PinotPasswordAuthenticationProvider;
 import org.apache.http.Header;
 import org.apache.http.NameValuePair;
 import org.apache.http.message.BasicHeader;
@@ -45,7 +45,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -308,7 +307,7 @@ public class TestingPinotCluster
     private static String controllerAuthToken()
     {
         // Secrets defined in pinot-controller-secured.conf
-        return Credentials.basic("admin", "verysecret", StandardCharsets.ISO_8859_1);
+        return PinotPasswordAuthenticationProvider.encode("admin", "verysecret");
     }
 
     public static class PinotSuccessResponse
