@@ -41,12 +41,6 @@ public class ParameterRewriter
         this.analysis = null;
     }
 
-    public ParameterRewriter(Analysis analysis)
-    {
-        this.analysis = analysis;
-        this.parameters = analysis.getParameters();
-    }
-
     @Override
     protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
     {
