@@ -83,6 +83,7 @@ public class TestingKuduServer
                 .withEnv("TSERVER_ARGS", format("--fs_wal_dir=/var/lib/kudu/tserver --logtostderr --use_hybrid_clock=false --unlock_unsafe_flags --rpc_bind_addresses=%s:%s --rpc_advertised_addresses=%s:%s", instanceName, KUDU_TSERVER_PORT, TOXIPROXY_NETWORK_ALIAS, proxy.getOriginalProxyPort()))
                 .withNetwork(network)
                 .withNetworkAliases(instanceName)
+                .waitingFor(new KuduTabletWaitStrategy(master))
                 .dependsOn(master);
 
         master.start();
