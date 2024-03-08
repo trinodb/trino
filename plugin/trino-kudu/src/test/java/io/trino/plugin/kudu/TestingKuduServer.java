@@ -92,6 +92,7 @@ public class TestingKuduServer
                 .withEnv("TSERVER_ARGS", tServerArgs)
                 .withNetwork(network)
                 .withNetworkAliases(instanceName)
+                .waitingFor(new KuduTabletWaitStrategy(master))
                 .dependsOn(master);
 
         master.start();
