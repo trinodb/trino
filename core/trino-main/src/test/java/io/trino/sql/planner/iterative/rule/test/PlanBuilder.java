@@ -499,12 +499,6 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder groupIdSymbol(Symbol groupIdSymbol)
-        {
-            this.groupIdSymbol = Optional.of(groupIdSymbol);
-            return this;
-        }
-
         public AggregationBuilder nodeId(PlanNodeId nodeId)
         {
             this.nodeId = Optional.of(nodeId);

@@ -1085,26 +1085,10 @@ public final class PlanMatchPattern
         return this;
     }
 
-    /*
-     * withExactAssignments and withExactAssignedOutputs are needed for matching symbols
-     * that are produced in the node that you're matching. The name of the symbol bound to
-     * the alias is *not* known when the Matcher is run, and so you need to match by what
-     * is being assigned to it.
-     */
-    public PlanMatchPattern withExactAssignedOutputs(RvalueMatcher... expectedAliases)
-    {
-        return withExactAssignedOutputs(ImmutableList.copyOf(expectedAliases));
-    }
-
     public PlanMatchPattern withExactAssignedOutputs(Collection<? extends RvalueMatcher> expectedAliases)
     {
         matchers.add(new StrictAssignedSymbolsMatcher(actualOutputs(), expectedAliases));
         return this;
-    }
-
-    public PlanMatchPattern withExactAssignments(RvalueMatcher... expectedAliases)
-    {
-        return withExactAssignments(ImmutableList.copyOf(expectedAliases));
     }
 
     public PlanMatchPattern withExactAssignments(Collection<? extends RvalueMatcher> expectedAliases)
@@ -1137,11 +1121,6 @@ public final class PlanMatchPattern
     public static ExpressionMatcher expression(Expression expression)
     {
         return new ExpressionMatcher(expression);
-    }
-
-    public PlanMatchPattern withOutputs(String... aliases)
-    {
-        return withOutputs(ImmutableList.copyOf(aliases));
     }
 
     public PlanMatchPattern withOutputs(List<String> aliases)
