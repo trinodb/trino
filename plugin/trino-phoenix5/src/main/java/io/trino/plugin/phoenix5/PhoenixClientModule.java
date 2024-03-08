@@ -59,7 +59,6 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import jakarta.annotation.PreDestroy;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.phoenix.jdbc.PhoenixDriver;
@@ -75,6 +74,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.trino.plugin.phoenix5.ConfigurationInstantiator.newEmptyConfiguration;
@@ -147,6 +147,9 @@ public class PhoenixClientModule
         install(new JdbcDiagnosticModule());
         install(new IdentifierMappingModule());
         install(new DecimalModule());
+
+        closingBinder(binder)
+                .registerExecutor(ExecutorService.class, ForRecordCursor.class);
     }
 
     private void checkConfiguration(String connectionUrl)
@@ -210,11 +213,5 @@ public class PhoenixClientModule
     public ExecutorService createRecordCursorExecutor()
     {
         return newDirectExecutorService();
-    }
-
-    @PreDestroy
-    public void shutdownRecordCursorExecutor(@ForRecordCursor ExecutorService executor)
-    {
-        executor.shutdownNow();
     }
 }
