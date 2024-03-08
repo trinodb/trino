@@ -82,9 +82,18 @@ public class RuleAssert
 
             if (ruleApplication.wasRuleApplied()) {
                 fail(format(
-                        "Expected %s to not fire for:\n%s",
+                        """
+                        Expected %s to not fire for:
+                        
+                        %s
+                        
+                        ==>
+                        
+                        %s
+                        """,
                         rule,
-                        textLogicalPlan(plan, ruleApplication.types(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
+                        textLogicalPlan(plan, ruleApplication.types(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false),
+                        textLogicalPlan(ruleApplication.result.getMainAlternative().get(), ruleApplication.types(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
             }
         }
         finally {
