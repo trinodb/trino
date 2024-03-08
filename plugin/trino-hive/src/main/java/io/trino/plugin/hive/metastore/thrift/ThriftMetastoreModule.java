@@ -26,13 +26,13 @@ import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
-import jakarta.annotation.PreDestroy;
 
 import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -91,12 +91,9 @@ public class ThriftMetastoreModule
                 .setDefault()
                 .toInstance(SIMPLE_USER_NAME_PROVIDER);
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
-    }
 
-    @PreDestroy
-    public void shutdownsWriteStatisticExecutor(@ThriftHiveWriteStatisticsExecutor ExecutorService executor)
-    {
-        executor.shutdownNow();
+        closingBinder(binder)
+                .registerExecutor(ExecutorService.class, ThriftHiveWriteStatisticsExecutor.class);
     }
 
     private static class ThriftHiveMetastoreStatisticExecutorProvider
