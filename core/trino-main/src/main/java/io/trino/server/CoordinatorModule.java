@@ -125,7 +125,6 @@ import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.rewrite.StatementRewrite.Rewrite;
-import jakarta.annotation.PreDestroy;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -143,6 +142,7 @@ import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
 import static io.trino.util.Executors.decorateWithVersion;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -361,7 +361,11 @@ public class CoordinatorModule
         install(new QueryExecutionFactoryModule());
 
         // cleanup
-        binder.bind(ExecutorCleanup.class).asEagerSingleton();
+        closingBinder(binder)
+                .registerExecutor(ExecutorService.class, ForStatementResource.class)
+                .registerExecutor(ScheduledExecutorService.class, ForStatementResource.class)
+                .registerExecutor(ExecutorService.class, ForQueryExecution.class)
+                .registerExecutor(ScheduledExecutorService.class, ForScheduler.class);
     }
 
     // working around circular dependency Metadata <-> PlannerContext
@@ -457,31 +461,5 @@ public class CoordinatorModule
                         .annotatedWith(ForTaskLowMemoryKiller.class)
                         .to(clazz)
                         .in(Scopes.SINGLETON)));
-    }
-
-    public static class ExecutorCleanup
-    {
-        private final List<ExecutorService> executors;
-
-        @Inject
-        public ExecutorCleanup(
-                @ForStatementResource ExecutorService statementResponseExecutor,
-                @ForStatementResource ScheduledExecutorService statementTimeoutExecutor,
-                @ForQueryExecution ExecutorService queryExecutionExecutor,
-                @ForScheduler ScheduledExecutorService schedulerExecutor)
-        {
-            executors = ImmutableList.<ExecutorService>builder()
-                    .add(statementResponseExecutor)
-                    .add(statementTimeoutExecutor)
-                    .add(queryExecutionExecutor)
-                    .add(schedulerExecutor)
-                    .build();
-        }
-
-        @PreDestroy
-        public void shutdown()
-        {
-            executors.forEach(ExecutorService::shutdownNow);
-        }
     }
 }
