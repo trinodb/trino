@@ -17,6 +17,10 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeException;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.function.CheckedSupplier;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.plugin.base.security.UserNameProvider;
 import io.trino.plugin.hive.ForHiveMetastore;
@@ -30,6 +34,7 @@ import java.util.Optional;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -41,6 +46,8 @@ public class TokenFetchingMetastoreClientFactory
     private final boolean impersonationEnabled;
     private final NonEvictableLoadingCache<String, DelegationToken> delegationTokenCache;
     private final long refreshPeriod;
+    private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
+    private final RetryPolicy retryPolicy;
 
     @Inject
     public TokenFetchingMetastoreClientFactory(
@@ -58,6 +65,12 @@ public class TokenFetchingMetastoreClientFactory
                         .maximumSize(thriftConfig.getDelegationTokenCacheMaximumSize()),
                 CacheLoader.from(this::loadDelegationToken));
         this.refreshPeriod = Duration.ofMinutes(1).toNanos();
+        retryPolicy = RetryPolicy.builder()
+                .withMaxDuration(thriftConfig.getMaxRetryTime().toJavaTime())
+                .withMaxAttempts(thriftConfig.getMaxRetries() + 1)
+                .withBackoff(thriftConfig.getMinBackoffDelay().toMillis(), thriftConfig.getMaxBackoffDelay().toMillis(), MILLIS, thriftConfig.getBackoffScaleFactor())
+                .abortOn(TException.class)
+                .build();
     }
 
     private ThriftMetastoreClient createMetastoreClient()
@@ -106,11 +119,20 @@ public class TokenFetchingMetastoreClientFactory
 
     private DelegationToken loadDelegationToken(String username)
     {
-        try (ThriftMetastoreClient client = createMetastoreClient()) {
-            return new DelegationToken(System.nanoTime(), client.getDelegationToken(username));
+        try {
+            // added retry and stats for the thrift delegation token
+            return (DelegationToken) Failsafe.with(retryPolicy).get((CheckedSupplier<DelegationToken>) () ->
+                    stats.getThriftDelegationToken().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            return new DelegationToken(System.nanoTime(), client.getDelegationToken(username));
+                        }
+                    }).call());
         }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        catch (FailsafeException e) {
+            if (e.getCause() instanceof TException) {
+                throw new TrinoException(HIVE_METASTORE_ERROR, e.getCause());
+            }
+            throw e;
         }
     }
 
