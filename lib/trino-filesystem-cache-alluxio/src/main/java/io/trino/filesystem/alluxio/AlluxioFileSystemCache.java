@@ -29,6 +29,7 @@ import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
+import jakarta.annotation.PreDestroy;
 
 import java.io.IOException;
 
@@ -74,6 +75,13 @@ public class AlluxioFileSystemCache
     public void expire(Location source)
             throws IOException
     {
+    }
+
+    @PreDestroy
+    public void shutdown()
+            throws Exception
+    {
+        cacheManager.close();
     }
 
     @VisibleForTesting
