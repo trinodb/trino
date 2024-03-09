@@ -813,17 +813,6 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
             });
 
-            queryStateMachine.addQueryInfoStateChangeListener(queryInfo -> {
-                if (!queryInfo.isFinalQueryInfo()) {
-                    return;
-                }
-                if (queryInfo.getState() == QueryState.FAILED
-                        && queryInfo.getErrorCode() == EXCEEDED_TIME_LIMIT.toErrorCode()
-                        && noEventsStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_ON_TIME_EXCEEDED_THRESHOLD_MILLIS) {
-                    logDebugInfoSafe(format("Scheduler stalled for %s on EXCEEDED_TIME_LIMIT", noEventsStopwatch.elapsed()));
-                }
-            });
-
             Optional<Throwable> failure = Optional.empty();
             try {
                 // schedule() is the main logic, but expensive, so we do not want to call it after every event.
@@ -914,6 +903,14 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                 eventBuffer.clear();
             }
+
+            // handle diagnostics logging on query failure
+            queryStateMachine.getFailureInfo().ifPresent(failureInfo -> {
+                if (failureInfo.getErrorCode() == EXCEEDED_TIME_LIMIT.toErrorCode()
+                        && noEventsStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_ON_TIME_EXCEEDED_THRESHOLD_MILLIS) {
+                    logDebugInfoSafe(format("Scheduler stalled for %s on EXCEEDED_TIME_LIMIT", noEventsStopwatch.elapsed()));
+                }
+            });
 
             if (eventDebugInfoRecorded) {
                 // mark that we processed some events; we filter out some no-op events.
