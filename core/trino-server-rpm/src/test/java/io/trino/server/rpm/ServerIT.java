@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static io.trino.server.rpm.ServerIT.PathInfoAssert.assertThatPaths;
+import static io.trino.testing.TestingProperties.getProjectVersion;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE;
@@ -172,7 +173,7 @@ public class ServerIT
             assertThat(rpmMetadata).extractingByKey("Name").isEqualTo("trino-server-rpm");
             assertThat(rpmMetadata).extractingByKey("Epoch").isEqualTo("0");
             assertThat(rpmMetadata).extractingByKey("Release").isEqualTo("1");
-            assertThat(rpmMetadata).extractingByKey("Version").isEqualTo("440-SNAPSHOT");
+            assertThat(rpmMetadata).extractingByKey("Version").isEqualTo(getProjectVersion());
             assertThat(rpmMetadata).extractingByKey("Architecture").isEqualTo("noarch");
             assertThat(rpmMetadata).extractingByKey("License").isEqualTo("Apache License 2.0");
             assertThat(rpmMetadata).extractingByKey("Group").isEqualTo("Applications/Databases");
