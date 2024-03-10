@@ -23,6 +23,7 @@ import io.trino.FeaturesConfig;
 import io.trino.server.ServerConfig;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
 public class StarburstDataframeModule
         extends AbstractConfigurationAwareModule
@@ -33,6 +34,7 @@ public class StarburstDataframeModule
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
         configBinder(binder).bindConfig(FeaturesConfig.class);
         if (serverConfig.isDataframeApiEnabled() && serverConfig.isCoordinator()) {
+            jaxrsBinder(binder).bind(StarburstDataframePlanResource.class);
             binder.bind(TestingTrinoMetadataFactory.class).in(Scopes.SINGLETON);
             binder.bind(AnalyzerFactory.class).in(Scopes.SINGLETON);
             binder.bind(DataTypeMapper.class).in(Scopes.SINGLETON);
