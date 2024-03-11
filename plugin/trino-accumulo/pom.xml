@@ -121,10 +121,6 @@
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>jakarta.servlet</groupId>
-                    <artifactId>jakarta.servlet-api</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>jline</groupId>
                     <artifactId>jline</artifactId>
                 </exclusion>
@@ -292,10 +288,6 @@
             <version>${dep.accumulo.version}</version>
             <scope>test</scope>
             <exclusions>
-                <exclusion>
-                    <groupId>jakarta.servlet</groupId>
-                    <artifactId>jakarta.servlet-api</artifactId>
-                </exclusion>
                 <exclusion>
                     <groupId>org.apache.hadoop</groupId>
                     <artifactId>hadoop-client-api</artifactId>
