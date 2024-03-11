@@ -71,7 +71,6 @@
         <dependency>
             <groupId>org.rnorth.duct-tape</groupId>
             <artifactId>duct-tape</artifactId>
-            <version>${dep.duct-tape.version}</version>
         </dependency>
 
         <dependency>
