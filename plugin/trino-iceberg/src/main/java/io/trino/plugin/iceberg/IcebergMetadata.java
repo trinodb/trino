@@ -1131,7 +1131,7 @@ public class IcebergMetadata
 
         // TODO (https://github.com/trinodb/trino/issues/15439): it would be good to publish data and stats atomically
         beforeWriteSnapshotId.ifPresent(previous ->
-                verify(previous != newSnapshotId, "Failed to get new snapshot ID "));
+                verify(previous != newSnapshotId, "Failed to get new snapshot ID"));
 
         if (!computedStatistics.isEmpty()) {
             try {
