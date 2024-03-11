@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
 import io.trino.plugin.hive.TestingHivePlugin;
@@ -69,11 +68,7 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
 
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory, metastore));
 
-        ImmutableMap<String, String> hiveProperties = ImmutableMap.<String, String>builder()
-                .put("hive.allow-drop-table", "true")
-                .buildOrThrow();
-
-        queryRunner.createCatalog(HIVE_CATALOG_NAME, "hive", hiveProperties);
+        queryRunner.createCatalog(HIVE_CATALOG_NAME, "hive");
         queryRunner.execute("CREATE SCHEMA " + SCHEMA);
 
         return queryRunner;
