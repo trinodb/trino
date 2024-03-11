@@ -14,9 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Map;
 
@@ -30,7 +28,6 @@ public class IcebergCacheTableId
     private final String schemaName;
     private final String tableName;
     private final String tableLocation;
-    private final TupleDomain<CacheColumnId> unenforcedPredicate;
     private final Map<String, String> storageProperties;
 
     public IcebergCacheTableId(
@@ -38,14 +35,12 @@ public class IcebergCacheTableId
             String schemaName,
             String tableName,
             String tableLocation,
-            TupleDomain<CacheColumnId> unenforcedPredicate,
             Map<String, String> storageProperties)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
-        this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
     }
 
@@ -71,12 +66,6 @@ public class IcebergCacheTableId
     public String getTableLocation()
     {
         return tableLocation;
-    }
-
-    @JsonProperty
-    public TupleDomain<CacheColumnId> getUnenforcedPredicate()
-    {
-        return unenforcedPredicate;
     }
 
     @JsonProperty

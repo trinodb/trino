@@ -146,10 +146,4 @@ public class TestIcebergCacheSubqueriesTest
 
         getQueryRunner().execute(sql);
     }
-
-    @Override
-    protected boolean effectivePredicateReturnedPerSplit()
-    {
-        return false;
-    }
 }

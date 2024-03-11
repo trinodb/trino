@@ -207,9 +207,9 @@ public class TestIcebergCacheIds
                 .isNotEqualTo(icebergMetadata.getCacheTableId(
                         createIcebergTableHandle(catalogHandle, schemaTableName, "tableSchemaJson", partitionSpecJson, Set.of(), Optional.empty(), "different")));
 
-        // unenforce predicate should be part of table id
+        // unenforce predicate should not be part of table id
         assertThat(icebergMetadata.getCacheTableId(createIcebergTableHandle(catalogHandle, schemaTableName, "tableSchemaJson", partitionSpecJson, TupleDomain.withColumnDomains(ImmutableMap.of(bigIntColumnHandle, singleValue(BIGINT, 1L))), TupleDomain.all(), Set.of(), Optional.empty(), "location")))
-                .isNotEqualTo(icebergMetadata.getCacheTableId(
+                .isEqualTo(icebergMetadata.getCacheTableId(
                         createIcebergTableHandle(catalogHandle, schemaTableName, "tableSchemaJson", partitionSpecJson, Set.of(), Optional.empty(), "location")));
 
         // unenforce predicate timestamp(6) should be part of table id
@@ -228,10 +228,7 @@ public class TestIcebergCacheIds
                 Set.of(),
                 Optional.empty(),
                 "location")))
-                .isEqualTo(Optional.of(new CacheTableId("{\"catalog\":\"iceberg:normal:v12345\",\"schemaName\":\"iceberg_cache\",\"tableName\":\"testing\"," +
-                        "\"tableLocation\":\"location\",\"unenforcedPredicate\":{\"columnDomains\":[{\"column\":\"{\\\"baseColumnIdentity\\\":{\\\"id\\\":2,\\\"name\\\":\\\"column_2\\\",\\\"typeCategory\\\":\\\"PRIMITIVE\\\",\\\"children\\\":[]},\\\"baseType\\\":\\\"timestamp(6) with time zone\\\"," +
-                        "\\\"path\\\":[],\\\"type\\\":\\\"timestamp(6) with time zone\\\",\\\"nullable\\\":true}\",\"domain\":{\"values\":{\"@type\":\"sortable\",\"type\":\"timestamp(6) with time zone\",\"inclusive\":[true,false]," +
-                        "\"sortedRanges\":\"BwAAAEZJWEVEMTICAAAAAAAAwMXu+hcAAAAAAAAAgCtB+xcAAAAAAA==\"},\"nullAllowed\":false}}]},\"storageProperties\":{}}")));
+                .isEqualTo(Optional.of(new CacheTableId("{\"catalog\":\"iceberg:normal:v12345\",\"schemaName\":\"iceberg_cache\",\"tableName\":\"testing\",\"tableLocation\":\"location\",\"storageProperties\":{}}")));
 
         // enforce predicate is not part of table id
         assertThat(icebergMetadata.getCacheTableId(
