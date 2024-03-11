@@ -30,7 +30,9 @@ import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -55,6 +57,8 @@ import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.LocalTime;
+import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
@@ -301,6 +305,30 @@ class AggregationAnalyzer
 
         @Override
         protected Boolean visitCurrentTime(CurrentTime node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitCurrentDate(CurrentDate node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitCurrentTimestamp(CurrentTimestamp node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitLocalTime(LocalTime node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        protected Boolean visitLocalTimestamp(LocalTimestamp node, Void context)
         {
             return true;
         }
