@@ -56,6 +56,7 @@ configured using file format configuration properties per catalog:
 - CSV (using org.apache.hadoop.hive.serde2.OpenCSVSerde)
 - TextFile
 
+(hive-configuration)=
 ## General configuration
 
 To configure the Hive connector, create a catalog properties file
@@ -224,7 +225,7 @@ Hive connector documentation.
   - Hadoop file system replication factor.
   -
 * - `hive.security`
-  - See [](/connector/hive-security).
+  - See [](#hive-security).
   -
 * - `security.config-file`
   - Path of config file to use when `hive.security=file`. See
@@ -345,10 +346,72 @@ You must enable and configure the specific native file system access. If none is
 activated, the [legacy support](file-system-legacy) is used and must be
 configured.
 
+(hive-security)=
 ## Security
 
-Please see the {doc}`/connector/hive-security` section for information on the
-security options available for the Hive connector.
+The connector supports different means of authentication for the used [file
+system](hive-file-system-configuration) and [metastore](hive-configuration).
+
+In addition, the following security-related features are supported.
+
+(hive-authorization)=
+## Authorization
+
+You can enable authorization checks by setting the `hive.security` property in
+the catalog properties file. This property must be one of the following values:
+
+:::{list-table} `hive.security` property values
+:widths: 30, 60
+:header-rows: 1
+
+* - Property value
+  - Description
+* - `legacy` (default value)
+  - Few authorization checks are enforced, thus allowing most operations. The
+    config properties `hive.allow-drop-table`, `hive.allow-rename-table`,
+    `hive.allow-add-column`, `hive.allow-drop-column` and
+    `hive.allow-rename-column` are used.
+* - `read-only`
+  - Operations that read data or metadata, such as `SELECT`, are permitted, but
+    none of the operations that write data or metadata, such as `CREATE`,
+    `INSERT` or `DELETE`, are allowed.
+* - `file`
+  - Authorization checks are enforced using a catalog-level access control
+    configuration file whose path is specified in the `security.config-file`
+    catalog configuration property. See [](catalog-file-based-access-control)
+    for details.
+* - `sql-standard`
+  - Users are permitted to perform the operations as long as they have the
+    required privileges as per the SQL standard. In this mode, Trino enforces
+    the authorization checks for queries based on the privileges defined in Hive
+    metastore. To alter these privileges, use the [](/sql/grant) and
+    [](/sql/revoke) commands.
+
+    See the [](hive-sql-standard-based-authorization) section for details.
+* - `allow-all`
+  - No authorization checks are enforced.
+:::
+
+(hive-sql-standard-based-authorization)=
+### SQL standard based authorization
+
+When `sql-standard` security is enabled, Trino enforces the same SQLuyrity
+standard-based authorization as Hive does.
+
+Since Trino's `ROLE` syntax support matches the SQL standard, and
+Hive does not exactly follow the SQL standard, there are the following
+limitations and differences:
+
+- `CREATE ROLE role WITH ADMIN` is not supported.
+- The `admin` role must be enabled to execute `CREATE ROLE`, `DROP ROLE` or `CREATE SCHEMA`.
+- `GRANT role TO user GRANTED BY someone` is not supported.
+- `REVOKE role FROM user GRANTED BY someone` is not supported.
+- By default, all a user's roles, except `admin`, are enabled in a new user session.
+- One particular role can be selected by executing `SET ROLE role`.
+- `SET ROLE ALL` enables all of a user's roles except `admin`.
+- The `admin` role must be enabled explicitly by executing `SET ROLE admin`.
+- `GRANT privilege ON SCHEMA schema` is not supported. Schema ownership can be
+  changed with `ALTER SCHEMA schema SET AUTHORIZATION user`
 
 (hive-sql-support)=
 
