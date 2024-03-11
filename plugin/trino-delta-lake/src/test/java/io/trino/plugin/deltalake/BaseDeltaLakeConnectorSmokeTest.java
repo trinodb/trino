@@ -2322,8 +2322,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
     }
 
-    @Test
     @Timeout(60)
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(4)
     // Test fromm BaseConnectorTest
     public void testCreateOrReplaceTableConcurrently()
