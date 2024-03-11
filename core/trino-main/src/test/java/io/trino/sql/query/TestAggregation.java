@@ -13,11 +13,16 @@
  */
 package io.trino.sql.query;
 
+import io.trino.Session;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -54,5 +59,32 @@ public class TestAggregation
 
         assertThat(assertions.query("SELECT 1 > ALL (VALUES k) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
                 .failure().hasMessageContaining("line 1:17: Given correlated subquery is not supported");
+    }
+
+    @Test
+    void testSpecialDateTimeFunctionsInAggregation()
+    {
+        Session session = Session.builder(assertions.getDefaultSession())
+                .setStart(ZonedDateTime.of(2024, 3, 12, 12, 24, 0, 0, ZoneId.of("Pacific/Apia")).toInstant())
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2024, 3, 12, 12, 24, 0, 0, ZoneId.of("Pacific/Apia")).toInstant().toString())
+                .build();
+
+        assertThat(assertions.query(
+                session,
+                """
+                WITH t(x) AS (VALUES 1)
+                SELECT max(x), current_timestamp, current_date, current_time, localtimestamp, localtime 
+                FROM t
+                """))
+                .matches(
+                        """
+                        VALUES (
+                            1,
+                            TIMESTAMP '2024-03-12 12:24:0.000 Pacific/Apia',
+                            DATE '2024-03-12',
+                            TIME '12:24:0.000+13:00',
+                            TIMESTAMP '2024-03-12 12:24:0.000',
+                            TIME '12:24:0.000')
+                        """);
     }
 }
