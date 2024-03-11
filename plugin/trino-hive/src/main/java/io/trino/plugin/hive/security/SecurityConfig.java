@@ -16,11 +16,11 @@ package io.trino.plugin.hive.security;
 import io.airlift.configuration.Config;
 import jakarta.validation.constraints.NotNull;
 
-import static io.trino.plugin.hive.security.HiveSecurityModule.LEGACY;
+import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 
 public class SecurityConfig
 {
-    private String securitySystem = LEGACY;
+    private String securitySystem = ALLOW_ALL;
 
     @NotNull
     public String getSecuritySystem()

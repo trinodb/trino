@@ -80,7 +80,7 @@ public class TestSharedHiveMetastore
                         "iceberg.hive-catalog-name", "hive"));
 
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
-        queryRunner.createCatalog(HIVE_CATALOG, "hive", ImmutableMap.of("hive.allow-drop-table", "true"));
+        queryRunner.createCatalog(HIVE_CATALOG, "hive");
         queryRunner.createCatalog(
                 "hive_with_redirections",
                 "hive",
