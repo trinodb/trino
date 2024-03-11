@@ -1,13 +1,8 @@
 # Legacy Azure Storage support
 
-The {doc}`/connector/hive` can be configured to use [Azure Data Lake Storage (Gen2)](https://azure.microsoft.com/products/storage/data-lake-storage/). Trino
+The {doc}`/connector/hive` can be configured to use [Azure Data Lake Storage
+(Gen2)](https://azure.microsoft.com/products/storage/data-lake-storage/). Trino
 supports Azure Blob File System (ABFS) to access data in ADLS Gen2.
-
-Trino also supports [ADLS Gen1](https://learn.microsoft.com/azure/data-lake-store/data-lake-store-overview)
-and Windows Azure Storage Blob driver (WASB), but we recommend [migrating to
-ADLS Gen2](https://learn.microsoft.com/azure/storage/blobs/data-lake-storage-migrate-gen1-to-gen2-azure-portal),
-as ADLS Gen1 and WASB are legacy options that will be removed in the future.
-Learn more from [the official documentation](https://docs.microsoft.com/azure/data-lake-store/data-lake-store-overview).
 
 ## Hive connector configuration for Azure Storage credentials
 
@@ -58,55 +53,8 @@ When using a service principal, it must have the Storage Blob Data Owner,
 Contributor, or Reader role on the storage account you are using, depending on
 which operations you would like to use.
 
-### ADLS Gen1 (legacy)
-
-While it is advised to migrate to ADLS Gen2 whenever possible, if you still
-choose to use ADLS Gen1 you need to include the following properties in your
-catalog configuration.
-
-:::{note}
-Credentials for the filesystem can be configured using `ClientCredential`
-type. To authenticate with ADLS Gen1 you must create a new application
-secret for your ADLS Gen1 account's App Registration, and save this value
-because you won't able to retrieve the key later. Refer to the Azure
-[documentation](https://docs.microsoft.com/azure/data-lake-store/data-lake-store-service-to-service-authenticate-using-active-directory)
-for details.
-:::
-
-:::{list-table} ADLS properties
-:widths: 30, 70
-:header-rows: 1
-
-* - Property name
-  - Description
-* - `hive.azure.adl-client-id`
-  - Client (Application) ID from the App Registrations for your storage
-    account
-* - `hive.azure.adl-credential`
-  - Value of the new client (application) secret created
-* - `hive.azure.adl-refresh-url`
-  - OAuth 2.0 token endpoint url
-* - `hive.azure.adl-proxy-host`
-  - Proxy host and port in `host:port` format. Use this property to connect
-    to an ADLS endpoint via a SOCKS proxy.
-:::
-
-### WASB storage (legacy)
-
-:::{list-table} WASB properties
-:widths: 30, 70
-:header-rows: 1
-
-* - Property name
-  - Description
-* - `hive.azure.wasb-storage-account`
-  - Storage account name of Azure Blob Storage
-* - `hive.azure.wasb-access-key`
-  - The decrypted access key for the Azure Blob Storage
-:::
 
 (hive-azure-advanced-config)=
-
 ### Advanced configuration
 
 All of the configuration properties for the Azure storage driver are stored in
