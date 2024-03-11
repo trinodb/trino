@@ -159,6 +159,7 @@ jobs:
             ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
+          cache: restore
           cleanup-node: true
       - name: "Login to ECR pull-through cache"
         shell: bash
