@@ -6,7 +6,7 @@ inputs:
     default: 21
   cache:
     description: "Cache Maven repo (true/false/restore)"
-    default: true
+    default: restore
   cleanup-node:
     description: "Clean up node (true/false) to increase free disk space"
     default: false # Disabled by default as it adds ~4 minutes of test runtime. Should be enabled case by case.
