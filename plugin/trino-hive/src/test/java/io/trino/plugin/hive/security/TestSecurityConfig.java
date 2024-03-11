@@ -22,7 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.trino.plugin.hive.security.HiveSecurityModule.LEGACY;
+import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 
 public class TestSecurityConfig
 {
@@ -30,7 +30,7 @@ public class TestSecurityConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SecurityConfig.class)
-                .setSecuritySystem(LEGACY));
+                .setSecuritySystem(ALLOW_ALL));
     }
 
     @Test

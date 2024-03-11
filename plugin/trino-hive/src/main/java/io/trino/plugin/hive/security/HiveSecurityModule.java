@@ -26,7 +26,6 @@ import static io.airlift.configuration.ConfigurationAwareModule.combine;
 public class HiveSecurityModule
         extends AbstractConfigurationAwareModule
 {
-    public static final String LEGACY = "legacy";
     public static final String FILE = "file";
     public static final String READ_ONLY = "read-only";
     public static final String SQL_STANDARD = "sql-standard";
@@ -37,11 +36,6 @@ public class HiveSecurityModule
     protected void setup(Binder binder)
     {
         install(new ConnectorAccessControlModule());
-        bindSecurityModule(
-                LEGACY,
-                combine(
-                        new LegacySecurityModule(),
-                        new StaticAccessControlMetadataModule()));
         bindSecurityModule(
                 FILE,
                 combine(
