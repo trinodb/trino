@@ -1322,6 +1322,7 @@ jobs:
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
         with:
+          # The job doesn't build anything, so the ~/.m2/repository cache isn't useful
           cache: 'false'
       - name: Run ECR login
         uses: ./.github/actions/starburst-setup
