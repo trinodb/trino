@@ -212,7 +212,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                     ImmutableMap.<String, String>builder()
                             .put("hive.metastore", "thrift")
                             .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
-                            .put("hive.allow-drop-table", "true")
                             .putAll(hiveStorageConfiguration())
                             .buildOrThrow());
 

@@ -67,7 +67,6 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "thrift")
                         .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
-                        .put("hive.allow-drop-table", "true")
                         .putAll(s3Properties)
                         .buildOrThrow());
 
