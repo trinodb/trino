@@ -208,9 +208,6 @@
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>4.8.1</dep.wire.version>
         <dep.zookeeper.version>3.9.1</dep.zookeeper.version>
-
-        <!-- To make possible "real quick build": default is same as in airbase parent -->
-        <failIfNoTests>true</failIfNoTests>
     </properties>
 
     <dependencyManagement>
@@ -2301,18 +2298,12 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${dep.plugin.surefire.version}</version>
-                    <configuration>
-                        <failIfNoTests>${failIfNoTests}</failIfNoTests>
-                    </configuration>
                 </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${dep.plugin.surefire.version}</version>
-                    <configuration>
-                        <failIfNoTests>${failIfNoTests}</failIfNoTests>
-                    </configuration>
                 </plugin>
 
                 <plugin>
