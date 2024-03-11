@@ -1728,7 +1728,7 @@ public class DeltaLakeMetadata
                     table.getMetadataEntry(),
                     table.getProtocolEntry(),
                     inputColumns,
-                    getMandatoryCurrentVersion(fileSystem, tableLocation),
+                    getMandatoryCurrentVersion(fileSystem, tableLocation, table.getReadVersion()),
                     retryMode != NO_RETRIES);
         }
         catch (IOException e) {
@@ -1820,7 +1820,7 @@ public class DeltaLakeMetadata
             throws IOException
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        long currentVersion = getMandatoryCurrentVersion(fileSystem, handle.getLocation());
+        long currentVersion = getMandatoryCurrentVersion(fileSystem, handle.getLocation(), handle.getReadVersion());
 
         boolean isBlindAppend = sourceTableHandles.stream()
                 .filter(sourceTableHandle -> sourceTableHandle instanceof DeltaLakeTableHandle)
@@ -2018,7 +2018,7 @@ public class DeltaLakeMetadata
             long createdTime = Instant.now().toEpochMilli();
 
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation);
+            long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, handle.getReadVersion());
             if (currentVersion != handle.getReadVersion()) {
                 throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", handle.getReadVersion(), currentVersion));
             }
@@ -3525,7 +3525,7 @@ public class DeltaLakeMetadata
 
             long writeTimestamp = Instant.now().toEpochMilli();
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation);
+            long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, tableHandle.getReadVersion());
             if (currentVersion != tableHandle.getReadVersion()) {
                 throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", tableHandle.getReadVersion(), currentVersion));
             }
