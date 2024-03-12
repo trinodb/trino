@@ -14,22 +14,17 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowSpecification;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.toSymbolReferences;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -40,57 +35,33 @@ class FunctionCallProvider
     private final boolean isWindowFunction;
     private final QualifiedName name;
     private final Optional<WindowFrame> frame;
-    private final boolean distinct;
     private final List<PlanTestSymbol> args;
-    private final List<PlanMatchPattern.Ordering> orderBy;
-    private final Optional<SymbolAlias> filter;
 
-    private FunctionCallProvider(boolean isWindowFunction, QualifiedName name, Optional<WindowFrame> frame, boolean distinct, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy, Optional<SymbolAlias> filter)
+    private FunctionCallProvider(boolean isWindowFunction, QualifiedName name, Optional<WindowFrame> frame, List<PlanTestSymbol> args)
     {
         this.isWindowFunction = isWindowFunction;
         this.name = requireNonNull(name, "name is null");
         this.frame = requireNonNull(frame, "frame is null");
-        this.distinct = distinct;
         this.args = requireNonNull(args, "args is null");
-        this.orderBy = requireNonNull(orderBy, "orderBy is null");
-        this.filter = requireNonNull(filter, "filter is null");
     }
 
-    FunctionCallProvider(QualifiedName name, Optional<WindowFrame> frame, boolean distinct, List<PlanTestSymbol> args)
+    FunctionCallProvider(QualifiedName name, Optional<WindowFrame> frame, List<PlanTestSymbol> args)
     {
-        this(true, name, frame, distinct, args, ImmutableList.of(), Optional.empty());
-    }
-
-    FunctionCallProvider(QualifiedName name, boolean distinct, List<PlanTestSymbol> args)
-    {
-        this(false, name, Optional.empty(), distinct, args, ImmutableList.of(), Optional.empty());
-    }
-
-    FunctionCallProvider(QualifiedName name, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy)
-    {
-        this(false, name, Optional.empty(), false, args, orderBy, Optional.empty());
+        this(true, name, frame, args);
     }
 
     FunctionCallProvider(QualifiedName name, List<PlanTestSymbol> args)
     {
-        this(false, name, Optional.empty(), false, args, ImmutableList.of(), Optional.empty());
-    }
-
-    FunctionCallProvider(QualifiedName name, List<PlanTestSymbol> args, SymbolAlias filter)
-    {
-        this(false, name, Optional.empty(), false, args, ImmutableList.of(), Optional.of(filter));
+        this(false, name, Optional.empty(), args);
     }
 
     @Override
     public String toString()
     {
-        return format("%s%s (%s%s) %s %s",
-                distinct ? "DISTINCT" : "",
+        return format("%s(%s) %s",
                 name,
                 Joiner.on(", ").join(args),
-                orderBy.isEmpty() ? "" : " ORDER BY " + Joiner.on(", ").join(orderBy),
-                frame.isPresent() ? frame.get().toString() : "",
-                filter.isPresent() ? filter.get().toString() : "");
+                frame.isPresent() ? frame.get().toString() : "");
     }
 
     @Override
@@ -98,22 +69,11 @@ class FunctionCallProvider
     {
         List<Expression> symbolReferences = toSymbolReferences(args, aliases);
         if (isWindowFunction) {
-            verify(!distinct, "window does not support distinct");
-            verify(orderBy.isEmpty(), "window does not support order by");
             return new ExpectedWindowFunctionCall(symbolReferences);
         }
 
         Optional<OrderBy> orderByClause = Optional.empty();
-        if (!orderBy.isEmpty()) {
-            orderByClause = Optional.of(new OrderBy(orderBy.stream()
-                    .map(item -> new SortItem(
-                            Symbol.from(aliases.get(item.getField())).toSymbolReference(),
-                            item.getOrdering(),
-                            item.getNullOrdering()))
-                    .collect(Collectors.toList())));
-        }
-
-        return new FunctionCall(Optional.empty(), name, Optional.empty(), filter.map(symbol -> symbol.toSymbol(aliases).toSymbolReference()), orderByClause, distinct, Optional.empty(), Optional.empty(), symbolReferences);
+        return new FunctionCall(Optional.empty(), name, Optional.empty(), Optional.empty(), orderByClause, false, Optional.empty(), Optional.empty(), symbolReferences);
     }
 
     private class ExpectedWindowFunctionCall
@@ -141,7 +101,6 @@ class FunctionCallProvider
                     other.getWindow().isPresent() &&
                     other.getWindow().get() instanceof WindowSpecification &&
                     Objects.equals(frame, ((WindowSpecification) other.getWindow().get()).getFrame()) &&
-                    Objects.equals(distinct, other.isDistinct()) &&
                     Objects.equals(getArguments(), other.getArguments());
         }
 
