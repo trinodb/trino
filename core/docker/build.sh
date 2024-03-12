@@ -21,7 +21,7 @@ cd "${SCRIPT_DIR}" || exit 2
 SOURCE_DIR="${SCRIPT_DIR}/../.."
 
 ARCHITECTURES=(amd64 arm64 ppc64le)
-TRINO_VERSION=440
+TRINO_VERSION=
 JDK_VERSION=$(cat "${SOURCE_DIR}/.java-version")
 JDK_RELEASE=ga
 

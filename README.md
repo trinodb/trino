@@ -110,3 +110,12 @@ Run a query to see the nodes in the cluster:
 Run a query against the TPCH connector:
 
     SELECT * FROM tpch.tiny.region;
+
+
+### Hyperline Customized image build process
+
+Sync folk and choose 'update branch' on github;
+
+Run `./mvnw clean install -DskipTests` to re-build customized trino.
+
+Go to core/docker, run `./build.sh` to build docker image and push.
