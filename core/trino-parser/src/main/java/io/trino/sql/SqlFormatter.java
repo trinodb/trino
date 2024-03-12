@@ -14,7 +14,6 @@
 package io.trino.sql;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
@@ -2595,7 +2594,7 @@ public final class SqlFormatter
 
         private static String indentString(int indent)
         {
-            return Strings.repeat(INDENT, indent);
+            return INDENT.repeat(indent);
         }
 
         private void formatDefinitionList(List<String> elements, int indent)
