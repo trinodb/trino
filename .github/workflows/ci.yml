@@ -759,6 +759,7 @@ jobs:
               || steps.tests-bq-smoke.outcome == 'failure'
               || steps.tests-iceberg.outcome == 'failure'
               || steps.tests-redshift.outcome == 'failure'
+              || steps.tests-snowflake.outcome == 'failure'
             }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
       - name: Update PR check
