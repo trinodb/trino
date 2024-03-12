@@ -44,15 +44,16 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
@@ -287,7 +288,7 @@ public class TestDecorrelateUnnest
                                                                 ImmutableList.of("unique"),
                                                                 ImmutableList.of("unnested_corr"),
                                                                 ImmutableMap.of("unnested_corr", ASC_NULLS_FIRST)))
-                                                        .addFunction("rank_number", functionCall("rank", ImmutableList.of())),
+                                                        .addFunction("rank_number", windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
                                                 unnest(
                                                         ImmutableList.of("corr", "unique"),
                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -323,7 +324,7 @@ public class TestDecorrelateUnnest
                                                                 ImmutableList.of("unique"),
                                                                 ImmutableList.of("unnested_corr"),
                                                                 ImmutableMap.of("unnested_corr", ASC_NULLS_FIRST)))
-                                                        .addFunction("row_number", functionCall("row_number", ImmutableList.of())),
+                                                        .addFunction("row_number", windowFunction("row_number", ImmutableList.of(), DEFAULT_FRAME)),
                                                 unnest(
                                                         ImmutableList.of("corr", "unique"),
                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -449,7 +450,7 @@ public class TestDecorrelateUnnest
                                                                                                 ImmutableList.of("unique"),
                                                                                                 ImmutableList.of("unnested_corr"),
                                                                                                 ImmutableMap.of("unnested_corr", ASC_NULLS_FIRST)))
-                                                                                        .addFunction("row_number", functionCall("row_number", ImmutableList.of())),
+                                                                                        .addFunction("row_number", windowFunction("row_number", ImmutableList.of(), DEFAULT_FRAME)),
                                                                                 unnest(
                                                                                         ImmutableList.of("corr", "unique"),
                                                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.SetOperationOutputMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
@@ -34,13 +35,16 @@ import java.util.Optional;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
@@ -51,6 +55,17 @@ public class TestImplementExceptAll
     @Test
     public void test()
     {
+        WindowNode.Frame frame = new WindowNode.Frame(
+                ROWS,
+                UNBOUNDED_PRECEDING,
+                Optional.empty(),
+                Optional.empty(),
+                UNBOUNDED_FOLLOWING,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
         tester().assertThat(new ImplementExceptAll(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -92,22 +107,13 @@ public class TestImplementExceptAll
                                                                         ImmutableMap.of()))
                                                                 .addFunction(
                                                                         "count_1",
-                                                                        functionCall(
-                                                                                "count",
-                                                                                Optional.empty(),
-                                                                                ImmutableList.of("marker_1")))
+                                                                        windowFunction("count", ImmutableList.of("marker_1"), frame))
                                                                 .addFunction(
                                                                         "count_2",
-                                                                        functionCall(
-                                                                                "count",
-                                                                                Optional.empty(),
-                                                                                ImmutableList.of("marker_2")))
+                                                                        windowFunction("count", ImmutableList.of("marker_2"), frame))
                                                                 .addFunction(
                                                                         "row_number",
-                                                                        functionCall(
-                                                                                "row_number",
-                                                                                Optional.empty(),
-                                                                                ImmutableList.of())),
+                                                                        windowFunction("row_number", ImmutableList.of(), frame)),
                                                         union(
                                                                 project(
                                                                         ImmutableMap.of(
