@@ -282,7 +282,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
     protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
             throws IOException
     {
-        TrinoFileSystem fileSystem = getConnectorService((DistributedQueryRunner) queryRunner, TrinoFileSystemFactory.class)
+        TrinoFileSystem fileSystem = getConnectorService(queryRunner, TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
 
         String tableLocation = "local:///" + SCHEMA + "/" + table;
