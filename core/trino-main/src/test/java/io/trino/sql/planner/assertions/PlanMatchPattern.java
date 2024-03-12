@@ -1202,39 +1202,12 @@ public final class PlanMatchPattern
                 Optional.of(symbol(filter)));
     }
 
-    public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args, List<Ordering> orderBy)
-    {
-        return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args), orderBy);
-    }
-
     public static ExpectedValueProvider<FunctionCall> functionCall(
             String name,
             Optional<WindowFrame> frame,
             List<String> args)
     {
-        return new FunctionCallProvider(QualifiedName.of(name), frame, false, toSymbolAliases(args));
-    }
-
-    public static ExpectedValueProvider<FunctionCall> functionCall(
-            String name,
-            boolean distinct,
-            List<PlanTestSymbol> args)
-    {
-        return new FunctionCallProvider(QualifiedName.of(name), distinct, args);
-    }
-
-    public static ExpectedValueProvider<FunctionCall> functionCall(
-            String name,
-            boolean distinct,
-            List<PlanTestSymbol> args,
-            String filter)
-    {
-        return new FunctionCallProvider(QualifiedName.of(name), distinct, args, symbol(filter));
-    }
-
-    public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args, String filter)
-    {
-        return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args), symbol(filter));
+        return new FunctionCallProvider(QualifiedName.of(name), frame, toSymbolAliases(args));
     }
 
     public static List<Expression> toSymbolReferences(List<PlanTestSymbol> aliases, SymbolAliases symbolAliases)
@@ -1503,16 +1476,6 @@ public final class PlanMatchPattern
         public String getField()
         {
             return field;
-        }
-
-        public SortItem.Ordering getOrdering()
-        {
-            return ordering;
-        }
-
-        public SortItem.NullOrdering getNullOrdering()
-        {
-            return nullOrdering;
         }
 
         public SortOrder getSortOrder()
