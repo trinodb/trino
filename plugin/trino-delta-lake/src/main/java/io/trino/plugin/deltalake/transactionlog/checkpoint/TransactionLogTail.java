@@ -50,15 +50,6 @@ public class TransactionLogTail
         this.version = version;
     }
 
-    public static TransactionLogTail loadNewTail(
-            TrinoFileSystem fileSystem,
-            String tableLocation,
-            Optional<Long> startVersion)
-            throws IOException
-    {
-        return loadNewTail(fileSystem, tableLocation, startVersion, Optional.empty());
-    }
-
     // Load a section of the Transaction Log JSON entries. Optionally from a given start version (exclusive) through an end version (inclusive)
     public static TransactionLogTail loadNewTail(
             TrinoFileSystem fileSystem,
