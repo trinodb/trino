@@ -79,11 +79,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.trino.orc</groupId>
-            <artifactId>orc-protobuf</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
         </dependency>
@@ -96,6 +91,12 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.orc</groupId>
+            <artifactId>orc-format</artifactId>
+            <classifier>shaded-protobuf</classifier>
         </dependency>
 
         <dependency>
