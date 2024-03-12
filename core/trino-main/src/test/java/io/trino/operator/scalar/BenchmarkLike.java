@@ -62,10 +62,10 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 public class BenchmarkLike
 {
     private static final String LONG_STRING = repeat("a", 100) +
-                                              repeat("b", 100) +
-                                              repeat("a", 100) +
-                                              repeat("b", 100) +
-                                              "the quick brown fox jumps over the lazy dog";
+            repeat("b", 100) +
+            repeat("a", 100) +
+            repeat("b", 100) +
+            "the quick brown fox jumps over the lazy dog";
 
     private static final Syntax SYNTAX = new Syntax(
             OP_DOT_ANYCHAR | OP_ASTERISK_ZERO_INF | OP_LINE_ANCHOR,
