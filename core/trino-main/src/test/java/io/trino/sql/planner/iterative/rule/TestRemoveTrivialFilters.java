@@ -15,11 +15,17 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NullLiteral;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
+import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 
 public class TestRemoveTrivialFilters
         extends BaseRuleTest
@@ -28,7 +34,9 @@ public class TestRemoveTrivialFilters
     public void testDoesNotFire()
     {
         tester().assertThat(new RemoveTrivialFilters())
-                .on(p -> p.filter(expression("1 = 1"), p.values()))
+                .on(p -> p.filter(
+                        new ComparisonExpression(EQUAL, new LongLiteral("1"), new LongLiteral("1")),
+                        p.values()))
                 .doesNotFire();
     }
 
@@ -36,7 +44,7 @@ public class TestRemoveTrivialFilters
     public void testRemovesTrueFilter()
     {
         tester().assertThat(new RemoveTrivialFilters())
-                .on(p -> p.filter(expression("TRUE"), p.values()))
+                .on(p -> p.filter(TRUE_LITERAL, p.values()))
                 .matches(values());
     }
 
@@ -45,10 +53,10 @@ public class TestRemoveTrivialFilters
     {
         tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        expression("FALSE"),
+                        FALSE_LITERAL,
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(expressions("1")))))
+                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))
                 .matches(values("a"));
     }
 
@@ -57,10 +65,10 @@ public class TestRemoveTrivialFilters
     {
         tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        expression("CAST(null AS boolean)"),
+                        new Cast(new NullLiteral(), dataType("boolean")),
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(expressions("1")))))
+                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))
                 .matches(values(
                         ImmutableList.of("a"),
                         ImmutableList.of()));

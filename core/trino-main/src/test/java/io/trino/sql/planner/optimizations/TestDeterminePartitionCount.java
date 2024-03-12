@@ -29,6 +29,8 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -158,7 +160,8 @@ public class TestDeterminePartitionCount
                         .build(),
                 output(
                         project(
-                                filter("column_b IS NULL",
+                                filter(
+                                        new IsNullPredicate(new SymbolReference("column_b")),
                                         tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a", "column_b", "column_b"))))));
     }
 

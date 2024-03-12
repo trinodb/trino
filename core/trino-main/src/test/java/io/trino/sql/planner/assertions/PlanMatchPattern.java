@@ -26,10 +26,10 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
@@ -69,6 +69,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowFrameType;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NotExpression;
@@ -76,7 +77,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.WindowFrame;
-import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -510,26 +510,26 @@ public final class PlanMatchPattern
         return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, hasDynamicFilter));
     }
 
-    public static PlanMatchPattern spatialJoin(@Language("SQL") String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(Expression expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return spatialJoin(expectedFilter, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern spatialJoin(@Language("SQL") String expectedFilter, Optional<String> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(Expression expectedFilter, Optional<String> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
     {
         return spatialJoin(expectedFilter, kdbTree, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern spatialJoin(@Language("SQL") String expectedFilter, Optional<String> kdbTree, Optional<List<String>> outputSymbols, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(Expression filter, Optional<String> kdbTree, Optional<List<String>> outputSymbols, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(SpatialJoinNode.class, left, right).with(
-                new SpatialJoinMatcher(SpatialJoinNode.Type.INNER, PlanBuilder.expression(expectedFilter), kdbTree, outputSymbols));
+                new SpatialJoinMatcher(SpatialJoinNode.Type.INNER, filter, kdbTree, outputSymbols));
     }
 
-    public static PlanMatchPattern spatialLeftJoin(@Language("SQL") String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialLeftJoin(Expression expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(SpatialJoinNode.class, left, right).with(
-                new SpatialJoinMatcher(SpatialJoinNode.Type.LEFT, PlanBuilder.expression(expectedFilter), Optional.empty(), Optional.empty()));
+                new SpatialJoinMatcher(SpatialJoinNode.Type.LEFT, expectedFilter, Optional.empty(), Optional.empty()));
     }
 
     public static PlanMatchPattern unnest(PlanMatchPattern source)
@@ -710,11 +710,6 @@ public final class PlanMatchPattern
         return new SymbolAlias(alias);
     }
 
-    public static PlanMatchPattern filter(@Language("SQL") String expectedPredicate, PlanMatchPattern source)
-    {
-        return filter(PlanBuilder.expression(expectedPredicate), source);
-    }
-
     public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
     {
         return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate, Optional.empty()));
@@ -740,10 +735,10 @@ public final class PlanMatchPattern
                 .with(new CorrelationMatcher(correlationSymbolAliases));
     }
 
-    public static PlanMatchPattern correlatedJoin(List<String> correlationSymbolAliases, @Language("SQL") String filter, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    public static PlanMatchPattern correlatedJoin(List<String> correlationSymbolAliases, Expression filter, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
     {
         return correlatedJoin(correlationSymbolAliases, inputPattern, subqueryPattern)
-                .with(new CorrelatedJoinMatcher(PlanBuilder.expression(filter)));
+                .with(new CorrelatedJoinMatcher(filter));
     }
 
     public static PlanMatchPattern groupId(List<List<String>> groupingSets, String groupIdSymbol, PlanMatchPattern source)
@@ -1038,9 +1033,10 @@ public final class PlanMatchPattern
         return new SetExpressionMatcher(expression);
     }
 
-    public static ExpressionMatcher expression(@Language("SQL") String expression)
+    public static DataType dataType(String sqlType)
     {
-        return new ExpressionMatcher(expression);
+        SqlParser parser = new SqlParser();
+        return parser.createType(sqlType);
     }
 
     public static ExpressionMatcher expression(Expression expression)
@@ -1249,15 +1245,6 @@ public final class PlanMatchPattern
         private final SymbolAlias build;
         private final boolean nullAllowed;
 
-        public DynamicFilterPattern(String probeExpression, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
-        {
-            this(
-                    PlanBuilder.expression(probeExpression),
-                    operator,
-                    buildAlias,
-                    nullAllowed);
-        }
-
         public DynamicFilterPattern(Expression probe, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
         {
             this.probe = requireNonNull(probe, "probe is null");
@@ -1266,9 +1253,9 @@ public final class PlanMatchPattern
             this.nullAllowed = nullAllowed;
         }
 
-        public DynamicFilterPattern(String probeAlias, ComparisonExpression.Operator operator, String buildAlias)
+        public DynamicFilterPattern(Expression probe, ComparisonExpression.Operator operator, String buildAlias)
         {
-            this(probeAlias, operator, buildAlias, false);
+            this(probe, operator, buildAlias, false);
         }
 
         Expression getExpression(SymbolAliases aliases)

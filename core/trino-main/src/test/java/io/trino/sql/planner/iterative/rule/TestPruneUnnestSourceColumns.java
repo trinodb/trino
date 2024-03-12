@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.UnnestNode.Mapping;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
@@ -48,7 +49,7 @@ public class TestPruneUnnestSourceColumns
                                 ImmutableList.of("replicate_symbol"),
                                 ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),
                                 strictProject(
-                                        ImmutableMap.of("replicate_symbol", expression("replicate_symbol"), "unnest_symbol", expression("unnest_symbol")),
+                                        ImmutableMap.of("replicate_symbol", expression(new SymbolReference("replicate_symbol")), "unnest_symbol", expression(new SymbolReference("unnest_symbol"))),
                                         values("replicate_symbol", "unnest_symbol", "unused_symbol"))));
     }
 

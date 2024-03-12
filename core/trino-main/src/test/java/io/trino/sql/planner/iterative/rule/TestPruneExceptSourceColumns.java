@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.except;
@@ -45,7 +46,7 @@ public class TestPruneExceptSourceColumns
                 })
                 .matches(except(
                         strictProject(
-                                ImmutableMap.of("a", expression("a")),
+                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                 values("a", "b")),
                         values("c")));
     }
@@ -68,10 +69,10 @@ public class TestPruneExceptSourceColumns
                 })
                 .matches(except(
                         strictProject(
-                                ImmutableMap.of("a", expression("a")),
+                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                 values("a", "b")),
                         strictProject(
-                                ImmutableMap.of("c", expression("c")),
+                                ImmutableMap.of("c", expression(new SymbolReference("c"))),
                                 values("c", "d"))));
     }
 

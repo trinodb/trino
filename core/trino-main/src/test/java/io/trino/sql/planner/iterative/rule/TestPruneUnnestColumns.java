@@ -19,6 +19,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.UnnestNode.Mapping;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -53,7 +54,7 @@ public class TestPruneUnnestColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("replicate_symbol", expression("replicate_symbol"), "unnested_symbol", expression("unnested_symbol")),
+                                ImmutableMap.of("replicate_symbol", expression(new SymbolReference("replicate_symbol")), "unnested_symbol", expression(new SymbolReference("unnested_symbol"))),
                                 unnest(
                                         ImmutableList.of("replicate_symbol"),
                                         ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),
@@ -82,7 +83,7 @@ public class TestPruneUnnestColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("unnested_symbol", expression("unnested_symbol"), "ordinality_symbol", expression("ordinality_symbol")),
+                                ImmutableMap.of("unnested_symbol", expression(new SymbolReference("unnested_symbol")), "ordinality_symbol", expression(new SymbolReference("ordinality_symbol"))),
                                 unnest(
                                         ImmutableList.of(),
                                         ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),

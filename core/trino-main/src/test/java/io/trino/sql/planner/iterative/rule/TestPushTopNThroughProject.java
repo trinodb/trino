@@ -64,7 +64,7 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("projectedA", expression("a"), "projectedB", expression("b")),
+                                ImmutableMap.of("projectedA", expression(new SymbolReference("a")), "projectedB", expression(new SymbolReference("b"))),
                                 topN(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 
@@ -88,7 +88,9 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("projectedA", expression("a"), "projectedC", expression("a + b")),
+                                ImmutableMap.of(
+                                        "projectedA", expression(new SymbolReference("a")),
+                                        "projectedC", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b")))),
                                 topN(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 
@@ -179,7 +181,7 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression("a[1]"), "c", expression("a"), "d", expression("d")),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral("1"))), "c", expression(new SymbolReference("a")), "d", expression(new SymbolReference("d"))),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("d", ASCENDING, FIRST)),

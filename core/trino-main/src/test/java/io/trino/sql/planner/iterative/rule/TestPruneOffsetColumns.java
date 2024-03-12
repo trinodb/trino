@@ -19,6 +19,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.function.Predicate;
@@ -41,11 +42,11 @@ public class TestPruneOffsetColumns
                 .on(p -> buildProjectedOffset(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression("b")),
+                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                 offset(
                                         1,
                                         strictProject(
-                                                ImmutableMap.of("b", expression("b")),
+                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                                 values("a", "b")))));
     }
 

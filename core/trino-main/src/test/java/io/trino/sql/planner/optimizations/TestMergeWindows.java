@@ -26,7 +26,12 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.FrameBound;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -37,6 +42,7 @@ import java.util.Optional;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -46,6 +52,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 
 public class TestMergeWindows
         extends BasePlanTest
@@ -203,9 +210,9 @@ public class TestMergeWindows
                                                         .specification(specificationB)
                                                         .addFunction(functionCall("nth_value", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
                                                 project(
-                                                        ImmutableMap.of("ONE", expression("CAST(expr AS bigint)")),
+                                                        ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), dataType("bigint")))),
                                                         project(
-                                                                ImmutableMap.of("expr", expression("1")),
+                                                                ImmutableMap.of("expr", expression(new LongLiteral("1"))),
                                                                 LINEITEM_TABLESCAN_DOQSS)))))));
     }
 
@@ -235,7 +242,7 @@ public class TestMergeWindows
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specificationB)
                                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                                filter(SHIPDATE_ALIAS + " IS NOT NULL",
+                                                filter(new IsNotNullPredicate(new SymbolReference(SHIPDATE_ALIAS)),
                                                         project(
                                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                                 .specification(specificationA)
@@ -259,8 +266,8 @@ public class TestMergeWindows
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
                                         .addFunction(functionCall("nth_value", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE")))
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                project(ImmutableMap.of("ONE", expression("CAST(expr AS bigint)")),
-                                        project(ImmutableMap.of("expr", expression("1")),
+                                project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), dataType("bigint")))),
+                                        project(ImmutableMap.of("expr", expression(new LongLiteral("1"))),
                                                 LINEITEM_TABLESCAN_DOQS)))));
     }
 
@@ -286,7 +293,7 @@ public class TestMergeWindows
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS)))
                                         .addFunction(functionCall("avg", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                 project(
-                                        filter(SHIPDATE_ALIAS + " IS NOT NULL",
+                                        filter(new IsNotNullPredicate(new SymbolReference(SHIPDATE_ALIAS)),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(specificationA)
@@ -460,7 +467,7 @@ public class TestMergeWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        filter("SUM = AVG",
+                        filter(new ComparisonExpression(EQUAL, new SymbolReference("SUM"), new SymbolReference("AVG")),
                                 join(INNER, builder -> builder
                                         .left(
                                                 any(

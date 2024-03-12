@@ -23,6 +23,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SymbolReference;
@@ -36,6 +37,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognitio
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.rowpattern.Patterns.label;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestExpressionRewriteRuleSet
         extends BaseRuleTest
@@ -62,10 +64,10 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("y"), PlanBuilder.expression("x IS NOT NULL")),
+                        Assignments.of(p.symbol("y"), new IsNotNullPredicate(new SymbolReference("x"))),
                         p.values(p.symbol("x"))))
                 .matches(
-                        project(ImmutableMap.of("y", expression("0")), values("x")));
+                        project(ImmutableMap.of("y", expression(new LongLiteral("0"))), values("x")));
     }
 
     @Test
@@ -73,7 +75,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("y"), PlanBuilder.expression("0")),
+                        Assignments.of(p.symbol("y"), new LongLiteral("0")),
                         p.values(p.symbol("x"))))
                 .doesNotFire();
     }
@@ -103,7 +105,7 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.filterExpressionRewrite())
                 .on(p -> p.filter(new LongLiteral("1"), p.values()))
                 .matches(
-                        filter("0", values()));
+                        filter(new LongLiteral("0"), values()));
     }
 
     @Test
@@ -120,7 +122,7 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
-                        ImmutableList.of(ImmutableList.of(PlanBuilder.expression("1")))))
+                        ImmutableList.of(ImmutableList.of(new LongLiteral("1")))))
                 .matches(
                         values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("0")))));
     }
@@ -131,7 +133,7 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
-                        ImmutableList.of(ImmutableList.of(PlanBuilder.expression("0")))))
+                        ImmutableList.of(ImmutableList.of(new LongLiteral("0")))))
                 .doesNotFire();
     }
 
@@ -143,16 +145,16 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.patternRecognitionExpressionRewrite())
                 .on(p -> p.patternRecognition(
                         builder -> builder
-                                .addMeasure(p.symbol("measure_1"), PlanBuilder.expression("1"), INTEGER)
+                                .addMeasure(p.symbol("measure_1"), new LongLiteral("1"), INTEGER)
                                 .pattern(label("X"))
-                                .addVariableDefinition(label("X"), PlanBuilder.expression("true"))
+                                .addVariableDefinition(label("X"), TRUE_LITERAL)
                                 .source(p.values(p.symbol("a")))))
                 .matches(
                         patternRecognition(
                                 builder -> builder
-                                        .addMeasure("measure_1", PlanBuilder.expression("0"), INTEGER)
+                                        .addMeasure("measure_1", new LongLiteral("0"), INTEGER)
                                         .pattern(label("X"))
-                                        .addVariableDefinition(label("X"), PlanBuilder.expression("0")),
+                                        .addVariableDefinition(label("X"), new LongLiteral("0")),
                                 values("a")));
     }
 
@@ -162,9 +164,9 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.patternRecognitionExpressionRewrite())
                 .on(p -> p.patternRecognition(
                         builder -> builder
-                                .addMeasure(p.symbol("measure_1"), PlanBuilder.expression("0"), INTEGER)
+                                .addMeasure(p.symbol("measure_1"), new LongLiteral("0"), INTEGER)
                                 .pattern(label("X"))
-                                .addVariableDefinition(label("X"), PlanBuilder.expression("0"))
+                                .addVariableDefinition(label("X"), new LongLiteral("0"))
                                 .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }

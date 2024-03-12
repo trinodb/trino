@@ -19,6 +19,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -46,7 +47,7 @@ public class TestPruneRowNumberColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression("a")),
+                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                 values(ImmutableList.of("a"))));
 
         // partitioning is present, no limit per partition
@@ -60,7 +61,7 @@ public class TestPruneRowNumberColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression("a")),
+                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                 values(ImmutableList.of("a"))));
 
         // no partitioning, limit per partition is present
@@ -74,7 +75,7 @@ public class TestPruneRowNumberColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression("a")),
+                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                 limit(
                                         5,
                                         values(ImmutableList.of("a")))));
@@ -91,13 +92,13 @@ public class TestPruneRowNumberColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression("a")),
+                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .partitionBy(ImmutableList.of("a"))
                                                 .maxRowCountPerPartition(Optional.of(5)),
                                         strictProject(
-                                                ImmutableMap.of("a", expression("a")),
+                                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                                 values(ImmutableList.of("a", "b"))))));
     }
 
@@ -143,7 +144,7 @@ public class TestPruneRowNumberColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("row_number", expression("row_number")),
+                                ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference("row_number"))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .partitionBy(ImmutableList.of()),
