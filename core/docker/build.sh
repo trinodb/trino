@@ -21,7 +21,7 @@ cd "${SCRIPT_DIR}" || exit 2
 SOURCE_DIR="${SCRIPT_DIR}/../.."
 
 ARCHITECTURES=(amd64 arm64 ppc64le)
-TRINO_VERSION=
+TRINO_VERSION=440
 JDK_VERSION=$(cat "${SOURCE_DIR}/.java-version")
 JDK_RELEASE=ga
 
@@ -120,7 +120,7 @@ rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
 cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
 cp -R default "${WORK_DIR}/"
 
-TAG_PREFIX="trino:${TRINO_VERSION}"
+TAG_PREFIX="us-west1-docker.pkg.dev/mvp-infra/trino-custom-images/hyperline-trino:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
     echo "🫙  Building the image for $arch with JDK ${JDK_VERSION} ${JDK_RELEASE}"
