@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.common.base.Strings;
 import io.trino.Session;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.JoinNode;
@@ -178,7 +177,7 @@ public abstract class BaseAutomaticJoinPushdownTest
     {
         String sourceTable = "tpch.tiny.orders";
         checkArgument(rowsCount < ((long) computeScalar("SELECT count(*) FROM " + sourceTable)), "rowsCount too high: %s", rowsCount);
-        String padding = Strings.repeat("x", 50);
+        String padding = "x".repeat(50);
         return new TestTable(
                 tableCreator(),
                 name,
