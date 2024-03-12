@@ -764,7 +764,7 @@ jobs:
           matrix.modules != 'plugin/trino-singlestore'
           && matrix.modules != 'plugin/starburst-snowflake'
           && matrix.modules != 'plugin/starburst-synapse'
-          && matrix.modules != 'plugin/trino-mongodb'
+          && ! (contains(matrix.modules, 'trino-mongodb') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
