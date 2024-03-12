@@ -1676,12 +1676,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.trino.orc</groupId>
-                <artifactId>orc-protobuf</artifactId>
-                <version>14</version>
-            </dependency>
-
-            <dependency>
                 <groupId>io.trino.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
@@ -2001,6 +1995,13 @@
                 <groupId>org.apache.maven</groupId>
                 <artifactId>maven-model</artifactId>
                 <version>3.9.6</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.orc</groupId>
+                <artifactId>orc-format</artifactId>
+                <version>1.0.0</version>
+                <classifier>shaded-protobuf</classifier>
             </dependency>
 
             <dependency>
