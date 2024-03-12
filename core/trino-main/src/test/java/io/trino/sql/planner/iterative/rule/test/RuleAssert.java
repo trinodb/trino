@@ -85,11 +85,11 @@ public class RuleAssert
                 fail(format(
                         """
                         Expected %s to not fire for:
-                        
+
                         %s
-                        
+
                         ==>
-                        
+
                         %s
                         """,
                         rule,
