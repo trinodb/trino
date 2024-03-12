@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-import static com.google.common.base.Strings.repeat;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -393,7 +392,7 @@ public class TestStatementBuilder
         println("");
         assertFormattedSql(SQL_PARSER, statement);
 
-        println(repeat("=", 60));
+        println("=".repeat(60));
         println("");
     }
 
