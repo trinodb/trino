@@ -273,6 +273,9 @@ public class ClientOptions
     @Option(names = "--disable-auto-suggestion", description = "Disable auto suggestion")
     public boolean disableAutoSuggestion;
 
+    @Option(names = "--follow-redirects", description = "Follow client redirects from server")
+    public boolean followRedirects;
+
     public enum OutputFormat
     {
         AUTO,
@@ -400,6 +403,9 @@ public class ClientOptions
         }
         if (!sessionProperties.isEmpty()) {
             builder.setSessionProperties(toProperties(sessionProperties));
+        }
+        if (followRedirects) {
+            builder.setFollowRedirects(true);
         }
         builder.setExternalAuthentication(externalAuthentication);
         builder.setExternalRedirectStrategies(externalAuthenticationRedirectHandler);

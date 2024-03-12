@@ -22,9 +22,12 @@ import io.trino.client.auth.kerberos.GSSContextProvider;
 import io.trino.client.auth.kerberos.LoginBasedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.SpnegoHandler;
 import okhttp3.Credentials;
+import okhttp3.HttpUrl;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
 import org.ietf.jgss.GSSCredential;
 
@@ -88,14 +91,30 @@ public final class OkHttpUtil
                 .build());
     }
 
-    public static Interceptor tokenAuth(String accessToken)
+    public static Interceptor tokenAuth(String accessToken, boolean followRedirects)
     {
         requireNonNull(accessToken, "accessToken is null");
         checkArgument(CharMatcher.inRange((char) 33, (char) 126).matchesAllOf(accessToken));
 
-        return chain -> chain.proceed(chain.request().newBuilder()
-                .addHeader(AUTHORIZATION, "Bearer " + accessToken)
-                .build());
+        return chain -> {
+            Request request = chain.request().newBuilder()
+                    .addHeader(AUTHORIZATION, "Bearer " + accessToken)
+                    .build();
+
+            Response response = chain.proceed(request);
+
+            if (response.code() == 401 && response.priorResponse() != null &&
+                    response.priorResponse().isRedirect() && response.request().url() != null && followRedirects) {
+                HttpUrl redirectUrl = response.request().url();
+                response.close();
+                request = request.newBuilder()
+                        .url(redirectUrl)
+                        .header(AUTHORIZATION, "Bearer " + accessToken)
+                        .build();
+                response = chain.proceed(request);
+            }
+            return response;
+        };
     }
 
     public static void setupTimeouts(OkHttpClient.Builder clientBuilder, int timeout, TimeUnit unit)

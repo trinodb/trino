@@ -24,6 +24,7 @@ import java.util.Properties;
 import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
 import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
+import static io.trino.client.uri.PropertyName.FOLLOW_REDIRECTS;
 import static io.trino.client.uri.PropertyName.HTTP_PROXY;
 import static io.trino.client.uri.PropertyName.SOCKS_PROXY;
 import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PASSWORD;
@@ -353,6 +354,22 @@ public class TestTrinoDriverUri
 
         Properties properties = parameters.getProperties();
         assertThat(properties.getProperty(SSL_USE_SYSTEM_TRUST_STORE.toString())).isEqualTo("true");
+    }
+
+    @Test
+    public void testUriWithFollowRedirects()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/blackhole?followRedirects=true");
+
+        Properties properties = parameters.getProperties();
+        assertThat(properties.getProperty(FOLLOW_REDIRECTS.toString())).isEqualTo("true");
+
+        parameters = createDriverUri("jdbc:trino://localhost:8080/blackhole?followRedirects=false");
+        properties = parameters.getProperties();
+        assertThat(properties.getProperty(FOLLOW_REDIRECTS.toString())).isEqualTo("false");
+
+        assertInvalid("jdbc:trino://localhost:8080/blackhole?followRedirects=INVALIDVALUE", "Connection property followRedirects value is invalid: INVALIDVALUE");
     }
 
     @Test
