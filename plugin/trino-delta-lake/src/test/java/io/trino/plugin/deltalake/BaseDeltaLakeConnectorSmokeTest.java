@@ -329,9 +329,22 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableName = "test_uri_table_" + randomNameSuffix();
         registerTableFromResources(tableName, "deltalake/uri", getQueryRunner());
 
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('a=equal', 1), ('a:colon', 2), ('a+plus', 3), ('a space', 4), ('a%percent', 5)");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('a=equal', 1), ('a:colon', 2), ('a+plus', 3), ('a space', 4), ('a%percent', 5), ('a/forwardslash', 6)");
         String firstFilePath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE y = 1");
         assertQuery("SELECT * FROM " + tableName + " WHERE \"$path\" = '" + firstFilePath + "'", "VALUES ('a=equal', 1)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPathUriEncoding()
+    {
+        String tableName = "test_uri_table_encoding_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (part varchar, data integer) " +
+                "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['part'])");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('a=equal', 1), ('a:colon', 2), ('a+plus', 3), ('a space', 4), ('a%percent', 5), ('a/forwardslash', 6)", 6);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('a=equal', 1), ('a:colon', 2), ('a+plus', 3), ('a space', 4), ('a%percent', 5), ('a/forwardslash', 6)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
