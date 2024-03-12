@@ -25,6 +25,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +33,6 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
@@ -87,7 +87,7 @@ public class TestPruneCountAggregationOverScalar
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
-                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(expressions("1"))))))
+                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
     }
 

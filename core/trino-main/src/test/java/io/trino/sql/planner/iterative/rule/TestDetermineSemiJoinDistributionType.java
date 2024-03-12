@@ -25,6 +25,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.tree.LongLiteral;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -77,8 +77,8 @@ public class TestDetermineSemiJoinDistributionType
         assertDetermineSemiJoinDistributionType()
                 .on(p ->
                         p.semiJoin(
-                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(expressions("10"), expressions("11"))),
-                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(expressions("50"), expressions("11"))),
+                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral("10")), ImmutableList.of(new LongLiteral("11")))),
+                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral("50")), ImmutableList.of(new LongLiteral("11")))),
                                 p.symbol("A1"),
                                 p.symbol("B1"),
                                 p.symbol("output"),
@@ -359,7 +359,7 @@ public class TestDetermineSemiJoinDistributionType
                         "output",
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
-                        filter("true", values(ImmutableMap.of("B1", 0)))));
+                        filter(TRUE_LITERAL, values(ImmutableMap.of("B1", 0)))));
     }
 
     private RuleBuilder assertDetermineSemiJoinDistributionType()

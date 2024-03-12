@@ -17,11 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.MergeWriterNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -51,8 +52,8 @@ public class TestPruneMergeSourceColumns
                                 MergeWriterNode.class,
                                 strictProject(
                                         ImmutableMap.of(
-                                                "row_id", PlanMatchPattern.expression("row_id"),
-                                                "merge_row", PlanMatchPattern.expression("merge_row")),
+                                                "row_id", expression(new SymbolReference("row_id")),
+                                                "merge_row", expression(new SymbolReference("merge_row"))),
                                         values("a", "merge_row", "row_id"))));
     }
 

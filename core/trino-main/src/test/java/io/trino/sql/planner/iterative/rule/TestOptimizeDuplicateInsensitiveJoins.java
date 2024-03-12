@@ -23,6 +23,9 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -31,7 +34,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.Assignments.identity;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -106,7 +108,8 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                     INNER,
                                     p.values(symbolA),
                                     p.project(identity(symbolB),
-                                            p.filter(expression("b > 10"),
+                                            p.filter(
+                                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("10")),
                                                     p.join(
                                                             INNER,
                                                             p.values(symbolB),
@@ -117,7 +120,8 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                 join(INNER, builder -> builder
                                         .left(values("A"))
                                         .right(project(
-                                                filter("B > 10",
+                                                filter(
+                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("B"), new LongLiteral("10")),
                                                         join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                                 .left(values("B"))
                                                                 .right(values("C")))
@@ -151,7 +155,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                 .matches(
                         aggregation(ImmutableMap.of(),
                                 join(INNER, builder -> builder
-                                        .filter("B > random()")
+                                        .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("B"), new FunctionCall(QualifiedName.of("random"), ImmutableList.of())))
                                         .left(values("A"))
                                         .right(
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder

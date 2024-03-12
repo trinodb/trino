@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -50,7 +51,7 @@ public class TestMergeLimitOverProjectWithSort
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression("b")),
+                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
@@ -94,7 +95,7 @@ public class TestMergeLimitOverProjectWithSort
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression("b")),
+                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),

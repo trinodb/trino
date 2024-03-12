@@ -13,26 +13,31 @@
  */
 package io.trino.plugin.geospatial;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 
 public class TestExtractSpatialLeftJoin
         extends AbstractTestExtractSpatial
@@ -145,7 +150,8 @@ public class TestExtractSpatialLeftJoin
                             containsCall(a.toSymbolReference(), b.toSymbolReference()));
                 })
                 .matches(
-                        spatialLeftJoin("ST_Contains(a, b)",
+                        spatialLeftJoin(
+                                new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))),
                                 values(ImmutableMap.of("a", 0)),
                                 values(ImmutableMap.of("b", 0))));
 
@@ -165,7 +171,8 @@ public class TestExtractSpatialLeftJoin
                                     containsCall(a.toSymbolReference(), b.toSymbolReference())));
                 })
                 .matches(
-                        spatialLeftJoin("name_1 != name_2 AND ST_Contains(a, b)",
+                        spatialLeftJoin(
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("name_1"), new SymbolReference("name_2")), new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))))),
                                 values(ImmutableMap.of("a", 0, "name_1", 1)),
                                 values(ImmutableMap.of("b", 0, "name_2", 1))));
 
@@ -185,7 +192,8 @@ public class TestExtractSpatialLeftJoin
                                     containsCall(a2.toSymbolReference(), b2.toSymbolReference())));
                 })
                 .matches(
-                        spatialLeftJoin("ST_Contains(a1, b1) AND ST_Contains(a2, b2)",
+                        spatialLeftJoin(
+                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("a1"), new SymbolReference("b1"))), new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("a2"), new SymbolReference("b2"))))),
                                 values(ImmutableMap.of("a1", 0, "a2", 1)),
                                 values(ImmutableMap.of("b1", 0, "b2", 1))));
     }
@@ -204,8 +212,10 @@ public class TestExtractSpatialLeftJoin
                             containsCall(geometryFromTextCall(wkt), point.toSymbolReference()));
                 })
                 .matches(
-                        spatialLeftJoin("ST_Contains(st_geometryfromtext, point)",
-                                project(ImmutableMap.of("st_geometryfromtext", PlanMatchPattern.expression("ST_GeometryFromText(wkt)")), values(ImmutableMap.of("wkt", 0))),
+                        spatialLeftJoin(
+                                new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("point"))),
+                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new SymbolReference("wkt"))))),
+                                        values(ImmutableMap.of("wkt", 0))),
                                 values(ImmutableMap.of("point", 0))));
 
         assertRuleApplication()
@@ -235,9 +245,11 @@ public class TestExtractSpatialLeftJoin
                             containsCall(polygon.toSymbolReference(), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));
                 })
                 .matches(
-                        spatialLeftJoin("ST_Contains(polygon, st_point)",
+                        spatialLeftJoin(
+                                new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("polygon"), new SymbolReference("st_point"))),
                                 values(ImmutableMap.of("polygon", 0)),
-                                project(ImmutableMap.of("st_point", PlanMatchPattern.expression("ST_Point(lng, lat)")), values(ImmutableMap.of("lat", 0, "lng", 1)))));
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
+                                        values(ImmutableMap.of("lat", 0, "lng", 1)))));
 
         assertRuleApplication()
                 .on(p ->
@@ -267,9 +279,12 @@ public class TestExtractSpatialLeftJoin
                             containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));
                 })
                 .matches(
-                        spatialLeftJoin("ST_Contains(st_geometryfromtext, st_point)",
-                                project(ImmutableMap.of("st_geometryfromtext", PlanMatchPattern.expression("ST_GeometryFromText(wkt)")), values(ImmutableMap.of("wkt", 0))),
-                                project(ImmutableMap.of("st_point", PlanMatchPattern.expression("ST_Point(lng, lat)")), values(ImmutableMap.of("lat", 0, "lng", 1)))));
+                        spatialLeftJoin(
+                                new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
+                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new SymbolReference("wkt"))))),
+                                        values(ImmutableMap.of("wkt", 0))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
+                                        values(ImmutableMap.of("lat", 0, "lng", 1)))));
     }
 
     @Test
@@ -287,9 +302,11 @@ public class TestExtractSpatialLeftJoin
                             containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));
                 })
                 .matches(
-                        spatialLeftJoin("ST_Contains(st_geometryfromtext, st_point)",
-                                project(ImmutableMap.of("st_point", PlanMatchPattern.expression("ST_Point(lng, lat)")), values(ImmutableMap.of("lat", 0, "lng", 1))),
-                                project(ImmutableMap.of("st_geometryfromtext", PlanMatchPattern.expression("ST_GeometryFromText(wkt)")), values(ImmutableMap.of("wkt", 0)))));
+                        spatialLeftJoin(
+                                new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))), values(ImmutableMap.of("lat", 0, "lng", 1))),
+                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new SymbolReference("wkt"))))),
+                                        values(ImmutableMap.of("wkt", 0)))));
     }
 
     @Test
@@ -311,9 +328,12 @@ public class TestExtractSpatialLeftJoin
                                     containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference()))));
                 })
                 .matches(
-                        spatialLeftJoin("name_1 != name_2 AND ST_Contains(st_geometryfromtext, st_point)",
-                                project(ImmutableMap.of("st_geometryfromtext", PlanMatchPattern.expression("ST_GeometryFromText(wkt)")), values(ImmutableMap.of("wkt", 0, "name_1", 1))),
-                                project(ImmutableMap.of("st_point", PlanMatchPattern.expression("ST_Point(lng, lat)")), values(ImmutableMap.of("lat", 0, "lng", 1, "name_2", 2)))));
+                        spatialLeftJoin(
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("name_1"), new SymbolReference("name_2")), new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))))),
+                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new SymbolReference("wkt"))))),
+                                        values(ImmutableMap.of("wkt", 0, "name_1", 1))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
+                                        values(ImmutableMap.of("lat", 0, "lng", 1, "name_2", 2)))));
 
         // Multiple spatial functions - only the first one is being processed
         assertRuleApplication()
@@ -331,8 +351,10 @@ public class TestExtractSpatialLeftJoin
                                     containsCall(geometryFromTextCall(wkt2), geometry2.toSymbolReference())));
                 })
                 .matches(
-                        spatialLeftJoin("ST_Contains(st_geometryfromtext, geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)",
-                                project(ImmutableMap.of("st_geometryfromtext", PlanMatchPattern.expression("ST_GeometryFromText(wkt1)")), values(ImmutableMap.of("wkt1", 0, "wkt2", 1))),
+                        spatialLeftJoin(
+                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("geometry1"))), new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new SymbolReference("wkt2"))), new SymbolReference("geometry2"))))),
+                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new SymbolReference("wkt1"))))),
+                                        values(ImmutableMap.of("wkt1", 0, "wkt2", 1))),
                                 values(ImmutableMap.of("geometry1", 0, "geometry2", 1))));
     }
 

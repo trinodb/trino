@@ -20,6 +20,9 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
@@ -64,8 +67,8 @@ public class TestRewriteSpatialPartitioningAggregation
                         aggregation(
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
-                                        ImmutableMap.of("partition_count", expression("100"),
-                                                "envelope", expression("ST_Envelope(geometry)")),
+                                        ImmutableMap.of("partition_count", expression(new LongLiteral("100")),
+                                                "envelope", expression(new FunctionCall(QualifiedName.of("st_envelope"), ImmutableList.of(new SymbolReference("geometry"))))),
                                         values("geometry"))));
 
         assertRuleApplication()
@@ -78,8 +81,8 @@ public class TestRewriteSpatialPartitioningAggregation
                         aggregation(
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
-                                        ImmutableMap.of("partition_count", expression("100"),
-                                                "envelope", expression("ST_Envelope(geometry)")),
+                                        ImmutableMap.of("partition_count", expression(new LongLiteral("100")),
+                                                "envelope", expression(new FunctionCall(QualifiedName.of("st_envelope"), ImmutableList.of(new SymbolReference("geometry"))))),
                                         values("geometry"))));
     }
 

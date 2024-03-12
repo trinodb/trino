@@ -15,16 +15,36 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IfExpression;
+import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.NullIfExpression;
+import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.tree.WhenClause;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
+import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 
 public class TestSimplifyFilterPredicate
         extends BaseRuleTest
@@ -35,71 +55,71 @@ public class TestSimplifyFilterPredicate
         // true result iff the condition is true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(a, true, false)"),
+                        new IfExpression(new SymbolReference("a"), TRUE_LITERAL, FALSE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "a",
+                                new SymbolReference("a"),
                                 values("a")));
 
         // true result iff the condition is true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(a, true)"),
+                        new IfExpression(new SymbolReference("a"), TRUE_LITERAL, new NullLiteral()),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "a",
+                                new SymbolReference("a"),
                                 values("a")));
 
         // true result iff the condition is null or false
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(a, false, true)"),
+                        new IfExpression(new SymbolReference("a"), FALSE_LITERAL, TRUE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "a IS NULL OR NOT a",
+                                new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new SymbolReference("a")))),
                                 values("a")));
 
         // true result iff the condition is null or false
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(a, null, true)"),
+                        new IfExpression(new SymbolReference("a"), new NullLiteral(), TRUE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "a IS NULL OR NOT a",
+                                new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new SymbolReference("a")))),
                                 values("a")));
 
         // always true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(a, true, true)"),
+                        new IfExpression(new SymbolReference("a"), TRUE_LITERAL, TRUE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "true",
+                                TRUE_LITERAL,
                                 values("a")));
 
         // always false
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(a, false, false)"),
+                        new IfExpression(new SymbolReference("a"), FALSE_LITERAL, FALSE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "false",
+                                FALSE_LITERAL,
                                 values("a")));
 
         // both results equal
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(a, b > 0, b > 0)"),
+                        new IfExpression(new SymbolReference("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0"))),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                "b > 0",
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0")),
                                 values("a", "b")));
 
         // both results are equal non-deterministic expressions
@@ -109,7 +129,7 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new IfExpression(
-                                expression("a"),
+                                new SymbolReference("a"),
                                 new ComparisonExpression(EQUAL, randomFunction, new LongLiteral("0")),
                                 new ComparisonExpression(EQUAL, randomFunction, new LongLiteral("0"))),
                         p.values(p.symbol("a"))))
@@ -118,47 +138,47 @@ public class TestSimplifyFilterPredicate
         // always null (including the default) -> simplified to FALSE
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(a, null)"),
+                        new IfExpression(new SymbolReference("a"), new NullLiteral()),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "false",
+                                FALSE_LITERAL,
                                 values("a")));
 
         // condition is true -> first branch
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(true, a, NOT a)"),
+                        new IfExpression(TRUE_LITERAL, new SymbolReference("a"), new NotExpression(new SymbolReference("a"))),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "a",
+                                new SymbolReference("a"),
                                 values("a")));
 
         // condition is true -> second branch
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(false, a, NOT a)"),
+                        new IfExpression(FALSE_LITERAL, new SymbolReference("a"), new NotExpression(new SymbolReference("a"))),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "NOT a",
+                                new NotExpression(new SymbolReference("a")),
                                 values("a")));
 
         // condition is true, no second branch -> the result is null, simplified to FALSE
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(false, a)"),
+                        new IfExpression(FALSE_LITERAL, new SymbolReference("a")),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "false",
+                                FALSE_LITERAL,
                                 values("a")));
 
         // not known result (`b`) - cannot optimize
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(a, true, b)"),
+                        new IfExpression(new SymbolReference("a"), TRUE_LITERAL, new SymbolReference("b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
     }
@@ -169,11 +189,15 @@ public class TestSimplifyFilterPredicate
         // NULLIF(x, y) returns true if and only if: x != y AND x = true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("NULLIF(a, b)"),
+                        new NullIfExpression(new SymbolReference("a"), new SymbolReference("b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                "a AND (b IS NULL OR NOT b)",
+                                new LogicalExpression(AND, ImmutableList.of(
+                                        new SymbolReference("a"),
+                                        new LogicalExpression(OR, ImmutableList.of(
+                                                new IsNullPredicate(new SymbolReference("b")),
+                                                new NotExpression(new SymbolReference("b")))))),
                                 values("a", "b")));
     }
 
@@ -182,188 +206,188 @@ public class TestSimplifyFilterPredicate
     {
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "          WHEN a < 0 THEN true " +
-                                "          WHEN a = 0 THEN false " +
-                                "          WHEN a > 0 THEN true " +
-                                "          ELSE false " +
-                                "       END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0")), TRUE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0")), FALSE_LITERAL),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0")), TRUE_LITERAL)),
+                                Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
 
         // all results true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN a < 0 THEN true " +
-                                "           WHEN a = 0 THEN true " +
-                                "           WHEN a > 0 THEN true " +
-                                "           ELSE true " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0")), TRUE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0")), TRUE_LITERAL),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0")), TRUE_LITERAL)),
+                                Optional.of(TRUE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "true",
+                                TRUE_LITERAL,
                                 values("a")));
 
         // all results not true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN a < 0 THEN false " +
-                                "           WHEN a = 0 THEN null " +
-                                "           WHEN a > 0 THEN false " +
-                                "           ELSE false " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0")), FALSE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0")), new NullLiteral()),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0")), FALSE_LITERAL)),
+                                Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "false",
+                                FALSE_LITERAL,
                                 values("a")));
 
         // all results not true (including default null result)
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN a < 0 THEN false " +
-                                "           WHEN a = 0 THEN null " +
-                                "           WHEN a > 0 THEN false " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0")), FALSE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0")), new NullLiteral()),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0")), FALSE_LITERAL)),
+                                Optional.empty()),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "false",
+                                FALSE_LITERAL,
                                 values("a")));
 
         // one result true, and remaining results not true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN a < 0 THEN false " +
-                                "           WHEN a = 0 THEN null " +
-                                "           WHEN a > 0 THEN true " +
-                                "           ELSE false " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0")), FALSE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0")), new NullLiteral()),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0")), TRUE_LITERAL)),
+                                Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "((a < 0) IS NULL OR NOT (a < 0)) AND ((a = 0) IS NULL OR NOT (a = 0)) AND (a > 0)",
+                                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0"))), new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0"))))), new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0"))), new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0"))))), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0")))),
                                 values("a")));
 
         // first result true, and remaining results not true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN a < 0 THEN true " +
-                                "           WHEN a = 0 THEN null " +
-                                "           WHEN a > 0 THEN false " +
-                                "           ELSE false " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0")), TRUE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0")), new NullLiteral()),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0")), FALSE_LITERAL)),
+                                Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "a < 0",
+                                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0")),
                                 values("a")));
 
         // all results not true, and default true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN a < 0 THEN false " +
-                                "           WHEN a = 0 THEN null " +
-                                "           WHEN a > 0 THEN false " +
-                                "           ELSE true " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0")), FALSE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0")), new NullLiteral()),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0")), FALSE_LITERAL)),
+                                Optional.of(TRUE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "((a < 0) IS NULL OR NOT (a < 0)) AND ((a = 0) IS NULL OR NOT (a = 0)) AND ((a > 0) IS NULL OR NOT (a > 0))",
+                                new LogicalExpression(AND, ImmutableList.of(
+                                        new LogicalExpression(OR, ImmutableList.of(
+                                                new IsNullPredicate(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0"))),
+                                                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("0"))))),
+                                        new LogicalExpression(OR, ImmutableList.of(
+                                                new IsNullPredicate(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0"))),
+                                                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("0"))))),
+                                        new LogicalExpression(OR, ImmutableList.of(
+                                                new IsNullPredicate(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0"))),
+                                                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0"))))))),
                                 values("a")));
 
         // all conditions not true - return the default
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN false THEN a " +
-                                "           WHEN false THEN a " +
-                                "           WHEN null THEN a " +
-                                "           ELSE b " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(FALSE_LITERAL, new SymbolReference("a")),
+                                new WhenClause(FALSE_LITERAL, new SymbolReference("a")),
+                                new WhenClause(new NullLiteral(), new SymbolReference("a"))),
+                                Optional.of(new SymbolReference("b"))),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                "b",
+                                new SymbolReference("b"),
                                 values("a", "b")));
 
         // all conditions not true, no default specified - return false
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN false THEN a " +
-                                "           WHEN false THEN NOT a " +
-                                "           WHEN null THEN a " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(FALSE_LITERAL, new SymbolReference("a")),
+                                new WhenClause(FALSE_LITERAL, new NotExpression(new SymbolReference("a"))),
+                                new WhenClause(new NullLiteral(), new SymbolReference("a"))),
+                                Optional.empty()),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "false",
+                                FALSE_LITERAL,
                                 values("a")));
 
         // not true conditions preceding true condition - return the result associated with the true condition
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN false THEN a " +
-                                "           WHEN null THEN NOT a " +
-                                "           WHEN true THEN b " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(FALSE_LITERAL, new SymbolReference("a")),
+                                new WhenClause(new NullLiteral(), new NotExpression(new SymbolReference("a"))),
+                                new WhenClause(TRUE_LITERAL, new SymbolReference("b"))),
+                                Optional.empty()),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                "b",
+                                new SymbolReference("b"),
                                 values("a", "b")));
 
         // remove not true condition and move the result associated with the first true condition to default
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN false THEN a " +
-                                "           WHEN b THEN NOT a " +
-                                "           WHEN true THEN b " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(FALSE_LITERAL, new SymbolReference("a")),
+                                new WhenClause(new SymbolReference("b"), new NotExpression(new SymbolReference("a"))),
+                                new WhenClause(TRUE_LITERAL, new SymbolReference("b"))),
+                                Optional.empty()),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                "CASE WHEN b THEN NOT a ELSE b END",
+                                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new SymbolReference("b"), new NotExpression(new SymbolReference("a")))), Optional.of(new SymbolReference("b"))),
                                 values("a", "b")));
 
         // move the result associated with the first true condition to default
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN b < 0 THEN a " +
-                                "           WHEN b > 0 THEN NOT a " +
-                                "           WHEN true THEN b " +
-                                "           WHEN true THEN NOT b " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral("0")), new SymbolReference("a")),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0")), new NotExpression(new SymbolReference("a"))),
+                                new WhenClause(TRUE_LITERAL, new SymbolReference("b")),
+                                new WhenClause(TRUE_LITERAL, new NotExpression(new SymbolReference("b")))),
+                                Optional.empty()),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                "CASE " +
-                                        "           WHEN b < 0 THEN a " +
-                                        "           WHEN b > 0 THEN NOT a " +
-                                        "           ELSE b " +
-                                        "        END",
+                                new SearchedCaseExpression(ImmutableList.of(
+                                        new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral("0")), new SymbolReference("a")),
+                                        new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0")), new NotExpression(new SymbolReference("a")))),
+                                        Optional.of(new SymbolReference("b"))),
                                 values("a", "b")));
 
         // cannot remove any clause
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE " +
-                                "           WHEN b < 0 THEN a " +
-                                "           WHEN b > 0 THEN NOT a " +
-                                "           ELSE b " +
-                                "        END"),
+                        new SearchedCaseExpression(ImmutableList.of(
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral("0")), new SymbolReference("a")),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0")), new NotExpression(new SymbolReference("a")))),
+                                Optional.of(new SymbolReference("b"))),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
     }
@@ -373,80 +397,88 @@ public class TestSimplifyFilterPredicate
     {
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE a" +
-                                "           WHEN b THEN true " +
-                                "           WHEN b + 1 THEN false " +
-                                "           ELSE true " +
-                                "        END"),
+                                new SimpleCaseExpression(
+                                        new SymbolReference("a"),
+                                        ImmutableList.of(
+                                                new WhenClause(new SymbolReference("b"), TRUE_LITERAL),
+                                                new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral("1")), FALSE_LITERAL)),
+                                        Optional.of(TRUE_LITERAL)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
 
         // comparison with null returns null - no WHEN branch matches, return default value
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE null" +
-                                "           WHEN null THEN true " +
-                                "           WHEN a THEN false " +
-                                "           ELSE b " +
-                                "        END"),
+                        new SimpleCaseExpression(
+                                new NullLiteral(),
+                                ImmutableList.of(
+                                        new WhenClause(new NullLiteral(), TRUE_LITERAL),
+                                        new WhenClause(new SymbolReference("a"), FALSE_LITERAL)),
+                                Optional.of(new SymbolReference("b"))),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                "b",
+                                new SymbolReference("b"),
                                 values("a", "b")));
 
         // comparison with null returns null - no WHEN branch matches, the result is default null, simplified to FALSE
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE null" +
-                                "           WHEN null THEN true " +
-                                "           WHEN a THEN false " +
-                                "        END"),
+                        new SimpleCaseExpression(
+                                new NullLiteral(),
+                                ImmutableList.of(
+                                        new WhenClause(new NullLiteral(), TRUE_LITERAL),
+                                        new WhenClause(new SymbolReference("a"), FALSE_LITERAL)),
+                                Optional.empty()),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "false",
+                                FALSE_LITERAL,
                                 values("a")));
 
         // all results true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE a" +
-                                "           WHEN b + 1 THEN true " +
-                                "           WHEN b + 2 THEN true " +
-                                "           ELSE true " +
-                                "        END"),
+                        new SimpleCaseExpression(
+                                new SymbolReference("a"),
+                                ImmutableList.of(
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral("1")), TRUE_LITERAL),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral("2")), TRUE_LITERAL)),
+                                Optional.of(TRUE_LITERAL)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                "true",
+                                TRUE_LITERAL,
                                 values("a", "b")));
 
         // all results not true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE a" +
-                                "           WHEN b + 1 THEN false " +
-                                "           WHEN b + 2 THEN null " +
-                                "           ELSE false " +
-                                "        END"),
+                        new SimpleCaseExpression(
+                                new SymbolReference("a"),
+                                ImmutableList.of(
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral("1")), FALSE_LITERAL),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral("2")), new NullLiteral())),
+                                Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                "false",
+                                FALSE_LITERAL,
                                 values("a", "b")));
 
         // all results not true (including default null result)
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("CASE a" +
-                                "           WHEN b + 1 THEN false " +
-                                "           WHEN b + 2 THEN null " +
-                                "        END"),
+                        new SimpleCaseExpression(
+                                new SymbolReference("a"),
+                                ImmutableList.of(
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral("1")), FALSE_LITERAL),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral("2")), new NullLiteral())),
+                                Optional.empty()),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                "false",
+                                FALSE_LITERAL,
                                 values("a", "b")));
     }
 
@@ -455,11 +487,11 @@ public class TestSimplifyFilterPredicate
     {
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        expression("IF(a, CAST(CAST(CAST(null AS boolean) AS bigint) AS boolean), false)"),
+                        new IfExpression(new SymbolReference("a"), new Cast(new Cast(new Cast(new NullLiteral(), dataType("boolean")), dataType("bigint")), dataType("boolean")), FALSE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                "false",
+                                FALSE_LITERAL,
                                 values("a")));
     }
 }

@@ -20,7 +20,9 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -35,6 +37,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 
 public class TestImplementFilteredAggregations
         extends BaseRuleTest
@@ -64,9 +68,9 @@ public class TestImplementFilteredAggregations
                                 Optional.empty(),
                                 AggregationNode.Step.SINGLE,
                                 filter(
-                                        "true",
+                                        TRUE_LITERAL,
                                         project(
-                                                ImmutableMap.of("a", expression("a"), "g", expression("g"), "filter", expression("filter")),
+                                                ImmutableMap.of("a", expression(new SymbolReference("a")), "g", expression(new SymbolReference("g")), "filter", expression(new SymbolReference("filter"))),
                                                 values("a", "g", "filter")))));
     }
 
@@ -97,9 +101,14 @@ public class TestImplementFilteredAggregations
                                 Optional.empty(),
                                 AggregationNode.Step.SINGLE,
                                 filter(
-                                        "true",
+                                        TRUE_LITERAL,
                                         project(
-                                                ImmutableMap.of("a", expression("a"), "g", expression("g"), "mask", expression("mask"), "filter", expression("filter"), "new_mask", expression("mask AND filter")),
+                                                ImmutableMap.of(
+                                                        "a", expression(new SymbolReference("a")),
+                                                        "g", expression(new SymbolReference("g")),
+                                                        "mask", expression(new SymbolReference("mask")),
+                                                        "filter", expression(new SymbolReference("filter")),
+                                                        "new_mask", expression(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("mask"), new SymbolReference("filter"))))),
                                                 values("a", "g", "mask", "filter")))));
     }
 
@@ -128,9 +137,9 @@ public class TestImplementFilteredAggregations
                                 Optional.empty(),
                                 AggregationNode.Step.SINGLE,
                                 filter(
-                                        "filter",
+                                        new SymbolReference("filter"),
                                         project(
-                                                ImmutableMap.of("a", expression("a"), "g", expression("g"), "filter", expression("filter")),
+                                                ImmutableMap.of("a", expression(new SymbolReference("a")), "g", expression(new SymbolReference("g")), "filter", expression(new SymbolReference("filter"))),
                                                 values("a", "g", "filter")))));
     }
 
@@ -163,9 +172,9 @@ public class TestImplementFilteredAggregations
                                 Optional.empty(),
                                 AggregationNode.Step.SINGLE,
                                 filter(
-                                        "true",
+                                        TRUE_LITERAL,
                                         project(
-                                                ImmutableMap.of("a", expression("a"), "g", expression("g"), "filter", expression("filter")),
+                                                ImmutableMap.of("a", expression(new SymbolReference("a")), "g", expression(new SymbolReference("g")), "filter", expression(new SymbolReference("filter"))),
                                                 values("a", "g", "filter")))));
     }
 

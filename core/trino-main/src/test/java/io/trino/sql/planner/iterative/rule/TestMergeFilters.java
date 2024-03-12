@@ -13,15 +13,22 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 
 public class TestMergeFilters
         extends BaseRuleTest
@@ -33,9 +40,13 @@ public class TestMergeFilters
     {
         tester().assertThat(new MergeFilters(metadata))
                 .on(p ->
-                        p.filter(expression("b > 44"),
-                                p.filter(expression("a < 42"),
+                        p.filter(
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("44")),
+                                p.filter(
+                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("42")),
                                         p.values(p.symbol("a"), p.symbol("b")))))
-                .matches(filter("(a < 42) AND (b > 44)", values(ImmutableMap.of("a", 0, "b", 1))));
+                .matches(filter(
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("42")), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("44")))),
+                        values(ImmutableMap.of("a", 0, "b", 1))));
     }
 }

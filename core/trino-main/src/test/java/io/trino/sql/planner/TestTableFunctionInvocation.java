@@ -30,8 +30,11 @@ import io.trino.spi.function.table.Descriptor.Field;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -42,6 +45,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -125,9 +129,9 @@ public class TestTableFunctionInvocation
                                                 new Field("Y", Optional.of(BIGINT))))))
                                 .addCopartitioning(ImmutableList.of("INPUT_1", "INPUT_3"))
                                 .properOutputs(ImmutableList.of("OUTPUT")),
-                        anyTree(project(ImmutableMap.of("c1", expression("'a'")), values(1))),
+                        anyTree(project(ImmutableMap.of("c1", expression(new StringLiteral("a"))), values(1))),
                         anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))),
-                        anyTree(project(ImmutableMap.of("c3", expression("'b'")), values(1))))));
+                        anyTree(project(ImmutableMap.of("c3", expression(new StringLiteral("b"))), values(1))))));
     }
 
     @Test
@@ -155,7 +159,7 @@ public class TestTableFunctionInvocation
                                                 .passThroughSymbols(ImmutableSet.of("c2")))
                                 .addCopartitioning(ImmutableList.of("INPUT1", "INPUT2"))
                                 .properOutputs(ImmutableList.of("COLUMN")),
-                        project(ImmutableMap.of("c1_coerced", expression("CAST(c1 AS INTEGER)")),
+                        project(ImmutableMap.of("c1_coerced", expression(new Cast(new SymbolReference("c1"), dataType("integer")))),
                                 anyTree(values(ImmutableList.of("c1"), ImmutableList.of(ImmutableList.of(new GenericLiteral("SMALLINT", "1")))))),
                         anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new GenericLiteral("INTEGER", "2"))))))));
     }
@@ -216,7 +220,7 @@ public class TestTableFunctionInvocation
                 strictOutput(
                         ImmutableList.of("c"),
                         strictProject(
-                                ImmutableMap.of("c", expression("'constant'")),
+                                ImmutableMap.of("c", expression(new StringLiteral("constant"))),
                                 tableFunctionProcessor(
                                         builder -> builder
                                                 .name("pass_through_function")

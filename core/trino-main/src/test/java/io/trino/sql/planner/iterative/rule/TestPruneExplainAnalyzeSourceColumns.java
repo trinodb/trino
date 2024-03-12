@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -44,7 +45,7 @@ public class TestPruneExplainAnalyzeSourceColumns
                 .matches(
                         node(ExplainAnalyzeNode.class,
                                 strictProject(
-                                        ImmutableMap.of("b", expression("b")),
+                                        ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                         values("a", "b"))));
     }
 

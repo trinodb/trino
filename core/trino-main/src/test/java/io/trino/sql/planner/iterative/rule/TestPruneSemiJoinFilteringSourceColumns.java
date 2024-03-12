@@ -19,6 +19,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -44,8 +45,8 @@ public class TestPruneSemiJoinFilteringSourceColumns
                                 values("leftKey"),
                                 strictProject(
                                         ImmutableMap.of(
-                                                "rightKey", expression("rightKey"),
-                                                "rightKeyHash", expression("rightKeyHash")),
+                                                "rightKey", expression(new SymbolReference("rightKey")),
+                                                "rightKeyHash", expression(new SymbolReference("rightKeyHash"))),
                                         values("rightKey", "rightKeyHash", "rightValue"))));
     }
 
