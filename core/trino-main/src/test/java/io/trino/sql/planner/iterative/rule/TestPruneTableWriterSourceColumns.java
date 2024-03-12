@@ -50,7 +50,7 @@ public class TestPruneTableWriterSourceColumns
                                 ImmutableList.of("a"),
                                 ImmutableList.of("column_a"),
                                 strictProject(
-                                        ImmutableMap.of("a", expression("a")),
+                                        ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                         values("a", "b"))));
     }
 

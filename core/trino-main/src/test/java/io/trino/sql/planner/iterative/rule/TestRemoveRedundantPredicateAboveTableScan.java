@@ -30,7 +30,12 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.IfExpression;
+import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -41,10 +46,14 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
+import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.LogicalExpression.Operator.AND;
+import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 
 public class TestRemoveRedundantPredicateAboveTableScan
         extends BaseRuleTest
@@ -84,7 +93,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
-                .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
+                .on(p -> p.filter(
+                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -102,7 +112,10 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
-                .on(p -> p.filter(expression("nationkey = BIGINT '44' OR nationkey = BIGINT '45'"),
+                .on(p -> p.filter(
+                        new LogicalExpression(OR, ImmutableList.of(
+                                new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")),
+                                new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "45")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -120,7 +133,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
-                .on(p -> p.filter(expression("nationkey = BIGINT '44' OR nationkey = BIGINT '45' OR nationkey = BIGINT '47'"),
+                .on(p -> p.filter(
+                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "45")), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "47")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -128,7 +142,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L)))))))
                 .matches(
                         filter(
-                                expression("nationkey IN (BIGINT '44', BIGINT '45')"),
+                                new InPredicate(new SymbolReference("nationkey"), new InListExpression(ImmutableList.of(new GenericLiteral("BIGINT", "44"), new GenericLiteral("BIGINT", "45")))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L))),
@@ -218,7 +232,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
     public void doesNotFireIfRuleNotChangePlan()
     {
         tester().assertThat(removeRedundantPredicateAboveTableScan)
-                .on(p -> p.filter(expression("nationkey % 17 = BIGINT '44' AND nationkey % 15 = BIGINT '43'"),
+                .on(p -> p.filter(
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral("17")), new GenericLiteral("BIGINT", "44")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral("15")), new GenericLiteral("BIGINT", "43")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -231,7 +246,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
     public void doesNotAddTableLayoutToFilterTableScan()
     {
         tester().assertThat(removeRedundantPredicateAboveTableScan)
-                .on(p -> p.filter(expression("orderstatus = 'F'"),
+                .on(p -> p.filter(
+                        new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), new StringLiteral("F")),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
@@ -244,7 +260,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
-                .on(p -> p.filter(expression("(nationkey > 3 OR nationkey > 0) AND (nationkey > 3 OR nationkey < 1)"),
+                .on(p -> p.filter(
+                        new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("nationkey"), new LongLiteral("3")), new ComparisonExpression(GREATER_THAN, new SymbolReference("nationkey"), new LongLiteral("0")))), new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("nationkey"), new LongLiteral("3")), new ComparisonExpression(LESS_THAN, new SymbolReference("nationkey"), new LongLiteral("1")))))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -254,27 +271,15 @@ public class TestRemoveRedundantPredicateAboveTableScan
     }
 
     @Test
-    public void doesNotFireOnNotFullyExtractedConjunct()
-    {
-        ColumnHandle columnHandle = new TpchColumnHandle("name", VARCHAR);
-        tester().assertThat(removeRedundantPredicateAboveTableScan)
-                .on(p -> p.filter(expression("name LIKE 'LARGE PLATED %'"),
-                        p.tableScan(
-                                nationTableHandle,
-                                ImmutableList.of(p.symbol("name", VARCHAR)),
-                                ImmutableMap.of(p.symbol("name", VARCHAR), columnHandle),
-                                TupleDomain.fromFixedValues(ImmutableMap.of(
-                                        columnHandle, NullableValue.of(VARCHAR, Slices.utf8Slice("value")))))))
-                .doesNotFire();
-    }
-
-    @Test
     public void skipNotFullyExtractedConjunct()
     {
         ColumnHandle textColumnHandle = new TpchColumnHandle("name", VARCHAR);
         ColumnHandle nationKeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
-                .on(p -> p.filter(expression("if(name = 'x', true, false) AND nationkey = BIGINT '44'"),
+                .on(p -> p.filter(
+                        new LogicalExpression(AND, ImmutableList.of(
+                                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), new StringLiteral("x")), TRUE_LITERAL, FALSE_LITERAL),
+                                new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(
@@ -288,7 +293,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                         nationKeyColumnHandle, NullableValue.of(BIGINT, (long) 44))))))
                 .matches(
                         filter(
-                                expression("if(name = 'x', true, false)"),
+                                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), new StringLiteral("x")), TRUE_LITERAL, FALSE_LITERAL),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of(

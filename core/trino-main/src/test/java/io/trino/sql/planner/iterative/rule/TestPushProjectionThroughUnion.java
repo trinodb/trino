@@ -33,6 +33,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
 
 public class TestPushProjectionThroughUnion
         extends BaseRuleTest
@@ -88,7 +89,7 @@ public class TestPushProjectionThroughUnion
                     Symbol w = p.symbol("w", ROW_TYPE);
                     return p.project(
                             Assignments.of(
-                                    cTimes3, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3")),
+                                    cTimes3, new ArithmeticBinaryExpression(MULTIPLY, c.toSymbolReference(), new LongLiteral("3")),
                                     dX, new SubscriptExpression(new SymbolReference("d"), new LongLiteral("1"))),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
@@ -104,10 +105,10 @@ public class TestPushProjectionThroughUnion
                 .matches(
                         union(
                                 project(
-                                        ImmutableMap.of("a_times_3", expression("a * 3"), "z_x", expression(new SubscriptExpression(new SymbolReference("z"), new LongLiteral("1")))),
+                                        ImmutableMap.of("a_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral("3"))), "z_x", expression(new SubscriptExpression(new SymbolReference("z"), new LongLiteral("1")))),
                                         values(ImmutableList.of("a", "z"))),
                                 project(
-                                        ImmutableMap.of("b_times_3", expression("b * 3"), "w_x", expression(new SubscriptExpression(new SymbolReference("w"), new LongLiteral("1")))),
+                                        ImmutableMap.of("b_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new LongLiteral("3"))), "w_x", expression(new SubscriptExpression(new SymbolReference("w"), new LongLiteral("1")))),
                                         values(ImmutableList.of("b", "w"))))
                                 .withNumberOfOutputColumns(2)
                                 .withAlias("a_times_3")

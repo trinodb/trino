@@ -57,10 +57,10 @@ public class TestPruneAggregationSourceColumns
                                 SINGLE,
                                 strictProject(
                                         ImmutableMap.of(
-                                                "input", expression("input"),
-                                                "key", expression("key"),
-                                                "keyHash", expression("keyHash"),
-                                                "mask", expression("mask")),
+                                                "input", expression(new SymbolReference("input")),
+                                                "key", expression(new SymbolReference("key")),
+                                                "keyHash", expression(new SymbolReference("keyHash")),
+                                                "mask", expression(new SymbolReference("mask"))),
                                         values("input", "key", "keyHash", "mask", "unused"))));
     }
 

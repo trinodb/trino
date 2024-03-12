@@ -36,6 +36,11 @@ public class IfExpression
         this(Optional.empty(), condition, trueValue, falseValue);
     }
 
+    public IfExpression(Expression condition, Expression trueValue)
+    {
+        this(Optional.empty(), condition, trueValue, null);
+    }
+
     public IfExpression(NodeLocation location, Expression condition, Expression trueValue, Expression falseValue)
     {
         this(Optional.of(location), condition, trueValue, falseValue);

@@ -21,6 +21,8 @@ import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.SetExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -80,14 +82,14 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression("rowValue[1]"))
-                                                        .put("nonRowValue", expression("nonRowValue"))
+                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new io.trino.sql.tree.LongLiteral("1"))))
+                                                        .put("nonRowValue", expression(new SymbolReference("nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression("rowElement[1]"))
-                                                        .put("nonRowElement", expression("nonRowElement"))
+                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new io.trino.sql.tree.LongLiteral("1"))))
+                                                        .put("nonRowElement", expression(new SymbolReference("nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
     }
@@ -118,14 +120,14 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression("rowValue[1]"))
-                                                        .put("nonRowValue", expression("nonRowValue"))
+                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new io.trino.sql.tree.LongLiteral("1"))))
+                                                        .put("nonRowValue", expression(new SymbolReference("nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression("rowElement[1]"))
-                                                        .put("nonRowElement", expression("nonRowElement"))
+                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new io.trino.sql.tree.LongLiteral("1"))))
+                                                        .put("nonRowElement", expression(new SymbolReference("nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
     }

@@ -41,10 +41,10 @@ import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SubscriptExpression;
@@ -75,6 +75,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -190,7 +191,7 @@ public class TestConnectorPushdownRulesWithIceberg
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .matches(
                         project(
-                                ImmutableMap.of("expr", expression("col")),
+                                ImmutableMap.of("expr", expression(new SymbolReference("col"))),
                                 tableScan(
                                         icebergTable.withProjectedColumns(ImmutableSet.of(fullColumn))::equals,
                                         TupleDomain.all(),
@@ -266,13 +267,13 @@ public class TestConnectorPushdownRulesWithIceberg
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p ->
                         p.filter(
-                                PlanBuilder.expression("a = 5"),
+                                new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("5")),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("a", INTEGER)),
                                         ImmutableMap.of(p.symbol("a", INTEGER), column))))
                 .matches(filter(
-                        "a = 5",
+                        new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("5")),
                         tableScan(
                                 tableHandle -> ((IcebergTableHandle) tableHandle).getUnenforcedPredicate().getDomains().get()
                                         .equals(ImmutableMap.of(column, Domain.singleValue(INTEGER, 5L))),
@@ -330,7 +331,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("expr", expression("COLA")),
+                                ImmutableMap.of("expr", expression(new SymbolReference("COLA"))),
                                 tableScan(
                                         icebergTable.withProjectedColumns(ImmutableSet.of(columnA))::equals,
                                         TupleDomain.all(),
@@ -400,8 +401,8 @@ public class TestConnectorPushdownRulesWithIceberg
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "column_ref", expression("just_bigint_0"),
-                                "negated_column_ref", expression("- just_bigint_0")),
+                                "column_ref", expression(new SymbolReference("just_bigint_0")),
+                                "negated_column_ref", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("just_bigint_0")))),
                         tableScan(
                                 icebergTable.withProjectedColumns(ImmutableSet.of(bigintColumn))::equals,
                                 TupleDomain.all(),

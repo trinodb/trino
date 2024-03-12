@@ -19,6 +19,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
@@ -32,9 +33,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 
 public class TestPushPartialAggregationThroughJoin
         extends BaseRuleTest
@@ -53,19 +54,19 @@ public class TestPushPartialAggregationThroughJoin
                                         ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
                                         ImmutableList.of(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
                                         ImmutableList.of(p.symbol("RIGHT_GROUP_BY")),
-                                        Optional.of(expression("LEFT_NON_EQUI <= RIGHT_NON_EQUI")),
+                                        Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI"))),
                                         Optional.of(p.symbol("LEFT_HASH")),
                                         Optional.of(p.symbol("RIGHT_HASH"))))
                         .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.aggregation("AVG", ImmutableList.of(new SymbolReference("LEFT_AGGR"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("RIGHT_GROUP_BY"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(
-                                "LEFT_GROUP_BY", PlanMatchPattern.expression("LEFT_GROUP_BY"),
-                                "RIGHT_GROUP_BY", PlanMatchPattern.expression("RIGHT_GROUP_BY"),
-                                "AVG", PlanMatchPattern.expression("AVG")),
+                                "LEFT_GROUP_BY", PlanMatchPattern.expression(new SymbolReference("LEFT_GROUP_BY")),
+                                "RIGHT_GROUP_BY", PlanMatchPattern.expression(new SymbolReference("RIGHT_GROUP_BY")),
+                                "AVG", PlanMatchPattern.expression(new SymbolReference("AVG"))),
                         join(INNER, builder -> builder
                                 .equiCriteria("LEFT_EQUI", "RIGHT_EQUI")
-                                .filter("LEFT_NON_EQUI <= RIGHT_NON_EQUI")
+                                .filter(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI")))
                                 .left(
                                         aggregation(
                                                 singleGroupingSet("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_HASH"),

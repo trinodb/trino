@@ -29,11 +29,21 @@ import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.tree.WhenClause;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -47,7 +57,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
 import static io.trino.geospatial.KdbTree.Node.newLeaf;
-import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -55,6 +64,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -65,6 +75,11 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -76,7 +91,7 @@ public class TestSpatialJoinPlanning
 {
     private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(new KdbTree(newLeaf(new Rectangle(0, 0, 10, 10), 0)));
 
-    private String kdbTreeLiteral;
+    private Expression kdbTreeLiteral;
 
     @Override
     protected PlanTester createPlanTester()
@@ -100,7 +115,9 @@ public class TestSpatialJoinPlanning
         Block block = nativeValueToBlock(KdbTreeType.KDB_TREE, KdbTreeUtils.fromJson(KDB_TREE_JSON));
         DynamicSliceOutput output = new DynamicSliceOutput(0);
         BlockSerdeUtil.writeBlock(new TestingBlockEncodingSerde(), output, block);
-        kdbTreeLiteral = format("\"%s\"(from_base64('%s'))", LITERAL_FUNCTION_NAME, Base64.getEncoder().encodeToString(output.slice().getBytes()));
+        kdbTreeLiteral = new FunctionCall(QualifiedName.of("$literal$"), ImmutableList.of(
+                new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(
+                        new StringLiteral(Base64.getEncoder().encodeToString(output.slice().getBytes()))))));
     }
 
     @Test
@@ -111,11 +128,12 @@ public class TestSpatialJoinPlanning
                         "FROM points a, polygons b " +
                         "WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
-                        spatialJoin("st_contains(st_geometryfromtext, st_point)",
-                                project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
+                        spatialJoin(
+                                new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(
-                                        project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
+                                        project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar")))))),
                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))))));
 
         // Verify that projections generated by the ExtractSpatialJoins rule
@@ -124,11 +142,15 @@ public class TestSpatialJoinPlanning
                         "FROM (SELECT length(name), * FROM points), (SELECT length(name), * FROM polygons) " +
                         "WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
-                        spatialJoin("st_contains(st_geometryfromtext, st_point)",
-                                project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)"), "length", expression("length(name)")),
+                        spatialJoin(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
+                                project(ImmutableMap.of(
+                                                "st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat")))),
+                                                "length", expression(new FunctionCall(QualifiedName.of("length"), ImmutableList.of(new SymbolReference("name"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name", "name"))),
                                 anyTree(
-                                        project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))"), "length_2", expression("length(name_2)")),
+                                        project(ImmutableMap.of(
+                                                        "st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar"))))),
+                                                        "length_2", expression(new FunctionCall(QualifiedName.of("length"), ImmutableList.of(new SymbolReference("name_2"))))),
                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_2", "name")))))));
 
         // distributed
@@ -137,16 +159,19 @@ public class TestSpatialJoinPlanning
                         "WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 withSpatialPartitioning("kdb_tree"),
                 anyTree(
-                        spatialJoin("st_contains(st_geometryfromtext, st_point)", Optional.of(KDB_TREE_JSON),
+                        spatialJoin(
+                                new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
+                                Optional.of(KDB_TREE_JSON),
+                                Optional.empty(),
                                 anyTree(
                                         unnest(
-                                                project(ImmutableMap.of("partitions_a", expression(format("spatial_partitions(%s, st_point)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
+                                                project(ImmutableMap.of("partitions_a", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("st_point"))))),
+                                                        project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
                                                                 tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name", "name")))))),
                                 anyTree(
                                         unnest(
-                                                project(ImmutableMap.of("partitions_b", expression(format("spatial_partitions(%s, st_geometryfromtext)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
+                                                project(ImmutableMap.of("partitions_b", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("st_geometryfromtext"))))),
+                                                        project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar")))))),
                                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_2", "name")))))))));
     }
 
@@ -158,11 +183,12 @@ public class TestSpatialJoinPlanning
                         "FROM points, polygons " +
                         "WHERE ST_Within(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
-                        spatialJoin("st_within(st_geometryfromtext, st_point)",
-                                project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
+                        spatialJoin(
+                                new FunctionCall(QualifiedName.of("st_within"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(
-                                        project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
+                                        project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar")))))),
                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))))));
 
         // Verify that projections generated by the ExtractSpatialJoins rule
@@ -171,11 +197,15 @@ public class TestSpatialJoinPlanning
                         "FROM (SELECT length(name), * FROM points), (SELECT length(name), * FROM polygons) " +
                         "WHERE ST_Within(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
-                        spatialJoin("st_within(st_geometryfromtext, st_point)",
-                                project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)"), "length", expression("length(name)")),
+                        spatialJoin(new FunctionCall(QualifiedName.of("st_within"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
+                                project(ImmutableMap.of(
+                                                "st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat")))),
+                                                "length", expression(new FunctionCall(QualifiedName.of("length"), ImmutableList.of(new SymbolReference("name"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name", "name"))),
                                 anyTree(
-                                        project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))"), "length_2", expression("length(name_2)")),
+                                        project(ImmutableMap.of(
+                                                        "st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar"))))),
+                                                        "length_2", expression(new FunctionCall(QualifiedName.of("length"), ImmutableList.of(new SymbolReference("name_2"))))),
                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_2", "name")))))));
 
         // distributed
@@ -184,16 +214,19 @@ public class TestSpatialJoinPlanning
                         "WHERE ST_Within(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 withSpatialPartitioning("kdb_tree"),
                 anyTree(
-                        spatialJoin("st_within(st_geometryfromtext, st_point)", Optional.of(KDB_TREE_JSON),
+                        spatialJoin(
+                                new FunctionCall(QualifiedName.of("st_within"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
+                                Optional.of(KDB_TREE_JSON),
+                                Optional.empty(),
                                 anyTree(
                                         unnest(
-                                                project(ImmutableMap.of("partitions_a", expression(format("spatial_partitions(%s, st_point)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
+                                                project(ImmutableMap.of("partitions_a", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("st_point"))))),
+                                                        project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
                                                                 tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name")))))),
                                 anyTree(
                                         unnest(
-                                                project(ImmutableMap.of("partitions_b", expression(format("spatial_partitions(%s, st_geometryfromtext)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
+                                                project(ImmutableMap.of("partitions_b", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("st_geometryfromtext"))))),
+                                                        project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar")))))),
                                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))))))));
     }
 
@@ -272,11 +305,12 @@ public class TestSpatialJoinPlanning
                         "FROM polygons a, polygons b " +
                         "WHERE ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))",
                 anyTree(
-                        spatialJoin("st_intersects(geometry_a, geometry_b)",
-                                project(ImmutableMap.of("geometry_a", expression("ST_GeometryFromText(cast(wkt_a as varchar))")),
+                        spatialJoin(
+                                new FunctionCall(QualifiedName.of("st_intersects"), ImmutableList.of(new SymbolReference("geometry_a"), new SymbolReference("geometry_b"))),
+                                project(ImmutableMap.of("geometry_a", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt_a"), dataType("varchar")))))),
                                         tableScan("polygons", ImmutableMap.of("wkt_a", "wkt", "name_a", "name"))),
                                 anyTree(
-                                        project(ImmutableMap.of("geometry_b", expression("ST_GeometryFromText(cast(wkt_b as varchar))")),
+                                        project(ImmutableMap.of("geometry_b", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt_b"), dataType("varchar")))))),
                                                 tableScan("polygons", ImmutableMap.of("wkt_b", "wkt", "name_b", "name")))))));
 
         // distributed
@@ -285,15 +319,16 @@ public class TestSpatialJoinPlanning
                         "WHERE ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))",
                 withSpatialPartitioning("default.kdb_tree"),
                 anyTree(
-                        spatialJoin("st_intersects(geometry_a, geometry_b)", Optional.of(KDB_TREE_JSON),
+                        spatialJoin(
+                                new FunctionCall(QualifiedName.of("st_intersects"), ImmutableList.of(new SymbolReference("geometry_a"), new SymbolReference("geometry_b"))), Optional.of(KDB_TREE_JSON), Optional.empty(),
                                 anyTree(
                                         unnest(
-                                                project(ImmutableMap.of("partitions_a", expression(format("spatial_partitions(%s, geometry_a)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("geometry_a", expression("ST_GeometryFromText(cast(wkt_a as varchar))")),
+                                                project(ImmutableMap.of("partitions_a", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("geometry_a"))))),
+                                                        project(ImmutableMap.of("geometry_a", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt_a"), dataType("varchar")))))),
                                                                 tableScan("polygons", ImmutableMap.of("wkt_a", "wkt", "name_a", "name")))))),
                                 anyTree(
-                                        project(ImmutableMap.of("partitions_b", expression(format("spatial_partitions(%s, geometry_b)", kdbTreeLiteral))),
-                                                project(ImmutableMap.of("geometry_b", expression("ST_GeometryFromText(cast(wkt_b as varchar))")),
+                                        project(ImmutableMap.of("partitions_b", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("geometry_b"))))),
+                                                project(ImmutableMap.of("geometry_b", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt_b"), dataType("varchar")))))),
                                                         tableScan("polygons", ImmutableMap.of("wkt_b", "wkt", "name_b", "name"))))))));
     }
 
@@ -304,7 +339,8 @@ public class TestSpatialJoinPlanning
                         "FROM points a, polygons b " +
                         "WHERE NOT ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
-                        filter("NOT ST_Contains(ST_GeometryFromText(cast(wkt as varchar)), ST_Point(lng, lat))",
+                        filter(
+                                new NotExpression(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar")))), new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat")))))),
                                 join(INNER, builder -> builder
                                         .left(tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name")))
                                         .right(
@@ -324,16 +360,20 @@ public class TestSpatialJoinPlanning
                         filter(
                                 new NotExpression(
                                         functionCall("ST_Intersects", ImmutableList.of(GEOMETRY, GEOMETRY), ImmutableList.of(
-                                                functionCall("ST_GeometryFromText", ImmutableList.of(VARCHAR), ImmutableList.of(PlanBuilder.expression("cast(wkt_a as varchar)"))),
-                                                functionCall("ST_GeometryFromText", ImmutableList.of(VARCHAR), ImmutableList.of(PlanBuilder.expression("cast(wkt_b as varchar)")))))),
+                                                functionCall("ST_GeometryFromText", ImmutableList.of(VARCHAR), ImmutableList.of(new Cast(new SymbolReference("wkt_a"), dataType("varchar")))),
+                                                functionCall("ST_GeometryFromText", ImmutableList.of(VARCHAR), ImmutableList.of(new Cast(new SymbolReference("wkt_b"), dataType("varchar"))))))),
                                 join(INNER, builder -> builder
                                         .left(
                                                 project(
-                                                        ImmutableMap.of("wkt_a", expression("(CASE WHEN (random() >= 0E0) THEN 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))' END)"), "name_a", expression("'a'")),
+                                                        ImmutableMap.of(
+                                                                "wkt_a", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral("0.0")), new StringLiteral("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))"))), Optional.empty())),
+                                                                "name_a", expression(new StringLiteral("a"))),
                                                         singleRow()))
                                         .right(
                                                 any(project(
-                                                        ImmutableMap.of("wkt_b", expression("(CASE WHEN (random() >= 0E0) THEN 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))' END)"), "name_b", expression("'a'")),
+                                                        ImmutableMap.of(
+                                                                "wkt_b", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral("0.0")), new StringLiteral("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))"))), Optional.empty())),
+                                                                "name_b", expression(new StringLiteral("a"))),
                                                         singleRow())))))));
     }
 
@@ -346,7 +386,7 @@ public class TestSpatialJoinPlanning
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("name_a", "name_b")
-                                .filter("ST_Contains(ST_GeometryFromText(cast(wkt as varchar)), ST_Point(lng, lat))")
+                                .filter(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar")))), new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))))
                                 .left(
                                         anyTree(
                                                 tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))))
@@ -364,7 +404,7 @@ public class TestSpatialJoinPlanning
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("name_a", "name_b")
-                                .filter("ST_Intersects(ST_GeometryFromText(cast(wkt_a as varchar)), ST_GeometryFromText(cast(wkt_b as varchar)))")
+                                .filter(new FunctionCall(QualifiedName.of("st_intersects"), ImmutableList.of(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt_a"), dataType("varchar")))), new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt_b"), dataType("varchar")))))))
                                 .left(
                                         anyTree(
                                                 tableScan("polygons", ImmutableMap.of("wkt_a", "wkt", "name_a", "name"))))
@@ -380,11 +420,12 @@ public class TestSpatialJoinPlanning
                         "FROM points a LEFT JOIN polygons b " +
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
-                        spatialLeftJoin("st_contains(st_geometryfromtext, st_point)",
-                                project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
+                        spatialLeftJoin(
+                                new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(
-                                        project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
+                                        project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar")))))),
                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))))));
 
         // deterministic extra join predicate
@@ -392,11 +433,12 @@ public class TestSpatialJoinPlanning
                         "FROM points a LEFT JOIN polygons b " +
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat)) AND a.name <> b.name",
                 anyTree(
-                        spatialLeftJoin("st_contains(st_geometryfromtext, st_point) AND name_a <> name_b",
-                                project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
+                        spatialLeftJoin(
+                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))), new ComparisonExpression(NOT_EQUAL, new SymbolReference("name_a"), new SymbolReference("name_b")))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(
-                                        project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
+                                        project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar")))))),
                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))))));
 
         // non-deterministic extra join predicate
@@ -404,11 +446,12 @@ public class TestSpatialJoinPlanning
                         "FROM points a LEFT JOIN polygons b " +
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat)) AND rand() < 0.5",
                 anyTree(
-                        spatialLeftJoin("st_contains(st_geometryfromtext, st_point) AND random() < 5e-1",
-                                project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
+                        spatialLeftJoin(
+                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))), new ComparisonExpression(LESS_THAN, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral("0.5")))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(
-                                        project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
+                                        project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar")))))),
                                                 tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))))));
 
         // filter over join
@@ -417,12 +460,14 @@ public class TestSpatialJoinPlanning
                         "   ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat)) " +
                         "WHERE concat(a.name, b.name) is null",
                 anyTree(
-                        filter("concat(cast(name_a as varchar), cast(name_b as varchar)) is null",
-                                spatialLeftJoin("st_contains(st_geometryfromtext, st_point)",
-                                        project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")),
+                        filter(
+                                new IsNullPredicate(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new Cast(new SymbolReference("name_a"), dataType("varchar")), new Cast(new SymbolReference("name_b"), dataType("varchar"))))),
+                                spatialLeftJoin(
+                                        new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
+                                        project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
                                                 tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                         anyTree(
-                                                project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
+                                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("wkt"), dataType("varchar")))))),
                                                         tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name"))))))));
     }
 
@@ -435,19 +480,19 @@ public class TestSpatialJoinPlanning
                         "WHERE ST_Contains(ST_GeometryFromText(a.name), ST_GeometryFromText(b.name))",
                 withSpatialPartitioning("kdb_tree"),
                 anyTree(
-                        spatialJoin("st_contains(g1, g3)", Optional.of(KDB_TREE_JSON),
+                        spatialJoin(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("g1"), new SymbolReference("g3"))), Optional.of(KDB_TREE_JSON), Optional.empty(),
                                 anyTree(
                                         unnest(exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.REPARTITION,
-                                                project(ImmutableMap.of("p1", expression(format("spatial_partitions(%s, g1)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("g1", expression("ST_GeometryFromText(cast(name_a1 as varchar))")),
+                                                project(ImmutableMap.of("p1", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("g1"))))),
+                                                        project(ImmutableMap.of("g1", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("name_a1"), dataType("varchar")))))),
                                                                 tableScan("region", ImmutableMap.of("name_a1", "name")))),
-                                                project(ImmutableMap.of("p2", expression(format("spatial_partitions(%s, g2)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("g2", expression("ST_GeometryFromText(cast(name_a2 as varchar))")),
+                                                project(ImmutableMap.of("p2", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("g2"))))),
+                                                        project(ImmutableMap.of("g2", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("name_a2"), dataType("varchar")))))),
                                                                 tableScan("nation", ImmutableMap.of("name_a2", "name"))))))),
                                 anyTree(
                                         unnest(
-                                                project(ImmutableMap.of("p3", expression(format("spatial_partitions(%s, g3)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("g3", expression("ST_GeometryFromText(cast(name_b as varchar))")),
+                                                project(ImmutableMap.of("p3", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("g3"))))),
+                                                        project(ImmutableMap.of("g3", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("name_b"), dataType("varchar")))))),
                                                                 tableScan("customer", ImmutableMap.of("name_b", "name")))))))));
 
         // union on the right side
@@ -456,19 +501,22 @@ public class TestSpatialJoinPlanning
                         "WHERE ST_Contains(ST_GeometryFromText(a.name), ST_GeometryFromText(b.name))",
                 withSpatialPartitioning("kdb_tree"),
                 anyTree(
-                        spatialJoin("st_contains(g1, g2)", Optional.of(KDB_TREE_JSON),
+                        spatialJoin(
+                                new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("g1"), new SymbolReference("g2"))),
+                                Optional.of(KDB_TREE_JSON),
+                                Optional.empty(),
                                 anyTree(
                                         unnest(
-                                                project(ImmutableMap.of("p1", expression(format("spatial_partitions(%s, g1)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("g1", expression("ST_GeometryFromText(cast(name_a as varchar))")),
+                                                project(ImmutableMap.of("p1", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("g1"))))),
+                                                        project(ImmutableMap.of("g1", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("name_a"), dataType("varchar")))))),
                                                                 tableScan("customer", ImmutableMap.of("name_a", "name")))))),
                                 anyTree(
                                         unnest(exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.REPARTITION,
-                                                project(ImmutableMap.of("p2", expression(format("spatial_partitions(%s, g2)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("g2", expression("ST_GeometryFromText(cast(name_b1 as varchar))")),
+                                                project(ImmutableMap.of("p2", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("g2"))))),
+                                                        project(ImmutableMap.of("g2", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("name_b1"), dataType("varchar")))))),
                                                                 tableScan("region", ImmutableMap.of("name_b1", "name")))),
-                                                project(ImmutableMap.of("p3", expression(format("spatial_partitions(%s, g3)", kdbTreeLiteral))),
-                                                        project(ImmutableMap.of("g3", expression("ST_GeometryFromText(cast(name_b2 as varchar))")),
+                                                project(ImmutableMap.of("p3", expression(new FunctionCall(QualifiedName.of("spatial_partitions"), ImmutableList.of(kdbTreeLiteral, new SymbolReference("g3"))))),
+                                                        project(ImmutableMap.of("g3", expression(new FunctionCall(QualifiedName.of("st_geometryfromtext"), ImmutableList.of(new Cast(new SymbolReference("name_b2"), dataType("varchar")))))),
                                                                 tableScan("nation", ImmutableMap.of("name_b2", "name"))))))))));
     }
 
@@ -488,7 +536,7 @@ public class TestSpatialJoinPlanning
     private PlanMatchPattern singleRow()
     {
         return filter(
-                "regionkey = BIGINT '1'",
+                new ComparisonExpression(EQUAL, new SymbolReference("regionkey"), new GenericLiteral("BIGINT", "1")),
                 tableScan("region", ImmutableMap.of("regionkey", "regionkey")));
     }
 

@@ -13,16 +13,24 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.Row;
+import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubscriptExpression;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestPushCastIntoRow
         extends BaseRuleTest
@@ -31,27 +39,41 @@ public class TestPushCastIntoRow
     public void test()
     {
         // anonymous row type
-        test("CAST(ROW(1) AS row(bigint))", "ROW(CAST(1 AS bigint))");
-        test("CAST(ROW(1, 'a') AS row(bigint, varchar))", "ROW(CAST(1 AS bigint), CAST('a' AS varchar))");
-        test("CAST(CAST(ROW(1, 'a') AS row(smallint, varchar)) AS ROW(bigint, varchar))", "ROW(CAST(CAST(1 AS smallint) AS bigint), CAST(CAST('a' AS varchar) AS varchar))");
+        test(
+                new Cast(new Row(ImmutableList.of(new LongLiteral("1"))), dataType("row(bigint)")),
+                new Row(ImmutableList.of(new Cast(new LongLiteral("1"), dataType("bigint")))));
+        test(
+                new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"))), dataType("row(bigint,varchar)")),
+                new Row(ImmutableList.of(new Cast(new LongLiteral("1"), dataType("bigint")), new Cast(new StringLiteral("a"), dataType("varchar")))));
+        test(
+                new Cast(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"))), dataType("row(smallint,varchar)")), dataType("row(bigint,varchar)")),
+                new Row(ImmutableList.of(new Cast(new Cast(new LongLiteral("1"), dataType("smallint")), dataType("bigint")), new Cast(new Cast(new StringLiteral("a"), dataType("varchar")), dataType("varchar")))));
 
         // named fields in top-level cast preserved
-        test("CAST(CAST(ROW(1, 'a') AS row(smallint, varchar)) AS ROW(x bigint, varchar))", "CAST(ROW(CAST(1 AS smallint), CAST('a' AS varchar)) AS ROW(x bigint, varchar))");
-        test("CAST(CAST(ROW(1, 'a') AS row(a smallint, b varchar)) AS ROW(x bigint, varchar))", "CAST(ROW(CAST(1 AS smallint), CAST('a' AS varchar)) AS ROW(x bigint, varchar))");
+        test(
+                new Cast(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"))), dataType("row(smallint,varchar)")), dataType("row(\"x\" bigint,varchar)")),
+                new Cast(new Row(ImmutableList.of(new Cast(new LongLiteral("1"), dataType("smallint")), new Cast(new StringLiteral("a"), dataType("varchar")))), dataType("row(\"x\" bigint,varchar)")));
+        test(
+                new Cast(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"))), dataType("row(\"a\" smallint,\"b\" varchar)")), dataType("row(\"x\" bigint,varchar)")),
+                new Cast(new Row(ImmutableList.of(new Cast(new LongLiteral("1"), dataType("smallint")), new Cast(new StringLiteral("a"), dataType("varchar")))), dataType("row(\"x\" bigint,varchar)")));
 
         // expression nested in another unrelated expression
-        test("CAST(ROW(1) AS row(bigint))[1]", "ROW(CAST(1 AS bigint))[1]");
+        test(
+                new SubscriptExpression(new Cast(new Row(ImmutableList.of(new LongLiteral("1"))), dataType("row(bigint)")), new LongLiteral("1")),
+                new SubscriptExpression(new Row(ImmutableList.of(new Cast(new LongLiteral("1"), dataType("bigint")))), new LongLiteral("1")));
 
         // don't insert CAST(x AS unknown)
-        test("CAST(ROW(NULL) AS row(unknown))", "ROW(NULL)");
+        test(
+                new Cast(new Row(ImmutableList.of(new NullLiteral())), dataType("row(unknown)")),
+                new Row(ImmutableList.of(new NullLiteral())));
     }
 
-    private void test(String original, String unwrapped)
+    private void test(Expression original, Expression unwrapped)
     {
         tester().assertThat(new PushCastIntoRow().projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.builder()
-                                .put(p.symbol("output"), expression(original))
+                                .put(p.symbol("output"), original)
                                 .build(),
                         p.values()))
                 .matches(

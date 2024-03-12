@@ -29,7 +29,10 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
@@ -59,6 +62,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.TopNNode.Step.FINAL;
 import static io.trino.sql.planner.plan.TopNNode.Step.PARTIAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
@@ -204,8 +208,9 @@ public class TestPartialTopNWithPresortedInput
                         topN(1, ImmutableList.of(sort("k", ASCENDING, LAST)), FINAL,
                                 anyTree(
                                         limit(1, ImmutableList.of(), true, ImmutableList.of("k"),
-                                                project(ImmutableMap.of("k", expression("nested[1]")),
-                                                        filter("nested[1] = 1",
+                                                project(ImmutableMap.of("k", expression(new SubscriptExpression(new SymbolReference("nested"), new LongLiteral("1")))),
+                                                        filter(
+                                                                new ComparisonExpression(EQUAL, new SubscriptExpression(new SymbolReference("nested"), new LongLiteral("1")), new LongLiteral("1")),
                                                                 tableScan("with_nested_field", ImmutableMap.of("nested", "nested")))))))));
     }
 }

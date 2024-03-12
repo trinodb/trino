@@ -22,6 +22,10 @@ import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.SymbolReference;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -43,6 +47,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 import static java.lang.String.format;
 
 public class TestWindowFilterPushDown
@@ -227,7 +234,7 @@ public class TestWindowFilterPushDown
                 output(
                         ImmutableList.of("name", "ranking"),
                         filter(
-                                "(ranking > BIGINT '1') AND (ranking < BIGINT '3')",
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("ranking"), new GenericLiteral("BIGINT", "1")), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), new GenericLiteral("BIGINT", "3")))),
                                 topNRanking(
                                         pattern -> pattern
                                                 .rankingType(rankingType)
@@ -290,7 +297,7 @@ public class TestWindowFilterPushDown
                 output(
                         ImmutableList.of("name", "row_number"),
                         filter(
-                                "(row_number > BIGINT '1') AND (row_number < BIGINT '3')",
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "3")))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .maxRowCountPerPartition(Optional.of(2)),

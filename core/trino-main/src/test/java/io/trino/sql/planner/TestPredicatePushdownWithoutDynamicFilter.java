@@ -13,13 +13,25 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -28,6 +40,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 
 public class TestPredicatePushdownWithoutDynamicFilter
         extends AbstractPredicatePushdownTest
@@ -58,13 +71,13 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .left(
                                         project(
                                                 filter(
-                                                        "CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))",
+                                                        new ComparisonExpression(EQUAL, new Cast(new StringLiteral("x"), dataType("varchar(4)")), new Cast(new SymbolReference("t_v"), dataType("varchar(4)"))),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
                                                         filter(
-                                                                "CAST('x' AS varchar(4)) = CAST(u_v AS varchar(4))",
+                                                                new ComparisonExpression(EQUAL, new Cast(new StringLiteral("x"), dataType("varchar(4)")), new Cast(new SymbolReference("u_v"), dataType("varchar(4)"))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
 
         // values have different types (varchar(4) vs varchar(5)) in each table
@@ -80,13 +93,14 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .equiCriteria("t_k", "u_k")
                                 .left(
                                         project(
-                                                filter("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))",
+                                                filter(
+                                                        new ComparisonExpression(EQUAL, new Cast(new StringLiteral("x"), dataType("varchar(4)")), new Cast(new SymbolReference("t_v"), dataType("varchar(4)"))),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
                                                         filter(
-                                                                "CAST('x' AS varchar(5)) = CAST(u_v AS varchar(5))",
+                                                                new ComparisonExpression(EQUAL, new Cast(new StringLiteral("x"), dataType("varchar(5)")), new Cast(new SymbolReference("u_v"), dataType("varchar(5)"))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
     }
 
@@ -112,7 +126,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        "NOT (c_name IS NULL)",
+                                                        new NotExpression(new IsNullPredicate(new SymbolReference("c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
 
         // nested joins
@@ -138,7 +152,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        "NOT (c_name IS NULL)",
+                                                        new NotExpression(new IsNullPredicate(new SymbolReference("c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
     }
 
@@ -152,7 +166,8 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 tableScan("lineitem", ImmutableMap.of(
                                         "LINE_ORDER_KEY", "orderkey")),
                                 node(ExchangeNode.class,
-                                        filter("ORDERS_ORDER_KEY = CAST(random(5) AS bigint)",
+                                        filter(
+                                                new ComparisonExpression(EQUAL, new SymbolReference("ORDERS_ORDER_KEY"), new Cast(new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new LongLiteral("5"))), dataType("bigint"))),
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
@@ -165,7 +180,8 @@ public class TestPredicatePushdownWithoutDynamicFilter
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_OK", "ORDERS_OK")
                                 .left(
-                                        filter("cast(LINEITEM_LINENUMBER as varchar) = VARCHAR '2'",
+                                        filter(
+                                                new ComparisonExpression(EQUAL, new Cast(new SymbolReference("LINEITEM_LINENUMBER"), dataType("varchar")), new GenericLiteral("VARCHAR", "2")),
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
                                                         "LINEITEM_LINENUMBER", "linenumber"))))

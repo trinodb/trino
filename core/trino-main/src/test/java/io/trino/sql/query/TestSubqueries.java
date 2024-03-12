@@ -18,6 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
@@ -38,6 +42,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -49,6 +54,9 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -98,7 +106,7 @@ public class TestSubqueries
                                         anyTree(
                                                 values("y")),
                                         project(
-                                                ImmutableMap.of("NON_NULL", expression("true")),
+                                                ImmutableMap.of("NON_NULL", expression(TRUE_LITERAL)),
                                                 values("x"))))));
 
         assertions.assertQueryAndPlan(
@@ -112,7 +120,7 @@ public class TestSubqueries
                                         anyTree(
                                                 values("y")),
                                         project(
-                                                ImmutableMap.of("NON_NULL", expression("true")),
+                                                ImmutableMap.of("NON_NULL", expression(TRUE_LITERAL)),
                                                 values("x"))))));
     }
 
@@ -208,13 +216,13 @@ public class TestSubqueries
                                 .equiCriteria("cast_b", "cast_a")
                                 .left(
                                         project(
-                                                ImmutableMap.of("cast_b", expression("CAST(b AS decimal(11, 1))")),
+                                                ImmutableMap.of("cast_b", expression(new Cast(new SymbolReference("b"), dataType("decimal(11,1)")))),
                                                 any(
                                                         values("b"))))
                                 .right(
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("cast_a", expression("CAST(a AS decimal(11, 1))")),
+                                                        ImmutableMap.of("cast_a", expression(new Cast(new SymbolReference("a"), dataType("decimal(11,1)")))),
                                                         any(
                                                                 rowNumber(
                                                                         rowBuilder -> rowBuilder
@@ -232,7 +240,7 @@ public class TestSubqueries
                                 .equiCriteria("expr", "a")
                                 .left(
                                         project(
-                                                ImmutableMap.of("expr", expression("b * c - 1")),
+                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new SymbolReference("c")), new LongLiteral("1")))),
                                                 any(
                                                         values("b", "c"))))
                                 .right(
@@ -508,7 +516,7 @@ public class TestSubqueries
                                                 values("t2_b")),
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("NON_NULL", expression("true")),
+                                                        ImmutableMap.of("NON_NULL", expression(TRUE_LITERAL)),
                                                         anyTree(
                                                                 aggregation(
                                                                         ImmutableMap.of(),
@@ -533,7 +541,7 @@ public class TestSubqueries
                                                 values("t2_b")),
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("NON_NULL", expression("true")),
+                                                        ImmutableMap.of("NON_NULL", expression(TRUE_LITERAL)),
                                                         aggregation(
                                                                 ImmutableMap.of(),
                                                                 FINAL,

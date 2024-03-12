@@ -55,7 +55,7 @@ public class TestPushLimitThroughProject
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression("true")),
+                                ImmutableMap.of("b", expression(TRUE_LITERAL)),
                                 limit(1, values())));
     }
 
@@ -77,7 +77,7 @@ public class TestPushLimitThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("projectedA", expression("a"), "projectedB", expression("b")),
+                                ImmutableMap.of("projectedA", expression(new SymbolReference("a")), "projectedB", expression(new SymbolReference("b"))),
                                 limit(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 
@@ -101,7 +101,9 @@ public class TestPushLimitThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("projectedA", expression("a"), "projectedC", expression("a + b")),
+                                ImmutableMap.of(
+                                        "projectedA", expression(new SymbolReference("a")),
+                                        "projectedC", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b")))),
                                 limit(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 
@@ -198,7 +200,7 @@ public class TestPushLimitThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("projectedA", expression("a"), "projectedC", expression("a + b")),
+                                ImmutableMap.of("projectedA", expression(new SymbolReference("a")), "projectedC", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b")))),
                                 limit(1, ImmutableList.of(), true, ImmutableList.of("a"), values("a", "b"))));
     }
 
@@ -219,7 +221,7 @@ public class TestPushLimitThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression("a[1]"), "c", expression("a")),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral("1"))), "c", expression(new SymbolReference("a"))),
                                 limit(1,
                                         values("a"))));
     }
