@@ -58,6 +58,17 @@ class OzoneTrinoOutputStream
         this.location = location;
 
         try {
+            // https://blog.cloudera.com/ozone-write-pipeline-v2-with-ratis-streaming/
+            // https://ozone.apache.org/docs/current/feature/erasurecoding.html
+            // Ozone Write Pipeline V1 with Ratis Async: good for small file (<4MB)
+            //     API: createKey(ReplicationType=RATIS)
+            // Ozone Write Pipeline V2 with Ratis Streaming: good for larger file
+            //     API: createStreamKey
+            // Ozone Erasure Coding: less storage overhead, read/write is slower and takes more cpu time
+            //     API: createKey(ReplicationType=EC)
+            // TODO: What is ReplicationType=STAND_ALONE/CHAINED?
+            // TODO: Use V1 for small metadata file, V2 for data file(maybe also bigger metadata file?)
+            //       Optional EC for data file
             OzoneVolume ozoneVolume = store.getVolume(location.volume());
             OzoneBucket bucket = ozoneVolume.getBucket(location.bucket());
             // TODO
