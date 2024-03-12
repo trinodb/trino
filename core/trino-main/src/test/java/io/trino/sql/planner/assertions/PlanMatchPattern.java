@@ -1117,11 +1117,6 @@ public final class PlanMatchPattern
         return sourcePatterns.isEmpty();
     }
 
-    public static PlanTestSymbol anySymbol()
-    {
-        return new AnySymbol();
-    }
-
     public static ExpectedValueProvider<AggregationFunction> aggregationFunction(String name, List<String> args)
     {
         return new AggregationFunctionProvider(
